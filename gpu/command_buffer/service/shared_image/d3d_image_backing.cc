@@ -1835,6 +1835,10 @@ wgpu::Buffer D3DImageBacking::BeginAccessDawnBuffer(
     const wgpu::Device& device,
     wgpu::BackendType backend_type,
     wgpu::BufferUsage usage) {
+  CHECK(this->usage().HasAll(SHARED_IMAGE_USAGE_WEBGPU_SHARED_BUFFER |
+                             SHARED_IMAGE_USAGE_WEBGPU_READ |
+                             SHARED_IMAGE_USAGE_WEBGPU_WRITE));
+
   AutoLock auto_lock(this);
 
   if (!ValidateBeginAccess(true)) {
@@ -2193,6 +2197,22 @@ D3DImageBacking::GetDCLayerOverlayImage() {
 
 Microsoft::WRL::ComPtr<ID3D12Resource> D3DImageBacking::GetD3D12Buffer() const {
   return d3d12_buffer_;
+}
+
+base::win::ScopedHandle D3DImageBacking::GetD3D12HeapHandle() const {
+  if (!d3d12_heap_) {
+    return base::win::ScopedHandle();
+  }
+  Microsoft::WRL::ComPtr<ID3D12Device> d3d12_device;
+  CHECK_EQ(d3d12_heap_->GetDevice(IID_PPV_ARGS(&d3d12_device)), S_OK);
+
+  HANDLE shared_handle = nullptr;
+  // TODO(crbug.com/419598085): Cache the shared handle.
+  CHECK_EQ(
+      d3d12_device->CreateSharedHandle(d3d12_heap_.Get(), nullptr, GENERIC_ALL,
+                                       nullptr, &shared_handle),
+      S_OK);
+  return base::win::ScopedHandle(shared_handle);
 }
 
 bool D3DImageBacking::HasStagingTextureForTesting() const {

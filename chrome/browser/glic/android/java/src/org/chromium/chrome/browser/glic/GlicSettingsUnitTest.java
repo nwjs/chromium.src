@@ -58,7 +58,8 @@ import org.chromium.ui.base.TestActivity;
 @RunWith(BaseRobolectricTestRunner.class)
 @DisableFeatures({
     ChromeFeatureList.ANDROID_BOTTOM_BAR,
-    ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL
+    ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL,
+    ChromeFeatureList.GLIC_EXPERIMENTAL_LOCATION
 })
 @EnableFeatures(ChromeFeatureList.ACTOR_LOGIN_PERMISSIONS_UI)
 public class GlicSettingsUnitTest {
@@ -89,6 +90,7 @@ public class GlicSettingsUnitTest {
         when(mUserPrefsJniMock.get(mProfileMock)).thenReturn(mPrefServiceMock);
         when(mGlicKeyedServiceFactoryJniMock.getForProfile(mProfileMock))
                 .thenReturn(mGlicKeyedServiceMock);
+        when(mGlicEnablingJniMock.shouldShowWebActuationToggle(any())).thenReturn(true);
         doNothing().when(mCustomTabLauncher).openUrlInCct(any(Context.class), anyString());
 
         mActivityScenarioRule.getScenario().onActivity(activity -> mActivity = activity);
@@ -129,9 +131,7 @@ public class GlicSettingsUnitTest {
         verify(mCustomTabLauncher)
                 .openUrlInCct(
                         any(),
-                        eq(
-                                mActivity.getString(
-                                        R.string.settings_glic_permissions_activity_button_url)));
+                        eq("https://myactivity.google.com/product/gemini?utm_source=gemini"));
     }
 
     @Test
@@ -139,10 +139,7 @@ public class GlicSettingsUnitTest {
         GlicSettings fragment = launchFragment();
         Preference preference = fragment.findPreference("glic_extensions");
         preference.getOnPreferenceClickListener().onPreferenceClick(preference);
-        verify(mCustomTabLauncher)
-                .openUrlInCct(
-                        any(),
-                        eq(mActivity.getString(R.string.settings_glic_extensions_button_url)));
+        verify(mCustomTabLauncher).openUrlInCct(any(), eq("https://gemini.google.com/apps"));
     }
 
     @Test

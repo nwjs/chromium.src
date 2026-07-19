@@ -49,6 +49,10 @@ class GlicActorTaskIconManager : public KeyedService {
                                actor::ActorTask::TaskDuration duration,
                                glic::mojom::FeatureMode feature_mode);
 
+  // Returns true if the task is an active experimental task.
+  static bool IsActiveExperimentalTask(actor::ActorTask::State state,
+                                       glic::mojom::FeatureMode feature_mode);
+
   // Register for this callback to get task nudge state change notifications.
   using TaskNudgeChangeCallback = base::RepeatingCallback<void(
       bool show_bubble,
@@ -58,12 +62,14 @@ class GlicActorTaskIconManager : public KeyedService {
 
   // Register for this callback to get task state change notifications for the
   // bubble.
-  using TaskListBubbleChangeCallback = base::RepeatingCallback<void()>;
+  using TaskListBubbleChangeCallback =
+      base::RepeatingCallback<void(bool is_start_notification)>;
   base::CallbackListSubscription RegisterTaskListBubbleStateChange(
       TaskListBubbleChangeCallback callback);
 
   actor::ui::ActorTaskNudgeState GetCurrentActorTaskNudgeState() const;
   size_t GetNumActorTasksNeedProcessing() const;
+  bool HasActiveExperimentalTask() const;
   const absl::flat_hash_map<actor::TaskId, bool>& actor_task_list_bubble_rows()
       const {
     return actor_task_list_bubble_rows_;
@@ -97,7 +103,8 @@ class GlicActorTaskIconManager : public KeyedService {
       actor::ui::ActorTaskNudgeState actor_task_nudge_text)>;
   TaskNudgeChangeCallbackList task_nudge_state_change_callback_list_;
 
-  using TaskListBubbleChangeCallbackList = base::RepeatingCallbackList<void()>;
+  using TaskListBubbleChangeCallbackList =
+      base::RepeatingCallbackList<void(bool is_start_notification)>;
   TaskListBubbleChangeCallbackList task_list_bubble_change_callback_list_;
 
   actor::ui::ActorTaskNudgeState current_actor_task_nudge_state_;

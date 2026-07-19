@@ -38,7 +38,6 @@ import org.chromium.chrome.browser.ui.signin.BottomSheetSigninAndHistorySyncCoor
 import org.chromium.chrome.browser.ui.signin.BottomSheetSigninAndHistorySyncCoordinatorSupplier;
 import org.chromium.chrome.browser.ui.signin.BottomSheetSigninAndHistorySyncCoordinatorSupplier.SupplierFlow;
 import org.chromium.chrome.browser.ui.signin.FullscreenSigninAndHistorySyncConfig;
-import org.chromium.chrome.browser.ui.signin.SigninAndHistorySyncCoordinator;
 import org.chromium.chrome.browser.ui.signin.SigninUtils;
 import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerBottomSheetCoordinator;
 import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerBottomSheetStrings;
@@ -61,6 +60,7 @@ import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.base.SigninDeepLinkPayload;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.metrics.AccountConsistencyPromoAction;
+import org.chromium.components.signin.metrics.CrossDeviceInitialState;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.google_apis.gaia.CoreAccountId;
 import org.chromium.ui.base.WindowAndroid;
@@ -384,8 +384,12 @@ final class SigninBridge {
                                     isWebSignin
                                             ? SupplierFlow.WEB_SIGNIN
                                             : SupplierFlow.EXTENSIONS));
-            coordinator.startSigninFlow(
-                    config, new SigninDelegateContext(tab.getId(), continueUrl));
+            if (isWebSignin) {
+                coordinator.startSigninFlow(
+                        config, new SigninDelegateContext(tab.getId(), continueUrl));
+            } else {
+                coordinator.startSigninFlow(config);
+            }
             return;
         }
 
@@ -452,16 +456,19 @@ final class SigninBridge {
         @Nullable Context context = windowAndroid.getContext().get();
         @Nullable IdentityManager identityManager =
                 IdentityServicesProvider.get().getIdentityManager(profile);
-        if (context == null || identityManager == null) {
+        @Nullable SigninManager signinManager =
+                IdentityServicesProvider.get().getSigninManager(profile);
+        if (context == null || identityManager == null || signinManager == null) {
             return;
         }
-        startSigninDeepLinkFlow(context, profile, identityManager, payload);
+        startSigninDeepLinkFlow(context, profile, identityManager, signinManager, payload);
     }
 
     private static void startSigninDeepLinkFlow(
             Context context,
             Profile profile,
             IdentityManager identityManager,
+            SigninManager signinManager,
             SigninDeepLinkPayload payload) {
         ThreadUtils.assertOnUiThread();
 
@@ -471,12 +478,23 @@ final class SigninBridge {
         final @Nullable AccountInfo targetAccountInfo =
                 identityManager.findExtendedAccountInfoByEmailAddress(payload.getEmail());
 
-        if (primaryAccountInfo != null
-                && targetAccountInfo != null
-                && primaryAccountInfo.getId().equals(targetAccountInfo.getId())) {
+        boolean isTargetAccountSignedIn =
+                primaryAccountInfo != null
+                        && targetAccountInfo != null
+                        && primaryAccountInfo.getId().equals(targetAccountInfo.getId());
+
+        SigninMetricsUtils.recordCrossDeviceInitialState(
+                payload.getExternalEntryPoint(),
+                getCrossDeviceInitialState(
+                        /* isSigninAllowed= */ signinManager.isSigninAllowed(),
+                        /* isSignedIn= */ primaryAccountInfo != null,
+                        /* isTargetAccountOnDevice= */ targetAccountInfo != null,
+                        /* isTargetAccountSignedIn= */ isTargetAccountSignedIn));
+
+        if (isTargetAccountSignedIn) {
             String message =
                     SigninDeepLinkFlowStrings.alreadySignedInMessage(
-                            context, targetAccountInfo, payload);
+                            context, assumeNonNull(targetAccountInfo), payload);
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
             return;
         }
@@ -499,6 +517,28 @@ final class SigninBridge {
         }
     }
 
+    private static @CrossDeviceInitialState int getCrossDeviceInitialState(
+            boolean isSigninAllowed,
+            boolean isSignedIn,
+            boolean isTargetAccountOnDevice,
+            boolean isTargetAccountSignedIn) {
+        if (!isSigninAllowed) {
+            return CrossDeviceInitialState.FLOW_FORBIDDEN;
+        } else if (isTargetAccountSignedIn) {
+            return CrossDeviceInitialState.SIGNED_IN_WITH_TARGET_ACCOUNT;
+        } else if (isSignedIn) {
+            return isTargetAccountOnDevice
+                    ? CrossDeviceInitialState
+                            .SIGNED_IN_WITH_DIFFERENT_ACCOUNT_TARGET_ACCOUNT_ON_DEVICE
+                    : CrossDeviceInitialState
+                            .SIGNED_IN_WITH_DIFFERENT_ACCOUNT_TARGET_ACCOUNT_NOT_ON_DEVICE;
+        } else {
+            return isTargetAccountOnDevice
+                    ? CrossDeviceInitialState.SIGNED_OUT_TARGET_ACCOUNT_ON_DEVICE
+                    : CrossDeviceInitialState.SIGNED_OUT_TARGET_ACCOUNT_NOT_ON_DEVICE;
+        }
+    }
+
     private SigninBridge() {}
 
     private static final class SigninDeepLinkFlowStrings {
@@ -515,20 +555,20 @@ final class SigninBridge {
 
         static FullscreenSigninAndHistorySyncConfig signinConfig(
                 Context context, String targetEmail) {
-            return new FullscreenSigninAndHistorySyncConfig.Builder(
+            return FullscreenSigninAndHistorySyncConfig.builder(
                             context.getString(R.string.signin_deep_link_flow_signin_title),
                             context.getString(R.string.signin_deep_link_flow_signin_subtitle),
                             context.getString(R.string.signin_deep_link_flow_signin_dismiss_button),
                             context.getString(R.string.history_sync_title),
                             context.getString(R.string.history_sync_subtitle))
+                    .historyOptInMode(HistorySyncConfig.OptInMode.NONE)
                     .selectedAccountEmail(targetEmail)
-                    .signinFlow(SigninAndHistorySyncCoordinator.SigninFlow.DEFAULT_SIGNIN)
                     .build();
         }
 
         static FullscreenSigninAndHistorySyncConfig switchAccountConfig(
                 Context context, String signedInEmail, String targetEmail) {
-            return new FullscreenSigninAndHistorySyncConfig.Builder(
+            return FullscreenSigninAndHistorySyncConfig.builderForSwitchAccountFlow(
                             context.getString(R.string.signin_deep_link_flow_switch_account_title),
                             context.getString(
                                     R.string.signin_deep_link_flow_switch_account_subtitle,
@@ -537,9 +577,9 @@ final class SigninBridge {
                             context.getString(
                                     R.string.signin_deep_link_flow_switch_account_dismiss_button),
                             context.getString(R.string.history_sync_title),
-                            context.getString(R.string.history_sync_subtitle))
-                    .selectedAccountEmail(targetEmail)
-                    .signinFlow(SigninAndHistorySyncCoordinator.SigninFlow.SWITCH_ACCOUNT)
+                            context.getString(R.string.history_sync_subtitle),
+                            targetEmail)
+                    .historyOptInMode(HistorySyncConfig.OptInMode.NONE)
                     .build();
         }
 

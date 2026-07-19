@@ -93,6 +93,9 @@ class VIEWS_EXPORT DesktopWindowTreeHostWin
   // false.
   void FinishTouchDrag(gfx::Point screen_point);
 
+  // Returns true if any window is in a move/resize loop.
+  bool IsInNativeMoveResizeLoop() const;
+
  protected:
   // Overridden from DesktopWindowTreeHost:
   void Init(const Widget::InitParams& params) override;
@@ -305,6 +308,11 @@ class VIEWS_EXPORT DesktopWindowTreeHostWin
   // Call Windows API to update the window display affinity.
   void UpdateDisplayAffinity();
 
+  // Returns true if screen capture exclusion is allowed on this device or
+  // session. By default, exclusion is bypassed (returns false) in remote
+  // sessions.
+  bool IsCaptureExclusionAllowed() const;
+
   // Designates a Mica DWM_SYSTEMBACKDROP to the window if it does not have
   // a redirection bitmap.
   void UpdateBackdropColorMode();
@@ -359,6 +367,9 @@ class VIEWS_EXPORT DesktopWindowTreeHostWin
 
   // True if the window should be excluded from screen capture.
   bool exclude_from_capture_ = false;
+
+  // Overrides the remote session detection for testing.
+  std::optional<bool> remote_session_for_testing_;
 
   // Visibility of the cursor. On Windows we can have multiple root windows and
   // the implementation of ::ShowCursor() is based on a counter, so making this

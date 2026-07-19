@@ -62,6 +62,7 @@
 #include "net/quic/web_transport_error.h"
 #include "net/ssl/ssl_info.h"
 #include "services/network/public/cpp/devtools_observer_util.h"
+#include "services/network/public/cpp/headers_matcher.h"
 #include "services/network/public/cpp/url_loader_factory_builder.h"
 #include "services/network/public/mojom/devtools_observer.mojom.h"
 #include "services/network/public/mojom/network_context.mojom.h"
@@ -581,6 +582,9 @@ EmailVerificationRequestResultToProtocol(
         kTokenVerificationSdJwtUnsupportedHeaderAlg:
       return EmailVerificationRequestIssueReasonEnum::
           TokenVerificationSdJwtUnsupportedHeaderAlg;
+    case EmailVerificationRequestResult::kTokenVerificationSdJwtInvalidTyp:
+      return EmailVerificationRequestIssueReasonEnum::
+          TokenVerificationSdJwtInvalidTyp;
     case EmailVerificationRequestResult::kTokenVerificationSdJwtMissingIss:
       return EmailVerificationRequestIssueReasonEnum::
           TokenVerificationSdJwtMissingIss;
@@ -874,6 +878,60 @@ void OnFetchKeepAliveRequestComplete(
                    status);
 }
 
+void OnPrefetchActivationBeaconWillBeSent(
+    FrameTreeNodeId frame_tree_node_id,
+    const std::string& request_id,
+    const network::ResourceRequest& request,
+    std::optional<std::pair<const GURL&,
+                            const network::mojom::URLResponseHeadDevToolsInfo&>>
+        redirect_info) {
+  auto timestamp = base::TimeTicks::Now();
+  FrameTreeNode* ftn = FrameTreeNode::GloballyFindByID(frame_tree_node_id);
+  if (!ftn) {
+    return;
+  }
+  std::string frame_token =
+      ftn->current_frame_host()->devtools_frame_token().ToString();
+  GURL initiator_url;
+  if (request.request_initiator.has_value()) {
+    initiator_url = request.request_initiator->GetURL();
+  }
+  DispatchToAgents(
+      ftn, &protocol::NetworkHandler::PrefetchActivationBeaconWillBeSent,
+      request_id, request, initiator_url, frame_token, timestamp,
+      redirect_info);
+}
+
+void OnPrefetchActivationBeaconResponseReceived(
+    FrameTreeNodeId frame_tree_node_id,
+    const std::string& request_id,
+    const GURL& url,
+    const network::mojom::URLResponseHead& head) {
+  FrameTreeNode* ftn = FrameTreeNode::GloballyFindByID(frame_tree_node_id);
+  if (!ftn) {
+    return;
+  }
+  std::string frame_token =
+      ftn->current_frame_host()->devtools_frame_token().ToString();
+  network::mojom::URLResponseHeadDevToolsInfoPtr head_info =
+      network::ExtractDevToolsInfo(head);
+  DispatchToAgents(ftn, &protocol::NetworkHandler::ResponseReceived, request_id,
+                   request_id, url, protocol::Network::ResourceTypeEnum::Ping,
+                   *head_info, frame_token);
+}
+
+void OnPrefetchActivationBeaconRequestComplete(
+    FrameTreeNodeId frame_tree_node_id,
+    const std::string& request_id,
+    const network::URLLoaderCompletionStatus& status) {
+  FrameTreeNode* ftn = FrameTreeNode::GloballyFindByID(frame_tree_node_id);
+  if (!ftn) {
+    return;
+  }
+  DispatchToAgents(ftn, &protocol::NetworkHandler::LoadingComplete, request_id,
+                   protocol::Network::ResourceTypeEnum::Ping, status);
+}
+
 void BackForwardCacheNotUsed(
     const NavigationRequest* nav_request,
     const BackForwardCacheCanStoreDocumentResult* result,
@@ -1073,7 +1131,8 @@ void DidUpdatePrerenderStatus(
     PreloadingTriggeringOutcome status,
     std::optional<PrerenderFinalStatus> prerender_status,
     std::optional<std::string> disallowed_mojo_interface,
-    const std::vector<PrerenderMismatchedHeaders>* mismatched_headers) {
+    const std::vector<network::MismatchedHttpRequestHeader>*
+        mismatched_headers) {
   auto* ftn = FrameTreeNode::GloballyFindByID(initiator_frame_tree_node_id);
   // ftn will be null if this is browser-initiated, which has no initiator.
   if (!ftn) {
@@ -1635,6 +1694,31 @@ void ApplyNetworkRequestOverrides(
 }
 
 }  // namespace
+
+void ApplyExtraHeadersForWebSocket(const GlobalRenderFrameHostId& frame_id,
+                                   net::HttpRequestHeaders* headers) {
+  auto* frame = RenderFrameHostImpl::FromID(frame_id);
+  if (!frame) {
+    return;
+  }
+
+  FrameTreeNode* ftn = frame->frame_tree_node();
+  if (!ftn) {
+    return;
+  }
+
+  DevToolsAgentHostImpl* agent_host =
+      GetDevToolsAgentHostForNetworkOverrides(ftn);
+  if (!agent_host) {
+    return;
+  }
+
+  bool disable_cache = false;
+  bool skip_service_worker = false;
+  ApplyNetworkRequestOverrides(agent_host, headers, &disable_cache, nullptr,
+                               &skip_service_worker, nullptr, nullptr, nullptr,
+                               nullptr);
+}
 
 void ApplyAuctionNetworkRequestOverrides(
     FrameTreeNode* frame_tree_node,

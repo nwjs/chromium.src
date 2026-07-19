@@ -36,6 +36,7 @@ suite('PaymentsSectionCardRows', function() {
       migrationEnabled: true,
       showIbansSettings: true,
       autofillEnableWalletBranding: true,
+      autofillEnableGradientGoogleLogos: false,
     });
     metricsBrowserProxy = new TestMetricsBrowserProxy();
     MetricsBrowserProxyImpl.setInstance(metricsBrowserProxy);
@@ -909,6 +910,127 @@ suite('PaymentsSectionCardRows', function() {
         CardBenefitsUserAction.CARD_BENEFITS_TERMS_LINK_CLICKED, userAction);
   });
 
+  // Test to verify the screen reader string is fully formatted for a card
+  // that provides a card number (e.g., has a network and last four digits).
+  test('verifyScreenReaderAriaLabel_WithCardNumber', async function() {
+    loadTimeData.overrideValues({
+      cvcStorageAvailable: true,
+    });
+
+    const creditCard = createCreditCardEntry();
+    creditCard.cardNumber = '0000000000001234';
+    creditCard.network = 'Visa';
+    creditCard.expirationMonth = '01';
+    creditCard.expirationYear = '2025';
+    creditCard.metadata!.summaryLabel = 'My Visa Card';
+    creditCard.metadata!.isLocal = false;
+    creditCard.metadata!.isVirtualCardEnrolled = true;
+    creditCard.cvc = '***';
+
+    await createPaymentsSection(
+        [creditCard], /*ibans=*/[], /*payOverTimeIssuers=*/[],
+        /*prefValues=*/ {});
+
+    const paymentsList = getLocalAndServerCreditCardListItems();
+    assertTrue(!!paymentsList);
+
+    const description = loadTimeData.substituteString(
+        loadTimeData.getString('creditCardDescription'), creditCard.network,
+        creditCard.cardNumber.slice(-4));
+    const creditCardNumberAriaDescription = loadTimeData.substituteString(
+        loadTimeData.getString('creditCardA11yLabeled'), description);
+    const expDateAriaLabel = loadTimeData.substituteString(
+        loadTimeData.getString('creditCardExpDateA11yLabeled'), '01/25');
+    const virtualCardAndCvcAriaLabel =
+        loadTimeData.getString('virtualCardTurnedOn') + ' , ' +
+        loadTimeData.getString('cvcTagForCreditCardListEntry');
+
+    const expected = `My Visa Card, ${creditCardNumberAriaDescription}, ` +
+        `${expDateAriaLabel}, ${virtualCardAndCvcAriaLabel}`;
+
+    assertEquals(
+        expected,
+        cleanUpWhitespace(
+            paymentsList[0]!.shadowRoot!.querySelector<HTMLElement>(
+                '.screen-reader-only')!));
+  });
+
+  // Test to verify the screen reader string correctly falls back to using only
+  // the summary label for cards that lack a card number.
+  test('verifyScreenReaderAriaLabel_WithoutCardNumber', async function() {
+    const creditCard = createCreditCardEntry();
+    creditCard.cardNumber = '';  // No card number
+    creditCard.network = 'Visa';
+    creditCard.expirationMonth = '01';
+    creditCard.expirationYear = '2025';
+    creditCard.metadata!.summaryLabel = 'My Visa Card';
+    creditCard.metadata!.isLocal = false;
+    creditCard.metadata!.isVirtualCardEnrolled = true;
+    creditCard.cvc = '***';
+
+    await createPaymentsSection(
+        [creditCard], /*ibans=*/[], /*payOverTimeIssuers=*/[],
+        /*prefValues=*/ {});
+
+    const paymentsList = getLocalAndServerCreditCardListItems();
+    assertTrue(!!paymentsList);
+
+    // When card number is missing, getSummaryAriaLabel_
+    // falls back to summaryLabel
+    const creditCardSummaryLabel = creditCard.metadata!.summaryLabel;
+    const expDateAriaLabel = loadTimeData.substituteString(
+        loadTimeData.getString('creditCardExpDateA11yLabeled'), '01/25');
+    const virtualCardAndCvcAriaLabel =
+        loadTimeData.getString('virtualCardTurnedOn') + ' , ' +
+        loadTimeData.getString('cvcTagForCreditCardListEntry');
+
+    const expected = `My Visa Card, ${creditCardSummaryLabel}, ` +
+        `${expDateAriaLabel}, ${virtualCardAndCvcAriaLabel}`;
+
+    assertEquals(
+        expected,
+        cleanUpWhitespace(
+            paymentsList[0]!.shadowRoot!.querySelector<HTMLElement>(
+                '.screen-reader-only')!));
+  });
+
+  // Test to verify the screen reader string correctly formats the label
+  // when the sublabel is empty.
+  test('verifyScreenReaderAriaLabel_WithoutSublabel', async function() {
+    const creditCard = createCreditCardEntry();
+    creditCard.cardNumber = '0000000000001234';
+    creditCard.network = 'Visa';
+    creditCard.expirationMonth = '01';
+    creditCard.expirationYear = '2025';
+    creditCard.metadata!.summaryLabel = 'My Visa Card';
+    creditCard.metadata!.isLocal = false;
+    creditCard.metadata!.isVirtualCardEnrolled = false;
+
+    await createPaymentsSection(
+        [creditCard], /*ibans=*/[], /*payOverTimeIssuers=*/[],
+        /*prefValues=*/ {});
+
+    const paymentsList = getLocalAndServerCreditCardListItems();
+    assertTrue(!!paymentsList);
+
+    const description = loadTimeData.substituteString(
+        loadTimeData.getString('creditCardDescription'), creditCard.network,
+        creditCard.cardNumber.slice(-4));
+    const creditCardNumberAriaDescription = loadTimeData.substituteString(
+        loadTimeData.getString('creditCardA11yLabeled'), description);
+    const expDateAriaLabel = loadTimeData.substituteString(
+        loadTimeData.getString('creditCardExpDateA11yLabeled'), '01/25');
+
+    const expected =
+        `My Visa Card, ${creditCardNumberAriaDescription}, ${expDateAriaLabel}`;
+
+    assertEquals(
+        expected,
+        cleanUpWhitespace(
+            paymentsList[0]!.shadowRoot!.querySelector<HTMLElement>(
+                '.screen-reader-only')!));
+  });
+
   // Test to verify the benefit terms link has an aria label that includes
   // the card network name and last four digits.
   test('verifyCardBenefitsTermsAriaLabel', async () => {
@@ -934,7 +1056,7 @@ suite('PaymentsSectionCardRows', function() {
 
     const description = loadTimeData.substituteString(
         loadTimeData.getString('creditCardDescription'), creditCard.network,
-        creditCard.cardNumber.substring(creditCard.cardNumber.length - 4));
+        creditCard.cardNumber.slice(-4));
     const expectedAriaLabel = loadTimeData.substituteString(
         loadTimeData.getString('benefitsTermsAriaLabel'), description);
     assertEquals(termsLink.ariaLabel, expectedAriaLabel);
@@ -1034,6 +1156,64 @@ suite('PaymentsSectionCardRows', function() {
                   .querySelector<HTMLElement>(
                       '#summarySublabel')!.textContent.trim());
         });
+  });
+
+  test('verifyGooglePayLogoWithGradient', async function() {
+    loadTimeData.overrideValues({
+      autofillEnableGradientGoogleLogos: true,
+    });
+    const creditCard = createCreditCardEntry();
+    creditCard.metadata!.isLocal = false;
+    const section = await createPaymentsSection(
+        [creditCard], /*ibans=*/[], /*payOverTimeIssuers=*/[],
+        /*prefValues=*/ {});
+    const rowShadowRoot = getCardRowShadowRoot(section.$.paymentsList);
+    const paymentsIcon = rowShadowRoot.querySelector('#paymentsIcon');
+    // #paymentsIcon is only present in Google Chrome branded builds.
+    if (paymentsIcon) {
+      const source = paymentsIcon.querySelector('source');
+      const img = paymentsIcon.querySelector('img');
+      assertTrue(!!source);
+      assertTrue(!!img);
+      assertTrue(source.srcset.includes(
+          'IDR_AUTOFILL_GOOGLE_PAY_WITH_GRADIENT_DARK_SMALL'));
+      assertTrue(img.srcset.includes(
+          'IDR_AUTOFILL_GOOGLE_PAY_WITH_GRADIENT_SMALL'));
+    } else {
+      const textIndicator =
+          rowShadowRoot.querySelector('#paymentsIndicator .sub-label');
+      assertTrue(!!textIndicator);
+      assertTrue(isVisible(textIndicator));
+    }
+  });
+
+  test('verifyGooglePayLogoWithoutGradient', async function() {
+    loadTimeData.overrideValues({
+      autofillEnableGradientGoogleLogos: false,
+    });
+    const creditCard = createCreditCardEntry();
+    creditCard.metadata!.isLocal = false;
+    const section = await createPaymentsSection(
+        [creditCard], /*ibans=*/[], /*payOverTimeIssuers=*/[],
+        /*prefValues=*/ {});
+    const rowShadowRoot = getCardRowShadowRoot(section.$.paymentsList);
+    const paymentsIcon = rowShadowRoot.querySelector('#paymentsIcon');
+    // #paymentsIcon is only present in Google Chrome branded builds.
+    if (paymentsIcon) {
+      const source = paymentsIcon.querySelector('source');
+      const img = paymentsIcon.querySelector('img');
+      assertTrue(!!source);
+      assertTrue(!!img);
+      assertTrue(source.srcset.includes(
+          'IDR_AUTOFILL_GOOGLE_PAY_DARK_SMALL'));
+      assertTrue(img.srcset.includes(
+          'IDR_AUTOFILL_GOOGLE_PAY_SMALL'));
+    } else {
+      const textIndicator =
+          rowShadowRoot.querySelector('#paymentsIndicator .sub-label');
+      assertTrue(!!textIndicator);
+      assertTrue(isVisible(textIndicator));
+    }
   });
 });
 

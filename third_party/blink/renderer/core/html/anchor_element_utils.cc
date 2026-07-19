@@ -4,14 +4,21 @@
 
 #include "third_party/blink/renderer/core/html/anchor_element_utils.h"
 
+#include "base/command_line.h"
+#include "base/feature_list.h"
+#include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/switches.h"
+#include "third_party/blink/public/mojom/devtools/inspector_issue.mojom-blink.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/space_split_string.h"
+#include "third_party/blink/renderer/core/events/mouse_event.h"
 #include "third_party/blink/renderer/core/frame/deprecation/deprecation.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
+#include "third_party/blink/renderer/core/inspector/inspector_audits_issue.h"
 #include "third_party/blink/renderer/core/loader/frame_load_request.h"
 #include "third_party/blink/renderer/core/loader/navigation_policy.h"
 #include "third_party/blink/renderer/core/loader/ping_loader.h"
@@ -20,7 +27,9 @@
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_request.h"
+#include "third_party/blink/renderer/platform/network/blink_schemeful_site.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
+#include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/weborigin/security_policy.h"
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
@@ -34,6 +43,8 @@ namespace {
 // characters, but this is enough to prevent the browser process from becoming
 // unresponsive or crashing.
 inline constexpr int kMaxDownloadAttrLength = 1000000;
+
+inline constexpr char kBlobScheme[] = "blob";
 
 // Note: Here it covers download originated from clicking on <a download> link
 // that results in direct download. Features in this method can also be logged
@@ -53,6 +64,11 @@ bool ShouldInterveneDownloadByFramePolicy(LocalFrame* frame) {
                         WebFeature::kDownloadInAdFrameWithoutUserGesture);
       should_intervene_download = true;
     }
+  } else if (frame->IsAdScriptInStack()) {
+    // We only record kDownloadFromAdScript if kDownloadInAdFrame is not set.
+    // This avoids double counting and makes it easier to isolate the impact
+    // of ad scripts.
+    UseCounter::Count(document, WebFeature::kDownloadFromAdScript);
   }
   if (frame->DomWindow()->IsSandboxed(
           network::mojom::blink::WebSandboxFlags::kDownloads)) {
@@ -239,6 +255,40 @@ void AnchorElementUtils::HandleReferrerPolicyAttribute(
     UseCounter::Count(document,
                       WebFeature::kHTMLAnchorElementReferrerPolicyAttribute);
     request.SetReferrerPolicy(policy);
+  }
+}
+
+bool AnchorElementUtils::IsLinkClick(Event& event) {
+  auto* mouse_event = DynamicTo<MouseEvent>(event);
+  if ((event.type() != event_type_names::kClick &&
+       event.type() != event_type_names::kAuxclick) ||
+      !mouse_event) {
+    return false;
+  }
+  return mouse_event->IsLinkClickButton();
+}
+
+void AnchorElementUtils::EnforceBlobUrlNoopenerIfNeeded(
+    FrameLoadRequest& frame_request,
+    const KURL& url,
+    LocalDOMWindow& window) {
+  if (!url.ProtocolIs(kBlobScheme)) {
+    return;
+  }
+  BlinkSchemefulSite blob_url_site(SecurityOrigin::Create(url));
+  BlinkSchemefulSite top_level_site = window.GetStorageKey().GetTopLevelSite();
+  if (top_level_site != blob_url_site) {
+    if (base::FeatureList::IsEnabled(
+            features::kEnforceNoopenerOnBlobURLNavigation) &&
+        !base::CommandLine::ForCurrentProcess()->HasSwitch(
+            blink::switches::kDisableBlobUrlPartitioning)) {
+      frame_request.SetNoOpener();
+    }
+    UseCounter::Count(window.document(),
+                      WebFeature::kCrossTopLevelSiteBlobURLNavigation);
+    AuditsIssue::ReportPartitioningBlobURLIssue(
+        &window, url.GetString(),
+        mojom::blink::PartitioningBlobURLInfo::kEnforceNoopenerForNavigation);
   }
 }
 

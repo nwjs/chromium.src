@@ -2433,6 +2433,54 @@ TEST_F(RenderWidgetHostDragTest, SanitizeFilenameExtensionOnDrag) {
             FILE_PATH_LITERAL("payload.so"));
 }
 
+// A plain <img> drag on macOS populates `file_contents` but supplies neither a
+// source URL nor a Content-Disposition, so it must not surface as a File in the
+// renderer's DataTransfer.files. See crbug.com/522179938.
+TEST_F(RenderWidgetHostDragTest,
+       ImageDragWithoutSourceUrlProducesNoBinaryItem) {
+  DropData drop_data;
+  drop_data.file_contents = {1, 2, 3};
+  drop_data.file_contents_image_accessible = true;
+
+  blink::mojom::DragDataPtr drag_data =
+      DropDataToDragData(drop_data, GetFileSystemAccessManager(),
+                         main_test_rfh()->GetProcess()->GetDeprecatedID(),
+                         GetChromeBlobStorageContext());
+
+  int binary_items = 0;
+  for (const auto& item : drag_data->items) {
+    if (item->is_binary()) {
+      ++binary_items;
+    }
+  }
+  EXPECT_EQ(binary_items, 0);
+}
+
+// A JS-constructed File round-trip carries a source URL, so the binary item
+// must still be emitted and stay image-accessible.
+TEST_F(RenderWidgetHostDragTest, JsFileDragWithSourceUrlProducesBinaryItem) {
+  DropData drop_data;
+  drop_data.file_contents = {1, 2, 3};
+  drop_data.file_contents_image_accessible = true;
+  drop_data.file_contents_source_url = GURL("https://local/image.png");
+
+  blink::mojom::DragDataPtr drag_data =
+      DropDataToDragData(drop_data, GetFileSystemAccessManager(),
+                         main_test_rfh()->GetProcess()->GetDeprecatedID(),
+                         GetChromeBlobStorageContext());
+
+  int binary_items = 0;
+  bool image_accessible = false;
+  for (const auto& item : drag_data->items) {
+    if (item->is_binary()) {
+      ++binary_items;
+      image_accessible = item->get_binary()->is_image_accessible;
+    }
+  }
+  EXPECT_EQ(binary_items, 1);
+  EXPECT_TRUE(image_accessible);
+}
+
 // Hiding the RenderWidgetHostImpl instance via a call to WasHidden should
 // not reject a pending pointer lock, if the operation is waiting for the
 // user to make a selection on the permission prompt.
@@ -2669,6 +2717,44 @@ TEST_F(RenderWidgetHostTest, AddAndRemoveImeInputEventObserver) {
   host_->ImeFinishComposingText(true);
 }
 #endif
+
+TEST_F(RenderWidgetHostTest, SetAndCommitExternallySourcedComposition) {
+  std::u16string text = u"hello";
+  int length = text.length();
+
+  ui::ImeTextSpan ime_text_span;
+  ime_text_span.end_offset = length;
+  ime_text_span.underline_style = ui::ImeTextSpan::UnderlineStyle::kDot;
+  host_->SetExternallySourcedComposition(text, {ime_text_span});
+
+  {
+    MockWidgetInputHandler::MessageVector dispatched_messages =
+        host_->mock_render_input_router()->GetAndResetDispatchedMessages();
+    ASSERT_EQ(1u, dispatched_messages.size());
+    MockWidgetInputHandler::DispatchedIMEMessage* ime_message =
+        dispatched_messages[0]->ToIME();
+    ASSERT_TRUE(ime_message);
+    EXPECT_EQ("SetComposition", ime_message->name());
+    EXPECT_TRUE(ime_message->Matches(text, {ime_text_span},
+                                     gfx::Range::InvalidRange(), length, length,
+                                     blink::mojom::ImeState::kNone));
+  }
+
+  host_->CommitExternallySourcedComposition(text);
+
+  {
+    MockWidgetInputHandler::MessageVector dispatched_messages =
+        host_->mock_render_input_router()->GetAndResetDispatchedMessages();
+    ASSERT_EQ(1u, dispatched_messages.size());
+    MockWidgetInputHandler::DispatchedIMEMessage* ime_message =
+        dispatched_messages[0]->ToIME();
+    ASSERT_TRUE(ime_message);
+    EXPECT_EQ("CommitText", ime_message->name());
+    EXPECT_TRUE(ime_message->Matches(text, std::vector<ui::ImeTextSpan>(),
+                                     gfx::Range::InvalidRange(), 0, 0,
+                                     blink::mojom::ImeState::kNone));
+  }
+}
 
 // Tests that vertical scroll direction changes are propagated to the delegate.
 TEST_F(RenderWidgetHostTest, OnVerticalScrollDirectionChanged) {

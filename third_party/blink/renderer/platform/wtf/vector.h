@@ -71,6 +71,23 @@ inline constexpr bool kEnableHeapVectorActiveIteratorChecks = true;
 inline constexpr bool kEnableHeapVectorActiveIteratorChecks = false;
 #endif
 
+#if BUILDFLAG(ENABLE_VECTOR_ACTIVE_ITERATOR_CHECKS)
+inline constexpr bool kEnableVectorActiveIteratorChecks = true;
+#else
+inline constexpr bool kEnableVectorActiveIteratorChecks = false;
+#endif
+
+// Whether active-iterator checks are enabled for the Allocator.
+// Allows HeapVector and Vector checks to be toggled independently.
+template <typename Allocator>
+inline constexpr bool kEnableActiveIteratorChecks =
+    (Allocator::kIsGarbageCollected && kEnableHeapVectorActiveIteratorChecks) ||
+    (!Allocator::kIsGarbageCollected && kEnableVectorActiveIteratorChecks);
+
+// Out-of-line helper to report freeing a Vector backing while iterators are
+// alive. Defined in vector.cc to avoid header bloat and LTO inlining.
+NOINLINE WTF_EXPORT void ReportVectorBackingFreedWhileIteratorsAlive();
+
 #if defined(MEMORY_TOOL_REPLACES_ALLOCATOR)
 // The allocation pool for nodes is one big chunk that ASAN has no insight
 // into, so it can cloak errors. Make it as small as possible to force nodes
@@ -239,8 +256,9 @@ struct VectorTypeOperations {
       if (origin != VectorOperationOrigin::kConstruction) {
         // SAFETY: TODO(359904345): VectorTypeOperations should operate on
         // spans.
-        base::span<T> UNSAFE_BUFFERS(elements(
-            dst, static_cast<wtf_size_t>(std::distance(src, src_end))));
+        base::span<T> UNSAFE_BUFFERS(
+            elements(base::unchecked, dst,
+                     static_cast<wtf_size_t>(std::distance(src, src_end))));
         ConstructTraits::NotifyNewElements(elements);
       }
     }
@@ -296,8 +314,9 @@ struct VectorTypeOperations {
       if (origin != VectorOperationOrigin::kConstruction) {
         // SAFETY: TODO(359904345): VectorTypeOperations should operate on
         // spans.
-        base::span<T> UNSAFE_BUFFERS(elements(
-            dst, static_cast<wtf_size_t>(std::distance(src, src_end))));
+        base::span<T> UNSAFE_BUFFERS(
+            elements(base::unchecked, dst,
+                     static_cast<wtf_size_t>(std::distance(src, src_end))));
         ConstructTraits::NotifyNewElements(elements);
       }
     }
@@ -318,15 +337,15 @@ struct VectorTypeOperations {
           AtomicWriteMemcpy<sizeof(T), alignof(T)>(d, s);
           AtomicWriteMemcpy<sizeof(T), alignof(T)>(s, buf);
         });
-        const wtf_size_t len = std::distance(src, src_end);
+        const wtf_size_t len = CheckedDistance(src, src_end);
         if (src_origin != VectorOperationOrigin::kConstruction) {
           // SAFETY: TODO(359904345): VectorTypeOperations should operate on
           // spans.
-          base::span<T> UNSAFE_BUFFERS(elements(src, len));
+          base::span<T> UNSAFE_BUFFERS(elements(base::unchecked, src, len));
           ConstructTraits::NotifyNewElements(elements);
         }
         // SAFETY: TODO(359904345): VectorTypeOperations should operate on spans.
-        base::span<T> UNSAFE_BUFFERS(elements(dst, len));
+        base::span<T> UNSAFE_BUFFERS(elements(base::unchecked, dst, len));
         ConstructTraits::NotifyNewElements(elements);
       } else {
         std::swap_ranges(reinterpret_cast<char*>(src),
@@ -403,7 +422,8 @@ struct VectorTypeOperations {
       if (origin != VectorOperationOrigin::kConstruction) {
         // SAFETY: TODO(359904345): VectorTypeOperations should operate on
         // spans.
-        base::span<T> UNSAFE_BUFFERS(elements(dst_begin, size));
+        base::span<T> UNSAFE_BUFFERS(
+            elements(base::unchecked, dst_begin, size));
         ConstructTraits::NotifyNewElements(elements);
       }
     }
@@ -430,8 +450,9 @@ struct VectorTypeOperations {
         if (origin != VectorOperationOrigin::kConstruction) {
           // SAFETY: TODO(359904345): VectorTypeOperations should operate on
           // spans.
-          base::span<T> UNSAFE_BUFFERS(elements(
-              dst, static_cast<wtf_size_t>(std::distance(dst, dst_end))));
+          base::span<T> UNSAFE_BUFFERS(
+              elements(base::unchecked, dst,
+                       static_cast<wtf_size_t>(std::distance(dst, dst_end))));
           ConstructTraits::NotifyNewElements(elements);
         }
       }
@@ -495,10 +516,11 @@ class GC_PLUGIN_IGNORE("crbug.com/428987863") VectorBufferBase {
 #endif
 
   base::span<T> BufferSpan() {
-    return UNSAFE_TODO(base::span<T>(buffer_, capacity_));
+    return UNSAFE_TODO(base::span<T>(base::unchecked, buffer_, capacity_));
   }
   base::span<const T> BufferSpan() const {
-    return UNSAFE_TODO(base::span<const T>(buffer_, capacity_));
+    return UNSAFE_TODO(
+        base::span<const T>(base::unchecked, buffer_, capacity_));
   }
 
   // PRECONDTIONS: `from` and `to` must point within the same object with
@@ -591,8 +613,7 @@ class GC_PLUGIN_IGNORE("crbug.com/428987863") VectorBufferBase {
   };
   struct NoActiveIteratorCounter {};
   NO_UNIQUE_ADDRESS
-  std::conditional_t<Allocator::kIsGarbageCollected &&
-                         kEnableHeapVectorActiveIteratorChecks,
+  std::conditional_t<kEnableActiveIteratorChecks<Allocator>,
                      ActiveIteratorCounter,
                      NoActiveIteratorCounter>
       active_iterator_state_;
@@ -648,10 +669,10 @@ class VectorBuffer<T, 0, Allocator> : protected VectorBufferBase<T, Allocator> {
   }
 
   void DeallocateBuffer(T* buffer_to_deallocate) {
-    if constexpr (Allocator::kIsGarbageCollected &&
-                  kEnableHeapVectorActiveIteratorChecks) {
-      CHECK_EQ(this->active_iterator_state_.count, 0u)
-          << "HeapVector backing freed while iterators are still alive.";
+    if constexpr (kEnableActiveIteratorChecks<Allocator>) {
+      if (this->active_iterator_state_.count != 0u) [[unlikely]] {
+        ReportVectorBackingFreedWhileIteratorsAlive();
+      }
     }
     Allocator::FreeVectorBacking(buffer_to_deallocate);
   }
@@ -770,10 +791,10 @@ class VectorBuffer : protected VectorBufferBase<T, Allocator> {
   }
 
   NOINLINE void ReallyDeallocateBuffer(T* buffer_to_deallocate) {
-    if constexpr (Allocator::kIsGarbageCollected &&
-                  kEnableHeapVectorActiveIteratorChecks) {
-      CHECK_EQ(this->active_iterator_state_.count, 0u)
-          << "HeapVector backing freed while iterators are still alive.";
+    if constexpr (kEnableActiveIteratorChecks<Allocator>) {
+      if (this->active_iterator_state_.count != 0u) [[unlikely]] {
+        ReportVectorBackingFreedWhileIteratorsAlive();
+      }
     }
     Allocator::FreeVectorBacking(buffer_to_deallocate);
   }
@@ -1098,7 +1119,8 @@ class GC_PLUGIN_IGNORE("crbug.com/428987863") UncheckedIterator {
         modifications_ptr_(modifications_ptr),
         captured_modifications_(modifications_ptr ? *modifications_ptr : 0) {}
   UncheckedIterator(const UncheckedIterator& other) = default;
-#elif BUILDFLAG(ENABLE_HEAP_VECTOR_ACTIVE_ITERATOR_CHECKS)
+#elif BUILDFLAG(ENABLE_HEAP_VECTOR_ACTIVE_ITERATOR_CHECKS) || \
+    BUILDFLAG(ENABLE_VECTOR_ACTIVE_ITERATOR_CHECKS)
   // Constructor that registers this iterator with the owning Vector's
   // active_iterators_ count. Used to detect freeing a backing while
   // iterators are alive.
@@ -1128,7 +1150,9 @@ class GC_PLUGIN_IGNORE("crbug.com/428987863") UncheckedIterator {
   UncheckedIterator(const base::CheckedContiguousIterator<T>& other)
       : current_(base::to_address(other)) {}
   ~UncheckedIterator() {
-#if !DCHECK_IS_ON() && BUILDFLAG(ENABLE_HEAP_VECTOR_ACTIVE_ITERATOR_CHECKS)
+#if !DCHECK_IS_ON() &&                                       \
+    (BUILDFLAG(ENABLE_HEAP_VECTOR_ACTIVE_ITERATOR_CHECKS) || \
+     BUILDFLAG(ENABLE_VECTOR_ACTIVE_ITERATOR_CHECKS))
     if (active_iterator_count_) {
       --(*active_iterator_count_);
     }
@@ -1154,7 +1178,8 @@ class GC_PLUGIN_IGNORE("crbug.com/428987863") UncheckedIterator {
     }
     return *this;
   }
-#elif BUILDFLAG(ENABLE_HEAP_VECTOR_ACTIVE_ITERATOR_CHECKS)
+#elif BUILDFLAG(ENABLE_HEAP_VECTOR_ACTIVE_ITERATOR_CHECKS) || \
+    BUILDFLAG(ENABLE_VECTOR_ACTIVE_ITERATOR_CHECKS)
   UncheckedIterator& operator=(const UncheckedIterator& other) {
     if (this != &other) {
       if (active_iterator_count_) {
@@ -1281,7 +1306,8 @@ class GC_PLUGIN_IGNORE("crbug.com/428987863") UncheckedIterator {
 #if DCHECK_IS_ON()
   const int64_t* modifications_ptr_ = nullptr;
   int64_t captured_modifications_ = 0;
-#elif BUILDFLAG(ENABLE_HEAP_VECTOR_ACTIVE_ITERATOR_CHECKS)
+#elif BUILDFLAG(ENABLE_HEAP_VECTOR_ACTIVE_ITERATOR_CHECKS) || \
+    BUILDFLAG(ENABLE_VECTOR_ACTIVE_ITERATOR_CHECKS)
   wtf_size_t* active_iterator_count_ = nullptr;
 #endif
 };
@@ -1854,8 +1880,7 @@ class Vector : private VectorBuffer<T, INLINE_CAPACITY, Allocator> {
 #if DCHECK_IS_ON()
     return iterator(ptr, &this->modifications_);
 #else
-    if constexpr (Allocator::kIsGarbageCollected &&
-                  kEnableHeapVectorActiveIteratorChecks) {
+    if constexpr (kEnableActiveIteratorChecks<Allocator>) {
       return iterator(ptr, &this->active_iterator_state_.count);
     } else {
       return iterator(ptr);
@@ -1866,8 +1891,7 @@ class Vector : private VectorBuffer<T, INLINE_CAPACITY, Allocator> {
 #if DCHECK_IS_ON()
     return const_iterator(ptr, &this->modifications_);
 #else
-    if constexpr (Allocator::kIsGarbageCollected &&
-                  kEnableHeapVectorActiveIteratorChecks) {
+    if constexpr (kEnableActiveIteratorChecks<Allocator>) {
       return const_iterator(
           ptr, const_cast<wtf_size_t*>(&this->active_iterator_state_.count));
     } else {
@@ -2093,26 +2117,28 @@ template <typename Range, typename Proj>
   requires VectorCanAssignFromRange<T, InlineCapacity, Allocator, Range, Proj>
 void Vector<T, InlineCapacity, Allocator>::assign(Range&& other, Proj proj) {
   this->RegisterModification();
-  if (std::ranges::size(other) > capacity()) {
+  const wtf_size_t other_size =
+      base::checked_cast<wtf_size_t>(std::ranges::size(other));
+  if (other_size > capacity()) {
     clear();
-    reserve(std::ranges::size(other));
+    reserve(other_size);
     // Note that `size(other)` may become smaller if `other` is a hash table
     // with `WeakMember` keys and `reserve` caused GC which removed some
     // entries from `other`, see crbug.com/40448463. This won't cause problems
     // as long as we won't use the old `size(other)` in the following code.
   } else {
-    if (std::ranges::size(other) < size()) {
-      Shrink(std::ranges::size(other));
+    if (other_size < size()) {
+      Shrink(other_size);
     }
     TypeOperations::Destruct(data(), DataEnd());
   }
 
   MARKING_AWARE_ANNOTATE_CHANGE_SIZE(Allocator, data(), capacity(), size_,
-                                     std::ranges::size(other));
+                                     other_size);
   TypeOperations::UninitializedTransform(
       std::ranges::begin(other), std::ranges::end(other), data(),
       VectorOperationOrigin::kRegularModification, std::move(proj));
-  size_ = std::ranges::size(other);
+  size_ = other_size;
 }
 
 template <typename T, wtf_size_t InlineCapacity, typename Allocator>
@@ -2493,7 +2519,7 @@ void Vector<T, InlineCapacity, Allocator>::Append(const U* data,
   MARKING_AWARE_ANNOTATE_CHANGE_SIZE(Allocator, this->data(), capacity(), size_,
                                      new_size);
   TypeOperations::UninitializedCopy(
-      UNSAFE_TODO(base::span<const U>(data, data_size)),
+      UNSAFE_TODO(base::span<const U>(base::unchecked, data, data_size)),
       CapacitySpan().subspan(size_, data_size),
       VectorOperationOrigin::kRegularModification);
   size_ = new_size;

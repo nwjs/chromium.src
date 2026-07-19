@@ -24,7 +24,6 @@ import android.net.http.SslCertificate;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.CancellationSignal;
-import android.os.Debug;
 import android.os.Handler;
 import android.os.Message;
 import android.os.SystemClock;
@@ -53,7 +52,6 @@ import android.webkit.WebViewClient;
 
 import androidx.annotation.AnyThread;
 import androidx.annotation.IntDef;
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.core.graphics.Insets;
@@ -89,7 +87,6 @@ import org.chromium.base.RequiredCallback;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.TimeUtils;
 import org.chromium.base.TraceEvent;
-import org.chromium.base.memory.MemoryInfoBridge;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.task.AsyncTask;
 import org.chromium.base.task.PostTask;
@@ -438,27 +435,14 @@ public class AwContents implements SmartClipProvider {
      */
     private boolean mBrowserContextSetExplicitly;
 
-    /**
-     * Set to true if {@link AwContents#evaluateJavaScript(String, Callback)}
-     * has been called.
-     */
+    /** Set to true if {@link AwContents#evaluateJavaScript(String, Callback)} has been called. */
     private boolean mHasEvaluatedJavascript;
 
     @VisibleForTesting public static final long FUNCTOR_RECLAIM_DELAY_MS = 10000;
-    @VisibleForTesting public static final long METRICS_COLLECTION_DELAY_MS = 1000;
     private static final long CURRENTLY_VISIBLE = -1;
     private long mLastWindowVisibleTime = -1;
     private boolean mHasPendingReclaimTask;
     private BiFunction<Runnable, Long, Void> mPostDelayedTaskForTesting;
-    private static final long MEMORY_COLLECTION_INTERVAL_MS = 5 * 60 * 1000;
-    private static long sLastCollectionTime = -MEMORY_COLLECTION_INTERVAL_MS;
-
-    @VisibleForTesting
-    public static final String PSS_HISTOGRAM = "Android.WebView.Memory.FunctorReclaim.OtherPss";
-
-    @VisibleForTesting
-    public static final String PRIVATE_DIRTY_HISTOGRAM =
-            "Android.WebView.Memory.FunctorReclaim.OtherPrivateDirty";
 
     private @RendererPriority int mRendererPriority;
     private boolean mRendererPriorityWaivedWhenNotVisible;
@@ -525,9 +509,7 @@ public class AwContents implements SmartClipProvider {
     private final AwDisplayCutoutController mDisplayCutoutController;
     private final AwDisplayModeController mDisplayModeController;
     private final Rect mCachedSafeAreaRect = new Rect();
-
     private AwDarkMode mAwDarkMode;
-    private AwWebContentsMetricsRecorder mAwWebContentsMetricsRecorder;
 
     private final StylusWritingController mStylusWritingController;
 
@@ -1184,7 +1166,6 @@ public class AwContents implements SmartClipProvider {
      *
      * <p>This will not perform any checks for {@link AwContents#isDestroyed(int)}.
      */
-    @NonNull
     public AwBrowserContext getBrowserContextInternal() {
         return mBrowserContext;
     }
@@ -1197,7 +1178,6 @@ public class AwContents implements SmartClipProvider {
      * @throws IllegalStateException if the WebView has been destroyed via. {@link
      *     AwContents#destroy()}.
      */
-    @NonNull
     public AwBrowserContext getBrowserContextForPublicApi() {
         if (isDestroyed(NO_WARN)) {
             throw new IllegalStateException("Cannot get profile for destroyed WebView.");
@@ -1221,7 +1201,7 @@ public class AwContents implements SmartClipProvider {
      *     has been called on the WebView.
      * @throws IllegalStateException if the WebView has previously navigated to a web page.
      */
-    public void setBrowserContextForPublicApi(@NonNull AwBrowserContext browserContext) {
+    public void setBrowserContextForPublicApi(AwBrowserContext browserContext) {
         if (browserContext == mBrowserContext) {
             return;
         }
@@ -1428,13 +1408,12 @@ public class AwContents implements SmartClipProvider {
         public final boolean wasPaused;
         public final boolean wasFocused;
         public final boolean wasWindowFocused;
-        public final @NonNull Map<String, JavascriptInjector.InjectedInterface>
-                javascriptInterfaces;
+        public final Map<String, JavascriptInjector.InjectedInterface> javascriptInterfaces;
         public final @Nullable WebMessageListenerInfo[] webMessageListenerInfo;
         public final @Nullable PersistentJavascriptInfo[] persistentJavascriptInfo;
-        public final @NonNull Map<String, Integer> worldMapping;
+        public final Map<String, Integer> worldMapping;
 
-        public StateSnapshot(@NonNull AwContents awContents) {
+        public StateSnapshot(AwContents awContents) {
             wasAttached = awContents.mIsAttachedToWindow;
             wasViewVisible = awContents.mIsViewVisible;
             wasWindowVisible = awContents.mIsWindowVisible;
@@ -1672,11 +1651,6 @@ public class AwContents implements SmartClipProvider {
             mWebContentsObserver.observe(null);
         }
         mWebContentsObserver = new AwWebContentsObserver(mWebContents, this, mContentsClient);
-        if (mAwWebContentsMetricsRecorder != null) {
-            mAwWebContentsMetricsRecorder.observe(null);
-        }
-        mAwWebContentsMetricsRecorder =
-                new AwWebContentsMetricsRecorder(mWebContents, mContext, mSettings);
     }
 
     /**
@@ -1866,12 +1840,12 @@ public class AwContents implements SmartClipProvider {
     }
 
     public void startPrerendering(
-            @NonNull String prerenderingUrl,
+            String prerenderingUrl,
             @Nullable AwPrefetchParameters prefetchParameters,
             @Nullable CancellationSignal cancellationSignal,
-            @NonNull Executor callbackExecutor,
-            @NonNull Callback<Void> activationCallback,
-            @NonNull Callback<Throwable> errorCallback) {
+            Executor callbackExecutor,
+            Callback<Void> activationCallback,
+            Callback<Throwable> errorCallback) {
         if (isDestroyed(NO_WARN)) return;
         if (prefetchParameters != null) {
             IllegalArgumentException exception =
@@ -1956,8 +1930,6 @@ public class AwContents implements SmartClipProvider {
 
             mWebContentsObserver.observe(null);
             mWebContentsObserver = null;
-            mAwWebContentsMetricsRecorder.observe(null);
-            mAwWebContentsMetricsRecorder = null;
             mNativeAwContents = 0;
             mWebContents = null;
             mWebContentsInternals = null;
@@ -2042,10 +2014,6 @@ public class AwContents implements SmartClipProvider {
 
     public static void setAwDrawSWFunctionTable(long functionTablePointer) {
         AwContentsJni.get().setAwDrawSWFunctionTable(functionTablePointer);
-    }
-
-    public static void setShouldDownloadFavicons() {
-        AwContentsJni.get().setShouldDownloadFavicons();
     }
 
     /**
@@ -2342,8 +2310,8 @@ public class AwContents implements SmartClipProvider {
      *
      * <p>Returns a new map instance and does not modify the input.
      */
-    private static @NonNull Map<String, String> removeInvalidHttpHeaders(
-            @NonNull Map<String, String> originalHeaders) {
+    private static Map<String, String> removeInvalidHttpHeaders(
+            Map<String, String> originalHeaders) {
         Map<String, String> filteredHeaders = new HashMap<>(originalHeaders.size());
         for (Entry<String, String> entry : originalHeaders.entrySet()) {
             String name = entry.getKey();
@@ -3065,8 +3033,7 @@ public class AwContents implements SmartClipProvider {
      *     jsObjectName and allowedOriginRules is {@code null}.
      * @return A {@link ScriptHandler} for removing the script.
      */
-    public ScriptHandler addDocumentStartJavaScript(
-            @NonNull String script, @NonNull String[] allowedOriginRules) {
+    public ScriptHandler addDocumentStartJavaScript(String script, String[] allowedOriginRules) {
         return addJavaScriptOnEvent(
                 script, DocumentInjectionTime.DOCUMENT_START, allowedOriginRules, PAGE_WORLD_NAME);
     }
@@ -3147,9 +3114,7 @@ public class AwContents implements SmartClipProvider {
      * @throws NullPointerException if listener is {@code null}.
      */
     public void addWebMessageListener(
-            @NonNull String jsObjectName,
-            @NonNull String[] allowedOriginRules,
-            @NonNull WebMessageListener listener) {
+            String jsObjectName, String[] allowedOriginRules, WebMessageListener listener) {
         addWebMessageListener(jsObjectName, allowedOriginRules, listener, PAGE_WORLD_NAME);
     }
 
@@ -3173,10 +3138,10 @@ public class AwContents implements SmartClipProvider {
      * @throws NullPointerException if listener is {@code null}.
      */
     public void addWebMessageListener(
-            @NonNull String jsObjectName,
-            @NonNull String[] allowedOriginRules,
-            @NonNull WebMessageListener listener,
-            @NonNull String worldName) {
+            String jsObjectName,
+            String[] allowedOriginRules,
+            WebMessageListener listener,
+            String worldName) {
         if (TRACE) Log.i(TAG, "%s addWebMessageListener=%s", this, jsObjectName);
         if (isDestroyed(WARN)) return;
         if (listener == null) {
@@ -3217,7 +3182,7 @@ public class AwContents implements SmartClipProvider {
      * from the JavaScript object will be dropped. However the JavaScript object will only be
      * removed for future navigations. This removes the WebMessageListener from the page world.
      */
-    public void removeWebMessageListener(@NonNull String jsObjectName) {
+    public void removeWebMessageListener(String jsObjectName) {
         removeWebMessageListener(jsObjectName, PAGE_WORLD_NAME);
     }
 
@@ -3227,7 +3192,7 @@ public class AwContents implements SmartClipProvider {
      * from the JavaScript object will be dropped. However the JavaScript object will only be
      * removed for future navigations. This removes the WebMessageListener from the world specified.
      */
-    public void removeWebMessageListener(@NonNull String jsObjectName, String world) {
+    public void removeWebMessageListener(String jsObjectName, String world) {
         if (TRACE) Log.i(TAG, "%s removeWebMessageListener=%s", this, jsObjectName);
         if (isDestroyed(WARN)) return;
         AwContentsJni.get()
@@ -3242,7 +3207,7 @@ public class AwContents implements SmartClipProvider {
      *
      * @throws IllegalStateException if there are too many worlds created.
      */
-    public int registerJavaScriptWorld(@NonNull String name) {
+    public int registerJavaScriptWorld(String name) {
         if (mJsWorldNameIds.containsKey(name)) {
             return mJsWorldNameIds.get(name);
         }
@@ -3606,9 +3571,6 @@ public class AwContents implements SmartClipProvider {
                         .trimMemory(
                                 mNativeAwContents, ComponentCallbacks2.TRIM_MEMORY_COMPLETE, false);
             }
-            // Not immediately collecting memory metrics, because actual memory release can take
-            // some time, either through async tasks here, or in the driver.
-            postDelayedTaskWithOverride(this::maybeRecordMemory, METRICS_COLLECTION_DELAY_MS);
         }
     }
 
@@ -3673,8 +3635,8 @@ public class AwContents implements SmartClipProvider {
     }
 
     /**
-     * Returns true if the web contents has an associated interstitial.
-     * This method is only called by tests.
+     * Returns true if the web contents has an associated interstitial. This method is only called
+     * by tests.
      */
     public boolean isDisplayingInterstitialForTesting() {
         return AwContentsJni.get().isDisplayingInterstitialForTesting(mNativeAwContents);
@@ -3757,7 +3719,7 @@ public class AwContents implements SmartClipProvider {
     }
 
     public List<String> addJavascriptInterface(
-            Object object, String name, @NonNull List<String> originAllowlist) {
+            Object object, String name, List<String> originAllowlist) {
         if (TRACE) Log.i(TAG, "%s addJavascriptInterface=%s", this, name);
         if (isDestroyed(WARN)) return Collections.emptyList();
 
@@ -3979,10 +3941,7 @@ public class AwContents implements SmartClipProvider {
     @CalledByNative
     private static void generateMHTMLCallback(String path, long size, Callback<String> callback) {
         if (callback == null) return;
-        AwThreadUtils.postToUiThreadLooper(
-                () -> {
-                    callback.onResult(size < 0 ? null : path);
-                });
+        AwThreadUtils.postToUiThreadLooper(callback.bind(size < 0 ? null : path));
     }
 
     @CalledByNative
@@ -4348,12 +4307,7 @@ public class AwContents implements SmartClipProvider {
             ThreadUtils.runOnUiThreadBlocking(
                     () -> {
                         if (isDestroyed(NO_WARN)) return;
-                        // Post the task in the case where we would have cleared the functor if the
-                        // feature was enabled, so that the two experiment arms have the same
-                        // number of samples.
                         if (level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND) {
-                            postDelayedTaskWithOverride(
-                                    this::maybeRecordMemory, METRICS_COLLECTION_DELAY_MS);
                             if (mDrawFunctor != null) {
                                 setFunctor(null);
                             }
@@ -4361,58 +4315,6 @@ public class AwContents implements SmartClipProvider {
                         AwContentsJni.get().trimMemory(mNativeAwContents, level, visible);
                     });
         }
-    }
-
-    private void maybeRecordMemory() {
-        // Note: there is a corner case here: if there are no visible WebViews, but the last one
-        // was removed too recently to have had its functor reclaimed, we still collect data.
-        // This likely doesn't matter too much, especially since as noted below, the metrics are
-        // expected to only be useful to tell whether the experiment produces a signal.
-        if (AwContentsLifecycleNotifier.getInstance().getAppState() != AppState.BACKGROUND) return;
-
-        // Comment below from base/android/meminfo_dump_provider.cc:
-        //
-        // This is best-effort, and will be wrong if there are other callers of
-        // ActivityManager#getProcessMemoryInfo(), either in this process or from another
-        // process which is allowed to do so (typically, adb).
-        //
-        // However, since the framework doesn't document throttling in any non-vague terms and
-        // the results are not timestamped, this is the best we can do. The delay and the rest
-        // of the assumptions here come from
-        // https://android.googlesource.com/platform/frameworks/base/+/refs/heads/android13-dev/services/core/java/com/android/server/am/ActivityManagerService.java#4093.
-        //
-        // We could always report the value on pre-Q devices, but that would skew reported
-        // data. Also, some OEMs may have cherry-picked the Q change, meaning that it's safer
-        // and more accurate to not report likely-stale data on all Android releases.
-        //
-        // Nevertheless, this has proved useful to detect whether an experiment is doing
-        // *something* for Chromium (the browser, not WebView), where is it collected as part of
-        // memory metrics, that are not collected in WebView.
-        long now = SystemClock.uptimeMillis();
-        if (now - sLastCollectionTime < MEMORY_COLLECTION_INTERVAL_MS) return;
-        sLastCollectionTime = now;
-
-        Runnable recordMetrics =
-                () -> {
-                    Debug.MemoryInfo info = MemoryInfoBridge.getActivityManagerMemoryInfoForSelf();
-                    if (info == null) return;
-
-                    RecordHistogram.recordMemoryMediumMBHistogram(
-                            PSS_HISTOGRAM, info.otherPss / 1024);
-                    RecordHistogram.recordMemoryMediumMBHistogram(
-                            PRIVATE_DIRTY_HISTOGRAM, info.otherPrivateDirty / 1024);
-                };
-
-        // Record synchronously for testing, to reduce flakiness.
-        if (mPostDelayedTaskForTesting != null) {
-            recordMetrics.run();
-        } else {
-            AsyncTask.THREAD_POOL_EXECUTOR.execute(recordMetrics);
-        }
-    }
-
-    public static void resetRecordMemoryForTesting() {
-        sLastCollectionTime = -MEMORY_COLLECTION_INTERVAL_MS;
     }
 
     /**
@@ -4941,8 +4843,6 @@ public class AwContents implements SmartClipProvider {
 
         int getNativeInstanceCount();
 
-        void setShouldDownloadFavicons();
-
         void updateDefaultLocale(String locale, String localeList);
 
         String getSafeBrowsingLocaleForTesting();
@@ -5107,7 +5007,7 @@ public class AwContents implements SmartClipProvider {
 
         long startPrerendering(
                 long nativeAwContents,
-                @JniType("std::string") @NonNull String prerenderingUrl,
+                @JniType("std::string") String prerenderingUrl,
                 @Nullable AwPrefetchParameters prefetchParameters,
                 @JniType("base::OnceClosure") Runnable activationCallback,
                 @JniType("base::OnceClosure") Runnable errorCallback);

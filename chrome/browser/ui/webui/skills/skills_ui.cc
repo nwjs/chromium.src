@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/webui/skills/skills_ui.h"
 
 #include "base/check_deref.h"
+#include "base/command_line.h"
 #include "base/i18n/number_formatting.h"
 #include "base/strings/string_util.h"
 #include "chrome/browser/browser_process.h"
@@ -13,15 +14,18 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/skills/skills_service_factory.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/webui/sanitized_image/sanitized_image_source.h"
 #include "chrome/browser/ui/webui/skills/skills_dialog_handler.h"
 #include "chrome/browser/ui/webui/skills/skills_page_handler.h"
+#include "chrome/browser/ui/webui/skills/skills_page_handler_v2.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/skills_resources.h"
 #include "chrome/grit/skills_resources_map.h"
 #include "components/application_locale_storage/application_locale_storage.h"
+#include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/skills/features.h"
 #include "components/skills/public/skill.h"
 #include "components/skills/public/skills_metrics.h"
@@ -29,19 +33,31 @@
 #include "content/public/browser/url_data_source.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui_data_source.h"
+#include "google_apis/gaia/gaia_auth_util.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/webui/webui_util.h"
 
 namespace skills {
+namespace {
 
 constexpr int kMaxNameCharCount = 100;
 constexpr int kMaxPromptCharCount = 20000;
 
-SkillsUI::SkillsUI(content::WebUI* web_ui) : ui::MojoWebUIController(web_ui) {
-  Profile* profile = Profile::FromWebUI(web_ui);
-  content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
-      profile, chrome::kChromeUISkillsHost);
-  webui::SetupWebUIDataSource(source, kSkillsResources, IDR_SKILLS_SKILLS_HTML);
+bool ShouldDisableBrowseSkillsPage() {
+  if (!base::FeatureList::IsEnabled(
+          features::kSkills1PDisabledForNonEnLocales)) {
+    return false;
+  }
+
+  // Disable the browse skills page if the current locale is not English.
+  const ApplicationLocaleStorage& application_locale_storage =
+      CHECK_DEREF(CHECK_DEREF(CHECK_DEREF(g_browser_process).GetFeatures())
+                      .application_locale_storage());
+  return !base::StartsWith(application_locale_storage.Get(), "en",
+                           base::CompareCase::INSENSITIVE_ASCII);
+}
+
+void AddSkillsV1Resources(content::WebUIDataSource* source, Profile* profile) {
   source->AddResourcePath("dialog", IDR_SKILLS_SKILLS_DIALOG_HTML);
   source->AddBoolean("isGlicEnabled",
                      glic::GlicEnabling::IsReadyForProfile(profile));
@@ -82,13 +98,7 @@ SkillsUI::SkillsUI(content::WebUI* web_ui) : ui::MojoWebUIController(web_ui) {
       {"userSkillsTitle", IDS_SKILL_PAGE_USER_SKILLS_TITLE},
       {"userSkillsDescription", IDS_SKILL_PAGE_USER_SKILLS_DESCRIPTION},
       {"searchBarPlaceholderText", IDS_SKILL_PAGE_SEARCH_BAR_PLACEHOLDER_TEXT},
-      {"skillsTitle", IDS_SKILL_PAGE_TITLE},
       {"mainMenu", IDS_SKILL_PAGE_MAIN_MENU},
-      {"errorPageTitle", IDS_SKILLS_ERROR_PAGE_TITLE},
-      {"errorPageDescription", IDS_SKILLS_ERROR_PAGE_DESCRIPTION},
-      {"disabledErrorPageDescription",
-       IDS_SKILLS_DISABLED_ERROR_PAGE_DESCRIPTION},
-      {"goToSettings", IDS_SKILLS_GO_TO_SETTINGS},
       {"footerText", IDS_SKILLS_SIDEBAR_FOOTER_TEXT},
       {"footerBranding", IDS_SKILLS_SIDEBAR_FOOTER_BRANDING},
       {"addSkillHeader", IDS_SKILLS_DIALOG_ADD_SKILL_HEADER},
@@ -107,8 +117,6 @@ SkillsUI::SkillsUI(content::WebUI* web_ui) : ui::MojoWebUIController(web_ui) {
       {"copyInstructions", IDS_SKILL_PAGE_USER_SKILLS_COPY_INSTRUCTIONS},
       {"skillCardActionMenuLabel", IDS_SKILL_CARD_ACTION_MENU_LABEL},
       {"skillAddNewSkillLabel", IDS_ADD_NEW_SKILL_LABEL},
-      {"noSearchResultsTitle", IDS_SKILLS_NO_SEARCH_RESULT_TITLE},
-      {"noSearchResultsDescription", IDS_SKILLS_NO_SEARCH_RESULT_DESCRIPTION},
       {"saveError", IDS_SKILLS_DIALOG_SAVE_ERROR},
       {"emojiSearchPlaceholder", IDS_SKILLS_EMOJI_PICKER_SEARCH_PLACEHOLDER},
       {"emojiPickerAriaLabel", IDS_SKILLS_EMOJI_PICKER_ARIA_LABEL},
@@ -123,10 +131,57 @@ SkillsUI::SkillsUI(content::WebUI* web_ui) : ui::MojoWebUIController(web_ui) {
       "charLimitError",
       l10n_util::GetStringFUTF16(IDS_SKILLS_DIALOG_CHAR_LIMIT_ERROR,
                                  base::FormatNumber(kMaxPromptCharCount)));
+}
 
+}  // namespace
+
+SkillsUI::SkillsUI(content::WebUI* web_ui) : ui::MojoWebUIController(web_ui) {
+  Profile* profile = Profile::FromWebUI(web_ui);
+  content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
+      profile, chrome::kChromeUISkillsHost);
+
+  if (base::FeatureList::IsEnabled(features::kSkillsWebViewV2Enabled)) {
+    webui::SetupWebUIDataSource(source, kSkillsResources,
+                                IDR_SKILLS_V2_SKILLS_HTML);
+  } else {
+    webui::SetupWebUIDataSource(source, kSkillsResources,
+                                IDR_SKILLS_SKILLS_HTML);
+    AddSkillsV1Resources(source, profile);
+  }
   source->AddString("webuiRefresh2026", features::IsWebuiRefresh2026Enabled()
                                             ? "webui-refresh-2026"
                                             : "");
+  source->AddBoolean(
+      "isSkillsWebViewV2Enabled",
+      base::FeatureList::IsEnabled(features::kSkillsWebViewV2Enabled));
+
+  auto* command_line = base::CommandLine::ForCurrentProcess();
+  source->AddBoolean("devMode", command_line->HasSwitch("skills-dev"));
+
+  bool is_internal_user = false;
+  if (auto* identity_manager = IdentityManagerFactory::GetForProfile(profile)) {
+    is_internal_user = gaia::IsGoogleInternalAccountEmail(
+        identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin)
+            .email);
+  }
+  source->AddBoolean("isInternalUser", is_internal_user);
+
+  // Shared strings for Skills V1/V2.
+  // TODO(b/521780336): Remove search results strings once we migrate to v2.
+  static constexpr webui::LocalizedString kStrings[] = {
+      {"goToSettings", IDS_SKILLS_GO_TO_SETTINGS},
+      {"skillsTitle", IDS_SKILL_PAGE_TITLE},
+      {"errorPageTitle", IDS_SKILLS_ERROR_PAGE_TITLE},
+      {"noSearchResultsTitle", IDS_SKILLS_NO_SEARCH_RESULT_TITLE},
+      {"errorPageDescription", IDS_SKILLS_ERROR_PAGE_DESCRIPTION},
+      {"noSearchResultsDescription", IDS_SKILLS_NO_SEARCH_RESULT_DESCRIPTION},
+      {"disabledErrorPageDescription",
+       IDS_SKILLS_DISABLED_ERROR_PAGE_DESCRIPTION},
+      {"remoteAuthorityUnreachableDescription",
+       IDS_SKILLS_REMOTE_AUTHORITY_UNREACHABLE_DESCRIPTION},
+  };
+
+  source->AddLocalizedStrings(kStrings);
 }
 
 void SkillsUI::InitializeDialog(base::WeakPtr<SkillsDialogDelegate> delegate,
@@ -141,38 +196,37 @@ void SkillsUI::InitializeDialog(base::WeakPtr<SkillsDialogDelegate> delegate,
 
 void SkillsUI::BindInterface(
     mojo::PendingReceiver<skills::mojom::PageHandlerFactory> receiver) {
+  CHECK(!base::FeatureList::IsEnabled(features::kSkillsWebViewV2Enabled));
   page_factory_receiver_.reset();
   page_factory_receiver_.Bind(std::move(receiver));
+}
+
+void SkillsUI::BindInterface(
+    mojo::PendingReceiver<::skills::mojom::SkillsPageHandler> receiver) {
+  CHECK(base::FeatureList::IsEnabled(features::kSkillsWebViewV2Enabled));
+  Profile* profile = Profile::FromWebUI(web_ui());
+  page_handler_v2_ = std::make_unique<skills::SkillsPageHandlerV2>(
+      std::move(receiver), profile,
+      IdentityManagerFactory::GetForProfile(profile),
+      web_ui()->GetWebContents());
 }
 
 void SkillsUI::CreatePageHandler(
     mojo::PendingRemote<skills::mojom::SkillsPage> page,
     mojo::PendingReceiver<skills::mojom::PageHandler> receiver) {
+  CHECK(!base::FeatureList::IsEnabled(features::kSkillsWebViewV2Enabled));
   page_handler_ = std::make_unique<SkillsPageHandler>(
       std::move(receiver), std::move(page), web_ui()->GetWebContents());
 }
 
 void SkillsUI::CreateDialogHandler(
     mojo::PendingReceiver<skills::mojom::DialogHandler> receiver) {
+  CHECK(!base::FeatureList::IsEnabled(features::kSkillsWebViewV2Enabled));
   dialog_handler_ = std::make_unique<SkillsDialogHandler>(
       std::move(receiver), web_ui()->GetWebContents(),
       OptimizationGuideKeyedServiceFactory::GetForProfile(
           Profile::FromWebUI(web_ui())),
       initial_skill_, entrypoint_, dialog_type_, delegate_);
-}
-
-bool SkillsUI::ShouldDisableBrowseSkillsPage() const {
-  if (!base::FeatureList::IsEnabled(
-          features::kSkills1PDisabledForNonEnLocales)) {
-    return false;
-  }
-
-  // Disable the browse skills page if the current locale is not English.
-  const ApplicationLocaleStorage& application_locale_storage =
-      CHECK_DEREF(CHECK_DEREF(CHECK_DEREF(g_browser_process).GetFeatures())
-                      .application_locale_storage());
-  return !base::StartsWith(application_locale_storage.Get(), "en",
-                           base::CompareCase::INSENSITIVE_ASCII);
 }
 
 WEB_UI_CONTROLLER_TYPE_IMPL(SkillsUI)

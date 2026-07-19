@@ -11,6 +11,7 @@
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/ash_switches.h"
+#include "ash/login/resources/grit/ash_login_strings.h"
 #include "ash/public/cpp/test/shell_test_api.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -40,7 +41,6 @@
 #include "chrome/browser/ui/webui/ash/login/local_password_setup_handler.h"
 #include "chrome/browser/ui/webui/ash/login/password_selection_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/pin_setup_screen_handler.h"
-#include "chrome/grit/generated_resources.h"
 #include "chromeos/ash/components/cryptohome/constants.h"
 #include "chromeos/ash/components/dbus/userdataauth/fake_userdataauth_client.h"
 #include "chromeos/ash/components/osauth/public/auth_session_storage.h"
@@ -874,6 +874,33 @@ IN_PROC_BROWSER_TEST_F(PinSetupScreenTestWithManagedLocalPinAndPasswordEnabled,
 
   // Skip button should be enabled for SAML users when local password is
   // allowed.
+  test::OobeJS().ExpectEnabledPath(kSkipButton);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    PinSetupScreenTestWithManagedLocalPinAndPasswordEnabled,
+    SAMLSkipButtonVisibleWhenQuickUnlockPinAllowedAsSecondaryFactor) {
+  // Quick unlock policy allows PIN.
+  SetAllowPinUnlockPolicyForEnterpriseUsers();
+
+  LoginAndWaitForCryptohomeSetupScreenExit();
+  SetSAMLAuthFlow();
+  CryptohomeRecoverySetupContinue();
+
+  // PIN will not be offered as a main factor as this hasn't been configured by
+  // policy.
+  WaitForScreenExit();
+
+  // No password selection screen for user's where the policy does not allow it.
+  // They must use their online password.
+  WaitForFingerprintScreenExit();
+  ExpectFingerprintScreenExitedAndContinue();
+
+  // PIN should be offered as a secondary factor instead.
+  WaitForScreenShown();
+
+  // Skip button should be enabled for secondary factor setup, even if local
+  // password is NOT allowed for a SAML user.
   test::OobeJS().ExpectEnabledPath(kSkipButton);
 }
 

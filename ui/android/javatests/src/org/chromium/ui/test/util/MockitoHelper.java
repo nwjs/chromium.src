@@ -28,7 +28,7 @@ public class MockitoHelper {
      *
      * <p>This often allows us to verify the functionality inside the provided object, trigger it
      * exactly when we want to, or verify that a sequences of events happen in the order we expect.
-     * However this does not allow access to multiple arguments or to specify the return value, in
+     * However, this does not allow access to multiple arguments or to specify the return value, in
      * which case using the original doAnswer is likely better.
      *
      * <p>Note that users of this should be careful when invoking functionality directly in their
@@ -68,7 +68,7 @@ public class MockitoHelper {
                 });
     }
 
-    /** Similar to {@link #doCallback(Callback)} but able to return a value as well. */
+    /** Similar to {@link #doCallback(Callback)} but able to return a value. */
     public static <T, R> Stubber doFunction(Function<T, R> function) {
         return doFunction(function, 0);
     }
@@ -79,6 +79,7 @@ public class MockitoHelper {
     }
 
     /** Forwards {@link Callback#bind} back to the callback object, allowing mocks to work. */
+    @SuppressWarnings("CallbackBind") // Would cause infinite recursion.
     public static <T> void forwardBind(Callback<T> callback) {
         Mockito.doAnswer(
                         (Answer<Runnable>)
@@ -129,6 +130,17 @@ public class MockitoHelper {
      */
     @SuppressWarnings("unchecked")
     public static <T> Callback<T> mockCallback() {
-        return Mockito.mock(Callback.class);
+        Callback<T> mock = Mockito.mock(Callback.class);
+        forwardBind(mock);
+        return mock;
+    }
+
+    /**
+     * Type-safe wrapper around {@code Mockito.clearInvocations} that avoids unchecked warnings when
+     * clearing parameterized (generic) mocks.
+     */
+    @SafeVarargs
+    public static <T> void clearInvocations(T... mocks) {
+        Mockito.clearInvocations(mocks);
     }
 }

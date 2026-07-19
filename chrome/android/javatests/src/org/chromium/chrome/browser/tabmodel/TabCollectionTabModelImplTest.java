@@ -61,6 +61,7 @@ import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.page.WebPageStation;
 import org.chromium.components.browser_ui.widget.ActionConfirmationResult;
 import org.chromium.components.tab_groups.TabGroupColorId;
+import org.chromium.components.tab_groups.TabGroupsFeatureMap;
 import org.chromium.content_public.browser.LoadUrlParams;
 
 import java.util.ArrayList;
@@ -80,6 +81,7 @@ import java.util.concurrent.atomic.AtomicReference;
     ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE,
     ChromeSwitches.DISABLE_STARTUP_PROMOS
 })
+@DisableFeatures({TabGroupsFeatureMap.UPDATE_TAB_GROUP_COLORS})
 @Batch(Batch.PER_CLASS)
 public class TabCollectionTabModelImplTest {
     @Rule
@@ -1058,7 +1060,6 @@ public class TabCollectionTabModelImplTest {
         Tab tab2 = createTab();
         assertTabsInOrderAre(List.of(tab0, tab1, tab2));
 
-        CallbackHelper didMoveTabGroupHelper = new CallbackHelper();
         CallbackHelper didMoveTabHelper = new CallbackHelper();
 
         TabGroupObserver groupObserver =
@@ -1070,10 +1071,7 @@ public class TabCollectionTabModelImplTest {
 
                     @Override
                     public void didMoveTabGroup(Tab movedTab, int oldIndex, int newIndex) {
-                        assertEquals(tab1, movedTab);
-                        assertEquals(2, newIndex);
-                        assertEquals(1, oldIndex);
-                        didMoveTabGroupHelper.notifyCalled();
+                        fail("didMoveTabGroup should not be called for individual tab.");
                     }
                 };
         TabModelObserver modelObserver =
@@ -1097,7 +1095,6 @@ public class TabCollectionTabModelImplTest {
                     mCollectionModel.removeObserver(modelObserver);
                 });
 
-        didMoveTabGroupHelper.waitForOnly();
         didMoveTabHelper.waitForOnly();
 
         assertTabsInOrderAre(List.of(tab0, tab2, tab1));
@@ -3062,6 +3059,22 @@ public class TabCollectionTabModelImplTest {
         return mActivityTestRule.loadUrlInNewTab(mTestUrl, /* incognito= */ false);
     }
 
+    private void verifyCacheInSync() {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    List<Tab> cacheTabs = mCollectionModel.getAllTabs();
+                    List<Tab> nativeTabs = mCollectionModel.getAllTabsFromNativeForTesting();
+                    assertEquals(
+                            "Cache and Native tabs size mismatch",
+                            nativeTabs.size(),
+                            cacheTabs.size());
+                    for (int i = 0; i < nativeTabs.size(); i++) {
+                        assertEquals(
+                                "Tab mismatch at index " + i, nativeTabs.get(i), cacheTabs.get(i));
+                    }
+                });
+    }
+
     private void mergeListOfTabsToGroup(List<Tab> tabs, Tab destinationTab) {
         ThreadUtils.runOnUiThreadBlocking(
                 () ->
@@ -3412,7 +3425,7 @@ public class TabCollectionTabModelImplTest {
         // Exit the tab switcher to fulfill AutoResetCtaTransitTestRule for future tests.
         ChromeTabbedActivity cta = mActivityTestRule.getActivity();
         LayoutManagerChrome layoutManager = cta.getLayoutManager();
-        LayoutTestUtils.waitForLayout(layoutManager, LayoutType.TAB_SWITCHER);
+        LayoutTestUtils.waitForLayout(layoutManager, LayoutType.HUB);
         clickFirstCardFromTabSwitcher(cta);
         LayoutTestUtils.waitForLayout(layoutManager, LayoutType.BROWSING);
 
@@ -4464,6 +4477,72 @@ public class TabCollectionTabModelImplTest {
                 () -> {
                     assertFalse(mCollectionModel.isClosingAllTabs());
                     mCollectionModel.removeObserver(observer);
+                });
+    }
+
+    @Test
+    @MediumTest
+    public void testCacheSyncAfterOperations() throws Exception {
+        // Initial state
+        verifyCacheInSync();
+
+        // 1. Add multiple tabs
+        Tab tab0 =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> mRegularModel.getCurrentTabSupplier().get());
+        Tab tab1 = createTab();
+        Tab tab2 = createTab();
+        Tab tab3 = createTab();
+        verifyCacheInSync();
+        assertTabsInOrderAre(List.of(tab0, tab1, tab2, tab3));
+
+        // 2. Move a tab
+        moveTab(tab1, 3);
+        verifyCacheInSync();
+        assertTabsInOrderAre(List.of(tab0, tab2, tab3, tab1));
+
+        // 3. Group tabs
+        mergeListOfTabsToGroup(List.of(tab2, tab3), tab2);
+        verifyCacheInSync();
+        Token groupId = ThreadUtils.runOnUiThreadBlocking(() -> tab2.getTabGroupId());
+        assertNotNull(groupId);
+
+        // 4. Move a tab group (triggers optimized moveTabGroup)
+        // Current state: tab0, [tab2, tab3], tab1
+        // Move group to after tab1 (tab1 is at tab index 3) -> tab0, tab1, [tab2, tab3]
+        ThreadUtils.runOnUiThreadBlocking(() -> mCollectionModel.moveGroupToIndex(groupId, 3));
+        verifyCacheInSync();
+        assertTabsInOrderAre(List.of(tab0, tab1, tab2, tab3));
+
+        // Edge Case: Move group to its own current index (2) -> no-op
+        ThreadUtils.runOnUiThreadBlocking(() -> mCollectionModel.moveGroupToIndex(groupId, 2));
+        verifyCacheInSync();
+        assertTabsInOrderAre(List.of(tab0, tab1, tab2, tab3));
+
+        // Edge Case: Move group to an index inside its own range (3) -> no-op
+        ThreadUtils.runOnUiThreadBlocking(() -> mCollectionModel.moveGroupToIndex(groupId, 3));
+        verifyCacheInSync();
+        assertTabsInOrderAre(List.of(tab0, tab1, tab2, tab3));
+
+        // Move group back to index 0 -> [tab2, tab3], tab0, tab1
+        ThreadUtils.runOnUiThreadBlocking(() -> mCollectionModel.moveGroupToIndex(groupId, 0));
+        verifyCacheInSync();
+        assertTabsInOrderAre(List.of(tab2, tab3, tab0, tab1));
+
+        // 5. Remove a tab from group
+        ThreadUtils.runOnUiThreadBlocking(() -> mCollectionModel.removeTab(tab3));
+        verifyCacheInSync();
+        assertTabsInOrderAre(List.of(tab2, tab0, tab1));
+
+        // 6. Remove remaining tabs
+        ThreadUtils.runOnUiThreadBlocking(() -> mCollectionModel.removeTab(tab2));
+        verifyCacheInSync();
+        assertTabsInOrderAre(List.of(tab0, tab1));
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    tab2.destroy();
+                    tab3.destroy();
                 });
     }
 }

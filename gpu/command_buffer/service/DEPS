@@ -9,6 +9,7 @@ include_rules = [
   "+components/crash/core/common/crash_key.h",
   "+components/metal_util",
   "+components/persistent_cache",
+  "+components/version_info/version_info.h",
   "+components/viz/common/gpu/vulkan_context_provider.h",
   "+components/viz/common/resources/shared_image_format.h",
   "+components/viz/common/resources/shared_image_format.h",
@@ -17,7 +18,7 @@ include_rules = [
 ]
 
 specific_include_rules = {
-  "drm_modifiers_filter_dawn\.cc": [
+  "drm_modifiers_filter_dawn\\.cc": [
     "+third_party/libdrm/src/include/drm/drm_fourcc.h",
   ],
 }

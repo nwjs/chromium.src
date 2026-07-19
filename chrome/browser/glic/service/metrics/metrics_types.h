@@ -120,10 +120,10 @@ enum class ResponseSegmentation {
   kTextSelectionWidgetAttachedAudio = 102,
   kTextSelectionWidgetDetachedText = 103,
   kTextSelectionWidgetDetachedAudio = 104,
-  kZeroStateAutoSummarizeAttachedText = 105,
-  kZeroStateAutoSummarizeAttachedAudio = 106,
-  kZeroStateAutoSummarizeDetachedText = 107,
-  kZeroStateAutoSummarizeDetachedAudio = 108,
+  kObsoleteZeroStateAutoSummarizeAttachedText = 105,
+  kObsoleteZeroStateAutoSummarizeAttachedAudio = 106,
+  kObsoleteZeroStateAutoSummarizeDetachedText = 107,
+  kObsoleteZeroStateAutoSummarizeDetachedAudio = 108,
   kUniversalCartAttachedText = 109,
   kUniversalCartAttachedAudio = 110,
   kUniversalCartDetachedText = 111,
@@ -182,6 +182,33 @@ enum class DaisyChainSource {
   kMaxValue = kBookmark,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/histograms.xml:Source)
+
+// LINT.IfChange(GlicDragAndDropValidationResult)
+enum class GlicDragAndDropValidationResult {
+  kSuccess = 0,
+  kBlockedByFeatureFlag = 1,
+  kInvalidDragId = 2,
+  kCrossProfileDragBlocked = 3,
+  kSourceWebContentsDestroyed = 4,
+  kSourceTabClosed = 5,
+  kTargetWebContentsDestroyed = 6,
+  kSourceFrameNavigatedBeforeContextFetched = 7,
+  kContextFetchFailed = 8,
+  kMaxValue = kContextFetchFailed,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicDragAndDropValidationResult)
+
+// LINT.IfChange(GlicDragAndDropContentType)
+enum class GlicDragAndDropContentType {
+  kUnknown = 0,
+  kImage = 1,
+  kText = 2,
+  kHtml = 3,
+  kUrl = 4,
+  kFile = 5,
+  kMaxValue = kFile,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicDragAndDropContentType)
 
 std::string GetDaisyChainSourceString(DaisyChainSource source);
 

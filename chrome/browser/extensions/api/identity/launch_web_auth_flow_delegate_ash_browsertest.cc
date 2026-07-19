@@ -4,6 +4,7 @@
 
 #include "chrome/browser/extensions/api/identity/launch_web_auth_flow_delegate_ash.h"
 
+#include "ash/constants/ash_extension_constants.h"
 #include "base/test/bind.h"
 #include "base/test/test_future.h"
 #include "base/threading/thread_restrictions.h"
@@ -15,7 +16,6 @@
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/common/extensions/extension_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/test/browser_test.h"
@@ -106,7 +106,7 @@ IN_PROC_BROWSER_TEST_F(LaunchWebAuthFlowDelegateAshBrowserTest,
   LaunchWebAuthFlowDelegateAsh delegate;
 
   Browser* files_app_browser = OpenFilesAppWindow();
-  files_app_browser->window()->SetBounds(gfx::Rect(200, 200, 600, 600));
+  files_app_browser->GetWindow()->SetBounds(gfx::Rect(200, 200, 600, 600));
 
   base::test::TestFuture<std::optional<gfx::Rect>> future;
   delegate.GetOptionalWindowBounds(
@@ -121,7 +121,7 @@ IN_PROC_BROWSER_TEST_F(LaunchWebAuthFlowDelegateAshBrowserTest,
   LaunchWebAuthFlowDelegateAsh delegate;
 
   Browser* files_app_browser = OpenFilesAppWindow();
-  files_app_browser->window()->SetBounds(gfx::Rect(200, 200, 700, 700));
+  files_app_browser->GetWindow()->SetBounds(gfx::Rect(200, 200, 700, 700));
 
   base::test::TestFuture<std::optional<gfx::Rect>> future;
   delegate.GetOptionalWindowBounds(
@@ -136,7 +136,7 @@ IN_PROC_BROWSER_TEST_F(LaunchWebAuthFlowDelegateAshBrowserTest,
   LaunchWebAuthFlowDelegateAsh delegate;
 
   Browser* files_app_browser = OpenFilesAppWindow();
-  files_app_browser->window()->SetBounds(gfx::Rect(-50, -80, 600, 600));
+  files_app_browser->GetWindow()->SetBounds(gfx::Rect(-50, -80, 600, 600));
 
   base::test::TestFuture<std::optional<gfx::Rect>> future;
   delegate.GetOptionalWindowBounds(

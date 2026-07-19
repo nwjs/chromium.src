@@ -10,12 +10,25 @@
 #import "ios/chrome/browser/shared/coordinator/scene/state/layout_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/layout_transition_coordinating.h"
 
+namespace layout_state {
+class AssistantContainerAnimatorPassKeyFactory {
+ public:
+  static base::PassKey<AssistantContainerAnimatorPassKeyFactory> CreateKey() {
+    return base::PassKey<AssistantContainerAnimatorPassKeyFactory>();
+  }
+};
+}  // namespace layout_state
+
 namespace {
 // Animation constants.
 constexpr CGFloat kSpringDamping = 0.8;
 constexpr CGFloat kTranslationMargin = 20.0;
 constexpr NSTimeInterval kAssistantSidePanelAnimationDuration = 0.5;
-constexpr NSTimeInterval kAssistantBottomSheetAnimationDuration = 0.4;
+
+// Helper function to return the domain passkey used to mutate the layout state.
+inline LayoutStateAssistantPassKey PassKey() {
+  return layout_state::AssistantContainerAnimatorPassKeyFactory::CreateKey();
+}
 }  // namespace
 
 @interface AssistantContainerAnimator () <LayoutTransitionCoordinating>
@@ -43,20 +56,24 @@ constexpr NSTimeInterval kAssistantBottomSheetAnimationDuration = 0.4;
 - (void)animatePresentation:
             (UIViewController<AssistantContainerAnimatable>*)viewController
                    animated:(BOOL)animated
+                 animations:(void (^)(void))animations
                  completion:(void (^)(void))completion {
   [self animateBottomSheet:viewController
                  presented:YES
                   animated:animated
+                animations:animations
                 completion:completion];
 }
 
 - (void)animateDismissal:
             (UIViewController<AssistantContainerAnimatable>*)viewController
                 animated:(BOOL)animated
+              animations:(void (^)(void))animations
               completion:(void (^)(void))completion {
   [self animateBottomSheet:viewController
                  presented:NO
                   animated:animated
+                animations:animations
                 completion:completion];
 }
 
@@ -132,7 +149,7 @@ constexpr NSTimeInterval kAssistantBottomSheetAnimationDuration = 0.4;
   }
 
   if (!animated) {
-    layoutState.containedLayoutActive = presented;
+    [layoutState setContainedLayoutActive:presented assistantPassKey:PassKey()];
     if (completion) {
       completion();
     }
@@ -140,7 +157,8 @@ constexpr NSTimeInterval kAssistantBottomSheetAnimationDuration = 0.4;
   }
 
   [layoutState setContainedLayoutActive:presented
-              withTransitionCoordinator:self];
+              withTransitionCoordinator:self
+                       assistantPassKey:PassKey()];
 
   if (completion) {
     [_completions addObject:completion];
@@ -176,6 +194,7 @@ constexpr NSTimeInterval kAssistantBottomSheetAnimationDuration = 0.4;
             (UIViewController<AssistantContainerAnimatable>*)viewController
                  presented:(BOOL)presented
                   animated:(BOOL)animated
+                animations:(void (^)(void))animations
                 completion:(void (^)(void))completion {
   UIView* view = viewController.view;
   UIView* containerView = viewController.assistantContainerView;
@@ -210,6 +229,9 @@ constexpr NSTimeInterval kAssistantBottomSheetAnimationDuration = 0.4;
     [UIView performWithoutAnimation:^{
       containerView.transform = targetTransform;
       dimmingView.alpha = targetAlpha;
+      if (animations) {
+        animations();
+      }
     }];
     viewController.isAnimating = NO;
     if (completion) {
@@ -226,6 +248,9 @@ constexpr NSTimeInterval kAssistantBottomSheetAnimationDuration = 0.4;
       animations:^{
         containerView.transform = targetTransform;
         dimmingView.alpha = targetAlpha;
+        if (animations) {
+          animations();
+        }
       }
       completion:^(BOOL finished) {
         viewController.isAnimating = NO;

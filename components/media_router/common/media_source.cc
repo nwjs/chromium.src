@@ -78,7 +78,12 @@ bool IsSystemAudioCaptureSupported() {
 }  // namespace
 
 bool IsDialAppName(std::string_view app_name) {
-  if (app_name.empty()) {
+  if (app_name.empty() || app_name == "." || app_name == "..") {
+    return false;
+  }
+  // Reject the RFC 3986 dot-segment tokens so GetDialAppUrl()'s Resolve() call
+  // cannot traverse outside the device's Application-URL path namespace.
+  if (app_name == "." || app_name == "..") {
     return false;
   }
   return std::ranges::all_of(app_name, [](char c) {

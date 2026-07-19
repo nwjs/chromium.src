@@ -5,8 +5,8 @@
 import './power_bookmark_row_item.js';
 import '//bookmarks-side-panel.top-chrome/shared/sp_heading.js';
 
-import type {PriceTrackingBrowserProxy} from '//resources/cr_components/commerce/price_tracking_browser_proxy.js';
-import {PriceTrackingBrowserProxyImpl} from '//resources/cr_components/commerce/price_tracking_browser_proxy.js';
+import type {BrowserProxy as PriceTrackingBrowserProxy} from '//resources/cr_components/commerce/price_tracking.mojom-webui.js';
+import {browserProxyFactory as priceTrackingBrowserProxyFactory} from '//resources/cr_components/commerce/price_tracking.mojom-webui.js';
 import type {BookmarkProductInfo} from '//resources/cr_components/commerce/shared.mojom-webui.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
@@ -106,7 +106,7 @@ export class PowerBookmarkRowElement extends CrLitElement {
   private bookmarksService_: PowerBookmarksService =
       PowerBookmarksService.getInstance();
   private priceTrackingProxy_: PriceTrackingBrowserProxy =
-      PriceTrackingBrowserProxyImpl.getInstance();
+      priceTrackingBrowserProxyFactory.getInstance();
   private shoppingListenerIds_: number[] = [];
   private keyArrowNavigationService_: KeyArrowNavigationService =
       KeyArrowNavigationService.getInstance();
@@ -117,7 +117,7 @@ export class PowerBookmarkRowElement extends CrLitElement {
     this.addEventListener('focus', this.onFocus_);
     this.isPriceTracked = this.isPriceTracked_();
 
-    const callbackRouter = this.priceTrackingProxy_.getCallbackRouter();
+    const callbackRouter = this.priceTrackingProxy_.callbackRouter;
     this.shoppingListenerIds_.push(
         callbackRouter.priceTrackedForBookmark.addListener(
             (product: BookmarkProductInfo) =>
@@ -133,7 +133,7 @@ export class PowerBookmarkRowElement extends CrLitElement {
   override disconnectedCallback() {
     super.disconnectedCallback();
     this.shoppingListenerIds_.forEach(
-        id => this.priceTrackingProxy_.getCallbackRouter().removeListener(id));
+        id => this.priceTrackingProxy_.callbackRouter.removeListener(id));
   }
 
   private handleBookmarkSubscriptionChange_(
@@ -146,15 +146,9 @@ export class PowerBookmarkRowElement extends CrLitElement {
   override willUpdate(changedProperties: PropertyValues<this>) {
     super.willUpdate(changedProperties);
 
-    if (changedProperties.has('bookmark') &&
-        this.bookmark.id !== changedProperties.get('bookmark')?.id) {
-      this.toggleExpand = false;
-      if (this.isFolder_() && this.bookmark.children) {
-        this.bookmarksService_.sortBookmarks(
-            this.bookmark.children, this.activeSortIndex);
-      }
+    if (changedProperties.has('bookmark')) {
+      this.isPriceTracked = this.isPriceTracked_();
     }
-
 
     if (changedProperties.has('compact')) {
       this.listItemSize =
@@ -166,12 +160,6 @@ export class PowerBookmarkRowElement extends CrLitElement {
         this.style.setProperty(
             '--margin-per-depth', `${NESTED_BOOKMARKS_MARGIN_PER_DEPTH}px`);
       }
-    }
-
-    if (changedProperties.has('activeSortIndex') && this.isFolder_() &&
-        this.bookmark.children) {
-      this.bookmarksService_.sortBookmarks(
-          this.bookmark.children, this.activeSortIndex);
     }
   }
 
@@ -210,20 +198,15 @@ export class PowerBookmarkRowElement extends CrLitElement {
     this.currentListItem_.focus();
   }
 
-  private setExpanded_(expanded: boolean, event?: Event) {
+  private setExpanded_(expanded: boolean) {
     if (!this.isFolder_() || this.toggleExpand === expanded) {
       return;
     }
     this.toggleExpand = expanded;
 
-    if (!this.toggleExpand) {
-      this.keyArrowNavigationService_.removeElementsWithin(this);
-    }
-
     this.fire('power-bookmark-toggle', {
       bookmark: this.bookmark,
       expanded: this.toggleExpand,
-      event: event,
     });
   }
 
@@ -252,10 +235,9 @@ export class PowerBookmarkRowElement extends CrLitElement {
       if (this.isFolder_() && this.toggleExpand) {
         this.setExpanded_(false);
       } else {
-        const parentRow =
-            (this.getRootNode() as ShadowRoot)?.host as HTMLElement;
-        parentRow.focus();
-        this.keyArrowNavigationService_.setCurrentFocusIndex(parentRow);
+        this.fire('power-bookmark-row-focus-parent', {
+          parentId: this.bookmark.parentId,
+        });
       }
       e.stopPropagation();
       return;
@@ -303,14 +285,14 @@ export class PowerBookmarkRowElement extends CrLitElement {
   protected onExpandedChanged_(event: CustomEvent<{value: boolean}>) {
     event.preventDefault();
     event.stopPropagation();
-    this.setExpanded_(event.detail.value, event);
+    this.setExpanded_(event.detail.value);
   }
 
   private isPriceTracked_(): boolean {
     return !!this.bookmarksService_.getPriceTrackedInfo(this.bookmark);
   }
 
-  protected shouldExpand_(): boolean {
+  protected canExpand_(): boolean {
     return !!(this.bookmark?.children && this.compact);
   }
 
@@ -323,7 +305,14 @@ export class PowerBookmarkRowElement extends CrLitElement {
   }
 
   protected getListItemCssClass_(): string {
+    if (this.canExpand_()) {
+      return 'expandable-folder';
+    }
     return this.compact ? 'bookmark' : '';
+  }
+
+  protected isExpanded_(): boolean {
+    return this.canExpand_() && this.toggleExpand;
   }
 }
 

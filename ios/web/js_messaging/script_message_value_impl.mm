@@ -4,10 +4,12 @@
 
 #import <variant>
 
+#import "base/check.h"
+#import "base/check_op.h"
+#import "base/no_destructor.h"
 #import "base/notreached.h"
 #import "base/strings/sys_string_conversions.h"
 #import "ios/web/js_messaging/web_view_js_utils.h"
-#import "ios/web/public/js_messaging/script_message_dict_value.h"
 #import "ios/web/public/js_messaging/script_message_value.h"
 
 namespace web {
@@ -18,18 +20,25 @@ ScriptMessageValue::ScriptMessageValue(ScriptMessageValue&&) = default;
 ScriptMessageValue& ScriptMessageValue::operator=(ScriptMessageValue&&) =
     default;
 
-ScriptMessageValue::ScriptMessageValue(base::Value value)
-    : data_(std::move(value)) {}
+ScriptMessageValue::ScriptMessageValue(std::string&& value)
+    : data_(base::Value(std::move(value))) {}
+ScriptMessageValue::ScriptMessageValue(std::string_view value)
+    : data_(base::Value(value)) {}
 ScriptMessageValue::ScriptMessageValue(std::u16string_view value)
     : data_(base::Value(value)) {}
+ScriptMessageValue::ScriptMessageValue(int value) : data_(base::Value(value)) {}
 ScriptMessageValue::ScriptMessageValue(double value)
     : data_(base::Value(value)) {}
 ScriptMessageValue::ScriptMessageValue(bool value)
     : data_(base::Value(value)) {}
+ScriptMessageValue::ScriptMessageValue(NSDictionary* value)
+    : ScriptMessageValue(ScriptMessageDictValue(value)) {}
 ScriptMessageValue::ScriptMessageValue(ScriptMessageDictValue value)
     : data_(std::move(value)) {}
-ScriptMessageValue::ScriptMessageValue(NSDictionary* value)
-    : data_(ScriptMessageDictValue(value)) {}
+ScriptMessageValue::ScriptMessageValue(NSArray* value)
+    : ScriptMessageValue(ScriptMessageListValue(value)) {}
+ScriptMessageValue::ScriptMessageValue(ScriptMessageListValue value)
+    : data_(std::move(value)) {}
 
 ScriptMessageValue::~ScriptMessageValue() = default;
 
@@ -42,14 +51,17 @@ base::Value::Type ScriptMessageValue::type() const {
     return std::get<base::Value>(data_).type();
   } else if (std::holds_alternative<ScriptMessageDictValue>(data_)) {
     return base::Value::Type::DICT;
+  } else if (std::holds_alternative<ScriptMessageListValue>(data_)) {
+    return base::Value::Type::LIST;
   }
 
   NOTREACHED();
 }
 
-const base::Value& ScriptMessageValue::GetValue() {
+const base::Value& ScriptMessageValue::GetValue() const {
   if (std::holds_alternative<std::monostate>(data_)) {
-    data_.emplace<base::Value>(base::Value());
+    static const base::NoDestructor<base::Value> kNoneValue;
+    return *kNoneValue;
   }
 
   CHECK(std::holds_alternative<base::Value>(data_));
@@ -57,8 +69,13 @@ const base::Value& ScriptMessageValue::GetValue() {
 }
 
 const ScriptMessageDictValue& ScriptMessageValue::GetDict() const {
-  CHECK(type() == base::Value::Type::DICT);
+  CHECK(std::holds_alternative<ScriptMessageDictValue>(data_));
   return std::get<ScriptMessageDictValue>(data_);
+}
+
+const ScriptMessageListValue& ScriptMessageValue::GetList() const {
+  CHECK(std::holds_alternative<ScriptMessageListValue>(data_));
+  return std::get<ScriptMessageListValue>(data_);
 }
 
 }  // namespace web

@@ -165,4 +165,24 @@ AutofillBubbleBase* TestAutofillBubbleHandler::ShowSaveIbanConfirmationBubble(
   return save_iban_confirmation_bubble_view_.get();
 }
 
+AutofillBubbleBase* TestAutofillBubbleHandler::ShowOmniboxAutofillBubble(
+    content::WebContents* web_contents,
+    OmniboxAutofillBubbleController* controller) {
+  if (!omnibox_autofill_bubble_view_) {
+    omnibox_autofill_bubble_view_ = std::make_unique<TestAutofillBubble>();
+  }
+  return omnibox_autofill_bubble_view_.get();
+}
+
+AutofillBubbleBase* TestAutofillBubbleHandler::ShowPaymentsChurnedUsersBubble(
+    content::WebContents* web_contents,
+    PaymentsChurnedUsersBubbleController* controller,
+    bool is_user_gesture) {
+  if (!payments_churned_users_bubble_view_) {
+    payments_churned_users_bubble_view_ =
+        std::make_unique<TestAutofillBubble>();
+  }
+  return payments_churned_users_bubble_view_.get();
+}
+
 }  // namespace autofill

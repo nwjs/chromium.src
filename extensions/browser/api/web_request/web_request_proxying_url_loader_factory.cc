@@ -82,11 +82,6 @@ namespace {
 constexpr char kWebRequestProxyingURLLoaderFactoryScope[] =
     "WebRequestProxyingURLLoaderFactory";
 
-// A message when `WebRequestProxyingURLLoaderFactory::CreateLoaderAndStart()`
-// is called with a request ID already in use by another active request.
-constexpr char kDuplicateRequestIdError[] =
-    "Tried to proxy a web request with a duplicate request ID.";
-
 // This shutdown notifier makes sure the proxy is destroyed if an incognito
 // browser context is destroyed. This is needed because WebRequestAPI only
 // clears the proxies when the original browser context is destroyed.
@@ -250,7 +245,7 @@ WebRequestProxyingURLLoaderFactory::InProgressRequest::~InProgressRequest() {
   }
   if (on_before_send_headers_callback_) {
     std::move(on_before_send_headers_callback_)
-        .Run(net::ERR_ABORTED, std::nullopt);
+        .Run(net::ERR_ABORTED, std::nullopt, std::nullopt);
   }
   if (on_headers_received_callback_) {
     std::move(on_headers_received_callback_)
@@ -614,6 +609,7 @@ void WebRequestProxyingURLLoaderFactory::InProgressRequest::OnLoaderCreated(
 }
 
 void WebRequestProxyingURLLoaderFactory::InProgressRequest::OnBeforeSendHeaders(
+    const GURL& request_url,
     const net::HttpRequestHeaders& headers,
     OnBeforeSendHeadersCallback callback) {
   TRACE_EVENT("extensions",
@@ -623,7 +619,7 @@ void WebRequestProxyingURLLoaderFactory::InProgressRequest::OnBeforeSendHeaders(
                   request_id_, kWebRequestProxyingURLLoaderFactoryScope));
 
   if (!current_request_uses_header_client_) {
-    std::move(callback).Run(net::OK, std::nullopt);
+    std::move(callback).Run(net::OK, std::nullopt, std::nullopt);
     return;
   }
 
@@ -898,7 +894,7 @@ void WebRequestProxyingURLLoaderFactory::InProgressRequest::
   if (current_request_uses_header_client_) {
     DCHECK(on_before_send_headers_callback_);
     std::move(on_before_send_headers_callback_)
-        .Run(error_code, request_.headers);
+        .Run(error_code, request_.headers, std::nullopt);
   } else if (pending_follow_redirect_params_) {
     pending_follow_redirect_params_->headers_update_params.removed_headers
         .insert(pending_follow_redirect_params_->headers_update_params
@@ -1570,19 +1566,11 @@ void WebRequestProxyingURLLoaderFactory::CreateLoaderAndStart(
     // correlation against any auth events received by the browser.
     // Requests with a request ID of 0 therefore do not support
     // dispatching |WebRequest.onAuthRequired| events.
-    content::GlobalRequestID global_id(
-        content::ToOriginatingProcessIdUnsafe(render_process_id_), request_id);
-    // Associate the proxy with this request ID. If the request ID is already
-    // in use, abort and report a bad IPC message.
-    if (!proxies_->AssociateProxyWithRequestId(this, global_id)) {
-      if (render_process_id_ != -1) {
-        proxy_receivers_.ReportBadMessage(kDuplicateRequestIdError);
-      }
-      return;
-    }
-    auto emplace_result = network_request_id_to_web_request_id_.emplace(
-        request_id, web_request_id);
-    CHECK(emplace_result.second);
+    proxies_->AssociateProxyWithRequestId(
+        this, content::GlobalRequestID(
+                  content::ToOriginatingProcessIdUnsafe(render_process_id_),
+                  request_id));
+    network_request_id_to_web_request_id_.emplace(request_id, web_request_id);
   }
 
   auto result = requests_.emplace(

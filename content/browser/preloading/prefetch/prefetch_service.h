@@ -167,13 +167,6 @@ class CONTENT_EXPORT PrefetchService : public PrefetchContainerObserver {
   static void SetHostNonUniqueFilterForTesting(
       bool (*filter)(std::string_view));
 
-  // Sets the URLLoaderFactory to be used as
-  // `GetURLLoaderFactoryForCurrentPrefetch()` during testing. Note that this
-  // does not take ownership of |url_loader_factory|, and caller must keep
-  // ownership over the course of the test.
-  static void SetURLLoaderFactoryForTesting(
-      network::SharedURLLoaderFactory* url_loader_factory);
-
   // Sets the NetworkContext to use just for the proxy lookup. Note that this
   // does not take ownership of |network_context|, and the caller must keep
   // ownership over the course of the test.
@@ -246,8 +239,6 @@ class CONTENT_EXPORT PrefetchService : public PrefetchContainerObserver {
   bool StartSinglePrefetch(base::PassKey<PrefetchScheduler>,
                            PrefetchContainer& prefetch_container);
 
-  bool StartSinglePrefetchForTesting(PrefetchContainer& prefetch_container);
-
   const PrefetchScheduler& GetPrefetchSchedulerForMetrics() {
     return *scheduler_;
   }
@@ -260,7 +251,9 @@ class CONTENT_EXPORT PrefetchService : public PrefetchContainerObserver {
   // Cancels unrelated prefetches.
   //
   // See `CancelUnrelatedPrefetchURLLoaderThrottle`.
-  void CancelUnrelatedPrefetchForNavigation();
+  void CancelUnrelatedPrefetchForNavigation(
+      const std::optional<blink::DocumentToken>&
+          navigation_initiator_document_token);
 
   const PrefetchContainer* GetPrefetchContainerForTesting(
       const PrefetchKey& key) const;
@@ -350,8 +343,6 @@ class CONTENT_EXPORT PrefetchService : public PrefetchContainerObserver {
   // `PrefetchContainerDefaultTtlInPrefetchService()` returns a value less than
   // or equal to zero, the prefetch is kept indefinitely.
   void OnPrefetchTimeout(base::WeakPtr<PrefetchContainer> prefetch);
-
-  bool StartSinglePrefetch(PrefetchContainer& prefetch_container);
 
   // Creates a new URL loader and starts a network request for
   // |prefetch_container|. |MakePrefetchRequest| must have been previously

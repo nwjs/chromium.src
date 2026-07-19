@@ -100,10 +100,12 @@ void OpenTabPicker() {
       performAction:grey_tap()];
 
   // Tap the select tabs button.
-  id<GREYMatcher> selectTabsMatcher =
-      grey_allOf(chrome_test_util::ContextMenuItemWithAccessibilityLabelId(
-                     IDS_IOS_COMPOSEBOX_SELECT_TAB_ACTION),
-                 grey_sufficientlyVisible(), nil);
+  id<GREYMatcher> selectTabsMatcher = grey_allOf(
+      grey_accessibilityID(kComposeboxSelectTabsActionAccessibilityIdentifier),
+      grey_sufficientlyVisible(), nil);
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:selectTabsMatcher];
+  [[EarlGrey selectElementWithMatcher:selectTabsMatcher]
+      assertWithMatcher:grey_enabled()];
   [[EarlGrey selectElementWithMatcher:selectTabsMatcher]
       performAction:grey_tap()];
 }
@@ -585,6 +587,63 @@ void RemoveAttachmentWithTitle(NSString* title) {
       assertWithMatcher:grey_nil()];
 }
 
+// Tests that an unrealized tab (e.g., after an app restart) can be successfully
+// attached without timing out. (Regression test for crbug.com/525358986).
+- (void)testAttachUnrealizedTab {
+  if ([ComposeboxAppInterface isServerSideStateEnabled]) {
+    EARL_GREY_TEST_SKIPPED(
+        @"Skipped when kComposeboxServerSideState is enabled.");
+  }
+
+  [ComposeboxAppInterface setFuseboxEligible:YES];
+  [ComposeboxAppInterface setTabUploadAutoSucceed:YES];
+
+  [ChromeEarlGrey closeAllNormalTabs];
+
+  // Open the first tab and load a page.
+  GURL firstURL = self.testServer->GetURL(base::StringPrintf(kPageURL, 1));
+  [ChromeEarlGrey loadURL:firstURL];
+  [ChromeEarlGrey
+      waitForWebStateContainingText:base::StringPrintf(kPageContent, 1)];
+
+  // Open a second tab and load a page. The first tab will be in the background.
+  GURL secondURL = self.testServer->GetURL(base::StringPrintf(kPageURL, 2));
+  [ChromeEarlGrey openNewTab];
+  [ChromeEarlGrey loadURL:secondURL];
+  [ChromeEarlGrey
+      waitForWebStateContainingText:base::StringPrintf(kPageContent, 2)];
+
+  // Restart the application to trigger session restoration.
+  // After restart, the first tab will be restored in an unrealized state.
+  [self triggerRestoreByRestartingApplication];
+
+  // Re-enable tools after restart since they are reset.
+  [ComposeboxAppInterface enableAllTools];
+  [ComposeboxAppInterface setFuseboxEligible:YES];
+  [ComposeboxAppInterface setTabUploadAutoSucceed:YES];
+
+  // Ensure the second tab is fully loaded after restart.
+  [ChromeEarlGrey
+      waitForWebStateContainingText:base::StringPrintf(kPageContent, 2)];
+
+  // Open the Tab Picker from the Composebox.
+  OpenTabPicker();
+
+  // Select the first tab (which is currently unrealized).
+  NSString* firstPageTitle =
+      base::SysUTF8ToNSString(base::StringPrintf(kPageTitle, 1));
+  SelectTabWithTitle(firstPageTitle);
+
+  // Attach the selected tab.
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::NavigationBarDoneButton()]
+      performAction:grey_tap()];
+
+  // Verify that the tab was successfully attached.
+  // If the bug is present, this will fail/timeout because the tab never loads.
+  VerifyTabIsAttachedWithTitle(firstPageTitle);
+}
+
 @end
 
 #pragma mark - ComposeboxEligiblityTestCase
@@ -761,6 +820,60 @@ void RemoveAttachmentWithTitle(NSString* title) {
       waitForUIElementToAppearWithMatcher:
           grey_accessibilityID(
               kComposeboxImageGenerationButtonAccessibilityIdentifier)];
+}
+
+// Tests that the tab picker scrolls to the active tab when opened with many
+// tabs.
+- (void)testTabPickerScrollsToActiveTab {
+  if ([ComposeboxAppInterface isServerSideStateEnabled]) {
+    EARL_GREY_TEST_SKIPPED(
+        @"Skipped when kComposeboxServerSideState is enabled.");
+  }
+
+  [ComposeboxAppInterface setFuseboxEligible:YES];
+  [ComposeboxAppInterface enableAllTools];
+
+  // Close all normal tabs and open 10 tabs.
+  [ChromeEarlGrey closeAllNormalTabs];
+  NSUInteger totalNumberOfTabs = 10;
+  std::vector<GURL> URLS;
+
+  for (NSUInteger i = 0; i < totalNumberOfTabs; ++i) {
+    URLS.push_back(
+        self.testServer->GetURL(base::StringPrintf(kPageURL, i + 1)));
+    [ChromeEarlGrey openNewTab];
+    [ChromeEarlGrey loadURL:URLS[i]];
+    [ChromeEarlGrey waitForPageToFinishLoading];
+  }
+
+  // Wait for the last tab to load to ensure it has the correct title and the
+  // grid is populated.
+  [ChromeEarlGrey
+      waitForWebStateContainingText:base::StringPrintf(kPageContent,
+                                                       totalNumberOfTabs)];
+  ConditionBlock titleCondition = ^{
+    return [[ChromeEarlGrey currentTabTitle]
+        containsString:base::SysUTF8ToNSString(
+                           base::StringPrintf(kPageTitle, totalNumberOfTabs))];
+  };
+  GREYAssert(base::test::ios::WaitUntilConditionOrTimeout(
+                 base::test::ios::kWaitForPageLoadTimeout, titleCondition),
+             @"Page title failed to update.");
+
+  [ChromeEarlGrey waitForMainTabCount:totalNumberOfTabs];
+
+  OpenTabPicker();
+
+  // The last tab opened is the active one.
+  NSString* currentPageTitle = base::SysUTF8ToNSString(
+      base::StringPrintf(kPageTitle, totalNumberOfTabs));
+
+  // Check that the last tab is visible.
+  [ChromeEarlGrey
+      waitForUIElementToAppearWithMatcher:grey_allOf(
+                                              TabWithTitle(currentPageTitle),
+                                              grey_sufficientlyVisible(), nil)
+                                  timeout:base::Seconds(10)];
 }
 
 @end

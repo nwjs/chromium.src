@@ -56,8 +56,14 @@ LINK_RESOURCE_ID(IDR_AUTOFILL_CC_VISA_OLD, R.drawable.visa_card)
 LINK_RESOURCE_ID(IDR_AUTOFILL_CC_VISA, R.drawable.visa_card)
 LINK_RESOURCE_ID(IDR_AUTOFILL_GOOGLE_PAY, R.drawable.google_pay)
 LINK_RESOURCE_ID(IDR_AUTOFILL_GOOGLE_PAY_PILL, R.drawable.googlepay_pill)
+LINK_RESOURCE_ID(IDR_AUTOFILL_GOOGLE_PAY_PILL_WITH_GRADIENT,
+                 R.drawable.googlepay_pill_with_gradient)
 LINK_RESOURCE_ID(IDR_AUTOFILL_GOOGLE_WALLET, R.drawable.googlewallet)
 LINK_RESOURCE_ID(IDR_AUTOFILL_GOOGLE_WALLET_ICON, R.drawable.google_wallet_24dp)
+// Note that R.drawable.googlewallet_icon_with_gradient is always present, but
+// the icon in branded builds is different from the one in unbranded builds.
+LINK_RESOURCE_ID(IDR_AUTOFILL_GOOGLE_WALLET_ICON_WITH_GRADIENT,
+                 R.drawable.googlewallet_icon_with_gradient)
 LINK_RESOURCE_ID(IDR_AUTOFILL_METADATA_BNPL_GENERIC,
                  R.drawable.bnpl_icon_generic)
 LINK_RESOURCE_ID(IDR_AUTOFILL_METADATA_BNPL_GENERIC_OLD,
@@ -114,11 +120,6 @@ DECLARE_RESOURCE_ID(IDR_ANDROID_AUTOFILL_OFFER_TAG_GREEN,
 DECLARE_RESOURCE_ID(IDR_ANDROID_AUTOFILL_ANDROID_MESSAGES,
                     R.drawable.ic_android_messages_icon)
 
-// Note that R.drawable.plus_addresses_logo is always present, but the icon in
-// branded builds is different from the one in unbranded builds,
-DECLARE_RESOURCE_ID(IDR_AUTOFILL_PLUS_ADDRESS,
-                    R.drawable.ic_plus_addresses_logo_16dp)
-
 // Home and work icons.
 DECLARE_RESOURCE_ID(IDR_ANDROID_AUTOFILL_HOME, R.drawable.ic_home_24dp)
 DECLARE_RESOURCE_ID(IDR_ANDROID_AUTOFILL_WORK, R.drawable.work_logo)
@@ -135,9 +136,27 @@ DECLARE_RESOURCE_ID(IDR_ANDROID_AUTOFILL_TRAVEL_LUGGAGE_AND_BAGS,
 DECLARE_RESOURCE_ID(IDR_ANDROID_AUTOFILL_PERSON_CHECK, R.drawable.person_check)
 DECLARE_RESOURCE_ID(IDR_ANDROID_AUTOFILL_VEHICLE, R.drawable.directions_car)
 DECLARE_RESOURCE_ID(IDR_ANDROID_AUTOFILL_SPARK, R.drawable.spark)
+DECLARE_RESOURCE_ID(IDR_ANDROID_AUTOFILL_FLIGHT_SPARK, R.drawable.flight_spark)
+DECLARE_RESOURCE_ID(IDR_ANDROID_AUTOFILL_SHOPPING_BAG, R.drawable.shopping_bag)
+DECLARE_RESOURCE_ID(IDR_ANDROID_AUTOFILL_SHOPPING_BAG_SPARK,
+                    R.drawable.shopping_bag_spark)
+DECLARE_RESOURCE_ID(IDR_ANDROID_AUTOFILL_PASSPORT_SPARK,
+                    R.drawable.passport_spark)
+DECLARE_RESOURCE_ID(IDR_ANDROID_AUTOFILL_SHIPMENT, R.drawable.local_shipping)
+DECLARE_RESOURCE_ID(IDR_ANDROID_AUTOFILL_SHIPMENT_SPARK,
+                    R.drawable.local_shipping_spark)
+DECLARE_RESOURCE_ID(IDR_ANDROID_AUTOFILL_CAR_SPARK, R.drawable.car_spark)
+DECLARE_RESOURCE_ID(IDR_ANDROID_AUTOFILL_ID_CARD_SPARK,
+                    R.drawable.id_card_spark)
+DECLARE_RESOURCE_ID(IDR_ANDROID_AUTOFILL_ID_CARD_2, R.drawable.id_card_2)
+DECLARE_RESOURCE_ID(IDR_ANDROID_AUTOFILL_ID_CARD_2_SPARK,
+                    R.drawable.id_card_2_spark)
 // Note that R.drawable.google_wallet_24dp is always present, but the icon in
 // branded builds is different from the one in unbranded builds.
 DECLARE_RESOURCE_ID(IDR_ANDROID_AUTOFILL_WALLET, R.drawable.google_wallet_24dp)
+DECLARE_RESOURCE_ID(IDR_ANDROID_AUTOFILL_EMAIL,
+                    R.drawable.ic_outline_email_24dp)
 
 // @memory search icon.
 DECLARE_RESOURCE_ID(IDR_ANDROID_AUTOFILL_SEARCH_SPARK, R.drawable.search_spark)
+DECLARE_RESOURCE_ID(IDR_ANDROID_AUTOFILL_SAD_TAB, R.drawable.autofill_sad_tab)

@@ -51,14 +51,29 @@ public final class EventConstants {
     public static final String ADAPTIVE_TOOLBAR_PAGE_SUMMARY_WEB_USED =
             "adaptive_toolbar_page_summary_web_used";
 
+    /** The user interacted with the promo dialog shown to introduce AI Mode with the bottom bar. */
+    public static final String ANDROID_BOTTOM_BAR_AIM_PROMO_DIALOG_USED =
+            "android_bottom_bar_aim_promo_dialog_used";
+
+    /** The user interacted with the AI Mode button on the new bottom bar. */
+    public static final String ANDROID_BOTTOM_BAR_AIM_USED = "android_bottom_bar_aim_used";
+
     /** The user interacted with the GLIC button on the new bottom bar. */
     public static final String ANDROID_BOTTOM_BAR_GLIC_USED = "android_bottom_bar_glic_used";
 
     /** The user interacted with the New Tab button on the new bottom bar. */
     public static final String ANDROID_BOTTOM_BAR_NEW_TAB_USED = "android_bottom_bar_new_tab_used";
 
+    /** The user interacted with the promo dialog for the new bottom bar. */
+    public static final String ANDROID_BOTTOM_BAR_PROMO_DIALOG_USED =
+            "android_bottom_bar_promo_dialog_used";
+
     /** A generic event that any startup promo should notify when it is shown. */
     public static final String ANDROID_STARTUP_PROMO_SHOWN = "android_startup_promo_shown";
+
+    /** The user switched to Vertical Tabs. */
+    public static final String ANDROID_VERTICAL_TABS_PROMO_USED =
+            "android_vertical_tabs_promo_used";
 
     /** Read later related events. */
     public static final String APP_MENU_BOOKMARK_STAR_ICON_PRESSED =
@@ -143,6 +158,10 @@ public final class EventConstants {
 
     /** User has tapped on Identity Disc. */
     public static final String IDENTITY_DISC_USED = "identity_disc_used";
+
+    /** The user tapped the Incognito indicator. */
+    public static final String INCOGNITO_INDICATOR_CLOSE_ALL_WINDOWS_USED =
+            "incognito_indicator_close_all_windows_used";
 
     /** 'Manage windows' menu for multi-instance support feature was tapped. */
     public static final String INSTANCE_SWITCHER_IPH_USED = "instance_switcher_iph_used";
@@ -267,9 +286,6 @@ public final class EventConstants {
 
     /** The page load has failed and user has landed on an offline dino page. */
     public static final String USER_HAS_SEEN_DINO = "user_has_seen_dino";
-
-    /** WebFeed events. */
-    public static final String WEB_FEED_FOLLOW_INTRO_CLICKED = "web_feed_follow_intro_clicked";
 
     /**
      * User performed a web search for a query by choosing the Web Search option on the popup menu.

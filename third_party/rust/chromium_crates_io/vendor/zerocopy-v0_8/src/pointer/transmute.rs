@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-2-Clause OR Apache-2.0 OR MIT
+//
 // Copyright 2025 The Fuchsia Authors
 //
 // Licensed under a BSD-style license <LICENSE-BSD>, Apache License, Version 2.0
@@ -5,6 +7,8 @@
 // license <LICENSE-MIT or https://opensource.org/licenses/MIT>, at your option.
 // This file may not be copied, modified, or distributed except according to
 // those terms.
+
+#![allow(missing_docs)]
 
 use core::{
     cell::{Cell, UnsafeCell},
@@ -223,7 +227,6 @@ where
 }
 
 #[allow(missing_debug_implementations, missing_copy_implementations)]
-#[doc(hidden)]
 pub enum BecauseInvariantsEq {}
 
 macro_rules! unsafe_impl_invariants_eq {

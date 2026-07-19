@@ -73,7 +73,8 @@ class FullscreenControlViewTest : public InProcessBrowserTest {
     // events when views get refreshed, so that they won't interfere with the
     // tests. Note that new mouse move events directly coming from the real
     // device will still pass through.
-    auto* root_window = browser()->window()->GetNativeWindow()->GetRootWindow();
+    auto* root_window =
+        browser()->GetWindow()->GetNativeWindow()->GetRootWindow();
     cursor_client_ =
         std::make_unique<aura::test::TestCursorClient>(root_window);
     cursor_client_->DisableMouseEvents();
@@ -248,7 +249,8 @@ IN_PROC_BROWSER_TEST_F(FullscreenControlViewTest, MouseExitFullscreen) {
 }
 
 // TODO(https://crbug.com/374539762): Deflake and re-enable on Windows.
-#if BUILDFLAG(IS_WIN)
+// TODO(crbug.com/524685085): Flaky on ASAN.
+#if BUILDFLAG(IS_WIN) || defined(ADDRESS_SANITIZER)
 #define MAYBE_MouseExitFullscreen_TimeoutAndRetrigger \
   DISABLED_MouseExitFullscreen_TimeoutAndRetrigger
 #else
@@ -440,8 +442,16 @@ IN_PROC_BROWSER_TEST_F(FullscreenControlViewTest, MAYBE_TouchPopupInteraction) {
   ASSERT_FALSE(browser_view->IsFullscreen());
 }
 
+// TODO(crbug.com/524685085): Flaky on ASAN.
+#if defined(ADDRESS_SANITIZER)
+#define MAYBE_MouseAndTouchInteraction_NoInterference \
+  DISABLED_MouseAndTouchInteraction_NoInterference
+#else
+#define MAYBE_MouseAndTouchInteraction_NoInterference \
+  MouseAndTouchInteraction_NoInterference
+#endif
 IN_PROC_BROWSER_TEST_F(FullscreenControlViewTest,
-                       MouseAndTouchInteraction_NoInterference) {
+                       MAYBE_MouseAndTouchInteraction_NoInterference) {
   EnterActiveTabFullscreenAndFinishPromptAnimation();
   BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
   ASSERT_TRUE(browser_view->IsFullscreen());

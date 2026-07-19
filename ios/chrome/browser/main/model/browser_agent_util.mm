@@ -24,12 +24,13 @@
 #import "ios/chrome/browser/fullscreen/model/fullscreen_browser_agent.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_controller.h"
 #import "ios/chrome/browser/infobars/model/overlays/browser_agent/infobar_overlay_browser_agent_util.h"
+#import "ios/chrome/browser/intelligence/actor/model/actor_browser_agent.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_browser_agent.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/intelligence/persist_tab_context/model/persist_tab_context_browser_agent.h"
 #import "ios/chrome/browser/intents/model/user_activity_browser_agent.h"
 #import "ios/chrome/browser/metrics/model/tab_usage_recorder_browser_agent.h"
-#import "ios/chrome/browser/omnibox/model/omnibox_position/omnibox_position_browser_agent.h"
+#import "ios/chrome/browser/omnibox/model/omnibox_focus/omnibox_focus_browser_agent.h"
 #import "ios/chrome/browser/policy/model/policy_watcher_browser_agent.h"
 #import "ios/chrome/browser/prerender/model/prerender_browser_agent.h"
 #import "ios/chrome/browser/reader_mode/model/features.h"
@@ -124,7 +125,7 @@ void AttachBrowserAgentsForActiveBrowser(Browser* browser) {
       browser, DeviceSharingManagerFactory::GetForProfile(profile));
   UrlLoadingNotifierBrowserAgent::CreateForBrowser(browser);
   AppLauncherBrowserAgent::CreateForBrowser(browser);
-  OmniboxPositionBrowserAgent::CreateForBrowser(browser);
+  OmniboxFocusBrowserAgent::CreateForBrowser(browser);
   AutocompleteBrowserAgent::CreateForBrowser(browser);
   ToolbarsSizeBrowserAgent::CreateForBrowser(browser);
   if (IsAimCobrowseEnabled() && !browser_is_off_record) {
@@ -208,6 +209,10 @@ void AttachBrowserAgentsForActiveBrowser(Browser* browser) {
   if (!browser_is_inactive && !browser_is_temporary && !browser_is_off_record &&
       IsPageActionMenuEnabled()) {
     GeminiBrowserAgent::CreateForBrowser(browser);
+  }
+
+  if (!browser_is_inactive && !browser_is_temporary && IsActorEnabled()) {
+    ActorBrowserAgent::CreateForBrowser(browser);
   }
 
   if (!browser_is_inactive && !browser_is_temporary && !browser_is_off_record) {

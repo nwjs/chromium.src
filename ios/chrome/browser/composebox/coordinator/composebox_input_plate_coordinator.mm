@@ -39,6 +39,7 @@
 #import "ios/chrome/browser/composebox/public/composebox_theme.h"
 #import "ios/chrome/browser/composebox/public/features.h"
 #import "ios/chrome/browser/composebox/shared/coordinator/composebox_attachment_diff.h"
+#import "ios/chrome/browser/composebox/shared/coordinator/composebox_picker_drive_result.h"
 #import "ios/chrome/browser/composebox/shared/coordinator/composebox_picker_presenter.h"
 #import "ios/chrome/browser/composebox/shared/metrics/composebox_metrics_recorder.h"
 #import "ios/chrome/browser/composebox/shared/ui/composebox_snackbar_presenter.h"
@@ -355,6 +356,21 @@ contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
   [_omniboxCoordinator endEditing];
 }
 
+- (void)hideComposeboxMenu {
+  [_menuCoorinator stop];
+  _menuCoorinator = nil;
+}
+
+- (void)focusComposebox {
+  [_omniboxCoordinator focusOmnibox];
+}
+
+- (void)processContextLibraryWebpageSignalWithURL:(const GURL&)url
+                                            title:(NSString*)title {
+  CHECK(_entrypoint == ComposeboxEntrypoint::kCobrowse);
+  [_mediator processContextLibraryWebpageSignalWithURL:url title:title];
+}
+
 #pragma mark - ComposeboxInputPlateViewControllerDelegate
 
 - (void)composeboxViewController:
@@ -480,6 +496,18 @@ contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
   }
 
   [_pickerPresenter presentFilePicker];
+}
+
+- (void)composeboxViewControllerDidTapDriveButton:
+    (ComposeboxInputPlateViewController*)composeboxViewController {
+  [_metricsRecorder
+      recordAttachmentButtonUsed:FuseboxAttachmentButtonType::kDriveFiles];
+  if (![_mediator canAddMoreAttachments]) {
+    [self showMaxAttachmentSnackbarError];
+    return;
+  }
+
+  [_pickerPresenter presentDriveFilePicker];
 }
 
 - (void)composeboxViewControllerDidTapAttachTabsButton:
@@ -679,10 +707,6 @@ contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
   }
 }
 
-- (void)focusComposebox {
-  [_omniboxCoordinator focusOmnibox];
-}
-
 /// Dismisses the composebox via a command to the browser coordinator.
 - (void)dismissComposebox {
   id<BrowserCoordinatorCommands> browserCoordinatorHandler = HandlerForProtocol(
@@ -829,12 +853,23 @@ contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
                              cachedWebStateIDs:cachedWebStateIDs];
 }
 
-#pragma mark - ComposeboxPickerPresenterDataSource
+- (void)composeboxPickerPresenter:(ComposeboxPickerPresenter*)presenter
+                didPickDriveItems:
+                    (NSArray<ComposeboxPickerDriveResult*>*)results {
+  if (results.count == 0) {
+    return;
+  }
 
-- (std::set<web::WebStateID>)allAttachedWebStateIDsForPresenter:
-    (ComposeboxPickerPresenter*)presenter {
-  return [_mediator allAttachedWebStateIDs];
+  [_metricsRecorder recordDriveFilesAttached:results.count];
+
+  for (ComposeboxPickerDriveResult* result in results) {
+    [_mediator processDriveFileWithIdentifier:result.identifier
+                                         name:result.fileName
+                                     mimeType:result.mimeType];
+  }
 }
+
+#pragma mark - ComposeboxPickerPresenterDataSource
 
 - (std::set<web::WebStateID>)attachedWebStateIDsInCurrentContextForPresenter:
     (ComposeboxPickerPresenter*)presenter {
@@ -870,8 +905,7 @@ contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
 
 - (void)composeboxMenuCoordinatorDidDismissMenu:
     (ComposeboxMenuCoordinator*)composeboxMenuCoordinator {
-  [_menuCoorinator stop];
-  _menuCoorinator = nil;
+  [self hideComposeboxMenu];
 }
 
 @end

@@ -19,7 +19,6 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/webid/identity_request_account.h"
 #include "content/public/browser/webid/identity_request_dialog_controller.h"
-#include "services/data_decoder/public/cpp/data_decoder.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/mojom/client_security_state.mojom-forward.h"
 #include "third_party/blink/public/mojom/webid/federated_auth_request.mojom.h"
@@ -48,7 +47,7 @@ enum class MetricsEndpointErrorCode;
 
 // Manages network requests and maintains relevant state for interaction with
 // the Identity Provider across a FedCM transaction. Owned by
-// RequestService and has a lifetime limited to a single identity
+// Request and has a lifetime limited to a single identity
 // transaction between an RP and an IDP.
 //
 // Diagram of the permission-based data flows between the browser and the IDP:
@@ -76,11 +75,6 @@ enum class MetricsEndpointErrorCode;
 // the user to interact with the IDP.
 class CONTENT_EXPORT IdpNetworkRequestManager : public NetworkRequestManager {
  public:
-  enum class LogoutResponse {
-    kSuccess,
-    kError,
-  };
-
   // Don't change the meaning or the order of these values because they are
   // being recorded in metrics and in sync with the counterpart in enums.xml.
   // LINT.IfChange(AccountsResponseInvalidReason)
@@ -261,7 +255,6 @@ class CONTENT_EXPORT IdpNetworkRequestManager : public NetworkRequestManager {
       void(FetchStatus, Endpoints, IdentityProviderMetadata)>;
   using FetchClientMetadataCallback =
       base::OnceCallback<void(FetchStatus, ClientMetadata)>;
-  using LogoutCallback = base::OnceCallback<void()>;
   using DisconnectCallback =
       base::OnceCallback<void(FetchStatus, const std::string&)>;
   using TokenRequestCallback =
@@ -320,7 +313,6 @@ class CONTENT_EXPORT IdpNetworkRequestManager : public NetworkRequestManager {
   // whether a network request is sent to fetch accounts.
   virtual bool SendAccountsRequest(const url::Origin& idp_origin,
                                    const GURL& accounts_url,
-                                   const std::string& client_id,
                                    AccountsRequestCallback callback);
 
   // Request a new token for this user account and RP from the IDP.
@@ -347,9 +339,6 @@ class CONTENT_EXPORT IdpNetworkRequestManager : public NetworkRequestManager {
       const GURL& metrics_endpoint_url,
       bool did_show_ui,
       MetricsEndpointErrorCode error_code);
-
-  // Send logout request to a single target.
-  virtual void SendLogout(const GURL& logout_url, LogoutCallback);
 
   // Send a disconnect request to the IDP.
   virtual void SendDisconnectRequest(const GURL& disconnect_url,

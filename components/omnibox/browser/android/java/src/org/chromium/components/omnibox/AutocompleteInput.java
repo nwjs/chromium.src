@@ -5,7 +5,6 @@
 package org.chromium.components.omnibox;
 
 import android.text.TextUtils;
-import android.util.Range;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.VisibleForTesting;
@@ -21,6 +20,7 @@ import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.components.metrics.OmniboxEventProtos.OmniboxEventProto.PageClassification;
+import org.chromium.components.search_engines.StarterPackId;
 import org.chromium.url.GURL;
 
 import java.lang.annotation.Retention;
@@ -75,20 +75,29 @@ public class AutocompleteInput implements UserData {
         int STANDBY_NO_FOCUS = 3;
     }
 
-    /** Data class representing the active site search mode state in the Omnibox. */
     public static class SiteSearchData {
         public final String keyword;
         public final String fullName;
         public final boolean enteredViaSpace;
+        public final @StarterPackId int starterPackId;
 
         public SiteSearchData(String keyword, String fullName) {
-            this(keyword, fullName, false);
+            this(keyword, fullName, false, StarterPackId.NONE);
         }
 
         public SiteSearchData(String keyword, String fullName, boolean enteredViaSpace) {
+            this(keyword, fullName, enteredViaSpace, StarterPackId.NONE);
+        }
+
+        public SiteSearchData(
+                String keyword,
+                String fullName,
+                boolean enteredViaSpace,
+                @StarterPackId int starterPackId) {
             this.keyword = keyword;
             this.fullName = fullName;
             this.enteredViaSpace = enteredViaSpace;
+            this.starterPackId = starterPackId;
         }
 
         @Override
@@ -114,7 +123,7 @@ public class AutocompleteInput implements UserData {
     private boolean mAllowExactKeywordMatch;
     private boolean mHasAttachments;
     private @AutocompleteState int mAutocompleteState = AutocompleteState.ENABLED;
-    private Range<Integer> mSelection;
+    private TextSelection mSelection;
     private @RefineActionUsage int mRefineActionUsage;
     private boolean mSuggestionsListScrolled;
     private @OmniboxFocusReason int mFocusReason;
@@ -134,8 +143,14 @@ public class AutocompleteInput implements UserData {
 
     // LINT.ThenChange(:CopyFrom)
 
+    @VisibleForTesting
     public AutocompleteInput() {
         reset();
+    }
+
+    public AutocompleteInput(@OmniboxFocusReason int focusReason) {
+        reset();
+        mFocusReason = focusReason;
     }
 
     /**
@@ -164,7 +179,7 @@ public class AutocompleteInput implements UserData {
         mAllowExactKeywordMatch = other.mAllowExactKeywordMatch;
         mHasAttachments = other.mHasAttachments;
         mAutocompleteState = other.mAutocompleteState;
-        mSelection = other.mSelection;
+        mSelection = other.mSelection; // Copied.
         mRefineActionUsage = other.mRefineActionUsage;
         mSuggestionsListScrolled = other.mSuggestionsListScrolled;
         mFocusReason = other.mFocusReason;
@@ -333,7 +348,7 @@ public class AutocompleteInput implements UserData {
      * When new text matches the existing text no action is taken.
      *
      * @param text The user-typed text. Null text is automatically replaced with empty string. Note
-     *     that if the site search is triggered, the text will only contains the content after the
+     *     that if the site search is triggered, the text will only contain the content after the
      *     keyword and space.
      * @return The AutocompleteInput object.
      */
@@ -353,9 +368,19 @@ public class AutocompleteInput implements UserData {
         // Suppress Keyword mode when reverting back to the url.
         mAllowExactKeywordMatch &= !(oldTextUsesKeywordActivator && !newTextUsesKeywordActivator);
 
+        // Update autocomplete state to ENABLED before notifying observers via mUserText.set().
+        // Otherwise, synchronous observers (e.g. AutocompleteMediator.onInputChanged) will run
+        // while the state is still in STANDBY, causing them to ignore the first keystroke.
+        if ((mAutocompleteState == AutocompleteState.STANDBY
+                        || mAutocompleteState == AutocompleteState.STANDBY_NO_FOCUS)
+                && !TextUtils.equals(text, mInitialUserText)) {
+            mAutocompleteState = AutocompleteState.ENABLED;
+        }
+
         mUserText.set(text);
         // Place cursor at the end of text.
-        mSelection = Range.create(text.length(), text.length());
+        mSelection = TextSelection.SELECT_END;
+
         return this;
     }
 
@@ -516,12 +541,12 @@ public class AutocompleteInput implements UserData {
         mHasAttachments = hasAttachments;
     }
 
-    public AutocompleteInput setSelection(int rangeStart, int rangeEnd) {
-        mSelection = Range.create(rangeStart, rangeEnd);
+    public AutocompleteInput setSelection(TextSelection selection) {
+        mSelection = selection;
         return this;
     }
 
-    public Range<Integer> getSelection() {
+    public TextSelection getSelection() {
         return mSelection;
     }
 
@@ -551,7 +576,7 @@ public class AutocompleteInput implements UserData {
         mPageTitle = "";
         mHasAttachments = false;
         // Selection after all text
-        mSelection = Range.create(Integer.MAX_VALUE, Integer.MAX_VALUE);
+        mSelection = TextSelection.SELECT_END;
         mRefineActionUsage = RefineActionUsage.NOT_USED;
         mPageClassification = PageClassification.BLANK_VALUE;
         mFocusReason = OmniboxFocusReason.OMNIBOX_TAP;
@@ -589,11 +614,6 @@ public class AutocompleteInput implements UserData {
      * reflect typing started.
      */
     public @AutocompleteState int getAutocompleteState() {
-        if ((mAutocompleteState == AutocompleteState.STANDBY
-                        || mAutocompleteState == AutocompleteState.STANDBY_NO_FOCUS)
-                && !TextUtils.equals(mUserText.get(), mInitialUserText)) {
-            mAutocompleteState = AutocompleteState.ENABLED;
-        }
         return mAutocompleteState;
     }
 

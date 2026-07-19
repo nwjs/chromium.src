@@ -33,7 +33,7 @@ enum class OAuthConsumerId {
   kAddSupervision = 9,
   kParentAccess = 10,
   kDataSharing = 11,
-  kLauncherItemSuggest = 12,
+  // kLauncherItemSuggest = 12, // Removed due to deprecation.
   kMarketingBackendConnector = 13,
   kPasswordSyncTokenFetcher = 14,
   kLocaleSwitchScreen = 15,
@@ -125,7 +125,9 @@ enum class OAuthConsumerId {
   kSkillsService = 100,
   kContextMemoryService = 101,
   kSyncPreview = 102,
-  kMaxValue = kSyncPreview,
+  kFpopService = 103,
+  kContextContainersService = 104,
+  kMaxValue = kContextContainersService,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/signin/enums.xml:OAuthConsumerId)
 

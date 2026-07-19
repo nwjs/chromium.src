@@ -19,7 +19,6 @@
 
 #include "base/apple/foundation_util.h"
 #include "base/apple/scoped_cftyperef.h"
-#include "base/auto_reset.h"
 #include "base/compiler_specific.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
@@ -28,7 +27,9 @@
 #include "base/strings/string_util.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/timer/elapsed_timer.h"
 #include "base/trace_event/trace_event.h"
+#include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/accessibility/ax_common.h"
@@ -42,6 +43,7 @@
 #import "ui/accessibility/platform/ax_private_attributes_mac.h"
 #import "ui/accessibility/platform/ax_private_webkit_constants_mac.h"
 #include "ui/accessibility/platform/ax_utils_mac.h"
+#include "ui/accessibility/platform/browser_accessibility_cocoa_test_helpers.h"
 #include "ui/accessibility/platform/browser_accessibility_mac.h"
 #include "ui/accessibility/platform/browser_accessibility_manager.h"
 #include "ui/accessibility/platform/browser_accessibility_manager_mac.h"
@@ -72,6 +74,35 @@ static_assert(
     "back an AXTextMarker");
 
 namespace {
+// Test-only attribute name used by accessibility dump tests to read
+// aria-actions custom-action names across the AXUIElementCopyAttributeValue
+// marshaling boundary (NSAccessibilityCustomAction is not marshalable).
+//
+// The attribute is gated by a process-wide runtime flag. Production code
+// never sets the flag; only the dump-test base class
+// (DumpAccessibilityTestBase::SetUp) flips it on Mac. With the flag
+// unset:
+//   - the attribute is NOT advertised by -accessibilityAttributeNames, so
+//     assistive technologies cannot discover it by enumeration, and
+//   - the -customActionNamesForTesting selector short-circuits to nil, so
+//     direct -accessibilityAttributeValue: queries by same-process callers
+//     also receive nil.
+//
+// Avoids compile-time build-flag gating per the //PRESUBMIT.py banned-
+// pattern check (gating the attribute plumbing on a shipping-build macro
+// would leave it effectively untested per Chromium policy).
+NSString* const kAXCustomActionNamesForTestingAttribute =
+    @"AXCustomActionNamesForTesting";
+
+// Set to true by ui::EnableAXCustomActionNamesForTestingProjection().
+// Gates both:
+//  - advertisement of the test attribute in
+//    -internalAccessibilityAttributeNames, and
+//  - the body of the -customActionNamesForTesting selector.
+// Without the opt-in, direct -accessibilityAttributeValue: queries by
+// same-process callers receive nil.
+bool g_enable_ax_custom_action_names_for_testing_projection = false;
+
 // A mapping from an accessibility attribute to its method name.
 NSDictionary* gAttributeToMethodNameMap = nil;
 
@@ -348,6 +379,33 @@ bool IsSelectedStateRelevant(BrowserAccessibility* item) {
          !item->GetBoolAttribute(ax::mojom::BoolAttribute::kSelected);
 }
 
+// Tri-state value stored in BrowserAccessibilityCocoa's `emptyGroupCache`
+// bitfield (2 bits). Keeps the predicate's per-node result memoized across
+// repeated -subrole queries from VoiceOver's hit-test and linear-navigation
+// passes; cleared by -childrenChanged (structural) and
+// -invalidateEmptyGroupCacheUpwards (attribute) along the parent chain.
+//
+// DO NOT add new enumerators without updating the static_assert below and
+// BrowserAccessibilityCocoaBitfields::emptyGroupCache width.
+enum EmptyGroupCache : uint8_t {
+  kEmptyGroupCacheUnknown = 0,
+  kEmptyGroupCacheEmpty = 1,
+  kEmptyGroupCacheNonEmpty = 2,
+};
+static_assert(kEmptyGroupCacheNonEmpty < (1u << 2),
+              "EmptyGroupCache enumerators must fit in the 2-bit "
+              "emptyGroupCache field in BrowserAccessibilityCocoaBitfields.");
+
+// 1-byte bitfield bundle (1+2+5). Used as the @implementation ivar so layout
+// is defined once; static_assert below locks the size.
+struct BrowserAccessibilityCocoaBitfields {
+  uint8_t gettingChildren : 1;
+  uint8_t emptyGroupCache : 2;
+  uint8_t reserved : 5;
+};
+static_assert(sizeof(BrowserAccessibilityCocoaBitfields) == 1,
+              "BrowserAccessibilityCocoaBitfields must pack into one byte.");
+
 }  // namespace
 
 namespace ui {
@@ -365,17 +423,89 @@ AXTextEdit::~AXTextEdit() = default;
 }  // namespace ui
 
 bool ui::IsNSRange(id value) {
+  // SAFETY: Apple documents -[NSValue objCType] as returning "a C string"
+  // (https://developer.apple.com/documentation/foundation/nsvalue/objctype),
+  // and @encode(...) is a NUL-terminated string literal. Foundation exposes
+  // no length-bearing counterpart, so strcmp is the documented comparison.
   return [value isKindOfClass:[NSValue class]] &&
-         0 == UNSAFE_TODO(strcmp([value objCType], @encode(NSRange)));
+         0 == UNSAFE_BUFFERS(strcmp([value objCType], @encode(NSRange)));
 }
+
+// Per-node half of WebKit's `AXCoreObject::isEmptyGroup()` parity (the group
+// role and subtree-walk halves live in -subrole / -isEmptyGroupSubtree):
+// https://github.com/WebKit/WebKit/blob/98a71680bf36199e257bd8e195b4205c3fcd5fe9/Source/WebCore/accessibility/cocoa/AXCoreObjectCocoa.mm#L474
+//
+// WebKit evaluates emptiness on an already-pruned tree; Blink keeps the
+// layout-only wrappers, so child-count accessors can't tell "has child nodes"
+// from "has announceable content". We close that gap by having
+// -isEmptyGroupSubtree walk every descendant, with this returning whether a
+// single node is content-bearing (WebKit's "unignored child" /
+// "renderWidgetChildren" notion). kChildTreeId covers all embedded-content
+// hosts (iframe / plugin / PDF / OOPIF), matching WebKit's isRemoteFrame()
+// early-out.
+//
+// This is the per-DESCENDANT test. The group whose subrole is being computed
+// does NOT run it on itself (WebKit's isEmptyGroup() ignores the group's own
+// name etc.); see -isEmptyGroupSubtree.
+bool ui::HasNonEmptyGroupSemantics(const ui::AXNodeData& data) {
+  // `aria-label=""` is intentionally NOT a signal: per accname-1.2 it produces
+  // an empty accessible name, and WebKit consults no name signal at all here.
+  if (!data.GetStringAttribute(ax::mojom::StringAttribute::kName).empty()) {
+    return true;
+  }
+  if (!data.GetStringAttribute(ax::mojom::StringAttribute::kValue).empty()) {
+    return true;
+  }
+  if (!data.GetStringAttribute(ax::mojom::StringAttribute::kDescription)
+           .empty()) {
+    return true;
+  }
+  // Embedded content (iframe, plugin, PDF) hangs off kChildTreeId. Such a host
+  // is announceable even when its local subtree looks empty in this process.
+  if (data.HasStringAttribute(ax::mojom::StringAttribute::kChildTreeId)) {
+    return true;
+  }
+  // Range roles expose value via kValueForRange, not the string kValue
+  // attribute checked above. This is the meaningful signal for non-focusable
+  // range roles (meter, progress); focusable ones (slider, scrollbar,
+  // spinbutton) are also caught by the kFocusable check below.
+  if (data.IsRangeValueSupported()) {
+    return true;
+  }
+  // IsClickable() already folds in kDefaultActionVerb and the role, so this one
+  // call covers both the click-handler and role-driven clickable axes.
+  if (data.IsClickable() || data.HasState(ax::mojom::State::kFocusable)) {
+    return true;
+  }
+  return false;
+}
+
+namespace ui {
+void EnableAXCustomActionNamesForTestingProjection() {
+  g_enable_ax_custom_action_names_for_testing_projection = true;
+}
+
+bool IsAXCustomActionNamesForTestingProjectionEnabled() {
+  return g_enable_ax_custom_action_names_for_testing_projection;
+}
+}  // namespace ui
+
+@interface BrowserAccessibilityCocoa ()
+- (NSArray<NSString*>*)customActionNamesForTesting;
+@end
+
+@interface BrowserAccessibilityCocoa (Private)
+- (BOOL)resolveEmptyGroupSubtree;
+- (BOOL)resolveChildrenEmptyGroupSubtrees:(NSArray*)children;
+@end
 
 @implementation BrowserAccessibilityCocoa {
   // Dangling pointer https://crbug.com/1475830.
   raw_ptr<ui::BrowserAccessibility, DanglingUntriaged> _owner;
   // An array of children of this object. Cached to avoid re-computing.
   NSMutableArray* __strong _children;
-  // Whether _children is currently being computed.
-  bool _gettingChildren;
+  // 1-byte bitfield bundle. Main thread only (AppKit / NSAccessibility).
+  BrowserAccessibilityCocoaBitfields _bitfields;
   // Stores the previous value of an edit field.
   std::u16string _oldValue;
 }
@@ -385,6 +515,7 @@ bool ui::IsNSRange(id value) {
     NSAccessibilityColumnsAttribute : @"columns",
     NSAccessibilityColumnIndexRangeAttribute : @"columnIndexRange",
     NSAccessibilityContentsAttribute : @"contents",
+    kAXCustomActionNamesForTestingAttribute : @"customActionNamesForTesting",
     NSAccessibilityDisclosingAttribute : @"disclosing",
     NSAccessibilityDisclosedByRowAttribute : @"disclosedByRow",
     NSAccessibilityDisclosureLevelAttribute : @"disclosureLevel",
@@ -433,7 +564,8 @@ bool ui::IsNSRange(id value) {
               withPlatformNode:(ui::AXPlatformNodeMac*)platform_node {
   if ((self = [super initWithNode:platform_node])) {
     _owner = accessibility;
-    _gettingChildren = false;
+    _bitfields.gettingChildren = 0;
+    _bitfields.emptyGroupCache = kEmptyGroupCacheUnknown;
   }
   return self;
 }
@@ -496,7 +628,12 @@ bool ui::IsNSRange(id value) {
   }
 
   if (!_children) {
-    base::AutoReset<bool> set_getting_children(&_gettingChildren, true);
+    // `gettingChildren` lives in a bitfield; taking its address is ill-formed,
+    // so use absl::Cleanup instead of base::AutoReset.
+    _bitfields.gettingChildren = 1;
+    absl::Cleanup resetGettingChildren = [self] {
+      self->_bitfields.gettingChildren = 0;
+    };
     // PlatformChildCount adds extra mac nodes if the node requires them.
     uint32_t childCount = _owner->PlatformChildCount();
     _children = [[NSMutableArray alloc] initWithCapacity:childCount];
@@ -554,11 +691,13 @@ bool ui::IsNSRange(id value) {
 - (void)childrenChanged {
   // This function may be called in the middle of -accessibilityChildren if
   // this node adds extra mac nodes while its children are being requested. If
-  // _gettingChildren is true, we don't need to do anything here.
-  if (![self instanceActive] || _gettingChildren) {
+  if (![self instanceActive] || _bitfields.gettingChildren) {
     return;
   }
   _children = nil;
+  // Structural change: the AXEmptyGroup result for this node depends on its
+  // descendants, so drop the memoized verdict here and walk to the root.
+  _bitfields.emptyGroupCache = kEmptyGroupCacheUnknown;
   BrowserAccessibility* parent = _owner->PlatformGetParent();
   if (parent) {
     BrowserAccessibilityCocoa* parentCocoa =
@@ -566,6 +705,131 @@ bool ui::IsNSRange(id value) {
             parent->GetNativeViewAccessible().Get());
     [parentCocoa childrenChanged];
   }
+}
+
+- (void)invalidateEmptyGroupCacheUpwards {
+  // Own-data signal changed on a descendant: drop cache here and walk to the
+  // root. Siblings keep their caches (O(depth), not O(tree size)).
+  if (![self instanceActive]) {
+    return;
+  }
+  _bitfields.emptyGroupCache = kEmptyGroupCacheUnknown;
+  BrowserAccessibility* parent = _owner->PlatformGetParent();
+  if (parent) {
+    BrowserAccessibilityCocoa* parentCocoa =
+        base::apple::ObjCCastStrict<BrowserAccessibilityCocoa>(
+            parent->GetNativeViewAccessible().Get());
+    [parentCocoa invalidateEmptyGroupCacheUpwards];
+  }
+}
+
+// AXEmptyGroup root predicate. Largely WebKit `isEmptyGroup()` parity: the
+// group does NOT count its own name/description (a label on empty content is a
+// dead-end; this is why a named-but-childless group still flattens). It is
+// empty unless it has an announceable descendant or carries its OWN importance:
+//   - an embedded child tree (kChildTreeId == WebKit renderWidgetChildren),
+//   - it is focusable (a tab stop; skipping it in linear nav while it stays a
+//     tab stop is inconsistent), or
+//   - it is a live region (alert / status / log), which must not be hidden from
+//     linear navigation.
+// Descendants use the full per-node predicate (-resolveEmptyGroupSubtree),
+// which is how named / text leaves stay reachable.
+- (BOOL)isEmptyGroupSubtree {
+  base::ElapsedTimer timer;
+  absl::Cleanup record_latency = [&] {
+    base::UmaHistogramMicrosecondsTimes(
+        "Accessibility.AXEmptyGroupSubrolePredicate.Latency", timer.Elapsed());
+  };
+  if (!_owner) {
+    return YES;
+  }
+  // Own-node importance: never an empty wrapper regardless of descendants.
+  // Checked before the cache fast-path because that cache is keyed on
+  // -resolveEmptyGroupSubtree, which does not consult the live-region role.
+  const ui::AXNodeData& data = _owner->GetData();
+  if (data.HasState(ax::mojom::State::kFocusable) ||
+      data.HasStringAttribute(ax::mojom::StringAttribute::kChildTreeId) ||
+      ui::IsLiveRegion(data.role)) {
+    return NO;
+  }
+  // Fast path: a cached descendant "empty" implies root-empty too (the root
+  // additionally ignores the node's own name/description). "non-empty" is not
+  // conclusive here -- it may be only the node's own name -- so fall through.
+  if (_bitfields.emptyGroupCache == kEmptyGroupCacheEmpty) {
+    return YES;
+  }
+  // Empty iff no child subtree carries announceable content.
+  NSArray* children = [self accessibilityChildren];
+  if (!children) {
+    // nil only for an inactive wrapper; can't evaluate, so don't claim empty.
+    return NO;
+  }
+  return [self resolveChildrenEmptyGroupSubtrees:children];
+}
+
+// Descendant verdict: returns whether this node's subtree carries no
+// announceable content AND memoizes the result in _bitfields.emptyGroupCache
+// (hence the verb name -- this mutates cache state, unlike the read-only root
+// query -isEmptyGroupSubtree).
+- (BOOL)resolveEmptyGroupSubtree {
+  if (!_owner) {
+    return YES;
+  }
+  if (_bitfields.emptyGroupCache == kEmptyGroupCacheEmpty) {
+    return YES;
+  }
+  if (_bitfields.emptyGroupCache == kEmptyGroupCacheNonEmpty) {
+    return NO;
+  }
+
+  // Unlike the root, a descendant DOES count its own announceable signals: that
+  // is how a named / text leaf keeps itself (and its ancestors) reachable.
+  if (ui::HasNonEmptyGroupSemantics(_owner->GetData())) {
+    _bitfields.emptyGroupCache = kEmptyGroupCacheNonEmpty;
+    return NO;
+  }
+
+  // Use the same child list as VoiceOver and dump tests
+  // (-accessibilityChildren), not PlatformGetChild alone. Table header
+  // containers and similar Mac-only wrappers expose cells via
+  // indirect_child_ids with zero platform children.
+  NSArray* children = [self accessibilityChildren];
+  if (!children) {
+    // -accessibilityChildren only returns nil for an inactive wrapper; a live
+    // group with no children yields an empty array, not nil. We can't evaluate
+    // the subtree, so report non-empty (avoid hiding content) and do NOT cache
+    // the verdict, so a later active query re-evaluates.
+    return NO;
+  }
+
+  BOOL empty = [self resolveChildrenEmptyGroupSubtrees:children];
+  _bitfields.emptyGroupCache =
+      empty ? kEmptyGroupCacheEmpty : kEmptyGroupCacheNonEmpty;
+  return empty;
+}
+
+// Child-walk shared by -isEmptyGroupSubtree (root) and
+// -resolveEmptyGroupSubtree (descendant). Resolves (and memoizes) each child's
+// subtree and returns YES iff every child resolves to an empty group.
+// `children` must be non-nil. A child that is not a BrowserAccessibilityCocoa
+// can't be evaluated and is treated as non-empty -- never hide content behind
+// AXEmptyGroup.
+- (BOOL)resolveChildrenEmptyGroupSubtrees:(NSArray*)children {
+  for (id childObj in children) {
+    BrowserAccessibilityCocoa* childCocoa =
+        base::apple::ObjCCast<BrowserAccessibilityCocoa>(childObj);
+    if (!childCocoa) {
+      return NO;
+    }
+    if (![childCocoa resolveEmptyGroupSubtree]) {
+      return NO;
+    }
+  }
+  return YES;
+}
+
+- (NSUInteger)emptyGroupCacheValueForTesting {
+  return _bitfields.emptyGroupCache;
 }
 
 - (NSValue*)columnIndexRange {
@@ -1445,6 +1709,30 @@ bool ui::IsNSRange(id value) {
     return NSAccessibilityContentListSubrole;
   }
 
+  if ([self internalRole] == ax::mojom::Role::kGroup &&
+      _owner->GetStringAttribute(ax::mojom::StringAttribute::kHtmlTag) ==
+          "fieldset") {
+    return ui::NSAccessibilityFieldsetSubrole;
+  }
+
+  // Math nodes are exposed as AXGroup with a native math subrole; do not
+  // replace with AXEmptyGroup (unlike empty landmarks, which intentionally
+  // override their landmark subrole).
+  if (ui::IsMath([self internalRole])) {
+    return [AXPlatformNodeCocoa nativeSubroleFromAXRole:[self internalRole]];
+  }
+
+  // For wrappers exposed as plain groups, expose AXEmptyGroup when the
+  // subtree carries no information. VoiceOver uses this subrole to skip
+  // style-only/layout-only containers during linear navigation, matching
+  // WebKit's macOS behavior. The predicate is memoized per-Cocoa-wrapper
+  // and invalidated by -childrenChanged / -invalidateEmptyGroupCacheUpwards,
+  // so repeated -subrole queries against the same subtree share work.
+  if ([[self role] isEqualToString:NSAccessibilityGroupRole] &&
+      [self isEmptyGroupSubtree]) {
+    return ui::NSAccessibilityEmptyGroupSubrole;
+  }
+
   return [AXPlatformNodeCocoa nativeSubroleFromAXRole:[self internalRole]];
 }
 
@@ -1568,10 +1856,10 @@ bool ui::IsNSRange(id value) {
 
   // This method is only for exposing aria-valuetext to VoiceOver if present.
   // Blink places the value of aria-valuetext in
-  // ax::mojom::StringAttribute::kValue for objects that support range values,
-  // i.e., progress bars, sliders and steppers.
+  // ax::mojom::StringAttribute::kAriaValueText for objects that support range
+  // values, i.e., progress bars, sliders and steppers.
   return base::SysUTF8ToNSString(
-      _owner->GetStringAttribute(ax::mojom::StringAttribute::kValue));
+      _owner->GetStringAttribute(ax::mojom::StringAttribute::kAriaValueText));
 }
 
 // LINT.IfChange
@@ -2765,6 +3053,16 @@ bool ui::IsNSRange(id value) {
   // TODO(aboxhall): expose NSAccessibilityServesAsTitleForUIElementsAttribute
   // for elements which are referred to by labelledby or are labels
 
+  // Advertise the dump-test projection attribute only when test
+  // infrastructure has opted in AND the node actually has custom actions,
+  // so dump-test baselines stay focused on the nodes under test rather
+  // than emitting an empty AXCustomActionNamesForTesting=[] entry on
+  // every node in the tree.
+  if (ui::IsAXCustomActionNamesForTestingProjectionEnabled() && _owner &&
+      _owner->HasState(ax::mojom::State::kHasActions)) {
+    [ret addObject:kAXCustomActionNamesForTestingAttribute];
+  }
+
   [ret addObjectsFromArray:[super internalAccessibilityAttributeNames]];
   return ret;
 }
@@ -3045,6 +3343,42 @@ bool ui::IsNSRange(id value) {
   }
 
   return custom_actions.count > 0 ? custom_actions : nil;
+}
+
+// Projects the production -accessibilityCustomActions return value to a
+// flat NSArray<NSString*> of action names. Exists so dump tests can read
+// custom-action names through AXUIElementCopyAttributeValue, which cannot
+// marshal opaque NSAccessibilityCustomAction objects across processes.
+// See kAXCustomActionNamesForTestingAttribute for the surface-isolation
+// contract.
+//
+// Returns nil (rather than an empty array) when:
+//   - the test infrastructure has not called
+//     ui::EnableAXCustomActionNamesForTestingProjection() (i.e. the
+//     runtime opt-in is unset, which is the case in shipped Chrome and
+//     in any browsertest that has not explicitly opted in), so direct
+//     -accessibilityAttributeValue: queries by same-process callers
+//     see nothing, OR
+//   - the node has no custom actions.
+// The dump-test formatter's AXOptionalNSObject filter treats nil as
+// "not applicable" and omits it from baselines, in addition to the
+// enumeration gate.
+- (NSArray<NSString*>*)customActionNamesForTesting {
+  if (!ui::IsAXCustomActionNamesForTestingProjectionEnabled()) {
+    return nil;
+  }
+  NSArray<NSAccessibilityCustomAction*>* actions =
+      [self accessibilityCustomActions];
+  if (actions.count == 0) {
+    return nil;
+  }
+  NSMutableArray<NSString*>* names =
+      [NSMutableArray arrayWithCapacity:actions.count];
+  for (NSAccessibilityCustomAction* action in actions) {
+    CHECK(action.name);
+    [names addObject:action.name];
+  }
+  return names;
 }
 
 // Sets an override value for a specific accessibility attribute.

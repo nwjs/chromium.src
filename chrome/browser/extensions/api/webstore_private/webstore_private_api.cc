@@ -65,8 +65,6 @@
 #include "extensions/browser/extensions_browser_client.h"
 #include "extensions/browser/install_approval.h"
 #include "extensions/browser/install_tracker.h"
-#include "extensions/browser/manifest_v2_experiment_manager.h"
-#include "extensions/browser/mv2_experiment_stage.h"
 #include "extensions/browser/pref_names.h"
 #include "extensions/browser/scoped_active_install.h"
 #include "extensions/browser/supervised_user_extensions_delegate.h"
@@ -650,10 +648,8 @@ void WebstorePrivateBeginInstallWithManifest3Function::OnInstallStatusCheckDone(
     } else if (supervised_user_extensions_delegate->IsChild() &&
                !supervised_user_extensions_delegate
                     ->CanSkipExtensionParentApprovals()) {
-      supervised_user_extensions_metrics_recorder_
-          .RecordAskParentDialogUmaMetrics(
-              SupervisedUserExtensionsMetricsRecorder::AskParentDialogState::
-                  kOpened);
+      supervised_user_extensions_delegate->RecordAskParentDialogUmaMetrics(
+          SupervisedUserExtensionsDelegate::AskParentDialogState::kOpened);
 
       // This install requires parent permission, so show the Ask Parent dialog.
       ShowExtensionInstallAskParentDialog(
@@ -713,8 +709,8 @@ void WebstorePrivateBeginInstallWithManifest3Function::RequestExtensionApproval(
                          OnExtensionApprovalDone,
                      this);
 #else
-  supervised_user_extensions_metrics_recorder_.RecordAskParentDialogUmaMetrics(
-      SupervisedUserExtensionsMetricsRecorder::AskParentDialogState::kApproved);
+  supervised_user_extensions_delegate->RecordAskParentDialogUmaMetrics(
+      SupervisedUserExtensionsDelegate::AskParentDialogState::kApproved);
 
   auto extension_approval_callback =
       base::BindOnce(&WebstorePrivateBeginInstallWithManifest3Function::
@@ -770,9 +766,16 @@ void WebstorePrivateBeginInstallWithManifest3Function::
                          OnExtensionApprovalDone,
                      this));
 
+  SupervisedUserExtensionsDelegate* supervised_user_extensions_delegate =
+      ManagementAPI::GetFactoryInstance()
+          ->Get(Profile::FromBrowserContext(browser_context_))
+          ->GetSupervisedUserExtensionsDelegate();
+  CHECK(supervised_user_extensions_delegate);
+
   auto prompt = std::make_unique<ExtensionInstallPrompt::Prompt>(
       ExtensionInstallPrompt::EXTENSION_PARENT_APPROVAL_PROMPT);
-  prompt->AddObserver(&supervised_user_extensions_metrics_recorder_);
+  prompt->AddObserver(
+      supervised_user_extensions_delegate->GetInstallPromptObserver());
 
   install_prompt_ = std::make_unique<ExtensionInstallPrompt>(web_contents);
   install_prompt_->ShowDialog(
@@ -792,9 +795,8 @@ void WebstorePrivateBeginInstallWithManifest3Function::OnExtensionApprovalDone(
   if (result != SupervisedExtensionApprovalResult::kApproved &&
       supervised_user_extensions_delegate->IsChild() &&
       !supervised_user_extensions_delegate->CanSkipExtensionParentApprovals()) {
-    supervised_user_extensions_metrics_recorder_.RecordEnablementUmaMetrics(
-        SupervisedUserExtensionsMetricsRecorder::EnablementState::
-            kFailedToEnable);
+    supervised_user_extensions_delegate->RecordEnablementUmaMetrics(
+        SupervisedUserExtensionsDelegate::EnablementState::kFailedToEnable);
   }
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -1009,8 +1011,12 @@ void WebstorePrivateBeginInstallWithManifest3Function::
         WebstoreInstaller::FailureReason::FAILURE_REASON_CANCELLED);
   }
 
-  supervised_user_extensions_metrics_recorder_.RecordAskParentDialogUmaMetrics(
-      SupervisedUserExtensionsMetricsRecorder::AskParentDialogState::kCanceled);
+  auto* supervised_user_extensions_delegate =
+      ManagementAPI::GetFactoryInstance()
+          ->Get(browser_context())
+          ->GetSupervisedUserExtensionsDelegate();
+  supervised_user_extensions_delegate->RecordAskParentDialogUmaMetrics(
+      SupervisedUserExtensionsDelegate::AskParentDialogState::kCanceled);
 
   Respond(BuildResponse(api::webstore_private::Result::kUserCancelled,
                         kWebstoreUserCancelledError));
@@ -1165,7 +1171,8 @@ void WebstorePrivateBeginInstallWithManifest3Function::ShowInstallDialog(
     // approval"-mode and use the Extension install dialog (that is used by
     // non-supervised users).
     if (supervised_user_extensions_delegate->IsChild()) {
-      prompt->AddObserver(&supervised_user_extensions_metrics_recorder_);
+      prompt->AddObserver(
+          supervised_user_extensions_delegate->GetInstallPromptObserver());
     }
     if (requires_parent_permission) {
       // Bypass the install prompt dialog if V2 is enabled. The
@@ -1604,24 +1611,9 @@ WebstorePrivateGetMV2DeprecationStatusFunction::
 
 ExtensionFunction::ResponseAction
 WebstorePrivateGetMV2DeprecationStatusFunction::Run() {
-  ManifestV2ExperimentManager* experiment_manager =
-      ManifestV2ExperimentManager::Get(browser_context());
-  MV2ExperimentStage current_stage =
-      experiment_manager->GetCurrentExperimentStage();
-  api::webstore_private::MV2DeprecationStatus api_status =
-      api::webstore_private::MV2DeprecationStatus::kInactive;
-  switch (current_stage) {
-    case MV2ExperimentStage::kDisableWithReEnable:
-      api_status = api::webstore_private::MV2DeprecationStatus::kSoftDisable;
-      break;
-    case MV2ExperimentStage::kUnsupported:
-      api_status = api::webstore_private::MV2DeprecationStatus::kHardDisable;
-      break;
-  }
-
   return RespondNow(ArgumentList(
       api::webstore_private::GetMV2DeprecationStatus::Results::Create(
-          api_status)));
+          api::webstore_private::MV2DeprecationStatus::kHardDisable)));
 }
 
 #if !BUILDFLAG(IS_ANDROID)

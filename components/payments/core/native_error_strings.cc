@@ -291,5 +291,13 @@ const char kSpcEnabledMustNotBeNull[] =
     "If the SPC feature is enabled, secure_payment_confirmation must not be "
     "null";
 
+const char kInternalError[] =
+    "An internal error occurred during validation of "
+    "SecurePaymentConfirmationRequest.";
+
+const char kWebAuthnExtensionsNotSupported[] =
+    "The \"secure-payment-confirmation\" method does not support the "
+    "provided WebAuthn extension(s).";
+
 }  // namespace errors
 }  // namespace payments

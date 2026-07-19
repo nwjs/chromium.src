@@ -171,6 +171,20 @@ void MenuItemView::UpdateAccessibleCheckedState() {
   }
 }
 
+void MenuItemView::RefreshCheckmarkState() {
+  UpdateAccessibleCheckedState();
+  if (radio_check_image_view_) {
+    if (type_ == Type::kCheckbox) {
+      bool is_checked =
+          GetDelegate() && GetDelegate()->IsItemChecked(GetCommand());
+      radio_check_image_view_->SetVisible(is_checked);
+    }
+    if (GetWidget()) {
+      UpdateSelectionBasedState(last_paint_as_selected_);
+    }
+  }
+}
+
 void MenuItemView::SetCommand(int command) {
   command_ = command;
   UpdateAccessibleCheckedState();
@@ -964,7 +978,7 @@ MenuItemView::MenuItemView(MenuItemView* parent,
   // Don't request enabled status from the root menu item as it is just
   // a container for real items. kEmpty items will be disabled.
   MenuDelegate* root_delegate = GetDelegate();
-  if (parent && type != Type::kEmpty && root_delegate) {
+  if (parent && type != Type::kEmpty && command >= 0 && root_delegate) {
     SetEnabled(root_delegate->IsCommandEnabled(command));
   }
   SetLayoutManager(std::make_unique<DelegatingLayoutManager>(this));
@@ -1639,7 +1653,7 @@ void MenuItemView::UpdateSelectionBasedState(bool paint_as_selected) {
   if (submenu_arrow_image_view_) {
     submenu_arrow_image_view_->SetImage(ui::ImageModel::FromVectorIcon(
         features::IsRoundedIconsEnabled()
-            ? vector_icons::kKeyboardArrowRightIcon
+            ? vector_icons::kKeyboardArrowRightFlippableIcon
             : vector_icons::kSubmenuArrowChromeRefreshOldIcon,
         colors.icon_color));
   }

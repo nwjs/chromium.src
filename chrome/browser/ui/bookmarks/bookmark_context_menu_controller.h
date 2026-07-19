@@ -73,6 +73,7 @@ class BookmarkContextMenuController
   ~BookmarkContextMenuController() override;
 
   ui::SimpleMenuModel* menu_model() { return menu_model_.get(); }
+  Profile* profile() const { return profile_; }
 
   // Public for testing.
   // Returns the parent for newly created folders/bookmarks. If `selection` has
@@ -129,6 +130,10 @@ class BookmarkContextMenuController
   // Returns the node that needs to be focused based on the `selection_`.
   // Returns null if no node should be focused.
   const bookmarks::BookmarkNode* ComputeNodeToFocusForBookmarkManager() const;
+
+  // Adds a submenu to the menu with items for the visibility of the bookmark
+  // bar.
+  void AddSubmenuItems();
 
   gfx::NativeWindow parent_window_;
   raw_ptr<BookmarkContextMenuControllerDelegate> delegate_;

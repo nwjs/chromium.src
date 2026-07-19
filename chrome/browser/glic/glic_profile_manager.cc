@@ -4,15 +4,16 @@
 
 #include "chrome/browser/glic/glic_profile_manager.h"
 
+#include "base/byte_size.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/memory_coordinator/utils.h"
 #include "base/notimplemented.h"
+#include "base/system/sys_info.h"
 #include "base/task/sequenced_task_runner.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/glic/fre/glic_fre_controller.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/host/host.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
@@ -322,6 +323,10 @@ void GlicProfileManager::CanPreloadForProfile(Profile* profile,
 
   if (IsUnderMemoryPressure()) {
     return produce_result(GlicPrewarmingChecksResult::kUnderMemoryPressure);
+  }
+  if (base::SysInfo::AmountOfTotalPhysicalMemory() <
+      base::MiBU(features::kGlicWarmingMinRequiredRamMb.Get())) {
+    return produce_result(GlicPrewarmingChecksResult::kDeviceLowMemory);
   }
   if (!g_prewarming_enabled_for_testing_) {
     return produce_result(

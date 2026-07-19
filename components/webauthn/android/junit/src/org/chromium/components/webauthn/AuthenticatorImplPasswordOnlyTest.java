@@ -30,6 +30,7 @@ import org.chromium.blink.mojom.Authenticator;
 import org.chromium.blink.mojom.GetCredentialOptions;
 import org.chromium.blink.mojom.Mediation;
 import org.chromium.blink.mojom.PublicKeyCredentialRequestOptions;
+import org.chromium.content_public.browser.LifecycleState;
 import org.chromium.content_public.browser.RenderFrameHost;
 import org.chromium.content_public.browser.Visibility;
 import org.chromium.content_public.browser.WebContents;
@@ -53,6 +54,7 @@ public class AuthenticatorImplPasswordOnlyTest {
     @Mock private FidoIntentSender mIntentSender;
     @Mock private WebauthnModeProvider mModeProviderMock;
     @Mock private Fido2CredentialRequest mFido2CredentialRequestMock;
+    @Mock private WebauthnBrowserBridge.Natives mWebauthnBrowserBridgeNativesMock;
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -62,11 +64,13 @@ public class AuthenticatorImplPasswordOnlyTest {
         mTopOrigin = Origin.create(new GURL("https://example.com"));
 
         when(mRenderFrameHost.getLastCommittedOrigin()).thenReturn(mOrigin);
+        when(mRenderFrameHost.getLifecycleState()).thenReturn(LifecycleState.ACTIVE);
 
         WebauthnModeProvider.setInstanceForTesting(mModeProviderMock);
         when(mModeProviderMock.getWebauthnMode(any())).thenReturn(WebauthnMode.CHROME);
         when(mModeProviderMock.getGlobalWebauthnMode()).thenReturn(WebauthnMode.CHROME);
         AuthenticatorImpl.overrideFido2CredentialRequestForTesting(mFido2CredentialRequestMock);
+        WebauthnBrowserBridgeJni.setInstanceForTesting(mWebauthnBrowserBridgeNativesMock);
 
         when(mWebContents.getVisibility()).thenReturn(Visibility.VISIBLE);
 

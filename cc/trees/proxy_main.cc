@@ -6,14 +6,16 @@
 
 #include <algorithm>
 #include <memory>
-#include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include "base/functional/bind.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/notimplemented.h"
 #include "base/profiler/sample_metadata.h"
+#include "base/strings/strcat.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
@@ -45,6 +47,12 @@
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
 
 namespace cc {
+
+namespace {
+perfetto::NamedTrack GetTracingTrack(const ProxyMain* proxy_main) {
+  return perfetto::NamedTrack::FromPointer("cc::ProxyMain", proxy_main);
+}
+}  // namespace
 
 ProxyMain::ProxyMain(LayerTreeHost* layer_tree_host,
                      TaskRunnerProvider* task_runner_provider)
@@ -137,6 +145,32 @@ void ProxyMain::DidCompletePageScaleAnimation() {
   layer_tree_host_->DidCompletePageScaleAnimation();
 }
 
+bool ProxyMain::IsEmbeddedFrame() const {
+  return layer_tree_host_->GetSettings().is_for_embedded_frame;
+}
+
+void ProxyMain::RecordBeginMainFrameMetrics(
+    const BeginMainFrameReasons& begin_main_frame_reason,
+    const base::ElapsedTimer& timer,
+    std::string_view suffix) const {
+  constexpr size_t num_buckets = 1 << begin_main_frame_reason.size();
+
+  base::UmaHistogramCustomMicrosecondsTimes(
+      base::StrCat({"Compositing.BeginMainFrame.TimeUs", suffix}),
+      timer.Elapsed(), base::Microseconds(1), base::Seconds(10), 50);
+
+  base::UmaHistogramExactLinear(
+      base::StrCat({"Compositing.BeginMainFrame.BMFReason10", suffix}),
+      begin_main_frame_reason.to_ulong(), num_buckets);
+
+  std::string_view embedded_suffix =
+      IsEmbeddedFrame() ? ".Embedded" : ".NonEmbedded";
+  base::UmaHistogramExactLinear(
+      base::StrCat(
+          {"Compositing.BeginMainFrame.BMFReason10", embedded_suffix, suffix}),
+      begin_main_frame_reason.to_ulong(), num_buckets);
+}
+
 void ProxyMain::BeginMainFrame(
     std::unique_ptr<BeginMainFrameAndCommitState> begin_main_frame_state) {
   DCHECK(IsMainThread());
@@ -153,22 +187,13 @@ void ProxyMain::BeginMainFrame(
       begin_main_frame_reason_ | begin_main_frame_state->reason;
   absl::Cleanup maybe_record_metrics_and_idle = [&] {
     if (record_metrics) {
-      constexpr size_t num_buckets = 1 << begin_main_frame_reason.size();
-      UMA_HISTOGRAM_ENUMERATION("Compositing.BeginMainFrame.MainResult",
-                                reason);
-      UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(
-          "Compositing.BeginMainFrame.TimeUs", timer->Elapsed(),
-          base::Microseconds(1), base::Seconds(10), 50);
-      UMA_HISTOGRAM_ENUMERATION("Compositing.BeginMainFrame.BMFReason5",
-                                begin_main_frame_reason.to_ulong(),
-                                num_buckets);
+      base::UmaHistogramEnumeration("Compositing.BeginMainFrame.MainResult",
+                                    reason);
+
+      RecordBeginMainFrameMetrics(begin_main_frame_reason, *timer, "");
       if (reason == CommitEarlyOutReason::kFinishedNoUpdates) {
-        UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(
-            "Compositing.BeginMainFrame.TimeUs.NoUpdate", timer->Elapsed(),
-            base::Microseconds(1), base::Seconds(10), 50);
-        UMA_HISTOGRAM_ENUMERATION(
-            "Compositing.BeginMainFrame.BMFReason5.NoUpdate",
-            begin_main_frame_reason.to_ulong(), num_buckets);
+        RecordBeginMainFrameMetrics(begin_main_frame_reason, *timer,
+                                    ".NoUpdate");
       }
     }
     if (reason != CommitEarlyOutReason::kNoEarlyOut) {
@@ -558,10 +583,10 @@ void ProxyMain::DidChangeBeginFrameSourcePaused(bool paused) {
   begin_frame_source_paused_ = paused;
   if (begin_frame_source_paused_) {
     TRACE_EVENT_BEGIN("cc", "ProxyMain::SetBeginFrameSourcePaused",
-                      perfetto::Track::FromPointer(this));
+                      GetTracingTrack(this));
   } else {
     TRACE_EVENT_END("cc", /*"ProxyMain::SetBeginFrameSourcePaused"*/
-                    perfetto::Track::FromPointer(this));
+                    GetTracingTrack(this));
   }
 }
 
@@ -611,6 +636,36 @@ void ProxyMain::NotifyTransitionRequestFinished(
     uint32_t sequence_id,
     const viz::ViewTransitionElementResourceRects& rects) {
   layer_tree_host_->NotifyTransitionRequestsFinished(sequence_id, rects);
+}
+
+void ProxyMain::SetUnboundedFrameSink(
+    std::unique_ptr<LayerTreeFrameSink> unbounded_frame_sink,
+    const viz::LocalSurfaceId& local_surface_id) {
+  DCHECK(IsMainThread());
+  DCHECK(layer_tree_host_->GetSettings().enable_unbounded_element);
+  ImplThreadTaskRunner()->PostTask(
+      FROM_HERE,
+      base::BindOnce(&ProxyImpl::SetUnboundedFrameSink,
+                     base::Unretained(proxy_impl_.get()),
+                     std::move(unbounded_frame_sink), local_surface_id));
+}
+
+void ProxyMain::DismissUnboundedFrameSink() {
+  DCHECK(IsMainThread());
+  DCHECK(layer_tree_host_->GetSettings().enable_unbounded_element);
+  ImplThreadTaskRunner()->PostTask(
+      FROM_HERE, base::BindOnce(&ProxyImpl::DismissUnboundedFrameSink,
+                                base::Unretained(proxy_impl_.get())));
+}
+
+void ProxyMain::SetUnboundedLocalSurfaceId(
+    const viz::LocalSurfaceId& local_surface_id) {
+  DCHECK(IsMainThread());
+  DCHECK(layer_tree_host_->GetSettings().enable_unbounded_element);
+  ImplThreadTaskRunner()->PostTask(
+      FROM_HERE,
+      base::BindOnce(&ProxyImpl::SetUnboundedLocalSurfaceId,
+                     base::Unretained(proxy_impl_.get()), local_surface_id));
 }
 
 bool ProxyMain::IsStarted() const {
@@ -667,7 +722,7 @@ void ProxyMain::SetNeedsUpdateLayers() {
   }
 }
 
-void ProxyMain::SetNeedsCommit() {
+void ProxyMain::SetNeedsCommit(bool urgent) {
   DCHECK(IsMainThread());
   // If we are currently animating, make sure we don't skip the commit. Note
   // that requesting a commit during the layer update stage means we need to
@@ -678,9 +733,8 @@ void ProxyMain::SetNeedsCommit() {
     return;
   }
   if (SendCommitRequestToImplThreadIfNeeded(BeginMainFrameReason::kOther,
-                                            COMMIT_PIPELINE_STAGE,
-                                            /* urgent = */ false)) {
-    TRACE_EVENT_INSTANT("cc", "ProxyMain::SetNeedsCommit");
+                                            COMMIT_PIPELINE_STAGE, urgent)) {
+    TRACE_EVENT_INSTANT("cc", "ProxyMain::SetNeedsCommit", "urgent", urgent);
   }
 }
 
@@ -727,10 +781,11 @@ void ProxyMain::SetDeferMainFrameUpdate(bool defer_main_frame_update) {
   defer_main_frame_update_ = defer_main_frame_update;
   if (defer_main_frame_update_) {
     TRACE_EVENT_BEGIN("cc", "ProxyMain::SetDeferMainFrameUpdate",
-                      perfetto::Track::FromPointer(this));
+                      GetTracingTrack(this));
   } else {
-    TRACE_EVENT_END("cc", /*"ProxyMain::SetDeferMainFrameUpdate"*/
-                    perfetto::Track::FromPointer(this));
+    TRACE_EVENT_END("cc",
+                    /*"ProxyMain::SetDeferMainFrameUpdate"*/
+                    GetTracingTrack(this));
   }
 
   // Notify dependent systems that the deferral status has changed.
@@ -752,10 +807,10 @@ void ProxyMain::SetPauseRendering(bool pause_rendering,
   pause_rendering_ = pause_rendering;
   if (pause_rendering_) {
     TRACE_EVENT_BEGIN("cc", "ProxyMain::SetPauseRendering",
-                      perfetto::Track::FromPointer(this));
+                      GetTracingTrack(this));
   } else {
     TRACE_EVENT_END("cc", /*"ProxyMain::SetPauseRendering"*/
-                    perfetto::Track::FromPointer(this));
+                    GetTracingTrack(this));
   }
 
   // The impl thread needs to know that it should not issue BeginFrames.
@@ -783,8 +838,7 @@ bool ProxyMain::StartDeferringCommits(base::TimeDelta timeout,
   if (IsDeferringCommits())
     return false;
 
-  TRACE_EVENT_BEGIN("cc", "ProxyMain::SetDeferCommits",
-                    perfetto::Track::FromPointer(this));
+  TRACE_EVENT_BEGIN("cc", "ProxyMain::SetDeferCommits", GetTracingTrack(this));
 
   paint_holding_reason_ = reason;
   commits_restart_time_ = base::TimeTicks::Now() + timeout;
@@ -801,17 +855,12 @@ void ProxyMain::StopDeferringCommits() {
   paint_holding_reason_.reset();
   commits_restart_time_ = base::TimeTicks();
   TRACE_EVENT_END("cc", /*"ProxyMain::SetDeferCommits"*/
-                  perfetto::Track::FromPointer(this));
+                  GetTracingTrack(this));
 
   // Notify depended systems that the deferral status has changed.
   layer_tree_host_->OnDeferCommitsChanged(false, reason);
 }
 
-void ProxyMain::SetShouldThrottleFrameRate(bool flag) {
-  ImplThreadTaskRunner()->PostTask(
-      FROM_HERE, base::BindOnce(&ProxyImpl::SetShouldThrottleFrameRate,
-                                base::Unretained(proxy_impl_.get()), flag));
-}
 
 void ProxyMain::SetRequestHighFramerate(bool flag) {
   ImplThreadTaskRunner()->PostTask(
@@ -1103,7 +1152,7 @@ void ProxyMain::CompositeImmediatelyForTest(base::TimeTicks frame_begin_time,
                                             bool raster,
                                             base::OnceClosure callback) {
   synchronous_composite_for_test_callback_ = std::move(callback);
-  SetNeedsCommit();
+  SetNeedsCommit(false);
 }
 
 double ProxyMain::GetAverageThroughput() const {

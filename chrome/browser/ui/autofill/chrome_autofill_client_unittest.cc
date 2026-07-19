@@ -12,7 +12,11 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/values_test_util.h"
+#include "base/values.h"
+#include "build/branding_buildflags.h"
 #include "build/build_config.h"
+#include "chrome/browser/autofill/at_memory_promo_tracker_factory.h"
 #include "chrome/browser/autofill/mock_autofill_agent.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
 #include "chrome/browser/autofill/ui/ui_util.h"
@@ -34,6 +38,7 @@
 #include "components/autofill/content/browser/test_autofill_driver_injector.h"
 #include "components/autofill/content/browser/test_autofill_manager_injector.h"
 #include "components/autofill/content/browser/test_content_autofill_driver.h"
+#include "components/autofill/core/browser/at_memory_promo_tracker.h"
 #include "components/autofill/core/browser/data_manager/test_personal_data_manager.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile_test_api.h"
@@ -50,12 +55,15 @@
 #include "components/autofill/core/browser/ui/mock_autofill_suggestion_delegate.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
+#include "components/autofill/core/common/autofill_prefs.h"
 #include "components/autofill/core/common/autofill_test_utils.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/personal_context/core/personal_context_enablement_service.h"
+#include "components/personal_context/core/personal_context_prefs.h"
 #include "components/personal_context/core/personal_context_types.h"
 #include "components/prefs/pref_service.h"
+#include "components/sessions/content/session_tab_helper.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/unified_consent/pref_names.h"
 #include "components/user_education/common/feature_promo/feature_promo_result.h"
@@ -63,6 +71,7 @@
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/navigation_simulator.h"
+#include "content/public/test/web_contents_tester.h"
 #include "mojo/public/cpp/bindings/associated_receiver_set.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -76,7 +85,7 @@
 #include "chrome/browser/ui/android/autofill/autofill_save_card_bottom_sheet_bridge.h"
 #include "chrome/browser/ui/android/autofill/autofill_save_card_delegate_android.h"
 #include "components/autofill/core/browser/payments/autofill_save_card_ui_info.h"
-#else
+#else  // BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/account_settings/account_setting_service_factory.h"
 #include "chrome/browser/actor/actor_keyed_service_factory.h"
 #include "chrome/browser/actor/actor_keyed_service_fake.h"
@@ -87,18 +96,21 @@
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
 #include "chrome/browser/glic/test_support/mock_glic_keyed_service.h"
+#include "chrome/browser/profiles/profile_attributes_init_params.h"
+#include "chrome/browser/profiles/profile_attributes_storage.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/autofill/autofill_field_promo_controller.h"
 #include "chrome/browser/ui/autofill/mock_autofill_popup_controller.h"
 #include "chrome/browser/ui/autofill/payments/save_card_bubble_controller_impl.h"
+#include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
 #include "chrome/browser/ui/hats/hats_service_factory.h"
 #include "chrome/browser/ui/hats/mock_hats_service.h"
-#include "chrome/test/base/browser_with_test_window_test.h"
-#include "chrome/test/base/test_browser_window.h"
 #include "chrome/test/base/testing_browser_process.h"
+#include "chrome/test/base/testing_profile_manager.h"
 #include "components/autofill/core/browser/foundations/mock_autofill_manager.h"
+#include "components/tabs/public/mock_tab_interface.h"
 #include "components/tabs/public/tab_interface.h"
-#endif
+#endif  //   BUILDFLAG(IS_ANDROID)
 
 namespace autofill {
 namespace {
@@ -108,6 +120,7 @@ using ::autofill::test::CreateTestFormField;
 using ::testing::_;
 using ::testing::A;
 using ::testing::AllOf;
+using ::testing::ElementsAre;
 using ::testing::Eq;
 using ::testing::Field;
 using ::testing::Ge;
@@ -151,7 +164,7 @@ class MockSaveCardBubbleController : public SaveCardBubbleControllerImpl {
       (override));
   MOCK_METHOD(void, HideSaveCardBubble, (), (override));
 };
-#endif
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 #if !BUILDFLAG(IS_ANDROID)
 class MockAutofillFieldPromoController : public AutofillFieldPromoController {
@@ -170,6 +183,11 @@ class TestChromeAutofillClient : public ChromeAutofillClient {
   explicit TestChromeAutofillClient(content::WebContents* web_contents)
       : ChromeAutofillClient(web_contents) {}
   ~TestChromeAutofillClient() override = default;
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
+  using ChromeAutofillClient::at_memory_promo_observer;
+#endif
 };
 
 class ChromeAutofillClientTest : public ChromeRenderViewHostTestHarness {
@@ -191,11 +209,11 @@ class ChromeAutofillClientTest : public ChromeRenderViewHostTestHarness {
     const auto* user_data_key = save_card_bubble_controller->UserDataKey();
     web_contents()->SetUserData(user_data_key,
                                 std::move(save_card_bubble_controller));
-#endif
+#endif  // !BUILDFLAG(IS_ANDROID)
   }
 
-  void InitializeAccessibilityAnnotatorEnablementService() {
-    accessibility_annotator_enablement_service_ =
+  void InitializePersonalContextEnablementService() {
+    personal_context_enablement_service_ =
         static_cast<MockPersonalContextEnablementService*>(
             PersonalContextEnablementServiceFactory::GetInstance()
                 ->SetTestingFactoryAndUse(
@@ -226,7 +244,7 @@ class ChromeAutofillClientTest : public ChromeRenderViewHostTestHarness {
 #if !BUILDFLAG(IS_ANDROID)
     autofill_field_promo_controller_ = nullptr;
 #endif  // !BUILDFLAG(IS_ANDROID)
-    accessibility_annotator_enablement_service_ = nullptr;
+    personal_context_enablement_service_ = nullptr;
     ChromeRenderViewHostTestHarness::TearDown();
   }
 
@@ -235,13 +253,16 @@ class ChromeAutofillClientTest : public ChromeRenderViewHostTestHarness {
     return test_autofill_client_injector_[web_contents()];
   }
 
+  TestChromeAutofillClient* client(content::WebContents* web_contents) {
+    return test_autofill_client_injector_[web_contents];
+  }
+
   ContentAutofillDriver* driver(content::RenderFrameHost* rfh) {
     return ContentAutofillDriver::GetForRenderFrameHost(rfh);
   }
 
-  MockPersonalContextEnablementService*
-  accessibility_annotator_enablement_service() {
-    return accessibility_annotator_enablement_service_;
+  MockPersonalContextEnablementService* personal_context_enablement_service() {
+    return personal_context_enablement_service_;
   }
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -255,15 +276,16 @@ class ChromeAutofillClientTest : public ChromeRenderViewHostTestHarness {
     return static_cast<MockSaveCardBubbleController&>(
         *SaveCardBubbleControllerImpl::FromWebContents(web_contents()));
   }
-#endif
+#endif  // !BUILDFLAG(IS_ANDROID)
 
- private:
+ protected:
   TestingProfile::TestingFactories GetTestingFactories() const override {
     return {TestingProfile::TestingFactory{
-        autofill::PersonalDataManagerFactory::GetInstance(),
+        PersonalDataManagerFactory::GetInstance(),
         base::BindRepeating(&CreateTestPersonalDataManager)}};
   }
 
+ private:
   static std::unique_ptr<KeyedService> CreateTestPersonalDataManager(
       content::BrowserContext* context) {
     auto pdm = std::make_unique<TestPersonalDataManager>();
@@ -273,13 +295,13 @@ class ChromeAutofillClientTest : public ChromeRenderViewHostTestHarness {
     return pdm;
   }
 
-  autofill::test::AutofillUnitTestEnvironment autofill_environment_{
+  test::AutofillUnitTestEnvironment autofill_environment_{
       {.disable_server_communication = true}};
 #if !BUILDFLAG(IS_ANDROID)
   raw_ptr<MockAutofillFieldPromoController> autofill_field_promo_controller_;
 #endif  // !BUILDFLAG(IS_ANDROID)
   raw_ptr<MockPersonalContextEnablementService>
-      accessibility_annotator_enablement_service_;
+      personal_context_enablement_service_;
   TestAutofillClientInjector<TestChromeAutofillClient>
       test_autofill_client_injector_;
   base::OnceCallback<void()> setup_flags_;
@@ -349,15 +371,14 @@ TEST_F(ChromeAutofillClientTest, ClassifiesLoginFormOnChildFrame) {
 
   // Ensure that the child frame is picked up as a child frame of `main_form`.
   {
-    autofill::FrameTokenWithPredecessor child_frame_information;
+    FrameTokenWithPredecessor child_frame_information;
     child_frame_information.token = child_form.host_frame();
     main_form.set_child_frames({child_frame_information});
   }
 
   {
-    autofill::TestAutofillManagerWaiter waiter(
-        main_driver->GetAutofillManager(),
-        {autofill::AutofillManagerEvent::kFormsSeen});
+    TestAutofillManagerWaiter waiter(main_driver->GetAutofillManager(),
+                                     {AutofillManagerEvent::kFormsSeen});
     main_driver->renderer_events().FormsSeen(/*updated_forms=*/{main_form},
                                              /*removed_forms=*/{});
     child_driver->renderer_events().FormsSeen(/*updated_forms=*/{child_form},
@@ -601,7 +622,6 @@ TEST_F(ChromeAutofillClientTest,
       /*on_confirmation_closed_callback=*/std::nullopt);
 }
 
-#if !BUILDFLAG(IS_ANDROID)
 TEST_F(ChromeAutofillClientTest, AutofillFieldIPH_NotShownByPromoController) {
   SetUpIphForTesting(feature_engagement::kIPHAutofillAiOptInFeature);
 
@@ -654,51 +674,65 @@ TEST_F(ChromeAutofillClientTest,
 
   testing::Mock::VerifyAndClearExpectations(autofill_field_promo_controller());
 }
-#endif  // !BUILDFLAG(IS_ANDROID)
 
-class ChromeAutofillClientTestWithWindow : public BrowserWithTestWindowTest {
+class ChromeAutofillClientTestWithMockWindow : public ChromeAutofillClientTest {
  public:
-  void SetUp() override {
-    user_ed_override_ =
-        BrowserWindowFeatures::GetUserDataFactoryForTesting()
-            .AddOverrideForTesting(
-                base::BindRepeating([](BrowserWindowInterface& window) {
-                  return std::make_unique<MockBrowserUserEducationInterface>(
-                      &window);
-                }));
+  ChromeAutofillClientTestWithMockWindow() {
+    scoped_feature_list_.InitAndEnableFeature(features::kAutofillActorMode);
+    manager_injector_ =
+        std::make_unique<TestAutofillManagerInjector<MockAutofillManager>>();
+  }
 
-    BrowserWithTestWindowTest::SetUp();
-
+  TestingProfile::TestingFactories GetTestingFactories() const override {
+    TestingProfile::TestingFactories factories =
+        ChromeAutofillClientTest::GetTestingFactories();
     // Register the fake actor service before any tabs are added, so that
     // any TabFeatures created (including the first tab) use the fake service
     // instead of creating a real one that gets destroyed later.
-    actor::ActorKeyedServiceFactory::GetInstance()->SetTestingFactory(
-        profile(), base::BindRepeating([](content::BrowserContext* context)
-                                           -> std::unique_ptr<KeyedService> {
-          return std::make_unique<actor::ActorKeyedServiceFake>(
-              Profile::FromBrowserContext(context));
-        }));
+    factories.push_back(
+        {actor::ActorKeyedServiceFactory::GetInstance(),
+         base::BindRepeating([](content::BrowserContext* context)
+                                 -> std::unique_ptr<KeyedService> {
+           return std::make_unique<actor::ActorKeyedServiceFake>(
+               Profile::FromBrowserContext(context));
+         })});
+    return factories;
+  }
 
-    // Create the first tab so that `web_contents()` exists.
-    AddTab(browser(), chrome::ChromeUINewTabURLAsGURL());
+  void SetUp() override {
+    profile_manager_ = std::make_unique<TestingProfileManager>(
+        TestingBrowserProcess::GetGlobal());
+    ASSERT_TRUE(profile_manager_->SetUp());
+
+    ChromeAutofillClientTest::SetUp();
+
+    // Register the testing profile in the profile attributes storage.
+    ProfileAttributesInitParams params;
+    params.profile_path = profile()->GetPath();
+    params.profile_name = u"Test Profile";
+    profile_manager_->profile_attributes_storage()->AddProfile(
+        std::move(params));
+
+    SetUpMockTabAndWindow(
+        base::BindRepeating(
+            &ChromeAutofillClientTestWithMockWindow::web_contents,
+            base::Unretained(this)),
+        profile(), main_mocks_);
   }
 
   void TearDown() override {
     glic::GlicEnabling::SetBypassEnablementChecksForTesting(false);
-    BrowserWithTestWindowTest::TearDown();
+    manager_injector_.reset();
+    ChromeAutofillClientTest::TearDown();
+    profile_manager_.reset();
   }
 
-  MockBrowserUserEducationInterface* user_education() {
-    return static_cast<MockBrowserUserEducationInterface*>(
-        BrowserUserEducationInterface::From(browser()));
+  tabs::MockTabInterface& mock_tab_interface() { return main_mocks_.mock_tab; }
+  MockBrowserWindowInterface& mock_browser_window_interface() {
+    return main_mocks_.mock_window;
   }
-
-  content::WebContents* web_contents() {
-    return browser()->tab_strip_model()->GetActiveWebContents();
-  }
-
-  TestChromeAutofillClient* client() {
-    return test_autofill_client_injector_[web_contents()];
+  ui::UnownedUserDataHost& unowned_user_data_host() {
+    return main_mocks_.user_data_host;
   }
 
   glic::MockGlicKeyedService* SetUpMockGlicKeyedService() {
@@ -723,15 +757,63 @@ class ChromeAutofillClientTestWithWindow : public BrowserWithTestWindowTest {
                                                            /*create=*/true));
   }
 
+ protected:
+  struct TabAndWindowMocks {
+    tabs::MockTabInterface mock_tab;
+    MockBrowserWindowInterface mock_window;
+    ui::UnownedUserDataHost user_data_host;
+    base::WeakPtrFactory<tabs::MockTabInterface> mock_tab_weak_factory{
+        &mock_tab};
+  };
+
+  void SetUpMockTabAndWindow(
+      base::RepeatingCallback<content::WebContents*()> web_contents_callback,
+      Profile* profile,
+      TabAndWindowMocks& mocks) {
+    ON_CALL(mocks.mock_tab, GetContents())
+        .WillByDefault(
+            [web_contents_callback]() { return web_contents_callback.Run(); });
+    ON_CALL(mocks.mock_tab, GetProfile()).WillByDefault(Return(profile));
+    ON_CALL(mocks.mock_tab, GetBrowserWindowInterface())
+        .WillByDefault(Return(&mocks.mock_window));
+    ON_CALL(mocks.mock_tab, GetTabHandle())
+        .WillByDefault(Return(mocks.mock_tab.GetHandle().raw_value()));
+
+    ON_CALL(mocks.mock_window, GetUnownedUserDataHost())
+        .WillByDefault(ReturnRef(mocks.user_data_host));
+    ON_CALL(mocks.mock_window, GetProfile()).WillByDefault(Return(profile));
+
+    tabs::TabLookupFromWebContents::CreateForWebContents(
+        web_contents_callback.Run(), &mocks.mock_tab);
+
+    ON_CALL(mocks.mock_tab, GetWeakPtr())
+        .WillByDefault(Return(mocks.mock_tab_weak_factory.GetWeakPtr()));
+  }
+
+  void SetUpMockTabAndWindow(content::WebContents* web_contents,
+                             Profile* profile,
+                             TabAndWindowMocks& mocks) {
+    SetUpMockTabAndWindow(
+        base::BindRepeating([](content::WebContents* wc) { return wc; },
+                            web_contents),
+        profile, mocks);
+  }
+  std::unique_ptr<TestAutofillManagerInjector<MockAutofillManager>>
+      manager_injector_;
+
  private:
-  TestAutofillClientInjector<TestChromeAutofillClient>
-      test_autofill_client_injector_;
-  ui::UserDataFactory::ScopedOverride user_ed_override_;
+  TabAndWindowMocks main_mocks_;
   glic::GlicProfileManager glic_profile_manager_;
+  std::unique_ptr<TestingProfileManager> profile_manager_;
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-TEST_F(ChromeAutofillClientTestWithWindow, AutofillFieldIPH_NotifyFeatureUsed) {
-  EXPECT_CALL(*user_education(),
+TEST_F(ChromeAutofillClientTestWithMockWindow,
+       AutofillFieldIPH_NotifyFeatureUsed) {
+  MockBrowserUserEducationInterface mock_user_education(
+      &mock_browser_window_interface());
+
+  EXPECT_CALL(mock_user_education,
               NotifyFeaturePromoFeatureUsed(
                   Ref(feature_engagement::kIPHAutofillAiOptInFeature),
                   FeaturePromoFeatureUsedAction::kClosePromoIfPresent));
@@ -740,7 +822,7 @@ TEST_F(ChromeAutofillClientTestWithWindow, AutofillFieldIPH_NotifyFeatureUsed) {
 
 // Tests that `OpenGeminiInSidebar` invokes Glic with the correct options and
 // prompt.
-TEST_F(ChromeAutofillClientTestWithWindow, OpenGeminiInSidebar) {
+TEST_F(ChromeAutofillClientTestWithMockWindow, OpenGeminiInSidebar) {
   glic::MockGlicKeyedService* mock_glic_service = SetUpMockGlicKeyedService();
   ASSERT_TRUE(mock_glic_service);
 
@@ -748,10 +830,11 @@ TEST_F(ChromeAutofillClientTestWithWindow, OpenGeminiInSidebar) {
   // source and containing the correct prompt.
   EXPECT_CALL(
       *mock_glic_service,
-      Invoke(AllOf(Property(&glic::GlicInvokeOptions::GetInvocationSource,
-                            glic::mojom::InvocationSource::kAutofill),
-                   Field(&glic::GlicInvokeOptions::prompts,
-                         testing::ElementsAre("test prompt")))))
+      Invoke(AllOf(
+          Property(&glic::GlicInvokeOptions::GetInvocationSource,
+                   glic::mojom::InvocationSource::kAutofill),
+          Field(&glic::GlicInvokeOptions::prompts, ElementsAre("test prompt")),
+          Field(&glic::GlicInvokeOptions::focus_on_show, true))))
       .WillOnce(testing::Return(base::WeakPtr<glic::GlicInstance>()));
 
   client()->OpenGeminiInSidebar(u"test prompt");
@@ -759,20 +842,14 @@ TEST_F(ChromeAutofillClientTestWithWindow, OpenGeminiInSidebar) {
 
 // Tests that `OnActorTaskStateChange` calls `ReparseKnownForms` on all drivers
 // when a new task gets assigned.
-TEST_F(ChromeAutofillClientTestWithWindow,
+TEST_F(ChromeAutofillClientTestWithMockWindow,
        OnActorTaskStateChange_ReparseForms) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(features::kAutofillActorMode);
-
   actor::ActorKeyedServiceFake* actor_service =
       static_cast<actor::ActorKeyedServiceFake*>(
           actor::ActorKeyedService::Get(profile()));
   ASSERT_TRUE(actor_service);
 
-  TestAutofillManagerInjector<MockAutofillManager> manager_injector;
-  AddTab(browser(), GURL("about:blank"));
-  content::WebContents* active_contents = web_contents();
-  MockAutofillManager* mock_manager = manager_injector[active_contents];
+  MockAutofillManager* mock_manager = (*manager_injector_)[web_contents()];
   ASSERT_TRUE(mock_manager);
 
   actor::TaskId task_id = actor_service->CreateTaskForTesting();
@@ -780,11 +857,8 @@ TEST_F(ChromeAutofillClientTestWithWindow,
   ASSERT_TRUE(task);
 
   // Associate the active tab with the task.
-  tabs::TabInterface* tab_interface =
-      tabs::TabInterface::MaybeGetFromContents(active_contents);
-  ASSERT_TRUE(tab_interface);
-  task->AddTab(tab_interface->GetHandle(), /*stop_task_on_detach=*/true,
-               base::DoNothing());
+  task->AddTab(mock_tab_interface().GetHandle(),
+               /*stop_task_on_detach=*/true, base::DoNothing());
 
   // Verify first call (assignment) triggers `ReparseKnownForms`.
   EXPECT_CALL(*mock_manager, ReparseKnownForms()).Times(1);
@@ -796,7 +870,245 @@ TEST_F(ChromeAutofillClientTestWithWindow,
   actor_service->NotifyTaskStateChanged(*task);
   testing::Mock::VerifyAndClearExpectations(mock_manager);
 }
-#endif
+
+#endif  //  !BUILDFLAG(IS_ANDROID)
+
+#if (BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+     BUILDFLAG(IS_CHROMEOS)) &&                                       \
+    BUILDFLAG(GOOGLE_CHROME_BRANDING)
+
+// Tests that `ShowAutofillAtMemoryPromo` is propagated to the browser user
+// education service when AtMemory is enabled.
+TEST_F(ChromeAutofillClientTestWithMockWindow,
+       ShowAutofillAtMemoryPromo_Enabled) {
+  base::test::ScopedFeatureList feature_list(features::kAutofillAtMemory);
+  InitializePersonalContextEnablementService();
+  EXPECT_CALL(*personal_context_enablement_service(), GetEnablementState())
+      .WillRepeatedly(
+          Return(personal_context::PersonalContextEnablementState::kEnabled));
+
+  MockBrowserUserEducationInterface mock_user_education(
+      &mock_browser_window_interface());
+  EXPECT_CALL(mock_user_education,
+              MaybeShowFeaturePromo(testing::Truly(
+                  [](const user_education::FeaturePromoParams& params) {
+                    return &*params.feature ==
+                           &feature_engagement::kIPHAutofillAtMemoryFeature;
+                  })))
+      .WillOnce(Return(true));
+
+  client()->ShowAutofillAtMemoryPromo();
+}
+
+// Tests that `ShowAutofillAtMemoryPromo` is not propagated to the browser user
+// education service when AtMemory eligibility checks fail.
+TEST_F(ChromeAutofillClientTestWithMockWindow,
+       ShowAutofillAtMemoryPromo_ServiceDisabled) {
+  base::test::ScopedFeatureList feature_list(features::kAutofillAtMemory);
+  InitializePersonalContextEnablementService();
+  EXPECT_CALL(*personal_context_enablement_service(), GetEnablementState())
+      .WillRepeatedly(Return(personal_context::PersonalContextEnablementState::
+                                 kDisabledNotEligible));
+
+  MockBrowserUserEducationInterface mock_user_education(
+      &mock_browser_window_interface());
+  EXPECT_CALL(mock_user_education, MaybeShowFeaturePromo).Times(0);
+
+  client()->ShowAutofillAtMemoryPromo();
+}
+
+// Tests that `ShowAutofillAtMemoryPromo` is not propagated to the browser user
+// education service when AtMemory feature is disabled.
+TEST_F(ChromeAutofillClientTestWithMockWindow,
+       ShowAutofillAtMemoryPromo_FeatureDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(features::kAutofillAtMemory);
+  InitializePersonalContextEnablementService();
+  EXPECT_CALL(*personal_context_enablement_service(), GetEnablementState())
+      .WillRepeatedly(
+          Return(personal_context::PersonalContextEnablementState::kEnabled));
+
+  MockBrowserUserEducationInterface mock_user_education(
+      &mock_browser_window_interface());
+  EXPECT_CALL(mock_user_education, MaybeShowFeaturePromo).Times(0);
+
+  client()->ShowAutofillAtMemoryPromo();
+}
+
+// Tests that `ShowAutofillAtMemoryPromo` is not propagated to the browser user
+// education service when the Personal Context toggle is off.
+TEST_F(ChromeAutofillClientTestWithMockWindow,
+       ShowAutofillAtMemoryPromo_PersonalContextToggleOff) {
+  base::test::ScopedFeatureList feature_list(features::kAutofillAtMemory);
+  InitializePersonalContextEnablementService();
+  EXPECT_CALL(*personal_context_enablement_service(), GetEnablementState())
+      .WillRepeatedly(
+          Return(personal_context::PersonalContextEnablementState::kEnabled));
+  profile()->GetPrefs()->SetBoolean(
+      personal_context::prefs::kPersonalContextInAutofillSettingsToggleStatus,
+      false);
+
+  MockBrowserUserEducationInterface mock_user_education(
+      &mock_browser_window_interface());
+  EXPECT_CALL(mock_user_education, MaybeShowFeaturePromo).Times(0);
+
+  client()->ShowAutofillAtMemoryPromo();
+}
+
+// Tests that `AtMemoryPromoObserver` does not track copy/paste signals and does
+// not trigger the promo for incognito profiles.
+TEST_F(ChromeAutofillClientTestWithMockWindow,
+       AtMemoryPromoObserver_IncognitoNoTracking) {
+  base::test::ScopedFeatureList feature_list(features::kAutofillAtMemory);
+
+  // Verify that for regular profiles, the tracker exists.
+  Profile* regular_profile = profile();
+  EXPECT_NE(AtMemoryPromoTrackerFactory::GetForBrowserContext(regular_profile),
+            nullptr);
+
+  // Create an `OffTheRecord` (incognito) profile.
+  Profile* incognito_profile =
+      regular_profile->GetPrimaryOTRProfile(/*create_if_needed=*/true);
+  ASSERT_TRUE(incognito_profile);
+
+  // Verify that for incognito profile, the tracker factory returns nullptr.
+  EXPECT_EQ(
+      AtMemoryPromoTrackerFactory::GetForBrowserContext(incognito_profile),
+      nullptr);
+
+  // Create web contents and client for the incognito profile.
+  std::unique_ptr<content::WebContents> incognito_main_web_contents =
+      content::WebContentsTester::CreateTestWebContents(incognito_profile,
+                                                        nullptr);
+  TestChromeAutofillClient* incognito_main_client =
+      client(incognito_main_web_contents.get());
+  ASSERT_TRUE(incognito_main_client);
+
+  // Setup a secondary `WebContents` for pasting (so the copy and paste are
+  // in different tabs).
+  std::unique_ptr<content::WebContents> incognito_secondary_web_contents =
+      content::WebContentsTester::CreateTestWebContents(incognito_profile,
+                                                        nullptr);
+  TestChromeAutofillClient* incognito_secondary_client =
+      client(incognito_secondary_web_contents.get());
+  ASSERT_TRUE(incognito_secondary_client);
+
+  // Setup mock tab/window for the incognito `WebContents`.
+  TabAndWindowMocks incognito_main_mocks;
+  SetUpMockTabAndWindow(incognito_main_web_contents.get(), incognito_profile,
+                        incognito_main_mocks);
+
+  // Setup mock tab/window for the incognito `WebContents`.
+  TabAndWindowMocks incognito_secondary_mocks;
+  SetUpMockTabAndWindow(incognito_secondary_web_contents.get(),
+                        incognito_profile, incognito_secondary_mocks);
+
+  // Create mock user education for both windows.
+  MockBrowserUserEducationInterface incognito_main_mock_user_education(
+      &incognito_main_mocks.mock_window);
+  MockBrowserUserEducationInterface incognito_secondary_mock_user_education(
+      &incognito_secondary_mocks.mock_window);
+
+  // Verify that `MaybeShowFeaturePromo` is not called for either window.
+  EXPECT_CALL(incognito_main_mock_user_education, MaybeShowFeaturePromo)
+      .Times(0);
+  EXPECT_CALL(incognito_secondary_mock_user_education, MaybeShowFeaturePromo)
+      .Times(0);
+
+  // Create `SessionTabHelper` for both tabs to give them valid IDs.
+  sessions::SessionTabHelper::CreateForWebContents(
+      incognito_main_web_contents.get(),
+      sessions::SessionTabHelper::DelegateLookup());
+  sessions::SessionTabHelper::CreateForWebContents(
+      incognito_secondary_web_contents.get(),
+      sessions::SessionTabHelper::DelegateLookup());
+
+  // Copy on the first tab, and paste on the second tab.
+  incognito_main_client->at_memory_promo_observer().OnTextCopiedToClipboard(
+      incognito_main_web_contents->GetPrimaryMainFrame(), u"some text");
+  incognito_secondary_client->at_memory_promo_observer().OnPaste();
+}
+
+// Tests that `AtMemoryPromoObserver` tracks copy/paste signals and triggers the
+// promo for regular profiles.
+TEST_F(ChromeAutofillClientTestWithMockWindow,
+       AtMemoryPromoObserver_RegularProfileTracking) {
+  base::test::ScopedFeatureList feature_list(features::kAutofillAtMemory);
+  InitializePersonalContextEnablementService();
+  EXPECT_CALL(*personal_context_enablement_service(), GetEnablementState())
+      .WillRepeatedly(
+          Return(personal_context::PersonalContextEnablementState::kEnabled));
+
+  // Setup a secondary `WebContents` for pasting (so the copy and paste are in
+  // different tabs).
+  std::unique_ptr<content::WebContents> secondary_web_contents =
+      content::WebContentsTester::CreateTestWebContents(profile(), nullptr);
+  TestChromeAutofillClient* secondary_client =
+      client(secondary_web_contents.get());
+  ASSERT_TRUE(secondary_client);
+
+  // Setup mock tab/window for the secondary `WebContents`.
+  TabAndWindowMocks secondary_mocks;
+  SetUpMockTabAndWindow(secondary_web_contents.get(), profile(),
+                        secondary_mocks);
+
+  // Create mock user education for both windows.
+  MockBrowserUserEducationInterface mock_user_education(
+      &mock_browser_window_interface());
+  MockBrowserUserEducationInterface secondary_mock_user_education(
+      &secondary_mocks.mock_window);
+
+  // Expect the promo to be shown on the SECONDARY tab (where the paste
+  // happens).
+  EXPECT_CALL(secondary_mock_user_education,
+              MaybeShowFeaturePromo(testing::Truly(
+                  [](const user_education::FeaturePromoParams& params) {
+                    return &*params.feature ==
+                           &feature_engagement::kIPHAutofillAtMemoryFeature;
+                  })))
+      .WillOnce(Return(true));
+
+  // The promo should not be shown on the primary tab (where the copy happens).
+  EXPECT_CALL(mock_user_education, MaybeShowFeaturePromo).Times(0);
+
+  // Create `SessionTabHelper` for both tabs to give them valid IDs.
+  sessions::SessionTabHelper::CreateForWebContents(
+      web_contents(), sessions::SessionTabHelper::DelegateLookup());
+  sessions::SessionTabHelper::CreateForWebContents(
+      secondary_web_contents.get(),
+      sessions::SessionTabHelper::DelegateLookup());
+
+  // Copy on the first tab, and paste on the second tab.
+  client()->at_memory_promo_observer().OnTextCopiedToClipboard(
+      web_contents()->GetPrimaryMainFrame(), u"some text");
+  secondary_client->at_memory_promo_observer().OnPaste();
+}
+
+#endif  // (BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
+        // BUILDFLAG(IS_CHROMEOS)) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
+
+#if (BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+     BUILDFLAG(IS_CHROMEOS)) &&                                       \
+    !BUILDFLAG(GOOGLE_CHROME_BRANDING)
+// Tests that `ShowAutofillAtMemoryPromo` is not propagated to the browser user
+// education service on non-branded builds even when all other conditions are
+// met.
+TEST_F(ChromeAutofillClientTestWithMockWindow,
+       ShowAutofillAtMemoryPromo_NonBrandedBuild) {
+  base::test::ScopedFeatureList feature_list(features::kAutofillAtMemory);
+  InitializePersonalContextEnablementService();
+  EXPECT_CALL(*personal_context_enablement_service(), GetEnablementState())
+      .WillRepeatedly(
+          Return(personal_context::PersonalContextEnablementState::kEnabled));
+
+  MockBrowserUserEducationInterface mock_user_education(
+      &mock_browser_window_interface());
+  EXPECT_CALL(mock_user_education, MaybeShowFeaturePromo).Times(0);
+
+  client()->ShowAutofillAtMemoryPromo();
+}
+#endif  // (BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+        // BUILDFLAG(IS_CHROMEOS)) && !BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 // Tests that if there is no enablement service available to the profile, client
 // defaults to kDisabledNotEligible state.
@@ -808,10 +1120,9 @@ TEST_F(ChromeAutofillClientTest, GetPersonalContextEnablementState_NoService) {
 
 // Tests that the client correctly pipes the state from the enablement service.
 TEST_F(ChromeAutofillClientTest, GetPersonalContextEnablementState_HappyPath) {
-  InitializeAccessibilityAnnotatorEnablementService();
+  InitializePersonalContextEnablementService();
 
-  EXPECT_CALL(*accessibility_annotator_enablement_service(),
-              GetEnablementState())
+  EXPECT_CALL(*personal_context_enablement_service(), GetEnablementState())
       .WillRepeatedly(
           Return(personal_context::PersonalContextEnablementState::kEnabled));
   EXPECT_EQ(client()->GetPersonalContextEnablementState(),
@@ -836,7 +1147,22 @@ TEST_F(ChromeAutofillClientTest, HideSuggestions_ProductFilter) {
   client()->HideSuggestions(SuggestionHidingReason::kAcceptSuggestion,
                             FillingProduct::kAddress);
 }
-#endif
+#endif  // !BUILDFLAG(IS_ANDROID)
+
+TEST_F(ChromeAutofillClientTest, IsAutofillProfileEnabled_BlockedByPolicy) {
+  base::test::ScopedFeatureList feature_list(
+      features::kAutofillEnableAutofillSettingsEnterprisePolicy);
+  NavigateAndCommit(GURL("https://example.com"));
+
+  EXPECT_TRUE(client()->IsAutofillProfileEnabled());
+
+  profile()->GetPrefs()->Set(
+      prefs::kAutofillTypesBlocked,
+      base::test::ParseJson(
+          R"([{"url_pattern": "https://example.com", "blocked_types": ["contact_info"]}])"));
+
+  EXPECT_FALSE(client()->IsAutofillProfileEnabled());
+}
 
 }  // namespace
 }  // namespace autofill

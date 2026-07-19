@@ -10,7 +10,7 @@ import 'chrome://resources/cr_elements/cr_toast/cr_toast.js';
 import './elements/viewer_error_dialog.js';
 import './elements/viewer_password_dialog.js';
 // <if expr="enable_pdf_ink2">
-import './elements/ink_text_box.js';
+import './elements/ink_text_annotations.js';
 import './elements/viewer_bottom_toolbar.js';
 import './elements/viewer_side_panel.js';
 import './elements/viewer_text_bottom_toolbar.js';
@@ -61,7 +61,7 @@ import type {ViewerPasswordDialogElement} from './elements/viewer_password_dialo
 import type {ViewerSaveToDriveBubbleElement} from './elements/viewer_save_to_drive_bubble.js';
 // </if> enable_pdf_save_to_drive
 // <if expr="enable_pdf_ink2">
-import type {Ink2ThumbnailData} from './elements/viewer_thumbnail_bar.js';
+import type {ThumbnailData} from './elements/viewer_thumbnail_bar.js';
 //</if>
 import type {ViewerToolbarElement} from './elements/viewer_toolbar.js';
 // <if expr="enable_pdf_ink2">
@@ -281,6 +281,7 @@ export class PdfViewerElement extends PdfViewerBaseElement {
 
       // <if expr="enable_pdf_ink2">
       pdfInk2Enabled_: {type: Boolean},
+      pdfTextAnnotationsEnabled_: {type: Boolean},
       // </if>
 
       // <if expr="enable_pdf_save_to_drive">
@@ -357,6 +358,7 @@ export class PdfViewerElement extends PdfViewerBaseElement {
   private pdfGetSaveDataInBlocks_: boolean = false;
   // <if expr="enable_pdf_ink2">
   protected accessor pdfInk2Enabled_: boolean = false;
+  protected accessor pdfTextAnnotationsEnabled_: boolean = false;
   // </if>
   // <if expr="enable_pdf_save_to_drive">
   protected accessor pdfSaveToDriveEnabled_: boolean = false;
@@ -628,13 +630,13 @@ export class PdfViewerElement extends PdfViewerBaseElement {
   }
 
   // <if expr="enable_pdf_ink2">
-  private maybeCreateTextAnnotation_(location?: Point) {
+  private async maybeCreateTextAnnotation_(location?: Point) {
     const created =
         Ink2Manager.getInstance().initializeTextAnnotation(location);
     if (!created && this.textboxState_ !== TextBoxState.INACTIVE) {
-      const textbox = this.shadowRoot.querySelector('ink-text-box');
-      assert(textbox);
-      textbox.commitTextAnnotation();
+      const annotations = this.shadowRoot.querySelector('ink-text-annotations');
+      assert(annotations);
+      await annotations.commitActiveAnnotation();
     }
   }
 
@@ -750,7 +752,7 @@ export class PdfViewerElement extends PdfViewerBaseElement {
     this.pluginController_.setPresentationMode(false);
 
     // Ensure that directional keys still work after exiting.
-    this.shadowRoot.querySelector('embed')!.focus();
+    this.focusPlugin_();
 
     // Set zoom back to original zoom before presentation mode.
     this.viewport.restoreZoomState();
@@ -764,6 +766,15 @@ export class PdfViewerElement extends PdfViewerBaseElement {
       this.restoreAnnotationMode_ = AnnotationMode.OFF;
     }
     // </if>
+  }
+
+  private focusPlugin_() {
+    // Focus the embed in this frame, so the browser routes keyboard events to
+    // the plugin.
+    this.shadowRoot.querySelector('embed')!.focus();
+    // Send a 'focus' message to the plugin frame, so it internally focuses its
+    // own elements.
+    this.pluginController_.focus();
   }
 
   protected async onPresentClick_() {
@@ -898,7 +909,10 @@ export class PdfViewerElement extends PdfViewerBaseElement {
       this.style.setProperty(
           '--horizontal-scrollbar-width',
           hasScrollbars.horizontal ? scrollbarWidthStyle : '0px');
-      Ink2Manager.getInstance().viewportChanged();
+      const annotations = this.shadowRoot.querySelector('ink-text-annotations');
+      if (annotations) {
+        annotations.viewportChanged();
+      }
     }
     // </if>
   }
@@ -910,6 +924,8 @@ export class PdfViewerElement extends PdfViewerBaseElement {
         loadTimeData.getBoolean('pdfGetSaveDataInBlocks');
     // <if expr="enable_pdf_ink2">
     this.pdfInk2Enabled_ = loadTimeData.getBoolean('pdfInk2Enabled');
+    this.pdfTextAnnotationsEnabled_ =
+        loadTimeData.getBoolean('pdfTextAnnotationsEnabled');
     if (this.pdfInk2Enabled_) {
       Ink2Manager.getInstance().setViewport(this.viewport);
     }
@@ -927,15 +943,41 @@ export class PdfViewerElement extends PdfViewerBaseElement {
     this.zoomBounds_.max =
         Math.round(presetZoomFactors[presetZoomFactors.length - 1]! * 100);
 
-    // <if expr="enable_pdf_ink2">
-    if (this.pdfInk2Enabled_) {
+    const hasGlic = loadTimeData.getBoolean('pdfGlicSummarizeEnabled');
+    if (
+        hasGlic
+        // <if expr="enable_pdf_ink2">
+        || this.pdfInk2Enabled_
+        // </if>
+    ) {
       this.updateComplete.then(() => {
-        this.registerHelpBubble(
-            'PdfHelpBubbleHandlerFactory::kPdfInkSignaturesDrawElementId',
-            this.$.toolbar.shadowRoot.querySelector<HTMLElement>('#annotate')!);
+        if (hasGlic) {
+          const summarizeBtn =
+              this.$.toolbar.shadowRoot.querySelector<HTMLElement>(
+                  '#glic-summarize-button');
+          if (summarizeBtn) {
+            this.registerHelpBubble(
+                'PdfHelpBubbleHandlerFactory::kPdfGlicSummarizeElementId',
+                summarizeBtn);
+          }
+        }
+
+        // <if expr="enable_pdf_ink2">
+        if (this.pdfInk2Enabled_) {
+          this.registerHelpBubble(
+              'PdfHelpBubbleHandlerFactory::kPdfInkSignaturesDrawElementId',
+              this.$.toolbar.shadowRoot.querySelector<HTMLElement>(
+                  '#annotate')!);
+          if (this.pdfTextAnnotationsEnabled_) {
+            this.registerHelpBubble(
+                'PdfHelpBubbleHandlerFactory::kPdfInkSignaturesAddTextElementId',
+                this.$.toolbar.shadowRoot.querySelector<HTMLElement>(
+                    '#text-annotate')!);
+          }
+        }
+        // </if>
       });
     }
-    // </if>
   }
 
   override handleScriptingMessage(message: MessageEvent<unknown>) {
@@ -1059,6 +1101,24 @@ export class PdfViewerElement extends PdfViewerBaseElement {
         this.caretBrowsingEnabled_ =
             caretBrowsingEnabledData.caretBrowsingEnabled;
         return;
+      // <if expr="enable_pdf_ink2">
+      case 'sendClickEvent':
+        // Ignore click events outside of text annotation mode.
+        if (this.annotationMode_ !== AnnotationMode.TEXT) {
+          return;
+        }
+        const location = data as unknown as Point;
+        // Clicks on a scrollbar should allow the plugin to take focus.
+        if (this.viewport.isPointOnScrollbar(location)) {
+          const annotations =
+              this.shadowRoot.querySelector('ink-text-annotations');
+          assert(annotations);
+          annotations.blurActiveAnnotation();
+        } else {
+          this.maybeCreateTextAnnotation_(data as unknown as Point);
+        }
+        return;
+      // </if>
       case 'sendKeyEvent':
         const keyEvent = convertSendKeyEventMessage(data);
         keyEvent.fromPlugin = true;
@@ -1096,30 +1156,15 @@ export class PdfViewerElement extends PdfViewerBaseElement {
           type: 'touchSelectionOccurred',
         });
         return;
-        // <if expr="enable_pdf_ink2">
-      case 'updateInk2Thumbnail':
-        const thumbnailData = data as unknown as Ink2ThumbnailData;
+      // <if expr="enable_pdf_ink2">
+      case 'updateThumbnail':
+        const thumbnailData = data as unknown as ThumbnailData;
         this.pluginController_.getEventTarget().dispatchEvent(
-            new CustomEvent<Ink2ThumbnailData>(
-                PluginControllerEventType.UPDATE_INK_THUMBNAIL,
+            new CustomEvent<ThumbnailData>(
+                PluginControllerEventType.UPDATE_THUMBNAIL,
                 {detail: thumbnailData}));
         return;
-      case 'sendClickEvent':
-        // Ignore click events outside of text annotation mode.
-        if (this.annotationMode_ !== AnnotationMode.TEXT) {
-          return;
-        }
-        const location = data as unknown as Point;
-        // Clicks on a scrollbar should allow the plugin to take focus.
-        if (this.viewport.isPointOnScrollbar(location)) {
-          const textbox = this.shadowRoot.querySelector('ink-text-box');
-          assert(textbox);
-          textbox.blur();
-        } else {
-          this.maybeCreateTextAnnotation_(data as unknown as Point);
-        }
-        return;
-        // </if>
+      // </if>
       default:
         assertNotReached('Unknown message type received: ' + data.type);
     }
@@ -1930,9 +1975,9 @@ export class PdfViewerElement extends PdfViewerBaseElement {
       return Promise.resolve();
     }
 
-    const textbox = this.shadowRoot.querySelector('ink-text-box');
-    assert(textbox);
-    return textbox.commitTextAnnotation();
+    const annotations = this.shadowRoot.querySelector('ink-text-annotations');
+    assert(annotations);
+    return annotations.commitActiveAnnotation();
   }
 
   protected isInTextAnnotationMode_(): boolean {
@@ -1981,7 +2026,9 @@ export class PdfViewerElement extends PdfViewerBaseElement {
 
   protected onTextBoxStateChanged_(e: CustomEvent<TextBoxState>) {
     this.textboxState_ = e.detail;
-    if (e.detail === TextBoxState.EDITED) {
+    if (e.detail === TextBoxState.INACTIVE) {
+      this.focusPlugin_();
+    } else if (e.detail === TextBoxState.EDITED) {
       this.setShowBeforeUnloadDialog_(true);
     }
   }

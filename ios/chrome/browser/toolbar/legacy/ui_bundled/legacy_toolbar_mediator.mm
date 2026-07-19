@@ -129,13 +129,6 @@
   [self.omniboxConsumer setBottomOmniboxOffsetForPopup:bottomOffset];
 }
 
-- (void)didNavigateToNTPOnActiveWebState {
-  _isNTP = YES;
-  if (IsBottomOmniboxAvailable()) {
-    [self updateOmniboxPosition];
-    [self.omniboxConsumer setIsNTP:_isNTP];
-  }
-}
 
 #pragma mark - Setters
 
@@ -175,6 +168,15 @@
 
 - (void)webState:(web::WebState*)webState
     didStartNavigation:(web::NavigationContext*)navigation {
+  [self updateForWebState:webState];
+}
+
+- (void)webState:(web::WebState*)webState
+    didFinishNavigation:(web::NavigationContext*)navigation {
+  [self updateForWebState:webState];
+}
+
+- (void)webState:(web::WebState*)webState didLoadPageWithSuccess:(BOOL)success {
   [self updateForWebState:webState];
 }
 

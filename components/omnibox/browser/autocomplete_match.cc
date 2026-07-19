@@ -27,6 +27,7 @@
 #include "base/time/time.h"
 #include "base/trace_event/memory_usage_estimator.h"
 #include "base/trace_event/trace_event.h"
+#include "build/android_buildflags.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "components/history_embeddings/core/history_embeddings_features.h"
@@ -65,8 +66,10 @@
 #include "components/vector_icons/vector_icons.h"     // nogncheck
 #endif
 
-constexpr bool kIsDesktop = !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS);
 constexpr bool kIsAndroid = BUILDFLAG(IS_ANDROID);
+constexpr bool kIsDesktopAndroid = BUILDFLAG(IS_DESKTOP_ANDROID);
+constexpr bool kIsDesktop =
+    (!BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)) || kIsDesktopAndroid;
 
 namespace {
 
@@ -268,7 +271,6 @@ AutocompleteMatch::AutocompleteMatch(const AutocompleteMatch& match)
       entity_id(match.entity_id),
       website_uri(match.website_uri),
       document_type(match.document_type),
-      starter_pack_id(match.starter_pack_id),
       enterprise_search_aggregator_type(
           match.enterprise_search_aggregator_type),
       tail_suggest_common_prefix(match.tail_suggest_common_prefix),
@@ -391,7 +393,6 @@ AutocompleteMatch& AutocompleteMatch::operator=(
   history_embeddings_answer_header_loading =
       std::move(match.history_embeddings_answer_header_loading);
   feedback_type = std::move(match.feedback_type);
-  starter_pack_id = std::move(match.starter_pack_id);
   matching_tab_group_uuid = std::move(match.matching_tab_group_uuid);
 #if BUILDFLAG(IS_ANDROID)
   android_tab_id = std::move(match.android_tab_id);
@@ -477,7 +478,6 @@ AutocompleteMatch& AutocompleteMatch::operator=(
   history_embeddings_answer_header_loading =
       match.history_embeddings_answer_header_loading;
   feedback_type = match.feedback_type;
-  starter_pack_id = match.starter_pack_id;
   matching_tab_group_uuid = match.matching_tab_group_uuid;
 
 #if BUILDFLAG(IS_ANDROID)
@@ -1368,11 +1368,8 @@ bool AutocompleteMatch::HasInstantKeyword(
 
 bool AutocompleteMatch::ShouldHideBasedOnStarterPack(
     const TemplateURLService* template_url_service) const {
-  const TemplateURL* turl =
-      template_url_service->GetTemplateURLForKeyword(keyword);
-  return from_keyword && turl &&
-         turl->starter_pack_id() ==
-             template_url_starter_pack_data::StarterPackId::kGemini;
+  return StarterPackId(template_url_service) ==
+         template_url_starter_pack_data::StarterPackId::kGemini;
 }
 
 void AutocompleteMatch::GetKeywordUiState(
@@ -1454,6 +1451,17 @@ std::u16string AutocompleteMatch::GetKeywordPlaceholder(
 TemplateURL* AutocompleteMatch::GetTemplateURL(
     TemplateURLService* template_url_service) const {
   return GetTemplateURLWithKeyword(template_url_service, keyword, "");
+}
+
+template_url_starter_pack_data::StarterPackId AutocompleteMatch::StarterPackId(
+    const TemplateURLService* template_url_service) const {
+  if (!from_keyword) {
+    return template_url_starter_pack_data::StarterPackId::kNone;
+  }
+  const TemplateURL* turl =
+      GetTemplateURLWithKeyword(template_url_service, keyword, "");
+  return turl ? turl->starter_pack_id()
+              : template_url_starter_pack_data::StarterPackId::kNone;
 }
 
 GURL AutocompleteMatch::ImageUrl() const {
@@ -1678,7 +1686,7 @@ int AutocompleteMatch::GetSortingOrder() const {
     return 1;
   }
 
-  if constexpr (kIsAndroid) {
+  if constexpr (kIsAndroid && !kIsDesktopAndroid) {
     if (IsClipboardType(type)) {
       return 1;
     }
@@ -1872,6 +1880,16 @@ bool AutocompleteMatch::IsSearchAimSuggestion() const {
     }
   }
   return false;
+}
+
+OmniboxSuggestionKind AutocompleteMatch::GetOmniboxSuggestionKind() const {
+  if (IsSearchAimSuggestion()) {
+    return OmniboxSuggestionKind::kConversation;
+  }
+  if (IsSearchType(type)) {
+    return OmniboxSuggestionKind::kSearch;
+  }
+  return OmniboxSuggestionKind::kNavigation;
 }
 
 void AutocompleteMatch::FilterOmniboxActions(

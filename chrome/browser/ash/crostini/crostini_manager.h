@@ -32,7 +32,6 @@
 #include "chrome/browser/ash/guest_os/guest_os_launcher.h"
 #include "chrome/browser/ash/guest_os/guest_os_remover.h"
 #include "chrome/browser/ash/guest_os/guest_os_session_tracker.h"
-#include "chrome/browser/ash/guest_os/public/guest_os_mount_provider_registry.h"
 #include "chrome/browser/ash/guest_os/public/guest_os_terminal_provider_registry.h"
 #include "chrome/browser/ash/guest_os/vm_shutdown_observer.h"
 #include "chrome/browser/ash/guest_os/vm_starting_observer.h"
@@ -68,13 +67,6 @@ namespace crostini {
 extern const char kCrostiniStabilityHistogram[];
 
 class CrostiniSshfs;
-
-class PendingAppListUpdatesObserver : public base::CheckedObserver {
- public:
-  // Called whenever the kPendingAppListUpdatesMethod signal is sent.
-  virtual void OnPendingAppListUpdates(const guest_os::GuestId& container_id,
-                                       int count) = 0;
-};
 
 class ExportContainerProgressObserver {
  public:
@@ -112,12 +104,10 @@ class DiskImageProgressObserver {
                                    int progress) = 0;
 };
 
-class CrostiniDialogStatusObserver : public base::CheckedObserver {
+class CrostiniInstallerStatusObserver : public base::CheckedObserver {
  public:
-  // Called when a Crostini dialog (installer, upgrader, etc.) opens or
-  // closes.
-  virtual void OnCrostiniDialogStatusChanged(DialogType dialog_type,
-                                             bool open) = 0;
+  // Called when the Crostini installer dialog opens or closes.
+  virtual void OnCrostiniInstallerStatusChanged(bool open) = 0;
 };
 
 class ContainerShutdownObserver : public base::CheckedObserver {
@@ -441,12 +431,6 @@ class CrostiniManager : public KeyedService,
   using RemoveCrostiniCallback = CrostiniResultCallback;
   void AddRemoveCrostiniCallback(RemoveCrostiniCallback remove_callback);
 
-  // Add/remove observers for pending app list updates.
-  void AddPendingAppListUpdatesObserver(
-      PendingAppListUpdatesObserver* observer);
-  void RemovePendingAppListUpdatesObserver(
-      PendingAppListUpdatesObserver* observer);
-
   // Add/remove observers for container export/import.
   void AddExportContainerProgressObserver(
       ExportContainerProgressObserver* observer);
@@ -504,8 +488,6 @@ class CrostiniManager : public KeyedService,
   void OnImportLxdContainerProgress(
       const vm_tools::cicerone::ImportLxdContainerProgressSignal& signal)
       override;
-  void OnPendingAppListUpdates(
-      const vm_tools::cicerone::PendingAppListUpdatesSignal& signal) override;
   void OnStartLxdProgress(
       const vm_tools::cicerone::StartLxdProgressSignal& signal) override;
 
@@ -551,12 +533,13 @@ class CrostiniManager : public KeyedService,
   void set_skip_restart_for_testing() { skip_restart_for_testing_ = true; }
   bool skip_restart_for_testing() { return skip_restart_for_testing_; }
 
-  void SetCrostiniDialogStatus(DialogType dialog_type, bool open);
-  // Returns true if the dialog is open.
-  bool GetCrostiniDialogStatus(DialogType dialog_type) const;
-  void AddCrostiniDialogStatusObserver(CrostiniDialogStatusObserver* observer);
-  void RemoveCrostiniDialogStatusObserver(
-      CrostiniDialogStatusObserver* observer);
+  void SetCrostiniInstallerOpen(bool open);
+  // Returns true if the installer dialog is open.
+  bool IsCrostiniInstallerOpen() const;
+  void AddCrostiniInstallerStatusObserver(
+      CrostiniInstallerStatusObserver* observer);
+  void RemoveCrostiniInstallerStatusObserver(
+      CrostiniInstallerStatusObserver* observer);
 
   void AddContainerShutdownObserver(ContainerShutdownObserver* observer);
   void RemoveContainerShutdownObserver(ContainerShutdownObserver* observer);
@@ -837,9 +820,6 @@ class CrostiniManager : public KeyedService,
 
   std::vector<RemoveCrostiniCallback> remove_crostini_callbacks_;
 
-  base::ObserverList<PendingAppListUpdatesObserver>
-      pending_app_list_updates_observers_;
-
   base::ObserverList<ExportContainerProgressObserver>::
       UncheckedAndDanglingUntriaged export_container_progress_observers_;
   base::ObserverList<ImportContainerProgressObserver>::
@@ -858,15 +838,13 @@ class CrostiniManager : public KeyedService,
       restarters_by_container_;
   static RestartId next_restart_id_;
 
-  base::ObserverList<CrostiniDialogStatusObserver>
-      crostini_dialog_status_observers_;
+  base::ObserverList<CrostiniInstallerStatusObserver>
+      crostini_installer_status_observers_;
 
   base::ObserverList<ContainerShutdownObserver> container_shutdown_observers_;
 
-  // Contains the types of crostini dialogs currently open. It is generally
-  // invalid to show more than one. e.g. uninstalling and installing are
-  // mutually exclusive.
-  base::flat_set<DialogType> open_crostini_dialogs_;
+  // Whether the crostini installer dialog is currently open.
+  bool crostini_installer_open_ = false;
 
   bool dbus_observers_removed_ = false;
 
@@ -892,9 +870,6 @@ class CrostiniManager : public KeyedService,
   base::ScopedObservation<ash::NetworkStateHandler,
                           ash::NetworkStateHandlerObserver>
       network_state_handler_observer_{this};
-
-  base::flat_map<guest_os::GuestId, guest_os::GuestOsMountProviderRegistry::Id>
-      mount_provider_ids_;
 
   base::CallbackListSubscription primary_counter_mount_subscription_;
 

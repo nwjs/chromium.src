@@ -51,12 +51,14 @@
               </div>
             </template>
             <template is="dom-if" if="[[!hasCardIdentifier_(creditCard)]]">
-              <span id="expirationLabel" class="sub-label">
+              <span id="expirationLabel" class="sub-label" aria-hidden="true">
                 [[getExpirationlabel_(creditCard)]]
               </span>
             </template>
           </div>
           <div id="summarySublabel" class="sub-label">
+            <!-- aria-hidden is true because the screen-reader-only section
+                 above handles this content via getSummaryAriaSublabel_. -->
             <span aria-hidden="true">[[getSummarySublabel_(creditCard)]]</span>
             <template is="dom-if"
                 if="[[hasSummaryAndBenefitSublabel_(creditCard)]]">
@@ -80,9 +82,12 @@
             <if expr="_google_chrome">
               <picture id="paymentsIcon">
                 <source
-                    srcset="[[getScaledSrcSet_('chrome://theme/IDR_AUTOFILL_GOOGLE_PAY_DARK_SMALL')]]"
+                    srcset="[[getGooglePayDarkModeLogoSrcSet_(
+                        autofillEnableGradientGoogleLogosEnabled_)]]"
                     media="(prefers-color-scheme: dark)">
-                <img alt="" srcset="[[getScaledSrcSet_('chrome://theme/IDR_AUTOFILL_GOOGLE_PAY_SMALL')]]">
+                <img alt=""
+                    srcset="[[getGooglePayLightModeLogoSrcSet_(
+                        autofillEnableGradientGoogleLogosEnabled_)]]">
               </picture>
             </if>
             <if expr="not _google_chrome">

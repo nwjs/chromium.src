@@ -5,6 +5,7 @@
 #include "chrome/browser/extensions/updater/extension_update_client_base_browsertest.h"
 
 #include <memory>
+#include <optional>
 
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
@@ -13,14 +14,18 @@
 #include "chrome/browser/chrome_browser_main.h"
 #include "chrome/browser/chrome_browser_main_extra_parts.h"
 #include "chrome/browser/extensions/browsertest_util.h"
+#include "chrome/browser/extensions/updater/test_update_client_event_waiter.h"
 #include "chrome/browser/profiles/profile.h"
-#include "components/update_client/crx_update_item.h"
 #include "components/update_client/net/url_loader_post_interceptor.h"
 #include "components/update_client/protocol_handler.h"
 #include "content/public/browser/browser_context.h"
+#include "content/public/test/url_loader_interceptor.h"
 #include "extensions/browser/updater/update_service.h"
 #include "extensions/browser/updater/update_service_factory.h"
+#include "extensions/buildflags/buildflags.h"
 #include "extensions/common/extension_features.h"
+
+static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
 
 namespace extensions {
 
@@ -35,7 +40,7 @@ class TestChromeUpdateClientConfig
   TestChromeUpdateClientConfig(content::BrowserContext* context,
                                const std::vector<GURL>& update_url,
                                const std::vector<GURL>& ping_url)
-      : extensions::ChromeUpdateClientConfig(context),
+      : extensions::ChromeUpdateClientConfig(context, std::nullopt),
         update_url_(update_url),
         ping_url_(ping_url) {}
 
@@ -89,40 +94,6 @@ class TestChromeBrowserMainExtraParts : public ChromeBrowserMainExtraParts {
 
  private:
   raw_ptr<ExtensionUpdateClientBaseTest> test_;
-};
-
-class UpdateClientCompleteEventWaiter
-    : public update_client::UpdateClient::Observer {
- public:
-  explicit UpdateClientCompleteEventWaiter(const std::string& id) : id_(id) {}
-
-  UpdateClientCompleteEventWaiter(const UpdateClientCompleteEventWaiter&) =
-      delete;
-  UpdateClientCompleteEventWaiter& operator=(
-      const UpdateClientCompleteEventWaiter&) = delete;
-
-  ~UpdateClientCompleteEventWaiter() override = default;
-
-  void OnEvent(const update_client::CrxUpdateItem& item) final {
-    if (id_ == item.id &&
-        (item.state == update_client::ComponentState::kUpdated ||
-         item.state == update_client::ComponentState::kUpToDate ||
-         item.state == update_client::ComponentState::kUpdateError)) {
-      state_ = item.state;
-      run_loop_.Quit();
-    }
-  }
-
-  update_client::ComponentState Wait() {
-    run_loop_.Run();
-    return state_;
-  }
-
- private:
-  const std::string id_;
-  update_client::ComponentState state_ =
-      update_client::ComponentState::kUpdateError;
-  base::RunLoop run_loop_;
 };
 
 }  // namespace
@@ -182,6 +153,8 @@ void ExtensionUpdateClientBaseTest::SetUpOnMainThread() {
 
 void ExtensionUpdateClientBaseTest::TearDownOnMainThread() {
   get_interceptor_.reset();
+  update_service_ = nullptr;
+  ExtensionBrowserTest::TearDownOnMainThread();
 }
 
 void ExtensionUpdateClientBaseTest::SetUpNetworkInterceptors() {
@@ -202,19 +175,35 @@ void ExtensionUpdateClientBaseTest::SetUpNetworkInterceptors() {
       ping_urls, &https_server_for_ping_);
   https_server_for_ping_.StartAcceptingConnections();
 
-  get_interceptor_ =
-      std::make_unique<content::URLLoaderInterceptor>(base::BindRepeating(
-          &ExtensionUpdateClientBaseTest::OnRequest, base::Unretained(this)));
+  // URLLoaderInterceptor construction is asynchronous and requires a RunLoop
+  // spin. On Android, browser test setup happens inside another RunLoop, so
+  // this RunLoop must be nestable.
+  base::RunLoop run_loop(base::RunLoop::Type::kNestableTasksAllowed);
+  get_interceptor_ = std::make_unique<content::URLLoaderInterceptor>(
+      base::BindRepeating(&ExtensionUpdateClientBaseTest::OnRequest,
+                          base::Unretained(this)),
+      content::URLLoaderInterceptor::URLLoaderCompletionStatusCallback(),
+      run_loop.QuitClosure());
+  run_loop.Run();
+}
+
+void ExtensionUpdateClientBaseTest::AddUpdateClientObserver(
+    update_client::UpdateClient::Observer* observer) {
+  update_service_->AddUpdateClientObserver(observer);
+}
+
+void ExtensionUpdateClientBaseTest::RemoveUpdateClientObserver(
+    update_client::UpdateClient::Observer* observer) {
+  update_service_->RemoveUpdateClientObserver(observer);
 }
 
 update_client::ComponentState
 ExtensionUpdateClientBaseTest::WaitOnComponentUpdaterCompleteEvent(
     const std::string& id) {
-  UpdateClientCompleteEventWaiter waiter(id);
-  update_service_->AddUpdateClientObserver(&waiter);
+  TestUpdateClientEventWaiter waiter(id);
+  AddUpdateClientObserver(&waiter);
   auto event = waiter.Wait();
-  update_service_->RemoveUpdateClientObserver(&waiter);
-
+  RemoveUpdateClientObserver(&waiter);
   return event;
 }
 

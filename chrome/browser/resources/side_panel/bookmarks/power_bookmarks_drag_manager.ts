@@ -11,6 +11,7 @@ import type {BookmarksTreeNode} from './bookmarks.mojom-webui.js';
 import type {BookmarksApiProxy} from './bookmarks_api_proxy.js';
 import {BookmarksApiProxyImpl} from './bookmarks_api_proxy.js';
 import {PowerBookmarkRowElement} from './power_bookmark_row.js';
+import {getFolderDescendants, PowerBookmarksService} from './power_bookmarks_service.js';
 
 export const DROP_POSITION_ATTR = 'drop-position';
 
@@ -54,6 +55,7 @@ function toExtensionsBookmarkTreeNode(mojoNode: BookmarksTreeNode):
 }
 
 export interface PowerBookmarksDragDelegate extends HTMLElement {
+  getBookmarkRowElement(id: string): HTMLElement|null;
   getFallbackBookmark(): BookmarksTreeNode;
   getFallbackDropTargetElement(): HTMLElement;
   onFinishDrop(dropTarget: BookmarksTreeNode): void;
@@ -63,9 +65,9 @@ export interface PowerBookmarksDragDelegate extends HTMLElement {
 class DragSession {
   private delegate_: PowerBookmarksDragDelegate;
   private dragData_: chrome.bookmarkManagerPrivate.DragData;
-  private lastDragOverElement_: HTMLElement|null = null;
+  private lastDragOverElements_: HTMLElement[] = [];
   private lastDropTargetBookmark_: BookmarksTreeNode|null = null;
-  private lastPointerWasTouch_ = false;
+  private lastBookmarkRowElement_: HTMLElement|null = null;
   private bookmarksApi_: BookmarksApiProxy =
       BookmarksApiProxyImpl.getInstance();
 
@@ -78,49 +80,78 @@ class DragSession {
 
   start(e: DragEvent) {
     chrome.bookmarkManagerPrivate.startDrag(
-        this.dragData_.elements!.map(bookmark => bookmark.id), 0,
-        this.lastPointerWasTouch_, e.clientX, e.clientY);
+        this.dragData_.elements!.map(bookmark => bookmark.id), 0, false,
+        e.clientX, e.clientY);
   }
 
   update(e: DragEvent) {
     const bookmarkRowElement = e.composedPath().find(target => {
-      return target instanceof PowerBookmarkRowElement && !target.bookmark.url;
+      return target instanceof PowerBookmarkRowElement;
     }) as PowerBookmarkRowElement;
 
-    if (bookmarkRowElement === this.lastDragOverElement_) {
-      // State has not changed, nothing to update.
+    if (bookmarkRowElement === this.lastBookmarkRowElement_) {
       return;
     }
+    this.lastBookmarkRowElement_ = bookmarkRowElement || null;
 
     this.resetState_();
 
-    let dropTargetBookmark: BookmarksTreeNode = bookmarkRowElement?.bookmark;
-    let dragOverElement: HTMLElement = bookmarkRowElement;
+    const fallbackBookmark = this.delegate_.getFallbackBookmark();
+    let dropTargetBookmark: BookmarksTreeNode = fallbackBookmark;
+    let useFallbackHighlight = true;
 
-    if (!bookmarkRowElement || bookmarkRowElement.bookmark.unmodifiable) {
-      dropTargetBookmark = this.delegate_.getFallbackBookmark();
-      dragOverElement = this.delegate_.getFallbackDropTargetElement();
+    if (bookmarkRowElement) {
+      // Resolve target: parent folder if hovering over a URL, folder itself
+      // if hovering over a folder.
+      const isUrl = bookmarkRowElement.bookmark.url;
+      const targetNode = isUrl ?
+          PowerBookmarksService.getInstance().findBookmarkWithId(
+              bookmarkRowElement.bookmark.parentId) :
+          bookmarkRowElement.bookmark;
+
+      // Validate target and determine if we should highlight a specific folder.
+      if (targetNode && !targetNode.unmodifiable) {
+        dropTargetBookmark = targetNode;
+        // Only turn off fallback container highlight if target is a subfolder.
+        if (dropTargetBookmark.id !== fallbackBookmark.id) {
+          useFallbackHighlight = false;
+        }
+      }
     }
 
     const draggedBookmarks = this.dragData_.elements!;
-    const dropTargetIsParentOrSelf = !draggedBookmarks.some(
-        (bookmark: chrome.bookmarks.BookmarkTreeNode) =>
-            bookmark.parentId !== dropTargetBookmark.id &&
-            bookmark.id !== dropTargetBookmark.id);
-    if (draggedBookmarks.length === 0 || dropTargetIsParentOrSelf) {
+    if (draggedBookmarks.length === 0) {
       this.cancel();
       return;
     }
 
-    dragOverElement.setAttribute(DROP_POSITION_ATTR, DropPosition.INTO);
-    this.lastDragOverElement_ = dragOverElement;
+    const elementsToHighlight: HTMLElement[] = [];
+    if (useFallbackHighlight) {
+      elementsToHighlight.push(this.delegate_.getFallbackDropTargetElement());
+    } else {
+      const descendants = getFolderDescendants(dropTargetBookmark);
+      descendants.forEach(descendant => {
+        const element = this.delegate_.getBookmarkRowElement(descendant.id);
+        if (element) {
+          elementsToHighlight.push(element);
+        }
+      });
+      if (elementsToHighlight.length === 0) {
+        elementsToHighlight.push(this.delegate_.getFallbackDropTargetElement());
+      }
+    }
+
+    elementsToHighlight.forEach(element => {
+      element.setAttribute(DROP_POSITION_ATTR, DropPosition.INTO);
+    });
+    this.lastDragOverElements_ = elementsToHighlight;
     this.lastDropTargetBookmark_ = dropTargetBookmark;
   }
 
   cancel() {
     this.resetState_();
-    this.lastDragOverElement_ = null;
     this.lastDropTargetBookmark_ = null;
+    this.lastBookmarkRowElement_ = null;
   }
 
   finish() {
@@ -130,17 +161,44 @@ class DragSession {
       return;
     }
 
-    this.bookmarksApi_.dropBookmarks(this.lastDropTargetBookmark_.id)
-        .then(() => {
-          this.delegate_.onFinishDrop(this.lastDropTargetBookmark_!);
-          this.cancel();
+    const draggedBookmarks = this.dragData_.elements!;
+    const dropTargetIsParent = !draggedBookmarks.some(
+        (bookmark: chrome.bookmarks.BookmarkTreeNode) =>
+            bookmark.parentId !== this.lastDropTargetBookmark_!.id);
+    const dropTargetIsSelfOrDescendant =
+        draggedBookmarks.some((dragged: chrome.bookmarks.BookmarkTreeNode) => {
+          // The drag-and-drop system provides extension-formatted nodes. We
+          // must resolve the corresponding Mojo-formatted node from our
+          // internal service so we can query its descendants using
+          // getFolderDescendants.
+          const mojoNode =
+              PowerBookmarksService.getInstance().findBookmarkWithId(
+                  dragged.id);
+          if (mojoNode) {
+            return getFolderDescendants(mojoNode).some(
+                descendant =>
+                    descendant.id === this.lastDropTargetBookmark_!.id);
+          }
+          return false;
         });
+
+    if (dropTargetIsParent || dropTargetIsSelfOrDescendant) {
+      this.cancel();
+      return;
+    }
+
+    const targetBookmark = this.lastDropTargetBookmark_;
+    this.bookmarksApi_.dropBookmarks(targetBookmark.id).then(() => {
+      this.delegate_.onFinishDrop(targetBookmark);
+    });
+    this.cancel();
   }
 
   private resetState_() {
-    if (this.lastDragOverElement_) {
-      this.lastDragOverElement_.removeAttribute(DROP_POSITION_ATTR);
-    }
+    this.lastDragOverElements_.forEach(element => {
+      element.removeAttribute(DROP_POSITION_ATTR);
+    });
+    this.lastDragOverElements_ = [];
   }
 
   static createFromBookmark(
@@ -161,8 +219,9 @@ class DragSession {
 // allows to get information from different sources.
 export class PowerBookmarksDragManager {
   private delegate_: PowerBookmarksDragDelegate;
-  private dragSession_: DragSession|null;
+  private dragSession_: DragSession|null = null;
   private eventTracker_: EventTracker = new EventTracker();
+  private lastPointerWasTouch_ = false;
 
   constructor(delegate: PowerBookmarksDragDelegate) {
     this.delegate_ = delegate;
@@ -170,6 +229,10 @@ export class PowerBookmarksDragManager {
 
   startObserving() {
     this.eventTracker_.removeAll();
+    this.eventTracker_.add(
+        this.delegate_, 'pointerdown',
+        (e: Event) => this.lastPointerWasTouch_ =
+            (e as PointerEvent).pointerType === 'touch');
     this.eventTracker_.add(
         this.delegate_, 'dragstart',
         (e: Event) => this.onDragStart_(e as DragEvent));
@@ -219,7 +282,8 @@ export class PowerBookmarksDragManager {
 
   private onDragStart_(e: DragEvent) {
     e.preventDefault();
-    if (!loadTimeData.getBoolean('editBookmarksEnabled')) {
+    if (!loadTimeData.getBoolean('editBookmarksEnabled') ||
+        this.lastPointerWasTouch_) {
       return;
     }
 

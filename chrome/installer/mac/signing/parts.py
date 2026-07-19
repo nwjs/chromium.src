@@ -126,6 +126,7 @@ def get_parts(config):
         'libEGL.dylib',
         'libGLESv2.dylib',
         'libvk_swiftshader.dylib',
+        'libvulkan.dylib',
     ]
     if config.is_chrome_branded():
         dylibs.append('liboptimization_guide_internal.dylib')

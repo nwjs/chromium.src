@@ -646,9 +646,9 @@ IN_PROC_BROWSER_TEST_F(NotificationsTest, TestShouldDisplayFullscreen) {
   ui_test_utils::ToggleFullscreenModeAndWait(browser());
 
   ASSERT_TRUE(ui_test_utils::ShowAndFocusNativeWindow(
-      browser()->window()->GetNativeWindow()));
+      browser()->GetWindow()->GetNativeWindow()));
 
-  ASSERT_TRUE(browser()->window()->IsActive());
+  ASSERT_TRUE(browser()->GetWindow()->IsActive());
 
   // Creates a simple notification.
   std::string result = CreateSimpleNotification(browser(), true);
@@ -683,13 +683,13 @@ IN_PROC_BROWSER_TEST_F(NotificationsTest, TestShouldDisplayMultiFullscreen) {
   // Set the other browser fullscreen
   ui_test_utils::ToggleFullscreenModeAndWait(other_browser);
 
-  ASSERT_TRUE(browser()->window()->IsFullscreen());
-  ASSERT_TRUE(other_browser->window()->IsFullscreen());
+  ASSERT_TRUE(browser()->GetWindow()->IsFullscreen());
+  ASSERT_TRUE(other_browser->GetWindow()->IsFullscreen());
 
   ui_test_utils::BrowserActivationWaiter waiter(other_browser);
   waiter.WaitForActivation();
-  ASSERT_FALSE(browser()->window()->IsActive());
-  ASSERT_TRUE(other_browser->window()->IsActive());
+  ASSERT_FALSE(browser()->GetWindow()->IsActive());
+  ASSERT_TRUE(other_browser->GetWindow()->IsActive());
 
   ASSERT_EQ(1, GetNotificationCount());
   message_center::NotificationList::Notifications notifications =
@@ -717,7 +717,7 @@ IN_PROC_BROWSER_TEST_F(NotificationsTest, TestShouldDisplayPopupNotification) {
   ui_test_utils::ToggleFullscreenModeAndWait(browser());
 
   ASSERT_TRUE(ui_test_utils::ShowAndFocusNativeWindow(
-      browser()->window()->GetNativeWindow()));
+      browser()->GetWindow()->GetNativeWindow()));
 
   std::string result = CreateSimpleNotification(browser(), true);
   EXPECT_NE("-1", result);
@@ -760,7 +760,7 @@ IN_PROC_BROWSER_TEST_F(NotificationsTestWithFakeMediaStream,
   EXPECT_EQ(u"My Body", (*notifications.begin())->message());
 
   // Open a new tab to a diffent origin from the one that shows notifications.
-  chrome::NewTab(browser());
+  chrome::NewTab(browser(), NewTabTypes::kNoUserAction);
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
       browser(),
       https_server.GetURL("/notifications/notification_tester.html")));

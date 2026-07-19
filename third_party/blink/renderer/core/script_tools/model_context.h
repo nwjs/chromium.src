@@ -32,7 +32,6 @@ class AbortSignal;
 class Element;
 class ExecuteToolOptions;
 class SourceLocation;
-class ModelContextOptions;
 class ModelContextGetToolOptions;
 class ModelContextRegisterToolOptions;
 class ModelContextTool;
@@ -196,6 +195,8 @@ class CORE_EXPORT ModelContext : public EventTarget,
  private:
   class ToolFunctionFinishedCallback;
   class ToolUnregisterAbortAlgorithm;
+
+  bool IsModelContextAllowed() const;
 
   bool ExecuteV8Tool(V8ToolExecuteCallback* tool_function,
                      const base::UnguessableToken& invocation_id,

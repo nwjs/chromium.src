@@ -127,6 +127,7 @@ class RenderViewContextMenu
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kRegionSearchItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kSearchForImageItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kSearchForVideoFrameItem);
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kVideoFrameSubmenuItem);
 
   using ExecutePluginActionCallback =
       base::OnceCallback<void(content::RenderFrameHost*,
@@ -330,6 +331,7 @@ class RenderViewContextMenu
   void AppendTranslateItem();
   void AppendMediaRouterItem();
   void AppendReadAnythingItem();
+  void AppendSaveToMemoryBanksItem();
   void AppendGlicItems();
   void AppendRotationItems();
   void AppendSpellingAndSearchSuggestionItems();
@@ -441,6 +443,7 @@ class RenderViewContextMenu
 #endif
   void ExecOpenInReadAnything();
   void ExecListenToThisPage();
+  void ExecSaveToMemoryBanks();
 
   void MediaPlayerAction(const blink::mojom::MediaPlayerAction& action);
   void SearchForVideoFrame(int event_flags,
@@ -483,7 +486,7 @@ class RenderViewContextMenu
   void OnSupervisedUserURLFilterChecked(
       supervised_user::WebFilteringResult result);
 
-  void MaybeAppendOpenGlicItem();
+  void MaybeAppendOpenGlicItem(bool add_separator = true);
 
   // Opens the Lens overlay to search a region defined by the given bounds of
   // the view and the image to be searched. Tab bounds and view bounds are

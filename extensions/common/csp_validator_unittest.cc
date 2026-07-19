@@ -158,6 +158,12 @@ TEST(ExtensionCSPValidator, IsLegal) {
       "default-src 'self';\rscript-src http://www.google.com"));
   EXPECT_FALSE(ContentSecurityPolicyIsLegal(
       "default-src 'self';,script-src http://www.google.com"));
+  EXPECT_TRUE(ContentSecurityPolicyIsLegal(
+      "default-src 'self';\vscript-src http://www.google.com"));
+  EXPECT_TRUE(ContentSecurityPolicyIsLegal(
+      "default-src 'self';\tscript-src http://www.google.com"));
+  EXPECT_TRUE(ContentSecurityPolicyIsLegal(
+      "default-src 'self';\fscript-src http://www.google.com"));
 }
 
 TEST(ExtensionCSPValidator, IsSecure) {
@@ -598,6 +604,10 @@ TEST(ExtensionCSPValidator, EffectiveSandboxedPageCSP) {
       CheckCSP(SanitizeSandboxPageCSP("worker-src http://evil.com"),
                "worker-src 'self'; child-src 'self';",
                insecure_value_warning("worker-src", "http://evil.com")));
+
+  EXPECT_TRUE(
+      CheckCSP(SanitizeSandboxPageCSP("worker-src 'self' blob: filesystem:"),
+               "worker-src 'self' blob: filesystem:; child-src 'self';"));
 }
 
 namespace extensions {
@@ -626,8 +636,8 @@ TEST(ExtensionCSPValidator, ParseCSP) {
 
   std::vector<TestCase> cases;
 
-  cases.emplace_back("   \n \r \t ", DirectiveList());
-  cases.emplace_back("  ; \n ;\r \t ;;", DirectiveList());
+  cases.emplace_back("   \n \r \t \v \f ", DirectiveList());
+  cases.emplace_back("  ; \n ;\r \t \v \f ;;", DirectiveList());
 
   const char* policy = R"(  deFAULt-src   'self' ;
   img-src * ; media-src media1.com MEDIA2.com;
@@ -644,6 +654,20 @@ TEST(ExtensionCSPValidator, ParseCSP) {
   expected_directives.emplace_back("img-src 'self'", "img-src",
                                    std::vector<std::string_view>({"'self'"}));
   cases.emplace_back(policy, std::move(expected_directives));
+
+  const char* whitespace_policy =
+      "default-src\v'self';\tscript-src\fhttp://www.google.com";
+  DirectiveList whitespace_directives;
+  whitespace_directives.emplace_back(
+      /*directive_string=*/"default-src\v'self'",
+      /*directive_name=*/"default-src",
+      /*directive_values=*/std::vector<std::string_view>({"'self'"}));
+  whitespace_directives.emplace_back(
+      /*directive_string=*/"script-src\fhttp://www.google.com",
+      /*directive_name=*/"script-src",
+      /*directive_values=*/
+      std::vector<std::string_view>({"http://www.google.com"}));
+  cases.emplace_back(whitespace_policy, std::move(whitespace_directives));
 
   for (const auto& test_case : cases) {
     SCOPED_TRACE(test_case.policy);

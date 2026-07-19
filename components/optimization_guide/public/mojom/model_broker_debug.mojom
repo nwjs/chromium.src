@@ -65,8 +65,12 @@ struct BrokerUseCaseInfo {
 struct BrokerModelInfo {
   // The name of the model.
   string name;
+  // Size of the folder containing the model files.
+  uint64 folder_size;
   // The absolute path to the weights file for the model.
   string weights_path;
+  // A string representation of the backend (CPU vs GPU) used for this model.
+  string backend_type;
 };
 
 // A snapshot of the ModelBroker's internal state.
@@ -75,6 +79,8 @@ struct BrokerStateInfo {
   array<BrokerAssetInfo> assets;
   array<BrokerUseCaseInfo> use_cases;
   array<BrokerModelInfo> models;
+  int32? model_crash_count;
+  int32? max_model_crash_count;
 };
 
 // A debug interface for ModelBroker. This is primarily exposed for
@@ -94,4 +100,7 @@ interface ModelBrokerDebug {
   // Request uninstallation of models.
   // Not all implementations may honor this request.
   UninstallModels();
+
+  // Reset the crash count for the model execution.
+  ResetModelCrashCount();
 };

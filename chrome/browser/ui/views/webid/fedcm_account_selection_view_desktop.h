@@ -43,8 +43,8 @@ class AccountSelectionViewBase;
 //  * tabs::TabInterface, which represents the tab in which the UI is shown.
 // If either goes away, then this class should be destroyed. This class is owned
 // as a unique_ptr by IdentityDialogController which ensures that the lifetime
-// is scoped to that of RequestService. However, the lifetime must be
-// manually scoped to the tabs::TabInterface. This is done by:
+// is scoped to that of content::webid::Request. However, the lifetime
+// must be manually scoped to the tabs::TabInterface. This is done by:
 //  * Registering callbacks on tabs::TabInterface for relevant changes.
 //  * If the tab goes away, Close() is called.
 //  * All methods to show UI early exit if the tab no longer exists.
@@ -430,6 +430,9 @@ class FedCmAccountSelectionView : public AccountSelectionView,
   // Shows the page action (omnibox chip) for Ambient UI.
   bool ShowPageAction(const std::vector<IdentityProviderDataPtr>& idp_list,
                       const std::vector<IdentityRequestAccountPtr>& accounts);
+
+  // Returns whether the ambient UI is enabled.
+  bool IsAmbientEnabled() const;
 
   // Shows the multi account picker and updates the internal state.
   void ShowMultiAccountPicker(

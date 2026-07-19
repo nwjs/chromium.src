@@ -28,6 +28,7 @@
 #include "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
+#include "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
 #include "components/autofill/core/browser/data_quality/addresses/address_normalizer.h"
 #include "components/autofill/core/browser/field_type_utils.h"
 #include "components/autofill/core/browser/field_types.h"
@@ -209,9 +210,11 @@ std::vector<const EntityInstance*> GetFillableEntityInstances(
 
   base::span<const EntityInstance> all_entities = edm->GetEntityInstances();
 
+  const GURL url = client.GetLastCommittedPrimaryMainFrameURL();
   DenseSet<EntityType> enabled_types;
   for (EntityType type : DenseSet(all_entities, &EntityInstance::type)) {
-    if (MayPerformAutofillAiAction(client, AutofillAiAction::kFilling, type)) {
+    if (!IsAutofillAiEntityTypeBlockedByPolicy(client, url, type) &&
+        MayPerformAutofillAiAction(client, AutofillAiAction::kFilling, type)) {
       enabled_types.insert(type);
     }
   }
@@ -286,6 +289,13 @@ FillingValueAndType GetFillingValueAndTypeForEntity(
     return FillingValueAndType(u"", field_type);
   }
 
+  const bool should_obfuscate =
+      action_persistence != mojom::ActionPersistence::kFill &&
+      attribute->type().is_obfuscated();
+  if (should_obfuscate && field.IsSelectElement()) {
+    return FillingValueAndType(u"", field_type);
+  }
+
   if (field.IsSelectElement()) {
     std::optional<SelectOption> select_control_option =
         GetOptionForSelect(*attribute, field, app_locale, address_normalizer);
@@ -297,10 +307,6 @@ FillingValueAndType GetFillingValueAndTypeForEntity(
         field_type);
   } else {
     std::u16string fill_value = GetValueForInput(*attribute, field, app_locale);
-
-    const bool should_obfuscate =
-        action_persistence != mojom::ActionPersistence::kFill &&
-        attribute->type().is_obfuscated();
 
     return FillingValueAndType(should_obfuscate ? GetObfuscatedValue(fill_value)
                                                 : std::move(fill_value),
@@ -331,9 +337,19 @@ bool WillRequireServerFetch(const EntityInstance& entity,
                             const FormStructure& form,
                             const Section& section,
                             std::string_view app_locale) {
-  return entity.IsMaskedEntity() && entity.IsServerInstance() &&
-         WillFillSensitiveAttributes(entity, form, section, app_locale) &&
-         base::FeatureList::IsEnabled(features::kAutofillAiWalletPrivatePasses);
+  if (!entity.IsMaskedEntity() || !entity.IsServerInstance() ||
+      !WillFillSensitiveAttributes(entity, form, section, app_locale)) {
+    return false;
+  }
+  const bool is_ambient_enabled =
+      entity.record_type() == EntityInstance::RecordType::kPersonalContext &&
+      base::FeatureList::IsEnabled(features::kAutofillAmbientAutofill);
+
+  const bool is_wallet_enabled =
+      entity.record_type() == EntityInstance::RecordType::kServerWallet &&
+      base::FeatureList::IsEnabled(features::kAutofillAiWalletPrivatePasses);
+
+  return is_ambient_enabled || is_wallet_enabled;
 }
 
 }  // namespace autofill

@@ -8,9 +8,11 @@
 
 #include "base/compiler_specific.h"
 #include "base/containers/heap_array.h"
+#include "base/feature_list.h"
 #include "base/numerics/checked_math.h"
 #include "base/numerics/safe_conversions.h"
 #include "gpu/command_buffer/client/gles2_interface.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/platform/web_graphics_context_3d_provider.h"
 #include "third_party/blink/renderer/bindings/modules/v8/webgl_any.h"
 #include "third_party/blink/renderer/core/dom/document.h"
@@ -463,6 +465,13 @@ void WebGL2RenderingContextBase::blitFramebuffer(GLint src_x0,
                                                  GLenum filter) {
   if (isContextLost())
     return;
+
+  if (base::FeatureList::IsEnabled(features::kWebGLDiscardBackBuffer)) {
+    // If the canvas has been created with preserveDrawingBuffer set to false,
+    // then it should be cleared. See the comment in
+    // WebGLRenderingContextBase::GetImage() for details.
+    ClearIfComposited(kClearCallerOther);
+  }
 
   ContextGL()->BlitFramebufferCHROMIUM(src_x0, src_y0, src_x1, src_y1, dst_x0,
                                        dst_y0, dst_x1, dst_y1, mask, filter);
@@ -1776,6 +1785,14 @@ void WebGL2RenderingContextBase::texSubImage2D(
     GLenum type,
     HTMLVideoElement* video,
     ExceptionState& exception_state) {
+  if (isContextLost()) {
+    return;
+  }
+  if (bound_pixel_unpack_buffer_) {
+    SynthesizeGLError(GL_INVALID_OPERATION, "texSubImage2D",
+                      "a buffer is bound to PIXEL_UNPACK_BUFFER");
+    return;
+  }
   WebGLRenderingContextBase::texSubImage2D(script_state, target, level, xoffset,
                                            yoffset, format, type, video,
                                            exception_state);
@@ -1791,6 +1808,14 @@ void WebGL2RenderingContextBase::texSubImage2D(
     GLenum type,
     VideoFrame* frame,
     ExceptionState& exception_state) {
+  if (isContextLost()) {
+    return;
+  }
+  if (bound_pixel_unpack_buffer_) {
+    SynthesizeGLError(GL_INVALID_OPERATION, "texSubImage2D",
+                      "a buffer is bound to PIXEL_UNPACK_BUFFER");
+    return;
+  }
   WebGLRenderingContextBase::texSubImage2D(script_state, target, level, xoffset,
                                            yoffset, format, type, frame,
                                            exception_state);
@@ -4409,11 +4434,11 @@ ScriptValue WebGL2RenderingContextBase::getIndexedParameter(
         return ScriptValue::CreateNull(script_state->GetIsolate());
       }
       if (target == GL_COLOR_WRITEMASK) {
-        constexpr size_t result_size = 4;
-        Vector<GLint> values(result_size);
+        constexpr wtf_size_t kResultSize = 4;
+        Vector<GLint> values(kResultSize);
         ContextGL()->GetIntegeri_v(target, index, values.data());
-        Vector<bool> bool_values(result_size);
-        for (size_t i = 0; i < result_size; i++) {
+        Vector<bool> bool_values(kResultSize);
+        for (wtf_size_t i = 0; i < kResultSize; ++i) {
           bool_values[i] = (values[i] != GL_FALSE);
         }
         return WebGLAny(script_state, bool_values);

@@ -491,6 +491,28 @@ base::Value GenerateSdJwtSensitiveBundledWithDpc() {
   return ParseJsonAndCheck(kJson);
 }
 
+base::Value GenerateOpenid4VpRequestWithEmptyClaims() {
+  constexpr char kJson[] = R"({
+  "response_type": "vp_token",
+  "response_mode": "dc_api",
+  "client_id": "web-origin:https://www.digital-credentials.dev",
+  "nonce": "d_xvsQ_PF1oPVZbjAfWu_xgwh3dJf_W5zgWB3U2xWw8",
+  "dcql_query": {
+    "credentials": [
+      {
+        "id": "cred1",
+        "format": "mso_mdoc",
+        "meta": {
+          "doctype_value": "org.iso.18013.5.1.mDL"
+        },
+        "claims": []
+      }
+    ]
+  }
+})";
+  return ParseJsonAndCheck(kJson);
+}
+
 // Does depth-first traversal of nested dicts rooted at `root`. Returns first
 // matching base::Value with key `find_key`.
 base::Value* FindValueWithKey(base::Value& root, const std::string& find_key) {
@@ -546,6 +568,7 @@ class DigitalIdentityRequestImplInterstitialTest
  public:
   void SetUp() override {
     RenderViewHostTestHarness::SetUp();
+    NavigateAndCommit(GURL("https://example.com"));
     scoped_feature_list_.InitAndEnableFeatureWithParameters(
         features::kWebIdentityDigitalCredentials, {{"dialog", ""}});
   }
@@ -649,7 +672,7 @@ TEST_F(DigitalIdentityRequestImplInterstitialTest,
   paths->GetList().resize(0);
 
   EXPECT_EQ(ComputeInterstitialType(kOpenid4vpProtocol, std::move(request)),
-            std::nullopt);
+            InterstitialType::kLowRisk);
 }
 
 TEST_F(DigitalIdentityRequestImplInterstitialTest,
@@ -799,6 +822,13 @@ TEST_F(DigitalIdentityRequestImplInterstitialTest,
 }
 
 TEST_F(DigitalIdentityRequestImplInterstitialTest,
+       Openid4VpProtocolDCQL_ComputeInterstitialType_EmptyClaims) {
+  EXPECT_EQ(ComputeInterstitialType(kOpenid4vpProtocol,
+                                    GenerateOpenid4VpRequestWithEmptyClaims()),
+            InterstitialType::kLowRisk);
+}
+
+TEST_F(DigitalIdentityRequestImplInterstitialTest,
        Openid4VpProtocolDCQL_ComputeInterstitialType_SdJwtAgeAndSensitive) {
   EXPECT_EQ(ComputeInterstitialType(kOpenid4vpProtocol,
                                     GenerateSdJwtAgeAndSensitive()),
@@ -825,6 +855,7 @@ class DigitalIdentityRequestImplWithCreationEnabledTest
  public:
   void SetUp() override {
     RenderViewHostTestHarness::SetUp();
+    NavigateAndCommit(GURL("https://example.com"));
     digital_identity_request_impl_ = DigitalIdentityRequestImpl::CreateInstance(
         *web_contents()->GetPrimaryMainFrame(),
         request_remote_.BindNewPipeAndPassReceiver());
@@ -958,6 +989,10 @@ class DigitalIdentityRequestImplTest : public RenderViewHostTestHarness {
   void SetUp() override {
     RenderViewHostTestHarness::SetUp();
 
+    // Navigate to a secure, non-opaque origin by default to avoid triggering
+    // the opaque origin block in happy-path tests.
+    NavigateAndCommit(GURL("https://example.com"));
+
     auto mock_digital_identity_provider =
         std::make_unique<MockDigitalIdentityProvider>();
     mock_digital_identity_provider_ = mock_digital_identity_provider.get();
@@ -985,6 +1020,10 @@ class DigitalIdentityRequestImplTest : public RenderViewHostTestHarness {
     return digital_identity_request_impl_.get();
   }
 
+  mojo::Remote<blink::mojom::DigitalIdentityRequest>& request_remote() {
+    return request_remote_;
+  }
+
   MockDigitalIdentityProvider* mock_digital_identity_provider() {
     return mock_digital_identity_provider_;
   }
@@ -1006,7 +1045,6 @@ class DigitalIdentityRequestImplTest : public RenderViewHostTestHarness {
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
-  // base::test::ScopedCommandLine command_line_;
 
   raw_ptr<MockDigitalIdentityProvider> mock_digital_identity_provider_;
   ContentBrowserClientWithMockDigitalIdentityProvider content_browser_client_;
@@ -1257,6 +1295,7 @@ class DigitalIdentityRequestImplProviderResetTest
  public:
   void SetUp() override {
     RenderViewHostTestHarness::SetUp();
+    NavigateAndCommit(GURL("https://example.com"));
     // Skip the interstitial so provider_->Get() is reached synchronously.
     scoped_feature_list_.InitAndEnableFeatureWithParameters(
         features::kWebIdentityDigitalCredentials, {{"dialog", "no_dialog"}});
@@ -1467,6 +1506,7 @@ class DigitalIdentityRequestImplVirtualWalletTest
  public:
   void SetUp() override {
     RenderViewHostTestHarness::SetUp();
+    NavigateAndCommit(GURL("https://example.com"));
     scoped_feature_list_.InitWithFeatures(
         {features::kWebIdentityDigitalCredentials,
          features::kWebIdentityDigitalCredentialsCreation},
@@ -1731,6 +1771,24 @@ TEST_F(DigitalIdentityRequestImplTest,
 
   histogram_tester.ExpectTotalCount(
       "Blink.DigitalIdentityRequest.OpenId4VpResponseMode", 0);
+}
+
+TEST_F(DigitalIdentityRequestImplTest, OpaqueOriginBlocked) {
+  NavigateAndCommit(GURL("data:text/html,abc"));
+  ASSERT_TRUE(main_rfh()->GetLastCommittedOrigin().opaque());
+  RecreateService();
+
+  DigitalCredentialGetRequestPtr digital_credential_request =
+      DigitalCredentialGetRequest::New();
+  digital_credential_request->protocol = "protocol";
+  digital_credential_request->data = base::Value(base::Value::Type::DICT);
+  std::vector<DigitalCredentialGetRequestPtr> requests;
+  requests.push_back(std::move(digital_credential_request));
+
+  mojo::test::BadMessageObserver bad_message_observer;
+  request_remote()->Get(std::move(requests), base::DoNothing());
+  EXPECT_EQ("DigitalIdentityRequest is not allowed in opaque origins.",
+            bad_message_observer.WaitForBadMessage());
 }
 
 }  // namespace content

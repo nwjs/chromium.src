@@ -16,6 +16,12 @@ source_set("journal") {
   sources = [
     "aggregated_journal.cc",
     "aggregated_journal.h",
+    "aggregated_journal_file_serializer.cc",
+    "aggregated_journal_file_serializer.h",
+    "aggregated_journal_in_memory_serializer.cc",
+    "aggregated_journal_in_memory_serializer.h",
+    "aggregated_journal_serializer.cc",
+    "aggregated_journal_serializer.h",
     "journal_details_builder.cc",
     "journal_details_builder.h",
   ]
@@ -23,6 +29,10 @@ source_set("journal") {
     ":core",
     ":logging",
     "//base",
+    "//components/tracing:tracing_metrics",
+    "//third_party/perfetto:libperfetto",
+    "//third_party/perfetto/protos/perfetto/config:zero_gen",
+    "//third_party/perfetto/protos/perfetto/trace/perfetto:zero_gen",
     "//third_party/protobuf:protobuf_lite",
     "//url",
   ]
@@ -42,8 +52,6 @@ source_set("core") {
     "actor_switches.h",
     "actor_util.cc",
     "actor_util.h",
-    "origin_checker.cc",
-    "origin_checker.h",
     "safety_list_manager.cc",
     "safety_list_manager.h",
     "shared_types.cc",
@@ -65,8 +73,8 @@ source_set("core") {
 source_set("unit_tests") {
   testonly = true
   sources = [
+    "aggregated_journal_serializer_unittest.cc",
     "aggregated_journal_unittest.cc",
-    "origin_checker_unittest.cc",
     "safety_list_manager_unittest.cc",
     "shared_types_unittest.cc",
   ]

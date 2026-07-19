@@ -1865,7 +1865,7 @@ int URLLoader::OnBeforeStartTransaction(
   if (header_client_) {
     on_before_send_headers_start_time_ = base::TimeTicks::Now();
     header_client_->OnBeforeSendHeaders(
-        *used_headers,
+        url_request_->url(), *used_headers,
         base::BindOnce(&URLLoader::OnBeforeSendHeadersComplete,
                        weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
     return net::ERR_IO_PENDING;
@@ -2396,7 +2396,8 @@ void URLLoader::ResumeStart() {
 void URLLoader::OnBeforeSendHeadersComplete(
     net::NetworkDelegate::OnBeforeStartTransactionCallback callback,
     int result,
-    const std::optional<net::HttpRequestHeaders>& headers) {
+    const std::optional<net::HttpRequestHeaders>& headers,
+    std::optional<base::DictValue> extended_net_log_events) {
   CHECK(!on_before_send_headers_start_time_.is_null());
   base::UmaHistogramTimes(
       "Net.URLLoader.OnBeforeSendHeadersDuration",
@@ -2407,6 +2408,13 @@ void URLLoader::OnBeforeSendHeadersComplete(
         headers->GetHeader(net::HttpRequestHeaders::kCookie)
             .value_or(std::string());
     net::cookie_util::ParseRequestCookieLine(cookie_header, &request_cookies_);
+  }
+  if (extended_net_log_events) {
+    url_request_->net_log().AddEvent(
+        net::NetLogEventType::ON_BEFORE_SEND_HEADERS_RESULT,
+        [&](net::NetLogCaptureMode capture_mode) {
+          return extended_net_log_events->Clone();
+        });
   }
   std::move(callback).Run(result, headers);
 }

@@ -12,6 +12,14 @@ These builders must pass before a CL may land that affects files outside of
 //docs and //infra/config.
 
 ### chrome
+* [chromeos-betty-chrome-gtest](https://ci.chromium.org/p/chrome/builders/try/chromeos-betty-chrome-gtest) ([definition](https://source.corp.google.com/search?q=+file:/try/.*\.star$+""chromeos-betty-chrome-gtest""))
+
+    * Replaced with builder: [chromeos-betty-chrome-gtest-and-cqtast](https://ci.chromium.org/p/chrome/builders/try/chromeos-betty-chrome-gtest-and-cqtast) when CL owner is in group [google/chromeos-pa@google.com](https://chrome-infra-auth.appspot.com/auth/lookup?p=google/chromeos-pa@google.com)
+
+* [chromeos-betty-compile-chrome](https://ci.chromium.org/p/chrome/builders/try/chromeos-betty-compile-chrome) ([definition](https://source.corp.google.com/search?q=+file:/try/.*\.star$+""chromeos-betty-compile-chrome""))
+
+    * Replaced with builder: [chromeos-betty-chrome-noop](https://ci.chromium.org/p/chrome/builders/try/chromeos-betty-chrome-noop) when CL owner is in group [googlers](https://chrome-infra-auth.appspot.com/auth/lookup?p=googlers)
+
 * [linux-chromeos-compile-chrome](https://ci.chromium.org/p/chrome/builders/try/linux-chromeos-compile-chrome) ([definition](https://source.corp.google.com/search?q=+file:/try/.*\.star$+""linux-chromeos-compile-chrome""))
 
 * [win-branded-compile-rel](https://ci.chromium.org/p/chrome/builders/try/win-branded-compile-rel) ([definition](https://source.corp.google.com/search?q=+file:/try/.*\.star$+""win-branded-compile-rel""))
@@ -25,15 +33,13 @@ These builders must pass before a CL may land that affects files outside of
 
 * [android-desktop-x64-rel](https://ci.chromium.org/p/chromium/builders/try/android-desktop-x64-rel) ([definition](https://cs.chromium.org/search?q=+file:/try/.*\.star$+""android-desktop-x64-rel""))
 
+    * Replaced with builder: [android-internal-desktop-x64-rel](https://ci.chromium.org/p/chrome/builders/try/android-internal-desktop-x64-rel) when CL owner is in group [google/chrome-al-eng@google.com](https://chrome-infra-auth.appspot.com/auth/lookup?p=google/chrome-al-eng@google.com)
+
 * [android-x64-rel](https://ci.chromium.org/p/chromium/builders/try/android-x64-rel) ([definition](https://cs.chromium.org/search?q=+file:/try/.*\.star$+""android-x64-rel""))
 
 * [android-x86-rel](https://ci.chromium.org/p/chromium/builders/try/android-x86-rel) ([definition](https://cs.chromium.org/search?q=+file:/try/.*\.star$+""android-x86-rel""))
 
 * [android_compile_dbg](https://ci.chromium.org/p/chromium/builders/try/android_compile_dbg) ([definition](https://cs.chromium.org/search?q=+file:/try/.*\.star$+""android_compile_dbg""))
-
-* [chromeos-amd64-generic-rel-gtest](https://ci.chromium.org/p/chromium/builders/try/chromeos-amd64-generic-rel-gtest) ([definition](https://cs.chromium.org/search?q=+file:/try/.*\.star$+""chromeos-amd64-generic-rel-gtest""))
-
-    * Replaced with builder: [chromeos-amd64-generic-rel-gtest-and-tast](https://ci.chromium.org/p/chromium/builders/try/chromeos-amd64-generic-rel-gtest-and-tast) when CL owner is in group [google/chromeos-pa@google.com](https://chrome-infra-auth.appspot.com/auth/lookup?p=google/chromeos-pa@google.com)
 
 * [chromeos-arm64-generic-rel](https://ci.chromium.org/p/chromium/builders/try/chromeos-arm64-generic-rel) ([definition](https://cs.chromium.org/search?q=+file:/try/.*\.star$+""chromeos-arm64-generic-rel""))
 
@@ -323,8 +329,25 @@ builder.
   Location filters:
   * [`//testing/libfuzzer/.+`](https://cs.chromium.org/chromium/src/testing/libfuzzer/)
   * [`//third_party/fuzztest/.+`](https://cs.chromium.org/chromium/src/third_party/fuzztest/)
+  * [`//third_party/libFuzzer/.+`](https://cs.chromium.org/chromium/src/third_party/libFuzzer/)
 
 * [dawn-android-arm-deps-rel](https://ci.chromium.org/p/chromium/builders/try/dawn-android-arm-deps-rel) ([definition](https://cs.chromium.org/search?q=+file:/try/.*\.star$+""dawn-android-arm-deps-rel""))
+
+  Location filters:
+  * [`//content/test/gpu/.+`](https://cs.chromium.org/chromium/src/content/test/gpu/)
+  * [`//gpu/.+`](https://cs.chromium.org/chromium/src/gpu/)
+  * [`//testing/buildbot/chromium.dawn.json`](https://cs.chromium.org/search?q=+file:testing/buildbot/chromium.dawn.json)
+  * [`//third_party/blink/renderer/modules/webgpu/.+`](https://cs.chromium.org/chromium/src/third_party/blink/renderer/modules/webgpu/)
+  * [`//third_party/blink/renderer/platform/graphics/gpu/.+`](https://cs.chromium.org/chromium/src/third_party/blink/renderer/platform/graphics/gpu/)
+  * [`//third_party/blink/web_tests/external/wpt/webgpu/.+`](https://cs.chromium.org/chromium/src/third_party/blink/web_tests/external/wpt/webgpu/)
+  * [`//third_party/blink/web_tests/wpt_internal/webgpu/.+`](https://cs.chromium.org/chromium/src/third_party/blink/web_tests/wpt_internal/webgpu/)
+  * [`//third_party/blink/web_tests/WebGPUExpectations`](https://cs.chromium.org/chromium/src/third_party/blink/web_tests/WebGPUExpectations)
+  * [`//third_party/dawn/.+`](https://cs.chromium.org/chromium/src/third_party/dawn/)
+  * [`//third_party/webgpu-cts/.+`](https://cs.chromium.org/chromium/src/third_party/webgpu-cts/)
+  * [`//tools/clang/scripts/update.py`](https://cs.chromium.org/search?q=+file:tools/clang/scripts/update.py)
+  * [`//ui/gl/features.gni`](https://cs.chromium.org/search?q=+file:ui/gl/features.gni)
+
+* [dawn-android-arm64-deps-rel](https://ci.chromium.org/p/chromium/builders/try/dawn-android-arm64-deps-rel) ([definition](https://cs.chromium.org/search?q=+file:/try/.*\.star$+""dawn-android-arm64-deps-rel""))
 
   Location filters:
   * [`//content/test/gpu/.+`](https://cs.chromium.org/chromium/src/content/test/gpu/)
@@ -711,36 +734,42 @@ builder.
   Location filters:
   * [`//testing/libfuzzer/.+`](https://cs.chromium.org/chromium/src/testing/libfuzzer/)
   * [`//third_party/fuzztest/.+`](https://cs.chromium.org/chromium/src/third_party/fuzztest/)
+  * [`//third_party/libFuzzer/.+`](https://cs.chromium.org/chromium/src/third_party/libFuzzer/)
 
 * [linux-x64-libfuzzer-asan-dbg-tests](https://ci.chromium.org/p/chromium/builders/try/linux-x64-libfuzzer-asan-dbg-tests) ([definition](https://cs.chromium.org/search?q=+file:/try/.*\.star$+""linux-x64-libfuzzer-asan-dbg-tests""))
 
   Location filters:
   * [`//testing/libfuzzer/.+`](https://cs.chromium.org/chromium/src/testing/libfuzzer/)
   * [`//third_party/fuzztest/.+`](https://cs.chromium.org/chromium/src/third_party/fuzztest/)
+  * [`//third_party/libFuzzer/.+`](https://cs.chromium.org/chromium/src/third_party/libFuzzer/)
 
 * [linux-x64-libfuzzer-asan-rel-tests](https://ci.chromium.org/p/chromium/builders/try/linux-x64-libfuzzer-asan-rel-tests) ([definition](https://cs.chromium.org/search?q=+file:/try/.*\.star$+""linux-x64-libfuzzer-asan-rel-tests""))
 
   Location filters:
   * [`//testing/libfuzzer/.+`](https://cs.chromium.org/chromium/src/testing/libfuzzer/)
   * [`//third_party/fuzztest/.+`](https://cs.chromium.org/chromium/src/third_party/fuzztest/)
+  * [`//third_party/libFuzzer/.+`](https://cs.chromium.org/chromium/src/third_party/libFuzzer/)
 
 * [linux-x64-libfuzzer-msan-rel-tests](https://ci.chromium.org/p/chromium/builders/try/linux-x64-libfuzzer-msan-rel-tests) ([definition](https://cs.chromium.org/search?q=+file:/try/.*\.star$+""linux-x64-libfuzzer-msan-rel-tests""))
 
   Location filters:
   * [`//testing/libfuzzer/.+`](https://cs.chromium.org/chromium/src/testing/libfuzzer/)
   * [`//third_party/fuzztest/.+`](https://cs.chromium.org/chromium/src/third_party/fuzztest/)
+  * [`//third_party/libFuzzer/.+`](https://cs.chromium.org/chromium/src/third_party/libFuzzer/)
 
 * [linux-x64-libfuzzer-ubsan-rel-tests](https://ci.chromium.org/p/chromium/builders/try/linux-x64-libfuzzer-ubsan-rel-tests) ([definition](https://cs.chromium.org/search?q=+file:/try/.*\.star$+""linux-x64-libfuzzer-ubsan-rel-tests""))
 
   Location filters:
   * [`//testing/libfuzzer/.+`](https://cs.chromium.org/chromium/src/testing/libfuzzer/)
   * [`//third_party/fuzztest/.+`](https://cs.chromium.org/chromium/src/third_party/fuzztest/)
+  * [`//third_party/libFuzzer/.+`](https://cs.chromium.org/chromium/src/third_party/libFuzzer/)
 
 * [linux-x86-libfuzzer-asan-rel-tests](https://ci.chromium.org/p/chromium/builders/try/linux-x86-libfuzzer-asan-rel-tests) ([definition](https://cs.chromium.org/search?q=+file:/try/.*\.star$+""linux-x86-libfuzzer-asan-rel-tests""))
 
   Location filters:
   * [`//testing/libfuzzer/.+`](https://cs.chromium.org/chromium/src/testing/libfuzzer/)
   * [`//third_party/fuzztest/.+`](https://cs.chromium.org/chromium/src/third_party/fuzztest/)
+  * [`//third_party/libFuzzer/.+`](https://cs.chromium.org/chromium/src/third_party/libFuzzer/)
 
 * [linux_chromium_cfi_rel_ng](https://ci.chromium.org/p/chromium/builders/try/linux_chromium_cfi_rel_ng) ([definition](https://cs.chromium.org/search?q=+file:/try/.*\.star$+""linux_chromium_cfi_rel_ng""))
 
@@ -794,6 +823,7 @@ builder.
   Location filters:
   * [`//testing/libfuzzer/.+`](https://cs.chromium.org/chromium/src/testing/libfuzzer/)
   * [`//third_party/fuzztest/.+`](https://cs.chromium.org/chromium/src/third_party/fuzztest/)
+  * [`//third_party/libFuzzer/.+`](https://cs.chromium.org/chromium/src/third_party/libFuzzer/)
 
 * [mac-enterprise-companion-try-builder-dbg](https://ci.chromium.org/p/chromium/builders/try/mac-enterprise-companion-try-builder-dbg) ([definition](https://cs.chromium.org/search?q=+file:/try/.*\.star$+""mac-enterprise-companion-try-builder-dbg""))
 
@@ -912,6 +942,7 @@ builder.
   Location filters:
   * [`//testing/libfuzzer/.+`](https://cs.chromium.org/chromium/src/testing/libfuzzer/)
   * [`//third_party/fuzztest/.+`](https://cs.chromium.org/chromium/src/third_party/fuzztest/)
+  * [`//third_party/libFuzzer/.+`](https://cs.chromium.org/chromium/src/third_party/libFuzzer/)
 
 * [win11-rel](https://ci.chromium.org/p/chromium/builders/try/win11-rel) ([definition](https://cs.chromium.org/search?q=+file:/try/.*\.star$+""win11-rel""))
 
@@ -960,24 +991,6 @@ by CQ. These are often used to test new configurations before they are added
 as required builders.
 
 ### chrome
-* [android-internal-desktop-x64-rel](https://ci.chromium.org/p/chrome/builders/try/android-internal-desktop-x64-rel) ([definition](https://source.corp.google.com/search?q=+file:/try/.*\.star$+""android-internal-desktop-x64-rel""))
-  * Experiment percentage: 25.0
-
-  This builder is only run when the CL owner is in the group:
-  * [`google/chrome-al-eng@google.com`](https://chrome-infra-auth.appspot.com/auth/lookup?p=google/chrome-al-eng@google.com)
-
-* [chromeos-betty-chrome-gtest](https://ci.chromium.org/p/chrome/builders/try/chromeos-betty-chrome-gtest) ([definition](https://source.corp.google.com/search?q=+file:/try/.*\.star$+""chromeos-betty-chrome-gtest""))
-  * Experiment percentage: 100.0
-
-* [chromeos-betty-chrome-gtest-and-cqtast](https://ci.chromium.org/p/chrome/builders/try/chromeos-betty-chrome-gtest-and-cqtast) ([definition](https://source.corp.google.com/search?q=+file:/try/.*\.star$+""chromeos-betty-chrome-gtest-and-cqtast""))
-  * Experiment percentage: 100.0
-
-  This builder is only run when the CL owner is in the group:
-  * [`google/chromeos-pa@google.com`](https://chrome-infra-auth.appspot.com/auth/lookup?p=google/chromeos-pa@google.com)
-
-* [chromeos-betty-chrome-noop](https://ci.chromium.org/p/chrome/builders/try/chromeos-betty-chrome-noop) ([definition](https://source.corp.google.com/search?q=+file:/try/.*\.star$+""chromeos-betty-chrome-noop""))
-  * Experiment percentage: 100.0
-
 * [linux-perf-trigger](https://ci.chromium.org/p/chrome/builders/try/linux-perf-trigger) ([definition](https://source.corp.google.com/search?q=+file:/try/.*\.star$+""linux-perf-trigger""))
   * Experiment percentage: 100.0
 
@@ -990,23 +1003,6 @@ as required builders.
 
   Location filters:
   * [`//.*\.(js|ts)`](https://cs.chromium.org/search?q=+file:.*\.(js|ts))
-
-* [dawn-android-arm64-deps-rel](https://ci.chromium.org/p/chromium/builders/try/dawn-android-arm64-deps-rel) ([definition](https://cs.chromium.org/search?q=+file:/try/.*\.star$+""dawn-android-arm64-deps-rel""))
-  * Experiment percentage: 100.0
-
-  Location filters:
-  * [`//content/test/gpu/.+`](https://cs.chromium.org/chromium/src/content/test/gpu/)
-  * [`//gpu/.+`](https://cs.chromium.org/chromium/src/gpu/)
-  * [`//testing/buildbot/chromium.dawn.json`](https://cs.chromium.org/search?q=+file:testing/buildbot/chromium.dawn.json)
-  * [`//third_party/blink/renderer/modules/webgpu/.+`](https://cs.chromium.org/chromium/src/third_party/blink/renderer/modules/webgpu/)
-  * [`//third_party/blink/renderer/platform/graphics/gpu/.+`](https://cs.chromium.org/chromium/src/third_party/blink/renderer/platform/graphics/gpu/)
-  * [`//third_party/blink/web_tests/external/wpt/webgpu/.+`](https://cs.chromium.org/chromium/src/third_party/blink/web_tests/external/wpt/webgpu/)
-  * [`//third_party/blink/web_tests/wpt_internal/webgpu/.+`](https://cs.chromium.org/chromium/src/third_party/blink/web_tests/wpt_internal/webgpu/)
-  * [`//third_party/blink/web_tests/WebGPUExpectations`](https://cs.chromium.org/chromium/src/third_party/blink/web_tests/WebGPUExpectations)
-  * [`//third_party/dawn/.+`](https://cs.chromium.org/chromium/src/third_party/dawn/)
-  * [`//third_party/webgpu-cts/.+`](https://cs.chromium.org/chromium/src/third_party/webgpu-cts/)
-  * [`//tools/clang/scripts/update.py`](https://cs.chromium.org/search?q=+file:tools/clang/scripts/update.py)
-  * [`//ui/gl/features.gni`](https://cs.chromium.org/search?q=+file:ui/gl/features.gni)
 
 * [ios-simulator-exp](https://ci.chromium.org/p/chromium/builders/try/ios-simulator-exp) ([definition](https://cs.chromium.org/search?q=+file:/try/.*\.star$+""ios-simulator-exp""))
   * Experiment percentage: 5.0

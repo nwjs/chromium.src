@@ -9,6 +9,7 @@ import("//build/config/cast.gni")
 import("//build/config/features.gni")
 import("//build/config/linux/pkg_config.gni")
 import("//build/config/ui.gni")
+import("//media/gpu/args.gni")
 import("//media/media_options.gni")
 import("//testing/libfuzzer/fuzzer_test.gni")
 import("//testing/test.gni")
@@ -52,7 +53,9 @@ buildflag_header("media_buildflags") {
     "ENABLE_PASSTHROUGH_AUDIO_CODECS=$enable_passthrough_audio_codecs",
     "ENABLE_PLATFORM_DTS_AUDIO=$enable_platform_dts_audio",
     "ENABLE_PLATFORM_IAMF_AUDIO=$enable_platform_iamf_audio",
+    "ENABLE_IAMF_AUDIO=$enable_iamf_audio",
     "ENABLE_PLATFORM_MPEG_H_AUDIO=$enable_platform_mpeg_h_audio",
+    "MEDIA_USE_IAMF_TOOLS=$media_use_iamf_tools",
     "ENABLE_MSE_MPEG2TS_STREAM_PARSER=$enable_mse_mpeg2ts_stream_parser",
     "ENABLE_SYMPHONIA=$media_use_symphonia",
     "PLATFORM_HAS_OPTIONAL_HEVC_DECODE_SUPPORT=$platform_has_optional_hevc_decode_support",
@@ -177,6 +180,11 @@ if (is_ios) {
 # TODO(xhwang): Move mojo/capture/remoting tests here where applicable.
 test("media_unittests") {
   use_xvfb = use_xvfb_in_this_config
+
+  fuzztests = [ "ContainerNamesTest.DetermineContainerDoesNotCrash" ]
+  if (use_av1_hw_decoder && media_use_ffmpeg) {
+    fuzztests += [ "AV1DecoderFuzz.DecodeDoesNotCrash" ]
+  }
 
   deps = [
     "//media/audio:unit_tests",
@@ -316,7 +324,10 @@ if (media_use_ffmpeg && !is_android) {
 if (proprietary_codecs) {
   fuzzer_test("media_cenc_utils_fuzzer") {
     sources = [ "cdm/cenc_utils_fuzzertest.cc" ]
-    deps = [ ":media" ]
+    deps = [
+      ":media",
+      "//testing/libfuzzer:libfuzzer_base_wrappers",
+    ]
   }
 }
 
@@ -346,6 +357,7 @@ fuzzer_test("cbcs_decryptor_fuzzer") {
     ":media",
     "//base",
     "//crypto",
+    "//testing/libfuzzer:libfuzzer_base_wrappers",
   ]
 }
 
@@ -355,6 +367,7 @@ fuzzer_test("cenc_decryptor_fuzzer") {
     ":media",
     "//base",
     "//crypto",
+    "//testing/libfuzzer:libfuzzer_base_wrappers",
   ]
 }
 
@@ -363,6 +376,7 @@ fuzzer_test("json_web_key_fuzzer") {
   deps = [
     ":media",
     "//base",
+    "//testing/libfuzzer:libfuzzer_base_wrappers",
   ]
 }
 

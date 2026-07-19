@@ -39,6 +39,10 @@
 #include "net/log/net_log_with_source.h"
 #include "url/scheme_host_port.h"
 
+namespace base {
+class SingleThreadTaskRunner;
+}
+
 namespace net {
 
 class AddressList;
@@ -270,7 +274,7 @@ class NET_EXPORT HostResolver {
     // equivalent to checking the staleness from GetStaleInfo() while the
     // request isn't final. This can be changed over time while resolution is
     // still ongoing.
-    virtual bool IsStaleWhileRefresing() const = 0;
+    virtual bool IsStaleWhileRefreshing() const = 0;
 
     // Change the priority of this request.
     virtual void ChangeRequestPriority(RequestPriority priority) = 0;
@@ -543,6 +547,7 @@ class NET_EXPORT HostResolver {
   virtual std::unique_ptr<ResolveHostRequest> CreateRequest(
       url::SchemeHostPort host,
       NetworkAnonymizationKey network_anonymization_key,
+      handles::NetworkHandle target_network,
       NetLogWithSource net_log,
       std::optional<ResolveHostParameters> optional_parameters) = 0;
 
@@ -551,6 +556,7 @@ class NET_EXPORT HostResolver {
   virtual std::unique_ptr<ResolveHostRequest> CreateRequest(
       const HostPortPair& host,
       const NetworkAnonymizationKey& network_anonymization_key,
+      handles::NetworkHandle target_network,
       const NetLogWithSource& net_log,
       const std::optional<ResolveHostParameters>& optional_parameters) = 0;
 
@@ -558,6 +564,7 @@ class NET_EXPORT HostResolver {
   virtual std::unique_ptr<ServiceEndpointRequest> CreateServiceEndpointRequest(
       Host host,
       NetworkAnonymizationKey network_anonymization_key,
+      handles::NetworkHandle target_network,
       NetLogWithSource net_log,
       ResolveHostParameters parameters) = 0;
 
@@ -680,6 +687,13 @@ class NET_EXPORT HostResolver {
   static bool MayUseNAT64ForIPv4Literal(HostResolverFlags flags,
                                         HostResolverSource source,
                                         const IPAddress& ip_address);
+
+  // Returns the prioritized SingleThreadTaskRunner matching `priority` if the
+  // HostResolver task scheduler experiment is enabled. Falls back to the
+  // current default SingleThreadTaskRunner.
+  static const scoped_refptr<base::SingleThreadTaskRunner>& GetTaskRunner(
+      RequestPriority priority);
+
  protected:
   HostResolver();
 

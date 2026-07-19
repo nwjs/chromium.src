@@ -15,6 +15,9 @@ constexpr base::FeatureParam<int> kModelExecutionCooldownDurationInDays{
     &kChromeFinds, "model_execution_cooldown_duration_in_days",
     /*default_value=*/7};
 
+constexpr base::FeatureParam<int> kHistoryTimeWindowInDays{
+    &kChromeFinds, "history_time_window_in_days", /*default_value=*/7};
+
 constexpr base::FeatureParam<int> kThemeCooldownDurationInDays{
     &kChromeFinds, "theme_cooldown_duration_in_days", /*default_value=*/28};
 
@@ -62,5 +65,9 @@ constexpr base::FeatureParam<bool> kEnableOmniboxRecentSearchSuggestionOptIn{
 constexpr base::FeatureParam<int> kOmniboxRecentSearchSuggestionCountThreshold{
     &kChromeFinds, "omnibox_recent_search_suggestion_count_threshold",
     /*default_value=*/2};
+
+constexpr base::FeatureParam<base::TimeDelta> kModelExecutionRequestTimeout{
+    &kChromeFinds, "finds_model_execution_request_timeout",
+    /*default_value=*/base::Seconds(300)};
 
 }  // namespace finds::features

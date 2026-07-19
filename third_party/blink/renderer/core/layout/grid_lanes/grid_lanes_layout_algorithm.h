@@ -10,6 +10,7 @@
 #include "third_party/blink/renderer/core/layout/grid/grid_track_sizing_algorithm.h"
 #include "third_party/blink/renderer/core/layout/grid_lanes/grid_lanes_item_group.h"
 #include "third_party/blink/renderer/core/layout/grid_lanes/grid_lanes_node.h"
+#include "third_party/blink/renderer/core/layout/grid_lanes/grid_lanes_running_positions.h"
 #include "third_party/blink/renderer/core/layout/layout_algorithm.h"
 
 namespace blink {
@@ -23,7 +24,6 @@ class GridLineResolver;
 class GridSizingTrackCollection;
 class GridSizingSubtree;
 class GridSizingTree;
-class GridLanesRunningPositions;
 class SubgriddedItemData;
 enum class GridItemContributionType;
 struct BoxStrut;
@@ -119,16 +119,16 @@ class CORE_EXPORT GridLanesLayoutAlgorithm
   // resolved position is translated based on the cached start offset.
   // Placement of the items is finalized within this method. `running_positions`
   // is an output parameter that can be used to find the intrinsic inline size
-  // when the stacking axis is the inline axis. `opt_sizing_subtree` is required
-  // when `sizing_constraint` is for measure so that subgridded item data can be
-  // accessed for proper sizing.
+  // when the stacking axis is the inline axis. `sizing_subtree` represents the
+  // grid-lanes container's sizing subtree; its children are finalized on
+  // demand so subgridded tracks are observed against the resolved placement in
+  // the case of auto placed subgrids.
   void PlaceGridLanesItems(
       GridItems& grid_items,
-      const GridLayoutSubtree* layout_subtree,
+      const GridSizingSubtree& sizing_subtree,
       GridLayoutData& layout_data,
       GridLanesRunningPositions& running_positions,
-      std::optional<SizingConstraint> sizing_constraint = std::nullopt,
-      const GridSizingSubtree* opt_sizing_subtree = nullptr);
+      std::optional<SizingConstraint> sizing_constraint = std::nullopt);
 
   // Iterates through and lays out each item in `grid_lanes_items`. If
   // `placement_phase` is kCalculateBaselines, this method measures items and
@@ -140,19 +140,39 @@ class CORE_EXPORT GridLanesLayoutAlgorithm
   // are positioned. The `running_positions` output parameter tracks the
   // cumulative positions along the stacking axis for each track. The
   // `baseline_accumulator` output parameter accumulates container-level
-  // baselines from the items. `opt_sizing_subtree` is required
-  // when `sizing_constraint` is for measure so that subgridded item data can be
-  // accessed for proper sizing.
+  // baselines from the items. `sizing_subtree` represents the grid-lanes
+  // container's sizing subtree; its children are finalized on demand so
+  // subgridded tracks are observed against the resolved placement in the case
+  // of auto placed subgrids.
   void RunGridLanesPlacementPhase(
       GridItems& grid_items,
-      const GridLayoutSubtree* layout_subtree,
+      const GridSizingSubtree& sizing_subtree,
       GridLayoutData& layout_data,
       std::optional<SizingConstraint> sizing_constraint,
       LayoutUnit stacking_axis_gap,
       PlacementPhase placement_phase,
       BaselineAccumulator* baseline_accumulator,
-      GridLanesRunningPositions& running_positions,
-      const GridSizingSubtree* opt_sizing_subtree = nullptr);
+      GridLanesRunningPositions& running_positions);
+
+  // Creates a constraint space for relaying out a stretch-aligned item with
+  // its stretched stacking-axis size.
+  ConstraintSpace CreateConstraintSpaceForStretch(
+      const GridLanesRunningPositions::AlignmentCandidate& candidate);
+
+  // Re-lays out a single item with stretch alignment in the stacking axis to
+  // fill the track opening after it.
+  void RelayoutStackingAxisStretchItem(
+      const GridLanesRunningPositions::AlignmentCandidate& candidate,
+      GridLanesRunningPositions& running_positions);
+
+  // Finalizes track opening sizes, computes and applies stacking axis alignment
+  // offsets, and relayouts items that are stretch aligned with their stretched
+  // size. `effective_stacking_axis_size` is the size of the container's
+  // stacking axis, and `stacking_axis_gap` is the size of the gap between items
+  // in the container specified by the `gap` property.
+  void ApplyStackingAxisAlignment(GridLanesRunningPositions& running_positions,
+                                  LayoutUnit effective_stacking_axis_size,
+                                  LayoutUnit stacking_axis_gap);
 
   // Places all out-of-flow (OOF) grid-lanes items. For each item, this method
   // computes the size and location of the containing block rectangle within the
@@ -164,12 +184,15 @@ class CORE_EXPORT GridLanesLayoutAlgorithm
                            LayoutUnit block_size,
                            HeapVector<Member<LayoutBox>>& oof_children);
 
-  // Initializes the track sizes of a grid-lanes sizing subtree.
+  // Initializes the track sizes of a grid-lanes sizing subtree. If
+  // `only_for_grid_axis` is true, only the grid axis is re-initialized.
   void InitializeTrackSizes(const GridSizingSubtree& sizing_subtree,
-                            const SubgriddedItemData& opt_subgrid_data) const;
+                            const SubgriddedItemData& opt_subgrid_data,
+                            bool only_for_grid_axis = false) const;
 
   // Helper that calls the method above for the entire grid sizing tree.
-  void InitializeTrackSizes(GridSizingTree* sizing_tree) const;
+  void InitializeTrackSizes(GridSizingTree* sizing_tree,
+                            bool only_for_grid_axis = false) const;
 
   // Creates a sizing tree based on the given `sizing_constraint` and
   // populates `sizing_tree` with the result. If
@@ -184,29 +207,49 @@ class CORE_EXPORT GridLanesLayoutAlgorithm
       const bool should_apply_inline_size_containment,
       GridSizingTree* sizing_tree,
       bool& needs_intrinsic_track_size,
-      HeapVector<Member<LayoutBox>>* opt_oof_children = nullptr);
+      HeapVector<Member<LayoutBox>>* opt_oof_children = nullptr,
+      bool* opt_needs_additional_pass = nullptr);
 
   // Completes the track sizing algorithm for non-definite tracks of a
-  // grid-lanes sizing subtree.
-  void CompleteTrackSizingAlgorithm(const GridSizingSubtree& sizing_subtree,
-                                    SizingConstraint sizing_constraint,
-                                    bool needs_intrinsic_track_size) const;
+  // grid-lanes sizing subtree. If `only_for_grid_axis` is true, only the
+  // subgrids' grid-axis tracks are re-completed.
+  void CompleteTrackSizingAlgorithm(
+      const GridSizingSubtree& sizing_subtree,
+      SizingConstraint sizing_constraint,
+      bool needs_intrinsic_track_size,
+      bool only_for_grid_axis = false,
+      bool* opt_needs_additional_pass = nullptr) const;
 
   // Helper that calls the method above for the entire grid sizing tree.
-  void CompleteTrackSizingAlgorithm(SizingConstraint sizing_constraint,
-                                    GridSizingTree* sizing_tree,
-                                    bool needs_intrinsic_track_size) const;
+  void CompleteTrackSizingAlgorithm(
+      SizingConstraint sizing_constraint,
+      GridSizingTree* sizing_tree,
+      bool needs_intrinsic_track_size,
+      bool only_for_grid_axis = false,
+      bool* opt_needs_additional_pass = nullptr) const;
 
   // Completes track sizing for the standalone axis of subgrids in
   // `sizing_subtree`. This only applies when the grid-lanes' grid axis is rows
   // (or when the standalone axis is columns); for column grid-lanes the
   // standalone-axis (row) sizing is handled later because Grid requires columns
   // to be sized before rows.
-  //
-  // TODO(almaher): Can we get the column case working as well? Will that
-  // require an additional pass?
   void CompleteTrackSizingAlgorithmInStandaloneAxis(
       const GridSizingSubtree& sizing_subtree,
+      SizingConstraint sizing_constraint) const;
+
+  // Rebuilds an auto-placed subgrid's inherited track collection against
+  // the resolved parent tracks at its placed position. For grid subgrids,
+  // also re-runs track sizing on the standalone axis so any sizes derived
+  // from the subgridded tracks (e.g., aspect-ratio children) observe the
+  // resolved values.
+  //
+  // `subgrid_axis_direction` is the subgridded axis in the subgrid's own
+  // coordinates.
+  void RebuildSubgridLayoutDataForResolvedPlacement(
+      const GridItemData& subgrid_item,
+      const GridLayoutData& parent_layout_data,
+      const GridSizingSubtree& child_sizing_subtree,
+      GridTrackSizingDirection subgrid_axis_direction,
       SizingConstraint sizing_constraint) const;
 
   // Resolves non-definite track sizes for the grid axis.
@@ -296,7 +339,8 @@ class CORE_EXPORT GridLanesLayoutAlgorithm
       const SubgriddedItemData& subgridded_item,
       std::optional<LayoutUnit> opt_fixed_inline_size = std::nullopt,
       bool make_grid_axis_definite = false,
-      bool is_for_min_max_sizing = false) const;
+      bool is_for_min_max_sizing = false,
+      const GridLayoutSubtree* opt_layout_subtree = nullptr) const;
 
   // Computes the shared baseline for items within a single virtual item group
   // (i.e., items that share the same span and baseline alignment). Returns the
@@ -345,6 +389,7 @@ class CORE_EXPORT GridLanesLayoutAlgorithm
 
   std::optional<LayoutUnit> contain_intrinsic_block_size_;
   LayoutUnit intrinsic_block_size_;
+  LayoutUnit stacking_axis_size_;
 
   LogicalSize grid_lanes_available_size_;
   LogicalSize grid_lanes_min_available_size_;

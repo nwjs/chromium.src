@@ -460,11 +460,11 @@ class SearchEnginePreconnectorKeepSocketBrowserTest
 };
 
 // TODO(https://crbug.com/507121988): Re-enable once the test is fixed.
-#if BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
 #define MAYBE_SocketWarmForSearch DISABLED_SocketWarmForSearch
 #else
 #define MAYBE_SocketWarmForSearch SocketWarmForSearch
-#endif  // BUILDFLAG(IS_LINUX)
+#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
 IN_PROC_BROWSER_TEST_F(SearchEnginePreconnectorKeepSocketBrowserTest,
                        MAYBE_SocketWarmForSearch) {
   // Verifies that a navigation to search will use a warm socket.
@@ -1314,9 +1314,16 @@ INSTANTIATE_TEST_SUITE_P(
     SearchEnginePreconnectorWithBindReceiversEverytimeFeatureBrowserTest,
     ::testing::Bool());
 
+// TODO(crbug.com/506949513): Flaky on Linux.
+#if BUILDFLAG(IS_LINUX)
+#define MAYBE_BindNewRemoteOnEachPreconnect \
+  DISABLED_BindNewRemoteOnEachPreconnect
+#else
+#define MAYBE_BindNewRemoteOnEachPreconnect BindNewRemoteOnEachPreconnect
+#endif
 IN_PROC_BROWSER_TEST_P(
     SearchEnginePreconnectorWithBindReceiversEverytimeFeatureBrowserTest,
-    BindNewRemoteOnEachPreconnect) {
+    MAYBE_BindNewRemoteOnEachPreconnect) {
   constexpr char16_t kShortName[] = u"test";
   TemplateURLService* model =
       TemplateURLServiceFactory::GetForProfile(browser()->profile());

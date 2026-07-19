@@ -119,13 +119,12 @@ class ActiveBrowserWindowNavigationObserver
 };
 
 class ChromeOsWebAppExperimentsBrowserTest
-    : public WebAppNavigationBrowserTest,
-      public testing::WithParamInterface<
-          apps::test::LinkCapturingFeatureVersion> {
+    : public WebAppNavigationBrowserTest {
  public:
   ChromeOsWebAppExperimentsBrowserTest() {
     std::vector<base::test::FeatureRefAndParams> enabled_features =
-        apps::test::GetFeaturesToEnableLinkCapturingUX(GetParam());
+        apps::test::GetFeaturesToEnableLinkCapturingUX(
+            apps::test::LinkCapturingFeatureVersion::kV2DefaultOn);
     enabled_features.emplace_back(chromeos::features::kUploadOfficeToCloud,
                                   base::FieldTrialParams());
     scoped_feature_list_.InitWithFeaturesAndParameters(enabled_features, {});
@@ -167,16 +166,17 @@ class ChromeOsWebAppExperimentsBrowserTest
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-IN_PROC_BROWSER_TEST_P(ChromeOsWebAppExperimentsBrowserTest,
+IN_PROC_BROWSER_TEST_F(ChromeOsWebAppExperimentsBrowserTest,
                        OutOfScopeBarRemoval) {
   // Check that the out of scope banner doesn't show after navigating to the
   // different scope in the web app window.
   Browser* app_browser = LaunchWebAppBrowser(app_id_);
   NavigateViaLinkClickToURLAndWait(app_browser, extended_scope_page_);
-  EXPECT_FALSE(app_browser->app_controller()->ShouldShowCustomTabBar());
+  EXPECT_FALSE(web_app::AppBrowserController::From(app_browser)
+                   ->ShouldShowCustomTabBar());
 }
 
-IN_PROC_BROWSER_TEST_P(ChromeOsWebAppExperimentsBrowserTest,
+IN_PROC_BROWSER_TEST_F(ChromeOsWebAppExperimentsBrowserTest,
                        LinkCaptureScopeExtension) {
   // Turn on link capturing for the web app.
   apps_util::SetSupportedLinksPreferenceAndWait(profile(), app_id_);
@@ -194,10 +194,12 @@ IN_PROC_BROWSER_TEST_P(ChromeOsWebAppExperimentsBrowserTest,
       extended_scope_page_);
 }
 
-IN_PROC_BROWSER_TEST_P(ChromeOsWebAppExperimentsBrowserTest,
+IN_PROC_BROWSER_TEST_F(ChromeOsWebAppExperimentsBrowserTest,
                        IgnoreManifestColor) {
   Browser* app_browser = LaunchWebAppBrowserAndWait(app_id_);
-  EXPECT_FALSE(app_browser->app_controller()->GetThemeColor().has_value());
+  EXPECT_FALSE(web_app::AppBrowserController::From(app_browser)
+                   ->GetThemeColor()
+                   .has_value());
 
   // If the page starts setting its own theme-color it should not be ignored.
   content::WebContents* web_contents =
@@ -212,17 +214,9 @@ IN_PROC_BROWSER_TEST_P(ChromeOsWebAppExperimentsBrowserTest,
   ASSERT_TRUE(EvalJs(web_contents, script).is_ok());
   waiter.Wait();
 
-  EXPECT_EQ(app_browser->app_controller()->GetThemeColor(),
+  EXPECT_EQ(web_app::AppBrowserController::From(app_browser)->GetThemeColor(),
             SkColorSetARGB(0xFF, 0x0, 0xFF, 0x0));
 }
-
-INSTANTIATE_TEST_SUITE_P(
-    All,
-    ChromeOsWebAppExperimentsBrowserTest,
-    testing::Values(apps::test::LinkCapturingFeatureVersion::kV2DefaultOff,
-                    apps::test::LinkCapturingFeatureVersion::
-                        kV2DefaultOffCaptureExistingFrames),
-    apps::test::LinkCapturingVersionToString);
 
 class ChromeOsWebAppExperimentsNavigationBrowserTest
     : public ChromeOsWebAppExperimentsBrowserTest {
@@ -285,7 +279,7 @@ class ChromeOsWebAppExperimentsNavigationBrowserTest
 
 // Test that submitting a POST form in the app's window doesn't result in
 // leaving that window.
-IN_PROC_BROWSER_TEST_P(ChromeOsWebAppExperimentsNavigationBrowserTest,
+IN_PROC_BROWSER_TEST_F(ChromeOsWebAppExperimentsNavigationBrowserTest,
                        PostForm) {
   Browser* app_browser = LaunchWebAppBrowserAndWait(app_id_);
   content::WebContents* app_web_contents =
@@ -321,7 +315,7 @@ IN_PROC_BROWSER_TEST_P(ChromeOsWebAppExperimentsNavigationBrowserTest,
 
 // Test that submitting a POST form to an app-controlled URL, happening in a
 // window opened via target=_blank, ends up in a new app window.
-IN_PROC_BROWSER_TEST_P(ChromeOsWebAppExperimentsNavigationBrowserTest,
+IN_PROC_BROWSER_TEST_F(ChromeOsWebAppExperimentsNavigationBrowserTest,
                        PostFormInBlankWindow) {
   Browser* app_browser = LaunchWebAppBrowserAndWait(app_id_);
   content::WebContents* app_web_contents =
@@ -359,7 +353,7 @@ IN_PROC_BROWSER_TEST_P(ChromeOsWebAppExperimentsNavigationBrowserTest,
 
 // Test that opening a target=_blank window with an app-controlled URL ends up
 // in a new app window.
-IN_PROC_BROWSER_TEST_P(ChromeOsWebAppExperimentsNavigationBrowserTest,
+IN_PROC_BROWSER_TEST_F(ChromeOsWebAppExperimentsNavigationBrowserTest,
                        OpenAsBlankWindow) {
   Browser* app_browser = LaunchWebAppBrowserAndWait(app_id_);
   content::WebContents* app_web_contents =
@@ -387,7 +381,7 @@ IN_PROC_BROWSER_TEST_P(ChromeOsWebAppExperimentsNavigationBrowserTest,
 
 // Test that opening an empty target=_blank window and then navigating it as
 // target=_top to an app-controlled URL ends up in a new app window.
-IN_PROC_BROWSER_TEST_P(ChromeOsWebAppExperimentsNavigationBrowserTest,
+IN_PROC_BROWSER_TEST_F(ChromeOsWebAppExperimentsNavigationBrowserTest,
                        OpenTopWindowInBlankWindow) {
   Browser* app_browser = LaunchWebAppBrowserAndWait(app_id_);
   content::WebContents* app_web_contents =
@@ -416,9 +410,8 @@ IN_PROC_BROWSER_TEST_P(ChromeOsWebAppExperimentsNavigationBrowserTest,
 
 // Test that submitting a form that redirects to the app-controlled URL results
 // in launching that app - if it's marked as "open supported links".
-IN_PROC_BROWSER_TEST_P(ChromeOsWebAppExperimentsNavigationBrowserTest,
+IN_PROC_BROWSER_TEST_F(ChromeOsWebAppExperimentsNavigationBrowserTest,
                        OutOfScopeFormAndRedirectToPreferred) {
-
   // Start from a blank page - the form below will be added to it.
   EXPECT_TRUE(
       ui_test_utils::NavigateToURL(browser(), GURL(url::kAboutBlankURL)));
@@ -444,9 +437,8 @@ IN_PROC_BROWSER_TEST_P(ChromeOsWebAppExperimentsNavigationBrowserTest,
 
 // Opposite to the previous test, verifies that the app is NOT launched if it's
 // not marked as "open supported links".
-IN_PROC_BROWSER_TEST_P(ChromeOsWebAppExperimentsNavigationBrowserTest,
+IN_PROC_BROWSER_TEST_F(ChromeOsWebAppExperimentsNavigationBrowserTest,
                        OutOfScopeFormAndRedirectToNotPreferred) {
-
   // The link capturing is turned on by default; simulate the user opt-out here.
   apps_util::RemoveSupportedLinksPreferenceAndWait(profile(), app_id_);
   // Start from a blank page - the form below will be added to it.
@@ -472,7 +464,7 @@ IN_PROC_BROWSER_TEST_P(ChromeOsWebAppExperimentsNavigationBrowserTest,
 
 // Test that clicking a noreferrer noopener target=_blank link to an
 // out-of-scope URL results in opening a browser tab.
-IN_PROC_BROWSER_TEST_P(ChromeOsWebAppExperimentsNavigationBrowserTest,
+IN_PROC_BROWSER_TEST_F(ChromeOsWebAppExperimentsNavigationBrowserTest,
                        NoopenerNoreferrerBlankLinkToOutOfScope) {
   Browser* app_browser = LaunchWebAppBrowserAndWait(app_id_);
   content::WebContents* app_web_contents =
@@ -493,14 +485,6 @@ IN_PROC_BROWSER_TEST_P(ChromeOsWebAppExperimentsNavigationBrowserTest,
                 ->GetVisibleURL(),
             target_url);
 }
-
-INSTANTIATE_TEST_SUITE_P(
-    All,
-    ChromeOsWebAppExperimentsNavigationBrowserTest,
-    testing::Values(apps::test::LinkCapturingFeatureVersion::kV2DefaultOff,
-                    apps::test::LinkCapturingFeatureVersion::
-                        kV2DefaultOffCaptureExistingFrames),
-    apps::test::LinkCapturingVersionToString);
 
 class ChromeOsWebAppExperimentsManifestOverrideBrowserTest
     : public InProcessBrowserTest {

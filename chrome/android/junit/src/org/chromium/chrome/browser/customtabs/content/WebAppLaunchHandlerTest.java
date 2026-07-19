@@ -26,6 +26,7 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Looper;
 
+import androidx.browser.customtabs.CustomTabsSessionToken;
 import androidx.browser.trusted.FileHandlingData;
 import androidx.browser.trusted.LaunchHandlerClientMode;
 
@@ -39,12 +40,15 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.base.Promise;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Batch;
+import org.chromium.chrome.browser.browserservices.intents.SessionHolder;
 import org.chromium.chrome.browser.browserservices.ui.controller.CurrentPageVerifier;
 import org.chromium.chrome.browser.browserservices.ui.controller.Verifier;
 import org.chromium.chrome.browser.customtabs.CustomTabIntentDataProvider;
+import org.chromium.chrome.browser.customtabs.CustomTabsConnection;
 import org.chromium.content_public.browser.test.mock.MockWebContents;
 import org.chromium.url.JUnitTestGURLs;
 
@@ -72,16 +76,22 @@ public class WebAppLaunchHandlerTest {
     @Mock CurrentPageVerifier mCurrentPageVerifierMock;
     @Mock Activity mActivityMock;
     @Mock WebAppLaunchHandler.Natives mWebAppLaunchHandlerJniMock;
+    @Mock CustomTabsConnection mCustomTabsConnectionMock;
+    @Mock SessionHolder<CustomTabsSessionToken> mSessionMock;
 
     @Before
     public void setUp() {
         WebAppLaunchHandlerJni.setInstanceForTesting(mWebAppLaunchHandlerJniMock);
+        CustomTabsConnection.setInstanceForTesting(mCustomTabsConnectionMock);
 
         when(mVerifierMock.verify(any())).thenReturn(Promise.fulfilled(true));
         when(mCurrentPageVerifierMock.getState())
                 .thenReturn(
                         new CurrentPageVerifier.VerificationState(
                                 "", "", CurrentPageVerifier.VerificationStatus.SUCCESS));
+
+        when(mCustomTabsConnectionMock.getClientUidForSession(eq(mSessionMock))).thenReturn(12345);
+        when(mCustomTabsConnectionMock.getClientPidForSession(eq(mSessionMock))).thenReturn(67890);
     }
 
     @Test
@@ -124,6 +134,7 @@ public class WebAppLaunchHandlerTest {
         when(dataProvider.getUrlToLoad()).thenReturn(url);
         when(dataProvider.getClientPackageName()).thenReturn(TEST_PACKAGE_NAME);
         when(dataProvider.getFileHandlingData()).thenReturn(mFileHandlingData);
+        when(dataProvider.getSession()).thenReturn(mSessionMock);
         return dataProvider;
     }
 
@@ -163,13 +174,17 @@ public class WebAppLaunchHandlerTest {
                             eq(url),
                             eq(TEST_PACKAGE_NAME),
                             eq(mExpectedFileList));
-            verifyNoInteractions(mActivityMock);
         } else {
             verify(mWebAppLaunchHandlerJniMock, times(0))
                     .notifyLaunchQueue(any(), anyBoolean(), eq(url), any(), any());
         }
 
-        if (clientMode != LaunchHandlerClientMode.NAVIGATE_NEW) verifyNoInteractions(mActivityMock);
+        boolean expectedStartNewActivity =
+                clientMode == LaunchHandlerClientMode.NAVIGATE_NEW
+                        && !Objects.equals(url, INITIAL_URL);
+        if (!expectedStartNewActivity) {
+            verify(mActivityMock, never()).startActivity(any());
+        }
     }
 
     @Test
@@ -276,8 +291,8 @@ public class WebAppLaunchHandlerTest {
 
     @Test
     public void multipleFilePaths() {
-        final String secondUri = "second_uri.com";
-        final String thirdUri = "third_uri.com";
+        final String secondUri = "content://com.a.b.c/second";
+        final String thirdUri = "content://com.a.b.c/third";
         mFileHandlingData =
                 new FileHandlingData(
                         Arrays.asList(
@@ -292,6 +307,87 @@ public class WebAppLaunchHandlerTest {
                 LaunchHandlerClientMode.AUTO,
                 OTHER_URL,
                 /* expectedLoadUrl= */ true,
+                /* expectedNotifyQueue= */ true);
+    }
+
+    @Test
+    public void filePath_invalidScheme() {
+        mFileHandlingData = new FileHandlingData(Arrays.asList(Uri.parse("file:///foo/bar")));
+        mExpectedFileList = new String[0]; // Expect empty because file:// is invalid
+        doTestHandleIntent(
+                LaunchHandlerClientMode.AUTO,
+                INITIAL_URL,
+                /* expectedLoadUrl= */ false,
+                /* expectedNotifyQueue= */ true);
+    }
+
+    @Test
+    public void filePath_chromePrivateData() {
+        String packageName = ContextUtils.getApplicationContext().getPackageName();
+        Uri privateUri = Uri.parse("content://" + packageName + ".FileProvider/foo");
+        mFileHandlingData = new FileHandlingData(Arrays.asList(Uri.parse(CONTENT_URI), privateUri));
+        mExpectedFileList = new String[0]; // Expect empty because one is Chrome private
+        doTestHandleIntent(
+                LaunchHandlerClientMode.AUTO,
+                INITIAL_URL,
+                /* expectedLoadUrl= */ false,
+                /* expectedNotifyQueue= */ true);
+    }
+
+    @Test
+    public void filePath_emptyPath() {
+        mFileHandlingData = new FileHandlingData(Arrays.asList(Uri.parse("")));
+        mExpectedFileList = new String[0];
+        doTestHandleIntent(
+                LaunchHandlerClientMode.AUTO,
+                INITIAL_URL,
+                /* expectedLoadUrl= */ false,
+                /* expectedNotifyQueue= */ true);
+    }
+
+    @Test
+    public void filePath_absolutePath() {
+        mFileHandlingData = new FileHandlingData(Arrays.asList(Uri.parse("/absolute/path")));
+        mExpectedFileList = new String[0];
+        doTestHandleIntent(
+                LaunchHandlerClientMode.AUTO,
+                INITIAL_URL,
+                /* expectedLoadUrl= */ false,
+                /* expectedNotifyQueue= */ true);
+    }
+
+    @Test
+    public void filePath_parentReference() {
+        mFileHandlingData = new FileHandlingData(Arrays.asList(Uri.parse("relative/../path")));
+        mExpectedFileList = new String[0];
+        doTestHandleIntent(
+                LaunchHandlerClientMode.AUTO,
+                INITIAL_URL,
+                /* expectedLoadUrl= */ false,
+                /* expectedNotifyQueue= */ true);
+    }
+
+    @Test
+    public void filePath_relativePath() {
+        mFileHandlingData = new FileHandlingData(Arrays.asList(Uri.parse("relative/path")));
+        mExpectedFileList = new String[0];
+        doTestHandleIntent(
+                LaunchHandlerClientMode.AUTO,
+                INITIAL_URL,
+                /* expectedLoadUrl= */ false,
+                /* expectedNotifyQueue= */ true);
+    }
+
+    @Test
+    public void filePath_sensitiveRelativePath() {
+        mFileHandlingData =
+                new FileHandlingData(
+                        Arrays.asList(Uri.parse("data/data/com.android.chrome/cookies")));
+        mExpectedFileList = new String[0];
+        doTestHandleIntent(
+                LaunchHandlerClientMode.AUTO,
+                INITIAL_URL,
+                /* expectedLoadUrl= */ false,
                 /* expectedNotifyQueue= */ true);
     }
 
@@ -388,7 +484,7 @@ public class WebAppLaunchHandlerTest {
                         "content://com.android.chrome.FileProvider/passwords/"
                                 + "Chrome%20Passwords.csv");
 
-        when(mActivityMock.checkCallingUriPermission(eq(pwCsv), anyInt()))
+        when(mActivityMock.checkUriPermission(eq(pwCsv), anyInt(), anyInt(), anyInt()))
                 .thenReturn(PackageManager.PERMISSION_DENIED);
 
         mFileHandlingData = new FileHandlingData(Arrays.asList(Uri.parse(CONTENT_URI), pwCsv));
@@ -401,6 +497,42 @@ public class WebAppLaunchHandlerTest {
         verify(mActivityMock, never())
                 .grantUriPermission(
                         eq(TEST_PACKAGE_NAME), eq(mFileHandlingData.uris.get(1)), anyInt());
+    }
+
+    @Test
+    public void testFileHandling_maliciousAppBlocked() {
+        final Uri sensitiveUri = Uri.parse("content://com.victim.app/secret_document.docx");
+        mFileHandlingData = new FileHandlingData(Arrays.asList(sensitiveUri));
+        mExpectedFileList = new String[0]; // Empty array because unauthorized URI is dropped
+
+        when(mActivityMock.checkUriPermission(eq(sensitiveUri), anyInt(), anyInt(), anyInt()))
+                .thenReturn(PackageManager.PERMISSION_DENIED);
+
+        doTestHandleIntent(
+                LaunchHandlerClientMode.AUTO,
+                INITIAL_URL,
+                /* expectedLoadUrl= */ false,
+                /* expectedNotifyQueue= */ true);
+    }
+
+    @Test
+    public void testFileHandling_legitimateAppAllowed() {
+        // A content:// URI is required here because Android blocks file:// URIs across app
+        // boundaries (FileUriExposedException), and Android's URI permission grant system
+        // (FLAG_GRANT_READ_URI_PERMISSION) only functions on ContentProvider-backed URIs.
+        final Uri authorizedUri =
+                Uri.parse("content://com.android.externalstorage.documents/photo.png");
+        mFileHandlingData = new FileHandlingData(Arrays.asList(authorizedUri));
+        mExpectedFileList = new String[] {authorizedUri.toString()};
+
+        when(mActivityMock.checkUriPermission(eq(authorizedUri), anyInt(), anyInt(), anyInt()))
+                .thenReturn(PackageManager.PERMISSION_GRANTED);
+
+        doTestHandleIntent(
+                LaunchHandlerClientMode.AUTO,
+                INITIAL_URL,
+                /* expectedLoadUrl= */ false,
+                /* expectedNotifyQueue= */ true);
     }
 
     @Test

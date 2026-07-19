@@ -14,10 +14,7 @@ import org.chromium.build.annotations.NullMarked;
  */
 @NullMarked
 public interface AccountsChangeObserver {
-    /**
-     * Called after updating {@link org.chromium.components.signin.base.CoreAccountInfo} on every
-     * change to the accounts or to the error condition that occurred while getting accounts.
-     */
+    /** Called on every change to the accounts or if getting accounts fails. */
     @MainThread
-    void onCoreAccountInfosChanged();
+    void onAccountsChanged();
 }

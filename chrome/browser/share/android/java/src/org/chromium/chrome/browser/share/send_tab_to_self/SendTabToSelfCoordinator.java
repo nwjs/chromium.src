@@ -9,14 +9,21 @@ import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
+import android.net.Uri;
+import android.provider.Browser;
 
 import org.chromium.base.Callback;
+import org.chromium.base.IntentUtils;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.supplier.SupplierUtils;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.browserservices.intents.WebappConstants;
+import org.chromium.chrome.browser.document.ChromeLauncherActivity;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
@@ -38,6 +45,7 @@ import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncConfig;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
 import org.chromium.components.browser_ui.device_lock.DeviceLockActivityLauncher;
+import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.signin.SigninFeatureMap;
 import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
@@ -45,6 +53,8 @@ import org.chromium.components.sync.SyncService;
 import org.chromium.ui.base.ActivityResultTracker;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modaldialog.ModalDialogManager;
+import org.chromium.ui.modelutil.PropertyModel;
+import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 
 import java.util.List;
 import java.util.function.Supplier;
@@ -58,6 +68,8 @@ public class SendTabToSelfCoordinator
      * Waits for Sync to download the list of target devices after sign-in. Aborts if the user
      * dismisses the sign-in bottom sheet ("account picker") before success.
      */
+    // TODO(crbug.com/519101926): Consider moving TargetDeviceListWaiter to a shared C++
+    // component (components/send_tab_to_self) and accessing it via JNI to reduce duplication.
     private static class TargetDeviceListWaiter extends EmptyBottomSheetObserver
             implements SyncService.SyncStateChangedListener {
         private final BottomSheetController mBottomSheetController;
@@ -177,6 +189,10 @@ public class SendTabToSelfCoordinator
     private final MonotonicObservableSupplier<ModalDialogManager> mModalDialogManagerSupplier;
     private final SnackbarManager mSnackbarManager;
     private @Nullable BottomSheetSigninAndHistorySyncCoordinator mSigninCoordinator;
+    private @Nullable PropertyModelChangeProcessor mChangeProcessor;
+    private @Nullable EnhancedTargetDevicePickerView mView;
+
+    private final @ShareEntryPoint int mEntryPoint;
 
     public SendTabToSelfCoordinator(
             Context context,
@@ -191,7 +207,8 @@ public class SendTabToSelfCoordinator
             SigninAndHistorySyncActivityLauncher signinAndHistorySyncActivityLauncher,
             ActivityResultTracker activityResultTracker,
             MonotonicObservableSupplier<ModalDialogManager> modalDialogManagerSupplier,
-            SnackbarManager snackbarManager) {
+            SnackbarManager snackbarManager,
+            @ShareEntryPoint int entryPoint) {
         mContext = context;
         mWindowAndroid = windowAndroid;
         mUrl = url;
@@ -205,6 +222,7 @@ public class SendTabToSelfCoordinator
         mActivityResultTracker = activityResultTracker;
         mModalDialogManagerSupplier = modalDialogManagerSupplier;
         mSnackbarManager = snackbarManager;
+        mEntryPoint = entryPoint;
     }
 
     public void show() {
@@ -213,7 +231,16 @@ public class SendTabToSelfCoordinator
                 SendTabToSelfAndroidBridge.getEntryPointDisplayReason(mProfile, mUrl);
         assert displayReason != null;
 
+        int deviceCount = 0;
+        if (displayReason == EntryPointDisplayReason.OFFER_FEATURE) {
+            List<TargetDeviceInfo> targetDevices =
+                    SendTabToSelfAndroidBridge.getAllTargetDeviceInfos(mProfile);
+            deviceCount = targetDevices.size();
+        }
+        SendTabToSelfAndroidBridge.recordTargetDeviceCount(mEntryPoint, displayReason, deviceCount);
+
         SendTabToSelfMetricsRecorder.recordCrossDeviceTabJourney();
+        SendTabToSelfMetricsRecorder.recordEntryPointInvoked(mEntryPoint);
         switch (displayReason) {
             case EntryPointDisplayReason.INFORM_NO_TARGET_DEVICE:
                 mBottomSheetController.requestShowContent(
@@ -222,16 +249,12 @@ public class SendTabToSelfCoordinator
             case EntryPointDisplayReason.OFFER_FEATURE:
                 List<TargetDeviceInfo> targetDevices =
                         SendTabToSelfAndroidBridge.getAllTargetDeviceInfos(mProfile);
-                mBottomSheetController.requestShowContent(
-                        new DevicePickerBottomSheetContent(
-                                mContext,
-                                mUrl,
-                                mTitle,
-                                mBottomSheetController,
-                                targetDevices,
-                                mProfile,
-                                mTabProvider),
-                        true);
+                if (ChromeFeatureList.isEnabled(
+                        ChromeFeatureList.SEND_TAB_TO_SELF_ENHANCED_BOTTOMSHEET)) {
+                    showEnhancedTargetDevicePicker(targetDevices);
+                } else {
+                    showLegacyTargetDevicePicker(targetDevices);
+                }
                 return;
             case EntryPointDisplayReason.OFFER_SIGN_IN:
                 {
@@ -348,5 +371,76 @@ public class SendTabToSelfCoordinator
         mBottomSheetController.hideContent(
                 mBottomSheetController.getCurrentSheetContent(), /* animate= */ true);
         show();
+    }
+
+    private void showEnhancedTargetDevicePicker(List<TargetDeviceInfo> targetDevices) {
+        if (mChangeProcessor != null) {
+            mChangeProcessor.destroy();
+            mChangeProcessor = null;
+        }
+        if (mView != null) {
+            mView.destroy();
+            mView = null;
+        }
+
+        mView = new EnhancedTargetDevicePickerView(mContext, mBottomSheetController);
+
+        PropertyModel model = EnhancedTargetDevicePickerProperties.createDefaultModel();
+
+        new EnhancedTargetDevicePickerMediator(
+                mUrl, mTitle, targetDevices, mProfile, mTabProvider, model, mEntryPoint);
+
+        mChangeProcessor =
+                PropertyModelChangeProcessor.create(
+                        model, mView, EnhancedTargetDevicePickerViewBinder::bind);
+
+        model.set(
+                EnhancedTargetDevicePickerProperties.DISMISS_CALLBACK,
+                reason -> {
+                    if (mChangeProcessor != null) {
+                        mChangeProcessor.destroy();
+                        mChangeProcessor = null;
+                    }
+                    if (mView != null) {
+                        mView.destroy();
+                        mView = null;
+                    }
+                });
+
+        model.set(
+                EnhancedTargetDevicePickerProperties.MANAGE_DEVICES_CALLBACK,
+                () -> {
+                    openManageDevicesPage();
+                    model.set(EnhancedTargetDevicePickerProperties.VISIBLE, false);
+                });
+
+        model.set(EnhancedTargetDevicePickerProperties.VISIBLE, true);
+    }
+
+    private void openManageDevicesPage() {
+        Intent intent =
+                new Intent()
+                        .setAction(Intent.ACTION_VIEW)
+                        .setData(Uri.parse(UrlConstants.GOOGLE_ACCOUNT_DEVICE_ACTIVITY_URL))
+                        .setClass(mContext, ChromeLauncherActivity.class)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        .putExtra(Browser.EXTRA_APPLICATION_ID, mContext.getPackageName())
+                        .putExtra(WebappConstants.REUSE_URL_MATCHING_TAB_ELSE_NEW_TAB, true);
+        IntentUtils.addTrustedIntentExtras(intent);
+        mContext.startActivity(intent);
+    }
+
+    private void showLegacyTargetDevicePicker(List<TargetDeviceInfo> targetDevices) {
+        mBottomSheetController.requestShowContent(
+                new DevicePickerBottomSheetContent(
+                        mContext,
+                        mUrl,
+                        mTitle,
+                        mBottomSheetController,
+                        targetDevices,
+                        mProfile,
+                        mTabProvider,
+                        mEntryPoint),
+                true);
     }
 }

@@ -203,19 +203,20 @@ bool IsCBORMessage(span<uint8_t> msg) {
            msg[2] == kInitialByteFor32BitLengthByteString));
 }
 
-Status CheckCBORMessage(span<uint8_t> msg) {
+StatusOr<size_t> CheckCBORMessage(span<uint8_t> msg) {
+  using Ret = StatusOr<size_t>;
   if (msg.empty())
-    return Status(Error::CBOR_UNEXPECTED_EOF_IN_ENVELOPE, 0);
+    return Ret(Status(Error::CBOR_UNEXPECTED_EOF_IN_ENVELOPE, 0));
   if (msg[0] != kInitialByteForEnvelope)
-    return Status(Error::CBOR_INVALID_START_BYTE, 0);
+    return Ret(Status(Error::CBOR_INVALID_START_BYTE, 0));
   StatusOr<EnvelopeHeader> status_or_header = EnvelopeHeader::Parse(msg);
   if (!status_or_header.ok())
-    return status_or_header.status();
+    return Ret(status_or_header.status());
   const size_t pos = (*status_or_header).header_size();
   assert(pos < msg.size());  // EnvelopeParser would not allow empty envelope.
   if (msg[pos] != EncodeIndefiniteLengthMapStart())
-    return Status(Error::CBOR_MAP_START_EXPECTED, pos);
-  return Status();
+    return Ret(Status(Error::CBOR_MAP_START_EXPECTED, pos));
+  return Ret((*status_or_header).outer_size());
 }
 
 // =============================================================================
@@ -1159,6 +1160,22 @@ bool HasKeyInMap(span<uint8_t> message, span<uint8_t> key) {
       if (tokenizer.TokenTag() == CBORTokenTag::STRING8 &&
           SpanEquals(tokenizer.GetString8(), key)) {
         return true;
+      }
+      // We only support matching STRING16 keys if the search key is ASCII.
+      if (tokenizer.TokenTag() == CBORTokenTag::STRING16) {
+        span<uint8_t> rep = tokenizer.GetString16WireRep();
+        if (rep.size() == key.size() * 2) {
+          bool matches = true;
+          for (size_t ii = 0; ii < key.size(); ++ii) {
+            if (key[ii] > 127 || rep[ii * 2] != key[ii] ||
+                rep[ii * 2 + 1] != 0) {
+              matches = false;
+              break;
+            }
+          }
+          if (matches)
+            return true;
+        }
       }
     }
     tokenizer.Next();

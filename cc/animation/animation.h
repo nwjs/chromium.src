@@ -158,6 +158,9 @@ class CC_ANIMATION_EXPORT Animation : public base::RefCounted<Animation>,
 
   void SetHoldTime(std::optional<base::TimeDelta> hold_time);
 
+  void SetPlaybackRate(double playback_rate);
+  double GetPlaybackRate() const;
+
   base::TimeDelta CalculateCurrentTime(base::TimeTicks monotonic_time) const;
 
   void SetRunState(KeyframeModel::RunState run_state);
@@ -166,12 +169,19 @@ class CC_ANIMATION_EXPORT Animation : public base::RefCounted<Animation>,
   bool IsPaused() const;
   bool IsFinished() const;
 
-  // Controls whether to force the animation to start from the beginning.
-  // With kDisabled, Play only rewinds if the animation has already finished.
-  // With kEnabled, Play rewinds unconditionally.
-  enum class ForcePlayRewind { kDisabled, kEnabled };
+  // Controls whether to rewind the animation when playing.
+  // With kDisabled, Play does not rewind.
+  // With kEnabled, Play rewinds if the animation has already finished.
+  // With kForced, Play rewinds unconditionally.
+  enum class AutoRewind { kDisabled, kEnabled, kForced };
   void Play(base::TimeTicks monotonic_time,
-            ForcePlayRewind force_rewind = ForcePlayRewind::kDisabled);
+            AutoRewind auto_rewind = AutoRewind::kEnabled);
+  void PlayInternal(base::TimeTicks monotonic_time,
+                    AutoRewind auto_rewind,
+                    double playback_rate);
+
+  void Reverse(base::TimeTicks monotonic_time,
+               AutoRewind auto_rewind = AutoRewind::kEnabled);
 
   virtual bool IsWorkletAnimation() const;
 

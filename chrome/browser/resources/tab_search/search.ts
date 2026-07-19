@@ -2,10 +2,24 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {quoteString} from 'chrome://resources/js/util.js';
+import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 
 import type {ItemData, SplitViewData, TabData, TabGroupData} from './tab_data.js';
-import type {Range} from './tab_search_utils.js';
+import {TabSearchApiProxyImpl} from './tab_search_api_proxy.js';
+
+// Regex covering Hiragana, Katakana, Kanji, and Hangul (CJK ranges).
+const CJK_REGEX = new RegExp(
+    '[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff' +
+    '\uff66-\uff9f\u3131-\uD79D]');
+
+let segmenter: Intl.Segmenter|null = null;
+
+function getSegmenter(): Intl.Segmenter {
+  if (!segmenter) {
+    segmenter = new Intl.Segmenter(undefined, {granularity: 'word'});
+  }
+  return segmenter;
+}
 
 export interface OptionKeyObject {
   name: string;
@@ -26,13 +40,13 @@ export interface SearchOptions {
  * @return A new array of entries satisfying the input. If no search input is
  *     present, returns a shallow copy of the records.
  */
-export function search<T extends ItemData>(
-    input: string, records: T[], options: SearchOptions): T[] {
+export async function search<T extends ItemData>(
+    input: string, records: T[], options: SearchOptions): Promise<T[]> {
   if (input.length === 0) {
     return [...records];
   }
   const searchStartTime = Date.now();
-  const result = exactSearch(input, records, options);
+  const result = await exactSearch(input, records, options);
   chrome.metricsPrivate.recordTime(
       'Tabs.TabSearch.WebUI.SearchAlgorithmDuration',
       Math.round(Date.now() - searchStartTime));
@@ -47,18 +61,18 @@ function cloneTabDataObj<T extends ItemData>(tabData: T): T {
   return clone;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// Exact Match Implementation :
-
 /**
  * The exact match algorithm returns records ranked according to priorities
- * and scores. Records are ordered by priority (higher priority comes
- * first) and sorted by score within the same priority. See `scoringFunction`
- * for how to calculate score and `prioritizeMatchResult` for how to calculate
- * priority.
+ * and scores. The search is case-insensitive and diacritic-insensitive (accents
+ * are folded), offloading the character matching to the browser process via
+ * Mojo.
+ *
+ * Records are ordered by priority (higher priority comes first) and sorted by
+ * score within the same priority. See `scoringFunction` for how to calculate
+ * score and `prioritizeMatchResult` for how to calculate priority.
  */
-function exactSearch<T extends ItemData>(
-    searchText: string, records: T[], options: SearchOptions): T[] {
+async function exactSearch<T extends ItemData>(
+    searchText: string, records: T[], options: SearchOptions): Promise<T[]> {
   if (searchText.length === 0) {
     return records;
   }
@@ -75,18 +89,42 @@ function exactSearch<T extends ItemData>(
     return acc;
   }, {} as {[key: string]: number});
 
+  // Batch all strings to search in.
+  const targets: string[] = [];
+  for (const record of records) {
+    for (const searchField of options.keys) {
+      const fieldText = searchField.getter(record as TabData | TabGroupData);
+      if (fieldText) {
+        targets.push(fieldText);
+      }
+    }
+  }
+
+  // Query the browser process to find match ranges. The C++ backend handles
+  // case-insensitivity, diacritic-insensitivity, and quotation folding
+  // natively.
+  const {ranges} =
+      await TabSearchApiProxyImpl.getInstance().getRangesIgnoringCaseAndAccents(
+          searchText, targets);
+
   // Perform an exact match search with range discovery.
   const exactMatches = [];
+  let targetIdx = 0;
   for (const tabDataRecord of records) {
     let matchFound = false;
     const matchedRecord = cloneTabDataObj(tabDataRecord);
     // Searches for fields or nested fields in the record.
-    for (const key of options.keys) {
-      const text = key.getter(tabDataRecord as TabData | TabGroupData);
-      if (text) {
-        const ranges = getRanges(text, searchText);
-        if (ranges.length !== 0) {
-          matchedRecord.highlightRanges[key.name] = ranges;
+    for (const searchField of options.keys) {
+      const fieldText =
+          searchField.getter(tabDataRecord as TabData | TabGroupData);
+      if (fieldText) {
+        const matchRanges = ranges[targetIdx++];
+        if (matchRanges && matchRanges.length !== 0) {
+          // Convert Mojo TokenRange DTOs (Data Transfer Objects) to plain JS
+          // Range domain objects. This decouples the UI layers from
+          // Mojo-specific serialization internals and ensures type safety.
+          matchedRecord.highlightRanges[searchField.name] =
+              matchRanges.map(r => ({start: r.start, length: r.length}));
           matchFound = true;
         }
       }
@@ -105,57 +143,7 @@ function exactSearch<T extends ItemData>(
 
   // Reorder match result by priorities.
   return prioritizeMatchResult(
-      searchText, options.keys, exactMatches.map(item => item.tab));
-}
-
-/**
- * Determines whether the given tab has a search field with identified matches
- * at the beginning of the string.
- */
-function hasMatchStringStart(
-    tab: ItemData, searchText: string, keys: OptionKeyObject[]): boolean {
-  return keys.some(key => {
-    const value = key.getter(tab as TabData | TabGroupData);
-    return value !== undefined && value.startsWith(searchText);
-  });
-}
-
-/**
- * Determines whether the given tab has a match for the given regexp in its
- * search fields.
- */
-function hasRegexMatch(
-    tab: ItemData, regexp: RegExp, keys: OptionKeyObject[]): boolean {
-  return keys.some((key) => {
-    const value = key.getter(tab as TabData | TabGroupData);
-    return value !== undefined && value.search(regexp) !== -1;
-  });
-}
-
-// https://crbug.com/433531973: Replace single and double left and right
-// quotation characters with the regular ones.
-function replaceSpecialQuotationCharacters(text: string) {
-  return text.replace(/[‘’]/g, '\'').replace(/[“”]/g, '"');
-}
-
-/**
- * Returns an array of matches that indicate where in the target string the
- * searchText appears. If there are no identified matches an empty array is
- * returned.
- */
-function getRanges(target: string, searchText: string): Range[] {
-  target = replaceSpecialQuotationCharacters(target);
-  searchText = replaceSpecialQuotationCharacters(searchText);
-  const escapedText = quoteString(searchText);
-  const ranges = [];
-  let match = null;
-  for (const re = new RegExp(escapedText, 'gi'); match = re.exec(target);) {
-    ranges.push({
-      start: match.index,
-      length: searchText.length,
-    });
-  }
-  return ranges;
+      options.keys, exactMatches.map(item => item.tab), searchText);
 }
 
 /**
@@ -192,20 +180,79 @@ function scoringFunction(
  *    the string.
  */
 function prioritizeMatchResult<T extends ItemData>(
-    searchText: string, keys: OptionKeyObject[], result: T[]): T[] {
+    searchFields: OptionKeyObject[], result: T[], input: string): T[] {
   const itemsMatchingStringStart = [];
   const itemsMatchingWordStart = [];
   const others = [];
-  const wordStartRegexp = new RegExp(`\\b${quoteString(searchText)}`, 'i');
+
+  const hasCjkQuery = CJK_REGEX.test(input);
+
   for (const tab of result) {
-    // Find matches that occur at the beginning of the string.
-    if (hasMatchStringStart(tab, searchText, keys)) {
+    let matchesStringStart = false;
+    let matchesWordStart = false;
+
+    for (const searchField of searchFields) {
+      const matchRanges = tab.highlightRanges[searchField.name];
+      if (!matchRanges || matchRanges.length === 0) {
+        continue;
+      }
+
+      const fieldText = searchField.getter(tab as TabData | TabGroupData);
+      if (!fieldText) {
+        continue;
+      }
+
+      for (const matchRange of matchRanges) {
+        if (matchRange.start === 0) {
+          matchesStringStart = true;
+          break;
+        }
+        if (matchRange.start > 0 &&
+            isWordStart(fieldText, matchRange.start, hasCjkQuery)) {
+          matchesWordStart = true;
+        }
+      }
+      // We can only early exit if we found a String Start match,
+      // because a Word Start match in this field could still be overridden
+      // by a String Start match in a subsequent field.
+      if (matchesStringStart) {
+        break;
+      }
+    }
+
+    if (matchesStringStart) {
       itemsMatchingStringStart.push(tab);
-    } else if (hasRegexMatch(tab, wordStartRegexp, keys)) {
+    } else if (matchesWordStart) {
       itemsMatchingWordStart.push(tab);
     } else {
       others.push(tab);
     }
   }
   return itemsMatchingStringStart.concat(itemsMatchingWordStart, others);
+}
+
+/**
+ * Returns true if the match starting at `index` aligns with a semantic word
+ * boundary in `text`.
+ */
+function isWordStart(
+    text: string, index: number, hasCjkQuery: boolean): boolean {
+  // If CJK word boundary detection feature is enabled and the search query
+  // contains CJK characters, use the locale-aware segmenter.
+  if (loadTimeData.getBoolean('cjkWordBoundaryEnabled') && hasCjkQuery) {
+    const currSegments = getSegmenter().segment(text);
+    const currSegment = currSegments.containing(index);
+    // segment.index represents the start index of the semantic word segment
+    // containing `index`. We verify:
+    // 1. The segment exists.
+    // 2. The match starts EXACTLY at the beginning of this segment.
+    // 3. The segment is a word-like token (not spaces or punctuation).
+    return !!currSegment && currSegment.index === index &&
+        !!currSegment.isWordLike;
+  }
+
+  // Fast fallback for non-CJK text where simple character boundaries are
+  // sufficient.
+  const prevChar = text.charAt(index - 1);
+  return /\W/.test(prevChar);
 }

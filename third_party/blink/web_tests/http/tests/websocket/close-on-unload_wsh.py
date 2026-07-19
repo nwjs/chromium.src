@@ -27,8 +27,9 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import json
-from six.moves.urllib import parse
-from mod_pywebsocket import msgutil
+from urllib import parse
+
+from pywebsocket3 import msgutil
 
 connections = {}
 

@@ -31,6 +31,7 @@
 <translation id="1828808367831369073">تم تجميع علامة تبويب واحدة (<ph name="TABS_COUNT_ONE" />)</translation>
 <translation id="1844381456014878100">بعد 7 أيام من عدم النشاط</translation>
 <translation id="1869137256605757565">{TABS_COUNT,plural, =1{علامة تبويب واحدة (<ph name="TABS_COUNT_ONE" />)}zero{<ph name="TABS_COUNT_MANY" /> علامة تبويب}two{علامتا تبويب (<ph name="TABS_COUNT_MANY" />)}few{<ph name="TABS_COUNT_MANY" /> علامات تبويب}many{<ph name="TABS_COUNT_MANY" /> علامة تبويب}other{<ph name="TABS_COUNT_MANY" /> علامة تبويب}}</translation>
+<translation id="1894429470045525403">{TAB_COUNT,plural, =1{إضافة علامة التبويب إلى قائمة القراءة}zero{إضافة علامات التبويب إلى قائمة القراءة}two{إضافة علامتَي التبويب إلى قائمة القراءة}few{إضافة علامات التبويب إلى قائمة القراءة}many{إضافة علامات التبويب إلى قائمة القراءة}other{إضافة علامات التبويب إلى قائمة القراءة}}</translation>
 <translation id="1909810060368225529">ملاحظة: يمكن للجميع الاطّلاع على التغييرات التي يتم إجراؤها على مجموعة علامات التبويب المشتركة هذه. يمكن للجميع إجراء تغييرات على مجموعات علامات التبويب المشتركة</translation>
 <translation id="1925363809167540686">{TAB_COUNT,plural, =1{تثبيت علامة تبويب واحدة}zero{تثبيت علامات التبويب}two{تثبيت علامتَي التبويب}few{تثبيت علامات التبويب}many{تثبيت علامات التبويب}other{تثبيت علامات التبويب}}</translation>
 <translation id="1982637982196732906">نقل إلى القسم غير النشط</translation>
@@ -76,6 +77,8 @@
 <translation id="3052964831964880138">انخفاض في سعر <ph name="PRODUCT_NAME" /> بقيمة <ph name="PRICE_DROP" /></translation>
 <translation id="3078350928901129212">رمز مجموعة علامات التبويب باللون <ph name="COLOR_NAME" /></translation>
 <translation id="311432875115153175">تم إغلاق قائمة مجموعات علامات التبويب</translation>
+<translation id="3152596030350326139">عرض علامات التبويب أفقيًا</translation>
+<translation id="31806439105337256">عرض علامات التبويب عموديًا</translation>
 <translation id="3194464645767632461">التقييم</translation>
 <translation id="3269930881809501915">{TABS_COUNT,plural, =1{إضافة علامة تبويب واحدة (<ph name="TABS_COUNT_ONE" />) إلى المجموعة}zero{إضافة <ph name="TABS_COUNT_MANY" /> علامة تبويب إلى المجموعة}two{إضافة علامتَي تبويب (<ph name="TABS_COUNT_MANY" />) إلى المجموعة}few{إضافة <ph name="TABS_COUNT_MANY" /> علامات تبويب إلى المجموعة}many{إضافة <ph name="TABS_COUNT_MANY" /> علامة تبويب إلى المجموعة}other{إضافة <ph name="TABS_COUNT_MANY" /> علامة تبويب إلى المجموعة}}</translation>
 <translation id="3328308545011660196">اقتراح: يبدو أن هناك <ph name="NUMBER_OF_TABS" /> من علامات التبويب متشابهة. هل تريد تجميعها؟</translation>
@@ -180,7 +183,6 @@
 <translation id="7129458170538955174">يتم عرض المعلومات حول هذا المتجر في نصف الشاشة.</translation>
 <translation id="7204204600596740190">وضع التحديد المتعدد</translation>
 <translation id="7211038039686180558">يتم حفظ مجموعات علامات التبويب وتعديلها تلقائيًا على جميع أجهزتك التي سجّلت الدخول عليها</translation>
-<translation id="731648547091221002">تم اختيار اللون <ph name="COLOR_NAME" />.</translation>
 <translation id="7326879924029668159">الاطّلاع على سياسة الإرجاع وغيرها</translation>
 <translation id="7352298686197644113">يمكنك الاطّلاع على المُنتَج الذي انخفض سعره في علامات التبويب المفتوحة.</translation>
 <translation id="7369451074646620503">لم تعُد مجموعة علامات التبويب "<ph name="TAB_GROUP_NAME" />" متوفّرة</translation>
@@ -206,7 +208,6 @@
 <translation id="7854360405711302755">{REVIEWS,plural, =1{ مراجعة واحدة (<ph name="REVIEWS_COUNT_ONE" />)، والتقييم: <ph name="CURRENT_RATING" />/<ph name="RATING_BASELINE" />}zero{<ph name="REVIEWS_COUNT_MANY" /> مراجعة، والتقييم: <ph name="CURRENT_RATING" />/<ph name="RATING_BASELINE" />}two{مراجعتان (<ph name="REVIEWS_COUNT_MANY" />)، والتقييم: <ph name="CURRENT_RATING" />/<ph name="RATING_BASELINE" />}few{<ph name="REVIEWS_COUNT_MANY" /> مراجعات، والتقييم: <ph name="CURRENT_RATING" />/<ph name="RATING_BASELINE" />}many{<ph name="REVIEWS_COUNT_MANY" /> مراجعة، والتقييم: <ph name="CURRENT_RATING" />/<ph name="RATING_BASELINE" />}other{<ph name="REVIEWS_COUNT_MANY" /> مراجعة، والتقييم: <ph name="CURRENT_RATING" />/<ph name="RATING_BASELINE" />}}</translation>
 <translation id="7885132941432959125">نقل علامة التبويب إلى اليسار</translation>
 <translation id="7887334752153342268">تكرار</translation>
-<translation id="7939917283308035850">لم يتم اختيار اللون <ph name="COLOR_NAME" />.</translation>
 <translation id="7961015016161918242">مطلقًا</translation>
 <translation id="7966321538264951561">رفض الاقتراحات</translation>
 <translation id="796696298310625748">{WINDOW_COUNT,plural, =1{نقل علامة التبويب إلى نافذة جديدة}zero{نقل علامة التبويب إلى نافدة أخرى}two{نقل علامة التبويب إلى نافدة أخرى}few{نقل علامة التبويب إلى نافدة أخرى}many{نقل علامة التبويب إلى نافدة أخرى}other{نقل علامة التبويب إلى نافدة أخرى}}</translation>

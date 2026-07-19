@@ -5,19 +5,51 @@
 #ifndef COMPONENTS_SEND_TAB_TO_SELF_METRICS_UTIL_H_
 #define COMPONENTS_SEND_TAB_TO_SELF_METRICS_UTIL_H_
 
+#include <stddef.h>
+
+#include <optional>
+
 #include "base/time/time.h"
+#include "components/send_tab_to_self/entry_point_display_reason.h"
+#include "components/sync_device_info/device_info.h"
 
 namespace send_tab_to_self {
 
+enum class SendTabToSelfResult;
+
+// GENERATED_JAVA_ENUM_PACKAGE: (
+//   org.chromium.chrome.browser.share.send_tab_to_self)
+// LINT.IfChange(SendTabToSelfShareEntryPoint)
 enum class ShareEntryPoint {
-  kContentMenu,
-  kLinkMenu,
-  kOmniboxIcon,
-  kOmniboxMenu,
-  kShareMenu,
-  kShareSheet,
-  kTabMenu,
+  // The context menu on a WebContents.
+  kContentMenu = 0,
+  // The context menu on a link.
+  kLinkMenu = 1,
+  // The icon in the toolbar, next to the Omnibox.
+  kToolbarIcon = 2,
+  // The context menu on the Omnibox.
+  kOmniboxMenu = 3,
+  // The Share menu in the 3dot menu.
+  kShareMenu = 4,
+  // The OS-level Share Sheet.
+  kShareSheet = 5,
+  // The context menu on a tab (in the tab strip or tab switcher).
+  kTabMenu = 6,
+  // A physical gesture.
+  kGesture = 7,
+  kMaxValue = kGesture,
 };
+// LINT.ThenChange(/tools/metrics/histograms/metadata/sharing/enums.xml:SendTabToSelfShareEntryPoint)
+
+// Records the entry point from which the Send Tab to Self feature was invoked.
+void RecordEntryPointInvoked(ShareEntryPoint entry_point);
+
+// Records the entry point from which the Send Tab to Self feature successfully
+// sent a tab.
+void RecordEntryPointSent(ShareEntryPoint entry_point);
+
+// Records the result of attempting to send a tab.
+void RecordSendResult(SendTabToSelfResult result);
 
 // Records when a received STTS notification is shown.
 void RecordNotificationShown();
@@ -54,6 +86,44 @@ enum class AutoOpenOutcome {
 
 // Records the outcome of an auto-open attempt.
 void RecordAutoOpenOutcome(AutoOpenOutcome outcome);
+
+// Entry point from which a received Send Tab to Self tab was activated.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+//
+// GENERATED_JAVA_ENUM_PACKAGE: (
+//   org.chromium.chrome.browser.share.send_tab_to_self)
+// LINT.IfChange(SendTabToSelfShareActivatedEntryPoint)
+enum class ShareActivatedEntryPoint {
+  // Automatically activated in the foreground (no user interaction required).
+  kAutoOpened = 0,
+  // Activated by clicking the action button on the desktop toast (for tabs
+  // auto-opened in the background).
+  kDesktopToast = 1,
+  // Activated via the "Open in New Tab" button in the desktop toolbar promo
+  // bubble (when auto-open is disabled).
+  kDesktopToolbarBubble = 2,
+  // Activated by tapping the system notification on mobile.
+  kMobileNotification = 3,
+  // Activated manually by selecting the tab in the tab strip on desktop/tablet,
+  // or from the tab switcher on mobile (for tabs auto-opened in the
+  // background).
+  // Note: On desktop, this is only recorded if the tab is activated before
+  // Chrome is shut down or restarted.
+  kTabStrip = 4,
+  // Activated from the ChromeOS Birch suggestion chip.
+  kChromeOSBirch = 5,
+  // The tab was closed or the browser was shut down/restarted before the tab
+  // was activated.
+  kTabOrBrowserClosedWithoutActivation = 6,
+  // The entry expired in the database before it was activated.
+  kSTTSEntryExpiredWithoutActivation = 7,
+  kMaxValue = kSTTSEntryExpiredWithoutActivation,
+};
+// LINT.ThenChange(/tools/metrics/histograms/metadata/sharing/enums.xml:SendTabToSelfShareActivatedEntryPoint)
+
+// Records the entry point from which a received tab was opened.
+void RecordActivatedEntryPoint(ShareActivatedEntryPoint entry_point);
 
 // Outcome of matching a received form field to a field on the page.
 // These values are persisted to logs. Entries should not be renumbered and
@@ -121,6 +191,65 @@ void RecordTimeSentToReceived(base::TimeDelta delay);
 // it was opened by the user on the target device. Note: this involves clocks
 // on two different devices so the value may be skewed.
 void RecordTimeSentToOpened(base::TimeDelta delay);
+
+// Records the time from when a tab was opened to when it was activated on the
+// target device.
+void RecordTimeOpenedToActivated(base::TimeDelta delay);
+
+// Records the time from when a tab was shared (on the sending device) to when
+// it was activated by the user on the target device. Note: this involves
+// clocks on two different devices so the value may be skewed.
+void RecordTimeSentToActivated(base::TimeDelta delay);
+
+// Form factor combinations for sending/receiving devices.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// LINT.IfChange(SendTabToSelfFormFactorCombination)
+enum class SendTabToSelfFormFactorCombination {
+  kDesktopToDesktop = 0,
+  kDesktopToPhone = 1,
+  kDesktopToTablet = 2,
+  kDesktopToUnknown = 3,
+  kPhoneToDesktop = 4,
+  kPhoneToPhone = 5,
+  kPhoneToTablet = 6,
+  kPhoneToUnknown = 7,
+  kTabletToDesktop = 8,
+  kTabletToPhone = 9,
+  kTabletToTablet = 10,
+  kTabletToUnknown = 11,
+  kUnknownToDesktop = 12,
+  kUnknownToPhone = 13,
+  kUnknownToTablet = 14,
+  kUnknownToUnknown = 15,
+  kMaxValue = kUnknownToUnknown,
+};
+// LINT.ThenChange(/tools/metrics/histograms/metadata/sharing/enums.xml:SendTabToSelfFormFactorCombination)
+
+void RecordDeviceFormFactorCombination(
+    syncer::DeviceInfo::FormFactor sender_form_factor,
+    syncer::DeviceInfo::FormFactor target_form_factor);
+
+// Keep in sync with SendTabToSelfDeviceCount in enums.xml.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// LINT.IfChange(SendTabToSelfDeviceCount)
+enum class SendTabToSelfDeviceCount {
+  kNoTargetDevicesBecauseSignedOut = 0,
+  kZeroDevices = 1,
+  kOneDevice = 2,
+  kTwoDevices = 3,
+  kThreeDevices = 4,
+  kFourDevices = 5,
+  kFiveDevices = 6,
+  kMoreThanFiveDevices = 7,
+  kMaxValue = kMoreThanFiveDevices,
+};
+// LINT.ThenChange(/tools/metrics/histograms/enums.xml:SendTabToSelfDeviceCount)
+
+void RecordTargetDeviceCount(ShareEntryPoint entry_point,
+                             EntryPointDisplayReason display_reason,
+                             size_t device_count);
 
 }  // namespace send_tab_to_self
 

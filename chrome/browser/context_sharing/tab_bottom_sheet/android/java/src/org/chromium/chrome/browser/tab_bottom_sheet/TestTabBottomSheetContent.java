@@ -19,20 +19,21 @@ import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent.GlowSpe
 /** Concrete test implementation of {@link TabBottomSheetContent} for automated testing. */
 @NullMarked
 public class TestTabBottomSheetContent extends TabBottomSheetContent {
+
     public TestTabBottomSheetContent(
             View contentView,
             float fullHeightRatio,
             @ColorInt int backgroundColor,
             @Px int peekViewHeight,
             @IdRes int peekViewContainerId,
-            @IdRes int emptyPlaceholderContainerId) {
+            Runnable onBackPressed) {
         super(
                 contentView,
                 fullHeightRatio,
                 backgroundColor,
                 peekViewHeight,
                 peekViewContainerId,
-                emptyPlaceholderContainerId);
+                onBackPressed);
     }
 
     @Override

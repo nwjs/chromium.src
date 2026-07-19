@@ -24,6 +24,7 @@
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/autofill/core/common/signatures.h"
 #include "components/send_tab_to_self/proto_conversions.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 
 namespace send_tab_to_self {
 
@@ -31,7 +32,7 @@ using AutofillTypeSet = ReceivedTabFormsFiller::AutofillTypeSet;
 
 namespace {
 
-// TODO(crbug.com/485145029): Consider making this configurable.
+// TODO(crbug.com/519101926): Consider making this configurable.
 constexpr base::TimeDelta kTimeout = base::Seconds(10);
 
 // Returns the set of signatures that appear exactly once in the incoming tab's
@@ -59,17 +60,12 @@ base::flat_set<PageContext::FormFieldAutofillSignature> ComputeUniqueSignatures(
       base::sorted_unique, std::move(unique_signatures));
 }
 
-// Returns the set of field signatures that are unique within `form`.
-// TODO(crbug.com/485145029): Consider honoring origin-based filtering here
-// as well, similar to GetUniqueTypesInForm.
+// Returns the set of field signatures that are unique among the given fields.
 base::flat_set<autofill::FieldSignature> GetUniqueSignaturesInForm(
-    const autofill::FormStructure& form) {
-  if (form.form_signature().value() == 0) {
-    return {};
-  }
+    base::span<const autofill::AutofillField* const> fields) {
   // Count occurrences of each signature in the form.
-  base::flat_map<autofill::FieldSignature, size_t> counts;
-  for (const std::unique_ptr<autofill::AutofillField>& field : form.fields()) {
+  absl::flat_hash_map<autofill::FieldSignature, size_t> counts;
+  for (const autofill::AutofillField* field : fields) {
     autofill::FieldSignature signature = field->GetFieldSignature();
     if (signature.value() != 0) {
       ++counts[signature];
@@ -83,8 +79,7 @@ base::flat_set<autofill::FieldSignature> GetUniqueSignaturesInForm(
       unique_signatures.push_back(signature);
     }
   }
-  return base::flat_set<autofill::FieldSignature>(base::sorted_unique,
-                                                  std::move(unique_signatures));
+  return base::flat_set<autofill::FieldSignature>(std::move(unique_signatures));
 }
 
 // Helper to extract the AutofillTypeSet for a given AutofillField.
@@ -100,15 +95,11 @@ AutofillTypeSet GetFieldProtoTypes(const autofill::AutofillField& field) {
 }
 
 // Returns the set of Autofill type sets that appear exactly once among the
-// same-origin fields in the form.
+// given fields.
 base::flat_set<AutofillTypeSet> GetUniqueTypeSetsInForm(
-    const autofill::FormStructure& form,
-    const url::Origin& origin) {
+    base::span<const autofill::AutofillField* const> fields) {
   base::flat_map<AutofillTypeSet, size_t> counts;
-  for (const std::unique_ptr<autofill::AutofillField>& field : form.fields()) {
-    if (field->origin() != origin) {
-      continue;
-    }
+  for (const autofill::AutofillField* field : fields) {
     AutofillTypeSet type_set = GetFieldProtoTypes(*field);
     if (!type_set.empty()) {
       ++counts[type_set];
@@ -279,9 +270,9 @@ void ReceivedTabFormsFiller::OnAutofillManagerStateChanged(
   }
 }
 
-// TODO(crbug.com/511137786): Evaluate if we really need all these matching
-// methods by looking at the UMA metrics. If fallbacks are not heavily used,
-// we can remove them to simplify the code and the proto.
+// TODO(crbug.com/511137786): Evaluate if all these matching methods are
+// really needed by looking at the UMA metrics. If fallbacks are not heavily
+// used, they can be removed to simplify the code and the proto.
 ReceivedTabFormsFiller::MatchResult
 ReceivedTabFormsFiller::FindPendingFieldMatching(
     const autofill::FormStructure& form,
@@ -377,23 +368,42 @@ void ReceivedTabFormsFiller::FillForms(
     return;
   }
   manager->ForEachCachedForm([&](const autofill::FormStructure& form) {
-    const base::flat_set<autofill::FieldSignature> form_unique_signatures =
-        GetUniqueSignaturesInForm(form);
-    const base::flat_set<AutofillTypeSet> form_unique_type_sets =
-        GetUniqueTypeSetsInForm(form, origin_);
-
+    // Only same-origin fields are processed and filled for security reasons.
+    // Pre-filter them here to perform the check once and avoid repeating
+    // it in GetUniqueSignaturesInForm(), GetUniqueTypeSetsInForm(), and the
+    // filling loop below.
+    std::vector<const autofill::AutofillField*> same_origin_fields;
     for (const std::unique_ptr<autofill::AutofillField>& field :
          form.fields()) {
-      if (field->origin() != origin_) {
-        // Only same-origin fields are filled for security reasons.
-        continue;
+      if (field->origin() == origin_) {
+        same_origin_fields.push_back(field.get());
       }
+    }
 
+    const base::flat_set<autofill::FieldSignature> form_unique_signatures =
+        GetUniqueSignaturesInForm(same_origin_fields);
+    const base::flat_set<AutofillTypeSet> form_unique_type_sets =
+        GetUniqueTypeSetsInForm(same_origin_fields);
+
+    for (const autofill::AutofillField* field : same_origin_fields) {
       const MatchResult match = FindPendingFieldMatching(
           form, *field, form_unique_signatures, form_unique_type_sets);
       if (!match.field) {
         // Fields on the page that don't match any pending field are ignored for
         // metrics purposes.
+        continue;
+      }
+
+      // Don't fill fields that are considered sensitive, or that were
+      // considered sensitive on the sender's side. (The sender shouldn't have
+      // sent the contents of sensitive fields in the first place, but check
+      // again just to be sure.)
+      std::optional<autofill::FormControlType> incoming_field_type =
+          autofill::StringToFormControlTypeDiscouraged(
+              match.field->form_control_type);
+      if (IsSensitiveFieldType(field->form_control_type()) ||
+          (incoming_field_type && IsSensitiveFieldType(*incoming_field_type))) {
+        pending_fields_.erase(*match.field);
         continue;
       }
 
@@ -411,12 +421,22 @@ void ReceivedTabFormsFiller::FillForms(
           NOTREACHED();
       }
 
-      manager->FillOrPreviewField(autofill::mojom::ActionPersistence::kFill,
-                                  autofill::mojom::FieldActionType::kReplaceAll,
-                                  form.ToFormData(), *field, match.field->value,
-                                  autofill::FillingProduct::kNone,
-                                  std::nullopt);
-      // Erase the successfully filled field immediately to prevent duplicate
+      // Do not fill fields that have been edited by the user.
+      // We also skip filling if the user has cleared a pre-filled field,
+      // as they likely want it to remain empty. We only fill if the field
+      // is empty and was initially empty as well.
+      const bool should_skip_filling =
+          (field->properties_mask() & autofill::kUserTyped) &&
+          (!field->value().empty() || !field->initial_value().empty());
+
+      if (!should_skip_filling) {
+        manager->FillOrPreviewField(
+            autofill::mojom::ActionPersistence::kFill,
+            autofill::mojom::FieldActionType::kReplaceAll, form.global_id(),
+            field->global_id(), match.field->value,
+            autofill::FillingProduct::kNone, std::nullopt);
+      }
+      // Erase the successfully matched field immediately to prevent duplicate
       // fills or double-logging in the destructor.
       pending_fields_.erase(*match.field);
     }

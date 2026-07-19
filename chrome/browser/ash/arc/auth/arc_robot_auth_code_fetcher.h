@@ -8,14 +8,21 @@
 #include <memory>
 
 #include "base/functional/callback.h"
+#include "base/memory/raw_ref.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/ash/arc/auth/arc_auth_code_fetcher.h"
 #include "components/policy/core/common/cloud/cloud_policy_constants.h"
 #include "components/policy/core/common/cloud/device_management_service.h"
 
+namespace network {
+class SharedURLLoaderFactory;
+}  // namespace network
+
 namespace policy {
+class BrowserPolicyConnectorAsh;
 struct DMServerJobResult;
-}
+}  // namespace policy
 
 namespace arc {
 
@@ -23,7 +30,11 @@ namespace arc {
 // code is used for creation an account on Android side in ARC kiosk mode.
 class ArcRobotAuthCodeFetcher : public ArcAuthCodeFetcher {
  public:
-  ArcRobotAuthCodeFetcher();
+  // `shared_url_loader_factory` must be non-null.
+  // `browser_policy_connector_ash` must be non-null and must outlive `this`.
+  ArcRobotAuthCodeFetcher(
+      scoped_refptr<network::SharedURLLoaderFactory> shared_url_loader_factory,
+      policy::BrowserPolicyConnectorAsh* browser_policy_connector_ash);
 
   ArcRobotAuthCodeFetcher(const ArcRobotAuthCodeFetcher&) = delete;
   ArcRobotAuthCodeFetcher& operator=(const ArcRobotAuthCodeFetcher&) = delete;
@@ -37,6 +48,10 @@ class ArcRobotAuthCodeFetcher : public ArcAuthCodeFetcher {
   void OnFetchRobotAuthCodeCompleted(FetchCallback callback,
                                      policy::DMServerJobResult result);
 
+  const scoped_refptr<network::SharedURLLoaderFactory>
+      shared_url_loader_factory_;
+  const raw_ref<policy::BrowserPolicyConnectorAsh>
+      browser_policy_connector_ash_;
   std::unique_ptr<policy::DeviceManagementService::Job> fetch_request_job_;
   base::WeakPtrFactory<ArcRobotAuthCodeFetcher> weak_ptr_factory_{this};
 };

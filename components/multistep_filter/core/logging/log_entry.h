@@ -15,7 +15,6 @@ namespace multistep_filter {
 
 // Represents the types of events that can be logged by the Multistep Filter
 // system.
-// LINT.IfChange(LogEventType)
 enum class LogEventType {
   kNavigationStarted,
   kUrlEligibilityCheck,
@@ -29,13 +28,13 @@ enum class LogEventType {
   kSuggestionGenerated,
   kSuggestionSuppressed,
   kSuggestionCleared,
-  kUiShown,
-  kUiAccepted,
-  kUiDismissed,
+  kSuggestionShown,
+  kSuggestionAccepted,
+  kSuggestionDismissed,
+  kSuggestionIgnored,
   kServerRequestFailed,
   kServerResponseMalformed,
 };
-// LINT.ThenChange(//chrome/browser/ui/webui/multistep_filter_internals/multistep_filter_internals.mojom:LogEventType)
 
 // Represents a single log entry for the Multistep Filter feature.
 // LINT.IfChange(LogEntry)
@@ -46,15 +45,12 @@ struct LogEntry {
   int64_t navigation_id;
   // The type of event that occurred.
   LogEventType event_type = LogEventType::kNavigationStarted;
-  // The effective Top-Level Domain plus one (eTLD+1) of the page where the
-  // event occurred.
-  std::string source_etld_plus_1;
+  // The host of the page where the event occurred.
+  std::string host;
   // Additional key-value details associated with the event.
   base::DictValue details;
 
-  LogEntry(int64_t navigation_id,
-           LogEventType type,
-           std::string_view source_etld_plus_1);
+  LogEntry(int64_t navigation_id, LogEventType type, std::string_view host);
   LogEntry(LogEntry&& other) noexcept;
   LogEntry& operator=(LogEntry&& other) noexcept;
   ~LogEntry();
@@ -72,7 +68,7 @@ struct LogEntry {
   LogEntry(base::Time time,
            int64_t navigation_id,
            LogEventType type,
-           std::string_view source_etld_plus_1);
+           std::string_view host);
 };
 // LINT.ThenChange(//chrome/browser/ui/webui/multistep_filter_internals/multistep_filter_internals.mojom:LogEntry)
 

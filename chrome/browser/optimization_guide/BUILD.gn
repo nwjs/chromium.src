@@ -33,6 +33,7 @@ source_set("optimization_guide") {
     "//components/optimization_guide/core:prediction",
     "//components/optimization_guide/optimization_guide_internals/webui",
     "//components/optimization_guide/public/mojom",
+    "//components/private_ai",
     "//components/services/unzip/content",
     "//components/signin/public/identity_manager",
     "//content/public/browser",
@@ -46,9 +47,6 @@ source_set("optimization_guide") {
       "//chrome/browser/bookmarks/android",
       "//chrome/browser/optimization_guide/android:jni_headers",
     ]
-  } else {
-    sources += [ "private_ai_model_execution_fetcher.h" ]
-    public_deps += [ "//components/private_ai" ]
   }
 }
 
@@ -78,13 +76,16 @@ source_set("impl") {
     "//chrome/browser/download",
     "//chrome/browser/metrics",
     "//chrome/browser/preloading/prefetch/no_state_prefetch",
+    "//chrome/browser/private_ai",
     "//chrome/browser/profiles",
     "//chrome/browser/profiles:profile_manager",
     "//chrome/browser/signin",
     "//chrome/browser/sync",
     "//components/metrics_services_manager",
     "//components/no_state_prefetch/browser",
+    "//components/private_ai",
     "//components/user_prefs",
+    "//components/variations",
     "//components/variations/service",
     "//components/version_info",
     "//ui/webui",
@@ -92,19 +93,14 @@ source_set("impl") {
   if (is_android) {
     deps += [
       "//base",
+      "//chrome/browser/commerce/price_tracking/android:price_tracking_notification_bridge",
       "//chrome/browser/optimization_guide/android:jni_headers",
       "//chrome/browser/optimization_guide/android:native",
     ]
   } else {
-    sources += [ "private_ai_model_execution_fetcher.cc" ]
     deps += [
-      "//chrome/browser/private_ai",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/tabs:tab_strip",
-      "//components/private_ai",
-      "//components/private_ai:proto",
-      "//components/private_ai/phosphor",
-      "//components/variations",
     ]
   }
 }
@@ -117,6 +113,7 @@ source_set("optimization_guide_on_device_model_installer") {
 
   deps = [
     "//base",
+    "//build:branding_buildflags",
     "//chrome/browser:browser_process",
     "//components/component_updater",
     "//components/crx_file",
@@ -163,6 +160,7 @@ if (!is_android) {
       "model_execution/model_execution_browsertest.cc",
       "model_execution/model_execution_live_test.cc",
       "model_execution/model_execution_validation_browsertest.cc",
+      "model_execution/on_device_model_browsertest.cc",
       "optimization_guide_keyed_service_browsertest.cc",
       "optimization_guide_tab_url_provider_browsertest.cc",
       "prediction/prediction_manager_browsertest.cc",
@@ -207,12 +205,4 @@ source_set("unit_tests") {
     "//components/unified_consent",
     "//components/variations:test_support",
   ]
-  if (!is_android) {
-    sources += [ "private_ai_model_execution_fetcher_unittest.cc" ]
-    deps += [
-      "//components/private_ai",
-      "//components/private_ai:proto",
-      "//components/private_ai:testing",
-    ]
-  }
 }

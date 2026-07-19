@@ -7,10 +7,10 @@ package org.chromium.chrome.browser.ui.side_panel_container;
 import android.graphics.Rect;
 import android.view.View;
 
-import org.chromium.base.Callback;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.ui.side_panel.SidePanelCoordinatorAndroid;
+import org.chromium.chrome.browser.ui.side_panel_container.dev.SidePanelDevFeature;
 
 /** Coordinator of the side panel container UI. */
 @NullMarked
@@ -20,14 +20,17 @@ public interface SidePanelContainerCoordinator {
     int MIN_WINDOW_WIDTH_DP_FOR_WIDE_SIDE_PANEL = 1200;
 
     /**
-     * Minimum side panel width.
+     * Minimum side panel <i>content</i> width.
      *
-     * <p>If the window width can't accommodate both (minimum side panel width) and (minimum {@code
-     * WebContents} width), the side panel will be closed.
+     * <p>The minimum side panel <i>container</i> width should be (the minimum content width + the
+     * container's total horizontal padding).
+     *
+     * <p>If the window width can't accommodate both (minimum side panel container width) and
+     * (minimum {@code WebContents} width), the side panel will be closed.
      *
      * @see org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator#MIN_WEB_CONTENTS_WIDTH_DP
      */
-    int MIN_SIDE_PANEL_WIDTH_DP = 200;
+    int MIN_SIDE_PANEL_CONTENT_WIDTH_DP = 200;
 
     /**
      * Fixed, narrow side panel width for when the window can accommodate both the side panel and
@@ -58,8 +61,12 @@ public interface SidePanelContainerCoordinator {
      *
      * @param sidePanelCoordinatorAndroid For communicating with the native {@code
      *     SidePanelCoordinatorAndroid}, which manages states for all side panel features.
+     * @param sidePanelDevFeature For communicating with the dev feature. This should always be null
+     *     in production.
      */
-    void init(SidePanelCoordinatorAndroid sidePanelCoordinatorAndroid);
+    void init(
+            SidePanelCoordinatorAndroid sidePanelCoordinatorAndroid,
+            @Nullable SidePanelDevFeature sidePanelDevFeature);
 
     /**
      * Populates {@link SidePanelContent} into this side panel container.
@@ -70,13 +77,13 @@ public interface SidePanelContainerCoordinator {
      * already has content, the existing content will be replaced with no animation.
      *
      * @param content Wrapper object for the content to show in the side panel.
-     * @param onAnimationFinishedCallback Callback to invoke after content is populated.
+     * @param onContentPopulated Runnable to invoke after content is populated.
      * @param startingBounds Optional bounds for the animation to start from.
      * @param suppressAnimations Whether or not to suppress animations for this populate request.
      */
-    void populateContent(
+    void startPopulatingContent(
             SidePanelContent content,
-            Callback<@Nullable Void> onAnimationFinishedCallback,
+            Runnable onContentPopulated,
             @Nullable Rect startingBounds,
             boolean suppressAnimations);
 
@@ -85,11 +92,10 @@ public interface SidePanelContainerCoordinator {
      *
      * <p>This method is for a side panel feature. Calling it will also close the container.
      *
-     * @param onAnimationFinishedCallback Callback to invoke after content is removed.
+     * @param onContentRemoved Runnable to invoke after content is removed.
      * @param suppressAnimations Whether or not to suppress animations for this removal.
      */
-    void removeContentAndClose(
-            Callback<@Nullable Void> onAnimationFinishedCallback, boolean suppressAnimations);
+    void startRemovingContent(Runnable onContentRemoved, boolean suppressAnimations);
 
     /** Returns whether the given {@link SidePanelContent} is shown in this side panel container. */
     boolean isShowing(SidePanelContent sidePanelContent);
@@ -99,4 +105,7 @@ public interface SidePanelContainerCoordinator {
 
     /** Destroys all objects owned by this coordinator. */
     void destroy();
+
+    /** Returns the main {@link View} for testing. */
+    View getViewForTesting();
 }

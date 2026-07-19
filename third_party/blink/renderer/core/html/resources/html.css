@@ -637,6 +637,13 @@ input::-internal-input-suggested {
 input::-internal-input-suggested,
 textarea::-internal-input-suggested {
     font: -webkit-small-control !important;
+    /* font: -webkit-small-control resolves to Arial on every platform. Ideally
+       we'd keep Arial, but a concrete family is matched against author
+       @font-face, so a single-character unicode-range could disclose the
+       preview text; a generic family avoids that lookup. crbug.com/517710554. */
+    @supports blink-feature(AutofillPreviewGenericFontFamily) {
+      font-family: sans-serif !important;
+    }
     /* -webkit-small-control does not pin the font-feature-settings and we want
        previews to look consistent. */
     font-feature-settings: normal !important;
@@ -863,8 +870,8 @@ input[type="range" i]::-webkit-media-slider-container {
 
 input[type="range" i]:-internal-has-datalist::-webkit-slider-container {
     /*
-     * See LayoutThemeDefault. "22px" is
-     * 2 * (SliderTickOffsetFromTrackCenter() + SliderTickSize().Height()).
+     * See ThemePainter::PaintSliderTicks.
+     * "22px" == "2 * (kSliderTickOffset + kSliderTickBlockSize)
      */
     min-block-size: 22px;
 }
@@ -959,9 +966,13 @@ option:-internal-spatial-navigation-focus {
     outline-offset: -1px;
 }
 
-input:not([type="image" i], [type="range" i], [type="checkbox" i], [type="radio" i]) {
+input:not([type="range" i], [type="checkbox" i], [type="radio" i]) {
   overflow: clip !important;
   overflow-clip-margin: 0px !important;
+}
+
+input[type="image" i] {
+  overflow-clip-margin: content-box !important;
 }
 
 /* https://html.spec.whatwg.org/multipage/rendering.html#hidden-elements */
@@ -977,7 +988,7 @@ input[type="hidden" i] {
   display: none !important;
 }
 @supports blink-feature(UnboundedElement) {
-  [unbounded]:-internal-unbounded-element-inactive {
+  [unbounded]:not(:unbounded) {
     visibility: hidden;
   }
 }
@@ -1092,6 +1103,23 @@ input[type="color" i]::-webkit-color-swatch {
     }
 }
 
+input::-internal-email-verification-indicator {
+    display: none;
+    inline-size: 16px;
+    block-size: 16px;
+    padding: 2px;
+    -webkit-user-modify: read-only !important;
+    cursor: default;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+
+input::-internal-email-verification-indicator[data-state="verified"] {
+    display: inline-block;
+    background-image: url("images/email_verification_verified.svg");
+}
+
 input::-webkit-calendar-picker-indicator {
     display: inline-block;
     inline-size: 0.66em;
@@ -1184,7 +1212,13 @@ select:-internal-list-box {
 }
 
 select:not(:-internal-list-box) {
-    overflow: visible !important;
+    @supports not blink-feature(SelectUsesUAClip) {
+        overflow: -internal-auto-base(visible, revert-rule) !important;
+    }
+    @supports blink-feature(SelectUsesUAClip) {
+        overflow: -internal-auto-base(clip, revert-rule) !important;
+        overflow-clip-margin: -internal-auto-base(content-box, revert-rule) !important;
+    }
 }
 
 /* The padding here should match the value of
@@ -1240,12 +1274,10 @@ select:-internal-list-box:disabled option:checked {
    color: -internal-auto-base(light-dark(gray, #aaa), inherit);
 }
 
-/* TODO(crbug.com/406464760): decide on <hr> styles for customizable select
- * multiple. */
 select:-internal-list-box hr {
-    border-style: none;
-    margin-block-start: 0.5em;
-    margin-block-end: 0;
+    border-style: -internal-auto-base(none, revert-rule);
+    margin-block-start: -internal-auto-base(0.5em, revert-rule);
+    margin-block-end: -internal-auto-base(0, revert-rule);;
 }
 
 /* TODO(crbug.com/357649033): Consider undoing these styles for customizable
@@ -1818,7 +1850,9 @@ dialog:-internal-dialog-in-top-layer {
 
 [popover] {
     position: fixed;
-    position-anchor: auto;
+    @supports not blink-feature(RemovePositionAnchorUAStyle) {
+        position-anchor: auto;
+    }
     inset: 0;
     width: fit-content;
     height: fit-content;
@@ -2215,13 +2249,13 @@ select[multiple] option::checkmark {
   /* The svg is 13px by 13px. Without this height rule, the svg would not be
    * vertically centered within the ::checkmark. */
   height: -internal-auto-base(13px, initial);
-  content: -internal-auto-base(url(data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2213%22%20height%3D%2213%22%20viewBox%3D%220%200%2013%2013%22%20fill%3D%22none%22%3E%3Crect%20x%3D%220.5%22%20y%3D%220.5%22%20width%3D%2212%22%20height%3D%2212%22%20rx%3D%222%22%20fill%3D%22%23ffffff%22%20stroke%3D%22%23767676%22%20stroke-width%3D%221%22%2F%3E%3C%2Fsvg%3E), '\2713' / '');
+  content: -internal-auto-base(url(data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2213%22%20height%3D%2213%22%20viewBox%3D%220%200%2013%2013%22%20fill%3D%22none%22%3E%3Crect%20x%3D%220.5%22%20y%3D%220.5%22%20width%3D%2212%22%20height%3D%2212%22%20rx%3D%222%22%20fill%3D%22none%22%20stroke%3D%22%23767676%22%20stroke-width%3D%221%22%2F%3E%3C%2Fsvg%3E), '\2713' / '');
 }
 select[multiple] option:checked::checkmark {
   content: -internal-auto-base(url(data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2213%22%20height%3D%2213%22%20viewBox%3D%220%200%2013%2013%22%20fill%3D%22none%22%3E%3Crect%20x%3D%220%22%20y%3D%220%22%20width%3D%2213%22%20height%3D%2213%22%20rx%3D%222%22%20fill%3D%22%230075FF%22%2F%3E%3Cpath%20d%3D%22M2.6%207%20l2.6%202.5%20L10.4%202.6%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%222%22%2F%3E%3C%2Fsvg%3E), '\2713' / '');
 }
 select[multiple] option:disabled::checkmark {
-  content: -internal-auto-base(url(data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2213%22%20height%3D%2213%22%20viewBox%3D%220%200%2013%2013%22%20fill%3D%22none%22%3E%3Crect%20x%3D%220.5%22%20y%3D%220.5%22%20width%3D%2212%22%20height%3D%2212%22%20rx%3D%222%22%20fill%3D%22%23ffffff%22%20stroke%3D%22%23767676%22%20stroke-opacity%3D%2260%25%22%20fill-opacity%3D%2260%25%22%20stroke-width%3D%221%22%2F%3E%3C%2Fsvg%3E), '\2713' / '');
+  content: -internal-auto-base(url(data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2213%22%20height%3D%2213%22%20viewBox%3D%220%200%2013%2013%22%20fill%3D%22none%22%3E%3Crect%20x%3D%220.5%22%20y%3D%220.5%22%20width%3D%2212%22%20height%3D%2212%22%20rx%3D%222%22%20fill%3D%22none%22%20stroke%3D%22%23767676%22%20stroke-opacity%3D%2260%25%22%20fill-opacity%3D%2260%25%22%20stroke-width%3D%221%22%2F%3E%3C%2Fsvg%3E), '\2713' / '');
 }
 select[multiple] option:checked:disabled::checkmark {
   content: -internal-auto-base(url(data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2213%22%20height%3D%2213%22%20viewBox%3D%220%200%2013%2013%22%20fill%3D%22none%22%3E%3Crect%20x%3D%220%22%20y%3D%220%22%20width%3D%2213%22%20height%3D%2213%22%20rx%3D%222%22%20fill%3D%22%23767676%22%20fill-opacity%3D%2260%25%22%2F%3E%3Cpath%20d%3D%22M2.6%207%20l2.6%202.5%20L10.4%202.6%22%20stroke%3D%22%23ffffff%22%20stroke-opacity%3D%2260%25%22%20stroke-width%3D%222%22%2F%3E%3C%2Fsvg%3E), '\2713' / '');
@@ -2254,6 +2288,11 @@ select::-internal-select-autofill-preview-text {
   text-align: center;
   white-space: nowrap;
   font: -webkit-small-control !important;
+  /* See input::-internal-input-suggested: pin a generic family so an author
+     @font-face can't detect the autofill preview text. */
+  @supports blink-feature(AutofillPreviewGenericFontFamily) {
+    font-family: sans-serif !important;
+  }
   font-feature-settings: normal !important;
 }
 
@@ -2365,7 +2404,9 @@ select optgroup optgroup {
   menulist {
     display: block;
     position: fixed;
-    position-anchor: auto;
+    @supports not blink-feature(RemovePositionAnchorUAStyle) {
+        position-anchor: auto;
+    }
     margin: 0;
     inset: auto;
     /* TODO(https://crbug.com/406566432): width:max-content probably isn't
@@ -2424,14 +2465,27 @@ select optgroup optgroup {
     margin-inline-start: auto;
   }
 
-  /* We can use the direct child selector for menuitems in menubars, because the
-   * menubar content model does not allow for fieldset as an intermediate to
-   * group menuitems in menubars. */
-  menubar > menuitem {
-    display: inline-flex;
+  submenu {
+    display: contents;
   }
+
+  menuitem {
+    display: inline-flex;
+    /* menuitems in a menubar do not open on interest (hover), unless a menu
+     * is already open (see below) */
+    interest-delay-start: calc(infinity * 1s);
+  }
+
+  /* menuitems in a menubar that has an open menu trigger instantly on
+   * interest (hover).  Uses :where() so that the "menulist menuitem"
+   * selector just below overrides it. */
+  menubar:where(:-internal-has-open-menuitem) menuitem {
+    interest-delay-start: 0s;
+  }
+
   menulist menuitem {
     display: flex;
+    interest-delay-start: normal;
   }
 
   menubar, menulist {
@@ -2474,25 +2528,22 @@ select optgroup optgroup {
 [overscrollcontainer="overlay"] {
   -internal-overscroll-area: overlay;
 }
-[overscrollarea],
-:-internal-overscroll-target {
+[overscrollcontainer] > [overscrollarea] {
   -internal-overscroll-position: auto;
 }
 
-:-internal-overscroll-target:not(:overscroll-open) {
+[overscrollcontainer] > [overscrollarea]:not(:overscroll-open) {
   interactivity: inert;
 }
 
-[overscrollarea]::backdrop,
-:-internal-overscroll-target::backdrop {
+[overscrollcontainer] > [overscrollarea]::overscroll-backdrop {
   display: none;
   position: absolute;
   inset: 0;
   background-color: rgba(0,0,0,0.1);
 }
 
-[overscrollarea]:overscroll-open::backdrop,
-:-internal-overscroll-target:overscroll-open::backdrop {
+[overscrollcontainer] > [overscrollarea]:overscroll-open::overscroll-backdrop {
   display: block;
 }
 
@@ -2511,7 +2562,9 @@ select optgroup optgroup {
     /* [popover] styles */
     position: fixed;
     inset: 0;
-    position-anchor: auto;
+    @supports not blink-feature(RemovePositionAnchorUAStyle) {
+        position-anchor: auto;
+    }
     width: fit-content;
     height: fit-content;
     margin: auto;
@@ -2563,13 +2616,35 @@ select optgroup optgroup {
   option:filtered {
     display: none;
   }
+
+  /* When select elements contain a filtering input and the structure of the
+   * shadow root changes, we should move the scrollbar from the entire
+   * container which now contains the input and the options to just the listbox
+   * of options because the filtering input should not be part of the scroller. */
+  select:-internal-list-box:-internal-select-contains-input,
+  select:-internal-select-contains-input::picker(select):popover-open {
+    overflow: clip;
+    display: inline-flex;
+    flex-direction: column;
+    block-size: -internal-auto-base(initial, calc(max(24px, 1lh) * (1 + attr(size type(<integer>), 4))));
+  }
+  select::select-listbox {
+    overflow: auto;
+    flex: 1;
+    min-height: 0;
+  }
 }
 
 @supports blink-feature(FilterableSelect) {
   option:active-option {
     outline: black auto 1px;
   }
-  option:filtered {
+  /* The additional selectors here are just for higher specificity than the
+   * rule which sets display:flex for
+   * `select:not(:-internal-list-box)[multiple] option`. */
+  option:filtered,
+  select:not(:-internal-list-box):not([multiple]) option:filtered,
+  select:not(:-internal-list-box)[multiple] option:filtered {
     display: none;
   }
 }

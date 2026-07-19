@@ -12,13 +12,13 @@
 #include <vector>
 
 #include "base/check.h"
+#include "base/feature.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/user_metrics.h"
 #include "base/time/time.h"
-#include "chrome/browser/glic/fre/fre_util.h"
 #include "chrome/browser/glic/host/auth_controller.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/common/chrome_features.h"
@@ -36,6 +36,7 @@
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "net/cookies/cookie_util.h"
 #include "services/network/public/mojom/cookie_manager.mojom.h"
+#include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "url/gurl.h"
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
@@ -62,17 +63,27 @@ class GlicCookieSynchronizer::ClearCookiesTask {
   ClearCookiesTask(content::StoragePartition* storage_partition,
                    base::OnceClosure callback)
       : callback_(std::move(callback)) {
-    network::mojom::CookieManager* cookie_manager =
-        storage_partition->GetCookieManagerForBrowserProcess();
+    if (base::FeatureList::IsEnabled(
+            features::kGlicClearDeviceBoundSessionsOnFirstSync)) {
+      storage_partition->ClearData(
+          (content::StoragePartition::REMOVE_DATA_MASK_COOKIES |
+           content::StoragePartition::REMOVE_DATA_MASK_DEVICE_BOUND_SESSIONS),
+          blink::StorageKey(), base::Time(), base::Time::Max(),
+          base::BindOnce(&ClearCookiesTask::DeleteDone,
+                         weak_ptr_factory_.GetWeakPtr()));
+    } else {
+      network::mojom::CookieManager* cookie_manager =
+          storage_partition->GetCookieManagerForBrowserProcess();
 
-    cookie_manager->DeleteCookies(
-        network::mojom::CookieDeletionFilter::New(),
-        base::BindOnce(&ClearCookiesTask::DeleteDone,
-                       weak_ptr_factory_.GetWeakPtr()));
+      cookie_manager->DeleteCookies(
+          network::mojom::CookieDeletionFilter::New(),
+          base::IgnoreArgs<uint32_t>(base::BindOnce(
+              &ClearCookiesTask::DeleteDone, weak_ptr_factory_.GetWeakPtr())));
+    }
   }
 
  private:
-  void DeleteDone(uint32_t num_deleted) { std::move(callback_).Run(); }
+  void DeleteDone() { std::move(callback_).Run(); }
 
   base::OnceClosure callback_;
   base::WeakPtrFactory<ClearCookiesTask> weak_ptr_factory_{this};
@@ -215,7 +226,7 @@ GlicCookieSynchronizer::GlicCookieSynchronizer(
 
 GlicCookieSynchronizer::~GlicCookieSynchronizer() {
   if (!callbacks_.empty()) {
-    CompleteAuth(/*is_success=*/false);
+    CompleteAuth(GlicCookieSyncResult::kDestroyedWithPendingCallbacks);
   }
 }
 
@@ -268,7 +279,7 @@ void GlicCookieSynchronizer::CopyCookiesToWebviewStoragePartition(
   auto* glic_storage_partition = GetStoragePartition();
   if (!glic_storage_partition) {
     DLOG(ERROR) << "glic webview storage partition does not exist";
-    CompleteAuth(false);
+    CompleteAuth(GlicCookieSyncResult::kNoStoragePartition);
     return;
   }
 
@@ -307,7 +318,7 @@ void GlicCookieSynchronizer::ClearCookiesComplete() {
 void GlicCookieSynchronizer::SyncCookiesForDevelopmentComplete(bool success) {
   sync_cookies_for_development_task_.reset();
   if (!success) {
-    CompleteAuth(/*is_success=*/false);
+    CompleteAuth(GlicCookieSyncResult::kDevSyncFailure);
   } else {
     BeginCookieSync();
   }
@@ -319,7 +330,7 @@ void GlicCookieSynchronizer::BeginCookieSync() {
       identity_manager_->GetPrimaryAccountId(signin::ConsentLevel::kSignin);
   if (primary_account_id.empty()) {
     DLOG(ERROR) << "can't sync cookies, user not signed in";
-    CompleteAuth(false);
+    CompleteAuth(GlicCookieSyncResult::kUserNotSignedIn);
     return;
   }
   signin::MultiloginParameters parameters = {
@@ -341,13 +352,13 @@ void GlicCookieSynchronizer::OnAuthFinished(
     signin::SetAccountsInCookieResult cookie_result) {
   switch (cookie_result) {
     case signin::SetAccountsInCookieResult::kSuccess:
-      CompleteAuth(/*is_success=*/true);
+      CompleteAuth(GlicCookieSyncResult::kSuccess);
       break;
     case signin::SetAccountsInCookieResult::kTransientError:
-      CompleteAuth(/*is_success=*/false);
+      CompleteAuth(GlicCookieSyncResult::kAuthTransientError);
       break;
     case signin::SetAccountsInCookieResult::kPersistentError:
-      CompleteAuth(/*is_success=*/false);
+      CompleteAuth(GlicCookieSyncResult::kAuthPersistentError);
       break;
   }
 }
@@ -355,11 +366,12 @@ void GlicCookieSynchronizer::OnAuthFinished(
 void GlicCookieSynchronizer::OnTimeout() {
   base::RecordAction(
       base::UserMetricsAction("Glic.CookieSynchronizer.Timeout"));
-  CompleteAuth(/*is_success=*/false);
+  CompleteAuth(GlicCookieSyncResult::kTimeout);
 }
 
-void GlicCookieSynchronizer::CompleteAuth(bool is_success) {
-  metrics_.EndSync(is_success);
+void GlicCookieSynchronizer::CompleteAuth(GlicCookieSyncResult result) {
+  bool is_success = result == GlicCookieSyncResult::kSuccess;
+  metrics_.EndSync(result);
   timeout_.Stop();
   cookie_loader_.reset();
 
@@ -382,15 +394,18 @@ void GlicCookieSynchronizer::Metrics::BeginSync() {
   sync_start_time_ = base::TimeTicks::Now();
 }
 
-void GlicCookieSynchronizer::Metrics::EndSync(bool success) {
+void GlicCookieSynchronizer::Metrics::EndSync(GlicCookieSyncResult result) {
   if (sync_start_time_.is_null()) {
     return;
   }
+  bool success = result == GlicCookieSyncResult::kSuccess;
   base::UmaHistogramMediumTimes(
       success ? "Glic.CookieSynchronization.Latency.Success"
               : "Glic.CookieSynchronization.Latency.Error",
       base::TimeTicks::Now() - sync_start_time_);
   sync_start_time_ = base::TimeTicks();
+
+  base::UmaHistogramEnumeration("Glic.CookieSynchronization.Result", result);
 }
 
 }  // namespace glic

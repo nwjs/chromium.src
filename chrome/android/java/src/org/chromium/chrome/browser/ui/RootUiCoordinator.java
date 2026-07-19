@@ -20,7 +20,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.PersistableBundle;
-import android.provider.Browser;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStub;
@@ -58,7 +57,6 @@ import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.ActivityUtils;
 import org.chromium.chrome.browser.ChromeActionModeHandler;
 import org.chromium.chrome.browser.IntentHandler;
-import org.chromium.chrome.browser.IntentHandler.TabOpenType;
 import org.chromium.chrome.browser.WebSearchDelegate;
 import org.chromium.chrome.browser.app.tabmodel.ArchivedTabModelOrchestrator;
 import org.chromium.chrome.browser.app.tabwindow.TabWindowManagerSingleton;
@@ -150,6 +148,7 @@ import org.chromium.chrome.browser.quick_delete.QuickDeleteDelegateImpl;
 import org.chromium.chrome.browser.readaloud.ReadAloudController;
 import org.chromium.chrome.browser.readaloud.ReadAloudControllerSupplier;
 import org.chromium.chrome.browser.recent_tabs.RestoreTabsFeatureHelper;
+import org.chromium.chrome.browser.searchwidget.SearchActivityUtils;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.share.ShareDelegate.ShareOrigin;
 import org.chromium.chrome.browser.share.qrcode.QrCodeDialog;
@@ -164,17 +163,14 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabObscuringHandler;
 import org.chromium.chrome.browser.tab.TabObscuringHandlerSupplier;
-import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab_ui.RecyclerViewPosition;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tab_ui.TabSwitcher;
 import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
-import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorBase;
-import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.tabstrip.StripVisibilityState;
 import org.chromium.chrome.browser.tabwindow.TabWindowInfo;
 import org.chromium.chrome.browser.theme.AdjustedTopUiThemeColorProvider;
@@ -238,7 +234,6 @@ import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.components.browser_ui.widget.scrim.ScrimManager;
 import org.chromium.components.browser_ui.widget.scrim.ScrimManager.ScrimClient;
-import org.chromium.components.dom_distiller.core.DomDistillerFeatures;
 import org.chromium.components.embedder_support.contextmenu.ContextMenuPopulatorFactory;
 import org.chromium.components.feature_engagement.EventConstants;
 import org.chromium.components.feature_engagement.Tracker;
@@ -247,8 +242,8 @@ import org.chromium.components.messages.ManagedMessageDispatcher;
 import org.chromium.components.messages.MessageContainer;
 import org.chromium.components.messages.MessageDispatcherProvider;
 import org.chromium.components.messages.MessagesFactory;
-import org.chromium.components.omnibox.OmniboxFocusReason;
 import org.chromium.components.signin.SigninFeatureMap;
+import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.components.ukm.UkmRecorder;
 import org.chromium.content_public.browser.BrowserContextHandle;
@@ -370,7 +365,7 @@ public class RootUiCoordinator
      */
     private @Nullable ToolbarThemeColorProvider mAdjustedToolbarThemeColorProvider;
 
-    private IncognitoStateProvider mIncognitoStateProvider;
+    protected IncognitoStateProvider mIncognitoStateProvider;
 
     private final @Nullable Callback<Boolean> mOnOmniboxFocusChangedListener;
     protected @Nullable ToolbarManager mToolbarManager;
@@ -783,9 +778,20 @@ public class RootUiCoordinator
                                         mActivity.findViewById(R.id.page_zoom_container);
                                 return viewStub.inflate();
                             }
+
+                            @Override
+                            public boolean isSheetActingAsBrowserControls() {
+                                BottomSheetController controller =
+                                        mBottomSheetControllerSupplier.get();
+                                return controller != null
+                                        && BottomSheetUtils.isContentActingAsBrowserControls(
+                                                controller)
+                                        && controller.isFullWidth();
+                            }
                         },
                         mPageZoomManager,
-                        /* useSlider= */ true);
+                        /* useSlider= */ true,
+                        getBottomSheetControllerSupplier());
 
         if (ChromeFeatureList.sEnableExclusiveAccessManager.isEnabled()) {
             mExclusiveAccessManager =
@@ -1369,15 +1375,13 @@ public class RootUiCoordinator
         if (contextualSearchManager != null) {
             contextualSearchManager.addObserver(mReadAloudContextualSearchObserver);
         }
-        if (DomDistillerFeatures.sReaderModeDistillInApp.isEnabled()) {
-            mReaderModeBottomSheetManager =
-                    new ReaderModeBottomSheetManager(
-                            mActivity,
-                            assertNonNull(getBottomSheetController()),
-                            mActivityTabProvider,
-                            mBrowserControlsManager,
-                            mToolbarThemeColorProvider);
-        }
+        mReaderModeBottomSheetManager =
+                new ReaderModeBottomSheetManager(
+                        mActivity,
+                        assertNonNull(getBottomSheetController()),
+                        mActivityTabProvider,
+                        mBrowserControlsManager,
+                        mToolbarThemeColorProvider);
 
         if (DeviceInfo.isAutomotive()) {
             mAutomotiveBackButtonToolbarCoordinator =
@@ -1532,9 +1536,7 @@ public class RootUiCoordinator
                             mActivityTabProvider);
         }
 
-        if (SigninFeatureMap.getInstance().isActivitylessSigninAllEntryPointEnabled()) {
-            initBottomSheetSigninAndHistorySyncControllers(originalProfile);
-        }
+        initBottomSheetSigninAndHistorySyncControllers(originalProfile);
 
         // Setup IncognitoReauthController as early as possible, to show the re-auth screen.
         if (IncognitoReauthManager.isIncognitoReauthFeatureAvailable()) {
@@ -1643,35 +1645,39 @@ public class RootUiCoordinator
         // A local supplier is created here to wrap the provided profile and satisfy the API.
         OneshotSupplierImpl<Profile> profileSupplier = new OneshotSupplierImpl<>();
         profileSupplier.set(profile);
-        mWebSigninAndHistorySyncCoordinatorSupplier.set(
-                SigninAndHistorySyncActivityLauncherImpl.get()
-                        .createBottomSheetSigninCoordinatorAndObserveAddAccountResult(
-                                mWindowAndroid,
-                                mActivity,
-                                mActivityResultTracker,
-                                new WebSigninAccountPickerDelegate(
-                                        profile,
-                                        mTabModelSelectorSupplier.asNonNull().get(),
-                                        new WebSigninBridge.Factory()),
-                                assertNonNull(mDeviceLockActivityLauncherSupplier.get()),
-                                profileSupplier,
-                                getBottomSheetControllerSupplier().asNonNull(),
-                                mModalDialogManagerSupplier.get(),
-                                mSnackbarManagerSupplier.get(),
-                                SigninAccessPoint.WEB_SIGNIN));
-        mExtensionsSigninAndHistorySyncCoordinatorSupplier.set(
-                SigninAndHistorySyncActivityLauncherImpl.get()
-                        .createBottomSheetSigninCoordinatorAndObserveAddAccountResult(
-                                mWindowAndroid,
-                                mActivity,
-                                mActivityResultTracker,
-                                new BottomSheetSigninAndHistorySyncCoordinator.Delegate() {},
-                                assertNonNull(mDeviceLockActivityLauncherSupplier.get()),
-                                profileSupplier,
-                                getBottomSheetControllerSupplier().asNonNull(),
-                                mModalDialogManagerSupplier.get(),
-                                mSnackbarManagerSupplier.get(),
-                                SigninAccessPoint.EXTENSIONS));
+        if (SigninFeatureMap.getInstance().isActivitylessSigninAllEntryPointEnabled()) {
+            mWebSigninAndHistorySyncCoordinatorSupplier.set(
+                    SigninAndHistorySyncActivityLauncherImpl.get()
+                            .createBottomSheetSigninCoordinatorAndObserveAddAccountResult(
+                                    mWindowAndroid,
+                                    mActivity,
+                                    mActivityResultTracker,
+                                    new WebSigninAccountPickerDelegate(
+                                            profile,
+                                            mTabModelSelectorSupplier.asNonNull().get(),
+                                            new WebSigninBridge.Factory()),
+                                    assertNonNull(mDeviceLockActivityLauncherSupplier.get()),
+                                    profileSupplier,
+                                    getBottomSheetControllerSupplier().asNonNull(),
+                                    mModalDialogManagerSupplier.get(),
+                                    mSnackbarManagerSupplier.get(),
+                                    SigninAccessPoint.WEB_SIGNIN));
+        }
+        if (SigninFeatureMap.isEnabled(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)) {
+            mExtensionsSigninAndHistorySyncCoordinatorSupplier.set(
+                    SigninAndHistorySyncActivityLauncherImpl.get()
+                            .createBottomSheetSigninCoordinatorAndObserveAddAccountResult(
+                                    mWindowAndroid,
+                                    mActivity,
+                                    mActivityResultTracker,
+                                    new BottomSheetSigninAndHistorySyncCoordinator.Delegate() {},
+                                    assertNonNull(mDeviceLockActivityLauncherSupplier.get()),
+                                    profileSupplier,
+                                    getBottomSheetControllerSupplier().asNonNull(),
+                                    mModalDialogManagerSupplier.get(),
+                                    mSnackbarManagerSupplier.get(),
+                                    SigninAccessPoint.EXTENSIONS));
+        }
     }
 
     private void initIncognitoReauthController(Profile profile) {
@@ -2008,8 +2014,10 @@ public class RootUiCoordinator
                     mReadAloudControllerSupplier,
                     mShareDelegateSupplier,
                     /* onShareRunnable= */ () -> {
-                        assumeNonNull(mToolbarManager);
-                        mToolbarManager.setUrlBarFocus(false, OmniboxFocusReason.UNFOCUS);
+                        assertNonNull(mToolbarManager).endFuseboxInput();
+                    },
+                    /* onSigninTapped= */ () -> {
+                        assertNonNull(mToolbarManager).endFuseboxInput();
                     },
                     mWindowAndroid,
                     mActivityResultTracker,
@@ -2135,7 +2143,8 @@ public class RootUiCoordinator
                             mBottomBarHostManager,
                             mActionRegistry,
                             (preventClose, invocationSource) ->
-                                    toggleGlic(preventClose, invocationSource));
+                                    toggleGlic(preventClose, invocationSource),
+                            shouldSuppressTabStripAtStart());
             if (!mSupportsAppMenuSupplier.getAsBoolean()) {
                 mToolbarManager.getToolbar().disableMenuButton();
             }
@@ -2200,7 +2209,7 @@ public class RootUiCoordinator
                             }
                         }
 
-                        if (layoutType == LayoutType.TAB_SWITCHER) {
+                        if (layoutType == LayoutType.HUB) {
                             // Hide find toolbar and app menu.
                             if (mFindToolbarManager != null) mFindToolbarManager.hideToolbar();
                             hideAppMenu();
@@ -2219,7 +2228,7 @@ public class RootUiCoordinator
 
                     @Override
                     public void onFinishedShowing(int layoutType) {
-                        if (layoutType == LayoutType.TAB_SWITCHER) {
+                        if (layoutType == LayoutType.HUB) {
                             // Ideally we wouldn't allow the app menu to show while animating the
                             // overview mode. This is hard to track, however, because in some
                             // instances #onOverviewModeStartedShowing is called after
@@ -2233,14 +2242,14 @@ public class RootUiCoordinator
 
                     @Override
                     public void onStartedHiding(int layoutType) {
-                        if (layoutType == LayoutType.TAB_SWITCHER) {
+                        if (layoutType == LayoutType.HUB) {
                             hideAppMenu();
                         }
                     }
 
                     @Override
                     public void onFinishedHiding(int layoutType) {
-                        if (layoutType != LayoutType.TAB_SWITCHER) {
+                        if (layoutType != LayoutType.HUB) {
                             hideAppMenu();
                         }
                     }
@@ -2453,10 +2462,16 @@ public class RootUiCoordinator
         }
     }
 
-    /**
-     * @return whether the Android Edge To Edge Feature is supported for the current activity.
-     */
+    /** Returns whether the Android Edge To Edge Feature is supported for the current activity. */
     protected boolean supportsEdgeToEdge() {
+        return false;
+    }
+
+    /**
+     * Returns whether to suppress the tab strip when Chrome starts. Overridden by the subclass that
+     * needs the behavior.
+     */
+    protected boolean shouldSuppressTabStripAtStart() {
         return false;
     }
 
@@ -2638,9 +2653,6 @@ public class RootUiCoordinator
                                             mContextualSearchManagerSupplier.get();
                                     if (manager != null) manager.onBottomSheetVisible(true);
                                 }
-
-                                // On visible bottom sheet, hide page zoom dialog
-                                mPageZoomBarCoordinator.hide();
                                 break;
                             case SheetState.HIDDEN:
                                 mOpened = false;
@@ -2738,7 +2750,7 @@ public class RootUiCoordinator
         }
         if (mLayoutManager != null) {
             outPersistentState.putBoolean(
-                    IS_TAB_SWITCHER_SHOWN, mLayoutManager.isLayoutVisible(LayoutType.TAB_SWITCHER));
+                    IS_TAB_SWITCHER_SHOWN, mLayoutManager.isLayoutVisible(LayoutType.HUB));
         }
     }
 
@@ -2795,26 +2807,12 @@ public class RootUiCoordinator
     }
 
     private void bringTabToFront(TabWindowInfo tabWindowInfo, GURL url) {
-        TabModel tabModel = tabWindowInfo.tabModel;
-        int tabId = tabWindowInfo.tab.getId();
-
-        // Switch to the tab directly if it is in same TabModel.
-        if (assumeNonNull(mTabModelSelectorSupplier.get()).getCurrentModel() == tabModel) {
-            int tabIndex = TabModelUtils.getTabIndexById(tabModel, tabId);
-            // In the event the user deleted the tab as part during the interaction with the
-            // Omnibox, reject the switch to tab action.
-            if (tabIndex == TabModel.INVALID_TAB_INDEX) return;
-            tabModel.setIndex(tabIndex, TabSelectionType.FROM_OMNIBOX);
-            return;
-        }
-
-        Intent intent = new Intent(mActivity, mActivity.getClass());
-        intent.setAction(Intent.ACTION_VIEW);
-        intent.setData(Uri.parse(url.getSpec()));
-        intent.putExtra(Browser.EXTRA_APPLICATION_ID, mActivity.getPackageName());
-        intent.putExtra(TabOpenType.REUSE_TAB_MATCHING_ID_STRING, tabId);
-        IntentHandler.setTabLaunchType(intent, TabLaunchType.FROM_OMNIBOX);
-        MultiWindowUtils.launchIntentInMaybeClosedWindow(mActivity, intent, tabWindowInfo.windowId);
+        SearchActivityUtils.bringTabToFront(
+                mActivity,
+                mTabModelSelectorSupplier.get(),
+                tabWindowInfo,
+                url,
+                /* onTabSwitched= */ null);
     }
 
     // Testing methods
@@ -2851,6 +2849,11 @@ public class RootUiCoordinator
     /** Returns a supplier of the share delegate. */
     public MonotonicObservableSupplier<ShareDelegate> getShareDelegateSupplier() {
         return mShareDelegateSupplier;
+    }
+
+    /** Returns the supplier of the omnibox focus state. */
+    public NonNullObservableSupplier<Boolean> getOmniboxFocusStateSupplier() {
+        return mOmniboxFocusStateSupplier;
     }
 
     public @Nullable ExclusiveAccessManager getExclusiveAccessManager() {

@@ -8,10 +8,7 @@ import "chromeos/components/in_session_auth/mojom/in_session_auth.mojom";
 import "chromeos/components/payments/mojom/payment_app.mojom";
 import "chromeos/components/sensors/mojom/cros_sensor_service.mojom";
 import "chromeos/crosapi/mojom/account_manager.mojom";
-import "chromeos/crosapi/mojom/local_printer.mojom";
 import "chromeos/crosapi/mojom/probe_service.mojom";
-import "chromeos/crosapi/mojom/telemetry_diagnostic_routine_service.mojom";
-import "chromeos/crosapi/mojom/telemetry_event_service.mojom";
 import "chromeos/services/chromebox_for_meetings/public/mojom/cfm_service_manager.mojom";
 import "chromeos/services/machine_learning/public/mojom/machine_learning_service.mojom";
 import "mojo/public/mojom/base/generic_pending_receiver.mojom";
@@ -115,11 +112,7 @@ interface Crosapi {
   // BindKeystoreService@2 was removed.
   // BindLacrosShelfItemTracker@128 was removed.
   // BindLacrosAppPublisher@119 was removed.
-
-  // Binds the LocalPrinter interface for printing.
-  // Added in M91.
-  [MinVersion=25] BindLocalPrinter@30(pending_receiver<LocalPrinter> receiver);
-
+  // BindLocalPrinter@30 was removed.
   // BindLogin@67 was removed.
   // BindLoginScreenStorage@68 was removed.
   // BindLoginState@61 was removed.
@@ -201,13 +194,7 @@ interface Crosapi {
   // BindSearchControllerRegistry@66 was removed.
   // BindSyncService@69 was removed.
   // BindTaskManager@24 was removed.
-
-  // Binds the TelemetryDiagnosticRoutineService interface to allow Lacros to
-  // initiate diagnostic routines from Ash.
-  // Added in M116.
-  [MinVersion=112] BindTelemetryDiagnosticRoutinesService@115(
-    pending_receiver<TelemetryDiagnosticRoutinesService> receiver);
-
+  // BindTelemetryDiagnosticRoutinesService@115 was removed.
   // BindTelemetryEventService@109 was removed.
   // BindTelemetryManagementService@129 was removed.
   // BindTelemetryProbeService@97 was removed.

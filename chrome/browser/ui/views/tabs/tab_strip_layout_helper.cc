@@ -5,15 +5,11 @@
 #include "chrome/browser/ui/views/tabs/tab_strip_layout_helper.h"
 
 #include <algorithm>
-#include <memory>
 #include <optional>
-#include <set>
 #include <utility>
 
 #include "base/memory/raw_ptr.h"
-#include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/tabs/tab_style.h"
 #include "chrome/browser/ui/tabs/tab_types.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/tabs/tab.h"
@@ -22,7 +18,6 @@
 #include "chrome/browser/ui/views/tabs/tab_slot_view.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_layout_types.h"
 #include "chrome/browser/ui/views/tabs/tab_style_views.h"
-#include "chrome/common/chrome_features.h"
 #include "components/split_tabs/split_tab_id.h"
 #include "tab_container_controller.h"
 #include "ui/gfx/range/range.h"
@@ -366,7 +361,7 @@ int TabStripLayoutHelper::GetFirstSlotIndexForTabModelIndex(
   int current_model_index = 0;
 
   // Conceptually we assign a model index to each slot equal to the
-  // number of open tabs preceeding it. Group headers will have the same
+  // number of open tabs preceding it. Group headers will have the same
   // index as the tab before it, and each open tab will have the index
   // of the previous slot plus 1. Closing tabs are not counted, and are
   // skipped altogether.

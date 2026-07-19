@@ -13,6 +13,7 @@
 #include "base/test/bind.h"
 #include "base/test/gmock_callback_support.h"
 #include "content/browser/webid/identity_provider_info.h"
+#include "content/browser/webid/request.h"
 #include "content/browser/webid/request_page_data.h"
 #include "content/browser/webid/request_service.h"
 #include "content/browser/webid/test/mock_api_permission_delegate.h"
@@ -43,32 +44,31 @@ class TestIdentityCredentialSourceImpl : public IdentityCredentialSourceImpl {
   explicit TestIdentityCredentialSourceImpl(RenderFrameHost* rfh)
       : IdentityCredentialSourceImpl(rfh) {}
 
-  static void InitializeRequestService(
-      RequestService* request_service,
+  static void InitializeRequest(
+      Request* request,
       std::unique_ptr<IdpNetworkRequestManager> network_manager) {
-    if (!request_service->fedcm_metrics_) {
-      request_service->fedcm_metrics_ = request_service->CreateFedCmMetrics();
+    if (!request->fedcm_metrics_) {
+      request->fedcm_metrics_ = request->CreateFedCmMetrics();
     }
-    request_service->network_manager_ = std::move(network_manager);
-    request_service->accounts_dialog_display_time_ = base::TimeTicks::Now();
+    request->network_manager_ = std::move(network_manager);
+    request->accounts_dialog_display_time_ = base::TimeTicks::Now();
   }
 
   static void SetAccounts(
-      RequestService* request_service,
+      Request* request,
       std::vector<scoped_refptr<IdentityRequestAccount>> accounts) {
-    request_service->accounts_ = std::move(accounts);
+    request->accounts_ = std::move(accounts);
   }
 
-  static void SetIdpInfo(RequestService* request_service,
+  static void SetIdpInfo(Request* request,
                          const GURL& idp_config_url,
                          std::unique_ptr<IdentityProviderInfo> idp_info) {
-    request_service->idp_infos_[idp_config_url] = std::move(idp_info);
+    request->idp_infos_[idp_config_url] = std::move(idp_info);
   }
 
-  static void SetIdentitySelectionType(
-      RequestService* request_service,
-      RequestService::IdentitySelectionType type) {
-    request_service->identity_selection_type_ = type;
+  static void SetIdentitySelectionType(Request* request,
+                                       Request::IdentitySelectionType type) {
+    request->identity_selection_type_ = type;
   }
 };
 
@@ -154,9 +154,9 @@ TEST_F(IdentityCredentialSourceImplTest, SuccessfulFetching) {
   accounts_response.site_salt = "fc432178f9155c4e24762de5b9505f2e";
   accounts_response.accounts.push_back(account);
 
-  EXPECT_CALL(*network_manager_, SendAccountsRequest(_, accounts_url, _, _))
+  EXPECT_CALL(*network_manager_, SendAccountsRequest(_, accounts_url, _))
       .WillOnce(
-          [&](const url::Origin&, const GURL&, const std::string&,
+          [&](const url::Origin&, const GURL&,
               IdpNetworkRequestManager::AccountsRequestCallback callback) {
             base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
                 FROM_HERE,
@@ -190,7 +190,7 @@ TEST_F(IdentityCredentialSourceImplTest, UserNotSignedInToIdP) {
 
   // Should NOT call FetchWellKnown or anything else.
   EXPECT_CALL(*network_manager_, FetchWellKnown(_, _)).Times(0);
-  EXPECT_CALL(*network_manager_, SendAccountsRequest(_, _, _, _)).Times(0);
+  EXPECT_CALL(*network_manager_, SendAccountsRequest(_, _, _)).Times(0);
 
   base::RunLoop run_loop;
   source_->GetIdentityCredentialSuggestions(
@@ -256,9 +256,9 @@ TEST_F(IdentityCredentialSourceImplTest, FilterOutSignupAccount) {
   accounts_response.accounts.push_back(account_matching);
   accounts_response.accounts.push_back(account_not_matching);
 
-  EXPECT_CALL(*network_manager_, SendAccountsRequest(_, accounts_url, _, _))
+  EXPECT_CALL(*network_manager_, SendAccountsRequest(_, accounts_url, _))
       .WillOnce(
-          [&](const url::Origin&, const GURL&, const std::string&,
+          [&](const url::Origin&, const GURL&,
               IdpNetworkRequestManager::AccountsRequestCallback callback) {
             base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
                 FROM_HERE,
@@ -300,19 +300,20 @@ TEST_F(IdentityCredentialSourceImplTest, SelectAccountSameSite) {
                                          idp_origin.GetURL());
   mojo::Remote<blink::mojom::FederatedAuthRequest> remote;
 
-  RequestService& request_service = RequestService::CreateForTesting(
-      *main_rfh(), &api_permission_delegate, &auto_reauthn_permission_delegate,
-      permission_delegate_.get(), &identity_registry,
-      remote.BindNewPipeAndPassReceiver());
+  Request& request =
+      RequestService::GetOrCreateForCurrentDocument(main_rfh())
+          ->CreateRequestForTesting(
+              remote.BindNewPipeAndPassReceiver(), &api_permission_delegate,
+              &auto_reauthn_permission_delegate, permission_delegate_.get(),
+              &identity_registry);
 
-  TestIdentityCredentialSourceImpl::InitializeRequestService(
-      &request_service,
-      std::make_unique<NiceMock<MockIdpNetworkRequestManager>>());
-  request_service.SetDialogControllerForTests(
+  TestIdentityCredentialSourceImpl::InitializeRequest(
+      &request, std::make_unique<NiceMock<MockIdpNetworkRequestManager>>());
+  request.SetDialogControllerForTests(
       std::make_unique<NiceMock<MockIdentityRequestDialogController>>());
 
   RequestPageData::GetOrCreateForPage(main_rfh()->GetPage())
-      ->SetPendingWebIdentityRequest(&request_service);
+      ->SetPendingWebIdentityRequest(&request);
 
   blink::mojom::IdentityProviderRequestOptionsPtr options =
       blink::mojom::IdentityProviderRequestOptions::New();
@@ -345,11 +346,11 @@ TEST_F(IdentityCredentialSourceImplTest, SelectAccountSameSite) {
   accounts_response.accounts.push_back(account);
 
   TestIdentityCredentialSourceImpl::SetAccounts(
-      &request_service, std::move(accounts_response.accounts));
-  TestIdentityCredentialSourceImpl::SetIdpInfo(&request_service, config_url,
+      &request, std::move(accounts_response.accounts));
+  TestIdentityCredentialSourceImpl::SetIdpInfo(&request, config_url,
                                                std::move(idp_info));
   TestIdentityCredentialSourceImpl::SetIdentitySelectionType(
-      &request_service, RequestService::kAutoPassive);
+      &request, Request::kAutoPassive);
 
   // Should succeed because it is same-site (main frame)
   EXPECT_TRUE(source_->SelectAccount(idp_origin, kAccountId));
@@ -380,19 +381,20 @@ TEST_F(IdentityCredentialSourceImplTest, SelectAccountCrossSiteFail) {
                                          idp_origin.GetURL());
   mojo::Remote<blink::mojom::FederatedAuthRequest> remote;
 
-  RequestService& request_service = RequestService::CreateForTesting(
-      *subframe, &api_permission_delegate, &auto_reauthn_permission_delegate,
-      permission_delegate_.get(), &identity_registry,
-      remote.BindNewPipeAndPassReceiver());
+  Request& request =
+      RequestService::GetOrCreateForCurrentDocument(subframe)
+          ->CreateRequestForTesting(
+              remote.BindNewPipeAndPassReceiver(), &api_permission_delegate,
+              &auto_reauthn_permission_delegate, permission_delegate_.get(),
+              &identity_registry);
 
-  TestIdentityCredentialSourceImpl::InitializeRequestService(
-      &request_service,
-      std::make_unique<NiceMock<MockIdpNetworkRequestManager>>());
-  request_service.SetDialogControllerForTests(
+  TestIdentityCredentialSourceImpl::InitializeRequest(
+      &request, std::make_unique<NiceMock<MockIdpNetworkRequestManager>>());
+  request.SetDialogControllerForTests(
       std::make_unique<NiceMock<MockIdentityRequestDialogController>>());
 
   RequestPageData::GetOrCreateForPage(main_rfh()->GetPage())
-      ->SetPendingWebIdentityRequest(&request_service);
+      ->SetPendingWebIdentityRequest(&request);
 
   blink::mojom::IdentityProviderRequestOptionsPtr options =
       blink::mojom::IdentityProviderRequestOptions::New();
@@ -425,11 +427,11 @@ TEST_F(IdentityCredentialSourceImplTest, SelectAccountCrossSiteFail) {
   accounts_response.accounts.push_back(account);
 
   TestIdentityCredentialSourceImpl::SetAccounts(
-      &request_service, std::move(accounts_response.accounts));
-  TestIdentityCredentialSourceImpl::SetIdpInfo(&request_service, config_url,
+      &request, std::move(accounts_response.accounts));
+  TestIdentityCredentialSourceImpl::SetIdpInfo(&request, config_url,
                                                std::move(idp_info));
   TestIdentityCredentialSourceImpl::SetIdentitySelectionType(
-      &request_service, RequestService::kAutoPassive);
+      &request, Request::kAutoPassive);
 
   // Should fail because it is cross-site and third party.
   EXPECT_FALSE(source_->SelectAccount(idp_origin, kAccountId));
@@ -461,19 +463,20 @@ TEST_F(IdentityCredentialSourceImplTest,
                                          idp_origin.GetURL());
   mojo::Remote<blink::mojom::FederatedAuthRequest> remote;
 
-  RequestService& request_service = RequestService::CreateForTesting(
-      *subframe, &api_permission_delegate, &auto_reauthn_permission_delegate,
-      permission_delegate_.get(), &identity_registry,
-      remote.BindNewPipeAndPassReceiver());
+  Request& request =
+      RequestService::GetOrCreateForCurrentDocument(subframe)
+          ->CreateRequestForTesting(
+              remote.BindNewPipeAndPassReceiver(), &api_permission_delegate,
+              &auto_reauthn_permission_delegate, permission_delegate_.get(),
+              &identity_registry);
 
-  TestIdentityCredentialSourceImpl::InitializeRequestService(
-      &request_service,
-      std::make_unique<NiceMock<MockIdpNetworkRequestManager>>());
-  request_service.SetDialogControllerForTests(
+  TestIdentityCredentialSourceImpl::InitializeRequest(
+      &request, std::make_unique<NiceMock<MockIdpNetworkRequestManager>>());
+  request.SetDialogControllerForTests(
       std::make_unique<NiceMock<MockIdentityRequestDialogController>>());
 
   RequestPageData::GetOrCreateForPage(main_rfh()->GetPage())
-      ->SetPendingWebIdentityRequest(&request_service);
+      ->SetPendingWebIdentityRequest(&request);
 
   blink::mojom::IdentityProviderRequestOptionsPtr options =
       blink::mojom::IdentityProviderRequestOptions::New();
@@ -506,11 +509,11 @@ TEST_F(IdentityCredentialSourceImplTest,
   accounts_response.accounts.push_back(account);
 
   TestIdentityCredentialSourceImpl::SetAccounts(
-      &request_service, std::move(accounts_response.accounts));
-  TestIdentityCredentialSourceImpl::SetIdpInfo(&request_service, config_url,
+      &request, std::move(accounts_response.accounts));
+  TestIdentityCredentialSourceImpl::SetIdpInfo(&request, config_url,
                                                std::move(idp_info));
   TestIdentityCredentialSourceImpl::SetIdentitySelectionType(
-      &request_service, RequestService::kAutoPassive);
+      &request, Request::kAutoPassive);
 
   // Should succeed because it is cross site but same party.
   EXPECT_TRUE(source_->SelectAccount(idp_origin, kAccountId));
@@ -553,19 +556,20 @@ TEST_F(IdentityCredentialSourceImplTest,
   MockIdentityRegistry identity_registry(web_contents(), nullptr, config_url);
   mojo::Remote<blink::mojom::FederatedAuthRequest> remote;
 
-  RequestService& request_service = RequestService::CreateForTesting(
-      *subframe, &api_permission_delegate, &auto_reauthn_permission_delegate,
-      permission_delegate_.get(), &identity_registry,
-      remote.BindNewPipeAndPassReceiver());
+  Request& request =
+      RequestService::GetOrCreateForCurrentDocument(subframe)
+          ->CreateRequestForTesting(
+              remote.BindNewPipeAndPassReceiver(), &api_permission_delegate,
+              &auto_reauthn_permission_delegate, permission_delegate_.get(),
+              &identity_registry);
 
-  TestIdentityCredentialSourceImpl::InitializeRequestService(
-      &request_service,
-      std::make_unique<NiceMock<MockIdpNetworkRequestManager>>());
-  request_service.SetDialogControllerForTests(
+  TestIdentityCredentialSourceImpl::InitializeRequest(
+      &request, std::make_unique<NiceMock<MockIdpNetworkRequestManager>>());
+  request.SetDialogControllerForTests(
       std::make_unique<NiceMock<MockIdentityRequestDialogController>>());
 
   RequestPageData::GetOrCreateForPage(subframe->GetPage())
-      ->SetPendingWebIdentityRequest(&request_service);
+      ->SetPendingWebIdentityRequest(&request);
 
   blink::mojom::IdentityProviderRequestOptionsPtr options =
       blink::mojom::IdentityProviderRequestOptions::New();
@@ -603,8 +607,8 @@ TEST_F(IdentityCredentialSourceImplTest,
   accounts_response_copy.accounts.push_back(account);
 
   TestIdentityCredentialSourceImpl::SetAccounts(
-      &request_service, std::move(accounts_response.accounts));
-  TestIdentityCredentialSourceImpl::SetIdpInfo(&request_service, config_url,
+      &request, std::move(accounts_response.accounts));
+  TestIdentityCredentialSourceImpl::SetIdpInfo(&request, config_url,
                                                std::move(idp_info));
 
   // If the accounts are filtered out from the pending request, it will
@@ -633,9 +637,9 @@ TEST_F(IdentityCredentialSourceImplTest,
   // Mock SendAccountsRequest returning an account that will be filtered out
   // in OnAccountsFetchCompleted.
   EXPECT_CALL(*subframe_network_manager_ptr,
-              SendAccountsRequest(_, GURL(kAccountsUrl), _, _))
+              SendAccountsRequest(_, GURL(kAccountsUrl), _))
       .WillOnce(
-          [&](const url::Origin&, const GURL&, const std::string&,
+          [&](const url::Origin&, const GURL&,
               IdpNetworkRequestManager::AccountsRequestCallback callback) {
             base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
                 FROM_HERE,

@@ -88,6 +88,26 @@ chrome.test.sendMessage = function(message, callback) {};
 chrome.test.sendScriptResult = function(result, callback) {};
 
 /**
+ * Notifies the browser process that a specific test case in the test code
+ * started running. The chrome.test API uses this internally.
+ * @param {string} testName
+ * @see https://developer.chrome.com/extensions/test#method-notifyTestStarted
+ */
+chrome.test.notifyTestStarted = function(testName) {};
+
+/**
+ * Notifies the browser process that a specific test case in the test code
+ * finished running. The chrome.test API uses this internally.
+ * @param {string} testName
+ * @param {boolean} result
+ * @param {number} remainingTests
+ * @param {string} assertionDescription
+ * @param {string=} message
+ * @see https://developer.chrome.com/extensions/test#method-notifyTestFinished
+ */
+chrome.test.notifyTestFinished = function(testName, result, remainingTests, assertionDescription, message) {};
+
+/**
  * @see https://developer.chrome.com/extensions/test#method-callbackAdded
  */
 chrome.test.callbackAdded = function() {};
@@ -164,12 +184,11 @@ chrome.test.assertLastError = function(expectedError) {};
 
 /**
  * @param {function(): void} fn
- * @param {?Object|undefined} self
- * @param {!Array<*>} args
- * @param {(string|RegExp)=} message
+ * @param {(string|RegExp)=} expectedError
+ * @param {string=} message Custom failure message.
  * @see https://developer.chrome.com/extensions/test#method-assertThrows
  */
-chrome.test.assertThrows = function(fn, self, args, message) {};
+chrome.test.assertThrows = function(fn, expectedError, message) {};
 
 /**
  * @param {Promise} promise The promise to evaluate, which is expected to
@@ -240,15 +259,6 @@ chrome.test.callbackFail = function(expectedError, func) {};
 chrome.test.runTests = function(tests) {};
 
 /**
- * Sets whether to diverge behavior to support the browser.test proposal (true)
- * from
- * (https://github.com/w3c/webextensions/blob/main/proposals/browser_test_api.md) or maintain existing behavior (false). For testing purposes only.
- * @param {boolean} enabled
- * @see https://developer.chrome.com/extensions/test#method-setUseStandardizedApiBehaviorForTesting
- */
-chrome.test.setUseStandardizedApiBehaviorForTesting = function(enabled) {};
-
-/**
  * @see https://developer.chrome.com/extensions/test#method-getApiFeatures
  */
 chrome.test.getApiFeatures = function() {};
@@ -303,3 +313,17 @@ chrome.test.setExceptionHandler = function(handler) {};
  * @see https://developer.chrome.com/extensions/test#event-onMessage
  */
 chrome.test.onMessage;
+
+/**
+ * Fired when a test is started, before any test logic has run.
+ * @type {!ChromeEvent}
+ * @see https://developer.chrome.com/extensions/test#event-onTestStarted
+ */
+chrome.test.onTestStarted;
+
+/**
+ * Fired when a test evaluates to success or failure.
+ * @type {!ChromeEvent}
+ * @see https://developer.chrome.com/extensions/test#event-onTestFinished
+ */
+chrome.test.onTestFinished;

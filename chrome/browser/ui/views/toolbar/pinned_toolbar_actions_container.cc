@@ -31,6 +31,8 @@
 #include "chrome/browser/ui/views/toolbar/pinned_action_toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container_layout.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_divider.h"
+#include "chrome/browser/ui/views/toolbar/toolbar_view.h"
+#include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "ui/actions/action_id.h"
@@ -518,7 +520,7 @@ void PinnedToolbarActionsContainer::AddPinnedActionButtonFor(
   // Pinned buttons shouldn't appear in web apps or browsers without a tabstrip
   // (like popups).
   if (auto* browser = browser_view_->browser();
-      browser && (browser->app_controller() ||
+      browser && (web_app::AppBrowserController::From(browser) ||
                   !browser->SupportsWindowFeature(
                       Browser::WindowFeature::kFeatureTabStrip))) {
     return;
@@ -882,6 +884,13 @@ ToolbarButton* PinnedToolbarActionsContainer::GetDownloadButton() {
 
 views::BubbleAnchor PinnedToolbarActionsContainer::GetBubbleAnchor(
     actions::ActionId action_id) {
+  if (IsOverflowed(action_id)) {
+    if (browser_view_ && browser_view_->toolbar() &&
+        browser_view_->toolbar()->overflow_button() &&
+        browser_view_->toolbar()->overflow_button()->GetVisible()) {
+      return views::BubbleAnchor(browser_view_->toolbar()->overflow_button());
+    }
+  }
   return views::BubbleAnchor(GetButtonFor(action_id));
 }
 

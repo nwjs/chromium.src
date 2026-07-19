@@ -115,7 +115,6 @@
 #include "chrome/browser/ui/bookmarks/bookmark_utils.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_live_tab_context.h"
 #include "chrome/browser/ui/browser_manager_service.h"
 #include "chrome/browser/ui/browser_manager_service_factory.h"
@@ -128,6 +127,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/desktop_browser_window_capabilities.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/dialogs/browser_dialogs.h"
@@ -591,7 +591,6 @@ Browser::Browser(const CreateParams& params)
       title_override_(params.title),
       icon_override_(params.icon),
       window_has_shown_(false),
-      user_title_(params.user_title),
       initial_vertical_tab_strip_collapsed_(
           params.vertical_tab_strip_collapsed),
       initial_vertical_tab_strip_uncollapsed_width_(
@@ -657,7 +656,8 @@ Browser::Browser(const CreateParams& params)
   if (!initial_showintaskbar_)
     window_->SetShowInTaskbar(false);
 
-  if (auto* const app_browser_controller = app_controller()) {
+  if (auto* const app_browser_controller =
+          web_app::AppBrowserController::From(this)) {
     app_browser_controller->UpdateCustomTabBarVisibility(false);
   }
 
@@ -788,219 +788,11 @@ base::WeakPtr<const Browser> Browser::AsWeakPtr() const {
 // Browser, State Storage and Retrieval for UI:
 
 GURL Browser::GetNewTabURL() const {
-  if (auto* const app_browser_controller = app_controller()) {
+  if (auto* const app_browser_controller =
+          web_app::AppBrowserController::From(this)) {
     return app_browser_controller->GetAppNewTabUrl();
   }
   return chrome::ChromeUINewTabURLAsGURL();
-}
-
-gfx::Image Browser::GetCurrentPageIcon() const {
-  if (!icon_override_.IsEmpty())
-    return icon_override_;
-  WebContents* web_contents = tab_strip_model_->GetActiveWebContents();
-  // |web_contents| can be NULL since GetCurrentPageIcon() is called by the
-  // window during the window's creation (before tabs have been added).
-  favicon::FaviconDriver* favicon_driver =
-      web_contents
-          ? favicon::ContentFaviconDriver::FromWebContents(web_contents)
-          : nullptr;
-  return favicon_driver ? favicon_driver->GetFavicon() : gfx::Image();
-}
-
-std::u16string Browser::GetWindowTitleForCurrentTab(
-    bool include_app_name) const {
-  if (!user_title_.empty()) {
-    return base::UTF8ToUTF16(user_title_);
-  }
-
-  // For document picture-in-picture windows, we use the title from the opener
-  // WebContents instead of the picture-in-picture WebContents itself.
-  content::WebContents* web_contents_for_title =
-      is_type_picture_in_picture()
-          ? PictureInPictureWindowManager::GetInstance()->GetWebContents()
-          : tab_strip_model_->GetActiveWebContents();
-
-  return GetWindowTitleFromWebContents(include_app_name,
-                                       web_contents_for_title);
-}
-
-std::u16string Browser::GetWindowTitleForTab(const tabs::TabHandle& tab) const {
-  std::u16string title = base::UTF8ToUTF16(user_title_);
-
-  if (title.empty()) {
-    title = tab.Get()->GetContents()->GetTitle();
-    if (is_type_picture_in_picture()) {
-      content::WebContents* pip_web_contents =
-          PictureInPictureWindowManager::GetInstance()->GetWebContents();
-      if (pip_web_contents) {
-        title = pip_web_contents->GetTitle();
-      }
-    }
-    title = FormatTitleForDisplay(title);
-  }
-
-  if (title.empty() && (is_type_normal() || is_type_popup())) {
-    title = CoreTabHelper::GetDefaultTitle();
-  }
-
-  return title;
-}
-
-std::u16string Browser::GetTitleForTab(const tabs::TabHandle& tab) const {
-  std::u16string title =
-      FormatTitleForDisplay(tab.Get()->GetContents()->GetTitle());
-
-  if (title.empty()) {
-    title = CoreTabHelper::GetDefaultTitle();
-  }
-
-  return title;
-}
-
-std::u16string Browser::GetWindowTitleForMaxWidth(int max_width) const {
-  static constexpr unsigned int kMinTitleCharacters = 4;
-  const gfx::FontList font_list;
-
-  if (!user_title_.empty()) {
-    std::u16string title = base::UTF8ToUTF16(user_title_);
-    std::u16string pixel_elided_title = gfx::ElideText(
-        title, font_list, max_width, gfx::ElideBehavior::ELIDE_TAIL);
-    std::u16string character_elided_title =
-        gfx::TruncateString(title, kMinTitleCharacters, gfx::CHARACTER_BREAK);
-    return pixel_elided_title.size() > character_elided_title.size()
-               ? pixel_elided_title
-               : character_elided_title;
-  }
-
-  const auto num_more_tabs = tab_strip_model_->count() - 1;
-  const std::u16string format_string = l10n_util::GetPluralStringFUTF16(
-      IDS_BROWSER_WINDOW_TITLE_MENU_ENTRY, num_more_tabs);
-
-  // First, format with an empty string to see how much space we have available.
-  std::u16string temp_window_title =
-      base::ReplaceStringPlaceholders(format_string, std::u16string(), nullptr);
-  int width = max_width - GetStringWidth(temp_window_title, font_list);
-
-  std::u16string title;
-  content::WebContents* contents = tab_strip_model_->GetActiveWebContents();
-  // |contents| can be NULL if GetWindowTitleForMenu is called during the
-  // window's creation (before tabs have been added).
-  if (contents) {
-    auto* const app_browser_controller = app_controller();
-    title = FormatTitleForDisplay(app_browser_controller
-                                      ? app_browser_controller->GetTitle()
-                                      : contents->GetTitle());
-  }
-
-  // If there is no title, leave it empty for apps.
-  if (title.empty() && (is_type_normal() || is_type_popup())) {
-    title = CoreTabHelper::GetDefaultTitle();
-  }
-
-  // Try to elide the title to fit the pixel width. If that will make the title
-  // shorter than the minimum character limit, use a character elided title
-  // instead.
-  std::u16string pixel_elided_title =
-      gfx::ElideText(title, font_list, width, gfx::ElideBehavior::ELIDE_TAIL);
-  std::u16string character_elided_title =
-      gfx::TruncateString(title, kMinTitleCharacters, gfx::CHARACTER_BREAK);
-  title = pixel_elided_title.size() > character_elided_title.size()
-              ? pixel_elided_title
-              : character_elided_title;
-
-  // Finally, add the page title.
-  return base::ReplaceStringPlaceholders(format_string, title, nullptr);
-}
-
-std::u16string Browser::GetWindowTitleFromWebContents(
-    bool include_app_name,
-    content::WebContents* contents) const {
-  std::u16string title = base::UTF8ToUTF16(user_title_);
-
-  // |contents| can be NULL because GetWindowTitleForCurrentTab is called by the
-  // window during the window's creation (before tabs have been added).
-  std::u16string override = base::UTF8ToUTF16(title_override_);
-
-  // |contents| can be NULL because GetWindowTitleForCurrentTab is called by the
-  // window during the window's creation (before tabs have been added).
-  content::NavigationEntry* entry = contents ?
-      contents->GetController().GetLastCommittedEntry() : nullptr;
-  if (!entry || entry->GetTitle().empty()) {
-    if (override.empty()) {
-      const std::string extension_id =
-        web_app::GetAppIdFromApplicationName(app_name());
-      const Extension* extension =
-        extensions::ExtensionRegistry::Get(profile())
-          ->GetExtensionById(extension_id,
-                             extensions::ExtensionRegistry::EVERYTHING);
-      if (extension)
-        title = base::UTF8ToUTF16(extension->name());
-    } else
-      title = override;
-  } else if (title.empty() && contents) {
-    auto* const app_browser_controller = app_controller();
-    title = FormatTitleForDisplay(app_browser_controller
-                                      ? app_browser_controller->GetTitle()
-                                      : contents->GetTitle());
-#if BUILDFLAG(ENABLE_CAPTIVE_PORTAL_DETECTION)
-    // If the app name is requested and this is a captive portal window, the
-    // title should indicate that this is a captive portal window. Captive
-    // portal windows should always be pop-ups, and the is_captive_portal_window
-    // condition should not change over the lifetime of a WebContents.
-    if (include_app_name &&
-        captive_portal::CaptivePortalTabHelper::FromWebContents(contents) &&
-        captive_portal::CaptivePortalTabHelper::FromWebContents(contents)
-            ->is_captive_portal_window()) {
-      DCHECK(is_type_popup());
-      return l10n_util::GetStringFUTF16(
-          IDS_CAPTIVE_PORTAL_BROWSER_WINDOW_TITLE_FORMAT,
-          title.empty() ? CoreTabHelper::GetDefaultTitle() : title);
-    }
-#endif
-  }
-
-  // If there is no title, leave it empty for apps.
-  if (title.empty() && (is_type_normal() || is_type_popup())) {
-    title = CoreTabHelper::GetDefaultTitle();
-  }
-
-  if (title.empty() && is_type_app())
-    return override;
-#if BUILDFLAG(IS_MAC)
-  // On Mac, we don't want to suffix the page title with the application name.
-  return title;
-#else
-
-  // If there is no title and this is an app, fall back on the app name. This
-  // ensures that the native window gets a title which is important for a11y,
-  // for example the window selector uses the Aura window title.
-  if (title.empty() &&
-      (is_type_app() || is_type_app_popup() || is_type_devtools()) &&
-      include_app_name) {
-    auto* const app_browser_controller = app_controller();
-    return app_browser_controller ? app_browser_controller->GetAppShortName()
-                                  : base::UTF8ToUTF16(app_name());
-  }
-  // Include the app name in window titles for tabbed browser windows when
-  // requested with |include_app_name|.
-  return ((is_type_normal() || is_type_popup()) && include_app_name)
-             ? l10n_util::GetStringFUTF16(IDS_BROWSER_WINDOW_TITLE_FORMAT,
-                                          title)
-             : title;
-#endif  // BUILDFLAG(IS_MAC)
-}
-
-// static
-std::u16string Browser::FormatTitleForDisplay(std::u16string title) {
-  size_t current_index = 0;
-  size_t match_index;
-  while ((match_index = title.find(L'\n', current_index)) !=
-         std::u16string::npos) {
-    title.replace(match_index, 1, std::u16string());
-    current_index = match_index;
-  }
-
-  return title;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1080,20 +872,7 @@ bool Browser::IsAttemptingToCloseBrowser() const {
   return UnloadController::From(this)->is_attempting_to_close_browser();
 }
 
-
-void Browser::SetWindowUserTitle(const std::string& user_title) {
-  user_title_ = user_title;
-  window_->UpdateTitleBar();
-  // See comment in Browser::OnTabGroupChanged
-  DCHECK(!IsRelevantToAppSessionService(type_));
-  SessionService* const session_service =
-      SessionServiceFactory::GetForProfile(profile_);
-  if (session_service) {
-    session_service->SetWindowUserTitle(session_id(), user_title);
-  }
-}
-
-Browser* Browser::GetBrowserForOpeningWebUi() {
+BrowserWindowInterface* Browser::GetBrowserForOpeningWebUi() {
   if (!is_type_picture_in_picture()) {
     return this;
   }
@@ -1104,7 +883,9 @@ Browser* Browser::GetBrowserForOpeningWebUi() {
     // We should always have an opener web contents if the current browser is a
     // picture-in-picture type.
     DCHECK(opener_web_contents);
-    opener_browser_ = chrome::FindBrowserWithTab(opener_web_contents);
+    opener_browser_ =
+        GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+            opener_web_contents);
   }
 
   return opener_browser_;
@@ -1208,7 +989,7 @@ bool Browser::IsActive() const {
 // whether `this` is active.
 #if BUILDFLAG(IS_MAC)
   // If this is a standalone PWA window, check BrowserList instead.
-  if (app_controller()) {
+  if (web_app::AppBrowserController::From(this)) {
     return GetLastActiveBrowserWindowInterfaceWithAnyProfile() == this;
   }
 #endif
@@ -1239,14 +1020,6 @@ BrowserActions* Browser::GetActions() {
 
 BrowserWindowInterface::Type Browser::GetType() const {
   return type_;
-}
-
-web_app::AppBrowserController* Browser::app_controller() {
-  return web_app::AppBrowserController::From(this);
-}
-
-const web_app::AppBrowserController* Browser::app_controller() const {
-  return web_app::AppBrowserController::From(this);
 }
 
 std::vector<tabs::TabInterface*> Browser::GetAllTabInterfaces() {
@@ -1935,7 +1708,8 @@ void Browser::NavigationStateChanged(WebContents* source,
     GetCommandController()->TabStateChanged();
   }
 
-  if (auto* const app_browser_controller = app_controller()) {
+  if (auto* const app_browser_controller =
+          web_app::AppBrowserController::From(this)) {
     app_browser_controller->UpdateCustomTabBarVisibility(true);
   }
 }
@@ -1947,7 +1721,8 @@ void Browser::VisibleSecurityStateChanged(WebContents* source) {
   if (tab_strip_model_->GetActiveWebContents() == source) {
     UpdateToolbarSecurityState();
 
-    if (auto* const app_browser_controller = app_controller()) {
+    if (auto* const app_browser_controller =
+            web_app::AppBrowserController::From(this)) {
       app_browser_controller->UpdateCustomTabBarVisibility(true);
     }
   }
@@ -1976,7 +1751,8 @@ content::WebContents* Browser::AddNewContents(
       screen && source && source->GetContentNativeView() &&
       screen->GetDisplayNearestView(source->GetContentNativeView()) !=
           screen->GetDisplayMatching(window_features.bounds);
-  if (!app_controller() && disposition == WindowOpenDisposition::NEW_POPUP &&
+  if (!web_app::AppBrowserController::From(this) &&
+      disposition == WindowOpenDisposition::NEW_POPUP &&
       fullscreen_controller->IsFullscreenForBrowser() &&
       !targeting_different_display) {
     disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
@@ -2372,7 +2148,8 @@ bool Browser::ShouldUseInstancedSystemMediaControls() const {
 void Browser::DraggableRegionsChanged(
     const std::vector<blink::mojom::DraggableRegionPtr>& regions,
     content::WebContents* contents) {
-  if (auto* const app_browser_controller = app_controller()) {
+  if (auto* const app_browser_controller =
+          web_app::AppBrowserController::From(this)) {
     app_browser_controller->DraggableRegionsChanged(regions, contents);
   }
   window()->UpdateDraggableRegions(regions);
@@ -2462,7 +2239,7 @@ bool Browser::GetCanResize() {
 #if !BUILDFLAG(IS_ANDROID)
 bool Browser::CanUseWindowingControls(
     content::RenderFrameHost* requesting_frame) {
-  if (!app_controller()) {
+  if (!web_app::AppBrowserController::From(this)) {
     requesting_frame->AddMessageToConsole(
         blink::mojom::ConsoleMessageLevel::kWarning,
         "API called from something else than a web_app.");
@@ -2548,7 +2325,8 @@ blink::mojom::DisplayMode Browser::GetDisplayMode(
   }
 
   if (is_type_app() || is_type_devtools() || is_type_app_popup()) {
-    auto* const app_browser_controller = app_controller();
+    auto* const app_browser_controller =
+        web_app::AppBrowserController::From(this);
     if (app_browser_controller &&
         app_browser_controller->HasMinimalUiButtons()) {
       return blink::mojom::DisplayMode::kMinimalUi;
@@ -2777,7 +2555,8 @@ bool Browser::CheckMediaAccessPermission(
 }
 
 std::string Browser::GetTitleForMediaControls(WebContents* web_contents) {
-  auto* const app_browser_controller = app_controller();
+  auto* const app_browser_controller =
+      web_app::AppBrowserController::From(this);
   return app_browser_controller
              ? app_browser_controller->GetTitleForMediaControls()
              : std::string();
@@ -3254,7 +3033,8 @@ std::vector<StatusBubble*> Browser::GetStatusBubbles() {
   // We hide the status bar for web apps windows as this matches native
   // experience. However, we include the status bar for 'minimal-ui' display
   // mode, as the minimal browser UI includes the status bar.
-  auto* const app_browser_controller = app_controller();
+  auto* const app_browser_controller =
+      web_app::AppBrowserController::From(this);
   if (app_browser_controller &&
       !app_browser_controller->HasMinimalUiButtons()) {
     return {};

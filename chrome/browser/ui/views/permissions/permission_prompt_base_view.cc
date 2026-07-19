@@ -12,23 +12,28 @@
 #include "chrome/browser/picture_in_picture/picture_in_picture_occlusion_tracker.h"
 #include "chrome/browser/picture_in_picture/picture_in_picture_window_manager.h"
 #include "chrome/browser/platform_util.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/views/bubble_anchor_util_views.h"
+#include "chrome/browser/ui/views/picture_in_picture/document_pip_host.h"
 #include "chrome/browser/ui/views/title_origin_label.h"
+#include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/permissions/features.h"
 #include "components/permissions/permission_request.h"
+#include "components/permissions/permission_uma_util.h"
 #include "components/permissions/permission_util.h"
 #include "components/strings/grit/components_strings.h"
+#include "components/tabs/public/tab_interface.h"
 #include "components/webapps/isolated_web_apps/scheme.h"
-#include "content/public/browser/web_contents.h"
 #include "ui/base/interaction/element_tracker.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
+#include "ui/views/widget/widget.h"
 #include "ui/views/window/dialog_client_view.h"
 
 namespace {
@@ -72,38 +77,33 @@ std::u16string GetBlockTextInternal(
   return l10n_util::GetStringUTF16(IDS_PERMISSION_NEVER_ALLOW);
 }
 
-int CountValidRequests(
-    const std::vector<base::WeakPtr<permissions::PermissionRequest>>&
-        requests) {
-  return std::ranges::count_if(
-      requests.begin(), requests.end(),
-      [](base::WeakPtr<permissions::PermissionRequest> request_ptr) {
-        return request_ptr.get() != nullptr;
-      });
-}
 }  // namespace
 
 PermissionPromptBaseView::PermissionPromptBaseView(
-    Browser* browser,
+    content::WebContents* web_contents,
     base::WeakPtr<permissions::PermissionPrompt::Delegate> delegate)
     : BubbleDialogDelegateView(views::BubbleAnchor(),
                                views::BubbleBorder::TOP_LEFT,
                                views::BubbleBorder::DIALOG_SHADOW,
                                /*autosize=*/true),
-      url_identity_(GetUrlIdentity(browser, *delegate)),
-      is_for_picture_in_picture_window_(browser &&
-                                        browser->is_type_picture_in_picture()),
-      record_browser_always_active_value_(browser && browser->IsActive()),
-      browser_(browser) {
+      WebContentsObserver(web_contents),
+      url_identity_(GetUrlIdentity(web_contents, *delegate)) {
+  auto* host_widget =
+      views::Widget::GetWidgetForNativeWindow(GetNativeWindow());
+  record_host_always_active_value_ =
+      host_widget && host_widget->ShouldPaintAsActive();
+
   // To prevent permissions being accepted accidentally, and as a security
   // measure against crbug.com/40084558, permission prompts should not be
   // accepted as the default action.
   SetDefaultButton(static_cast<int>(ui::mojom::DialogButton::kNone));
-  // `browser` can be null in tests.
-  if (browser) {
-    browser_subscription_ = browser->RegisterDidBecomeActive(
-        base::BindRepeating(&PermissionPromptBaseView::DidBecomeInactive,
-                            base::Unretained(this)));
+
+  // The host widget can be null in tests
+  if (host_widget) {
+    host_paint_as_active_subscription_ =
+        host_widget->RegisterPaintAsActiveChangedCallback(base::BindRepeating(
+            &PermissionPromptBaseView::HostPaintAsActiveChanged,
+            base::Unretained(this)));
   }
   request_type_ =
       permissions::PermissionUtil::GetUmaValueForRequests(delegate->Requests());
@@ -114,7 +114,7 @@ PermissionPromptBaseView::~PermissionPromptBaseView() {
   if (request_type_ != permissions::RequestTypeForUma::UNKNOWN) {
     permissions::PermissionUmaUtil::RecordBrowserAlwaysActiveWhilePrompting(
         request_type_, /*embedded_permission_element_initiated*/ false,
-        record_browser_always_active_value_);
+        record_host_always_active_value_);
   }
 }
 
@@ -128,14 +128,14 @@ void PermissionPromptBaseView::AddedToWidget() {
 
   permissions::PermissionUmaUtil::RecordPromptShownInActiveBrowser(
       request_type_, /*embedded_permission_element_initiated*/ false,
-      record_browser_always_active_value_);
+      record_host_always_active_value_);
   StartTrackingPictureInPictureOcclusion();
 }
 
 void PermissionPromptBaseView::AnchorToPageInfoOrChip() {
   bubble_anchor_util::AnchorConfiguration configuration =
       bubble_anchor_util::GetPermissionPromptBubbleAnchorConfiguration(
-          browser_);
+          web_contents());
   SetAnchor(configuration.anchor);
   // In fullscreen, `anchor` may be nullptr because the toolbar is hidden,
   // therefore anchor to the browser window instead.
@@ -144,15 +144,14 @@ void PermissionPromptBaseView::AnchorToPageInfoOrChip() {
   } else if (ui::TrackedElement* element =
                  configuration.anchor.GetIfElement()) {
     set_parent_window(element->GetNativeView());
-  } else {
-    set_parent_window(
-        platform_util::GetViewForWindow(browser_->window()->GetNativeWindow()));
+  } else if (GetNativeWindow()) {
+    set_parent_window(platform_util::GetViewForWindow(GetNativeWindow()));
   }
   if (configuration.highlighted_element) {
     SetHighlightedElement(*configuration.highlighted_element);
   }
   if (configuration.anchor.IsNull()) {
-    SetAnchorRect(bubble_anchor_util::GetPageInfoAnchorRect(browser_));
+    SetAnchorRect(bubble_anchor_util::GetPageInfoAnchorRect(GetBrowser()));
   }
   SetArrow(configuration.bubble_arrow);
 }
@@ -192,7 +191,7 @@ void PermissionPromptBaseView::FilterUnintenedEventsAndRunCallbacks(
 
 // static
 UrlIdentity PermissionPromptBaseView::GetUrlIdentity(
-    Browser* browser,
+    content::WebContents* web_contents,
     permissions::PermissionPrompt::Delegate& delegate) {
   DCHECK(!delegate.Requests().empty());
 
@@ -204,7 +203,10 @@ UrlIdentity PermissionPromptBaseView::GetUrlIdentity(
                  : origin_url;
 
   UrlIdentity url_identity = UrlIdentity::CreateFromUrl(
-      browser ? browser->profile() : nullptr, url, allowed_types, options);
+      web_contents
+          ? Profile::FromBrowserContext(web_contents->GetBrowserContext())
+          : nullptr,
+      url, allowed_types, options);
 
   if (url_identity.type == UrlIdentity::Type::kFile) {
     // File URLs will show the same constant.
@@ -223,13 +225,11 @@ std::u16string PermissionPromptBaseView::GetAllowAlwaysText(
 }
 
 std::u16string PermissionPromptBaseView::GetAllowAlwaysText(
-    const std::vector<base::WeakPtr<permissions::PermissionRequest>>&
+    const std::vector<base::SafeRef<permissions::PermissionRequest>>&
         visible_requests) {
-  size_t num_valid_visible_requests = CountValidRequests(visible_requests);
-  CHECK_EQ(visible_requests.size(), num_valid_visible_requests);
-  CHECK_GT(num_valid_visible_requests, 0u);
-  return GetAllowAlwaysTextInternal(num_valid_visible_requests,
-                                    visible_requests[0].get());
+  CHECK_GT(visible_requests.size(), 0u);
+  return GetAllowAlwaysTextInternal(visible_requests.size(),
+                                    &*visible_requests[0]);
 }
 
 std::u16string PermissionPromptBaseView::GetBlockText(
@@ -241,19 +241,16 @@ std::u16string PermissionPromptBaseView::GetBlockText(
 }
 
 std::u16string PermissionPromptBaseView::GetBlockText(
-    const std::vector<base::WeakPtr<permissions::PermissionRequest>>&
+    const std::vector<base::SafeRef<permissions::PermissionRequest>>&
         visible_requests) {
-  size_t num_valid_visible_requests = CountValidRequests(visible_requests);
-  CHECK_EQ(visible_requests.size(), num_valid_visible_requests);
-  CHECK_GT(num_valid_visible_requests, 0u);
-  return GetBlockTextInternal(num_valid_visible_requests,
-                              visible_requests[0].get());
+  CHECK_GT(visible_requests.size(), 0u);
+  return GetBlockTextInternal(visible_requests.size(), &*visible_requests[0]);
 }
 
 void PermissionPromptBaseView::StartTrackingPictureInPictureOcclusion() {
   // If we're for a picture-in-picture window, then we are in an always-on-top
   // widget that should be tracked by the PictureInPictureOcclusionTracker.
-  if (is_for_picture_in_picture_window_) {
+  if (IsForPictureInPictureWindow()) {
     PictureInPictureOcclusionTracker* tracker =
         PictureInPictureWindowManager::GetInstance()->GetOcclusionTracker();
     if (tracker) {
@@ -266,6 +263,31 @@ void PermissionPromptBaseView::StartTrackingPictureInPictureOcclusion() {
   occlusion_observation_.Observe(GetWidget());
 }
 
+const BrowserWindowInterface* PermissionPromptBaseView::GetBrowser() const {
+  if (!web_contents()) {
+    return nullptr;
+  }
+  const tabs::TabInterface* tab =
+      tabs::TabInterface::MaybeGetFromContents(web_contents());
+  return tab ? tab->GetBrowserWindowInterface()
+             : webui::GetBrowserWindowInterface(web_contents());
+}
+
+BrowserWindowInterface* PermissionPromptBaseView::GetBrowser() {
+  return const_cast<BrowserWindowInterface*>(std::as_const(*this).GetBrowser());
+}
+
+gfx::NativeWindow PermissionPromptBaseView::GetNativeWindow() {
+  BrowserWindowInterface* browser = GetBrowser();
+  if (browser && browser->GetWindow()) {
+    return browser->GetWindow()->GetNativeWindow();
+  }
+  if (web_contents()) {
+    return web_contents()->GetTopLevelNativeWindow();
+  }
+  return gfx::NativeWindow();
+}
+
 std::vector<std::pair<size_t, size_t>>
 PermissionPromptBaseView::GetTitleBoldedRanges() {
   return title_bolded_ranges_;
@@ -275,9 +297,20 @@ void PermissionPromptBaseView::SetTitleBoldedRanges(
   title_bolded_ranges_ = bolded_ranges;
 }
 
-void PermissionPromptBaseView::DidBecomeInactive(
-    BrowserWindowInterface* browser_window_interface) {
-  record_browser_always_active_value_ = false;
+void PermissionPromptBaseView::HostPaintAsActiveChanged() {
+  auto* host_widget =
+      views::Widget::GetWidgetForNativeWindow(GetNativeWindow());
+  if (!host_widget || !host_widget->ShouldPaintAsActive()) {
+    record_host_always_active_value_ = false;
+  }
+}
+
+bool PermissionPromptBaseView::IsForPictureInPictureWindow() const {
+  if (const BrowserWindowInterface* browser = GetBrowser()) {
+    return browser->GetType() ==
+           BrowserWindowInterface::Type::TYPE_PICTURE_IN_PICTURE;
+  }
+  return !!DocumentPipHost::FromChildWebContents(web_contents());
 }
 
 BEGIN_METADATA(PermissionPromptBaseView)

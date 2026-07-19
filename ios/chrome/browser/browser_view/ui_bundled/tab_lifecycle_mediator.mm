@@ -35,12 +35,12 @@
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/public/commands/autofill_commands.h"
-#import "ios/chrome/browser/shared/public/commands/bwg_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/contextual_sheet_commands.h"
 #import "ios/chrome/browser/shared/public/commands/enterprise_commands.h"
 #import "ios/chrome/browser/shared/public/commands/file_upload_panel_commands.h"
 #import "ios/chrome/browser/shared/public/commands/fullscreen_commands.h"
+#import "ios/chrome/browser/shared/public/commands/gemini_commands.h"
 #import "ios/chrome/browser/shared/public/commands/help_commands.h"
 #import "ios/chrome/browser/shared/public/commands/lens_commands.h"
 #import "ios/chrome/browser/shared/public/commands/mini_map_commands.h"
@@ -265,14 +265,12 @@
 
   GeminiTabHelper* geminiTabHelper = GeminiTabHelper::FromWebState(webState);
   if (geminiTabHelper) {
-    id<BWGCommands> BWGCommandsHandler =
-        HandlerForProtocol(_commandDispatcher, BWGCommands);
-    geminiTabHelper->SetGeminiCommandsHandler(BWGCommandsHandler);
+    id<GeminiCommands> geminiHandler =
+        HandlerForProtocol(_commandDispatcher, GeminiCommands);
+    geminiTabHelper->SetGeminiHandler(geminiHandler);
 
-    if (IsAskGeminiChipEnabled()) {
-      geminiTabHelper->SetLocationBarBadgeCommandsHandler(
-          id<LocationBarBadgeCommands>(_commandDispatcher));
-    }
+    geminiTabHelper->SetLocationBarBadgeCommandsHandler(
+        id<LocationBarBadgeCommands>(_commandDispatcher));
 
     if (IsGeminiImageRemixToolEnabled()) {
       id<HelpCommands> helpCommandsHandler =
@@ -422,10 +420,8 @@
 
   GeminiTabHelper* geminiTabHelper = GeminiTabHelper::FromWebState(webState);
   if (geminiTabHelper) {
-    geminiTabHelper->SetGeminiCommandsHandler(nil);
-    if (IsAskGeminiChipEnabled()) {
-      geminiTabHelper->SetLocationBarBadgeCommandsHandler(nil);
-    }
+    geminiTabHelper->SetGeminiHandler(nil);
+    geminiTabHelper->SetLocationBarBadgeCommandsHandler(nil);
     if (IsGeminiImageRemixToolEnabled()) {
       geminiTabHelper->SetHelpCommandsHandler(nil);
     }

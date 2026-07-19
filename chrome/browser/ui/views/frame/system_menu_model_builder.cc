@@ -15,11 +15,11 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/immersive/immersive_mode_controller.h"
 #include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/toolbar/app_menu_model.h"
 #include "chrome/browser/ui/ui_features.h"
-#include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/user_education/user_education_service.h"
 #include "chrome/common/chrome_features.h"
@@ -56,6 +56,7 @@
 
 namespace {
 
+#if !BUILDFLAG(IS_MAC)
 void AddItemWithIconMaybe(ui::SimpleMenuModel* model,
                           int command_id,
                           int string_id,
@@ -69,6 +70,7 @@ void AddItemWithIconMaybe(ui::SimpleMenuModel* model,
     model->AddItemWithStringId(command_id, string_id);
   }
 }
+#endif  // !BUILDFLAG(IS_MAC)
 
 }  // namespace
 
@@ -139,32 +141,36 @@ void SystemMenuModelBuilder::BuildSystemMenuForBrowserWindow(
   model->AddSeparator(ui::NORMAL_SEPARATOR);
 #endif
   model->AddItemWithStringId(IDC_NEW_TAB, IDS_NEW_TAB);
+  model->SetElementIdentifierAt(model->GetIndexOfCommandId(IDC_NEW_TAB).value(),
+                                kSystemMenuNewTabElementId);
   model->AddItemWithStringId(IDC_RESTORE_TAB, IDS_RESTORE_TAB);
+  model->SetElementIdentifierAt(
+      model->GetIndexOfCommandId(IDC_RESTORE_TAB).value(),
+      kSystemMenuRestoreTabElementId);
 
   if (features::IsTabGroupMenuMoreEntryPointsEnabled()) {
     model->AddItemWithStringId(IDC_GROUP_UNGROUPED_TABS,
                                IDS_GROUP_UNGROUPED_TABS);
   }
 
+#if BUILDFLAG(IS_MAC)
+  model->AddItemWithStringId(IDC_BOOKMARK_ALL_TABS, IDS_BOOKMARK_ALL_TABS);
+  model->AddItemWithStringId(IDC_NAME_WINDOW, IDS_NAME_WINDOW);
+#else
   AddItemWithIconMaybe(model, IDC_BOOKMARK_ALL_TABS, IDS_BOOKMARK_ALL_TABS,
                        kBookmarkAllTabsChromeRefreshOldIcon);
   AddItemWithIconMaybe(model, IDC_NAME_WINDOW, IDS_NAME_WINDOW,
                        kNameWindowOldIcon);
-
-  if (base::FeatureList::IsEnabled(tabs::kHorizontalTabStripComboButton)) {
-    model->AddSeparator(ui::NORMAL_SEPARATOR);
-    model->AddItemWithStringId(IDC_TAB_SEARCH_TOGGLE_PIN,
-                               IDS_TAB_STRIP_PIN_TAB_SEARCH);
-  }
+#endif  // BUILDFLAG(IS_MAC)
+  model->AddSeparator(ui::NORMAL_SEPARATOR);
+  model->AddItemWithStringId(IDC_TAB_SEARCH_TOGGLE_PIN,
+                             IDS_TAB_STRIP_PIN_TAB_SEARCH);
 
 #if BUILDFLAG(IS_WIN)
   // On Windows we can not remove an item when showing the menu. So only add
   // the glic toggle option if glic is enabled when building the menu.
   if (glic::GlicEnabling::IsEnabledForProfile(browser()->profile())) {
 #endif  // BUILDFLAG(IS_WIN)
-    if (!base::FeatureList::IsEnabled(tabs::kHorizontalTabStripComboButton)) {
-      model->AddSeparator(ui::NORMAL_SEPARATOR);
-    }
     model->AddItemWithStringId(IDC_GLIC_TOGGLE_PIN, IDS_GLIC_PIN);
 #if BUILDFLAG(IS_WIN)
   }
@@ -172,52 +178,49 @@ void SystemMenuModelBuilder::BuildSystemMenuForBrowserWindow(
 
   if (auto* controller =
           tabs::VerticalTabStripStateController::From(browser())) {
-    // TODO(crbug.com/475222200): When in immersive, swapping between tab
-    // strip types create duplicate tab strips. Until that is resolved, disable
-    // the ability to swap between tab strips while in immersive.
-    if (!ImmersiveModeController::From(browser())->IsEnabled()) {
-      model->AddSeparator(ui::NORMAL_SEPARATOR);
-      if (controller->ShouldDisplayVerticalTabs()) {
-        model->AddItemWithStringId(IDC_TOGGLE_VERTICAL_TABS,
-                                   IDS_SWITCH_TO_HORIZONTAL_TAB);
+    model->AddSeparator(ui::NORMAL_SEPARATOR);
 
-        if (tabs::IsVerticalTabsExpandOnHoverFeatureEnabled() &&
-            controller->ShouldDisplayVerticalTabs()) {
-          model->AddItemWithStringId(
-              IDC_TOGGLE_VERTICAL_TABS_EXPAND_ON_HOVER,
-              controller->IsExpandOnHoverEnabled()
-                  ? IDS_VERTICAL_TABS_DISABLE_EXPAND_ON_HOVER
-                  : IDS_VERTICAL_TABS_ENABLE_EXPAND_ON_HOVER);
-          model->SetElementIdentifierAt(
-              model
-                  ->GetIndexOfCommandId(
-                      IDC_TOGGLE_VERTICAL_TABS_EXPAND_ON_HOVER)
-                  .value(),
-              kToggleVerticalTabsExpandOnHoverElementId);
-        }
-      } else {
-        model->AddItemWithStringId(IDC_TOGGLE_VERTICAL_TABS,
-                                   IDS_SWITCH_TO_VERTICAL_TAB);
-        const bool use_preview_badge =
-            base::FeatureList::IsEnabled(tabs::kVerticalTabsPreviewBadge);
-        const ui::NewBadgeType badge_type = use_preview_badge
-                                                ? ui::NewBadgeType::kPreview
-                                                : ui::NewBadgeType::kNew;
-        const user_education::DisplayNewBadge show_badge =
-            UserEducationService::MaybeShowNewBadge(
-                browser()->GetProfile(), use_preview_badge
-                                             ? tabs::kVerticalTabsPreviewBadge
-                                             : tabs::kVerticalTabsNewBadge);
-        model->SetIsNewFeatureAt(
-            model->GetIndexOfCommandId(IDC_TOGGLE_VERTICAL_TABS).value(),
-            show_badge, badge_type);
-      }
-      model->SetElementIdentifierAt(
+    if (controller->ShouldDisplayVerticalTabs()) {
+      model->AddItemWithStringId(IDC_TOGGLE_VERTICAL_TABS,
+                                 IDS_SWITCH_TO_HORIZONTAL_TAB);
+    } else {
+      model->AddItemWithStringId(IDC_TOGGLE_VERTICAL_TABS,
+                                 IDS_SWITCH_TO_VERTICAL_TAB);
+      const bool use_preview_badge =
+          base::FeatureList::IsEnabled(tabs::kVerticalTabsPreviewBadge);
+      const ui::NewBadgeType badge_type = use_preview_badge
+                                              ? ui::NewBadgeType::kPreview
+                                              : ui::NewBadgeType::kNew;
+      const user_education::DisplayNewBadge show_badge =
+          UserEducationService::MaybeShowNewBadge(
+              browser()->GetProfile(), use_preview_badge
+                                           ? tabs::kVerticalTabsPreviewBadge
+                                           : tabs::kVerticalTabsNewBadge);
+      model->SetIsNewFeatureAt(
           model->GetIndexOfCommandId(IDC_TOGGLE_VERTICAL_TABS).value(),
-          kToggleVerticalTabsElementId);
-      model->AddItemWithStringId(IDC_VERTICAL_TABS_SEND_FEEDBACK,
-                                 IDS_VERTICAL_TABS_SEND_FEEDBACK);
+          show_badge, badge_type);
     }
+    model->SetElementIdentifierAt(
+        model->GetIndexOfCommandId(IDC_TOGGLE_VERTICAL_TABS).value(),
+        kToggleVerticalTabsElementId);
+
+    const bool show_expand_on_hover =
+        tabs::IsVerticalTabsExpandOnHoverFeatureEnabled() &&
+        controller->ShouldDisplayVerticalTabs();
+    if (show_expand_on_hover) {
+      model->AddItemWithStringId(
+          IDC_TOGGLE_VERTICAL_TABS_EXPAND_ON_HOVER,
+          controller->IsExpandOnHoverEnabled()
+              ? IDS_VERTICAL_TABS_DISABLE_EXPAND_ON_HOVER
+              : IDS_VERTICAL_TABS_ENABLE_EXPAND_ON_HOVER);
+      model->SetElementIdentifierAt(
+          model->GetIndexOfCommandId(IDC_TOGGLE_VERTICAL_TABS_EXPAND_ON_HOVER)
+              .value(),
+          kToggleVerticalTabsExpandOnHoverElementId);
+    }
+
+    model->AddItemWithStringId(IDC_VERTICAL_TABS_SEND_FEEDBACK,
+                               IDS_VERTICAL_TABS_SEND_FEEDBACK);
   }
 
   if (chrome::CanOpenTaskManager()) {
@@ -290,8 +293,8 @@ void SystemMenuModelBuilder::BuildSystemMenuForAppOrPopupWindow(
     zoom_menu_contents_->AddItemWithStringId(IDC_ZOOM_PLUS, IDS_ZOOM_PLUS);
     zoom_menu_contents_->AddItemWithStringId(IDC_ZOOM_NORMAL, IDS_ZOOM_NORMAL);
     zoom_menu_contents_->AddItemWithStringId(IDC_ZOOM_MINUS, IDS_ZOOM_MINUS);
-    model->AddSubMenuWithStringId(IDC_ZOOM_MENU, IDS_ZOOM_MENU,
-                                  zoom_menu_contents_.get());
+    model->AddSubMenuWithStringId(AppMenuModel::kZoomMenuPlaceholder,
+                                  IDS_ZOOM_MENU, zoom_menu_contents_.get());
   }
 
   bool should_show_task_manager =
@@ -335,7 +338,7 @@ void SystemMenuModelBuilder::AppendMoveToDesksMenu(ui::SimpleMenuModel* model) {
   move_to_desks_model_ = std::make_unique<chromeos::MoveToDesksMenuModel>(
       std::make_unique<chromeos::MoveToDesksMenuDelegate>(
           views::Widget::GetWidgetForNativeWindow(
-              browser->window()->GetNativeWindow())));
+              browser->GetWindow()->GetNativeWindow())));
   model->AddSubMenuWithStringId(chromeos::MoveToDesksMenuModel::kMenuCommandId,
                                 IDS_MOVE_TO_DESKS_MENU,
                                 move_to_desks_model_.get());
@@ -344,7 +347,7 @@ void SystemMenuModelBuilder::AppendMoveToDesksMenu(ui::SimpleMenuModel* model) {
 
 void SystemMenuModelBuilder::AppendTeleportMenu(ui::SimpleMenuModel* model) {
 #if BUILDFLAG(IS_CHROMEOS)
-  DCHECK(browser()->window());
+  DCHECK(browser()->GetWindow());
 
   // Avoid appending the teleport menu for the settings window.  This window's
   // presentation is unique: it's a normal browser window with an app-like
@@ -374,7 +377,7 @@ void SystemMenuModelBuilder::AppendTeleportMenu(ui::SimpleMenuModel* model) {
   auto* window_manager = ash::Shell::Get()->multi_user_window_manager();
   const AccountId account_id =
       multi_user_util::GetAccountIdFromProfile(browser()->profile());
-  aura::Window* window = browser()->window()->GetNativeWindow();
+  aura::Window* window = browser()->GetWindow()->GetNativeWindow();
   if (!account_id.is_valid() || !window ||
       !window_manager->GetWindowOwner(window).is_valid()) {
     return;

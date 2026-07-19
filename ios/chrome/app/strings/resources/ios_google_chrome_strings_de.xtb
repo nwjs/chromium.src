@@ -61,10 +61,11 @@ Wichtige Hinweise:
 <translation id="2120238739383482109">Öffnet die Chrome-Lesezeichen.</translation>
 <translation id="2147651015520127414">Chrome hat verifiziert, dass <ph name="ISSUER" /> das Zertifikat dieser Website ausgestellt hat.</translation>
 <translation id="2199719347983604670">Daten aus der Chrome-Synchronisierung</translation>
+<translation id="2212318912894837281">Gib die Passphrase ein, um dieses Passwort zu speichern und auf all deinen Geräten auf Chrome-Daten zuzugreifen</translation>
 <translation id="2213327331203157297">Um den Blockierungsmodus in Chrome zu deaktivieren, musst du ihn auf deinem iPhone ausschalten.</translation>
 <translation id="2242467532204595597">Du kannst Chrome jederzeit nutzen, wenn du in Nachrichten, Dokumenten und anderen Apps auf Links tippst.</translation>
 <translation id="2256384876478573507">Du kannst Chrome schneller öffnen, wenn du auf deinem iPhone surfen möchtest.</translation>
-<translation id="2270691132923135296">Neu hier? Komm mit auf eine kurze Tour durch die Chrome-Grundlagen</translation>
+<translation id="2270691132923135296">Komm mit auf eine kurze Tour durch die Chrome-Grundlagen</translation>
 <translation id="2311240109311056604">Öffnet Chrome Dino.</translation>
 <translation id="2339201583852607431">Dein Passwort wird in deinem Google-Konto (<ph name="EMAIL" />) gespeichert.</translation>
 <translation id="2342919707875585281">Chrome teilt deinen Standort mit Websites, für die du das zulässt.</translation>
@@ -110,7 +111,7 @@ Du kannst erst neue Lesezeichen in deinem Konto speichern, wenn du einige gelös
 <translation id="322254490661677575">Gib deine Passphrase ein, um Chrome-Daten in deinem Google-Konto zu verwenden und zu speichern.</translation>
 <translation id="3303503998967553377">Chrome Aktionen unter iOS verwenden</translation>
 <translation id="3348862487678490430">Leselisteneintrag zu Chrome hinzufügen</translation>
-<translation id="3357827134511189025">Verwende „Autofill“ in Chrome, um dich in deinen Apps mit deinen gespeicherten Passwörtern und Passkeys anzumelden</translation>
+<translation id="3357827134511189025">Per „Autofill“ in Chrome kannst du dich in deinen Apps mit deinen gespeicherten Passwörtern und Passkeys anmelden</translation>
 <translation id="3360031466389132716">{THRESHOLD,plural, =1{Das passiert, wenn Chrome {THRESHOLD} Minute lang nicht verwendet wird}other{Das passiert, wenn Chrome {THRESHOLD} Minuten lang nicht verwendet wird}}</translation>
 <translation id="3367797402528056312">Chrome fertig einrichten</translation>
 <translation id="3371064404604898522">Google Chrome als Standardbrowser festlegen</translation>
@@ -297,7 +298,7 @@ Weitere Einstellungen, bei denen Daten zur Verbesserung von Chrome verwendet wer
 <translation id="7617512710641355143">Chrome wird verwaltet</translation>
 <translation id="7626032353295482388">Willkommen bei Chrome</translation>
 <translation id="7634397654061173327">Wenn du in Chrome Funktionen zum Schutz von Kindern nutzen möchtest, kannst du entweder ein Google-Konto verwenden, das für ein Kind eingerichtet ist, oder Chrome ohne Konto nutzen.</translation>
-<translation id="7641448682796883218">Chrome-Tipp: erweitertes Safe Browsing</translation>
+<translation id="7641448682796883218">Chrome-Tipp: Erweitertes Safe Browsing</translation>
 <translation id="7642373780953416937">Du erhältst Benachrichtigungen bei Problemen mit dem Datenschutz oder der Sicherheit, die Chrome automatisch für dich erkennt.</translation>
 <translation id="7660356333829433649">Schaue später noch einmal hier vorbei, um weitere nützliche Tipps zu erhalten, wie du Chrome optimal nutzen kannst.</translation>
 <translation id="7662994914830945754">Melde dich an und aktiviere die Synchronisierung, um deine Tabs überall dort aufzurufen, wo du Chrome verwendest</translation>
@@ -371,6 +372,7 @@ Deine Daten wurden am <ph name="TIME" /> mit deiner Passphrase verschlüsselt. G
 <translation id="9068336935206019333">Im Inkognitomodus von Chrome öffnen</translation>
 <translation id="9082304295862405388">Gemini kann deinen genauen Standort verwenden, je nachdem, welche Berechtigung du Chrome bereits erteilt hast</translation>
 <translation id="909127538042363610">Die stärksten Sicherheitsfunktionen von Chrome nutzen</translation>
+<translation id="9113725809421872108">Bestätige deine Identität, um dieses Passwort zu speichern und auf all deinen Geräten auf Chrome-Daten zuzugreifen</translation>
 <translation id="9122931302567044771">Das bedeutet, dass Chrome immer die Desktopversion der Website anfordert.</translation>
 <translation id="9176561303811134420">Zahlungsmethoden in Chrome verwalten</translation>
 <translation id="9181628561061032322">Öffnet die zuletzt geöffneten Chrome-Tabs.</translation>

@@ -26,7 +26,6 @@
 #include "base/dcheck_is_on.h"
 #include "base/feature.h"
 #include "base/feature_list.h"
-#include "base/files/drive_info.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/format_macros.h"
@@ -88,44 +87,9 @@ BASE_FEATURE(kCheckAutoCommitInCommitAndRollback,
 
 namespace {
 
-// Features to evaluate the hypothesis that preloading sql::Database causes
-// memory contention (using Browser.MainThreadsCongestion as a proxy) for
-// minimal gains.
-//
-// Context: We previously validated that preloading the main DLL causes memory
-// contention, and the benefits don't outweigh this downside on fixed SSDs.
-//
-// When enabled, the "preload" option is ignored unconditionally.
-BASE_FEATURE(kInhibitSQLPreload, base::FEATURE_DISABLED_BY_DEFAULT);
-//
-// When enabled, the "preload" option is ignored *only if the database is on a
-// fixed SSD*.
-BASE_FEATURE(kInhibitSQLPreloadOnFixedSSD, base::FEATURE_DISABLED_BY_DEFAULT);
-
 // When enabled, the call to ReleaseCacheMemoryIfNeeded are ignored.
 BASE_FEATURE(kInhibitSQLReleaseCacheMemoryIfNeeded,
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Returns true if `path` is on a drive that has no seek penalty and isn't
-// removable, or if that information cannot be obtained (most drives are fixed
-// and have no seek penalty, so `true` is the result that is most likely to be
-// correct).
-bool FilePathIsFixedSSD(const base::FilePath& path) {
-  std::optional<base::DriveInfo> drive_info = base::GetFileDriveInfo(path);
-  if (!drive_info) {
-    return true;
-  }
-
-  return !drive_info->has_seek_penalty.value_or(false)
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS)
-         && !drive_info->is_removable.value_or(false)
-#endif
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
-         && !drive_info->is_usb.value_or(false)
-#endif
-      ;
-}
 
 // The name of the main database associated with a sqlite3* connection.
 //
@@ -604,12 +568,6 @@ bool Database::Open(const base::FilePath& path) {
                           open_timer.Elapsed());
   };
 
-  // Preload the database before opening it to ensure it's working with the
-  // exclusive mode.
-  if (options_.preload_) {
-    PreloadInternal(path);
-  }
-
   {
     ScopedOpenErrorReporter reporter(this,
                                      "Sql.Database.Open.FirstAttempt.Error");
@@ -649,6 +607,10 @@ void Database::DetachFromSequence() {
 
 void Database::CloseInternal(bool forced) {
   TRACE_EVENT0("sql", "Database::CloseInternal");
+
+  absl::Cleanup report_time = [this, timer = base::ElapsedTimer()] {
+    RecordTimingHistogram("Sql.Database.DatabaseCloseTime.", timer.Elapsed());
+  };
 
   CHECK_EQ(outstanding_blob_count_, 0U)
       << "All StreamingBlobHandles should be destroyed before closing "
@@ -717,6 +679,7 @@ void Database::CloseInternal(bool forced) {
     // not call `RollbackAllTransactions()`, but we still must account for the
     // implicit rollback in our internal bookkeeping.
     transaction_nesting_ = 0;
+    needs_rollback_ = false;
   }
 }
 
@@ -1008,8 +971,8 @@ std::string Database::CollectCorruptionInfo() {
   // If the file cannot be accessed it is unlikely that an integrity check will
   // turn up actionable information.
   const base::FilePath db_path = DbPath();
-  std::optional<int64_t> db_size = GetFileSize(db_path);
-  if (db_size && *db_size < 0) {
+  std::optional<int64_t> db_size = base::GetFileSize(db_path);
+  if (!db_size.has_value() || *db_size < 0) {
     return std::string();
   }
 
@@ -1899,7 +1862,7 @@ std::optional<StreamingBlobHandle> Database::GetStreamingBlob(
 void Database::OnStreamingBlobClosed(SqliteResultCode result,
                                      const char* error_source) {
   --outstanding_blob_count_;
-  if (handling_error_nesting_ == 0 && !IsSqliteSuccessCode(result)) {
+  if (!IsSqliteSuccessCode(result)) {
     OnSqliteError(ToSqliteErrorCode(result), nullptr, error_source);
   }
 }
@@ -2501,38 +2464,6 @@ bool Database::OpenInternal(const std::string& db_file_path) {
   return is_open();
 }
 
-void Database::PreloadInternal(const base::FilePath& path) {
-  TRACE_EVENT0("sql", "Database::PreloadInternal");
-
-  // TODO(crbug.com/40904059): Consider moving this to a DCHECK after fixing
-  // or migrating callsites that call Preload(...) on in-memory databases.
-  if (in_memory_) {
-    return;
-  }
-
-  if (base::FeatureList::IsEnabled(kInhibitSQLPreload)) {
-    return;
-  }
-
-  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
-                                                base::BlockingType::MAY_BLOCK);
-
-  if (base::FeatureList::IsEnabled(kInhibitSQLPreloadOnFixedSSD) &&
-      FilePathIsFixedSSD(path)) {
-    return;
-  }
-
-  // Maximum number of bytes that will be prefetched from the database.
-  //
-  // This limit is very aggressive. The main trade-off involved is that having
-  // SQLite block on reading from disk has a high impact on Chrome startup cost
-  // for the databases that are on the critical path to startup. So, the limit
-  // must exceed the expected sizes of databases on the critical path.
-  static constexpr int kPreReadSize = 128 * 1024 * 1024;  // 128 MB
-  base::PreReadFile(path, /*is_executable=*/false, /*sequential=*/false,
-                    kPreReadSize);
-}
-
 void Database::ConfigureSqliteDatabaseObject() {
   auto sqlite_result_code = ToSqliteResultCode(
       sqlite3_db_config(db_, SQLITE_DBCONFIG_ENABLE_FKEY, 0, nullptr));
@@ -2600,8 +2531,6 @@ void Database::OnSqliteError(SqliteErrorCode sqlite_error_code,
   DCHECK_NE(statement != nullptr, sql_statement != nullptr)
       << __func__ << " should either get a Statement or a raw SQL string";
 
-  ++handling_error_nesting_;
-
   // Use `base::UmaHistogramSparse` because sqlite result codes aren't
   // sequential. The large integers they represent make it so that the
   // non-sparse histograms end up with too many buckets.
@@ -2645,7 +2574,9 @@ void Database::OnSqliteError(SqliteErrorCode sqlite_error_code,
   // Inform the error expecter that we've encountered the error.
   std::ignore = IsExpectedSqliteError(static_cast<int>(sqlite_error_code));
 
-  if (!error_callback_.is_null()) {
+  if (!executing_error_callback_ && !error_callback_.is_null()) {
+    executing_error_callback_ = true;
+
     base::WeakPtr<Database> weak_this =
         weak_factory_lifetime_tracker_.GetWeakPtr();
 
@@ -2660,9 +2591,8 @@ void Database::OnSqliteError(SqliteErrorCode sqlite_error_code,
     if (!weak_this) {
       return;
     }
+    executing_error_callback_ = false;
   }
-
-  --handling_error_nesting_;
 }
 
 std::string Database::GetDiagnosticInfo(int sqlite_error_code,
@@ -2714,6 +2644,13 @@ std::string Database::GetDiagnosticInfo(int sqlite_error_code,
   }
 
   return result;
+}
+
+bool Database::ReportMemoryUsage(base::trace_event::ProcessMemoryDump* pmd,
+                                 const std::string& dump_name) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  return memory_dump_provider_ &&
+         memory_dump_provider_->ReportMemoryUsage(pmd, dump_name);
 }
 
 bool Database::FullIntegrityCheck(std::vector<std::string>* messages) {

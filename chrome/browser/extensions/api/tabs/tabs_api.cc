@@ -30,6 +30,7 @@
 #include "base/types/expected.h"
 #include "base/types/expected_macros.h"
 #include "base/types/optional_util.h"
+#include "base/unguessable_token.h"
 #include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/extensions/api/tabs/tabs_constants.h"
 #include "chrome/browser/extensions/api/tabs/windows_util.h"
@@ -80,6 +81,7 @@
 #include "extensions/common/permissions/permissions_data.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 #include "third_party/blink/public/common/page/page_zoom.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/base_window.h"
@@ -157,6 +159,14 @@ constexpr char kWindowCreateCannotUseTabIdWithIwaError[] =
     "tab by its ID.";
 constexpr char kCannotMoveIwaTabError[] =
     "The tab of an Isolated Web App cannot be moved.";
+constexpr char kTabsCreateIwaUrlNotAllowedError[] =
+    "URLs with the 'isolated-app:' scheme cannot be opened with tabs.create. "
+    "Use windows.create instead.";
+constexpr char kTabsUpdateIwaUrlNotAllowedError[] =
+    "Cannot navigate to a URL with the 'isolated-app:' scheme via tabs.update. "
+    "Use windows.create instead.";
+constexpr char kCannotDuplicateIwaTabError[] =
+    "The tab of an Isolated Web App cannot be duplicated.";
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
@@ -1391,7 +1401,9 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::OnBrowserWindowCreated(
     // useful/desired in the future to allow this behavior, but this may require
     // an API change, or at least a re-write of how these navigations are called
     // to be compatible with the navigation capturing behavior.
-    navigate_params.pwa_navigation_capturing_force_off = true;
+    navigate_params.web_app_navigation_data.emplace();
+    navigate_params.web_app_navigation_data->SetNavigationCapturingForceOff(
+        true);
 
     if (OpenTabHelper::MaybeSetPdfNavigateParams(*this, navigate_params)) {
       return navigate_params;
@@ -1439,9 +1451,11 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::OnBrowserWindowCreated(
       NavigateParams navigate_params = create_nav_params(
           registrar.GetAppStartUrl(iwa_id), /*is_first_nav=*/true);
       webapps::LaunchParams launch_params;
-      launch_params.app_id = iwa_id;
-      launch_params.target_url = original_url;
-      navigate_params.launch_params = std::move(launch_params);
+      CHECK(navigate_params.web_app_navigation_data);
+      launch_params.set_app_id(iwa_id);
+      launch_params.set_target_url(original_url);
+      navigate_params.web_app_navigation_data->SetLaunchParams(
+          std::move(launch_params));
 
       // Navigate() takes care of enqueueing the launch params once the
       // navigation commits.
@@ -1664,7 +1678,7 @@ base::expected<void, std::string> WindowsCreateFunction::ValidateTab(
   Browser* source_browser = source_window->GetBrowser();
   CHECK(source_browser);
   if (web_app::AppBrowserController* controller =
-          source_browser->app_controller();
+          web_app::AppBrowserController::From(source_browser);
       controller && controller->IsIsolatedWebApp()) {
     return base::unexpected(kCannotMoveIwaTabError);
   }
@@ -2405,6 +2419,14 @@ ExtensionFunction::ResponseAction TabsCreateFunction::Run() {
     validated_url_ = std::move(maybe_url.value());
   }
 
+#if !BUILDFLAG(IS_ANDROID)
+  // Isolated Web Apps must be opened at their start URL with the requested
+  // URL routed via launchQueue, which is handled by `windows.create`.
+  if (validated_url_.SchemeIs(webapps::kIsolatedAppScheme)) {
+    return RespondNow(Error(kTabsCreateIwaUrlNotAllowedError));
+  }
+#endif
+
   opener_tab_id_ = create_properties.opener_tab_id;
 
   // TODO(jstritar): Add a constant, chrome.tabs.TAB_ID_ACTIVE, that
@@ -2660,6 +2682,13 @@ ExtensionFunction::ResponseAction TabsDuplicateFunction::Run() {
       !ExtensionTabUtil::IsTabStripEditable(*browser->GetProfile())) {
     return RespondNow(Error(ExtensionTabUtil::kTabStripNotEditableError));
   }
+
+#if !BUILDFLAG(IS_ANDROID)
+  if (web_contents->GetLastCommittedURL().SchemeIs(
+          webapps::kIsolatedAppScheme)) {
+    return RespondNow(Error(kCannotDuplicateIwaTabError));
+  }
+#endif
 
   TabListInterface* tab_list = TabListInterface::From(browser);
   if (!tab_list) {
@@ -3119,6 +3148,15 @@ bool TabsUpdateFunction::UpdateURL(content::WebContents* web_contents,
     *error = std::move(url.error());
     return false;
   }
+
+#if !BUILDFLAG(IS_ANDROID)
+  // Isolated Web Apps must be opened at their start URL with the requested
+  // URL routed via launchQueue, which is handled by `windows.create`.
+  if (url->SchemeIs(webapps::kIsolatedAppScheme)) {
+    *error = kTabsUpdateIwaUrlNotAllowedError;
+    return false;
+  }
+#endif
 
   if (IsDSERedirect(extension()->id(), *browser_context(), render_frame_host(),
                     *web_contents, *url, user_gesture())) {
@@ -4392,8 +4430,24 @@ ExtensionFunction::ResponseAction TabsDiscardFunction::Run() {
 
     contents = tab_list->DiscardTab(tab_list->GetTab(tab_index)->GetHandle());
   } else {
+    // Make sure we only discard tabs from profiles the extension is allowed to
+    // access.
+    Profile* profile = Profile::FromBrowserContext(browser_context());
+    absl::flat_hash_set<base::UnguessableToken> allowed_tokens;
+    allowed_tokens.insert(profile->UniqueToken());
+
+    if (include_incognito_information()) {
+      Profile* maybe_incognito_profile =
+          profile->GetPrimaryOTRProfile(/*create_if_needed=*/false);
+      if (maybe_incognito_profile) {
+        allowed_tokens.insert(maybe_incognito_profile->UniqueToken());
+      }
+    }
+
     contents = resource_coordinator::DiscardLeastImportantTab(
-        ::mojom::LifecycleUnitDiscardReason::EXTERNAL);
+        ::mojom::LifecycleUnitDiscardReason::EXTERNAL,
+        /*ignore_recent_visibility=*/false,
+        /*allowed_browser_context_ids=*/std::move(allowed_tokens));
   }
 
   if (!contents) {

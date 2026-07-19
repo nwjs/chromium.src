@@ -14,6 +14,7 @@
 #include "base/types/optional_util.h"
 #include "net/base/features.h"
 #include "net/base/net_errors.h"
+#include "net/base/network_handle.h"
 #include "net/dns/dns_alias_utility.h"
 #include "net/dns/dns_task_results_manager.h"
 #include "net/dns/host_cache.h"
@@ -44,6 +45,7 @@ HostResolverManager::ServiceEndpointRequestImpl::FinalizedResult::operator=(
 HostResolverManager::ServiceEndpointRequestImpl::ServiceEndpointRequestImpl(
     HostResolver::Host host,
     NetworkAnonymizationKey network_anonymization_key,
+    handles::NetworkHandle target_network,
     NetLogWithSource net_log,
     ResolveHostParameters parameters,
     base::WeakPtr<ResolveContext> resolve_context,
@@ -56,6 +58,7 @@ HostResolverManager::ServiceEndpointRequestImpl::ServiceEndpointRequestImpl(
                       features::kSplitHostCacheByNetworkAnonymizationKey)
               ? std::move(network_anonymization_key)
               : NetworkAnonymizationKey()),
+      target_network_(target_network),
       net_log_(std::move(net_log)),
       parameters_(std::move(parameters)),
       resolve_context_(std::move(resolve_context)),
@@ -105,7 +108,7 @@ HostResolverManager::ServiceEndpointRequestImpl::GetStaleInfo() const {
   return base::OptionalToPtr(stale_info_);
 }
 
-bool HostResolverManager::ServiceEndpointRequestImpl::IsStaleWhileRefresing()
+bool HostResolverManager::ServiceEndpointRequestImpl::IsStaleWhileRefreshing()
     const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return parameters_.cache_usage == ResolveHostParameters::CacheUsage::
@@ -313,7 +316,8 @@ int HostResolverManager::ServiceEndpointRequestImpl::DoCheckIPv6Reachability() {
   // HostResolverManager::RequestImpl::DoIPv6Reachability().
   if (parameters_.source == HostResolverSource::LOCAL_ONLY) {
     int rv = manager_->StartIPv6ReachabilityCheck(
-        net_log_, GetClientSocketFactory(), base::DoNothingAs<void(int)>());
+        target_network_, net_log_, GetClientSocketFactory(),
+        base::DoNothingAs<void(int)>());
     if (rv == ERR_IO_PENDING) {
       next_state_ = State::kNone;
       finalized_result_ = FinalizedResult(/*endpoints=*/{}, /*dns_aliases=*/{});
@@ -323,7 +327,7 @@ int HostResolverManager::ServiceEndpointRequestImpl::DoCheckIPv6Reachability() {
     return OK;
   }
   return manager_->StartIPv6ReachabilityCheck(
-      net_log_, GetClientSocketFactory(),
+      target_network_, net_log_, GetClientSocketFactory(),
       base::BindOnce(&ServiceEndpointRequestImpl::OnIOComplete,
                      weak_ptr_factory_.GetWeakPtr()));
 }
@@ -335,7 +339,7 @@ int HostResolverManager::ServiceEndpointRequestImpl::
 }
 
 int HostResolverManager::ServiceEndpointRequestImpl::DoResolveLocally() {
-  job_key_ = JobKey(host_, resolve_context_.get());
+  job_key_ = JobKey(host_, target_network_, resolve_context_.get());
   IPAddress ip_address;
   manager_->InitializeJobKeyAndIPAddress(
       network_anonymization_key_, parameters_, net_log_, *job_key_, ip_address);

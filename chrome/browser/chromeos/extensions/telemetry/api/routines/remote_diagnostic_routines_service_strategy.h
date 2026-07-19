@@ -7,8 +7,9 @@
 
 #include <memory>
 
-#include "chromeos/crosapi/mojom/telemetry_diagnostic_routine_service.mojom.h"
-#include "mojo/public/cpp/bindings/remote.h"
+namespace ash {
+class TelemetryDiagnosticsRoutineServiceAsh;
+}  // namespace ash
 
 namespace chromeos {
 
@@ -25,8 +26,7 @@ class RemoteDiagnosticRoutineServiceStrategy {
       const RemoteDiagnosticRoutineServiceStrategy&) = delete;
   virtual ~RemoteDiagnosticRoutineServiceStrategy();
 
-  virtual mojo::Remote<crosapi::mojom::TelemetryDiagnosticRoutinesService>&
-  GetRemoteService() = 0;
+  virtual ash::TelemetryDiagnosticsRoutineServiceAsh& GetService() = 0;
 
  protected:
   RemoteDiagnosticRoutineServiceStrategy();

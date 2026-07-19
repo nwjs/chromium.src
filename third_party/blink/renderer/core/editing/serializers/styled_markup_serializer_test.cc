@@ -189,7 +189,7 @@ TEST_F(StyledMarkupSerializerTest, ShadowTreeNested) {
   const char* shadow_content2 = "NESTED";
   SetBodyContent(body_content);
   ShadowRoot* shadow_root1 = SetShadowContent(shadow_content1, "host");
-  CreateShadowRootForElementWithIDAndSetInnerHTML(*shadow_root1, "host2",
+  CreateShadowRootForElementWithIdAndSetInnerHtml(*shadow_root1, "host2",
                                                   shadow_content2);
 
   EXPECT_EQ(
@@ -351,7 +351,7 @@ TEST_F(StyledMarkupSerializerTest, SkipUnselectableContent) {
                                  ShouldSkipUnselectableContentOptions()));
 }
 
-TEST_F(StyledMarkupSerializerTest, SkipUnselectableContentInShadowDOM) {
+TEST_F(StyledMarkupSerializerTest, SkipUnselectableContentInShadowDom) {
   const char* body_content =
       "<span style=\"user-select: all;\">SELECTABLE_1<span "
       "style=\"user-select: none;\">NON_SELECTABLE_1<span style=\"user-select: "

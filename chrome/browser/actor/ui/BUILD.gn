@@ -286,6 +286,17 @@ source_set("ui") {
     "//ui/base/unowned_user_data",
   ]
 
+  if (!is_android) {
+    sources += [
+      "../actor_tab_strip_tracker_desktop.cc",
+      "../actor_tab_strip_tracker_desktop.h",
+    ]
+    deps += [
+      "//chrome/browser/actor",
+      "//chrome/browser/ui:browser_tab_strip",
+    ]
+  }
+
   if (!skip_android_unmigrated_actor_files) {
     sources += [
       "actor_border_view_controller.cc",
@@ -305,11 +316,10 @@ source_set("ui") {
       "//chrome/browser/glic",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/ui/browser_window",
+      "//chrome/browser/ui/immersive:immersive_mode_controller",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/toasts",
       "//chrome/browser/ui/toasts/api:toasts",
-      "//chrome/browser/ui/views/frame:immersive_mode_controller",
-      "//chrome/browser/ui/views/interaction",
       "//components/prefs",
       "//components/tabs:public",
       "//third_party/abseil-cpp:absl",
@@ -319,6 +329,10 @@ source_set("ui") {
     # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
     # enable the diagnostic by removing this line.
     configs += [ "//build/config/compiler:no_exit_time_destructors" ]
+  }
+
+  if (!is_android) {
+    deps += [ "//chrome/browser/ui:browser_tab_strip_tracker" ]
   }
 }
 

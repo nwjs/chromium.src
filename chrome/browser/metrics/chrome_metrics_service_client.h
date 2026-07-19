@@ -41,7 +41,7 @@
 #include "ui/base/user_activity/user_activity_observer.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
-#include "chrome/browser/metrics/cros_pre_consent_metrics_manager.h"
+#include "chrome/browser/metrics/cros_pre_choice_metrics_manager.h"
 #endif
 
 class BrowserActivityWatcher;
@@ -132,9 +132,6 @@ class ChromeMetricsServiceClient
   bool IsReportingPolicyManaged() override;
   metrics::EnableMetricsDefault GetMetricsReportingDefaultState() override;
   bool IsOnCellularConnection() override;
-  // TODO(@heychirag): Upon deprecation of UkmConsentStateObserver, we can
-  // directly call MetricsReportingChoiceService::
-  // IsAdvancedMetricsReportingEnabled()
   bool IsUkmAllowedForAllProfiles() override;
   bool IsDwaAllowedForAllProfiles() override;
   bool AreNotificationListenersEnabledOnAllProfiles() override;
@@ -148,8 +145,8 @@ class ChromeMetricsServiceClient
 #if BUILDFLAG(IS_CHROMEOS)
   bool ShouldUploadMetricsForUserId(const uint64_t user_id) override;
   void InitPerUserMetrics() override;
-  void UpdateCurrentUserMetricsConsent(bool user_metrics_consent) override;
-  std::optional<bool> GetCurrentUserMetricsConsent() const override;
+  void UpdateCurrentUserMetricsChoice(bool user_choice) override;
+  std::optional<bool> GetCurrentUserMetricsChoice() const override;
   std::optional<std::string> GetCurrentUserId() const override;
 #endif  // BUILDFLAG(IS_CHROMEOS)
   std::optional<regional_capabilities::CountryIdHolder>
@@ -324,19 +321,19 @@ class ChromeMetricsServiceClient
   // PerUserStateManagerChromeOS that |this| is a client of.
   std::unique_ptr<metrics::PerUserStateManagerChromeOS> per_user_state_manager_;
 
-  // Subscription for receiving callbacks that user metrics consent has changed.
-  base::CallbackListSubscription per_user_consent_change_subscription_;
+  // Subscription for receiving callbacks that user metrics choice has changed.
+  base::CallbackListSubscription per_user_choice_change_subscription_;
 
   // Used to notify metrics service if user activity has been detected on the
   // system.
   base::ScopedObservation<ui::UserActivityDetector, ui::UserActivityObserver>
       user_activity_observation_{this};
 
-  // Manages the consent of UMA before the user has been created. This object is
+  // Manages the choice of UMA before the user has been created. This object is
   // only created during OOBE before the primary user has given intent to
-  // metrics consent.
-  std::unique_ptr<metrics::CrOSPreConsentMetricsManager>
-      cros_pre_consent_manager_;
+  // metrics choice.
+  std::unique_ptr<metrics::CrOSPreChoiceMetricsManager>
+      cros_pre_choice_metrics_manager_;
 #endif
 
   base::ScopedMultiSourceObservation<content::RenderProcessHost,

@@ -7,10 +7,12 @@
 
 #include <functional>
 #include <sstream>
+#include <string_view>
 
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
+#include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "base/test/test_future.h"
@@ -209,14 +211,30 @@ GlicInstance* GetInstanceById(Profile* profile, InstanceId id);
 // Signs in a primary account, accepts the FRE, and enables the relevant
 // capability for that profile. browser_tests and interactive_ui_tests should
 // use GlicTestEnvironment. These methods are for unit_tests.
-void ForceSigninAndGlicCapability(Profile* profile);
-void SigninWithPrimaryAccount(Profile* profile);
+void ForceSigninAndGlicCapability(Profile* profile,
+                                  std::string_view hosted_domain = "");
+void SigninWithPrimaryAccount(Profile* profile,
+                              std::string_view hosted_domain = "");
 void SetGlicCapability(Profile* profile, bool enabled);
 void SetGlicCapability(AccountCapabilitiesTestMutator& mutator, bool enabled);
 void SetFRECompletion(Profile* profile, prefs::FreStatus fre_status);
 
+// Helper to temporarily override the Glic capability for a profile during a
+// test, and restore the original capability upon destruction.
+class ScopedGlicCapability {
+ public:
+  ScopedGlicCapability(Profile* profile, bool enabled);
+  ~ScopedGlicCapability();
+
+ private:
+  raw_ptr<Profile> profile_;
+  bool original_enabled_;
+};
+
 void InvalidateAccount(Profile* profile);
 void ReauthAccount(Profile* profile);
+
+bool IsSidePanelEnabled();
 
 }  // namespace glic
 

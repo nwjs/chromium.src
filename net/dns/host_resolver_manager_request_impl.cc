@@ -41,6 +41,7 @@ HostResolverManager::RequestImpl::RequestImpl(
     NetLogWithSource source_net_log,
     HostResolver::Host request_host,
     NetworkAnonymizationKey network_anonymization_key,
+    handles::NetworkHandle target_network,
     std::optional<ResolveHostParameters> optional_parameters,
     base::WeakPtr<ResolveContext> resolve_context,
     base::WeakPtr<HostResolverManager> resolver,
@@ -53,11 +54,12 @@ HostResolverManager::RequestImpl::RequestImpl(
                       features::kSplitHostCacheByNetworkAnonymizationKey)
               ? std::move(network_anonymization_key)
               : NetworkAnonymizationKey()),
+      target_network_(target_network),
       parameters_(optional_parameters ? std::move(optional_parameters).value()
                                       : ResolveHostParameters()),
       resolve_context_(std::move(resolve_context)),
       priority_(parameters_.initial_priority),
-      job_key_(request_host_, resolve_context_.get()),
+      job_key_(request_host_, target_network_, resolve_context_.get()),
       resolver_(std::move(resolver)),
       tick_clock_(tick_clock) {
   CHECK_NE(parameters_.cache_usage,
@@ -295,7 +297,7 @@ int HostResolverManager::RequestImpl::DoIPv6Reachability() {
   // cannot make assumptions about reachability.
   if (parameters_.source == HostResolverSource::LOCAL_ONLY) {
     int rv = resolver_->StartIPv6ReachabilityCheck(
-        source_net_log_, GetClientSocketFactory(),
+        target_network_, source_net_log_, GetClientSocketFactory(),
         base::DoNothingAs<void(int)>());
     if (rv == ERR_IO_PENDING) {
       next_state_ = STATE_FINISH_REQUEST;
@@ -304,7 +306,7 @@ int HostResolverManager::RequestImpl::DoIPv6Reachability() {
     return OK;
   }
   return resolver_->StartIPv6ReachabilityCheck(
-      source_net_log_, GetClientSocketFactory(),
+      target_network_, source_net_log_, GetClientSocketFactory(),
       base::BindOnce(&RequestImpl::OnIOComplete,
                      weak_ptr_factory_.GetWeakPtr()));
 }
@@ -322,7 +324,7 @@ int HostResolverManager::RequestImpl::DoGetParameters() {
       resolver_->last_ipv6_probe_result_) {
     next_state_ = STATE_GET_PARAMETERS_COMPLETE;
     return resolver_->StartGloballyReachableCheck(
-        ip_address_, source_net_log_, GetClientSocketFactory(),
+        ip_address_, target_network_, source_net_log_, GetClientSocketFactory(),
         base::BindOnce(&RequestImpl::OnIOComplete,
                        weak_ptr_factory_.GetWeakPtr()));
   }

@@ -4,6 +4,7 @@
 
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/grid/regular/regular_grid_mediator.h"
 
+#import "base/apple/foundation_util.h"
 #import "base/metrics/histogram_functions.h"
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
@@ -19,10 +20,12 @@
 #import "ios/chrome/browser/policy/model/policy_util.h"
 #import "ios/chrome/browser/saved_tab_groups/model/ios_tab_group_sync_util.h"
 #import "ios/chrome/browser/saved_tab_groups/ui/tab_group_utils.h"
+#import "ios/chrome/browser/send_tab_to_self/model/send_tab_to_self_tab_card_label_data.h"
 #import "ios/chrome/browser/share_kit/model/share_kit_service.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/web_state_list/tab_group.h"
+#import "ios/chrome/browser/shared/model/web_state_list/tab_utils.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/quick_delete_commands.h"
@@ -44,6 +47,7 @@
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_groups/tab_group_sync_service_observer_bridge.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/toolbars/tab_grid_toolbars_configuration.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_group_item.h"
+#import "ios/chrome/browser/tab_switcher/ui_bundled/web_state_tab_switcher_item.h"
 #import "ios/chrome/browser/tabs/model/tabs_closer.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/web/public/web_state.h"
@@ -387,6 +391,33 @@ using ScopedTabGroupSyncObservation =
   return data;
 }
 
+- (ActivityLabelData*)activityLabelDataForItem:(GridItemIdentifier*)itemID {
+  if (itemID.type != GridItemType::kTab) {
+    return [super activityLabelDataForItem:itemID];
+  }
+  // TODO(crbug.com/488072250): Add ActivityLabelData as a property of
+  // GridItemIdentifier than exposing the WebState. Instead of lazy loading, it
+  // should be called systematically when creating the GridItemIdentifier-s, and
+  // the relevant service(s) observed to update the relevant item.
+  WebStateTabSwitcherItem* webStateItem =
+      base::apple::ObjCCast<WebStateTabSwitcherItem>(itemID.tabSwitcherItem);
+  web::WebState* webState = webStateItem ? webStateItem.webState : nullptr;
+  if (!webState) {
+    return nil;
+  }
+
+  // If the WebState has a valid Send Tab to Self label text (applicable for
+  // both realized and unrealized WebStates), return the formatted label.
+  NSString* labelText =
+      SendTabToSelfTabCardLabelData::GetLabelTextForWebState(webState);
+  if (!labelText) {
+    return nil;
+  }
+  ActivityLabelData* data = [[ActivityLabelData alloc] init];
+  data.labelString = labelText;
+  return data;
+}
+
 #pragma mark - TabGroupSyncServiceObserverDelegate
 
 - (void)tabGroupSyncServiceInitialized {
@@ -582,12 +613,7 @@ using ScopedTabGroupSyncObservation =
     return nil;
   }
 
-  UIColor* groupColor;
-  if (IsTabGroupColorOnSurfaceEnabled()) {
-    groupColor = [TabGroupColorPalette commonColor:tabGroup->GetColor()];
-  } else {
-    groupColor = tab_groups::ColorForTabGroupColorId(tabGroup->GetColor());
-  }
+  UIColor* groupColor = [TabGroupColorPalette commonColor:tabGroup->GetColor()];
   return
       [self.regularDelegate facePileProviderForGroupID:collaborationID.value()
                                             groupColor:groupColor];

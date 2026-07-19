@@ -95,6 +95,12 @@ void ToolbarUIService::Bind(BindCallback callback) {
   std::move(callback).Run(std::move(result));
 }
 
+void ToolbarUIService::OnFocusRequested(mojom::FocusRequestTarget target) {
+  for (const auto& observer : observers_) {
+    observer->OnFocusRequested(target);
+  }
+}
+
 void ToolbarUIService::ShowContextMenu(
     toolbar_ui_api::mojom::ContextMenuType menu_type,
     const gfx::RectF& bounds_in_css_pixels,
@@ -134,6 +140,23 @@ void ToolbarUIService::ShowContentSettingsBubble(
                                       "without delegate_ for type: %d",
                                       static_cast<int32_t>(type)))));
   }
+}
+
+void ToolbarUIService::OnPageActionClick(
+    ::toolbar_ui_api::mojom::PageActionId action_id,
+    ::toolbar_ui_api::mojom::PageActionTrigger trigger,
+    OnPageActionClickCallback callback) {
+  NOTIMPLEMENTED();
+  std::move(callback).Run(
+      base::unexpected(Error::New(Code::kUnimplemented, "Not implemented")));
+}
+
+void ToolbarUIService::OnPageActionChipShowingChanged(
+    ::toolbar_ui_api::mojom::PageActionId action_id,
+    OnPageActionChipShowingChangedCallback callback) {
+  NOTIMPLEMENTED();
+  std::move(callback).Run(
+      base::unexpected(Error::New(Code::kUnimplemented, "Not implemented")));
 }
 
 void ToolbarUIService::InvokePinnedToolbarAction(
@@ -215,10 +238,51 @@ void ToolbarUIService::OnToolbarDropFile(const gfx::PointF& drop_position) {
 void ToolbarUIService::ShowAvatarMenu(ShowAvatarMenuCallback callback) {
   if (delegate_) {
     delegate_->ShowAvatarMenu();
+    std::move(callback).Run({});
   } else {
     std::move(callback).Run(base::unexpected(Error::New(
         Code::kFailedPrecondition,
         "ToolbarUIService: cannot show avatar menu without delegate_")));
+  }
+}
+
+void ToolbarUIService::SetAvatarButtonHovered(
+    bool hovered,
+    SetAvatarButtonHoveredCallback callback) {
+  if (delegate_) {
+    delegate_->SetAvatarButtonHovered(hovered);
+    std::move(callback).Run({});
+  } else {
+    std::move(callback).Run(base::unexpected(Error::New(
+        Code::kFailedPrecondition,
+        "ToolbarUIService: cannot hover on avatar without delegate_")));
+  }
+}
+
+void ToolbarUIService::SetAvatarButtonFocused(
+    bool focused,
+    SetAvatarButtonFocusedCallback callback) {
+  if (delegate_) {
+    delegate_->SetAvatarButtonFocused(focused);
+    std::move(callback).Run({});
+  } else {
+    std::move(callback).Run(base::unexpected(Error::New(
+        Code::kFailedPrecondition,
+        "ToolbarUIService: cannot focus on avatar without delegate_")));
+  }
+}
+
+void ToolbarUIService::SetAvatarButtonIphPromoShowing(
+    bool showing,
+    SetAvatarButtonIphPromoShowingCallback callback) {
+  if (delegate_) {
+    delegate_->SetAvatarButtonIPHPromoShowing(showing);
+    std::move(callback).Run({});
+  } else {
+    std::move(callback).Run(
+        base::unexpected(Error::New(Code::kFailedPrecondition,
+                                    "ToolbarUIService: cannot set IPH promo "
+                                    "showing on avatar without delegate_")));
   }
 }
 

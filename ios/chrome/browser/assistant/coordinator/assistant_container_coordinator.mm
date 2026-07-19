@@ -13,6 +13,8 @@
 #import "ios/chrome/browser/assistant/ui/assistant_container_layout_utils.h"
 #import "ios/chrome/browser/assistant/ui/assistant_container_presenter.h"
 #import "ios/chrome/browser/assistant/ui/assistant_container_view_controller.h"
+#import "ios/chrome/browser/fullscreen/model/fullscreen_browser_agent.h"
+#import "ios/chrome/browser/fullscreen/model/fullscreen_browser_agent_observer_bridge.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_animator.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_controller.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_ui_element.h"
@@ -20,16 +22,28 @@
 #import "ios/chrome/browser/shared/coordinator/layout_guide/layout_guide_util.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/layout_state.h"
+#import "ios/chrome/browser/shared/coordinator/scene/state/tab_grid_state.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/util/layout_guide_names.h"
-#import "ios/chrome/browser/shared/ui/util/named_guide.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/shared/ui/util/util_swift.h"
-#import "ios/chrome/common/ui/util/constraints_ui_util.h"
 
-@interface AssistantContainerCoordinator () <FullscreenUIElement>
+namespace {
+
+// The transition state of the assistant container coordinator.
+enum class TransitionState {
+  kIdle,
+  kPresenting,
+  kDismissing,
+};
+
+}  // namespace
+
+@interface AssistantContainerCoordinator () <FullscreenUIElement,
+                                             FullscreenBrowserAgentObserving,
+                                             TabGridStateObserving>
 @end
 
 @implementation AssistantContainerCoordinator {
@@ -37,18 +51,23 @@
   AssistantContainerViewController* _containerViewController;
   // Observer for the fullscreen controller.
   std::unique_ptr<FullscreenUIUpdater> _fullscreenUIUpdater;
+  // Bridge to observe the FullscreenBrowserAgent.
+  std::unique_ptr<FullscreenBrowserAgentObserverBridge>
+      _fullscreenBrowserAgentObserverBridge;
   // The content view controller to be displayed inside the container.
   UIViewController* _contentViewController;
   AssistantContainerAnimator* _animator;
   __weak id<AssistantContainerDelegate> _delegate;
-  // Whether a dismissal is currently in progress.
-  BOOL _dismissalInProgress;
+  // The current transition state.
+  TransitionState _transitionState;
   // Completion block to be executed after dismissal.
   ProceduralBlock _dismissalCompletion;
   // The available detents for the container.
   std::vector<AssistantContainerDetent> _detents;
   // The height for the minimized detent.
   NSInteger _minimizedDetentHeight;
+  // The tab grid state being observed.
+  TabGridState* _tabGridState;
 }
 
 - (instancetype)initWithBaseViewController:(UIViewController*)viewController
@@ -56,6 +75,7 @@
   self = [super initWithBaseViewController:viewController browser:browser];
   if (self) {
     _minimizedDetentHeight = kAssistantContainerMinimizedDetentHeight;
+    _transitionState = TransitionState::kIdle;
   }
   return self;
 }
@@ -86,6 +106,7 @@
     return;
   }
 
+  _transitionState = TransitionState::kPresenting;
   _contentViewController = viewController;
   _delegate = delegate;
   _animator = [[AssistantContainerAnimator alloc]
@@ -101,10 +122,20 @@
 
   _containerViewController.layoutState = self.sceneState.layoutState;
 
-  // Resolve layout guide.
-  GuideName* guideName = kSecondaryToolbarGuide;
+  // Resolve initial layout guide name.
   LayoutGuideCenter* center = LayoutGuideCenterForBrowser(self.browser);
-  _containerViewController.anchorView = [center referencedViewUnderName:guideName];
+  _containerViewController.layoutGuideCenter = center;
+
+  if (IsChromeNextIaEnabled()) {
+    _tabGridState = self.browser->GetSceneState().tabGridState;
+    [_tabGridState addObserver:self];
+  }
+
+  if (_tabGridState && _tabGridState.tabGridVisible) {
+    _containerViewController.guideName = kTabGridBottomToolbarGuide;
+  } else {
+    _containerViewController.guideName = kSecondaryToolbarGuide;
+  }
 
   if ([_delegate respondsToSelector:@selector(assistantContainer:
                                               willAppearAnimated:)]) {
@@ -113,12 +144,23 @@
   }
 
   // Set up fullscreen observation.
-  FullscreenController* fullscreenController =
-      FullscreenController::FromBrowser(self.browser);
-  _fullscreenUIUpdater =
-      std::make_unique<FullscreenUIUpdater>(fullscreenController, self);
+  if (IsFullscreenRefactoringEnabled()) {
+    FullscreenBrowserAgent* agent =
+        FullscreenBrowserAgent::FromBrowser(self.browser);
+    _fullscreenBrowserAgentObserverBridge =
+        std::make_unique<FullscreenBrowserAgentObserverBridge>(self, agent);
+  } else {
+    FullscreenController* fullscreenController =
+        FullscreenController::FromBrowser(self.browser);
+    _fullscreenUIUpdater =
+        std::make_unique<FullscreenUIUpdater>(fullscreenController, self);
+  }
 
   __weak __typeof(self) weakSelf = self;
+  void (^animations)(void) = ^{
+    [weakSelf animateCutoutRadiusPresented:YES];
+  };
+
   if (IsUseSceneViewControllerEnabled()) {
     [self.presenter
         addAssistantContainerViewController:_containerViewController];
@@ -137,6 +179,7 @@
     [self.baseViewController.view layoutIfNeeded];
     [_animator animatePresentation:_containerViewController
                           animated:YES
+                        animations:animations
                         completion:^{
                           [weakSelf didCompletePresentationAnimation];
                         }];
@@ -176,6 +219,7 @@
 
   [_animator animatePresentation:_containerViewController
                         animated:YES
+                      animations:animations
                       completion:^{
                         [weakSelf didCompletePresentationAnimation];
                       }];
@@ -213,7 +257,7 @@
 
   // If a dismissal is already in progress, update the completion block.
   // If the new request is non-animated, force immediate dismissal.
-  if (_dismissalInProgress) {
+  if (_transitionState == TransitionState::kDismissing) {
     if (completion) {
       _dismissalCompletion = completion;
     }
@@ -225,7 +269,7 @@
     return;
   }
 
-  _dismissalInProgress = YES;
+  _transitionState = TransitionState::kDismissing;
   if (completion) {
     _dismissalCompletion = completion;
   }
@@ -250,8 +294,13 @@
     return;
   }
 
+  void (^animations)(void) = ^{
+    [weakSelf animateCutoutRadiusPresented:NO];
+  };
+
   [_animator animateDismissal:_containerViewController
                      animated:animated
+                   animations:animations
                    completion:^{
                      [weakSelf didCompleteDismissalAnimationAnimated:animated];
                    }];
@@ -259,8 +308,14 @@
 
 #pragma mark - Private
 
+// Animates the App Bar cutout radius to match the presented/dismissed state.
+- (void)animateCutoutRadiusPresented:(BOOL)presented {
+  [_containerViewController animateAlongsideTransitionPresented:presented];
+}
+
 // Called when the presentation animation completes.
 - (void)didCompletePresentationAnimation {
+  _transitionState = TransitionState::kIdle;
   if ([_delegate respondsToSelector:@selector(assistantContainer:
                                                didAppearAnimated:)]) {
     [_delegate assistantContainer:_containerViewController didAppearAnimated:YES];
@@ -271,7 +326,7 @@
 - (void)didCompleteDismissalAnimationAnimated:(BOOL)animated {
   // If the dismissal is not in progress, it means it has already been completed
   // (e.g. by a subsequent non-animated dismissal).
-  if (!_dismissalInProgress) {
+  if (_transitionState != TransitionState::kDismissing) {
     return;
   }
 
@@ -281,10 +336,13 @@
              didDisappearAnimated:animated];
   }
 
-  _dismissalInProgress = NO;
+  _transitionState = TransitionState::kIdle;
 
   // Cleanup view controller and state.
   _fullscreenUIUpdater = nullptr;
+  _fullscreenBrowserAgentObserverBridge = nullptr;
+  [_tabGridState removeObserver:self];
+  _tabGridState = nil;
 
   if (IsUseSceneViewControllerEnabled()) {
     [self.presenter removeAssistantContainerViewController];
@@ -341,6 +399,22 @@
   [animator addAnimations:^{
     [weakSelf updateForFullscreenProgress:finalProgress];
   }];
+}
+
+#pragma mark - FullscreenBrowserAgentObserving
+
+- (void)fullscreenWillUpdateState:(FullscreenBrowserAgent*)agent {
+  [self updateForFullscreenProgress:agent->bottom_progress()];
+}
+
+#pragma mark - TabGridStateObserving
+
+- (void)willEnterTabGrid {
+  _containerViewController.guideName = kTabGridBottomToolbarGuide;
+}
+
+- (void)willExitTabGrid {
+  _containerViewController.guideName = kSecondaryToolbarGuide;
 }
 
 @end

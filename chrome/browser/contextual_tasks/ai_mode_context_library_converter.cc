@@ -6,6 +6,7 @@
 
 #include <vector>
 
+#include "base/time/time.h"
 #include "base/uuid.h"
 #include "components/contextual_search/contextual_search_types.h"
 #include "components/contextual_tasks/public/contextual_task.h"
@@ -42,6 +43,7 @@ std::vector<UrlResource> ConvertAiModeContextToUrlResources(
                            ResourceType::kWebpage);
       url_resource->context_id = context.context_id();
       url_resource->title = context.webpage().title();
+      url_resource->has_chrome_tab_data = context.has_chrome_tab_data();
     } else if (context.has_pdf()) {
       url_resource.emplace(GURL(context.pdf().url()), ResourceType::kPdf);
       url_resource->context_id = context.context_id();
@@ -69,6 +71,12 @@ std::vector<UrlResource> ConvertAiModeContextToUrlResources(
         }
         if (!url_resource->title.has_value()) {
           url_resource->title = file_info->tab_title;
+        }
+        if (file_info->request_id.has_value() &&
+            file_info->request_id->has_time_usec()) {
+          url_resource->timestamp =
+              base::Time::UnixEpoch() +
+              base::Microseconds(file_info->request_id->time_usec());
         }
       }
       result.push_back(*url_resource);

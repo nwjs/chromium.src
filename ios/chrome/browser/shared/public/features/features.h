@@ -111,7 +111,6 @@ BASE_DECLARE_FEATURE(kLensOverlayCustomBottomSheet);
 // Feature flag to check headers for lens searches.
 BASE_DECLARE_FEATURE(kLensSearchHeadersCheckEnabled);
 
-
 // Variations of Composebox.
 extern const char kComposeboxParam[];
 extern const char kComposeboxParamAllOmniboxEntrypoints[];
@@ -128,13 +127,6 @@ BASE_DECLARE_FEATURE(kRemoveExcessNTPs);
 
 // Feature flag / Kill Switch for TCRex.
 BASE_DECLARE_FEATURE(kTCRexKillSwitch);
-
-// When enabled uses new transitions in the TabGrid.
-BASE_DECLARE_FEATURE(kTabGridNewTransitions);
-
-
-// Whether the new tab grid tabs transitions should be enabled.
-bool IsNewTabGridTransitionsEnabled();
 
 // When enabled, an overflow menu will replace the edit menu on the GTS.
 BASE_DECLARE_FEATURE(kTabSwitcherOverflowMenu);
@@ -258,6 +250,15 @@ bool IsDownloadListEnabled();
 // Feature flag to control the download list UI type.
 BASE_DECLARE_FEATURE(kDownloadList);
 
+// Feature flag to switch the iOS download list service layer to the new
+// paginated, keyset-cursor-backed reader path with an active-records-only
+// cache. When disabled, the service falls back to the legacy full-table
+// cache + bulk load behavior.
+BASE_DECLARE_FEATURE(kDownloadListPagination);
+
+// Returns true if the iOS download list pagination feature is enabled.
+bool IsDownloadListPaginationEnabled();
+
 // Feature param under `kEnableFeedBackgroundRefresh` to enable server driven
 // background refresh schedule.
 extern const char kEnableServerDrivenBackgroundRefreshSchedule[];
@@ -355,24 +356,8 @@ bool IsLiquidGlassEffectEnabled();
 // Feature flag to enable the default input accessory view.
 BASE_DECLARE_FEATURE(kIOSKeyboardAccessoryDefaultView);
 
-// Feature flag to enable the two-bubble design for the Keyboard Accessory view.
-BASE_DECLARE_FEATURE(kIOSKeyboardAccessoryTwoBubble);
-
 // Returns true if the default input accessory view is enabled.
 bool IsIOSKeyboardAccessoryDefaultViewEnabled();
-
-// Returns true if the two-bubble design for the keyboard accessory view is
-// enabled.
-bool IsIOSKeyboardAccessoryTwoBubbleEnabled();
-
-// Name of the parameter for kIOSKeyboardAccessoryTwoBubble to use a keyboard
-// icon.
-inline constexpr char kIOSKeyboardAccessoryTwoBubbleKeyboardIconParamName[] =
-    "use_keyboard_icon";
-
-// Feature param for kIOSKeyboardAccessoryTwoBubble to use a keyboard icon.
-BASE_DECLARE_FEATURE_PARAM(bool,
-                           kIOSKeyboardAccessoryTwoBubbleKeyboardIconParam);
 
 // Kill switch for disabling the navigations when the application is in
 // foreground inactive state after opening an external app.
@@ -409,16 +394,15 @@ BASE_DECLARE_FEATURE(kSeparateProfilesForManagedAccounts);
 
 // Killswitch for the reauth-first step in AuthenticationFlowInProfile.
 BASE_DECLARE_FEATURE(kAuthenticationFlowReauthFirstKillswitch);
-
-// Feature param for kSeparateProfilesForManagedAccountsForceMigration to
-// specify how much time to wait before force-migrating the primary managed
-// account to its own separate profile.
-extern const base::FeatureParam<base::TimeDelta>
-    kMultiProfileMigrationGracePeriod;
-
 // Feature flag to control force-migrating the primary managed account to its
 // own separate profile.
 BASE_DECLARE_FEATURE(kSeparateProfilesForManagedAccountsForceMigration);
+
+// Feature flag to control force-migrating the primary managed account to its
+// own separate profile *immediately*, i.e. without the usual grace period
+// that's observed by `kSeparateProfilesForManagedAccountsForceMigration`.
+BASE_DECLARE_FEATURE(
+    kSeparateProfilesForManagedAccountsImmediateForceMigration);
 
 // Feature to control resyncing the omaha ping timer on foregrounding.
 BASE_DECLARE_FEATURE(kOmahaResyncTimerOnForeground);
@@ -607,19 +591,6 @@ BASE_DECLARE_FEATURE(kNotificationCollisionManagement);
 // providesAppNotificationSettings.
 BASE_DECLARE_FEATURE(kIOSProvidesAppNotificationSettings);
 
-// Feature flag to enable background customization on the NTP.
-BASE_DECLARE_FEATURE(kNTPBackgroundCustomization);
-
-// The parameter representing the maximum number of recently used NTP
-// backgrounds to store.
-extern const base::FeatureParam<int> kMaxRecentlyUsedBackgrounds;
-
-// The maximum number of recently used NTP backgrounds to store.
-int MaxRecentlyUsedBackgrounds();
-
-// Checks if background customization is enabled on the NTP.
-bool IsNTPBackgroundCustomizationEnabled();
-
 // Feature flag to control whether default status API check and reporting are
 // enabled.
 BASE_DECLARE_FEATURE(kRunDefaultStatusCheck);
@@ -782,13 +753,6 @@ bool IsComposeboxIOSEnabled();
 // memory. When disabled, images are decoded at full resolution.
 BASE_DECLARE_FEATURE(kContextMenuPreviewDownsampleImage);
 
-// The feature to enable or disable the group color on the tab group and tab
-// grid surfaces.
-BASE_DECLARE_FEATURE(kTabGroupColorOnSurface);
-
-// Returns true if the TabGroupColorOnSurface feature is enabled.
-bool IsTabGroupColorOnSurfaceEnabled();
-
 // Enables the OmniboxCrashFixKillSwitch feature.
 BASE_DECLARE_FEATURE(kOmniboxCrashFixKillSwitch);
 
@@ -894,17 +858,16 @@ BASE_DECLARE_FEATURE(kUseSceneViewController);
 // Returns true if the UseSceneViewController feature is enabled.
 bool IsUseSceneViewControllerEnabled();
 
+BASE_DECLARE_FEATURE(kDisplayTracing);
+
+// Returns true if the DisplayTracing feature is enabled.
+bool IsDisplayTracingEnabled();
+
 // Enables the DisableComposeboxFromAIMNTP feature.
 BASE_DECLARE_FEATURE(kDisableComposeboxFromAIMNTP);
 
 // Returns true if the DisableComposeboxFromAIMNTP feature is enabled.
 bool IsDisableComposeboxFromAIMNTPEnabled();
-
-// Enables the AIMCobrowseDebugEntrypoint feature.
-BASE_DECLARE_FEATURE(kAIMCobrowseDebugEntrypoint);
-
-// Returns true if the AIMCobrowseDebugEntrypoint feature is enabled.
-bool IsAIMCobrowseDebugEntrypointEnabled();
 
 extern const char kAIMCobrowseHeaderParam[];
 extern const char kAIMCobrowseHeaderParamOptionA[];
@@ -1058,5 +1021,54 @@ BASE_DECLARE_FEATURE(kIdentityAwareness);
 
 // Returns true if the IdentityAwareness feature is enabled.
 bool IsIdentityAwarenessEnabled();
+
+// Display a ring around the avatar if the user has a AI Tier
+BASE_DECLARE_FEATURE(kAiAvatarRingIos);
+
+// Returns true if the AiAvatarRing feature is enabled.
+bool IsAiAvatarRingIosEnabled();
+
+// Feature flag to enable the Infobar Banner Revamp (UI Refactor of the
+// Infobar/Banner Component).
+BASE_DECLARE_FEATURE(kInfobarBannerRevamp);
+
+// Returns true if the InfobarBannerRevamp feature is enabled.
+bool IsInfobarBannerRevampEnabled();
+
+// Feature flag to enable shortcut paste bypass detection for PhishGuard.
+BASE_DECLARE_FEATURE(kIOSPhishGuardPasteShortcutDetection);
+
+// Returns true if kIOSPhishGuardPasteShortcutDetection is enabled.
+bool IsIOSPhishGuardPasteShortcutDetectionEnabled();
+
+// Feature to hide the labels for the buttons in the App Bar.
+BASE_DECLARE_FEATURE(kAppBarHideLabels);
+
+// Returns true if the App Bar labels should be hidden.
+bool IsAppBarLabelsHidden();
+
+// Enables Google One deep link support on startup.
+BASE_DECLARE_FEATURE(kSupportGoogleOneDeepLink);
+
+// Returns true if SupportGoogleOneDeepLink is enabled.
+bool IsGoogleOneDeepLinkEnabled();
+
+// Feature to enable Discover feed background refresh.
+BASE_DECLARE_FEATURE(kEnableDiscoverBackgroundRefresh);
+
+// Whether Discover feed background refresh is enabled.
+bool IsDiscoverBackgroundRefreshEnabled();
+
+// Interval when the Discover feed service is missing.
+extern const base::FeatureParam<base::TimeDelta>
+    kDiscoverFeedBackgroundRefreshNoServiceInterval;
+
+// Interval when the Discover feed service exists but provides no refresh date.
+extern const base::FeatureParam<base::TimeDelta>
+    kDiscoverFeedBackgroundRefreshNoDateInterval;
+
+// Delay when the scheduled Discover feed refresh time has already passed.
+extern const base::FeatureParam<base::TimeDelta>
+    kDiscoverFeedBackgroundRefreshMinBuffer;
 
 #endif  // IOS_CHROME_BROWSER_SHARED_PUBLIC_FEATURES_FEATURES_H_

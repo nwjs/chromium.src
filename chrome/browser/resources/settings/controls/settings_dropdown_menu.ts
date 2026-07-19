@@ -70,14 +70,6 @@ export class SettingsDropdownMenuElement extends
         value: false,
       },
 
-      /**
-         If this is a dictionary pref, this is the key for the item
-          we are interested in.
-       */
-      prefKey: {
-        type: String,
-        value: null,
-      },
 
       /**
        * If true, do not automatically set the preference value. This allows the
@@ -113,13 +105,13 @@ export class SettingsDropdownMenuElement extends
   static get observers() {
     return [
       'updateSelected_(menuOptions, value)',
-      'updateSelected_(menuOptions, pref.value.*, prefKey)',
+      'updateSelected_(menuOptions, pref.value.*)',
     ];
   }
 
   declare menuOptions: DropdownMenuOptionList;
   declare disabled: boolean;
-  declare prefKey: string|null;
+
   declare noSetPref: boolean;
   declare notFoundValue: string;
   declare label: string;
@@ -134,13 +126,9 @@ export class SettingsDropdownMenuElement extends
     assert(this.pref);
 
     const selected = this.$.dropdownMenu.value;
-    if (this.prefKey) {
-      this.set(`pref.value.${this.prefKey}`, selected);
-    } else {
-      const prefValue = stringToPrefValue(selected, this.pref);
-      if (prefValue !== undefined) {
-        this.set('pref.value', prefValue);
-      }
+    const prefValue = stringToPrefValue(selected, this.pref);
+    if (prefValue !== undefined) {
+      this.set('pref.value', prefValue);
     }
   }
 
@@ -186,7 +174,7 @@ export class SettingsDropdownMenuElement extends
     if (this.value !== undefined) {
       prefValue = this.value;
     } else {
-      if (this.pref === undefined || this.prefKey === undefined) {
+      if (this.pref === undefined) {
         return;
       }
       prefValue = this.prefStringValue_();
@@ -208,13 +196,8 @@ export class SettingsDropdownMenuElement extends
    * Gets the current value of the preference as a string.
    */
   private prefStringValue_(): string {
-    if (this.prefKey) {
-      // Dictionary pref, values are always strings.
-      return this.pref!.value[this.prefKey];
-    } else {
-      assert(this.pref);
-      return prefToString(this.pref);
-    }
+    assert(this.pref);
+    return prefToString(this.pref);
   }
 
   private showNotFoundValue_(

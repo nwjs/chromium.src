@@ -227,7 +227,8 @@ class ToolbarController : public views::MenuDelegate,
 
   // Force the UI element with the identifier to show. Return whether the action
   // is successful.
-  virtual bool PopOut(ui::ElementIdentifier identifier);
+  virtual bool PopOut(ui::ElementIdentifier identifier,
+                      bool show_synchronously);
 
   // End forcing the UI element with the identifier to show. Return whether the
   // action is successful.
@@ -281,12 +282,15 @@ class ToolbarController : public views::MenuDelegate,
     return menu_model_.get();
   }
 
+  // Check if element is currently overflowed.
+  bool IsElementOverflowedForTesting(ui::ElementIdentifier id) const;
+
  private:
   friend class ToolbarControllerUiTest;
   friend class ToolbarControllerUnitTest;
 
   // Returns currently hidden elements.
-  std::vector<const ResponsiveElementInfo*> GetOverflowedElements();
+  std::vector<const ResponsiveElementInfo*> GetOverflowedElements() const;
 
   // Check if element has overflowed.
   bool IsOverflowed(

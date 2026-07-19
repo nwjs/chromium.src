@@ -8,10 +8,13 @@
 #include "base/android/jni_string.h"
 #include "chrome/browser/contextual_tasks/active_task_context_provider.h"
 #include "chrome/browser/contextual_tasks/active_task_context_provider_impl.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks.mojom.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_panel_controller.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_side_panel_coordinator.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_ui.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_ui_service_factory.h"
 #include "chrome/browser/contextual_tasks/entry_point_eligibility_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -56,9 +59,13 @@ ContextualTasksBridge::ContextualTasksBridge(
     BrowserWindowInterface* browser_window,
     Profile* profile)
     : profile_(profile),
+      contextual_tasks_ui_service_(
+          contextual_tasks::ContextualTasksUiServiceFactory::
+              GetForBrowserContext(profile)),
       java_obj_(obj),
       scoped_unowned_user_data_(browser_window->GetUnownedUserDataHost(),
                                 *this) {
+  CHECK(contextual_tasks_ui_service_);
   entry_point_eligibility_manager_ =
       GetUserDataFactory().CreateInstance<EntryPointEligibilityManager>(
           *browser_window, browser_window);
@@ -82,6 +89,16 @@ void ContextualTasksBridge::UndoClose(JNIEnv* env) {
   if (controller_) {
     controller_->Show();
   }
+}
+
+void ContextualTasksBridge::StartPlatformVoiceRecognition() {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  Java_ContextualTasksBridge_startVoiceRecognition(env, java_obj_);
+}
+
+void ContextualTasksBridge::OnVoiceTranscribed(JNIEnv* env,
+                                               const std::string& query) {
+  contextual_tasks_ui_service_->OnVoiceTranscribed(query);
 }
 
 void ContextualTasksBridge::NotifyWebUIReady(
@@ -174,6 +191,29 @@ static std::string JNI_ContextualTasksBridge_GetTaskIdForTab(
 static bool JNI_ContextualTasksBridge_IsContextualTasksUrl(JNIEnv* env,
                                                            const GURL& url) {
   return url.spec().starts_with(chrome::kChromeUIContextualTasksURL);
+}
+
+static bool JNI_ContextualTasksBridge_IsPanelOpen(
+    JNIEnv* env,
+    content::WebContents* web_contents) {
+  if (!web_contents) {
+    return false;
+  }
+
+  Profile* profile =
+      Profile::FromBrowserContext(web_contents->GetBrowserContext());
+  contextual_tasks::ContextualTasksService* contextual_tasks_service =
+      contextual_tasks::ContextualTasksServiceFactory::GetForProfile(profile);
+  if (!contextual_tasks_service) {
+    return false;
+  }
+
+  SessionID tab_id = sessions::SessionTabHelper::IdForTab(web_contents);
+  if (!tab_id.is_valid()) {
+    return false;
+  }
+
+  return contextual_tasks_service->GetContextualTaskForTab(tab_id).has_value();
 }
 
 // static

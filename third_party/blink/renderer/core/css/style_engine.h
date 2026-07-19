@@ -94,6 +94,7 @@ class LayoutQuote;
 class HTMLAnchorElement;
 class MediaQueryEvaluator;
 class MediaQuerySet;
+class NavigationTestExpression;
 class Node;
 class ReferenceFilterOperation;
 class RuleFeatureSet;
@@ -320,6 +321,13 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   // which are evaluated when building the RuleSet.
   bool EvaluateFunctionalMediaQuery(const MediaQuerySet&);
   void MediaQueryAffectingValueChanged(MediaValueChange change);
+
+  // Evaluate and store the result of a navigation test expression. This is
+  // typically called during value resolution. If navigation query evaluation
+  // changes at some later point, we may have to mark affected elements for
+  // style recalc.
+  bool EvaluateFunctionalNavigationQuery(const NavigationTestExpression&);
+
   void UpdateActiveStyle();
 
   String PreferredStylesheetSetName() const {
@@ -374,14 +382,12 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
     uses_glyph_relative_units_ = uses_glyph_relative_units;
   }
 
-  bool UsesRootFontRelativeUnits() const {
-    return uses_root_font_relative_units_;
+  bool UsesRootRelativeUnits() const { return uses_root_relative_units_; }
+  void SetUsesRootRelativeUnits(bool uses_root_relative_units) {
+    uses_root_relative_units_ = uses_root_relative_units;
   }
-  void SetUsesRootFontRelativeUnits(bool uses_root_font_relative_units) {
-    uses_root_font_relative_units_ = uses_root_font_relative_units;
-  }
-  bool UpdateRootFontRelativeUnits(const ComputedStyle* old_root_style,
-                                   const ComputedStyle* new_root_style);
+  bool UpdateRootRelativeUnits(const ComputedStyle* old_root_style,
+                               const ComputedStyle* new_root_style);
   void SetUsesTreeCountingFunctions() { uses_tree_counting_functions_ = true; }
 
   void ResetCSSFeatureFlags(const RuleFeatureSet&);
@@ -1000,6 +1006,9 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   // See EvaluateFunctionalMediaQuery
   void InvalidateFunctionalMediaDependentStylesIfNeeded();
 
+  // See EvaluateFunctionalNavigationQuery
+  void InvalidateFunctionalNavigationDependentStylesIfNeeded();
+
   MixinMap EffectiveMixinsForTreeScope(TreeScope& tree_scope);
 
   Member<Document> document_;
@@ -1048,7 +1057,7 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   // the need to call UpdateCounters.
   bool counters_changed_{false};
 
-  bool uses_root_font_relative_units_{false};
+  bool uses_root_relative_units_{false};
   bool uses_glyph_relative_units_{false};
   bool uses_line_height_units_{false};
   // True if we ever resolved style that involved tree-counting functions such
@@ -1210,11 +1219,12 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   bool force_dark_mode_enabled_{false};
 
   friend class NodeTest;
-  friend class StyleEngineTest;
-  friend class WhitespaceAttacherTest;
   friend class StyleCascadeTest;
+  friend class StyleEngineTest;
   friend class StyleImageCacheTest;
+  friend class WhitespaceAttacherTest;
   FRIEND_TEST_ALL_PREFIXES(BlockChildIteratorTest, DeleteNodeWhileIteration);
+  FRIEND_TEST_ALL_PREFIXES(SkeletonLoaderTest, PseudoElementRecalcRoot);
 
   HeapHashSet<Member<TextTrack>> text_tracks_;
   Member<Element> vtt_originating_element_;
@@ -1268,6 +1278,9 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   // [1] CSSParserImpl::ConsumeMediaRule
   HeapHashMap<Member<const MediaQuerySet>, bool>
       functional_media_query_results_;
+
+  HeapHashMap<Member<const NavigationTestExpression>, bool>
+      functional_navigation_query_results_;
 
   // Caches for random base values which are used for generating random values
   // for the CSS random() function. For element-shared values, that are not

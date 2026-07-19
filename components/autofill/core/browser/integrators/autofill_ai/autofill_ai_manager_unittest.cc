@@ -18,6 +18,7 @@
 #include "base/time/time.h"
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/autofill_format_string.h"
+#include "components/autofill/core/browser/autofill_trigger_source.h"
 #include "components/autofill/core/browser/autofill_type.h"
 #include "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_component.h"
@@ -28,8 +29,15 @@
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/browser/form_structure_test_api.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
+#include "components/autofill/core/browser/foundations/autofill_driver_test_api.h"
+#include "components/autofill/core/browser/foundations/autofill_manager_test_api.h"
+#include "components/autofill/core/browser/foundations/mock_autofill_manager.h"
 #include "components/autofill/core/browser/foundations/test_autofill_client.h"
+#include "components/autofill/core/browser/foundations/test_autofill_driver.h"
+#include "components/autofill/core/browser/foundations/with_test_autofill_client_driver_manager.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_manager_test_api.h"
+#include "components/autofill/core/browser/network/autofill_ai/mock_personal_context_access_manager.h"
+#include "components/autofill/core/browser/network/autofill_ai/personal_context_access_manager.h"
 #include "components/autofill/core/browser/proto/server.pb.h"
 #include "components/autofill/core/browser/strike_databases/payments/test_strike_database.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
@@ -44,6 +52,7 @@
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/consent_auditor/fake_consent_auditor.h"
 #include "components/signin/public/base/consent_level.h"
+#include "components/subscription_eligibility/subscription_eligibility_prefs.h"
 #include "components/sync/protocol/user_consent_types.pb.h"
 #include "components/sync/test/test_sync_service.h"
 #include "components/wallet/core/common/wallet_features.h"
@@ -174,6 +183,7 @@ class MockAutofillClient : public TestAutofillClient {
               (override));
   MOCK_METHOD(void, CloseEntityImportBubble, (), (override));
   MOCK_METHOD(void, ShowAutofillAiLocalSaveNotification, (), (override));
+  MOCK_METHOD(void, ShowAutofillAiPreFetchFailureNotification, (), (override));
   MOCK_METHOD(void,
               TriggerAutofillAiSavePromptSurvey,
               (bool prompt_accepted,
@@ -188,27 +198,36 @@ class MockAutofillClient : public TestAutofillClient {
                const FieldTypeSet& triggering_field_types),
               (override));
 };
-class AutofillAiManagerTest : public testing::Test {
+class AutofillAiManagerTest
+    : public testing::Test,
+      public WithTestAutofillClientDriverManager<NiceMock<MockAutofillClient>,
+                                                 TestAutofillDriver> {
  public:
   AutofillAiManagerTest() {
     scoped_feature_list_.InitWithFeatures(
         /*enabled_features=*/{features::kAutofillAiWithDataSchema,
                               features::kAutofillAiServerModel},
         /*disabled_features=*/{});
+    InitAutofillClient();
+    CreateAutofillDriver();
     autofill_client().set_entity_data_manager(
         std::make_unique<EntityDataManager>(
             autofill_client().GetPrefs(),
             autofill_client().GetIdentityManager(),
             autofill_client().GetSyncService(),
             webdata_helper_.autofill_webdata_service(),
-            /*history_service=*/nullptr,
+            /*history_service=*/nullptr, &pcontext_manager_,
             /*strike_database=*/nullptr,
             /*variation_country_code=*/GeoIpCountryCode("US")));
     autofill_client().SetUpPrefsAndIdentityForAutofillAi();
     autofill_client().set_sync_service(&sync_service_);
     autofill_client().GetSyncService()->GetUserSettings()->SetSelectedType(
         syncer::UserSelectableType::kPayments, true);
+    autofill_client().set_personal_context_access_manager(&pcontext_manager_);
+    manager_ = std::make_unique<AutofillAiManager>(&autofill_client(),
+                                                   &strike_database_);
   }
+  void TearDown() override { DestroyAutofillClient(); }
 
   std::u16string GetValueFromEntity(const EntityInstance entity,
                                     AttributeType attribute,
@@ -260,8 +279,10 @@ class AutofillAiManagerTest : public testing::Test {
   }
 
   void AddAutofillProfile() {
-    autofill_client_.GetPersonalDataManager().address_data_manager().AddProfile(
-        test::GetFullProfile());
+    autofill_client()
+        .GetPersonalDataManager()
+        .address_data_manager()
+        .AddProfile(test::GetFullProfile());
   }
 
   base::span<const EntityInstance> GetEntityInstances() {
@@ -269,21 +290,23 @@ class AutofillAiManagerTest : public testing::Test {
     return edm().GetEntityInstances();
   }
 
-  MockAutofillClient& autofill_client() { return autofill_client_; }
   EntityDataManager& edm() { return *autofill_client().GetEntityDataManager(); }
-  AutofillAiManager& manager() { return manager_; }
+  AutofillAiManager& manager() { return *manager_; }
   TestStrikeDatabase& strike_database() { return strike_database_; }
+  MockPersonalContextAccessManager& pcontext_manager() {
+    return pcontext_manager_;
+  }
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
-  base::test::SingleThreadTaskEnvironment task_environment_;
+  base::test::TaskEnvironment task_environment_;
   test::AutofillUnitTestEnvironment autofill_test_env_;
   AutofillWebDataServiceTestHelper webdata_helper_{
       std::make_unique<EntityTable>()};
   syncer::TestSyncService sync_service_;
-  NiceMock<MockAutofillClient> autofill_client_;
+  NiceMock<MockPersonalContextAccessManager> pcontext_manager_;
   TestStrikeDatabase strike_database_;
-  AutofillAiManager manager_{&autofill_client(), &strike_database_};
+  std::unique_ptr<AutofillAiManager> manager_;
 };
 
 // Tests that the user receives a filling suggestion when interacting with
@@ -300,6 +323,48 @@ TEST_F(AutofillAiManagerTest,
   EXPECT_THAT(manager().GetSuggestions(form_structure, form.fields().front()),
               ElementsAre(HasType(kFillAutofillAi), HasType(kSeparator),
                           HasType(kManageAutofillAi)));
+}
+
+// Tests that PrefetchContext is executed.
+TEST_F(AutofillAiManagerTest, OnAfterLoadedServerPredictions_TriggersFetch) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      features::kAutofillAmbientAutofill,
+      {{"ambient_autofill_eligible_tiers", "1"}});
+  autofill_client().GetPrefs()->SetInteger(
+      subscription_eligibility::prefs::kAiSubscriptionTier, 1);
+  auto form_structure = std::make_unique<FormStructure>(
+      test::GetFormData({.fields = {{.role = PASSPORT_NUMBER}}}));
+  AddPredictionsToFormStructure(*form_structure, {{PASSPORT_NUMBER}});
+  test_api(autofill_manager()).AddSeenFormStructure(std::move(form_structure));
+
+  EXPECT_CALL(
+      pcontext_manager(),
+      PrefetchContext(ElementsAre(EntityType(EntityTypeName::kPassport))));
+
+  manager().OnAfterLoadedServerPredictions(autofill_manager());
+}
+
+// Tests that PrefetchContext is not executed if the enablement state is
+// disabled.
+TEST_F(AutofillAiManagerTest,
+       OnAfterLoadedServerPredictions_EnablementDisabled_DoesNotTriggerFetch) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      features::kAutofillAmbientAutofill,
+      {{"ambient_autofill_eligible_tiers", "1"}});
+  autofill_client().GetPrefs()->SetInteger(
+      subscription_eligibility::prefs::kAiSubscriptionTier, 1);
+  autofill_client().set_personal_context_enablement_state(
+      personal_context::PersonalContextEnablementState::kDisabledNotEligible);
+
+  auto form_structure = std::make_unique<FormStructure>(
+      test::GetFormData({.fields = {{.role = PASSPORT_NUMBER}}}));
+  AddPredictionsToFormStructure(*form_structure, {{PASSPORT_NUMBER}});
+  test_api(autofill_manager()).AddSeenFormStructure(std::move(form_structure));
+
+  EXPECT_CALL(pcontext_manager(), PrefetchContext).Times(0);
+  manager().OnAfterLoadedServerPredictions(autofill_manager());
 }
 
 // Tests that IPH should be displayed if the user is opted out of the feature,
@@ -400,8 +465,9 @@ TEST_F(AutofillAiManagerTest,
   Suggestion passport_suggestion(SuggestionType::kFillAutofillAi);
   passport_suggestion.payload =
       Suggestion::AutofillAiPayload(passport_entity.guid());
-  manager().OnSuggestionsShown(form_structure, *form_structure.field(0),
-                               {passport_suggestion}, {});
+  manager().OnAutofillAiSuggestionsShown(
+      form_structure, *form_structure.field(0), {passport_suggestion}, {},
+      /*update_suggestions_callback=*/{});
   manager().OnDidFillSuggestion(passport_entity, form_structure,
                                 *form_structure.field(0),
                                 /*filled_fiekds*/ {}, {});
@@ -435,8 +501,9 @@ TEST_F(AutofillAiManagerTest,
   Suggestion passport_suggestion(SuggestionType::kFillAutofillAi);
   passport_suggestion.payload =
       Suggestion::AutofillAiPayload(passport_entity.guid());
-  manager().OnSuggestionsShown(form_structure, *form_structure.field(0),
-                               {passport_suggestion}, {});
+  manager().OnAutofillAiSuggestionsShown(
+      form_structure, *form_structure.field(0), {passport_suggestion}, {},
+      /*update_suggestions_callback=*/{});
 
   EXPECT_CALL(
       autofill_client(),
@@ -470,8 +537,9 @@ TEST_F(
   Suggestion passport_suggestion(SuggestionType::kFillAutofillAi);
   passport_suggestion.payload =
       Suggestion::AutofillAiPayload(passport_entity.guid());
-  manager().OnSuggestionsShown(form_structure, *form_structure.field(0),
-                               {passport_suggestion}, {});
+  manager().OnAutofillAiSuggestionsShown(
+      form_structure, *form_structure.field(0), {passport_suggestion}, {},
+      /*update_suggestions_callback=*/{});
   manager().OnDidFillSuggestion(passport_entity, form_structure,
                                 *form_structure.field(0),
                                 /*filled_fiekds*/ {}, {});
@@ -2164,22 +2232,25 @@ TEST_F(AutofillAiManagerTest, LoadedServerPredictionsToSuggestionsShownTiming) {
       Suggestion::AutofillAiPayload(GetPassportEntityInstance().guid());
 
   // First time showing suggestions on page 1 logs the metric.
-  manager().OnSuggestionsShown(form_structure, *form_structure.field(0),
-                               {passport_suggestion}, ukm_source_id_1);
+  manager().OnAutofillAiSuggestionsShown(
+      form_structure, *form_structure.field(0), {passport_suggestion},
+      ukm_source_id_1, /*update_suggestions_callback=*/{});
   histogram_tester.ExpectTotalCount(
       "Autofill.Ai.TimingInterval.LoadedServerPredictionsToSuggestionsShown",
       1);
 
   // Second time showing suggestions on page 1 DOES NOT log.
-  manager().OnSuggestionsShown(form_structure, *form_structure.field(0),
-                               {passport_suggestion}, ukm_source_id_1);
+  manager().OnAutofillAiSuggestionsShown(
+      form_structure, *form_structure.field(0), {passport_suggestion},
+      ukm_source_id_1, /*update_suggestions_callback=*/{});
   histogram_tester.ExpectTotalCount(
       "Autofill.Ai.TimingInterval.LoadedServerPredictionsToSuggestionsShown",
       1);
 
   // Showing suggestions on page 2 LOGS again.
-  manager().OnSuggestionsShown(form_structure, *form_structure.field(0),
-                               {passport_suggestion}, ukm_source_id_2);
+  manager().OnAutofillAiSuggestionsShown(
+      form_structure, *form_structure.field(0), {passport_suggestion},
+      ukm_source_id_2, /*update_suggestions_callback=*/{});
   histogram_tester.ExpectTotalCount(
       "Autofill.Ai.TimingInterval.LoadedServerPredictionsToSuggestionsShown",
       2);
@@ -2241,6 +2312,120 @@ TEST_F(AutofillAiManagerTest,
   histogram_tester.ExpectTotalCount(
       "Autofill.Ai.TimingInterval.LoadedServerPredictionsToFirstInteraction",
       0);
+}
+
+// Tests that the update callback is run with new suggestions when prefetch
+// completes successfully and the loading suggestion was shown.
+TEST_F(AutofillAiManagerTest, OnPrefetchContextComplete_RunCallback) {
+  test::FormDescription form_description = {
+      .fields = {{.role = PASSPORT_NUMBER}}};
+  FormData form = test::GetFormData(form_description);
+  autofill_manager().AddSeenForm(form, {PASSPORT_NUMBER});
+  const FormStructure* form_structure =
+      autofill_manager().FindCachedFormById(form.global_id());
+  ASSERT_TRUE(form_structure);
+  const AutofillField* field = form_structure->field(0);
+  ASSERT_TRUE(field);
+
+  Suggestion fetching_suggestion(SuggestionType::kFetchingAmbientData);
+  autofill_client().SetAutofillSuggestions({fetching_suggestion});
+
+  base::MockCallback<AutofillAiManager::UpdateSuggestionsCallback> callback;
+  manager().OnAutofillAiSuggestionsShown(*form_structure, *field,
+                                         {fetching_suggestion},
+                                         /*ukm_source_id=*/{}, callback.Get());
+
+  EXPECT_CALL(callback, Run);
+
+  manager().OnPrefetchContextComplete(pcontext_manager(),
+                                      base::span<const EntityInstance>());
+}
+
+// Tests that the update callback is not run if the loading suggestion was not
+// shown.
+TEST_F(AutofillAiManagerTest, OnPrefetchContextComplete_NoFetchingSuggestion) {
+  test::FormDescription form_description = {
+      .fields = {{.role = PASSPORT_NUMBER}}};
+  FormData form = test::GetFormData(form_description);
+  autofill_manager().AddSeenForm(form, {PASSPORT_NUMBER});
+  const FormStructure* form_structure =
+      autofill_manager().FindCachedFormById(form.global_id());
+  ASSERT_TRUE(form_structure);
+  const AutofillField* field = form_structure->field(0);
+  ASSERT_TRUE(field);
+
+  Suggestion other_suggestion(SuggestionType::kAddressEntry);
+  autofill_client().SetAutofillSuggestions({other_suggestion});
+
+  base::MockCallback<AutofillAiManager::UpdateSuggestionsCallback> callback;
+  manager().OnAutofillAiSuggestionsShown(*form_structure, *field,
+                                         {other_suggestion},
+                                         /*ukm_source_id=*/{}, callback.Get());
+
+  EXPECT_CALL(callback, Run).Times(0);
+
+  manager().OnPrefetchContextComplete(pcontext_manager(),
+                                      base::span<const EntityInstance>());
+}
+
+// Tests that the update callback is not run if the form that triggered
+// suggestions is no longer found.
+TEST_F(AutofillAiManagerTest, OnPrefetchContextComplete_FormNotFound) {
+  test::FormDescription form_description = {
+      .fields = {{.role = PASSPORT_NUMBER}}};
+  FormData form = test::GetFormData(form_description);
+  autofill_manager().AddSeenForm(form, {PASSPORT_NUMBER});
+  const FormStructure* form_structure =
+      autofill_manager().FindCachedFormById(form.global_id());
+  ASSERT_TRUE(form_structure);
+  const AutofillField* field = form_structure->field(0);
+  ASSERT_TRUE(field);
+
+  Suggestion fetching_suggestion(SuggestionType::kFetchingAmbientData);
+  autofill_client().SetAutofillSuggestions({fetching_suggestion});
+
+  base::MockCallback<AutofillAiManager::UpdateSuggestionsCallback> callback;
+  manager().OnAutofillAiSuggestionsShown(*form_structure, *field,
+                                         {fetching_suggestion},
+                                         /*ukm_source_id=*/{}, callback.Get());
+
+  DeleteAllAutofillDrivers();
+
+  EXPECT_CALL(callback, Run).Times(0);
+
+  manager().OnPrefetchContextComplete(pcontext_manager(),
+                                      base::span<const EntityInstance>());
+}
+
+TEST_F(AutofillAiManagerTest, OnPrefetchContextComplete_Failure_ShowsToast) {
+  EXPECT_CALL(autofill_client(), ShowAutofillAiPreFetchFailureNotification());
+  manager().OnPrefetchContextComplete(pcontext_manager(), std::nullopt);
+}
+
+TEST_F(AutofillAiManagerTest,
+       OnPrefetchContextComplete_Failure_WithLoadingSuggestion_RunsCallback) {
+  test::FormDescription form_description = {
+      .fields = {{.role = PASSPORT_NUMBER}}};
+  FormData form = test::GetFormData(form_description);
+  autofill_manager().AddSeenForm(form, {PASSPORT_NUMBER});
+  const FormStructure* form_structure =
+      autofill_manager().FindCachedFormById(form.global_id());
+  ASSERT_TRUE(form_structure);
+  const AutofillField* field = form_structure->field(0);
+  ASSERT_TRUE(field);
+
+  Suggestion fetching_suggestion(SuggestionType::kFetchingAmbientData);
+  autofill_client().SetAutofillSuggestions({fetching_suggestion});
+
+  base::MockCallback<AutofillAiManager::UpdateSuggestionsCallback> callback;
+  manager().OnAutofillAiSuggestionsShown(*form_structure, *field,
+                                         {fetching_suggestion},
+                                         /*ukm_source_id=*/{}, callback.Get());
+
+  EXPECT_CALL(callback, Run);
+  EXPECT_CALL(autofill_client(), ShowAutofillAiPreFetchFailureNotification());
+
+  manager().OnPrefetchContextComplete(pcontext_manager(), std::nullopt);
 }
 
 }  // namespace

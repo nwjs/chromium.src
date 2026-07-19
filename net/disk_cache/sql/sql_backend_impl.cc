@@ -11,16 +11,20 @@
 
 #include "base/barrier_callback.h"
 #include "base/barrier_closure.h"
+#include "base/byte_size.h"
 #include "base/containers/flat_set.h"
 #include "base/containers/span.h"
+#include "base/feature_list.h"
 #include "base/files/file.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/metrics/field_trial.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notimplemented.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/bind_post_task.h"
@@ -32,6 +36,7 @@
 #include "net/base/features.h"
 #include "net/base/io_buffer.h"
 #include "net/base/net_errors.h"
+#include "net/disk_cache/cache_util.h"
 #include "net/disk_cache/sql/sql_async_task_token.h"
 #include "net/disk_cache/sql/sql_entry_impl.h"
 #include "net/disk_cache/sql/sql_persistent_store.h"
@@ -50,8 +55,11 @@ size_t GetShardCount() {
 // Checks the fake index file, creating it if it doesn't exist. Returns an
 // error code if the file is corrupted or cannot be created.
 FakeIndexFileError CheckFakeIndexFileInternal(const base::FilePath& path) {
+  base::FieldTrial* backend_field_trial = base::FeatureList::GetFieldTrial(
+      net::features::kDiskCacheBackendExperiment);
   const std::string expected_contents = base::StrCat(
-      {kSqlBackendFakeIndexPrefix, base::NumberToString(GetShardCount())});
+      {kSqlBackendFakeIndexPrefix, base::NumberToString(GetShardCount()),
+       backend_field_trial ? backend_field_trial->group_name() : ""});
   const base::FilePath file_path = path.Append(kSqlBackendFakeIndexFileName);
   const std::optional<int64_t> file_size = base::GetFileSize(file_path);
   if (file_size.has_value()) {
@@ -515,6 +523,15 @@ base::expected<int32_t, net::Error> SqlBackendImpl::GetEntryCount(
   // pending database operations are reflected in the result.
   store_->GetEntryCountAsync(std::move(callback));
   return base::unexpected(net::ERR_IO_PENDING);
+}
+
+void SqlBackendImpl::SetMaxBytes(base::ByteSize max_bytes) {
+  store_->SetMaxSize(base::checked_cast<int64_t>(max_bytes.InBytes()));
+  MaybeTriggerEviction(/*is_idle_time_eviction=*/false);
+}
+
+base::ByteSize SqlBackendImpl::GetMaxBytesForTesting() const {
+  return base::ByteSize(base::checked_cast<uint64_t>(store_->MaxSize()));
 }
 
 EntryResult SqlBackendImpl::OpenOrCreateEntry(const std::string& key,

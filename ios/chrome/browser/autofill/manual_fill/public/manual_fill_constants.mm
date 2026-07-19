@@ -7,6 +7,7 @@
 #import "base/feature_list.h"
 #import "components/autofill/core/common/autofill_features.h"
 #import "components/webauthn/ios/features.h"
+#import "ui/base/device_form_factor.h"
 
 namespace manual_fill {
 
@@ -85,6 +86,10 @@ NSString* const kAccessoryKeyboardAccessibilityIdentifier =
 
 @implementation ManualFillUtil
 
++ (BOOL)shouldUsePopover {
+  return ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET;
+}
+
 + (manual_fill::ManualFillDataType)manualFillDataTypeFromFillingProduct:
     (autofill::FillingProduct)fillingProduct {
   switch (fillingProduct) {
@@ -113,12 +118,13 @@ NSString* const kAccessoryKeyboardAccessibilityIdentifier =
     case autofill::FillingProduct::kDataList:
     case autofill::FillingProduct::kNone:
       return manual_fill::ManualFillDataType::kOther;
+    case autofill::FillingProduct::kAtMemory:
+      return manual_fill::ManualFillDataType::kAtMemory;
     case autofill::FillingProduct::kCompose:
     case autofill::FillingProduct::kMerchantPromoCode:
     case autofill::FillingProduct::kLoyaltyCard:
     case autofill::FillingProduct::kIdentityCredential:
     case autofill::FillingProduct::kOneTimePassword:
-    case autofill::FillingProduct::kAtMemory:
       // These cases are currently not available on iOS.
       NOTREACHED();
   }

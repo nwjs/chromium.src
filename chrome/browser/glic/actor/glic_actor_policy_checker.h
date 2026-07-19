@@ -55,11 +55,11 @@ class GlicActorPolicyChecker : public actor::EnterprisePolicyChecker,
   // Returns true if Glic Actor considers the profile to belong to a managed
   // Enterprise account. This check is specific to Glic Actor and should not
   // be used as a generic check for managed Enterprise accounts.
-  static bool IsEnterpriseAccount(Profile& profile,
-                                  actor::AggregatedJournal& journal);
+  static bool IsEnterpriseAccountForActor(Profile& profile,
+                                          actor::AggregatedJournal& journal);
 
   // Returns true if the Chrome browser is managed by an IT administrator.
-  static bool IsBrowserManaged(Profile& profile);
+  static bool IsBrowserManagedForActor(Profile& profile);
 
   // Adds a callback to run whenever the value of CanActOnWeb changes.
   using CanActOnWebChangedCallback =
@@ -85,6 +85,14 @@ class GlicActorPolicyChecker : public actor::EnterprisePolicyChecker,
   bool CanActOnWeb() const;
   CannotActReason CannotActOnWebReason() const;
 
+  // Whether the Glic API can act on Web. This is currently different than
+  // CanActOnWeb() in the following ways:
+  // - Dogfood is only enabled on internal accounts.
+  // - Enterprise accounts will always disable act on web.
+  // - Managed devices can disable act on web, otherwise fallback to tier check.
+  bool GlicApiCanActOnWeb() const;
+  CannotActReason GlicApiCannotActOnWebReason() const;
+
   // EnterprisePolicyChecker interface
   UrlBlockReason Evaluate(const GURL& url) const override;
   void ValidateContentSentToRenderer(
@@ -102,7 +110,9 @@ class GlicActorPolicyChecker : public actor::EnterprisePolicyChecker,
   };
   friend std::ostream& operator<<(std::ostream& os, CanActOutcome value);
 
-  std::pair<CanActOutcome, CannotActReason> ComputeActOnWebCapability();
+  // For glic_api_can_act_on_web_ disable_for_enterprise should be true.
+  std::pair<CanActOutcome, CannotActReason> ComputeActOnWebCapability(
+      bool disable_for_enterprise);
 
   // This class must be transitively owned by a Profile and cannot outlive it.
   raw_ptr<Profile> profile_;
@@ -115,6 +125,9 @@ class GlicActorPolicyChecker : public actor::EnterprisePolicyChecker,
 
   CanActOutcome can_act_on_web_ = CanActOutcome::kYes;
   CannotActReason cannot_act_on_web_reason_;
+
+  CanActOutcome glic_api_can_act_on_web_ = CanActOutcome::kYes;
+  CannotActReason glic_api_cannot_act_on_web_reason_;
 
   // Stores enterprise allowlist/blocklist policies for specific URLs.
   policy::URLBlocklistManager url_blocklist_manager_;

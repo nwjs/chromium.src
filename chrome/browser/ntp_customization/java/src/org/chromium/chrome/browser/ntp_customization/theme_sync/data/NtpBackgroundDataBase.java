@@ -4,13 +4,18 @@
 
 package org.chromium.chrome.browser.ntp_customization.theme_sync.data;
 
+import android.graphics.Bitmap;
+import android.graphics.drawable.Drawable;
+
 import androidx.annotation.IntDef;
 import androidx.annotation.VisibleForTesting;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import org.chromium.base.Callback;
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils.NtpBackgroundType;
 
 import java.lang.annotation.Retention;
@@ -20,11 +25,13 @@ import java.util.Objects;
 /** Base class for NTP background data. */
 @NullMarked
 public abstract class NtpBackgroundDataBase {
+    public static final String PORTRAIT_MATRIX_KEY = "portraitMatrix";
+    public static final String LANDSCAPE_MATRIX_KEY = "landscapeMatrix";
+    public static final String BACKGROUND_IMAGE_INFO_KEY = "backgroundImageInfo";
+
     @VisibleForTesting static final String PLATFORM_TYPE_KEY = "platformType";
     @VisibleForTesting static final String BACKGROUND_TYPE_KEY = "backgroundType";
     @VisibleForTesting static final String PRIMARY_COLOR_KEY = "primaryColor";
-    @VisibleForTesting static final String PORTRAIT_MATRIX_KEY = "portraitMatrix";
-    @VisibleForTesting static final String LANDSCAPE_MATRIX_KEY = "landscapeMatrix";
 
     @IntDef({
         PlatformType.UNKNOWN,
@@ -58,7 +65,19 @@ public abstract class NtpBackgroundDataBase {
     }
 
     /** Returns the NTP background type. */
-    protected abstract @NtpBackgroundType int getBackgroundType();
+    public abstract @NtpBackgroundType int getBackgroundType();
+
+    /** Returns the image drawable of this background data. */
+    public @Nullable Drawable getImageDrawable() {
+        return null;
+    }
+
+    /**
+     * Gets the bitmap image and loads it asynchronously if not available
+     *
+     * @param onImageAvailableCallback The callback to invoke when the image is loaded.
+     */
+    public void getBitmapOrLoadImage(Callback<@Nullable Bitmap> onImageAvailableCallback) {}
 
     /** Returns the JSON representation of the object. */
     public JSONObject toJson() throws JSONException {
@@ -80,5 +99,10 @@ public abstract class NtpBackgroundDataBase {
     @Override
     public int hashCode() {
         return Objects.hash(mPlatformType, getBackgroundType());
+    }
+
+    /** Returns the image bitmap of this background data. */
+    public @Nullable Bitmap getImageBitmapForTesting() {
+        return null;
     }
 }

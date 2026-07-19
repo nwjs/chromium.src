@@ -4,19 +4,21 @@
 
 #include "ui/views/widget/desktop_aura/desktop_window_tree_host_win.h"
 
+// clang-format off
+#include "base/test/scoped_feature_list.h"
 #include <windows.h>
+// clang-format on
 
 #include <oleacc.h>
 
 #include <utility>
 
-#include "base/test/scoped_feature_list.h"
 #include "base/win/windows_version.h"
-#include "ui/accessibility/accessibility_features.h"
 #include "ui/accessibility/platform/ax_platform_node_win.h"
 #include "ui/accessibility/platform/ax_system_caret_win.h"
 #include "ui/views/test/desktop_window_tree_host_win_test_api.h"
 #include "ui/views/test/widget_test.h"
+#include "ui/views/views_features.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/win/hwnd_message_handler.h"
 
@@ -108,6 +110,10 @@ TEST_F(DesktopWindowTreeHostWinTest, SetExcludeFromScreenCapture) {
       widget.GetNativeWindow()->GetHost());
   DesktopWindowTreeHostWinTestApi host_api(host);
 
+  // Force simulation of local session so the test behaves consistently
+  // regardless of whether the build/test host is a remote session VM.
+  host_api.SetRemoteSessionForTesting(false);
+
   // Set exclude from screen capture.
   widget.SetExcludeFromScreenCapture(true);
 
@@ -131,6 +137,79 @@ TEST_F(DesktopWindowTreeHostWinTest, SetExcludeFromScreenCapture) {
   EXPECT_TRUE(::GetWindowDisplayAffinity(hwnd, &affinity));
   EXPECT_EQ(static_cast<DWORD>(WDA_NONE), affinity);
 }
+
+struct RemoteSessionExclusionTestParams {
+  bool is_remote;
+  bool feature_enabled;
+  bool expect_exclusion;
+};
+
+class DesktopWindowTreeHostWinRemoteSessionTest
+    : public DesktopWindowTreeHostWinTest,
+      public ::testing::WithParamInterface<RemoteSessionExclusionTestParams> {
+ public:
+  DesktopWindowTreeHostWinRemoteSessionTest() = default;
+};
+
+TEST_P(DesktopWindowTreeHostWinRemoteSessionTest, UpdateDisplayAffinity) {
+  const RemoteSessionExclusionTestParams& test_params = GetParam();
+
+  ::base::test::ScopedFeatureList scoped_feature_list;
+  if (test_params.feature_enabled) {
+    scoped_feature_list.InitAndEnableFeature(
+        views::features::kAllowWindowCaptureExclusionInRemoteSessions);
+  } else {
+    scoped_feature_list.InitAndDisableFeature(
+        views::features::kAllowWindowCaptureExclusionInRemoteSessions);
+  }
+
+  Widget widget;
+  Widget::InitParams params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_WINDOW);
+  widget.Init(std::move(params));
+
+  DesktopWindowTreeHostWin* host = static_cast<DesktopWindowTreeHostWin*>(
+      widget.GetNativeWindow()->GetHost());
+  DesktopWindowTreeHostWinTestApi host_api(host);
+
+  // Configure simulated remote session state before setting capture exclusion
+  // and showing.
+  host_api.SetRemoteSessionForTesting(test_params.is_remote);
+  widget.SetExcludeFromScreenCapture(true);
+  widget.Show();
+
+  DWORD affinity;
+  HWND hwnd = host_api.GetHWND();
+  EXPECT_TRUE(::GetWindowDisplayAffinity(hwnd, &affinity));
+
+  if (test_params.expect_exclusion) {
+    if (base::win::GetVersion() >= base::win::Version::WIN10_20H1) {
+      EXPECT_EQ(static_cast<DWORD>(WDA_EXCLUDEFROMCAPTURE), affinity);
+    } else {
+      EXPECT_EQ(static_cast<DWORD>(WDA_MONITOR), affinity);
+    }
+  } else {
+    EXPECT_EQ(static_cast<DWORD>(WDA_NONE), affinity);
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    DesktopWindowTreeHostWinRemoteSessionTest,
+    ::testing::Values(
+        // Remote active, feature disabled (default) -> Bypassed (affinity
+        // WDA_NONE)
+        RemoteSessionExclusionTestParams{/*is_remote=*/true,
+                                         /*feature_enabled=*/false,
+                                         /*expect_exclusion=*/false},
+        // Remote active, feature enabled -> Exclusion allowed
+        RemoteSessionExclusionTestParams{/*is_remote=*/true,
+                                         /*feature_enabled=*/true,
+                                         /*expect_exclusion=*/true},
+        // Remote inactive, feature disabled -> Exclusion allowed
+        RemoteSessionExclusionTestParams{/*is_remote=*/false,
+                                         /*feature_enabled=*/false,
+                                         /*expect_exclusion=*/true}));
 
 class DesktopWindowTreeHostWinAccessibilityObjectTest
     : public DesktopWidgetTest {
@@ -231,8 +310,6 @@ TEST_F(DesktopWindowTreeHostWinAccessibilityObjectTest, CaretDoesNotLeak) {
 // This test validates that we do not leak the root accessibility object when
 // handing it out (UIA mode).
 TEST_F(DesktopWindowTreeHostWinAccessibilityObjectTest, UiaRootDoesNotLeak) {
-  base::test::ScopedFeatureList scoped_feature_list(::features::kUiaProvider);
-
   {
     Widget widget;
     Widget::InitParams params =
@@ -269,6 +346,55 @@ TEST_F(DesktopWindowTreeHostWinAccessibilityObjectTest, UiaRootDoesNotLeak) {
 
   // At this point our test reference should be the only one remaining.
   EXPECT_EQ(test_node_->ref_count_for_testing(), 1u);
+}
+
+TEST_F(DesktopWindowTreeHostWinTest, IsInNativeMoveResizeLoop) {
+  Widget widget;
+  Widget::InitParams params = CreateParams(
+      Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_WINDOW);
+  widget.Init(std::move(params));
+  widget.Show();
+
+  DesktopWindowTreeHostWin* host = static_cast<DesktopWindowTreeHostWin*>(
+      widget.GetNativeWindow()->GetHost());
+  EXPECT_FALSE(host->IsInNativeMoveResizeLoop());
+
+  HWND hwnd = widget.GetNativeWindow()->GetHost()->GetAcceleratedWidget();
+  ::SendMessage(hwnd, WM_ENTERMENULOOP, FALSE, 0);
+  EXPECT_TRUE(host->IsInNativeMoveResizeLoop());
+
+  ::SendMessage(hwnd, WM_EXITMENULOOP, FALSE, 0);
+  EXPECT_FALSE(host->IsInNativeMoveResizeLoop());
+}
+
+TEST_F(DesktopWindowTreeHostWinTest, IsInNativeMoveResizeLoopAcrossWindows) {
+  Widget widget_a;
+  widget_a.Init(CreateParams(Widget::InitParams::CLIENT_OWNS_WIDGET,
+                             Widget::InitParams::TYPE_WINDOW));
+  widget_a.Show();
+
+  Widget widget_b;
+  widget_b.Init(CreateParams(Widget::InitParams::CLIENT_OWNS_WIDGET,
+                             Widget::InitParams::TYPE_WINDOW));
+  widget_b.Show();
+
+  DesktopWindowTreeHostWin* host_a = static_cast<DesktopWindowTreeHostWin*>(
+      widget_a.GetNativeWindow()->GetHost());
+  DesktopWindowTreeHostWin* host_b = static_cast<DesktopWindowTreeHostWin*>(
+      widget_b.GetNativeWindow()->GetHost());
+  EXPECT_FALSE(host_a->IsInNativeMoveResizeLoop());
+  EXPECT_FALSE(host_b->IsInNativeMoveResizeLoop());
+
+  // While one window is running a native menu loop, all hosts on the thread
+  // should report that a modal loop is active.
+  HWND hwnd_a = widget_a.GetNativeWindow()->GetHost()->GetAcceleratedWidget();
+  ::SendMessage(hwnd_a, WM_ENTERMENULOOP, FALSE, 0);
+  EXPECT_TRUE(host_a->IsInNativeMoveResizeLoop());
+  EXPECT_TRUE(host_b->IsInNativeMoveResizeLoop());
+
+  ::SendMessage(hwnd_a, WM_EXITMENULOOP, FALSE, 0);
+  EXPECT_FALSE(host_a->IsInNativeMoveResizeLoop());
+  EXPECT_FALSE(host_b->IsInNativeMoveResizeLoop());
 }
 
 }  // namespace test

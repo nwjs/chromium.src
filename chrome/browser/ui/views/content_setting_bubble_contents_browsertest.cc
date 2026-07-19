@@ -38,7 +38,7 @@ class ContentSettingBubbleContentsBrowserTest : public InProcessBrowserTest {
 IN_PROC_BROWSER_TEST_F(ContentSettingBubbleContentsBrowserTest,
                        DISABLED_HidesAtWebContentsClose) {
   // Create a second tab, so closing the test tab doesn't close the browser.
-  chrome::NewTab(browser());
+  chrome::NewTab(browser(), NewTabTypes::kNoUserAction);
 
   // Navigate to the test page, and have it request and be denied geolocation
   // permissions.
@@ -51,8 +51,9 @@ IN_PROC_BROWSER_TEST_F(ContentSettingBubbleContentsBrowserTest,
   permissions::PermissionRequestObserver(GetWebContents()).Wait();
 
   // Press the geolocation icon and make sure its content setting bubble shows.
-  LocationBarTesting* bar =
-      browser()->window()->GetLocationBar()->GetLocationBarForTesting();
+  LocationBarTesting* bar = BrowserWindow::FromBrowser(browser())
+                                ->GetLocationBar()
+                                ->GetLocationBarForTesting();
   EXPECT_TRUE(bar->TestContentSettingImagePressed(
       static_cast<size_t>(ContentSettingImageModel::ImageType::kGeolocation)));
   EXPECT_TRUE(bar->IsContentSettingBubbleShowing(

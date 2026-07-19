@@ -496,6 +496,7 @@
 //media/test/data/speech_16b_stereo_48kHz.raw
 //media/test/data/speex_audio_vorbis_video.ogv
 //media/test/data/spherical.mp4
+//media/test/data/spherical_frag.mp4
 //media/test/data/stereo_48000.wav
 //media/test/data/sync2-trimmed.mp4
 //media/test/data/sync2.ogv
@@ -517,6 +518,7 @@
 //media/test/data/test-25fps.vp9_2.json
 //media/test/data/test_key_system_instantiation.html
 //media/test/data/testsrc-no-durations-h264.mkv
+//media/test/data/tiny-clip.mp4
 //media/test/data/tos-h264-opus.mp4
 //media/test/data/track-disabled.mp4
 //media/test/data/trailing-garbage.mp3

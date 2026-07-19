@@ -2,16 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/ash/printing/cups_print_job_notification_manager.h"
+#include "chrome/browser/ash/printing/cups_print_job_notification.h"
 
+#include "ash/strings/grit/ash_strings.h"
 #include "base/check_deref.h"
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_test.h"
 #include "chrome/browser/ash/printing/cups_print_job.h"
-#include "chrome/browser/ash/printing/cups_print_job_notification.h"
+#include "chrome/browser/ash/printing/cups_print_job_notification_manager.h"
 #include "chrome/browser/ash/printing/fake_cups_print_job_manager.h"
 #include "chrome/grit/branded_strings.h"
-#include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/services/app_service/public/cpp/app_types.h"
 #include "content/public/test/browser_task_environment.h"
@@ -63,12 +63,12 @@ class CupsPrintJobNotificationTest : public testing::Test,
     if (IsWebPrintingTest()) {
       return CupsPrintJob(
           printer, /*job_id=*/0, /*document_title=*/std::string(),
-          total_page_number, crosapi::mojom::PrintJob::Source::kIsolatedWebApp,
+          total_page_number, ::printing::PrintJob::Source::kIsolatedWebApp,
           /*source_id=*/kAppId, printing::proto::PrintSettings());
     } else {
       return CupsPrintJob(
           printer, /*job_id=*/0, /*document_title=*/std::string(),
-          total_page_number, crosapi::mojom::PrintJob::Source::kUnknown,
+          total_page_number, ::printing::PrintJob::Source::kPrintPreview,
           /*source_id=*/std::string(), printing::proto::PrintSettings());
     }
   }

@@ -31,8 +31,9 @@ void AIWritingAssistanceCreateClient<
             client_remote) {
   HeapMojoRemote<mojom::blink::AIManager>& ai_manager_remote =
       AIInterfaceProxy::GetAIManagerRemote(GetExecutionContext());
-  ai_manager_remote->CreateSummarizer(std::move(client_remote),
-                                      ToMojoSummarizerCreateOptions(options_));
+  ai_manager_remote->CreateSummarizer(
+      std::move(client_remote), ToMojoSummarizerCreateOptions(options_),
+      monitor_ ? monitor_->BindRemote() : mojo::NullRemote());
 }
 
 template <>
@@ -209,6 +210,15 @@ ScriptPromise<IDLDouble> Summarizer::measureInputUsage(
 void Summarizer::destroy(ScriptState* script_state,
                          ExceptionState& exception_state) {
   AIWritingAssistanceBase::destroy(script_state, exception_state);
+}
+
+// TODO(crbug.com/513357094): Get the resolved model config's context window.
+double Summarizer::inputQuota() const {
+  if (options_->preference().AsEnum() ==
+      V8PerformancePreference::Enum::kSpeed) {
+    return static_cast<double>(mojom::blink::kTinyModelMaxInputTokenSize);
+  }
+  return static_cast<double>(mojom::blink::kWritingAssistanceMaxInputTokenSize);
 }
 
 }  // namespace blink

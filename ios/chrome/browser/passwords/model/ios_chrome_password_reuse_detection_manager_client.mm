@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/passwords/model/ios_chrome_password_reuse_detection_manager_client.h"
 
+#import <UIKit/UIKit.h>
+
 #import <memory>
 #import <utility>
 
@@ -146,6 +148,10 @@ void IOSChromePasswordReuseDetectionManagerClient::
 void IOSChromePasswordReuseDetectionManagerClient::DidFinishNavigation(
     web::WebState* web_state,
     web::NavigationContext* navigation_context) {
+  // Instantiate the PasswordReuseManager to start populating the password hash
+  // cache from the database now. This ensures that password hashes
+  // are already in memory before the user makes any inputs.
+  GetPasswordReuseManager();
   password_reuse_detection_manager_.DidNavigateMainFrame(GetLastCommittedURL());
 }
 
@@ -158,6 +164,23 @@ void IOSChromePasswordReuseDetectionManagerClient::OnKeyPressed(
 void IOSChromePasswordReuseDetectionManagerClient::OnPaste(
     const std::string text) {
   password_reuse_detection_manager_.OnPaste(base::UTF8ToUTF16(text));
+}
+
+void IOSChromePasswordReuseDetectionManagerClient::OnPasteKeyDetected() {
+  UIPasteboard* const pasteboard = [UIPasteboard generalPasteboard];
+  if ([pasteboard hasStrings]) {
+    NSString* pasted_text = pasteboard.string;
+    if (pasted_text.length > 0) {
+      // Slicing to a generous suffix prevents expensive UTF16 conversions on
+      // huge clipboards while preserving actionable data.
+      if (pasted_text.length > 1000) {
+        pasted_text =
+            [pasted_text substringFromIndex:pasted_text.length - 1000];
+      }
+      password_reuse_detection_manager_.OnPaste(
+          base::SysNSStringToUTF16(pasted_text));
+    }
+  }
 }
 
 web::WebState* IOSChromePasswordReuseDetectionManagerClient::web_state() const {

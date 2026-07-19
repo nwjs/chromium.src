@@ -148,6 +148,7 @@ chromium-metrics-reviews@google.com.
   <variant name=".LensSidePanelUntrusted"/>
   <variant name=".MakoUntrusted"/>
   <variant name=".NewTabFooter"/>
+  <variant name=".OmniboxEverywhere"/>
   <variant name=".OmniboxPopup"/>
   <variant name=".PerformanceSidePanel"/>
   <variant name=".PersonalContextNotice"/>
@@ -236,7 +237,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextMenu.LensSupportStatus" enum="LensSupportStatus"
-    expires_after="2026-09-27">
+    expires_after="2026-11-29">
   <owner>benwgold@google.com</owner>
   <owner>lens-chrome@google.com</owner>
   <summary>
@@ -267,7 +268,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextMenu.SelectedOptionDesktop{ContextMenuTypeDesktop}"
-    enum="ContextMenuOptionDesktop" expires_after="2026-09-27">
+    enum="ContextMenuOptionDesktop" expires_after="2026-11-29">
   <owner>avi@chromium.org</owner>
   <owner>mpearson@chromium.org</owner>
   <summary>
@@ -294,7 +295,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextMenu.Shown{Type}" enum="BooleanPresent"
-    expires_after="2026-09-06">
+    expires_after="2026-11-29">
   <owner>mpearson@chromium.org</owner>
   <owner>twellington@chromium.org</owner>
   <owner>clank-app-team@google.com</owner>
@@ -357,7 +358,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DefaultBrowser.InfoBar.TimesShownBeforeAccept" units="count"
-    expires_after="2026-10-04">
+    expires_after="2026-12-06">
   <owner>agale@chromium.org</owner>
   <owner>robliao@chromium.org</owner>
   <summary>
@@ -367,7 +368,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DefaultBrowser.InfoBar.UserInteraction"
-    enum="DefaultBrowserInfoBarUserInteraction" expires_after="2026-09-27">
+    enum="DefaultBrowserInfoBarUserInteraction" expires_after="2026-11-29">
   <owner>pmonette@chromium.org</owner>
   <owner>robliao@chromium.org</owner>
   <summary>
@@ -515,6 +516,48 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram
+    name="InitialWebUI.NewWindow.AllSources.BrowserWindow.FirstPaint.FromConstructor"
+    units="ms" expires_after="2026-11-08">
+  <owner>mych@chromium.org</owner>
+  <owner>chrome-webium-product-eng@google.com</owner>
+  <summary>
+    Deprecated. Replaced by WithExistingWindow and WithoutExistingWindow
+    variants. Records the time from immediately before the Browser constructor
+    is called to 'First Paint' of the new browser window. Aggregated across all
+    sources.
+  </summary>
+</histogram>
+
+<histogram
+    name="InitialWebUI.NewWindow.AllSources.ReloadButton.FirstPaint.FromConstructor"
+    units="ms" expires_after="2026-11-08">
+  <owner>mych@chromium.org</owner>
+  <owner>chrome-webium-product-eng@google.com</owner>
+  <summary>
+    Deprecated. Replaced by WithExistingWindow and WithoutExistingWindow
+    variants. Records the time from immediately before the Browser constructor
+    is called to first paint of the Reload Button in the new browser window.
+    Aggregated across all sources.
+  </summary>
+</histogram>
+
+<histogram
+    name="InitialWebUI.NewWindow{CreationSource}.{ExistingWindow}.BrowserWindow.ClosedBeforeFirstPaint"
+    units="ms" expires_after="2026-12-31">
+  <owner>annasato@chromium.org</owner>
+  <owner>chrome-webium-product-eng@google.com</owner>
+  <summary>
+    Records the duration from window creation to closing the browser window for
+    new windows {CreationSource} {ExistingWindow}.
+
+    This is only recorded for desktop platforms when the InitialWebUIMetrics is
+    enabled, and when the initial paint has not been recorded.
+  </summary>
+  <token key="CreationSource" variants="CreationSource"/>
+  <token key="ExistingWindow" variants="ExistingWindow"/>
+</histogram>
+
+<histogram
     name="InitialWebUI.NewWindow{CreationSource}.{ExistingWindow}.BrowserWindow.FirstPaint.{StartPoint}"
     units="ms" expires_after="2026-11-08">
   <owner>mych@chromium.org</owner>
@@ -533,7 +576,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="InitialWebUI.NewWindow{CreationSource}.{ExistingWindow}.BrowserWindow.ShowRequestedToFirstPaint.{StartPoint}"
-    units="ms" expires_after="2026-09-17">
+    units="ms" expires_after="2026-11-29">
   <owner>mych@chromium.org</owner>
   <owner>chrome-webium-product-eng@google.com</owner>
   <summary>
@@ -556,7 +599,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="InitialWebUI.NewWindow{CreationSource}.{ExistingWindow}.BrowserWindowToReloadButton.FirstPaintGap"
-    units="ms" expires_after="2026-09-13">
+    units="ms" expires_after="2026-11-29">
   <owner>mych@chromium.org</owner>
   <owner>chrome-webium-product-eng@google.com</owner>
   <summary>
@@ -628,7 +671,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InitialWebUI.ReloadButton.InputToNextPaint{InputType}"
-    units="ms" expires_after="2026-09-06">
+    units="ms" expires_after="2026-11-29">
   <owner>mych@chromium.org</owner>
   <owner>chrome-webium-product-eng@google.com</owner>
   <summary>
@@ -662,7 +705,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InitialWebUI.ReloadButton.InputToStop{InputType}" units="ms"
-    expires_after="2026-09-06">
+    expires_after="2026-11-29">
   <owner>mych@chromium.org</owner>
   <owner>chrome-webium-product-eng@google.com</owner>
   <summary>
@@ -675,6 +718,35 @@ chromium-metrics-reviews@google.com.
   <token key="InputType">
     <variant name=".KeyPress" summary="KeyPress"/>
     <variant name=".MouseRelease" summary="MouseRelease"/>
+  </token>
+</histogram>
+
+<histogram name="InitialWebUI.ReloadButton.InteractionToReload{InputType}"
+    units="ms" expires_after="2027-06-15">
+  <owner>mych@chromium.org</owner>
+  <owner>chrome-webium-product-eng@google.com</owner>
+  <summary>
+    Records the latency from {InputType} user interaction with the WebUI or C++
+    Views reload button to the initiation of the reload command execution.
+
+    For C++ Views, the start time is the event timestamp of the click or key
+    press, and the end time is when the browser button handler is executed. The
+    metric is emitted immediately during the button press handler.
+
+    For WebUI, the start time is the physical interaction time reconstructed in
+    the browser process by adding the renderer-reported interaction time offset
+    (relative to navigation start) to the browser-side recorded navigation start
+    ticks. The end time is when the browser process receives the Mojo reload
+    request. The metric is emitted immediately upon validating and processing
+    the Mojo request.
+
+    This is only recorded for desktop platforms when the InitialWebUIMetrics is
+    enabled.
+  </summary>
+  <token key="InputType">
+    <variant name="" summary="any physical"/>
+    <variant name=".KeyPress" summary="a KeyPress"/>
+    <variant name=".MouseRelease" summary="a MouseRelease"/>
   </token>
 </histogram>
 
@@ -707,8 +779,82 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram
-    name="InitialWebUI.Startup{Scenario}.BrowserWindow.FirstPaint{StartupTemperature}"
+    name="InitialWebUI.Startup.WithoutExistingWindow.BrowserWindow.FirstPaint"
     units="ms" expires_after="2026-09-06">
+  <owner>mych@chromium.org</owner>
+  <owner>chrome-webium-product-eng@google.com</owner>
+  <summary>
+    Deprecated. Removed the WithExistingWindow and WithoutExistingWindow
+    dimension from Startup metrics, since they do not apply during startup.
+    Records the time from browser application startup to the first presentation
+    of the browser window onto the screen when no existing window is present.
+  </summary>
+</histogram>
+
+<histogram
+    name="InitialWebUI.Startup.WithoutExistingWindow.BrowserWindowToReloadButton.FirstPaintGap"
+    units="ms" expires_after="2026-09-13">
+  <owner>mych@chromium.org</owner>
+  <owner>chrome-webium-product-eng@google.com</owner>
+  <summary>
+    Deprecated. Removed the WithExistingWindow and WithoutExistingWindow
+    dimension from Startup metrics, since they do not apply during startup.
+    Records the delay between the native browser window's first presentation
+    (paint) and the Reload Button first paint during startup when no existing
+    window is present.
+  </summary>
+</histogram>
+
+<histogram
+    name="InitialWebUI.Startup.WithoutExistingWindow.ReloadButton.FirstContentfulPaint"
+    units="ms" expires_after="2026-09-06">
+  <owner>mych@chromium.org</owner>
+  <owner>chrome-webium-product-eng@google.com</owner>
+  <summary>
+    Deprecated. Removed the WithExistingWindow and WithoutExistingWindow
+    dimension from Startup metrics, since they do not apply during startup.
+    Records the time spent initializing a newly constructed ReloadButton in
+    standard browser application startup. The timer starts immediately after the
+    browser application startup, and ends immediately after a contentful paint
+    of the view is requested when no existing window is present.
+  </summary>
+</histogram>
+
+<histogram
+    name="InitialWebUI.Startup.WithoutExistingWindow.ReloadButton.FirstPaint"
+    units="ms" expires_after="2026-09-06">
+  <owner>mych@chromium.org</owner>
+  <owner>chrome-webium-product-eng@google.com</owner>
+  <summary>
+    Deprecated. Removed the WithExistingWindow and WithoutExistingWindow
+    dimension from Startup metrics, since they do not apply during startup.
+    Records the time spent initializing a newly constructed ReloadButton in
+    standard browser application startup. The timer starts immediately after the
+    browser application startup, and ends immediately after a paint of the view
+    is requested when no existing window is present.
+  </summary>
+</histogram>
+
+<histogram
+    name="InitialWebUI.Startup{Scenario}.BrowserWindow.ClosedBeforeFirstPaint{StartupTemperature}"
+    units="ms" expires_after="2026-12-31">
+  <owner>annasato@chromium.org</owner>
+  <owner>chrome-webium-product-eng@google.com</owner>
+  <summary>
+    Records the duration from the initial show/activation request of the first
+    browser window during {Scenario} startup to closing the
+    window{StartupTemperature}.
+
+    This is only recorded for desktop platforms when the InitialWebUIMetrics is
+    enabled, and when the initial paint has not been recorded.
+  </summary>
+  <token key="Scenario" variants="Scenario"/>
+  <token key="StartupTemperature" variants="InitialWebUIStartupTemperature"/>
+</histogram>
+
+<histogram
+    name="InitialWebUI.Startup{Scenario}.BrowserWindow.FirstPaint{StartupTemperature}"
+    units="ms" expires_after="2026-12-16">
   <owner>mych@chromium.org</owner>
   <owner>chrome-webium-product-eng@google.com</owner>
   <summary>
@@ -726,7 +872,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="InitialWebUI.Startup{Scenario}.BrowserWindow.ShowRequestedToFirstPaint{StartupTemperature}"
-    units="ms" expires_after="2026-09-06">
+    units="ms" expires_after="2026-12-16">
   <owner>mych@chromium.org</owner>
   <owner>chrome-webium-product-eng@google.com</owner>
   <summary>
@@ -749,7 +895,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="InitialWebUI.Startup{Scenario}.BrowserWindowToReloadButton.FirstPaintGap{StartupTemperature}"
-    units="ms" expires_after="2026-09-13">
+    units="ms" expires_after="2026-11-29">
   <owner>mych@chromium.org</owner>
   <owner>chrome-webium-product-eng@google.com</owner>
   <summary>
@@ -773,7 +919,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="InitialWebUI.Startup{Scenario}.ReloadButton.RendererProcessCreated{StartupTemperature}"
-    units="ms" expires_after="2026-10-04">
+    units="ms" expires_after="2026-12-16">
   <owner>elkurin@chromium.org</owner>
   <owner>chrome-webium-product-eng@google.com</owner>
   <summary>
@@ -794,7 +940,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="InitialWebUI.Startup{Scenario}.ReloadButton.RendererProcessLaunched{StartupTemperature}"
-    units="ms" expires_after="2026-10-04">
+    units="ms" expires_after="2026-12-16">
   <owner>elkurin@chromium.org</owner>
   <owner>chrome-webium-product-eng@google.com</owner>
   <summary>
@@ -816,7 +962,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="InitialWebUI.Startup{Scenario}.ReloadButton.{PaintType}{StartupTemperature}"
-    units="ms" expires_after="2026-09-06">
+    units="ms" expires_after="2026-11-29">
   <owner>mych@chromium.org</owner>
   <owner>chrome-webium-product-eng@google.com</owner>
   <summary>
@@ -839,7 +985,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InitialWebUI.Toolbar.ParseFinishedToFirstUpdate" units="ms"
-    expires_after="2026-10-04">
+    expires_after="2026-12-06">
   <owner>leimy@chromium.org</owner>
   <owner>chrome-webium-product-eng@google.com</owner>
   <summary>
@@ -952,7 +1098,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="RenderTextHarfBuzz.ShapeRunsFallback" enum="ShapeRunFallback"
-    expires_after="2026-09-27">
+    expires_after="2026-11-29">
   <owner>dayeung@chromium.org</owner>
   <owner>etienneb@chromium.org</owner>
   <summary>
@@ -972,7 +1118,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="RenderViewContextMenu.Shown" enum="RenderViewContextMenuItem"
-    expires_after="2026-09-27">
+    expires_after="2026-11-29">
   <owner>avi@chromium.org</owner>
   <owner>edwardjung@chromium.org</owner>
   <owner>mpearson@chromium.org</owner>
@@ -1012,6 +1158,17 @@ chromium-metrics-reviews@google.com.
   <summary>Records the reason why a snackbar was dismissed.</summary>
 </histogram>
 
+<histogram name="Snackbar.QueueDepthAtInsertion" units="Snackbars"
+    expires_after="2026-12-31">
+  <owner>vpasupathy@google.com</owner>
+  <owner>chrome-ui-security-bugs@google.com</owner>
+  <summary>
+    Records the combined size of the standard and persistent snackbar queues at
+    the exact moment a new snackbar is inserted via add(). Used to detect queue
+    spam and DoS conditions.
+  </summary>
+</histogram>
+
 <histogram name="Snackbar.Shown" enum="SnackbarIdentifier"
     expires_after="never">
 <!-- expires-never: Required as long as snackbars exist. -->
@@ -1020,6 +1177,17 @@ chromium-metrics-reviews@google.com.
   <owner>src/chrome/browser/ui/messages/OWNERS</owner>
   <summary>
     Records the identifier of a snackbar every time one is shown.
+  </summary>
+</histogram>
+
+<histogram name="Snackbar.TimerDrift" units="ms" expires_after="2026-12-31">
+  <owner>vpasupathy@google.com</owner>
+  <owner>chrome-ui-security-bugs@google.com</owner>
+  <summary>
+    Records the difference between the actual time a snackbar was dismissed due
+    to timeout and its requested duration. Tracks the exact uptimeMillis() to
+    detect Android UI thread stalls or deadlocks that delay security notices.
+    Capped at 60 seconds.
   </summary>
 </histogram>
 
@@ -1049,7 +1217,7 @@ features through Chrome Labs. -->
 </histogram>
 
 <histogram name="Toolbar.Overflow.HomeButton" enum="Boolean"
-    expires_after="2026-08-19">
+    expires_after="2026-11-29">
   <owner>robliao@chromium.org</owner>
   <owner>pauljensen@chromium.org</owner>
   <summary>
@@ -1058,7 +1226,7 @@ features through Chrome Labs. -->
 </histogram>
 
 <histogram name="TopChromeUI.{UIName}.RequestToFirstContentfulPaint" units="ms"
-    expires_after="2026-09-12">
+    expires_after="2026-11-29">
   <owner>mych@chromium.org</owner>
   <owner>chrome-webui@google.com</owner>
   <improvement direction="LOWER_IS_BETTER"/>
@@ -1133,7 +1301,7 @@ features through Chrome Labs. -->
 
 <histogram
     name="Views.{Process}.NumColorProvidersInitializedDuringOnNativeThemeUpdated"
-    units="providers" expires_after="2026-09-20">
+    units="providers" expires_after="2026-11-29">
   <owner>pkasting@chromium.org</owner>
   <owner>tluk@chromium.org</owner>
   <owner>skau@chromium.org</owner>
@@ -1184,7 +1352,7 @@ features through Chrome Labs. -->
 </histogram>
 
 <histogram name="WebUI.ColorsStylesheetServingDuration" units="ms"
-    expires_after="2026-10-11">
+    expires_after="2026-12-13">
   <owner>skau@chromium.org</owner>
   <owner>tluk@chromium.org</owner>
   <improvement direction="LOWER_IS_BETTER"/>
@@ -1220,7 +1388,7 @@ features through Chrome Labs. -->
 </histogram>
 
 <histogram name="WebUI.ShownUrl" enum="WebUIUrlHashes"
-    expires_after="2026-10-11">
+    expires_after="2026-12-16">
   <owner>kerenzhu@chromium.org</owner>
   <owner>dpapad@chromium.org</owner>
   <owner>chrome-webui@google.com</owner>
@@ -1235,7 +1403,7 @@ features through Chrome Labs. -->
 </histogram>
 
 <histogram name="WebUI.TopChrome.Preload.Reason" enum="WebUIPreloadReason"
-    expires_after="2026-10-04">
+    expires_after="2026-12-06">
   <owner>kerenzhu@chromium.org</owner>
   <owner>tluk@chromium.org</owner>
   <owner>robliao@chromium.org</owner>

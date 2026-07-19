@@ -34,6 +34,7 @@ static_library("accessibility") {
 
   deps = [
     "//ash",
+    "//ash/constants",
     "//ash/webui/settings/public/constants",
     "//chrome/browser:browser_process",
     "//chrome/browser:resources_grit",
@@ -128,6 +129,7 @@ static_library("test_support") {
     "//chrome/browser/ash/accessibility",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/speech",
+    "//chrome/browser/speech:test_support",
     "//chrome/browser/ui",
     "//chrome/common",
     "//chrome/common:constants",
@@ -199,6 +201,7 @@ source_set("browser_tests") {
     ":test_support",
     "//ash/app_list",
     "//ash/app_list/model:app_list_model",
+    "//ash/constants",
     "//base",
     "//chrome/app:command_ids",
     "//chrome/browser:browser_process_platform_part",
@@ -214,6 +217,8 @@ source_set("browser_tests") {
     "//chrome/browser/ash/preferences",
     "//chrome/browser/extensions/api/braille_display_private:controller",
     "//chrome/browser/speech",
+    "//chrome/browser/speech:test_support",
+    "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/ash/input_method",
     "//chrome/browser/ui/ash/login",
     "//chrome/browser/ui/ash/shelf",
@@ -223,6 +228,7 @@ source_set("browser_tests") {
     "//chromeos/ash/components/browser_context_helper",
     "//components/live_caption",
     "//components/live_caption:constants",
+    "//components/sync_preferences",
     "//ui/base/clipboard:clipboard_test_support",
     "//ui/base/mojom:ui_base_types",
     "//ui/events:test_support",
@@ -244,6 +250,7 @@ if (is_chromeos_device) {
     deps = [
       ":accessibility",
       "//ash",
+      "//ash/constants",
       "//base",
       "//chrome/browser/speech",
       "//chrome/common",

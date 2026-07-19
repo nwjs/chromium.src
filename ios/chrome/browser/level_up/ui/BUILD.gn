@@ -6,23 +6,28 @@ source_set("ui") {
   sources = [
     "level_up_all_tasks_view_controller.h",
     "level_up_all_tasks_view_controller.mm",
+    "level_up_completed_task_header_row_view.h",
+    "level_up_completed_task_header_row_view.mm",
     "level_up_consumer.h",
     "level_up_profile_consumer.h",
     "level_up_progress_view.h",
     "level_up_progress_view.mm",
-    "level_up_table_view_controller.h",
-    "level_up_table_view_controller.mm",
-    "level_up_task.h",
-    "level_up_task.mm",
-    "level_up_task_cell.h",
-    "level_up_task_cell.mm",
+    "level_up_stat_view.h",
+    "level_up_stat_view.mm",
+    "level_up_task_collection_view_cell.h",
+    "level_up_task_collection_view_cell.mm",
+    "level_up_task_row_view.h",
+    "level_up_task_row_view.mm",
     "level_up_view_controller.h",
     "level_up_view_controller.mm",
+    "level_up_welcome_header_view.h",
+    "level_up_welcome_header_view.mm",
   ]
 
   deps = [
     "//base",
     "//ios/chrome/app/strings",
+    "//ios/chrome/browser/level_up/coordinator:view_models",
     "//ios/chrome/browser/level_up/model",
     "//ios/chrome/browser/shared/public/commands",
     "//ios/chrome/browser/shared/ui/elements/gradient",
@@ -30,8 +35,21 @@ source_set("ui") {
     "//ios/chrome/browser/shared/ui/table_view",
     "//ios/chrome/common/ui/colors",
     "//ios/chrome/common/ui/util",
+    "//ios/public/provider/chrome/browser/lottie:lottie_animation_api",
     "//ui/base",
   ]
 
+  public_deps = [ ":lottie_resources" ]
+
   frameworks = [ "UIKit.framework" ]
+}
+
+bundle_data("lottie_resources") {
+  sources = [
+    "resources/passwords_verified.json",
+    "resources/searches_skipped.json",
+    "resources/tabs_decluttered.json",
+    "resources/typing_saved.json",
+  ]
+  outputs = [ "{{bundle_resources_dir}}/{{source_file_part}}" ]
 }

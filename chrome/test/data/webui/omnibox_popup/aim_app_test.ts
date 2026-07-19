@@ -52,6 +52,7 @@ suite('AimAppTest', function() {
       voiceSearchCoherenceCobrowsingComposeboxEnabled: false,
       contextButtonShapeIsOblong: false,
       webuiOmniboxSimplificationEnabled: false,
+      composeboxSmartTabSharingVisible: false,
       contextualMenuUsePecApi: false,
     });
   });
@@ -363,7 +364,7 @@ suite('AimAppTest', function() {
 
     // Simulate the event being fired with specific dimensions.
     app.$.composebox.dispatchEvent(
-        new CustomEvent('embedded-voice-permission-prompt-changed', {
+        new CustomEvent('voice-permission-prompt-changed', {
           detail: {
             isOpened: true,
             height: 120,
@@ -376,8 +377,7 @@ suite('AimAppTest', function() {
     await microtasksFinished();
 
     // Verify CSS custom properties are updated on composebox.
-    assertTrue(
-        app.$.composebox.classList.contains('has-embedded-permission-prompt'));
+    assertTrue(app.$.composebox.classList.contains('has-permission-prompt'));
     assertEquals(
         '120px',
         app.$.composebox.style.getPropertyValue(
@@ -389,7 +389,7 @@ suite('AimAppTest', function() {
 
     // Simulate the dialogue closing.
     app.$.composebox.dispatchEvent(
-        new CustomEvent('embedded-voice-permission-prompt-changed', {
+        new CustomEvent('voice-permission-prompt-changed', {
           detail: {isOpened: false, height: 0, width: 0},
           bubbles: true,
           composed: true,
@@ -398,8 +398,7 @@ suite('AimAppTest', function() {
     await microtasksFinished();
 
     // Verify CSS custom properties are reset.
-    assertFalse(
-        app.$.composebox.classList.contains('has-embedded-permission-prompt'));
+    assertFalse(app.$.composebox.classList.contains('has-permission-prompt'));
     assertEquals(
         '',
         app.$.composebox.style.getPropertyValue(
@@ -409,4 +408,40 @@ suite('AimAppTest', function() {
         app.$.composebox.style.getPropertyValue(
             '--cr_composebox_minimum_width'));
   });
+
+  test(
+      'Passes props and attributes to OmniboxComposeboxElement',
+      async function() {
+        loadTimeData.overrideValues({
+          composeboxSmartComposeEnabled: true,
+          caretAnimationEnabled: false,
+          contextualMenuUsePecApi: true,
+          searchboxLayoutMode: 'TallBottomContext',
+          contextButtonShapeIsOblong: true,
+          webuiOmniboxSimplificationEnabled: true,
+          voiceSearchCoherenceComposeboxesEnabled: true,
+        });
+        const app = document.createElement('omnibox-aim-app');
+        document.body.appendChild(app);
+        await microtasksFinished();
+        app.setHasAllowedInputsForTesting(true);
+        await app.updateComplete;
+
+        const composebox = app.$.composebox;
+
+        assertTrue(composebox.hasAttribute('searchbox-next-enabled'));
+        assertTrue(composebox.hasAttribute('disable-caret-color-animation'));
+        assertEquals(
+            'TallBottomContext',
+            composebox.getAttribute('searchbox-layout-mode'));
+        assertEquals('forward', composebox.submitButtonIconType);
+        assertTrue(composebox.isOblongShape);
+        assertTrue(composebox.webuiOmniboxSimplificationEnabled);
+        assertTrue(composebox.showVoiceSearch);
+        assertFalse(composebox.disableVoiceSearchAnimation);
+        assertFalse(composebox.showMenuOnClick);
+        assertTrue(composebox.shouldShowGhostFiles);
+        assertTrue(composebox.usePecApi);
+        assertTrue(composebox.smartComposeEnabled);
+      });
 });

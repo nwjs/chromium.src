@@ -11,27 +11,35 @@ export function getHtml(this: SignInPromoRefreshElement) {
   // TODO(crbug.com/504301457): Enable animations once there is a mechanism to
   // pause/stop them.
   return html`<!--_html_template_start_-->
-<cr-lottie id="left-animation" class="animation"
-    animation-url="${this.getAnimationUrl_('left')}">
+<cr-lottie id="leftAnimation" class="animation"
+    animation-url="${this.getAnimationUrl_('left')}"
+    ?autoplay="${!this.shouldDisableAnimations_}">
 </cr-lottie>
-<cr-lottie id="right-animation" class="animation"
-    animation-url="${this.getAnimationUrl_('right')}">
+<cr-lottie id="rightAnimation" class="animation"
+    animation-url="${this.getAnimationUrl_('right')}"
+    ?autoplay="${!this.shouldDisableAnimations_}">
 </cr-lottie>
-<cr-lottie id="bottom-animation" class="animation"
-    animation-url="${this.getAnimationUrl_('bottom')}">
+<cr-lottie id="bottomAnimation" class="animation"
+    animation-url="${this.getAnimationUrl_('bottom')}"
+    ?autoplay="${!this.shouldDisableAnimations_}">
 </cr-lottie>
 
-<!-- TODO(crbug.com/515028732): Make sure the button doesn't clash with the
-     native 'Play/Pause' button. -->
+<!-- TODO(crbug.com/469390080): Consider moving this button to the native
+     toolbar to unify the logic once the experiment concludes. -->
 ${this.isTopRightCornerVariation_() ? html`
-  <div id="top-right-corner-container">
+  <div id="top-right-corner-container"
+      class="${this.isFirstRunDesktopRevampEnabled_ ?
+        'has-effects-control-button' : ''}">
     <cr-button id="declineSignInButton"
-        class="tangible-button ${this.usePrimaryAndTonalButtonsForPromos_ ?
-          'tonal-button' : ''}"
+        class="${!this.isFirstRunDesktopRevampEnabled_ ? 'tangible-button' : ''}
+               ${(this.usePrimaryAndTonalButtonsForPromos_ &&
+                  !this.isFirstRunDesktopRevampEnabled_) ? 'tonal-button' : ''}
+               ${this.isFirstRunDesktopRevampEnabled_ ? 'no-border' : ''}"
         ?disabled="${this.shouldDisableButtons_()}"
         @click="${this.onDeclineSignInButtonClick_}">
       $i18n{declineSignInButtonTitle}
     </cr-button>
+    ${this.isFirstRunDesktopRevampEnabled_ ? html`<div id="separator"></div>` : ''}
   </div>
 ` : ''}
 

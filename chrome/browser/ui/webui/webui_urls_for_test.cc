@@ -54,7 +54,9 @@ base::span<const std::string_view> GetChromeUrlsForTest() {
       "chrome://connectors-internals",
 #if !BUILDFLAG(IS_ANDROID)
       "chrome://content-annotator-internals",
+      "chrome://contextual-cueing-internals",
 #endif
+      "chrome://context-hub",
       "chrome://crashes",
 // TODO(crbug.com/40913109): Re-enable this test
 #if !BUILDFLAG(IS_LINUX) && !BUILDFLAG(IS_CHROMEOS)
@@ -81,7 +83,7 @@ base::span<const std::string_view> GetChromeUrlsForTest() {
       "chrome://extensions-zero-state",
       "chrome://family-link-user-internals",
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
-      "chrome://feature-showcase/?steps=example",
+      "chrome://feature-showcase/?steps=password-manager",
 #endif
       "chrome://flags",
       "chrome://gcm-internals",
@@ -133,12 +135,11 @@ base::span<const std::string_view> GetChromeUrlsForTest() {
       "chrome://policy",
       "chrome://predictors",
 
-  // TODO(crbug.com/511254271): Flaky on some Linux builders.
-#if !BUILDFLAG(IS_LINUX)
+  // TODO(crbug.com/511254271): Flaky on some Linux and ChromeOS builders.
+#if !BUILDFLAG(IS_LINUX) && !BUILDFLAG(IS_CHROMEOS)
       "chrome://prefs-internals",
 #endif
 
-      "chrome://privacy-sandbox-internals",
       "chrome://private-aggregation-internals",
       "chrome://private-ai-internals",
       "chrome://process-internals",
@@ -266,6 +267,7 @@ base::span<const std::string_view> GetChromeUrlsForTest() {
 #endif
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
       "chrome://signin-dice-web-intercept.top-chrome/?debug",
+      "chrome://signin-qrcode-bar",
 #endif
 #if BUILDFLAG(ENABLE_DICE_SUPPORT) && !BUILDFLAG(IS_CHROMEOS)
       "chrome://signout-confirmation",
@@ -318,6 +320,7 @@ base::span<const std::string_view> GetUntestedChromeUrlsForTest() {
       "chrome://managed-user-profile-notice",
       // TODO(crbug.com/40185163): DCHECK failure
       "chrome://memory-internals",
+      "chrome://omnibox-everywhere.top-chrome",
       "chrome://omnibox-popup.top-chrome",
       "chrome://profile-customization",
       "chrome://signin-dice-web-intercept.top-chrome",
@@ -390,7 +393,6 @@ base::span<const std::string_view> GetUntestedChromeUrlsForTest() {
       // for confirm password change UI.
       "chrome://confirm-password-change",
       "chrome://crostini-credits",
-      "chrome://device-emulator",
       "chrome://dlp-internals",
       "chrome://eche-app",
       "chrome://enterprise-reporting",

@@ -502,7 +502,7 @@ PositionWithAffinity PositionForContentsPointRespectingEditingBoundary(
 
   if (result.InnerNode()) {
     return PositionRespectingEditingBoundary(
-        frame->Selection().ComputeVisibleSelectionInDOMTree().Start(), result);
+        frame->Selection().ComputeVisibleSelectionInDomTree().Start(), result);
   }
   return PositionWithAffinity();
 }
@@ -620,7 +620,7 @@ static Position MostBackwardOrForwardCaretPosition(
   DCHECK(position.IsValidFor(*position.GetDocument())) << position;
 
   // Find the most backward or forward caret position in the flat tree.
-  const Position& candidate = ToPositionInDOMTree(
+  const Position& candidate = ToPositionInDomTree(
       AlgorithmInFlatTree(ToPositionInFlatTree(position), rule, client));
   Node* candidate_anchor = candidate.AnchorNode();
   if (!candidate_anchor)
@@ -633,13 +633,13 @@ static Position MostBackwardOrForwardCaretPosition(
   }
 
   // Adjust the candidate to avoid crossing shadow boundaries.
-  const SelectionInDOMTree& selection =
-      SelectionInDOMTree::Builder()
+  const SelectionInDomTree& selection =
+      SelectionInDomTree::Builder()
           .SetBaseAndExtent(position, candidate)
           .Build();
   if (selection.IsCaret())
     return candidate;
-  const SelectionInDOMTree& shadow_adjusted_selection =
+  const SelectionInDomTree& shadow_adjusted_selection =
       SelectionAdjuster::AdjustSelectionToAvoidCrossingShadowBoundaries(
           selection);
   const Position& adjusted_candidate = shadow_adjusted_selection.Focus();
@@ -653,7 +653,7 @@ static Position MostBackwardOrForwardCaretPosition(
   // crossing editing boundaries if it's not allowed.
   if (rule == kCannotCrossEditingBoundary &&
       selection != shadow_adjusted_selection) {
-    const SelectionInDOMTree& editing_adjusted_selection =
+    const SelectionInDomTree& editing_adjusted_selection =
         SelectionAdjuster::AdjustSelectionToAvoidCrossingEditingBoundaries(
             shadow_adjusted_selection);
     return editing_adjusted_selection.Focus();

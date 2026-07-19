@@ -214,10 +214,8 @@ void HTMLFormElement::HTMLFormMcpTool::ExecuteTool(
     // Without `toolautosubmit`, we focus the submit button, tell the agent to
     // allow user input, and wait for the user to submit it.
     submit_button->Focus();
-    if (auto* context =
-            ModelContextSupplement::modelContext(form_->GetDocument())) {
-      context->PauseExecution();
-    }
+    auto* context = ModelContextSupplement::modelContext(form_->GetDocument());
+    context->PauseExecution();
   } else {
     // With the `toolautosubmit` attribute, we immediately submit the form.
     form_->PrepareForSubmission(/*event*/ nullptr, submit_button);
@@ -371,15 +369,13 @@ void HTMLFormElement::ScheduleDeclarativeWebMCPToolRegistration() {
 
     ModelContext* model_context =
         ModelContextSupplement::modelContext(GetDocument());
-    if (model_context) {
-      if (!active_webmcp_tool_->IsHandlingSubmit()) {
-        active_webmcp_tool_->CallDoneCallback(base::unexpected(
-            ScriptToolError(ScriptToolErrorCode::kToolCancelled,
-                            "Tool execution cancelled, since tool definition "
-                            "was updated")));
-      }
-      model_context->UnregisterTool(active_webmcp_tool_->ToolName());
+    if (!active_webmcp_tool_->IsHandlingSubmit()) {
+      active_webmcp_tool_->CallDoneCallback(base::unexpected(
+          ScriptToolError(ScriptToolErrorCode::kToolCancelled,
+                          "Tool execution cancelled, since tool definition "
+                          "was updated")));
     }
+    model_context->UnregisterTool(active_webmcp_tool_->ToolName());
 
     active_webmcp_tool_ = nullptr;
     return;
@@ -399,6 +395,8 @@ void HTMLFormElement::RegisterDeclarativeWebMCPTool() {
   String name = FastGetAttribute(html_names::kToolnameAttr);
   String description = FastGetAttribute(html_names::kTooldescriptionAttr);
   String title = FastGetAttribute(html_names::kTooltitleAttr);
+  const bool has_toolautosubmit =
+      FastHasAttribute(html_names::kToolautosubmitAttr);
   // We check that `this` is "still" a valid declarative WebMCP form because
   // last we checked when this method was queued, it was, but that could've
   // changed.
@@ -410,9 +408,6 @@ void HTMLFormElement::RegisterDeclarativeWebMCPTool() {
 
   ModelContext* model_context =
       ModelContextSupplement::modelContext(GetDocument());
-  if (!model_context) {
-    return;
-  }
 
   if (active_webmcp_tool_) {
     String new_schema = active_webmcp_tool_->ComputeInputSchema();
@@ -420,8 +415,8 @@ void HTMLFormElement::RegisterDeclarativeWebMCPTool() {
     bool tool_attributes_changed =
         active_webmcp_tool_->ToolName() != name ||
         active_webmcp_tool_->ToolDescription() != description ||
-        active_webmcp_tool_->ToolTitle() != title;
-
+        active_webmcp_tool_->ToolTitle() != title ||
+        active_webmcp_tool_->HasToolautosubmit() != has_toolautosubmit;
     bool schema_changed =
         active_webmcp_tool_->LastComputedSchema() != new_schema;
 
@@ -441,8 +436,8 @@ void HTMLFormElement::RegisterDeclarativeWebMCPTool() {
     active_webmcp_tool_ = nullptr;
   }
 
-  active_webmcp_tool_ =
-      MakeGarbageCollected<HTMLFormMcpTool>(*this, name, description, title);
+  active_webmcp_tool_ = MakeGarbageCollected<HTMLFormMcpTool>(
+      *this, name, description, title, has_toolautosubmit);
   active_webmcp_tool_->SetLastComputedSchema(
       active_webmcp_tool_->ComputeInputSchema());
 
@@ -750,6 +745,9 @@ void HTMLFormElement::PrepareForSubmission(const Event* event,
       submit_event_init->setBubbles(true);
       submit_event_init->setCancelable(true);
       submit_event_init->setSubmitter(DynamicTo<HTMLElement>(submitter));
+      submit_event_init->setComposed(
+          submitter && RuntimeEnabledFeatures::ShadowRootReferenceTargetEnabled(
+                           submitter->GetExecutionContext()));
       if (declarative_webmcp_call) {
         CHECK(RuntimeEnabledFeatures::WebMCPEnabled(GetExecutionContext()));
         submit_event_init->setAgentInvoked(true);
@@ -1113,7 +1111,8 @@ void HTMLFormElement::AttributeChanged(
   HTMLElement::AttributeChanged(params);
   if ((name == html_names::kToolnameAttr ||
        name == html_names::kTooldescriptionAttr ||
-       name == html_names::kTooltitleAttr) &&
+       name == html_names::kTooltitleAttr ||
+       name == html_names::kToolautosubmitAttr) &&
       (params.old_value != params.new_value)) {
     ScheduleDeclarativeWebMCPToolRegistration();
   }

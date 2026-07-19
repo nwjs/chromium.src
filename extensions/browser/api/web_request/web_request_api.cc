@@ -280,18 +280,15 @@ void WebRequestAPI::ProxySet::RemoveProxy(Proxy* proxy) {
   proxies_.erase(proxy_it);
 }
 
-bool WebRequestAPI::ProxySet::AssociateProxyWithRequestId(
+void WebRequestAPI::ProxySet::AssociateProxyWithRequestId(
     Proxy* proxy,
     const content::GlobalRequestID& id) {
   DCHECK(proxy);
   DCHECK(proxies_.count(proxy));
   DCHECK(id.request_id);
   auto result = request_id_to_proxy_map_.emplace(id, proxy);
-  if (!result.second) {
-    return false;
-  }
+  DCHECK(result.second) << "Unexpected request ID collision.";
   proxy_to_request_id_map_[proxy].insert(id);
-  return true;
 }
 
 void WebRequestAPI::ProxySet::DisassociateProxyWithRequestId(
@@ -863,7 +860,8 @@ void WebRequestAPI::ProxyWebSocket(
     const net::SiteForCookies& site_for_cookies,
     const std::optional<std::string>& user_agent,
     mojo::PendingRemote<network::mojom::WebSocketHandshakeClient>
-        handshake_client) {
+        handshake_client,
+    mojo::PendingRemote<network::mojom::TrustedHeaderClient> header_client) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   DCHECK(MayHaveProxiesForFrame(frame));
 
@@ -879,9 +877,10 @@ void WebRequestAPI::ProxyWebSocket(
   WebRequestProxyingWebSocket::StartProxying(
       std::move(factory), url, site_for_cookies, user_agent,
       std::move(handshake_client), has_extra_headers, has_security_info,
-      frame->GetProcess()->GetDeprecatedID(), frame->GetRoutingID(),
-      &request_id_generator_, frame->GetLastCommittedOrigin(),
-      frame->GetProcess()->GetBrowserContext(), proxies_.get());
+      std::move(header_client), frame->GetProcess()->GetDeprecatedID(),
+      frame->GetRoutingID(), &request_id_generator_,
+      frame->GetLastCommittedOrigin(), frame->GetProcess()->GetBrowserContext(),
+      proxies_.get());
 }
 
 void WebRequestAPI::ProxyWebTransport(

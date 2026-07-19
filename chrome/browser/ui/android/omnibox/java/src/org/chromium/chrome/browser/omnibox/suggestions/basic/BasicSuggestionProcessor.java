@@ -22,7 +22,9 @@ import org.chromium.chrome.browser.omnibox.suggestions.SuggestionCommonPropertie
 import org.chromium.chrome.browser.omnibox.suggestions.base.BaseSuggestionViewProcessor;
 import org.chromium.components.omnibox.AutocompleteInput;
 import org.chromium.components.omnibox.AutocompleteMatch;
+import org.chromium.components.omnibox.DocumentType;
 import org.chromium.components.omnibox.OmniboxFeatures;
+import org.chromium.components.omnibox.OmniboxSuggestionKind;
 import org.chromium.components.omnibox.OmniboxSuggestionType;
 import org.chromium.components.omnibox.SuggestTemplateInfoProto.SuggestTemplateInfo;
 import org.chromium.components.omnibox.suggestions.OmniboxSuggestionUiType;
@@ -140,7 +142,11 @@ public class BasicSuggestionProcessor extends BaseSuggestionViewProcessor {
     @Override
     protected OmniboxDrawableState getFallbackIcon(AutocompleteMatch suggestion) {
         @DrawableRes int icon = 0;
-        if (suggestion.getType() == OmniboxSuggestionType.STARTER_PACK) {
+        boolean allowTint = true;
+        if (suggestion.getType() == OmniboxSuggestionType.DOCUMENT_SUGGESTION) {
+            icon = getDocumentIcon(suggestion.getDocumentType());
+            allowTint = false;
+        } else if (suggestion.getType() == OmniboxSuggestionType.STARTER_PACK) {
             int starterPackId = suggestion.getStarterPackId();
             if (starterPackId == StarterPackId.BOOKMARKS) {
                 icon = R.drawable.ic_star_24dp;
@@ -168,7 +174,7 @@ public class BasicSuggestionProcessor extends BaseSuggestionViewProcessor {
 
         return icon == 0
                 ? super.getFallbackIcon(suggestion)
-                : OmniboxDrawableState.forSmallIcon(mContext, icon, true);
+                : OmniboxDrawableState.forSmallIcon(mContext, icon, allowTint);
     }
 
     @Override
@@ -179,10 +185,12 @@ public class BasicSuggestionProcessor extends BaseSuggestionViewProcessor {
             int position) {
         super.populateModel(input, suggestion, model, position);
         final boolean isSearchSuggestion = suggestion.isSearchSuggestion();
+        final boolean isDocumentSuggestion =
+                suggestion.getType() == OmniboxSuggestionType.DOCUMENT_SUGGESTION;
         SuggestionSpannable textLine2 = null;
         boolean urlHighlighted = false;
 
-        if (!isSearchSuggestion) {
+        if (!isSearchSuggestion && !isDocumentSuggestion) {
             if (!suggestion.getUrl().isEmpty()
                     && suggestion.getType() != OmniboxSuggestionType.STARTER_PACK
                     && UrlBarData.shouldShowUrl(suggestion.getUrl(), false)) {
@@ -197,7 +205,8 @@ public class BasicSuggestionProcessor extends BaseSuggestionViewProcessor {
         }
 
         final SuggestionSpannable textLine1 =
-                getSuggestedQuery(suggestion, !isSearchSuggestion, !urlHighlighted);
+                getSuggestedQuery(
+                        suggestion, !isSearchSuggestion && !isDocumentSuggestion, !urlHighlighted);
 
         model.set(SuggestionViewProperties.IS_SEARCH_SUGGESTION, isSearchSuggestion);
         model.set(SuggestionViewProperties.ALLOW_WRAP_AROUND, isSearchSuggestion);
@@ -212,13 +221,16 @@ public class BasicSuggestionProcessor extends BaseSuggestionViewProcessor {
 
             if (totalInGroup > 0) {
                 String announcement;
+                String suggestionKindStr = mContext.getString(getSuggestionKindString(suggestion));
                 if (textLine2 != null && !TextUtils.isEmpty(textLine2.toString())) {
                     announcement =
                             OmniboxResourceProvider.getString(
                                     mContext,
-                                    R.string.acc_omnibox_suggestion_in_group_with_description,
+                                    R.string
+                                            .acc_omnibox_suggestion_in_group_with_type_and_description,
                                     textLine1.toString(),
                                     textLine2.toString(),
+                                    suggestionKindStr,
                                     String.valueOf(indexInGroup),
                                     String.valueOf(totalInGroup),
                                     header != null ? header : "");
@@ -226,8 +238,9 @@ public class BasicSuggestionProcessor extends BaseSuggestionViewProcessor {
                     announcement =
                             OmniboxResourceProvider.getString(
                                     mContext,
-                                    R.string.acc_omnibox_suggestion_in_group,
+                                    R.string.acc_omnibox_suggestion_in_group_with_type,
                                     textLine1.toString(),
+                                    suggestionKindStr,
                                     String.valueOf(indexInGroup),
                                     String.valueOf(totalInGroup),
                                     header != null ? header : "");
@@ -236,11 +249,25 @@ public class BasicSuggestionProcessor extends BaseSuggestionViewProcessor {
             }
         }
 
-        if (!isSearchSuggestion && !mBookmarkState.isBookmarked(suggestion.getUrl())) {
+        if (!isSearchSuggestion
+                && !mBookmarkState.isBookmarked(suggestion.getUrl())
+                && !isDocumentSuggestion) {
             fetchSuggestionFavicon(model, suggestion.getUrl());
         }
 
         setRemoveOrRefineAction(model, input, suggestion, position);
+    }
+
+    private int getSuggestionKindString(AutocompleteMatch suggestion) {
+        switch (suggestion.getSuggestionKind()) {
+            case OmniboxSuggestionKind.CONVERSATION:
+                return R.string.acc_omnibox_suggestion_type_conversation;
+            case OmniboxSuggestionKind.SEARCH:
+                return R.string.acc_omnibox_suggestion_type_search;
+            case OmniboxSuggestionKind.NAVIGATION:
+            default:
+                return R.string.acc_omnibox_suggestion_type_navigation;
+        }
     }
 
     protected @Nullable SuggestionSpannable getSuggestionDescription(AutocompleteMatch match) {
@@ -285,5 +312,30 @@ public class BasicSuggestionProcessor extends BaseSuggestionViewProcessor {
         SuggestionSpannable str = new SuggestionSpannable(suggestedQuery);
         if (shouldHighlight) applyHighlightToMatchRegions(str, classifications);
         return str;
+    }
+
+    private @DrawableRes int getDocumentIcon(@DocumentType int documentType) {
+        switch (documentType) {
+            case DocumentType.DRIVE_DOCS:
+                return R.drawable.ic_drive_docs_24dp;
+            case DocumentType.DRIVE_FORMS:
+                return R.drawable.ic_drive_forms_24dp;
+            case DocumentType.DRIVE_SHEETS:
+                return R.drawable.ic_drive_sheets_24dp;
+            case DocumentType.DRIVE_SLIDES:
+                return R.drawable.ic_drive_slides_24dp;
+            case DocumentType.DRIVE_IMAGE:
+                return R.drawable.ic_drive_image_colored_24dp;
+            case DocumentType.DRIVE_PDF:
+                return R.drawable.ic_attach_pdf_24dp;
+            case DocumentType.DRIVE_VIDEO:
+                return R.drawable.ic_drive_video_colored_24dp;
+            case DocumentType.DRIVE_FOLDER:
+                return R.drawable.ic_drive_folder_colored_24dp;
+            case DocumentType.DRIVE_OTHER:
+            case DocumentType.NONE:
+            default:
+                return R.drawable.ic_drive_logo_24dp;
+        }
     }
 }

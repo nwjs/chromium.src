@@ -85,6 +85,7 @@ static_library("multidevice_setup") {
   visibility = [
     ":*",
     "//chrome/browser",
+    "//chrome/browser:chrome_browser_interface_binders_webui_parts_chromeos",
     "//chrome/browser/ash/multidevice_debug",
     "//chrome/browser/ash/multidevice_setup",
     "//chrome/browser/prefs:impl",
@@ -175,8 +176,4 @@ source_set("unit_tests") {
     "//testing/gmock",
     "//testing/gtest",
   ]
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }

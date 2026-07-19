@@ -5,19 +5,36 @@
 #ifndef UI_ANDROID_OVERSCROLL_REFRESH_H_
 #define UI_ANDROID_OVERSCROLL_REFRESH_H_
 
+#include <optional>
+#include <variant>
+
 #include "base/memory/raw_ptr.h"
 #include "third_party/blink/public/common/input/web_gesture_device.h"
 #include "ui/android/ui_android_export.h"
+#include "ui/events/back_gesture_event.h"
 #include "ui/gfx/geometry/size_f.h"
 #include "ui/gfx/geometry/vector2d_f.h"
 
-// A Java counterpart will be generated for this enum.
+// Java counterparts will be generated for these enums.
 // GENERATED_JAVA_ENUM_PACKAGE: org.chromium.ui
 enum class OverscrollAction {
   kNone = 0,
   kPullToRefresh = 1,
   kHistoryNavigation = 2,
   kPullFromBottomEdge = 3
+};
+
+// GENERATED_JAVA_ENUM_PACKAGE: org.chromium.ui
+// kDisallowActivation: Prevents activation.
+// kAllowActivation: Allows activation, but the final decision depends on
+//                     Java-side logic (e.g. drag distance threshold).
+// kForceActivation: Forces the activation.
+// kReset: This is for NavigationHandler.java to reset the state
+enum class OverscrollActivationStatus {
+  kDisallowActivation = 0,
+  kAllowActivation = 1,
+  kForceActivation = 2,
+  kReset = 3
 };
 
 namespace cc {
@@ -99,13 +116,22 @@ class UI_ANDROID_EXPORT OverscrollRefresh {
   virtual bool IsAwaitingScrollUpdateAck() const;
 
   void SetTouchpadOverscrollHistoryNavigation(bool enabled);
+  void SetIsGestureNavigationMode(bool is_gesture_navigation_mode);
 
  protected:
   // This constructor is for mocking only.
   OverscrollRefresh();
 
  private:
-  void Release(bool allow_refresh);
+  void Release(OverscrollActivationStatus status);
+
+  // Returns velocity in the active action direction.
+  float GetVelocityInActiveActionDirection(const gfx::Vector2dF& velocity);
+
+  // Returns the activation status based on velocity in the active action
+  // direction.
+  OverscrollActivationStatus GetActivationStatus(
+      const gfx::Vector2dF& velocity);
 
   bool scrolled_to_top_;
   bool scrolled_to_bottom_;
@@ -118,11 +144,13 @@ class UI_ANDROID_EXPORT OverscrollRefresh {
   bool bottom_at_scroll_start_;
   bool overflow_y_hidden_;
 
-  enum class ScrollConsumptionState {
-    kDisabled,
-    kAwaitingScrollUpdateAck,
-    kEnabled,
-  } scroll_consumption_state_;
+  struct Disabled {};
+  struct AwaitingScrollUpdateAck {};
+  struct ActiveAction {
+    OverscrollAction action = OverscrollAction::kNone;
+    std::optional<BackGestureEventSwipeEdge> edge;
+    std::optional<blink::WebGestureDevice> device;
+  };
 
   float viewport_width_ = 0.f;
   float scroll_begin_x_ = 0.f;
@@ -130,6 +158,34 @@ class UI_ANDROID_EXPORT OverscrollRefresh {
   const float edge_width_;  // in px
   const raw_ptr<OverscrollRefreshHandler, DanglingUntriaged> handler_;
   bool touchpad_overscroll_history_navigation_enabled_ = false;
+  bool is_gesture_navigation_mode_ = false;
+
+  class ScrollState {
+   public:
+    void Reset() { state_ = Disabled{}; }
+    void StartAwaitingAck() { state_ = AwaitingScrollUpdateAck{}; }
+    void SetEnabled(const ActiveAction& action) {
+      CHECK(!IsEnabled());
+      state_ = action;
+    }
+
+    bool IsDisabled() const { return std::holds_alternative<Disabled>(state_); }
+    bool IsAwaitingAck() const {
+      return std::holds_alternative<AwaitingScrollUpdateAck>(state_);
+    }
+    bool IsEnabled() const {
+      return std::holds_alternative<ActiveAction>(state_);
+    }
+
+    const ActiveAction& GetAction() const {
+      CHECK(IsEnabled());
+      return std::get<ActiveAction>(state_);
+    }
+
+   private:
+    std::variant<Disabled, AwaitingScrollUpdateAck, ActiveAction> state_ =
+        Disabled{};
+  } scroll_state_;
 };
 
 }  // namespace ui

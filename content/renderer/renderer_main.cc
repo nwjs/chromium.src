@@ -18,6 +18,7 @@
 #include "base/message_loop/message_pump.h"
 #include "base/message_loop/message_pump_uv.h"
 #include "base/message_loop/message_pump_type.h"
+#include "base/message_loop/message_pump_wakeup_counter.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/pending_task.h"
 #include "base/process/current_process.h"
@@ -224,6 +225,7 @@ int RendererMain(MainFunctionParams parameters) {
 
   base::PlatformThread::SetName("CrRendererMain");
   mojo::InterfaceEndpointClient::SetThreadNameSuffixForMetrics("RendererMain");
+  base::MessagePumpWakeupCounter::InitializeForCurrentThread("RendererMain");
 
   // Force main thread initialization. When the implementation is based on a
   // better means of determining which is the main thread, remove.
@@ -252,7 +254,8 @@ int RendererMain(MainFunctionParams parameters) {
 
   std::optional<LastResortGCPolicy> last_resort_gc_policy;
   if (base::FeatureList::IsEnabled(kMemoryCoordinatorLastResortGC)) {
-    last_resort_gc_policy.emplace(ChildMemoryCoordinator::Get());
+    last_resort_gc_policy.emplace(
+        ChildMemoryCoordinator::Get().policy_manager());
   }
 
   {

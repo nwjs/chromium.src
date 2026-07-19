@@ -46,7 +46,7 @@ TEST(CheckCBORMessage, SmallestValidExample) {
   // an empty dictionary inside of an envelope.
   std::vector<uint8_t> empty_dict = {
       0xd8, 0x5a, 0, 0, 0, 2, EncodeIndefiniteLengthMapStart(), EncodeStop()};
-  Status status = CheckCBORMessage(SpanFrom(empty_dict));
+  Status status = CheckCBORMessage(SpanFrom(empty_dict)).status();
   EXPECT_THAT(status, StatusIsOk());
 }
 
@@ -66,13 +66,13 @@ TEST(CheckCBORMessage, ValidCBORButNotValidMessage) {
   EXPECT_EQ("7", json);
 
   // ... but it's not a message.
-  EXPECT_THAT(CheckCBORMessage(SpanFrom(not_a_message)),
+  EXPECT_THAT(CheckCBORMessage(SpanFrom(not_a_message)).status(),
               StatusIs(Error::CBOR_INVALID_START_BYTE, 0));
 }
 
 TEST(CheckCBORMessage, EmptyMessage) {
   std::vector<uint8_t> empty;
-  Status status = CheckCBORMessage(SpanFrom(empty));
+  Status status = CheckCBORMessage(SpanFrom(empty)).status();
   EXPECT_THAT(status, StatusIs(Error::CBOR_UNEXPECTED_EOF_IN_ENVELOPE, 0));
 }
 
@@ -80,32 +80,41 @@ TEST(CheckCBORMessage, InvalidStartByte) {
   // Here we test that some actual json, which usually starts with {, is not
   // considered CBOR. CBOR messages must start with 0xd8, 0x5a, the envelope
   // start bytes.
-  Status status = CheckCBORMessage(SpanFrom("{\"msg\": \"Hello, world.\"}"));
+  Status status =
+      CheckCBORMessage(SpanFrom("{\"msg\": \"Hello, world.\"}")).status();
   EXPECT_THAT(status, StatusIs(Error::CBOR_INVALID_START_BYTE, 0));
 }
 
 TEST(CheckCBORMessage, InvalidEnvelopes) {
   std::vector<uint8_t> bytes = {0xd8, 0x5a};
-  EXPECT_THAT(CheckCBORMessage(SpanFrom(bytes)),
+  EXPECT_THAT(CheckCBORMessage(SpanFrom(bytes)).status(),
               StatusIs(Error::CBOR_UNEXPECTED_EOF_IN_ENVELOPE, 2));
   bytes = {0xd8, 0x5a, 0};
-  EXPECT_THAT(CheckCBORMessage(SpanFrom(bytes)),
+  EXPECT_THAT(CheckCBORMessage(SpanFrom(bytes)).status(),
               StatusIs(Error::CBOR_UNEXPECTED_EOF_IN_ENVELOPE, 3));
   bytes = {0xd8, 0x5a, 0, 0};
-  EXPECT_THAT(CheckCBORMessage(SpanFrom(bytes)),
+  EXPECT_THAT(CheckCBORMessage(SpanFrom(bytes)).status(),
               StatusIs(Error::CBOR_UNEXPECTED_EOF_IN_ENVELOPE, 4));
   bytes = {0xd8, 0x5a, 0, 0, 0};
-  EXPECT_THAT(CheckCBORMessage(SpanFrom(bytes)),
+  EXPECT_THAT(CheckCBORMessage(SpanFrom(bytes)).status(),
               StatusIs(Error::CBOR_UNEXPECTED_EOF_IN_ENVELOPE, 5));
   bytes = {0xd8, 0x5a, 0, 0, 0, 0};
-  EXPECT_THAT(CheckCBORMessage(SpanFrom(bytes)),
+  EXPECT_THAT(CheckCBORMessage(SpanFrom(bytes)).status(),
               StatusIs(Error::CBOR_MAP_OR_ARRAY_EXPECTED_IN_ENVELOPE, 6));
 }
 
 TEST(CheckCBORMessage, MapStartExpected) {
   std::vector<uint8_t> bytes = {0xd8, 0x5a, 0, 0, 0, 1};
-  EXPECT_THAT(CheckCBORMessage(SpanFrom(bytes)),
+  EXPECT_THAT(CheckCBORMessage(SpanFrom(bytes)).status(),
               StatusIs(Error::CBOR_ENVELOPE_CONTENTS_LENGTH_MISMATCH, 6));
+}
+
+TEST(CheckCBORMessage, ReturnsOuterSize) {
+  std::vector<uint8_t> empty_dict = {
+      0xd8, 0x5a, 0, 0, 0, 2, EncodeIndefiniteLengthMapStart(), EncodeStop()};
+  auto result = CheckCBORMessage(SpanFrom(empty_dict));
+  ASSERT_THAT(result.status(), StatusIsOk());
+  EXPECT_EQ(*result, empty_dict.size());
 }
 
 // =============================================================================
@@ -1794,6 +1803,48 @@ TEST(HasKeyInMapTest, HandlesTruncation) {
 
   // "key2" is not found because it is not in the map (and map is truncated).
   EXPECT_FALSE(HasKeyInMap(SpanFrom(encoded), SpanFrom("key2")));
+}
+
+TEST(HasKeyInMapTest, FindsString16Key) {
+  std::vector<uint8_t> encoded;
+  EnvelopeEncoder envelope;
+  envelope.EncodeStart(&encoded);
+  encoded.push_back(EncodeIndefiniteLengthMapStart());
+
+  std::vector<uint16_t> key16 = {'k', 'e', 'y', '1'};
+  EncodeString16(SpanFrom(key16), &encoded);
+  EncodeString8(SpanFrom("value1"), &encoded);
+
+  EncodeString8(SpanFrom("key2"), &encoded);
+  EncodeInt32(42, &encoded);
+
+  encoded.push_back(EncodeStop());
+  envelope.EncodeStop(&encoded);
+
+  EXPECT_TRUE(HasKeyInMap(SpanFrom(encoded), SpanFrom("key1")));
+  EXPECT_TRUE(HasKeyInMap(SpanFrom(encoded), SpanFrom("key2")));
+}
+
+TEST(HasKeyInMapTest, DoesNotFindNonAsciiString16Key) {
+  std::vector<uint8_t> encoded;
+  EnvelopeEncoder envelope;
+  envelope.EncodeStart(&encoded);
+  encoded.push_back(EncodeIndefiniteLengthMapStart());
+
+  // "key_á" where á is U+00E1
+  std::vector<uint16_t> key16 = {'k', 'e', 'y', '_', 0x00e1};
+  EncodeString16(SpanFrom(key16), &encoded);
+  EncodeString8(SpanFrom("value1"), &encoded);
+
+  encoded.push_back(EncodeStop());
+  envelope.EncodeStop(&encoded);
+
+  // Searching with UTF-8 "key_á" should fail because it's non-ASCII.
+  // UTF-8 for á is \xc3\xa1
+  EXPECT_FALSE(HasKeyInMap(SpanFrom(encoded), SpanFrom("key_\xc3\xa1")));
+
+  // Searching with ASCII "key_a" should also fail.
+  EXPECT_FALSE(HasKeyInMap(SpanFrom(encoded), SpanFrom("key_a")));
 }
 
 TEST(HasKeyInMapTest, InvalidMessage) {

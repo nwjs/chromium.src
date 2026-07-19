@@ -104,17 +104,19 @@ void SendFilesToProjectorApp(std::vector<base::FilePath> files) {
   }
 
   webapps::LaunchParams launch_params;
-  launch_params.started_new_navigation = false;
-  launch_params.app_id = ash::kChromeUIUntrustedProjectorSwaAppId;
+  launch_params.set_started_new_navigation(false);
+  launch_params.set_app_id(ash::kChromeUIUntrustedProjectorSwaAppId);
   // Sending files should not navigate the app. This argument is used for
   // storage isolation, and won't impact navigation. It should be in scope of
   // the current WebContent's origin.
-  launch_params.target_url = web_contents->GetVisibleURL();
-  launch_params.paths = std::move(files);
+  launch_params.set_target_url(web_contents->GetVisibleURL());
+  launch_params.set_paths(std::move(files));
 
   // Dispatch the launch params directly instead of waiting for the navigation
   // to finish, as `started_new_navigation` is set to false for the launch
   // params.
   web_app::WebAppLaunchNavigationHandleUserData::DispatchLaunchParams(
-      web_contents, std::move(launch_params));
+      web_contents, std::move(launch_params),
+      apps::LaunchContainer::kLaunchContainerNone,
+      apps::LaunchSource::kUnknown);
 }

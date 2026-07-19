@@ -9,12 +9,13 @@
 #include "base/containers/flat_map.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/json/json_reader.h"
 #include "base/no_destructor.h"
 #include "base/notimplemented.h"
 #include "base/strings/strcat.h"
+#include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/sequenced_task_runner.h"
-#include "chrome/browser/media/router/data_decoder_util.h"
 #include "chrome/browser/media/router/providers/dial/dial_media_route_provider_metrics.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/media_router/common/media_source.h"
@@ -208,26 +209,37 @@ void DialMediaRouteProvider::TerminateRoute(const std::string& route_id,
 void DialMediaRouteProvider::SendRouteMessage(const std::string& media_route_id,
                                               const std::string& message) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  GetDataDecoder().ParseJson(
-      message, base::BindOnce(&DialMediaRouteProvider::HandleParsedRouteMessage,
-                              weak_ptr_factory_.GetWeakPtr(), media_route_id));
+  HandleParsedRouteMessage(media_route_id,
+                           base::JSONReader::ReadAndReturnValueWithError(
+                               message, base::JSON_PARSE_RFC));
 }
 
 void DialMediaRouteProvider::HandleParsedRouteMessage(
     const MediaRoute::Id& route_id,
-    data_decoder::DataDecoder::ValueOrError result) {
-  if (!result.has_value() || !result.value().is_dict()) {
-    logger_->LogError(
-        mojom::LogCategory::kRoute, kLoggerComponent,
-        base::StrCat({"Failed to parse the route message. ", result.error()}),
-        "", MediaRoute::GetMediaSourceIdFromMediaRouteId(route_id),
-        MediaRoute::GetPresentationIdFromMediaRouteId(route_id));
+    base::JSONReader::Result result) {
+  if (!result.has_value()) {
+    logger_->LogError(mojom::LogCategory::kRoute, kLoggerComponent,
+                      base::StrCat({"Failed to parse the route message. ",
+                                    result.error().message}),
+                      "",
+                      MediaRoute::GetMediaSourceIdFromMediaRouteId(route_id),
+                      MediaRoute::GetPresentationIdFromMediaRouteId(route_id));
+    return;
+  }
+
+  base::DictValue* dict = result->GetIfDict();
+  if (!dict) {
+    logger_->LogError(mojom::LogCategory::kRoute, kLoggerComponent,
+                      "Failed to parse the route message. Not a dictionary.",
+                      "",
+                      MediaRoute::GetMediaSourceIdFromMediaRouteId(route_id),
+                      MediaRoute::GetPresentationIdFromMediaRouteId(route_id));
     return;
   }
 
   std::string error;
   std::unique_ptr<DialInternalMessage> internal_message =
-      DialInternalMessage::From(std::move(result.value().GetDict()), &error);
+      DialInternalMessage::From(std::move(*dict), &error);
   if (!internal_message) {
     logger_->LogError(mojom::LogCategory::kRoute, kLoggerComponent,
                       base::StrCat({"Invalid route message. ", error}), "",
@@ -651,7 +663,7 @@ std::vector<url::Origin> DialMediaRouteProvider::GetOrigins(
   static const base::NoDestructor<
       base::flat_map<std::string, std::vector<url::Origin>>>
       origin_allowlist(
-          {{"YouTube",
+          {{"youtube",
             {CreateOrigin("https://music.youtube.com/"),
              CreateOrigin("https://music-green-qa.youtube.com/"),
              CreateOrigin("https://music-release-qa.youtube.com/"),
@@ -661,20 +673,22 @@ std::vector<url::Origin> DialMediaRouteProvider::GetOrigins(
              CreateOrigin("https://web-green-qa.youtube.com"),
              CreateOrigin("https://web-release-qa.youtube.com"),
              CreateOrigin("https://www.youtube.com")}},
-           {"Netflix", {CreateOrigin("https://www.netflix.com")}},
-           {"Pandora", {CreateOrigin("https://www.pandora.com")}},
-           {"Radio", {CreateOrigin("https://www.pandora.com")}},
-           {"Hulu", {CreateOrigin("https://www.hulu.com")}},
-           {"Vimeo", {CreateOrigin("https://www.vimeo.com")}},
-           {"Dailymotion", {CreateOrigin("https://www.dailymotion.com")}},
+           {"netflix", {CreateOrigin("https://www.netflix.com")}},
+           {"pandora", {CreateOrigin("https://www.pandora.com")}},
+           {"radio", {CreateOrigin("https://www.pandora.com")}},
+           {"hulu", {CreateOrigin("https://www.hulu.com")}},
+           {"vimeo", {CreateOrigin("https://www.vimeo.com")}},
+           {"dailymotion", {CreateOrigin("https://www.dailymotion.com")}},
            {"com.dailymotion", {CreateOrigin("https://www.dailymotion.com")}}});
 
-  auto origins_it = origin_allowlist->find(app_name);
-  if (origins_it == origin_allowlist->end()) {
-    return std::vector<url::Origin>();
+  // DIAL devices commonly treat app names case-insensitively.
+  for (const auto& [name, origins] : *origin_allowlist) {
+    if (base::EqualsCaseInsensitiveASCII(name, app_name)) {
+      return origins;
+    }
   }
 
-  return origins_it->second;
+  return std::vector<url::Origin>();
 }
 
 DialMediaRouteProvider::MediaSinkQuery::MediaSinkQuery() = default;

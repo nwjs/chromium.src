@@ -147,6 +147,9 @@ enum class TabGridOpeningMode {
 // is provided.
 - (void)showAccountMenuFromWebWithURL:(const GURL&)url;
 
+// Shows the account menu.
+- (void)showAccountMenuWithAccessPoint:(AccountMenuAccessPoint)accessPoint;
+
 // TODO(crbug.com/41352590) : Do not pass baseViewController through dispatcher.
 // Shows the consistency promo UI that allows users to sign in to Chrome using
 // the default accounts on the device.
@@ -177,6 +180,9 @@ enum class TabGridOpeningMode {
 
 // Displays the Assistant AIM interface.
 - (void)showAssistant;
+
+// Displays the Assistant AIM interface if hidden.
+- (void)revealAssistant;
 
 // Hides the assistant sheet if it is currently presented.
 - (void)hideAssistant;

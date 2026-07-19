@@ -39,7 +39,6 @@ import org.chromium.components.browser_ui.device_lock.DeviceLockActivityLauncher
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler.BackPressResult;
 import org.chromium.components.signin.base.AccountInfo;
-import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.metrics.AccountConsistencyPromoAction;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
@@ -57,14 +56,6 @@ public final class FullscreenSigninAndHistorySyncCoordinator extends SigninAndHi
         implements HistorySyncCoordinator.HistorySyncDelegate,
                 FullscreenSigninCoordinator.Delegate {
     public interface Delegate {
-        /**
-         * Notifies when the user clicked the "add account" button.
-         *
-         * @deprecated Use {@link #addAccount(String)} instead.
-         */
-        @Deprecated
-        void addAccount();
-
         /** Notifies when the user clicked the "add account" button with a specified email. */
         void addAccount(@Nullable String accountEmail);
 
@@ -248,17 +239,6 @@ public final class FullscreenSigninAndHistorySyncCoordinator extends SigninAndHi
         mDelegate.addAccount(accountEmail);
     }
 
-    /**
-     * Implements {@link FullscreenSigninCoordinator.Delegate}
-     *
-     * @deprecated Use {@link #addAccount(String)} instead.
-     */
-    @Override
-    @Deprecated
-    public void addAccount() {
-        mDelegate.addAccount();
-    }
-
     /** Implements {@link FullscreenSigninCoordinator.Delegate} */
     @Override
     public void advanceToNextPage() {
@@ -399,7 +379,7 @@ public final class FullscreenSigninAndHistorySyncCoordinator extends SigninAndHi
         Profile profile = assumeNonNull(mProfileSupplier.get()).getOriginalProfile();
         IdentityManager identityManager =
                 IdentityServicesProvider.get().getIdentityManager(profile);
-        CoreAccountInfo primaryAccount = assumeNonNull(identityManager).getPrimaryAccountInfo();
+        AccountInfo primaryAccount = assumeNonNull(identityManager).getPrimaryAccountInfo();
         if (primaryAccount == null) return false;
 
         // If switching account, being 'signed in' refers specifically to the target account.
@@ -418,6 +398,13 @@ public final class FullscreenSigninAndHistorySyncCoordinator extends SigninAndHi
         mViewHolder.addView(getCurrentChildView());
         switch (child) {
             case ChildView.SIGNIN:
+                // Destroy any pre-existing sign-in coordinator (e.g. after a configuration
+                // change while already on the sign-in view) so its mediator can unregister its
+                // AccountManagerFacade observer and release the Activity context.
+                if (mSigninCoordinator != null) {
+                    mSigninCoordinator.destroy();
+                    mSigninCoordinator = null;
+                }
                 mSigninCoordinator =
                         new FullscreenSigninCoordinator(
                                 mActivity,

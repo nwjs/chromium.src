@@ -165,8 +165,8 @@ D3D12VideoEncodeDelegate::GetSupportedProfiles(
         break;
 #endif  // BUILDFLAG(ENABLE_HEVC_PARSER_AND_HW_DECODER)
       case D3D12_VIDEO_ENCODER_CODEC_AV1:
-        profiles =
-            D3D12VideoEncodeAV1Delegate::GetSupportedProfiles(video_device);
+        profiles = D3D12VideoEncodeAV1Delegate::GetSupportedProfiles(
+            video_device, gpu_workarounds);
         break;
       default:
         NOTREACHED();
@@ -344,6 +344,18 @@ D3D12VideoEncodeDelegate::Encode(D3D12PictureBuffer picture_buffer,
       EncodeImpl(picture_buffer.resource.Get(), picture_buffer.subresource,
                  options, output_color_space);
   if (!impl_result.is_ok()) {
+    // EncodeImpl() may bail (e.g. kBadReferenceBuffer) after
+    // D3D12VideoProcessorWrapper::ProcessFrames() has already submitted work
+    // to the video processor queue but before D3D12VideoEncoderWrapper::Encode
+    // would have CPU-synced it. Sync now so resources referenced by that
+    // command list are not released while the GPU is still using them when
+    // teardown follows this error.
+    if (auto status = video_processor_wrapper_->WaitForInFlightWork();
+        !status.is_ok()) {
+      DLOG(ERROR) << "Waiting for in-flight video processing after encode "
+                     "error failed: "
+                  << static_cast<int>(status.code());
+    }
     return std::move(impl_result);
   }
 

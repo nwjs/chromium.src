@@ -24,7 +24,6 @@ group("resources") {
     "drive_internals:resources",
     "edu_coexistence:resources",
     "emoji_picker:resources",
-    "emulator:resources",
     "enterprise_reporting:resources",
     "floating_workspace:resources",
     "gaia_action_buttons:resources",
@@ -53,7 +52,6 @@ group("resources") {
     "smb_shares:resources",
     "supervision:resources",
     "sys_internals:resources",
-    "vm:resources",
   ]
 }
 

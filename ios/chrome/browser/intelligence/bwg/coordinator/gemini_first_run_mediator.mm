@@ -29,6 +29,7 @@
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/public/provider/chrome/browser/bwg/gemini_api.h"
 #import "ios/web/public/web_state.h"
@@ -116,8 +117,8 @@ const CGFloat kPromoMaxImpressionCount = 3;
   return ShouldForceBWGPromo() || !promoImpressionsExhausted;
 }
 
-- (GeminiConsentConfiguration*)consentConfigurationForFREType:
-    (GeminiFREType)FREType {
+- (GeminiConsentConfiguration*)consentConfigurationForFirstRunType:
+    (GeminiFirstRunType)firstRunType {
   variations::VariationsService* variationsService =
       GetApplicationContext()->GetVariationsService();
   std::string country =
@@ -131,7 +132,7 @@ const CGFloat kPromoMaxImpressionCount = 3;
   return [GeminiConsentConfiguration
       configurationForManaged:isManagedAccount
                        strict:[self useStrictLegalConsent]
-                         type:FREType
+                         type:firstRunType
                       country:nsCountry];
 }
 
@@ -162,6 +163,10 @@ const CGFloat kPromoMaxImpressionCount = 3;
 
 // Returns whether to show AI Hub IPH.
 - (BOOL)shouldShowAIHubIPH {
+  if (IsChromeNextIaEnabled()) {
+    return NO;
+  }
+
   BOOL wouldTriggerIPH =
       _tracker->WouldTriggerHelpUI(feature_engagement::kIPHIOSPageActionMenu);
 
@@ -174,7 +179,7 @@ const CGFloat kPromoMaxImpressionCount = 3;
   return !_geminiService->HasModelExecutionCapability();
 }
 
-#pragma mark - GeminiConsentMutator
+#pragma mark - GeminiFirstRunMutator
 
 - (BOOL)shouldShowImageRemixRow {
   return IsGeminiImageRemixToolShowFRERowEnabled() &&
@@ -196,7 +201,7 @@ const CGFloat kPromoMaxImpressionCount = 3;
 
 // Did consent to Live Gemini.
 - (void)didConsentToLiveGemini {
-  gemini::UpdateUserConsentPrefs(YES, _prefService);
+  gemini::UpdateUserConsentToLivePrefs(YES, _prefService);
   __weak __typeof(self) weakSelf = self;
   [_delegate dismissGeminiConsentUIWithCompletion:^{
     [weakSelf handleFRECompletion:YES];
@@ -235,11 +240,6 @@ const CGFloat kPromoMaxImpressionCount = 3;
   }
 
   [self logPromoShown];
-
-  GeminiTabHelper* geminiTabHelper = [self activeWebStateGeminiTabHelper];
-  if (geminiTabHelper) {
-    geminiTabHelper->SetIsFirstRun(true);
-  }
 }
 
 - (void)handleFRECompletion:(BOOL)success {

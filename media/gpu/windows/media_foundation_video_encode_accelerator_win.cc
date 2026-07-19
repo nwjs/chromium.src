@@ -211,6 +211,22 @@ bool IsOdd(int value) {
   return (value & 1) != 0;
 }
 
+// Returns true if the HRESULT indicates a timeout or abandoned mutex.
+bool IsKeyedMutexTimeout(HRESULT hr) {
+  return hr == HRESULT_FROM_WIN32(WAIT_TIMEOUT) ||
+         hr == HRESULT_FROM_WIN32(WAIT_ABANDONED);
+}
+
+HRESULT AcquireKeyedMutexSync(IDXGIKeyedMutex* keyed_mutex,
+                              uint64_t key,
+                              uint32_t timeout_ms) {
+  HRESULT hr = keyed_mutex->AcquireSync(key, timeout_ms);
+  if (hr == WAIT_TIMEOUT || hr == WAIT_ABANDONED) {
+    return HRESULT_FROM_WIN32(hr);
+  }
+  return hr;
+}
+
 }  // namespace
 
 // A proxy class that implements IMFAsyncCallback and routes the events back to
@@ -346,6 +362,18 @@ MediaFoundationVideoEncodeAccelerator::
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 }
 
+void MediaFoundationVideoEncodeAccelerator::InitializeForTesting(
+    Client* client,
+    std::unique_ptr<MediaLog> media_log,
+    const gfx::Size& input_visible_size,
+    scoped_refptr<DXGIDeviceManager> dxgi_device_manager) {
+  client_ = client;
+  media_log_ = std::move(media_log);
+  state_ = kEncoding;
+  input_visible_size_ = input_visible_size;
+  dxgi_device_manager_ = std::move(dxgi_device_manager);
+}
+
 VideoEncodeAccelerator::SupportedProfiles
 MediaFoundationVideoEncodeAccelerator::GetSupportedProfiles() {
   TRACE_EVENT0("gpu,startup",
@@ -368,7 +396,7 @@ EncoderStatus MediaFoundationVideoEncodeAccelerator::Initialize(
   media_log_ = std::move(media_log);
 
   bool is_supported_format = false;
-  if (base::FeatureList::IsEnabled(kMediaFoundationD3DVideoProcessing)) {
+  if (IsMediaFoundationD3DVideoProcessingEnabled(workarounds_)) {
     is_supported_format =
         std::ranges::find(kSupportedPixelFormatsD3DVideoProcessing,
                           config.input_format) !=
@@ -444,8 +472,9 @@ EncoderStatus MediaFoundationVideoEncodeAccelerator::Initialize(
   low_latency_mode_ = config.require_low_delay;
   drop_frame_thresh_percentage_ = config.drop_frame_thresh_percentage;
 
-  if (config.HasTemporalLayer())
+  if (config.HasTemporalLayer()) {
     num_temporal_layers_ = config.spatial_layers.front().num_of_temporal_layers;
+  }
 
   input_since_keyframe_count_ = 0;
   zero_layer_counter_ = 0;
@@ -724,7 +753,7 @@ bool MediaFoundationVideoEncodeAccelerator::InitializeMFT(
   }
   encoder_needs_input_counter_ = 0;
 
-  if (!base::FeatureList::IsEnabled(kMediaFoundationD3DVideoProcessing) ||
+  if (!IsMediaFoundationD3DVideoProcessingEnabled(workarounds_) ||
       input_format_ == PIXEL_FORMAT_NV12 ||
       input_format_ == PIXEL_FORMAT_I420) {
     return true;
@@ -754,10 +783,17 @@ void MediaFoundationVideoEncodeAccelerator::Encode(
     scoped_refptr<VideoFrame> frame,
     const EncodeOptions& options) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  bool force_key_frame =
-      (input_since_keyframe_count_ + pending_input_queue_.size()) %
-          gop_length_ ==
-      0;
+  bool force_key_frame = false;
+
+  // Clients can configure the encoder with an infinite GOP length by setting
+  // `gop_length_` to 0. We must ensure it is strictly greater than 0 before
+  // performing a modulo operation to prevent a divide-by-zero crash.
+  if (gop_length_ > 0) {
+    force_key_frame =
+        (input_since_keyframe_count_ + pending_input_queue_.size()) %
+            gop_length_ ==
+        0;
+  }
   EncodeOptions effective_options(options);
   effective_options.key_frame |= force_key_frame;
 
@@ -811,6 +847,22 @@ void MediaFoundationVideoEncodeAccelerator::QueueInput(
     scoped_refptr<media::VideoFrame> frame,
     const VideoEncoder::EncodeOptions& options,
     bool discard_output) {
+  if (frame && (frame->format() == PIXEL_FORMAT_NV12 ||
+                frame->format() == PIXEL_FORMAT_I420 ||
+                frame->format() == PIXEL_FORMAT_YV12 ||
+                frame->format() == PIXEL_FORMAT_NV21)) {
+    const gfx::Rect& visible_rect = frame->visible_rect();
+    if (visible_rect.x() % 2 != 0 || visible_rect.y() % 2 != 0 ||
+        visible_rect.width() % 2 != 0 || visible_rect.height() % 2 != 0) {
+      NotifyErrorStatus({EncoderStatus::Codes::kInvalidInputFrame,
+                         "Source visible_rect is not properly aligned for "
+                         "4:2:0 subsampled format."});
+      return;
+    }
+  } else {
+    NOTREACHED();
+  }
+
   PendingInput result;
   auto hr = MFCreateSample(&result.input_sample);
   if (FAILED(hr)) {
@@ -855,6 +907,11 @@ void MediaFoundationVideoEncodeAccelerator::QueueInput(
   }
 
   hr = PopulateInputSampleBuffer(result, std::move(frame));
+  if (IsKeyedMutexTimeout(hr)) {
+    DVLOG(1) << "Frame dropped because of keyed mutex timeout";
+    DropFrame(result.timestamp);
+    return;
+  }
   if (FAILED(hr)) {
     NotifyErrorStatus({EncoderStatus::Codes::kEncoderFailedEncode,
                        "Failed to populate input sample buffer"});
@@ -1927,9 +1984,7 @@ HRESULT MediaFoundationVideoEncodeAccelerator::ProcessInput(
 
     if (is_drop_frame) {
       DVLOG(3) << "Frame dropped by software rate control";
-      BitstreamBufferMetadata md =
-          BitstreamBufferMetadata::CreateForDropFrame(input.timestamp);
-      SendOutputBuffer(md, base::span<uint8_t>());
+      DropFrame(input.timestamp);
       VideoRateControlWrapper::FrameParams drop_frame_params{};
       drop_frame_params.frame_type =
           input.options.key_frame
@@ -2022,7 +2077,7 @@ HRESULT MediaFoundationVideoEncodeAccelerator::PopulateInputSampleBuffer(
       "timestamp", frame->timestamp());
 
   bool is_supported_format;
-  if (base::FeatureList::IsEnabled(kMediaFoundationD3DVideoProcessing)) {
+  if (IsMediaFoundationD3DVideoProcessingEnabled(workarounds_)) {
     is_supported_format =
         std::ranges::find(kSupportedPixelFormatsD3DVideoProcessing,
                           frame->format()) !=
@@ -2037,7 +2092,7 @@ HRESULT MediaFoundationVideoEncodeAccelerator::PopulateInputSampleBuffer(
     return MF_E_INVALID_STREAM_DATA;
   }
 
-  if (base::FeatureList::IsEnabled(kMediaFoundationD3DVideoProcessing) &&
+  if (IsMediaFoundationD3DVideoProcessingEnabled(workarounds_) &&
       frame->format() != input_format_) {
     input_format_ = frame->format();
     if (frame->format() == PIXEL_FORMAT_NV12 ||
@@ -2785,6 +2840,13 @@ void MediaFoundationVideoEncodeAccelerator::SendOutputBuffer(
   client_->BitstreamBufferReady(buffer_ref->id, metadata);
 }
 
+void MediaFoundationVideoEncodeAccelerator::DropFrame(
+    base::TimeDelta timestamp) {
+  BitstreamBufferMetadata md =
+      BitstreamBufferMetadata::CreateForDropFrame(timestamp);
+  SendOutputBuffer(md, base::span<uint8_t>());
+}
+
 HRESULT MediaFoundationVideoEncodeAccelerator::InitializeD3DVideoProcessing(
     ID3D11Texture2D* input_texture) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -2907,12 +2969,15 @@ HRESULT MediaFoundationVideoEncodeAccelerator::PerformD3DScaling(
       // hardware decoder acquired the mutex to decode into a different array
       // level then it still may block here temporarily.
       constexpr int kMaxSyncTimeMs = 100;
-      hr = keyed_mutex->AcquireSync(0, kMaxSyncTimeMs);
-      // Can't check for FAILED(hr) because AcquireSync may return e.g.
-      // WAIT_ABANDONED.
-      if (hr != S_OK && hr != WAIT_TIMEOUT) {
+      hr = AcquireKeyedMutexSync(keyed_mutex.Get(), 0, kMaxSyncTimeMs);
+
+      // If the lock is not acquired, the D3D runtime will silently fail the
+      // subsequent D3D operations, leaving the destination texture with
+      // uninitialized GPU memory. Compressing and outputting this memory can
+      // lead to a GPU memory disclosure.
+      if (FAILED(hr)) {
         LOG(ERROR) << "Failed to acquire mutex: " << PrintHr(hr);
-        return E_FAIL;
+        return hr;
       }
       release_keyed_mutex.emplace(std::move(keyed_mutex), 0);
     }
@@ -2974,23 +3039,21 @@ HRESULT MediaFoundationVideoEncodeAccelerator::PerformD3DScaling(
 HRESULT MediaFoundationVideoEncodeAccelerator::InitializeD3DCopying(
     ID3D11Texture2D* input_texture) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  D3D11_TEXTURE2D_DESC input_desc = {};
-  input_texture->GetDesc(&input_desc);
   // Return early if `copied_d3d11_texture_` is already the correct size,
   // avoiding the overhead of creating a new destination texture.
   if (copied_d3d11_texture_) {
     D3D11_TEXTURE2D_DESC copy_desc = {};
     copied_d3d11_texture_->GetDesc(&copy_desc);
-    if (input_desc.Width == copy_desc.Width &&
-        input_desc.Height == copy_desc.Height) {
+    if (static_cast<UINT>(input_visible_size_.width()) == copy_desc.Width &&
+        static_cast<UINT>(input_visible_size_.height()) == copy_desc.Height) {
       return S_OK;
     }
   }
   ComD3D11Device texture_device;
   input_texture->GetDevice(&texture_device);
   D3D11_TEXTURE2D_DESC copy_desc = {
-      .Width = input_desc.Width,
-      .Height = input_desc.Height,
+      .Width = static_cast<UINT>(input_visible_size_.width()),
+      .Height = static_cast<UINT>(input_visible_size_.height()),
       .MipLevels = 1,
       .ArraySize = 1,
       .Format = DXGI_FORMAT_NV12,
@@ -3032,18 +3095,27 @@ HRESULT MediaFoundationVideoEncodeAccelerator::PerformD3DCopy(
     hr = input_texture->QueryInterface(IID_PPV_ARGS(&keyed_mutex));
     if (SUCCEEDED(hr)) {
       constexpr int kMaxSyncTimeMs = 100;
-      hr = keyed_mutex->AcquireSync(0, kMaxSyncTimeMs);
-      // Can't check for FAILED(hr) because AcquireSync may return e.g.
-      // WAIT_ABANDONED.
-      if (hr != S_OK && hr != WAIT_TIMEOUT) {
+      hr = AcquireKeyedMutexSync(keyed_mutex.Get(), 0, kMaxSyncTimeMs);
+
+      // If the lock is not acquired, the D3D runtime will silently drop the
+      // subsequent CopySubresourceRegion command, leaving the destination
+      // texture with uninitialized GPU memory. Compressing and outputting this
+      // memory can lead to a GPU memory disclosure.
+      if (FAILED(hr)) {
         LOG(ERROR) << "Failed to acquire mutex: " << PrintHr(hr);
-        return E_FAIL;
+        return hr;
       }
       release_keyed_mutex.emplace(std::move(keyed_mutex), 0);
     }
 
     D3D11_TEXTURE2D_DESC input_desc;
     input_texture->GetDesc(&input_desc);
+
+    if (input_desc.Format != DXGI_FORMAT_NV12) {
+      LOG(ERROR) << "Format mismatch: source format " << input_desc.Format
+                 << " is not DXGI_FORMAT_NV12";
+      return E_INVALIDARG;
+    }
 
     if (visible_rect.x() < 0 || visible_rect.y() < 0 ||
         visible_rect.right() > static_cast<int>(input_desc.Width) ||
@@ -3151,7 +3223,11 @@ void MediaFoundationVideoEncodeAccelerator::OnSharedImageResourceAvailable(
   DCHECK(it != pending_input_queue_.end());
 
   hr = PopulateInputSampleBuffer(*it, std::move(frame));
-  if (FAILED(hr)) {
+  if (IsKeyedMutexTimeout(hr)) {
+    DVLOG(1) << "Frame dropped because of keyed mutex timeout";
+    DropFrame(it->timestamp);
+    pending_input_queue_.erase(it);
+  } else if (FAILED(hr)) {
     NotifyErrorStatus({EncoderStatus::Codes::kEncoderFailedEncode,
                        "Failed to populate input sample buffer"});
     return;

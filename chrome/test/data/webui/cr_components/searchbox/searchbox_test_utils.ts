@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import {createAutocompleteMatch} from '//resources/cr_components/searchbox/searchbox_browser_proxy.js';
+import type {SearchboxIconElement} from '//resources/cr_components/searchbox/searchbox_icon.js';
+import type {AutocompleteMatch} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {InputState} from '//resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import {ToolMode as ComposeboxToolMode} from '//resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import {assertEquals} from '//webui-test/chai_assert.js';
@@ -67,6 +70,7 @@ export class MockInputState implements InputState {
       chipLabel: '',
       disableActiveModelSelection: false,
       aimUrlParams: [],
+      menuTooltip: '',
     },
     {
       tool: ComposeboxToolMode.kImageGen,
@@ -75,6 +79,7 @@ export class MockInputState implements InputState {
       chipLabel: '',
       disableActiveModelSelection: false,
       aimUrlParams: [],
+      menuTooltip: '',
     },
     {
       tool: ComposeboxToolMode.kCanvas,
@@ -83,6 +88,7 @@ export class MockInputState implements InputState {
       chipLabel: '',
       disableActiveModelSelection: false,
       aimUrlParams: [],
+      menuTooltip: '',
     },
   ];
   toolsSectionConfig: any|null = null;
@@ -107,3 +113,40 @@ export class MockInputState implements InputState {
   }
 }
 // LINT.ThenChange(//chrome/test/data/webui/cr_components/composebox/composebox_test_utils.ts)
+
+export function createClipboardEvent(name: string): ClipboardEvent {
+  return new ClipboardEvent(
+      name, {cancelable: true, clipboardData: new DataTransfer()});
+}
+
+export function createUrlMatch(modifiers: Partial<AutocompleteMatch> = {}):
+    AutocompleteMatch {
+  return createAutocompleteMatch({
+    swapContentsAndDescription: true,
+    contents: 'helloworld.com',
+    contentsClass: [{offset: 0, style: 1}],
+    destinationUrl: 'https://helloworld.com/',
+    fillIntoEdit: 'https://helloworld.com',
+    type: 'url-what-you-typed',
+    ...modifiers,
+  });
+}
+
+export function assertIconMaskImageUrl(
+    iconElement: SearchboxIconElement, url: string) {
+  assertStyle(
+      iconElement.$.icon, '-webkit-mask-image',
+      `url("${new URL(url, document.baseURI).href}")`);
+  assertStyle(iconElement.$.icon, 'background-image', 'none');
+}
+
+export function createKeyboardEvent(
+    key: string, modifiers?: Partial<KeyboardEventInit>): KeyboardEvent {
+  return new KeyboardEvent('keydown', {
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    key,
+    ...modifiers,
+  });
+}

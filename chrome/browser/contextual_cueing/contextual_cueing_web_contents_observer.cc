@@ -6,6 +6,7 @@
 
 #include "chrome/browser/contextual_cueing/contextual_cueing_controller.h"
 #include "chrome/browser/contextual_cueing/contextual_cueing_service.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents.h"
 
@@ -39,25 +40,38 @@ void ContextualCueingWebContentsObserver::DidFinishNavigation(
     return;
   }
 
-  // Ignore reloads.
-  if (PageTransitionCoreTypeIs(navigation_handle->GetPageTransition(),
-                               ui::PAGE_TRANSITION_RELOAD)) {
-    return;
-  }
-  if (navigation_handle->GetPreviousPrimaryMainFrameURL() ==
-      navigation_handle->GetURL()) {
-    return;
-  }
+  const bool is_back_forward = (navigation_handle->GetPageTransition() &
+                                ui::PAGE_TRANSITION_FORWARD_BACK) != 0;
 
-  // Ignore fragment changes for cueing only.
-  if (navigation_handle->GetPreviousPrimaryMainFrameURL().GetWithoutRef() ==
-      navigation_handle->GetURL().GetWithoutRef()) {
-    return;
+  if (!is_back_forward) {
+    // Ignore reloads.
+    if (PageTransitionCoreTypeIs(navigation_handle->GetPageTransition(),
+                                 ui::PAGE_TRANSITION_RELOAD)) {
+      return;
+    }
+    if (navigation_handle->GetPreviousPrimaryMainFrameURL() ==
+        navigation_handle->GetURL()) {
+      return;
+    }
+
+    // Ignore fragment changes for cueing only.
+    if (navigation_handle->GetPreviousPrimaryMainFrameURL().GetWithoutRef() ==
+        navigation_handle->GetURL().GetWithoutRef()) {
+      return;
+    }
   }
 
   if (auto* controller =
           ContextualCueingController::GetForWebContents(GetWebContents())) {
-    controller->HideCue();
+    auto* tab = tabs::TabInterface::MaybeGetFromContents(&GetWebContents());
+    if (!tab) {
+      return;
+    }
+    controller->HideCueForTab(tab);
+    controller->HideAllCuesDependingOnTab(tab);
+    if (tab->IsActivated()) {
+      controller->ActiveTabUrlChanged(navigation_handle->GetURL());
+    }
   }
 }
 

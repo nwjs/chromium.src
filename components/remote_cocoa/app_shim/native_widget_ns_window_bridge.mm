@@ -100,9 +100,11 @@ bool IsBackgroundEffectView(NSView* view) {
     return true;
   }
 
-  Class glass_effect_view_class = NSClassFromString(@"NSGlassEffectView");
-  return glass_effect_view_class &&
-         [view isKindOfClass:glass_effect_view_class];
+  if (@available(macOS 26, *)) {
+    return [view isKindOfClass:[NSGlassEffectView class]];
+  }
+
+  return false;
 }
 
 }  // namespace
@@ -281,14 +283,15 @@ NSComparisonResult SubviewSorter(__kindof NSView* lhs,
 
   // Put background effect views before `ViewsCompositorSuperview`, otherwise
   // they can cover content displayed by the compositor.
-  if (IsBackgroundEffectView(lhs)) {
-    return NSOrderedAscending;
+  bool lhs_is_bg = IsBackgroundEffectView(lhs);
+  bool rhs_is_bg = IsBackgroundEffectView(rhs);
+  if (lhs_is_bg != rhs_is_bg) {
+    return lhs_is_bg ? NSOrderedAscending : NSOrderedDescending;
   }
-  if ([lhs isKindOfClass:[ViewsCompositorSuperview class]]) {
-    if (IsBackgroundEffectView(rhs)) {
-      return NSOrderedDescending;
-    }
-    return NSOrderedAscending;
+  bool lhs_is_comp = [lhs isKindOfClass:[ViewsCompositorSuperview class]];
+  bool rhs_is_comp = [rhs isKindOfClass:[ViewsCompositorSuperview class]];
+  if (lhs_is_comp != rhs_is_comp) {
+    return lhs_is_comp ? NSOrderedAscending : NSOrderedDescending;
   }
 
   const RankMap* rank = static_cast<const RankMap*>(rank_as_void);
@@ -1397,6 +1400,9 @@ void NativeWidgetNSWindowBridge::OnWindowWillClose() {
   [window_ setCommandDispatcherDelegate:nil];
 
   ui::CATransactionCoordinator::Get().RemovePreCommitObserver(this);
+  // This is the standard teardown path when the NSWindow is closing.
+  // Notify the host process that the window is closing so that it can
+  // tear down the browser-side widget/window structures.
   host_->OnWindowWillClose();
 
   // Ensure NativeWidgetNSWindowBridge does not have capture, otherwise
@@ -1547,7 +1553,12 @@ void NativeWidgetNSWindowBridge::InitCompositorView(
   // native shape is what's most appropriate for displaying sheets on Mac.
   if (is_translucent_window_ && !IsWindowModalSheet()) {
     [window_ setOpaque:NO];
-    [window_ setBackgroundColor:[NSColor clearColor]];
+    // A completely transparent background ([NSColor clearColor]) causes AppKit
+    // to continuously invalidate the window surface, resulting in high CPU
+    // and energy usage. Using an almost-transparent color (alpha 0.001) avoids
+    // this performance issue while remaining visually indistinguishable.
+    [window_ setBackgroundColor:[[NSColor windowBackgroundColor]
+                                    colorWithAlphaComponent:0.001]];
 
     // Don't block waiting for the initial frame of completely transparent
     // windows. This allows us to avoid blocking on the UI thread e.g, while
@@ -1887,15 +1898,11 @@ void NativeWidgetNSWindowBridge::SetCanAppearInExistingFullscreenSpaces(
     bool can_appear_in_existing_fullscreen_spaces) {
   NSWindowCollectionBehavior collectionBehavior = window_.collectionBehavior;
   if (can_appear_in_existing_fullscreen_spaces) {
-    if (@available(macOS 13.0, *)) {
-      collectionBehavior &= ~NSWindowCollectionBehaviorPrimary;
-    }
+    collectionBehavior &= ~NSWindowCollectionBehaviorPrimary;
     collectionBehavior |= NSWindowCollectionBehaviorFullScreenAuxiliary;
     collectionBehavior &= ~NSWindowCollectionBehaviorFullScreenPrimary;
   } else {
-    if (@available(macOS 13.0, *)) {
-      collectionBehavior |= NSWindowCollectionBehaviorPrimary;
-    }
+    collectionBehavior |= NSWindowCollectionBehaviorPrimary;
     collectionBehavior |= NSWindowCollectionBehaviorFullScreenPrimary;
     collectionBehavior &= ~NSWindowCollectionBehaviorFullScreenAuxiliary;
   }
@@ -2332,6 +2339,7 @@ void NativeWidgetNSWindowBridge::ShowAsModalSheet() {
               // key window, it would try to show us as a new modal sheet.
               wants_to_be_visible_ = false;
               [window orderOut:nil];
+              // Notify that the sheet window is closing.
               OnWindowWillClose();
             }];
   });

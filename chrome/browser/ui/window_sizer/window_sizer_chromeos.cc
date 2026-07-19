@@ -57,8 +57,9 @@ void WindowSizerChromeOS::DetermineWindowBoundsAndShowState(
 gfx::Rect WindowSizerChromeOS::GetDefaultWindowBounds(
     const display::Display& display) const {
   // Let apps set their own default.
-  if (browser() && browser()->app_controller()) {
-    gfx::Rect bounds = browser()->app_controller()->GetDefaultBounds();
+  if (browser() && web_app::AppBrowserController::From(browser())) {
+    gfx::Rect bounds =
+        web_app::AppBrowserController::From(browser())->GetDefaultBounds();
     if (!bounds.IsEmpty()) {
       return bounds;
     }
@@ -89,19 +90,20 @@ bool WindowSizerChromeOS::GetBrowserBounds(
   }
 
   // This should not be called on a Browser that already has a window.
-  DCHECK(!browser()->window());
+  DCHECK(!browser()->GetWindow());
 
   bool determined = false;
   if (bounds->IsEmpty()) {
     if (browser()->is_type_normal()) {
       GetTabbedBrowserBounds(bounds, show_state);
       determined = true;
-    } else if (browser()->is_trusted_source()) {
+    } else if (WindowFeatureController::From(browser())->IsTrustedSource()) {
       // For trusted popups (v1 apps and system windows), do not use the last
       // active window bounds, only use saved or default bounds.
       // For PWA app windows (which are also a trusted source) we do want to use
       // the last active window bounds.
-      if (!browser()->is_type_app() || !browser()->app_controller() ||
+      if (!browser()->is_type_app() ||
+          !web_app::AppBrowserController::From(browser()) ||
           !GetAppBrowserBoundsFromLastActive(bounds, show_state)) {
         if (!browser()->create_params().can_resize ||
             !GetSavedWindowBounds(bounds, show_state)) {
@@ -194,7 +196,7 @@ bool WindowSizerChromeOS::GetAppBrowserBoundsFromLastActive(
     ui::mojom::WindowShowState* show_state) const {
   DCHECK(show_state);
   DCHECK(bounds_in_screen);
-  DCHECK(browser()->app_controller());
+  DCHECK(web_app::AppBrowserController::From(browser()));
 
   if (state_provider() && state_provider()->GetLastActiveWindowState(
                               bounds_in_screen, show_state)) {

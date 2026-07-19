@@ -254,7 +254,7 @@ ReplacementFragment::ReplacementFragment(Document* document,
 
   const EphemeralRange range =
       CreateVisibleSelection(
-          SelectionInDOMTree::Builder().SelectAllChildren(*holder).Build())
+          SelectionInDomTree::Builder().SelectAllChildren(*holder).Build())
           .ToNormalizedEphemeralRange();
   const TextIteratorBehavior& behavior = TextIteratorBehavior::Builder()
                                              .SetEmitsOriginalText(true)
@@ -540,7 +540,7 @@ static bool HasMatchingQuoteLevel(VisiblePosition end_of_existing_content,
   Position existing = end_of_existing_content.DeepEquivalent();
   Position inserted = end_of_inserted_content.DeepEquivalent();
   bool is_inside_mail_blockquote = EnclosingNodeOfType(
-      inserted, IsMailHTMLBlockquoteElement, kCanCrossEditingBoundary);
+      inserted, IsMailHtmlBlockquoteElement, kCanCrossEditingBoundary);
   return is_inside_mail_blockquote && (NumEnclosingMailBlockquotes(existing) ==
                                        NumEnclosingMailBlockquotes(inserted));
 }
@@ -595,7 +595,7 @@ bool ReplaceSelectionCommand::ShouldMergeEnd(
          ShouldMerge(end_of_inserted_content, next);
 }
 
-static bool IsHTMLHeaderElement(const Node* a) {
+static bool IsHtmlHeaderElement(const Node* a) {
   const auto* element = DynamicTo<HTMLElement>(a);
   if (!element)
     return false;
@@ -623,12 +623,12 @@ bool ReplaceSelectionCommand::ShouldMerge(const VisiblePosition& source,
   Element* destination_block = EnclosingBlock(destination_node);
   return source_block &&
          (!source_block->HasTagName(html_names::kBlockquoteTag) ||
-          IsMailHTMLBlockquoteElement(source_block)) &&
+          IsMailHtmlBlockquoteElement(source_block)) &&
          EnclosingListChild(source_block) ==
              EnclosingListChild(destination_node) &&
          EnclosingTableCell(source.DeepEquivalent()) ==
              EnclosingTableCell(destination.DeepEquivalent()) &&
-         (!IsHTMLHeaderElement(source_block) ||
+         (!IsHtmlHeaderElement(source_block) ||
           HaveSameTagName(source_block, destination_block))
          // Don't merge to or from a position before or after a block because it
          // would be a no-op and cause infinite recursion.
@@ -789,6 +789,8 @@ void ReplaceSelectionCommand::RemoveRedundantStylesAndKeepStyleSpanInline(
     const CSSPropertyValueSet* inline_style = element->InlineStyle();
     EditingStyle* new_inline_style =
         MakeGarbageCollected<EditingStyle>(inline_style);
+    EditingStyle* style_without_parent_context = nullptr;
+
     if (inline_style) {
       auto* html_element = DynamicTo<HTMLElement>(element);
       if (html_element) {
@@ -827,7 +829,7 @@ void ReplaceSelectionCommand::RemoveRedundantStylesAndKeepStyleSpanInline(
               ? To<HTMLQuoteElement>(context)
               : To<HTMLQuoteElement>(EnclosingNodeOfType(
                     Position::FirstPositionInNode(*context),
-                    IsMailHTMLBlockquoteElement, kCanCrossEditingBoundary));
+                    IsMailHtmlBlockquoteElement, kCanCrossEditingBoundary));
 
       // EditingStyle::removeStyleFromRulesAndContext() uses StyleResolver,
       // which requires clean style.
@@ -840,11 +842,38 @@ void ReplaceSelectionCommand::RemoveRedundantStylesAndKeepStyleSpanInline(
         new_inline_style->RemoveStyleFromRulesAndContext(
             element, GetDocument().documentElement());
 
+      const bool is_style_span_during_move =
+          RuntimeEnabledFeatures::
+              MoveParagraphsPreserveInlineStructureEnabled() &&
+          moving_paragraph_ && IsStyleSpanOrSpanWithOnlyStyleAttribute(element);
+      if (is_style_span_during_move) {
+        style_without_parent_context =
+            MakeGarbageCollected<EditingStyle>(inline_style);
+        style_without_parent_context->RemoveStyleFromContext(element, context);
+      }
+
       new_inline_style->RemoveStyleFromRulesAndContext(element, context);
     }
 
-    if (!inline_style || new_inline_style->IsEmpty()) {
-      if (IsStyleSpanOrSpanWithOnlyStyleAttribute(element) ||
+    const bool should_unwrap_style_span_during_move =
+        style_without_parent_context && style_without_parent_context->IsEmpty();
+    const bool is_redundant_nested_span =
+        moving_paragraph_ && IsA<HTMLSpanElement>(element) &&
+        IsA<HTMLSpanElement>(element->parentNode());
+    // During a paragraph move, keep an inline style <span> instead of
+    // unwrapping it so the moved text retains its inline structure. Redundant
+    // style wrappers and nested spans carry no useful context, so they are
+    // still unwrapped.
+    const bool preserve_style_span_during_move =
+        RuntimeEnabledFeatures::
+            MoveParagraphsPreserveInlineStructureEnabled() &&
+        moving_paragraph_ && !should_unwrap_style_span_during_move &&
+        !is_redundant_nested_span;
+
+    if (!inline_style || new_inline_style->IsEmpty() ||
+        should_unwrap_style_span_during_move) {
+      if ((IsStyleSpanOrSpanWithOnlyStyleAttribute(element) &&
+           !preserve_style_span_during_move) ||
           IsEmptyFontTag(element, kAllowNonEmptyStyleAttribute)) {
         inserted_nodes.WillRemoveNodePreservingChildren(*element);
         RemoveNodePreservingChildren(element, editing_state);
@@ -862,7 +891,7 @@ void ReplaceSelectionCommand::RemoveRedundantStylesAndKeepStyleSpanInline(
     GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kEditing);
 
     // FIXME: Tolerate differences in id, class, and style attributes.
-    if (element->parentNode() && IsNonTableCellHTMLBlockElement(element) &&
+    if (element->parentNode() && IsNonTableCellHtmlBlockElement(element) &&
         AreIdenticalElements(*element, *element->parentNode()) &&
         VisiblePosition::FirstPositionInNode(*element->parentNode())
                 .DeepEquivalent() ==
@@ -991,9 +1020,9 @@ void ReplaceSelectionCommand::
       }
     }
 
-    if (IsHTMLHeaderElement(element)) {
+    if (IsHtmlHeaderElement(element)) {
       if (auto* header_element = To<HTMLElement>(HighestEnclosingNodeOfType(
-              Position::InParentBeforeNode(*element), IsHTMLHeaderElement))) {
+              Position::InParentBeforeNode(*element), IsHtmlHeaderElement))) {
         MoveElementOutOfAncestor(element, header_element, editing_state);
         if (editing_state->IsAborted())
           return;
@@ -1155,9 +1184,10 @@ void ReplaceSelectionCommand::HandleStyleSpansBeforeInsertion(
   // quoted content is more complicated (see handleStyleSpans) and doesn't
   // receive the optimization.
   if (EnclosingNodeOfType(FirstPositionInOrBeforeNode(*top_node),
-                          IsMailHTMLBlockquoteElement,
-                          kCanCrossEditingBoundary))
+                          IsMailHtmlBlockquoteElement,
+                          kCanCrossEditingBoundary)) {
     return;
+  }
 
   // Remove style spans to follow the styles of parent block element when
   // |fragment| becomes a part of it. See bugs http://crbug.com/226941 and
@@ -1176,6 +1206,14 @@ void ReplaceSelectionCommand::HandleStyleSpansBeforeInsertion(
   if (GetInputType() != InputEvent::InputType::kInsertFromPaste &&
       FollowBlockElementStyle(node)) {
     fragment.RemoveNodePreservingChildren(wrapping_style_span);
+    return;
+  }
+
+  // For paragraph moves, defer cleanup of spans with inline style until after
+  // insertion, where spans are unwrapped only if that does not change the
+  // rendering of the moved text.
+  if (RuntimeEnabledFeatures::MoveParagraphsPreserveInlineStructureEnabled() &&
+      moving_paragraph_) {
     return;
   }
 
@@ -1296,7 +1334,7 @@ static bool IsInlineHTMLElementWithStyle(const Node* node) {
 
   // We can skip over elements whose class attribute is
   // one of our internal classes.
-  return EditingStyle::ElementIsStyledSpanOrHTMLEquivalent(element);
+  return EditingStyle::ElementIsStyledSpanOrHtmlEquivalent(element);
 }
 
 static inline HTMLElement*
@@ -1348,7 +1386,7 @@ void ReplaceSelectionCommand::InsertParagraphSeparatorIfNeeds(
       EnclosingBlock(visible_start.DeepEquivalent().AnchorNode());
 
   const bool start_is_inside_mail_blockquote = EnclosingNodeOfType(
-      selection.Start(), IsMailHTMLBlockquoteElement, kCanCrossEditingBoundary);
+      selection.Start(), IsMailHtmlBlockquoteElement, kCanCrossEditingBoundary);
   const bool selection_is_plain_text =
       !IsRichlyEditablePosition(selection.Anchor());
   Element* const current_root = selection.RootEditableElement();
@@ -1388,9 +1426,15 @@ void ReplaceSelectionCommand::InsertParagraphSeparatorIfNeeds(
           !IsStartOfParagraph(start_after_delete) &&
           !IsEndOfEditableOrNonEditableContent(start_after_delete)) {
         SetEndingSelection(SelectionForUndoStep::From(
-            SelectionInDOMTree::Builder()
+            SelectionInDomTree::Builder()
                 .Collapse(NextPositionOf(start_after_delete).DeepEquivalent())
                 .Build()));
+        if (RuntimeEnabledFeatures::EditingUseDomPositionApiEnabled()) {
+          SetEndingDomSelection(SelectionForUndoStep::From(
+              SelectionInDomTree::Builder()
+                  .Collapse(NextPositionOf(start_after_delete).DeepEquivalent())
+                  .Build()));
+        }
       } else {
         InsertParagraphSeparator(editing_state);
       }
@@ -1405,9 +1449,15 @@ void ReplaceSelectionCommand::InsertParagraphSeparatorIfNeeds(
       if (IsEndOfParagraph(visible_start) &&
           !IsStartOfParagraph(visible_start) && next.IsNotNull()) {
         SetEndingSelection(
-            SelectionForUndoStep::From(SelectionInDOMTree::Builder()
+            SelectionForUndoStep::From(SelectionInDomTree::Builder()
                                            .Collapse(next.DeepEquivalent())
                                            .Build()));
+        if (RuntimeEnabledFeatures::EditingUseDomPositionApiEnabled()) {
+          SetEndingDomSelection(
+              SelectionForUndoStep::From(SelectionInDomTree::Builder()
+                                             .Collapse(next.DeepEquivalent())
+                                             .Build()));
+        }
       } else {
         InsertParagraphSeparator(editing_state);
         if (editing_state->IsAborted())
@@ -1451,11 +1501,19 @@ void ReplaceSelectionCommand::InsertParagraphSeparatorIfNeeds(
         return;
       GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kEditing);
       SetEndingSelection(SelectionForUndoStep::From(
-          SelectionInDOMTree::Builder()
+          SelectionInDomTree::Builder()
               .Collapse(
                   PreviousPositionOf(EndingVisibleSelection().VisibleStart())
                       .DeepEquivalent())
               .Build()));
+      if (RuntimeEnabledFeatures::EditingUseDomPositionApiEnabled()) {
+        SetEndingDomSelection(SelectionForUndoStep::From(
+            SelectionInDomTree::Builder()
+                .Collapse(
+                    PreviousPositionOf(EndingVisibleSelection().VisibleStart())
+                        .DeepEquivalent())
+                .Build()));
+      }
     }
   }
 }
@@ -1487,7 +1545,7 @@ void ReplaceSelectionCommand::DoApply(EditingState* editing_state) {
   SetUpStyle(selection);
   Element* const current_root = selection.RootEditableElement();
   const bool start_is_inside_mail_blockquote = EnclosingNodeOfType(
-      selection.Start(), IsMailHTMLBlockquoteElement, kCanCrossEditingBoundary);
+      selection.Start(), IsMailHtmlBlockquoteElement, kCanCrossEditingBoundary);
   const bool selection_is_plain_text =
       !IsRichlyEditablePosition(selection.Anchor());
   const bool selection_end_was_end_of_paragraph =
@@ -1504,7 +1562,7 @@ void ReplaceSelectionCommand::DoApply(EditingState* editing_state) {
   // blockquote, so first break out of any surrounding Mail blockquotes. Unless
   // we're inserting in a table, in which case breaking the blockquote will
   // prevent the content from actually being inserted in the table.
-  if (EnclosingNodeOfType(insertion_pos, IsMailHTMLBlockquoteElement,
+  if (EnclosingNodeOfType(insertion_pos, IsMailHtmlBlockquoteElement,
                           kCanCrossEditingBoundary) &&
       prevent_nesting_ &&
       !(EnclosingNodeOfType(insertion_pos, &IsTableStructureNode))) {
@@ -1673,9 +1731,9 @@ void ReplaceSelectionCommand::DoApply(EditingState* editing_state) {
   fragment.RemoveNode(inserted_nodes.RefNode());
 
   Element* block_start = EnclosingBlock(insertion_pos.AnchorNode());
-  if ((IsHTMLListElement(inserted_nodes.RefNode()) ||
+  if ((IsHtmlListElement(inserted_nodes.RefNode()) ||
        IsListItemTag(inserted_nodes.RefNode()) ||
-       (IsHTMLListElement(inserted_nodes.RefNode()->firstChild()))) &&
+       (IsHtmlListElement(inserted_nodes.RefNode()->firstChild()))) &&
       block_start && block_start->GetLayoutObject()->IsListItem() &&
       IsEditable(*block_start->parentNode())) {
     inserted_nodes.SetRefNode(InsertAsListItems(
@@ -1923,18 +1981,31 @@ void ReplaceSelectionCommand::DoApply(EditingState* editing_state) {
             return;
         }
         SetEndingSelection(SelectionForUndoStep::From(
-            SelectionInDOMTree::Builder()
+            SelectionInDomTree::Builder()
                 .Collapse(
                     Position::AfterNode(*inserted_nodes.LastLeafInserted()))
                 .Build()));
+        if (RuntimeEnabledFeatures::EditingUseDomPositionApiEnabled()) {
+          SetEndingDomSelection(SelectionForUndoStep::From(
+              SelectionInDomTree::Builder()
+                  .Collapse(
+                      Position::AfterNode(*inserted_nodes.LastLeafInserted()))
+                  .Build()));
+        }
         // Select up to the paragraph separator that was added.
         last_position_to_select =
             EndingVisibleSelection().VisibleStart().DeepEquivalent();
       } else if (!IsStartOfParagraph(end_of_inserted_content)) {
         SetEndingSelection(SelectionForUndoStep::From(
-            SelectionInDOMTree::Builder()
+            SelectionInDomTree::Builder()
                 .Collapse(end_of_inserted_content.DeepEquivalent())
                 .Build()));
+        if (RuntimeEnabledFeatures::EditingUseDomPositionApiEnabled()) {
+          SetEndingDomSelection(SelectionForUndoStep::From(
+              SelectionInDomTree::Builder()
+                  .Collapse(end_of_inserted_content.DeepEquivalent())
+                  .Build()));
+        }
         Element* enclosing_block_element = EnclosingBlock(
             end_of_inserted_content.DeepEquivalent().AnchorNode());
         if (IsListItem(enclosing_block_element)) {
@@ -1945,9 +2016,15 @@ void ReplaceSelectionCommand::DoApply(EditingState* editing_state) {
           if (editing_state->IsAborted())
             return;
           SetEndingSelection(SelectionForUndoStep::From(
-              SelectionInDOMTree::Builder()
+              SelectionInDomTree::Builder()
                   .Collapse(Position::FirstPositionInNode(*new_list_item))
                   .Build()));
+          if (RuntimeEnabledFeatures::EditingUseDomPositionApiEnabled()) {
+            SetEndingDomSelection(SelectionForUndoStep::From(
+                SelectionInDomTree::Builder()
+                    .Collapse(Position::FirstPositionInNode(*new_list_item))
+                    .Build()));
+          }
         } else {
           // Use a default paragraph element (a plain div) for the empty
           // paragraph, using the last paragraph block's style seems to annoy
@@ -1957,7 +2034,7 @@ void ReplaceSelectionCommand::DoApply(EditingState* editing_state) {
               !start_is_inside_mail_blockquote &&
                   HighestEnclosingNodeOfType(
                       end_of_inserted_content.DeepEquivalent(),
-                      IsMailHTMLBlockquoteElement, kCannotCrossEditingBoundary,
+                      IsMailHtmlBlockquoteElement, kCannotCrossEditingBoundary,
                       inserted_nodes.FirstNodeInserted()->parentNode()));
           if (editing_state->IsAborted())
             return;
@@ -1990,7 +2067,7 @@ void ReplaceSelectionCommand::DoApply(EditingState* editing_state) {
   if (plain_text_fragment)
     match_style_ = false;
 
-  CompleteHTMLReplacement(last_position_to_select, editing_state);
+  CompleteHtmlReplacement(last_position_to_select, editing_state);
 
   // Remove the placeholder after the replacement is complete
   if (placeholder.IsNotNull()) {
@@ -2137,7 +2214,7 @@ void ReplaceSelectionCommand::AddSpacesForSmartReplace(
   }
 }
 
-void ReplaceSelectionCommand::CompleteHTMLReplacement(
+void ReplaceSelectionCommand::CompleteHtmlReplacement(
     const Position& last_position_to_select,
     EditingState* editing_state) {
   Position start = PositionAtStartOfInsertedContent().DeepEquivalent();
@@ -2181,21 +2258,32 @@ void ReplaceSelectionCommand::CompleteHTMLReplacement(
   end_of_inserted_range_ = end;
 
   if (select_replacement_) {
-    SetEndingSelection(SelectionForUndoStep::From(
-        SelectionInDOMTree::Builder()
-            .SetBaseAndExtentDeprecated(start, end)
-            .Build()));
+    SetEndingSelection(
+        SelectionForUndoStep::From(SelectionInDomTree::Builder()
+                                       .SetBaseAndExtentDeprecated(start, end)
+                                       .Build()));
+    if (RuntimeEnabledFeatures::EditingUseDomPositionApiEnabled()) {
+      SetEndingDomSelection(
+          SelectionForUndoStep::From(SelectionInDomTree::Builder()
+                                         .SetBaseAndExtentDeprecated(start, end)
+                                         .Build()));
+    }
     return;
   }
 
   if (end.IsNotNull()) {
     SetEndingSelection(SelectionForUndoStep::From(
-        SelectionInDOMTree::Builder()
-            .Collapse(end)
-            .Build()));
+        SelectionInDomTree::Builder().Collapse(end).Build()));
+    if (RuntimeEnabledFeatures::EditingUseDomPositionApiEnabled()) {
+      SetEndingDomSelection(SelectionForUndoStep::From(
+          SelectionInDomTree::Builder().Collapse(end).Build()));
+    }
     return;
   }
   SetEndingSelection(SelectionForUndoStep());
+  if (RuntimeEnabledFeatures::EditingUseDomPositionApiEnabled()) {
+    SetEndingDomSelection(SelectionForUndoStep());
+  }
 }
 
 void ReplaceSelectionCommand::MergeTextNodesAroundPosition(
@@ -2438,7 +2526,7 @@ Node* ReplaceSelectionCommand::InsertAsListItems(HTMLElement* list_element,
     list_item = list_element;
   } else {
     while (list_element->HasOneChild() &&
-           IsHTMLListElement(list_element->firstChild())) {
+           IsHtmlListElement(list_element->firstChild())) {
       list_element = To<HTMLElement>(list_element->firstChild());
     }
     list_item = list_element->firstChild();
@@ -2568,9 +2656,15 @@ bool ReplaceSelectionCommand::PerformTrivialReplace(
   }
 
   SetEndingSelection(SelectionForUndoStep::From(
-      SelectionInDOMTree::Builder()
+      SelectionInDomTree::Builder()
           .SetBaseAndExtentDeprecated(select_replacement_ ? start : end, end)
           .Build()));
+  if (RuntimeEnabledFeatures::EditingUseDomPositionApiEnabled()) {
+    SetEndingDomSelection(SelectionForUndoStep::From(
+        SelectionInDomTree::Builder()
+            .SetBaseAndExtentDeprecated(select_replacement_ ? start : end, end)
+            .Build()));
+  }
 
   return true;
 }

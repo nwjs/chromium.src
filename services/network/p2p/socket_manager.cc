@@ -17,6 +17,7 @@
 #include "net/base/address_list.h"
 #include "net/base/net_errors.h"
 #include "net/base/network_anonymization_key.h"
+#include "net/base/network_handle.h"
 #include "net/base/network_interfaces.h"
 #include "net/base/sys_addrinfo.h"
 #include "net/dns/dns_util.h"
@@ -120,8 +121,13 @@ class P2PSocketManager::DnsRequest {
     if (family.has_value()) {
       parameters.dns_query_type = net::AddressFamilyToDnsQueryType(*family);
     }
-    request_ = resolver_->CreateRequest(host, network_anonymization_key,
-                                        net::NetLogWithSource(), parameters);
+    request_ = resolver_->CreateRequest(
+        host, network_anonymization_key,
+        // There are currently no plans to support multi-network for
+        // network::P2PSocket: always target the default network.
+        // Revisit this decision if a need arises.
+        net::handles::kInvalidNetworkHandle, net::NetLogWithSource(),
+        parameters);
 
     int result = request_->Start(base::BindOnce(
         &P2PSocketManager::DnsRequest::OnDone, base::Unretained(this)));
@@ -310,10 +316,14 @@ void P2PSocketManager::GetDefaultLocalAddress(int family,
                                               GetDefaultCallback callback) {
   DCHECK(family == AF_INET || family == AF_INET6);
 
-  auto socket =
-      url_request_context_->GetNetworkSessionContext()
-          ->client_socket_factory->CreateDatagramClientSocket(
-              net::DatagramSocket::DEFAULT_BIND, nullptr, net::NetLogSource());
+  auto socket = url_request_context_->GetNetworkSessionContext()
+                    ->client_socket_factory->CreateDatagramClientSocket(
+                        net::DatagramSocket::DEFAULT_BIND,
+                        // There are currently no plans to support multi-network
+                        // for network::P2PSocket: always target the default
+                        // network. Revisit this decision if a need arises.
+                        net::handles::kInvalidNetworkHandle,
+                        nullptr /* net_log */, net::NetLogSource());
 
   net::IPAddress ip_address;
   if (family == AF_INET) {

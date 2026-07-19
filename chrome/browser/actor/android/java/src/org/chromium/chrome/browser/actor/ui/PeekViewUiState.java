@@ -4,8 +4,6 @@
 
 package org.chromium.chrome.browser.actor.ui;
 
-import android.content.Context;
-import android.content.res.ColorStateList;
 import android.content.res.Resources;
 import android.view.View;
 
@@ -15,10 +13,8 @@ import androidx.annotation.DrawableRes;
 import androidx.annotation.IntDef;
 import androidx.annotation.StringRes;
 import androidx.annotation.StyleRes;
-import androidx.core.content.ContextCompat;
 
 import org.chromium.build.annotations.NullMarked;
-import org.chromium.build.annotations.Nullable;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -60,6 +56,7 @@ public class PeekViewUiState {
     public final @Visibility int descriptionVisibility;
     public final @StyleRes int titleTextAppearanceResId;
     public final @ColorRes int buttonBackgroundResId;
+    public final @StringRes int buttonContentDescriptionResId;
 
     private PeekViewUiState(
             @StateType int type,
@@ -71,7 +68,8 @@ public class PeekViewUiState {
             @Visibility int buttonVisibility,
             @StringRes int buttonTextResId,
             @Visibility int descriptionVisibility,
-            @StyleRes int titleTextAppearanceResId) {
+            @StyleRes int titleTextAppearanceResId,
+            @StringRes int buttonContentDescriptionResId) {
         this.type = type;
         this.descriptionResId = descriptionResId;
         this.buttonIconResId = buttonIconResId;
@@ -82,52 +80,9 @@ public class PeekViewUiState {
         this.buttonTextResId = buttonTextResId;
         this.descriptionVisibility = descriptionVisibility;
         this.titleTextAppearanceResId = titleTextAppearanceResId;
+        this.buttonContentDescriptionResId = buttonContentDescriptionResId;
     }
 
-    /**
-     * Returns the background color tint list for the actor control button.
-     *
-     * @param context The {@link Context} to use for retrieving resources.
-     * @return The background color tint list for the actor control button.
-     */
-    public @Nullable ColorStateList getButtonBackgroundTint(Context context) {
-        if (buttonBackgroundResId == Resources.ID_NULL) {
-            return null;
-        }
-        return ColorStateList.valueOf(ContextCompat.getColor(context, buttonBackgroundResId));
-    }
-
-    /**
-     * Returns the horizontal padding for the actor control button.
-     *
-     * @param context The {@link Context} to use for retrieving resources.
-     * @return The horizontal padding for the actor control button in pixels.
-     */
-    public int getButtonHorizontalPadding(Context context) {
-        return (buttonHorizontalPaddingResId != Resources.ID_NULL)
-                ? context.getResources().getDimensionPixelSize(buttonHorizontalPaddingResId)
-                : 0;
-    }
-
-    /**
-     * Returns the description for the current state of the actor task.
-     *
-     * @param context The {@link Context} to use for retrieving resources.
-     * @return The description for the current state of the actor task.
-     */
-    public String getDescription(Context context) {
-        return (descriptionResId != Resources.ID_NULL) ? context.getString(descriptionResId) : "";
-    }
-
-    /**
-     * Returns the text displayed on the actor control button.
-     *
-     * @param context The {@link Context} to use for retrieving resources.
-     * @return The text displayed on the actor control button.
-     */
-    public @Nullable String getButtonText(Context context) {
-        return (buttonTextResId != Resources.ID_NULL) ? context.getString(buttonTextResId) : null;
-    }
 
     /**
      * Returns the visibility of the actor control button.
@@ -156,18 +111,6 @@ public class PeekViewUiState {
         return titleTextAppearanceResId;
     }
 
-    /**
-     * Returns the icon tint for the actor control button.
-     *
-     * @param context The {@link Context} to use for retrieving resources.
-     * @return The icon tint for the actor control button.
-     */
-    public @Nullable ColorStateList getIconTint(Context context) {
-        return (iconTintResId != Resources.ID_NULL)
-                ? context.getColorStateList(iconTintResId)
-                : null;
-    }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -186,7 +129,8 @@ public class PeekViewUiState {
                 && buttonVisibility == that.buttonVisibility
                 && buttonTextResId == that.buttonTextResId
                 && descriptionVisibility == that.descriptionVisibility
-                && titleTextAppearanceResId == that.titleTextAppearanceResId;
+                && titleTextAppearanceResId == that.titleTextAppearanceResId
+                && buttonContentDescriptionResId == that.buttonContentDescriptionResId;
     }
 
     @Override
@@ -201,7 +145,8 @@ public class PeekViewUiState {
                 buttonVisibility,
                 buttonTextResId,
                 descriptionVisibility,
-                titleTextAppearanceResId);
+                titleTextAppearanceResId,
+                buttonContentDescriptionResId);
     }
 
     // Static instances for each state
@@ -216,7 +161,9 @@ public class PeekViewUiState {
                     /* buttonVisibility= */ View.VISIBLE,
                     /* buttonTextResId= */ Resources.ID_NULL,
                     /* descriptionVisibility= */ View.VISIBLE,
-                    /* titleTextAppearanceResId= */ R.style.TextAppearance_TextMediumThick_Primary);
+                    /* titleTextAppearanceResId= */ R.style.TextAppearance_TextMediumThick_Primary,
+                    /* buttonContentDescriptionResId= */ R.string
+                            .peek_state_pause_button_a11y_label);
 
     public static final PeekViewUiState PAUSED =
             new PeekViewUiState(
@@ -229,7 +176,9 @@ public class PeekViewUiState {
                     /* buttonVisibility= */ View.VISIBLE,
                     /* buttonTextResId= */ Resources.ID_NULL,
                     /* descriptionVisibility= */ View.VISIBLE,
-                    /* titleTextAppearanceResId= */ R.style.TextAppearance_TextMediumThick_Primary);
+                    /* titleTextAppearanceResId= */ R.style.TextAppearance_TextMediumThick_Primary,
+                    /* buttonContentDescriptionResId= */ R.string
+                            .peek_state_play_button_a11y_label);
 
     public static final PeekViewUiState WAITING =
             new PeekViewUiState(
@@ -243,7 +192,8 @@ public class PeekViewUiState {
                     /* buttonVisibility= */ View.VISIBLE,
                     /* buttonTextResId= */ R.string.peek_state_view_button_label,
                     /* descriptionVisibility= */ View.VISIBLE,
-                    /* titleTextAppearanceResId= */ R.style.TextAppearance_TextMediumThick_Primary);
+                    /* titleTextAppearanceResId= */ R.style.TextAppearance_TextMediumThick_Primary,
+                    /* buttonContentDescriptionResId= */ Resources.ID_NULL);
 
     public static final PeekViewUiState DEFAULT =
             new PeekViewUiState(
@@ -256,5 +206,6 @@ public class PeekViewUiState {
                     /* buttonVisibility= */ View.GONE,
                     /* buttonTextResId= */ Resources.ID_NULL,
                     /* descriptionVisibility= */ View.GONE,
-                    /* titleTextAppearanceResId= */ R.style.TextAppearance_Headline2Thick);
+                    /* titleTextAppearanceResId= */ R.style.TextAppearance_Headline2Thick,
+                    /* buttonContentDescriptionResId= */ Resources.ID_NULL);
 }

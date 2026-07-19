@@ -111,9 +111,9 @@ bool IsInPasswordFieldWithUnrevealedPassword(const Position& position) {
 
 // When an event handler has moved the selection outside of a text control
 // we should use the target control's selection for this editing operation.
-SelectionInDOMTree Editor::SelectionForCommand(Event* event) {
-  const SelectionInDOMTree selection =
-      GetFrameSelection().GetSelectionInDOMTree();
+SelectionInDomTree Editor::SelectionForCommand(Event* event) {
+  const SelectionInDomTree selection =
+      GetFrameSelection().GetSelectionInDomTree();
   if (!event)
     return selection;
   // If the target is a text control, and the current selection is outside of
@@ -127,7 +127,7 @@ SelectionInDOMTree Editor::SelectionForCommand(Event* event) {
   if (!selection.IsNone() &&
       text_control_of_target == text_control_of_selection_start)
     return selection;
-  const SelectionInDOMTree& select = text_control_of_target->Selection();
+  const SelectionInDomTree& select = text_control_of_target->Selection();
   if (select.IsNone())
     return selection;
   return select;
@@ -143,12 +143,15 @@ EditingBehavior Editor::Behavior() const {
 }
 
 static bool IsCaretAtStartOfWrappedLine(const FrameSelection& selection) {
-  if (!selection.ComputeVisibleSelectionInDOMTree().IsCaret())
+  if (!selection.ComputeVisibleSelectionInDomTree().IsCaret()) {
     return false;
-  if (selection.GetSelectionInDOMTree().Affinity() != TextAffinity::kDownstream)
+  }
+  if (selection.GetSelectionInDomTree().Affinity() !=
+      TextAffinity::kDownstream) {
     return false;
+  }
   const Position& position =
-      selection.ComputeVisibleSelectionInDOMTree().Start();
+      selection.ComputeVisibleSelectionInDomTree().Start();
   if (InSameLine(PositionWithAffinity(position, TextAffinity::kUpstream),
                  PositionWithAffinity(position, TextAffinity::kDownstream)))
     return false;
@@ -237,17 +240,15 @@ bool Editor::HandleTextEvent(TextEvent* event) {
 }
 
 bool Editor::CanEdit() const {
-  return GetFrame()
-      .Selection()
-      .ComputeVisibleSelectionInDOMTreeDeprecated()
+  return GetFrameSelection()
+      .ComputeVisibleSelectionInDomTreeDeprecated()
       .RootEditableElement();
 }
 
 bool Editor::CanEditRichly() const {
   return IsRichlyEditablePosition(
-      GetFrame()
-          .Selection()
-          .ComputeVisibleSelectionInDOMTreeDeprecated()
+      GetFrameSelection()
+          .ComputeVisibleSelectionInDomTreeDeprecated()
           .Anchor());
 }
 
@@ -266,7 +267,7 @@ bool Editor::CanCopy() const {
       selection.ComputeVisibleSelectionInFlatTree();
   return visible_selection.IsRange() &&
          !IsInPasswordFieldWithUnrevealedPassword(
-             ToPositionInDOMTree(visible_selection.Start()));
+             ToPositionInDomTree(visible_selection.Start()));
 }
 
 bool Editor::CanPaste() const {
@@ -275,8 +276,8 @@ bool Editor::CanPaste() const {
 
 bool Editor::CanDelete() const {
   FrameSelection& selection = GetFrameSelection();
-  return selection.ComputeVisibleSelectionInDOMTreeDeprecated().IsRange() &&
-         selection.ComputeVisibleSelectionInDOMTree().RootEditableElement();
+  return selection.ComputeVisibleSelectionInDomTreeDeprecated().IsRange() &&
+         selection.ComputeVisibleSelectionInDomTree().RootEditableElement();
 }
 
 bool Editor::SmartInsertDeleteEnabled() const {
@@ -295,11 +296,11 @@ void Editor::DeleteSelectionWithSmartDelete(
     DeleteMode delete_mode,
     InputEvent::InputType input_type,
     const Position& reference_move_position) {
-  if (GetFrame()
-          .Selection()
-          .ComputeVisibleSelectionInDOMTreeDeprecated()
-          .IsNone())
+  if (GetFrameSelection()
+          .ComputeVisibleSelectionInDomTreeDeprecated()
+          .IsNone()) {
     return;
+  }
 
   DCHECK(GetFrame().GetDocument());
   MakeGarbageCollected<DeleteSelectionCommand>(
@@ -324,7 +325,7 @@ void Editor::ReplaceSelectionWithFragment(
     DataTransfer* data_transfer) {
   DCHECK(!GetFrame().GetDocument()->NeedsLayoutTreeUpdate());
   const VisibleSelection& selection =
-      GetFrameSelection().ComputeVisibleSelectionInDOMTree();
+      GetFrameSelection().ComputeVisibleSelectionInDomTree();
   if (selection.IsNone() || !selection.IsContentEditable() || !fragment)
     return;
 
@@ -454,9 +455,8 @@ bool Editor::ReplaceSelectionAfterDraggingWithEvents(
 }
 
 EphemeralRange Editor::SelectedRange() {
-  return GetFrame()
-      .Selection()
-      .ComputeVisibleSelectionInDOMTreeDeprecated()
+  return GetFrameSelection()
+      .ComputeVisibleSelectionInDomTreeDeprecated()
       .ToNormalizedEphemeralRange();
 }
 
@@ -491,12 +491,12 @@ void Editor::RegisterCommandGroup(CompositeEditCommand* command_group_wrapper) {
 
 void Editor::ApplyParagraphStyle(CSSPropertyValueSet* style,
                                  InputEvent::InputType input_type) {
-  if (GetFrame()
-          .Selection()
-          .ComputeVisibleSelectionInDOMTreeDeprecated()
+  if (GetFrameSelection()
+          .ComputeVisibleSelectionInDomTreeDeprecated()
           .IsNone() ||
-      !style)
+      !style) {
     return;
+  }
   DCHECK(GetFrame().GetDocument());
   MakeGarbageCollected<ApplyStyleCommand>(
       *GetFrame().GetDocument(), MakeGarbageCollected<EditingStyle>(style),
@@ -580,7 +580,7 @@ bool Editor::InsertLineBreak() {
     return false;
 
   VisiblePosition caret =
-      GetFrameSelection().ComputeVisibleSelectionInDOMTree().VisibleStart();
+      GetFrameSelection().ComputeVisibleSelectionInDomTree().VisibleStart();
   DCHECK(GetFrame().GetDocument());
   if (!TypingCommand::InsertLineBreak(*GetFrame().GetDocument()))
     return false;
@@ -597,7 +597,7 @@ bool Editor::InsertParagraphSeparator() {
     return InsertLineBreak();
 
   VisiblePosition caret =
-      GetFrameSelection().ComputeVisibleSelectionInDOMTree().VisibleStart();
+      GetFrameSelection().ComputeVisibleSelectionInDomTree().VisibleStart();
   DCHECK(GetFrame().GetDocument());
   EditingState editing_state;
   if (!TypingCommand::InsertParagraphSeparator(*GetFrame().GetDocument()))
@@ -826,9 +826,8 @@ void Editor::ComputeAndSetTypingStyle(CSSPropertyValueSet* style,
   else
     typing_style_ = MakeGarbageCollected<EditingStyle>(style);
 
-  const Position& position = GetFrame()
-                                 .Selection()
-                                 .ComputeVisibleSelectionInDOMTreeDeprecated()
+  const Position& position = GetFrameSelection()
+                                 .ComputeVisibleSelectionInDomTreeDeprecated()
                                  .VisibleStart()
                                  .DeepEquivalent();
   if (position.IsNull())
@@ -864,7 +863,7 @@ bool Editor::FindString(LocalFrame& frame,
     return false;
 
   frame.Selection().SetSelectionAndEndTyping(
-      SelectionInDOMTree::Builder()
+      SelectionInDomTree::Builder()
           .SetBaseAndExtent(EphemeralRange(result_range))
           .Build());
   frame.Selection().RevealSelection();
@@ -890,8 +889,8 @@ static Range* FindStringBetweenPositions(
 
     auto* range_object = MakeGarbageCollected<Range>(
         result_range.GetDocument(),
-        ToPositionInDOMTree(result_range.StartPosition()),
-        ToPositionInDOMTree(result_range.EndPosition()));
+        ToPositionInDomTree(result_range.StartPosition()),
+        ToPositionInDomTree(result_range.EndPosition()));
     if (!range_object->collapsed())
       return range_object;
 
@@ -998,7 +997,7 @@ void Editor::SyncSelection(SyncCondition force_sync) {
   // https://crbug.com/459123383 .
   if (frame_->Client()) {
     frame_->Client()->DidChangeSelection(
-        !GetFrameSelection().GetSelectionInDOMTree().IsRange(), force_sync);
+        !GetFrameSelection().GetSelectionInDomTree().IsRange(), force_sync);
   }
 }
 
@@ -1011,7 +1010,7 @@ FrameSelection& Editor::GetFrameSelection() const {
 }
 
 void Editor::SetMark() {
-  mark_ = GetFrameSelection().ComputeVisibleSelectionInDOMTree();
+  mark_ = GetFrameSelection().ComputeVisibleSelectionInDomTree();
   mark_is_directional_ = GetFrameSelection().IsDirectional();
 }
 

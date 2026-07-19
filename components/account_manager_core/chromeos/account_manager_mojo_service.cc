@@ -31,16 +31,6 @@ namespace crosapi {
 
 namespace {
 
-void MarshalAccounts(
-    mojom::AccountManager::GetAccountsCallback callback,
-    const std::vector<account_manager::Account>& accounts_to_marshal) {
-  std::vector<mojom::AccountPtr> mojo_accounts;
-  for (const account_manager::Account& account : accounts_to_marshal) {
-    mojo_accounts.emplace_back(account_manager::ToMojoAccount(account));
-  }
-  std::move(callback).Run(std::move(mojo_accounts));
-}
-
 void ReportErrorStatusFromHasDummyGaiaToken(
     base::OnceCallback<void(mojom::GoogleServiceAuthErrorPtr)> callback,
     bool has_dummy_token) {
@@ -88,9 +78,10 @@ void AccountManagerMojoService::SetAccountManagerUI(
   account_manager_ui_ = std::move(account_manager_ui);
 }
 
-void AccountManagerMojoService::OnAccountUpsertionFinishedForTesting(
-    const account_manager::AccountUpsertionResult& result) {
-  OnAccountUpsertionFinished(result);
+base::OnceCallback<void(const account_manager::AccountUpsertionResult&)>
+AccountManagerMojoService::CreateInlineLoginAccountUpsertionFinishedCallback() {
+  return base::BindOnce(&AccountManagerMojoService::OnAccountUpsertionFinished,
+                        weak_ptr_factory_.GetWeakPtr());
 }
 
 void AccountManagerMojoService::AddObserver(AddObserverCallback callback) {
@@ -98,12 +89,6 @@ void AccountManagerMojoService::AddObserver(AddObserverCallback callback) {
   auto receiver = remote.BindNewPipeAndPassReceiver();
   observers_.Add(std::move(remote));
   std::move(callback).Run(std::move(receiver));
-}
-
-void AccountManagerMojoService::GetAccounts(
-    mojom::AccountManager::GetAccountsCallback callback) {
-  account_manager_->GetAccounts(
-      base::BindOnce(&MarshalAccounts, std::move(callback)));
 }
 
 void AccountManagerMojoService::GetPersistentErrorForAccount(
@@ -183,10 +168,6 @@ void AccountManagerMojoService::ShowReauthAccountDialog(
   account_manager_ui_->ShowReauthAccountDialog(
       email, base::BindOnce(&AccountManagerMojoService::OnSigninDialogClosed,
                             weak_ptr_factory_.GetWeakPtr()));
-}
-
-void AccountManagerMojoService::ShowManageAccountsSettings() {
-  account_manager_ui_->ShowManageAccountsSettings();
 }
 
 void AccountManagerMojoService::CreateAccessTokenFetcher(

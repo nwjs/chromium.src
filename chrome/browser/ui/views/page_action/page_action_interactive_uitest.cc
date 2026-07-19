@@ -41,6 +41,7 @@
 #include "ui/gfx/image/image_skia.h"
 #include "ui/menus/simple_menu_model.h"
 #include "ui/native_theme/mock_os_settings_provider.h"
+#include "ui/views/layout/animating_layout_manager_test_util.h"
 #include "ui/views/test/ax_event_counter.h"
 #include "ui/views/test/views_test_utils.h"
 #include "url/gurl.h"
@@ -251,27 +252,6 @@ class PageActionUiTestBase {
   void ShowTestSuggestionChip() const {
     ShowPageAction(kActionShowTranslate);
     ShowSuggestionChip(kActionShowTranslate);
-  }
-
-  void ShowTestAnchoredMessage(
-      std::u16string text,
-      AnchoredMessageActionIconType icon_type,
-      std::optional<ui::ImageModel> anchored_message_icon,
-      std::unique_ptr<ui::SimpleMenuModel> menu) const {
-    ShowPageAction(kActionShowTranslate);
-    ShowAnchoredMessage(kActionShowTranslate, text, icon_type,
-                        anchored_message_icon, std::move(menu));
-  }
-
-  void ShowTestAnchoredMessageWithExpandableContent(
-      std::u16string text,
-      const AnchoredMessageExpandableContent& expandable_content) const {
-    ShowPageAction(kActionShowTranslate);
-    page_action_controller()->SetAnchoredMessageExpandableContent(
-        kActionShowTranslate, expandable_content);
-    ShowAnchoredMessage(kActionShowTranslate, text,
-                        AnchoredMessageActionIconType::kNone, std::nullopt,
-                        nullptr);
   }
 
   void ShowTranslatePageActionIcon() const {
@@ -546,11 +526,13 @@ IN_PROC_BROWSER_TEST_F(PageActionInteractiveUiTest,
   }
   // Translate is no longer a chip. It should be placed after the memory saver
   // chip, maintaining its initial relative order among non-chips.
-  // In this case, it will be at index 1.
+  // In this case, it will be at index 1 + its initial index (since Memory Saver
+  // is the only chip at index 0, and it was initially after Translate).
   {
     auto new_translate_index = container->GetIndexOf(translate_view);
     ASSERT_TRUE(new_translate_index.has_value());
-    EXPECT_EQ(new_translate_index.value(), 1u);
+    EXPECT_EQ(new_translate_index.value(),
+              1u + initial_translate_index.value());
   }
 
   // Step 4: Hide the memory saver suggestion chip.
@@ -629,18 +611,16 @@ IN_PROC_BROWSER_TEST_F(PageActionInteractiveUiTest,
   // 1) Show the ephemeral Translate action in the initial tab (tab[0]) for the
   //    very first time. This should increment the histogram by 1.
   ShowPageAction(kActionShowTranslate);
-  histogram_tester.ExpectTotalCount("PageActionController.ActionTypeShown2", 1);
-  histogram_tester.ExpectUniqueSample("PageActionController.ActionTypeShown2",
-                                      PageActionIconType::kTranslate, 1);
+  histogram_tester.ExpectBucketCount("PageActionController.ActionTypeShown2",
+                                     PageActionIconType::kTranslate, 1);
 
   // 2) Hide and re-show the same Translate icon within the same page context
   //    (same tab, same navigation). Because it's ephemeral and already shown,
   //    the histogram should not increment again.
   HidePageAction(kActionShowTranslate);
   ShowPageAction(kActionShowTranslate);
-  histogram_tester.ExpectTotalCount("PageActionController.ActionTypeShown2", 1);
-  histogram_tester.ExpectUniqueSample("PageActionController.ActionTypeShown2",
-                                      PageActionIconType::kTranslate, 1);
+  histogram_tester.ExpectBucketCount("PageActionController.ActionTypeShown2",
+                                     PageActionIconType::kTranslate, 1);
 
   // 3) Navigate to a new URL in the same tab (tab[0]). This is now a new page
   //    context. Showing the ephemeral Translate action again in this context
@@ -648,9 +628,8 @@ IN_PROC_BROWSER_TEST_F(PageActionInteractiveUiTest,
   ASSERT_TRUE(
       ui_test_utils::NavigateToURL(browser(), GURL("chrome://settings")));
   ShowPageAction(kActionShowTranslate);
-  histogram_tester.ExpectTotalCount("PageActionController.ActionTypeShown2", 2);
-  histogram_tester.ExpectUniqueSample("PageActionController.ActionTypeShown2",
-                                      PageActionIconType::kTranslate, 2);
+  histogram_tester.ExpectBucketCount("PageActionController.ActionTypeShown2",
+                                     PageActionIconType::kTranslate, 2);
 
   // 4) Open a brand new tab (tab[1]) and activate it. Because each tab
   // maintains its own context, showing ephemeral actions for the first time in
@@ -663,13 +642,11 @@ IN_PROC_BROWSER_TEST_F(PageActionInteractiveUiTest,
 
   // Show ephemeral Translate action in tab[1].
   ShowPageAction(kActionShowTranslate);
-  histogram_tester.ExpectTotalCount("PageActionController.ActionTypeShown2", 3);
-  histogram_tester.ExpectUniqueSample("PageActionController.ActionTypeShown2",
-                                      PageActionIconType::kTranslate, 3);
+  histogram_tester.ExpectBucketCount("PageActionController.ActionTypeShown2",
+                                     PageActionIconType::kTranslate, 3);
 
   // Show ephemeral Memory Saver chip in tab[1].
   ShowPageAction(kActionShowMemorySaverChip);
-  histogram_tester.ExpectTotalCount("PageActionController.ActionTypeShown2", 4);
   histogram_tester.ExpectBucketCount("PageActionController.ActionTypeShown2",
                                      PageActionIconType::kTranslate, 3);
   histogram_tester.ExpectBucketCount("PageActionController.ActionTypeShown2",
@@ -680,7 +657,8 @@ IN_PROC_BROWSER_TEST_F(PageActionInteractiveUiTest,
   // metric, since it's the same context in tab[0].
   browser()->tab_strip_model()->ActivateTabAt(0);
   ShowPageAction(kActionShowTranslate);
-  histogram_tester.ExpectTotalCount("PageActionController.ActionTypeShown2", 4);
+  histogram_tester.ExpectBucketCount("PageActionController.ActionTypeShown2",
+                                     PageActionIconType::kTranslate, 3);
 }
 
 // Verifies that "…Icon.CTR2" histograms emit kShown once-per-context.
@@ -689,28 +667,23 @@ IN_PROC_BROWSER_TEST_F(PageActionInteractiveUiTest,
                        CTR2HistogramsLoggedOncePerContext) {
   base::HistogramTester histogram_tester;
 
-  constexpr char kGeneralHistogram[] = "PageActionController.Icon.CTR2";
   constexpr char kTranslateHistogram[] =
       "PageActionController.Translate.Icon.CTR2";
 
   // 1. Initial page-context (tab[0], first navigation).
   ShowPageAction(kActionShowTranslate);
-  histogram_tester.ExpectUniqueSample(kGeneralHistogram,
-                                      PageActionCTREvent::kShown, 1);
   histogram_tester.ExpectUniqueSample(kTranslateHistogram,
                                       PageActionCTREvent::kShown, 1);
 
   // 2. Hide + re-show in the SAME context → no additional logging.
   HidePageAction(kActionShowTranslate);
   ShowPageAction(kActionShowTranslate);
-  histogram_tester.ExpectTotalCount(kGeneralHistogram, 1);
   histogram_tester.ExpectTotalCount(kTranslateHistogram, 1);
 
   // 3. New navigation in the SAME tab → new context, logs again.
   ASSERT_TRUE(
       ui_test_utils::NavigateToURL(browser(), GURL("chrome://settings")));
   ShowPageAction(kActionShowTranslate);
-  histogram_tester.ExpectTotalCount(kGeneralHistogram, 2);
   histogram_tester.ExpectBucketCount(kTranslateHistogram,
                                      PageActionCTREvent::kShown, 2);
 
@@ -721,13 +694,12 @@ IN_PROC_BROWSER_TEST_F(PageActionInteractiveUiTest,
 
   // 4-a) First show of Translate in tab[1] logs again.
   ShowPageAction(kActionShowTranslate);
-  histogram_tester.ExpectTotalCount(kGeneralHistogram, 3);
   histogram_tester.ExpectBucketCount(kTranslateHistogram,
                                      PageActionCTREvent::kShown, 3);
 
+  // 5. Switch back to tab[0] and show again → no additional logging.
   browser()->tab_strip_model()->ActivateTabAt(0);
   ShowPageAction(kActionShowTranslate);
-  histogram_tester.ExpectTotalCount(kGeneralHistogram, 3);
   histogram_tester.ExpectBucketCount(kTranslateHistogram,
                                      PageActionCTREvent::kShown, 3);
 }
@@ -1060,8 +1032,55 @@ IN_PROC_BROWSER_TEST_F(PageActionPixelReorderTest, InvokeUi_Default) {
   ShowAndVerifyUi();
 }
 
-class PageActionPixelShowAnchoredMessageTest : public InteractiveBrowserTest,
-                                               public PageActionUiTestBase {
+class AnchoredMessageInteractiveTestBase : public InteractiveBrowserTest,
+                                           public PageActionUiTestBase {
+ public:
+  AnchoredMessageInteractiveTestBase() = default;
+  ~AnchoredMessageInteractiveTestBase() override = default;
+
+  // Implements PageActionUiTestBase:
+  Browser* GetBrowser() const override { return browser(); }
+
+  void ShowTestAnchoredMessage(
+      std::u16string text,
+      AnchoredMessageActionIconType icon_type,
+      std::optional<ui::ImageModel> anchored_message_icon,
+      std::unique_ptr<ui::SimpleMenuModel> menu) const {
+    ShowPageAction(kActionShowTranslate);
+    ShowAnchoredMessage(kActionShowTranslate, text, icon_type,
+                        anchored_message_icon, std::move(menu));
+  }
+
+  void ShowTestAnchoredMessageWithExpandableContent(
+      std::u16string text,
+      std::optional<AnchoredMessageExpandableContent> expandable_content,
+      std::unique_ptr<ui::SimpleMenuModel> menu = nullptr) const {
+    ShowPageAction(kActionShowTranslate);
+    page_action_controller()->SetAnchoredMessageExpandableContent(
+        kActionShowTranslate, expandable_content);
+    const AnchoredMessageActionIconType icon_type =
+        menu ? AnchoredMessageActionIconType::kMenu
+             : AnchoredMessageActionIconType::kNone;
+    ShowAnchoredMessage(kActionShowTranslate, text, icon_type, std::nullopt,
+                        std::move(menu));
+  }
+
+  auto WaitForDrawerAnimation() {
+    return Do([this]() {
+      auto* anchored_message_bubble =
+          views::ElementTrackerViews::GetInstance()->GetUniqueView(
+              AnchoredMessageBubbleView::kAnchoredMessageBubbleId,
+              BrowserView::GetBrowserViewForBrowser(browser())
+                  ->GetElementContext());
+      if (anchored_message_bubble) {
+        views::test::WaitForAnimatingLayoutManager(anchored_message_bubble);
+      }
+    });
+  }
+};
+
+class PageActionPixelShowAnchoredMessageTest
+    : public AnchoredMessageInteractiveTestBase {
  public:
   PageActionPixelShowAnchoredMessageTest() {
     os_settings_provider_.SetPreferredColorScheme(
@@ -1069,13 +1088,9 @@ class PageActionPixelShowAnchoredMessageTest : public InteractiveBrowserTest,
   }
   ~PageActionPixelShowAnchoredMessageTest() override = default;
 
-  // PageActionUiTestBase:
-  Browser* GetBrowser() const override { return browser(); }
-
  private:
   ui::MockOsSettingsProvider os_settings_provider_;
 };
-
 
 IN_PROC_BROWSER_TEST_F(PageActionPixelShowAnchoredMessageTest,
                        InvokeUi_Default) {
@@ -1168,18 +1183,37 @@ IN_PROC_BROWSER_TEST_F(PageActionPixelShowAnchoredMessageTest, InvokeUi_Text) {
       WaitForHide(AnchoredMessageBubbleView::kAnchoredMessageBubbleId));
 }
 
-struct PageActionPixelTestParams {
-  static constexpr int kDefaultExpandableContentItems = 4;
+IN_PROC_BROWSER_TEST_F(PageActionPixelShowAnchoredMessageTest,
+                       ShowAndHideExpandedContent) {
+  AnchoredMessageExpandableContent content;
+  content.items.push_back({ui::ImageModel(), u"Item"});
 
+  RunTestSequence(
+      Do([this, content]() {
+        ShowTestAnchoredMessageWithExpandableContent(u"Anchored with expand",
+                                                     content);
+      }),
+      WaitForShow(AnchoredMessageBubbleView::kAnchoredMessageBubbleId),
+      EnsureNotPresent(
+          AnchoredMessageBubbleView::kAnchoredMessageExpandedContentId),
+      PressButton(AnchoredMessageBubbleView::kAnchoredMessageExpandButtonId),
+      WaitForDrawerAnimation(),
+      WaitForShow(AnchoredMessageBubbleView::kAnchoredMessageExpandedContentId),
+      PressButton(AnchoredMessageBubbleView::kAnchoredMessageExpandButtonId),
+      WaitForDrawerAnimation(),
+      WaitForHide(
+          AnchoredMessageBubbleView::kAnchoredMessageExpandedContentId));
+}
+
+struct PageActionPixelTestParams {
   ui::NativeTheme::PreferredColorScheme color_scheme =
       ui::NativeTheme::PreferredColorScheme::kLight;
   bool rtl = false;
-  int expandable_content_items = kDefaultExpandableContentItems;
+  int expandable_content_items = 0;
 
   std::string ToString() const {
     std::string name;
-    if (expandable_content_items > 0 &&
-        expandable_content_items != kDefaultExpandableContentItems) {
+    if (expandable_content_items > 0) {
       name += base::StringPrintf("%dItems", expandable_content_items);
     }
     if (color_scheme == ui::NativeTheme::PreferredColorScheme::kDark) {
@@ -1195,15 +1229,19 @@ struct PageActionPixelTestParams {
   }
 };
 
-class PageActionExpandedAnchoredMessageTest
-    : public InteractiveBrowserTest,
-      public PageActionUiTestBase,
+#if BUILDFLAG(IS_WIN)
+// A flexible, parameterized screenshotting test class to cover any anchored
+// message configuration. Extend the parameter class as needed.
+// These tests run only on Windows, since they are dedicated to screenshot
+// capture; tests that need to cover interactivity must be separate.
+class PageActionAnchoredMessagePixelTest
+    : public AnchoredMessageInteractiveTestBase,
       public testing::WithParamInterface<PageActionPixelTestParams> {
  public:
-  PageActionExpandedAnchoredMessageTest() {
+  PageActionAnchoredMessagePixelTest() {
     os_settings_provider_.SetPreferredColorScheme(GetParam().color_scheme);
   }
-  ~PageActionExpandedAnchoredMessageTest() override = default;
+  ~PageActionAnchoredMessagePixelTest() override = default;
 
   void SetUpOnMainThread() override {
     InteractiveBrowserTest::SetUpOnMainThread();
@@ -1212,8 +1250,44 @@ class PageActionExpandedAnchoredMessageTest
     }
   }
 
-  // PageActionUiTestBase:
-  Browser* GetBrowser() const override { return browser(); }
+  std::optional<AnchoredMessageExpandableContent> GetExpandableContent() const {
+    const int num_items = GetParam().expandable_content_items;
+    if (num_items <= 0) {
+      return std::nullopt;
+    }
+
+    AnchoredMessageExpandableContent content;
+    content.heading = base::ASCIIToUTF16(
+        base::StringPrintf("Will share %d items", num_items));
+    const std::array<std::u16string, 4> kItems = {{
+        u"Site with sample items",
+        u"Another site with more sample items",
+        u"Sample items galore",
+        u"A site that requires elision because it has a distinctly longer"
+        u" description that will almost certainly overflow available space",
+    }};
+    SkBitmap bitmap;
+    bitmap.allocN32Pixels(16, 16);
+    bitmap.eraseColor(SK_ColorRED);
+    for (int i = 0; i < num_items; ++i) {
+      const auto& text = kItems[static_cast<size_t>(i) % kItems.size()];
+      content.items.push_back({ui::ImageModel::FromImageSkia(
+                                   gfx::ImageSkia::CreateFrom1xBitmap(bitmap)),
+                               text});
+    }
+    return content;
+  }
+
+  auto ExpandContentIfPresent() {
+    return If(
+        []() { return GetParam().expandable_content_items > 0; },
+        Then(
+            PressButton(
+                AnchoredMessageBubbleView::kAnchoredMessageExpandButtonId),
+            WaitForDrawerAnimation(),
+            WaitForShow(
+                AnchoredMessageBubbleView::kAnchoredMessageExpandedContentId)));
+  }
 
  private:
   ui::MockOsSettingsProvider os_settings_provider_;
@@ -1221,14 +1295,19 @@ class PageActionExpandedAnchoredMessageTest
 
 INSTANTIATE_TEST_SUITE_P(
     ,
-    PageActionExpandedAnchoredMessageTest,
+    PageActionAnchoredMessagePixelTest,
     testing::ValuesIn(std::vector<PageActionPixelTestParams>{
         {},
         {
+            .expandable_content_items = 4,
+        },
+        {
             .color_scheme = ui::NativeTheme::PreferredColorScheme::kDark,
+            .expandable_content_items = 4,
         },
         {
             .rtl = true,
+            .expandable_content_items = 4,
         },
         // Single item.
         {
@@ -1243,56 +1322,25 @@ INSTANTIATE_TEST_SUITE_P(
       return info.param.ToString();
     });
 
-IN_PROC_BROWSER_TEST_P(PageActionExpandedAnchoredMessageTest,
-                       ExpandableContent) {
+IN_PROC_BROWSER_TEST_P(PageActionAnchoredMessagePixelTest, Screenshots) {
   RunTestSequence(
-      SetOnIncompatibleAction(OnIncompatibleAction::kIgnoreAndContinue,
-                              "Screenshot can only run in pixel_tests."),
+      SetOnIncompatibleAction(OnIncompatibleAction::kSkipTest,
+                              "Screenshots not possible"),
       Do([this]() {
-        AnchoredMessageExpandableContent content;
-        const int num_items = GetParam().expandable_content_items;
-        content.heading = base::ASCIIToUTF16(
-            base::StringPrintf("Will share %d items", num_items));
-        // Use a set of sample items to have varied text. Test cases
-        // will use any number of these, depending on what the test wants. The
-        // content here is arbitrary.
-        const std::array<std::u16string, 4> kItems = {{
-            u"Site with sample items",
-            u"Another site with more sample items",
-            u"Sample items galore",
-            u"Another sample site with a notably longer description",
-        }};
-        // Create a solid color icon so that borders and clipping are evident.
-        SkBitmap bitmap;
-        bitmap.allocN32Pixels(16, 16);
-        bitmap.eraseColor(SK_ColorRED);
-        for (int i = 0; i < num_items; ++i) {
-          const auto& text = kItems[static_cast<size_t>(i) % kItems.size()];
-          // Use a solid color bitmap to test stacked icon clipping.
-          content.items.push_back(
-              {ui::ImageModel::FromImageSkia(
-                   gfx::ImageSkia::CreateFrom1xBitmap(bitmap)),
-               text});
-        }
-
+        auto menu_model = std::make_unique<ui::SimpleMenuModel>(nullptr);
+        menu_model->AddItem(0, u"Menu Item 1");
         ShowTestAnchoredMessageWithExpandableContent(u"Anchored with expand",
-                                                     content);
+                                                     GetExpandableContent(),
+                                                     std::move(menu_model));
       }),
       WaitForShow(AnchoredMessageBubbleView::kAnchoredMessageBubbleId),
       EnsureNotPresent(
           AnchoredMessageBubbleView::kAnchoredMessageExpandedContentId),
-      PressButton(AnchoredMessageBubbleView::kAnchoredMessageExpandButtonId),
-      WaitForShow(AnchoredMessageBubbleView::kAnchoredMessageExpandedContentId),
-      // In interactive mode, this allows the user to see the expanded state.
-      Screenshot(AnchoredMessageBubbleView::kAnchoredMessageBubbleId,
-                 "expandable_content_shown", "20260324"),
-      Do([this]() {
-        page_action_controller()->SetAnchoredMessageExpandableContent(
-            kActionShowTranslate, std::nullopt);
-      }),
-      WaitForHide(AnchoredMessageBubbleView::kAnchoredMessageExpandedContentId),
-      WaitForHide(AnchoredMessageBubbleView::kAnchoredMessageExpandButtonId));
+      ExpandContentIfPresent(),
+      Screenshot(AnchoredMessageBubbleView::kAnchoredMessageBubbleId, "",
+                 "7915728"));
 }
+#endif  // BUILDFLAG(IS_WIN)
 
 }  // namespace
 }  // namespace page_actions

@@ -37,6 +37,10 @@ namespace sync_pb {
 class AutofillValuableSpecifics;
 }
 
+namespace personal_context::proto {
+class Entity;
+}
+
 namespace autofill {
 
 // Entity and attribute types are blueprints for entity and attribute instances.
@@ -188,6 +192,9 @@ class AttributeInstance final {
     friend class FakeWalletPassAccessManager;
     friend std::optional<EntityInstance> CreateEntityInstanceFromSpecifics(
         const sync_pb::AutofillValuableSpecifics&);
+    friend std::optional<EntityInstance> PersonalContextEntityToEntityInstance(
+        const personal_context::proto::Entity&,
+        bool);
   };
   void mark_as_masked(MarkAsMaskedPasskey) { masked_ = true; }
 
@@ -446,6 +453,10 @@ class EntityInstance final {
   // TODO(389629676): This does not yet properly handle names and possibly
   // dates.
   EntityMergeability GetEntityMergeability(const EntityInstance& newer) const;
+
+  // Returns true if `this` and `other` represent the same entity
+  // based on their merge constraints.
+  bool MatchesMergeConstraintsOf(const EntityInstance& other) const;
 
   // Returns true if all attributes of `this` are present in `other` with the
   // same values or if `this` is a proper subset of `other`.

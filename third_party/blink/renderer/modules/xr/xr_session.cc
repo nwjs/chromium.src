@@ -14,6 +14,8 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/trace_event/trace_event.h"
 #include "base/types/pass_key.h"
+#include "build/build_config.h"
+#include "build/buildflag.h"
 #include "device/vr/buildflags/buildflags.h"
 #include "device/vr/public/mojom/hit_test_subscription_id.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
@@ -483,6 +485,20 @@ V8XRVisibilityState XRSession::visibilityState() const {
 
 const FrozenArray<IDLString>& XRSession::enabledFeatures() const {
   return *enabled_features_.Get();
+}
+
+bool XRSession::isSystemKeyboardSupported() const {
+#if BUILDFLAG(ENABLE_VR) && BUILDFLAG(IS_ANDROID)
+  // Cardboard and ARCore technically support the keyboard as-is, but to avoid
+  // exposing it on Quest/OpenXR before the implementation is ready, we guard
+  // it with this flag for all Android for now. This results in false-negatives
+  // for non-OpenXR runtimes, which matches the existing behavior where keyboard
+  // support was always disabled.
+  return base::FeatureList::IsEnabled(
+      device::features::kOpenXrAndroidSystemKeyboard);
+#else
+  return false;
+#endif
 }
 
 XRAnchorSet* XRSession::TrackedAnchors() const {
@@ -983,7 +999,7 @@ void XRSession::ExecuteVideoFrameCallbacks(double timestamp) {
     std::move(callback).Run(timestamp);
 }
 
-int XRSession::requestAnimationFrame(V8XRFrameRequestCallback* callback) {
+uint32_t XRSession::requestAnimationFrame(V8XRFrameRequestCallback* callback) {
   DVLOG(3) << __func__;
 
   TRACE_EVENT0("gpu", "requestAnimationFrame");
@@ -991,12 +1007,12 @@ int XRSession::requestAnimationFrame(V8XRFrameRequestCallback* callback) {
   if (ended_)
     return 0;
 
-  int id = callback_collection_->RegisterCallback(callback);
+  uint32_t id = callback_collection_->RegisterCallback(callback);
   MaybeRequestFrame();
   return id;
 }
 
-void XRSession::cancelAnimationFrame(int id) {
+void XRSession::cancelAnimationFrame(uint32_t id) {
   callback_collection_->CancelCallback(id);
 }
 
@@ -2327,19 +2343,28 @@ void XRSession::OnFrame(double timestamp,
     // submit its drawing data to be cached by the frame provider.
     render_state_->OnFrameEnd();
 
-    Vector<gpu::SyncToken> camera_sync_tokens;
+    std::vector<gpu::SyncToken> camera_sync_tokens;
     camera_sync_tokens.reserve(graphics_bindings_.size());
 
     for (auto& binding : graphics_bindings_) {
       gpu::SyncToken camera_sync_token = binding->OnFrameEnd();
       if (camera_sync_token.HasData()) {
-        camera_sync_tokens.push_back(std::move(camera_sync_token));
+        transport_delegate->VerifySyncToken(camera_sync_token);
+        camera_sync_tokens.push_back(camera_sync_token);
       }
     }
 
-    // Submit frame with cached layers data.
-    xr_->frameProvider()->SubmitFrame(transport_delegate,
-                                      std::move(camera_sync_tokens));
+    auto shared_image =
+        LayerSharedImageManager().CameraSharedImage().shared_image;
+    if (shared_image && !camera_sync_tokens.empty()) {
+      gpu::SharedImageExportResult camera_export_result =
+          shared_image->EndImport(std::move(camera_sync_tokens));
+      // Submit frame with cached layers data.
+      xr_->frameProvider()->SubmitFrame(transport_delegate,
+                                        std::move(camera_export_result));
+    } else {
+      xr_->frameProvider()->SubmitFrame(transport_delegate);
+    }
 
     // Ensure the XRFrame cannot be used outside the callbacks.
     animation_frame_->Deactivate();

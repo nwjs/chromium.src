@@ -906,6 +906,9 @@ std::string ReportingEventRouter::GetClipboardSourceString(
     case enterprise_connectors::ContentMetaData::CopiedTextSource::
         OTHER_PROFILE:
       return "OTHER_PROFILE";
+    case enterprise_connectors::ContentMetaData::CopiedTextSource::
+        GEMINI_IN_CHROME:
+      return "GEMINI_IN_CHROME";
   }
 }
 
@@ -943,6 +946,35 @@ void ReportingEventRouter::ReportPasteWarningBypassed(
       context, verdict,
       enterprise_connectors::kWebContentUploadDataTransferEventTrigger,
       enterprise_connectors::EventResult::BYPASSED);
+}
+
+void ReportingEventRouter::ReportPasteFromGemini(
+    const GURL& destination_url,
+    const std::string& destination_active_user,
+    const data_controls::Verdict& verdict,
+    int64_t content_size,
+    bool bypassed) {
+  if (verdict.triggered_rules().empty()) {
+    return;
+  }
+
+  OnDataControlsSensitiveDataEvent(
+      /*url=*/destination_url,
+      /*tab_url=*/destination_url,
+      /*source=*/"GEMINI",
+      /*destination=*/destination_url.spec(),
+      /*mime_type=*/"text/plain",
+      /*trigger=*/
+      enterprise_connectors::kWebContentUploadDataTransferEventTrigger,
+      // TODO(crbug.com/520496047): Use Gemini user email, should be the same as
+      // the profile managed user.
+      /*source_active_user_email=*/"",
+      /*content_area_account_email=*/destination_active_user,
+      /*triggered_rules=*/verdict.triggered_rules(),
+      /*event_result=*/
+      bypassed ? enterprise_connectors::EventResult::BYPASSED
+               : GetEventResult(verdict.level()),
+      /*content_size=*/content_size);
 }
 
 void ReportingEventRouter::ReportCopyOrPaste(

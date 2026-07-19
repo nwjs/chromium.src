@@ -1,0 +1,27 @@
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+"""Presubmit script for the Review RAG indexer.
+
+See http://dev.chromium.org/developers/how-tos/depottools/presubmit-scripts
+for more details about the presubmit API built into depot_tools.
+"""
+
+PRESUBMIT_VERSION = '2.0.0'
+
+
+def CheckPythonUnittests(input_api, output_api):
+    """Runs unittests for the current directory."""
+    repo_root = input_api.change.RepositoryRoot()
+    if repo_root not in input_api.sys.path:
+        input_api.sys.path.insert(0, repo_root)
+    # pylint: disable=import-outside-toplevel
+    from agents import presubmit_support
+
+    return input_api.RunTests(
+        input_api.canned_checks.GetUnitTestsInDirectory(
+            input_api,
+            output_api,
+            input_api.PresubmitLocalPath(),
+            files_to_check=[r'.+_(?:unit)?test\.py$'],
+            env=presubmit_support.get_agents_env(input_api)))

@@ -13,8 +13,8 @@
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/android/android_theme_resources.h"
 #include "chrome/browser/android/resource_mapper.h"
+#include "chrome/browser/download/android/download_controller.h"
 #include "chrome/browser/download/android/download_dialog_utils.h"
-#include "chrome/grit/generated_resources.h"
 #include "components/url_formatter/elide_url.h"
 #include "ui/android/window_android.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -62,7 +62,7 @@ void DangerousDownloadDialogBridge::Show(download::DownloadItem* download_item,
     return;
   }
   if (!window_android) {
-    download_item->Remove();
+    DownloadController::ScheduleRemoveDownloadItem(download_item);
     return;
   }
   download_item->AddObserver(this);
@@ -98,6 +98,8 @@ void DangerousDownloadDialogBridge::Accepted(JNIEnv* env,
     download->RemoveObserver(this);
     if (download->IsDangerous()) {
       download->ValidateDangerousDownload();
+    } else {
+      download->ConfirmNonDangerousDownload();
     }
   }
 }
@@ -109,7 +111,7 @@ void DangerousDownloadDialogBridge::Cancelled(
       &download_items_, download_guid);
   if (download) {
     download->RemoveObserver(this);
-    download->Remove();
+    DownloadController::ScheduleRemoveDownloadItem(download);
   }
 }
 

@@ -191,7 +191,10 @@ source_set("test_support") {
 
   public_deps = [ "//third_party/blink/renderer/platform:test_support" ]
 
-  configs += [ "//third_party/blink/renderer:inside_blink" ]
+  configs += [
+    "//third_party/blink/renderer:inside_blink",
+    "//third_party/blink/renderer:narrowing",
+  ]
 
   # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
   # enable the diagnostic by removing this line.

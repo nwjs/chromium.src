@@ -26,6 +26,7 @@ import org.chromium.base.ui.KeyboardUtils;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.bookmarks.bar.BookmarkBarUtils;
+import org.chromium.chrome.browser.feedback.FeedbackPolicyManager;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.homepage.HomepageManager;
@@ -134,8 +135,8 @@ public class KeyboardShortcuts {
         KeyboardShortcutsSemanticMeaning.OPEN_MENU,
         KeyboardShortcutsSemanticMeaning.CUSTOM_EXTENSION_SHORTCUT,
         KeyboardShortcutsSemanticMeaning.TOGGLE_MULTISELECT,
-        KeyboardShortcutsSemanticMeaning.ZOOM_IN_LEGACY,
-        KeyboardShortcutsSemanticMeaning.ZOOM_OUT_LEGACY,
+        // KeyboardShortcutsSemanticMeaning.ZOOM_IN_LEGACY,
+        // KeyboardShortcutsSemanticMeaning.ZOOM_OUT_LEGACY,
         KeyboardShortcutsSemanticMeaning.FOCUS_APP_MENU_BUTTON,
         KeyboardShortcutsSemanticMeaning.MAX_VALUE
     })
@@ -241,8 +242,8 @@ public class KeyboardShortcuts {
         int TOGGLE_MULTISELECT = 62;
 
         // Visual (Legacy) zoom controls.
-        int ZOOM_IN_LEGACY = 63;
-        int ZOOM_OUT_LEGACY = 64;
+        // int ZOOM_IN_LEGACY = 63;
+        // int ZOOM_OUT_LEGACY = 64;
 
         // App menu button keyboard shortcut.
         int FOCUS_APP_MENU_BUTTON = 65;
@@ -591,9 +592,7 @@ public class KeyboardShortcuts {
                 });
         new KeyboardShortcutDefinition(
                 KeyboardShortcutsSemanticMeaning.FEEDBACK_FORM,
-                new KeyCombo(KeyEvent.KEYCODE_I, KeyEvent.META_ALT_ON | KeyEvent.META_SHIFT_ON),
-                R.string.keyboard_shortcut_send_feedback,
-                R.string.keyboard_shortcut_chrome_feature_group_header);
+                new KeyCombo(KeyEvent.KEYCODE_I, KeyEvent.META_ALT_ON | KeyEvent.META_SHIFT_ON));
         new KeyboardShortcutDefinition(
                 KeyboardShortcutsSemanticMeaning.SHOW_DOWNLOADS,
                 new KeyCombo(KeyEvent.KEYCODE_J, KeyEvent.META_CTRL_ON),
@@ -702,31 +701,25 @@ public class KeyboardShortcuts {
                 R.string.keyboard_shortcut_webpage_group_header,
                 new KeyCombo[] {
                     new KeyCombo(KeyEvent.KEYCODE_ZOOM_IN, NO_MODIFIER),
-                    new KeyCombo(KeyEvent.KEYCODE_EQUALS, KeyEvent.META_CTRL_ON)
+                    new KeyCombo(KeyEvent.KEYCODE_EQUALS, KeyEvent.META_CTRL_ON),
+                    new KeyCombo(
+                            KeyEvent.KEYCODE_PLUS,
+                            (KeyEvent.META_CTRL_ON | KeyEvent.META_SHIFT_ON)),
+                    new KeyCombo(
+                            KeyEvent.KEYCODE_EQUALS,
+                            (KeyEvent.META_CTRL_ON | KeyEvent.META_SHIFT_ON))
                 });
         new KeyboardShortcutDefinition(
                 KeyboardShortcutsSemanticMeaning.ZOOM_OUT,
                 new KeyCombo(KeyEvent.KEYCODE_MINUS, KeyEvent.META_CTRL_ON),
                 R.string.keyboard_shortcut_zoom_out,
                 R.string.keyboard_shortcut_webpage_group_header,
-                new KeyCombo[] {new KeyCombo(KeyEvent.KEYCODE_ZOOM_OUT, NO_MODIFIER)});
-        new KeyboardShortcutDefinition(
-                KeyboardShortcutsSemanticMeaning.ZOOM_IN_LEGACY,
-                new KeyCombo(
-                        KeyEvent.KEYCODE_PLUS, (KeyEvent.META_CTRL_ON | KeyEvent.META_SHIFT_ON)),
-                R.string.keyboard_shortcut_zoom_in,
-                R.string.keyboard_shortcut_webpage_group_header,
                 new KeyCombo[] {
+                    new KeyCombo(KeyEvent.KEYCODE_ZOOM_OUT, NO_MODIFIER),
                     new KeyCombo(
-                            KeyEvent.KEYCODE_EQUALS,
+                            KeyEvent.KEYCODE_MINUS,
                             (KeyEvent.META_CTRL_ON | KeyEvent.META_SHIFT_ON))
                 });
-        new KeyboardShortcutDefinition(
-                KeyboardShortcutsSemanticMeaning.ZOOM_OUT_LEGACY,
-                new KeyCombo(
-                        KeyEvent.KEYCODE_MINUS, (KeyEvent.META_CTRL_ON | KeyEvent.META_SHIFT_ON)),
-                R.string.keyboard_shortcut_zoom_out,
-                R.string.keyboard_shortcut_webpage_group_header);
         new KeyboardShortcutDefinition(
                 KeyboardShortcutsSemanticMeaning.ZOOM_RESET,
                 new KeyCombo(KeyEvent.KEYCODE_0, KeyEvent.META_CTRL_ON),
@@ -875,6 +868,14 @@ public class KeyboardShortcuts {
                     }
                 }
                 return true;
+            case KeyEvent.KEYCODE_F7:
+                if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+                    if (menuOrKeyboardActionController.onMenuOrKeyboardAction(
+                            R.id.toggle_caret_browsing, false)) {
+                        return true;
+                    }
+                }
+                return true;
             case KeyEvent.KEYCODE_TV:
             case KeyEvent.KEYCODE_GUIDE:
             case KeyEvent.KEYCODE_DVR:
@@ -948,6 +949,15 @@ public class KeyboardShortcuts {
                     R.string.keyboard_shortcut_toggle_bookmark_bar,
                     KeyEvent.KEYCODE_B,
                     (KeyEvent.META_CTRL_ON | KeyEvent.META_SHIFT_ON));
+        }
+        if (FeedbackPolicyManager.getInstance().isUserFeedbackAllowed()) {
+            addShortcut(
+                    context,
+                    shortcutGroupsById,
+                    R.string.keyboard_shortcut_chrome_feature_group_header,
+                    R.string.keyboard_shortcut_send_feedback,
+                    KeyEvent.KEYCODE_I,
+                    KeyEvent.META_ALT_ON | KeyEvent.META_SHIFT_ON);
         }
         if (ContentFeatureMap.isEnabled(ContentFeatureList.ANDROID_DEV_TOOLS_FRONTEND)) {
             addShortcut(
@@ -1111,7 +1121,10 @@ public class KeyboardShortcuts {
                 menuOrKeyboardActionController.onMenuOrKeyboardAction(R.id.show_menu, false);
                 return true;
             case KeyboardShortcutsSemanticMeaning.FEEDBACK_FORM:
-                menuOrKeyboardActionController.onMenuOrKeyboardAction(R.id.feedback_form, false);
+                if (FeedbackPolicyManager.getInstance().isUserFeedbackAllowed()) {
+                    menuOrKeyboardActionController.onMenuOrKeyboardAction(
+                            R.id.feedback_form, false);
+                }
                 return true;
             case KeyboardShortcutsSemanticMeaning.TOGGLE_BOOKMARK_BAR:
                 return menuOrKeyboardActionController.onMenuOrKeyboardAction(
@@ -1239,12 +1252,6 @@ public class KeyboardShortcuts {
                 case KeyboardShortcutsSemanticMeaning.ZOOM_OUT:
                     ZoomController.zoomOutPage(currentWebContents);
                     return true;
-                case KeyboardShortcutsSemanticMeaning.ZOOM_IN_LEGACY:
-                    ZoomController.zoomInVisual(currentWebContents);
-                    return true;
-                case KeyboardShortcutsSemanticMeaning.ZOOM_OUT_LEGACY:
-                    ZoomController.zoomOutVisual(currentWebContents);
-                    return true;
                 case KeyboardShortcutsSemanticMeaning.ZOOM_RESET:
                     ZoomController.zoomResetPage(currentWebContents, browserContextHandle);
                     return true;
@@ -1270,13 +1277,7 @@ public class KeyboardShortcuts {
                         currentTab.goForward();
                     }
                     return true;
-                case KeyboardShortcutsSemanticMeaning.TOGGLE_CARET_BROWSING:
-                    if (ContentFeatureList.sAndroidCaretBrowsing.isEnabled()) {
-                        menuOrKeyboardActionController.onMenuOrKeyboardAction(
-                                R.id.toggle_caret_browsing, false);
-                        return true;
-                    }
-                    return false;
+
                 case KeyboardShortcutsSemanticMeaning.OPEN_HELP:
                     menuOrKeyboardActionController.onMenuOrKeyboardAction(R.id.help_id, false);
                     return true;

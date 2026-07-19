@@ -73,10 +73,6 @@ BASE_FEATURE(kDisconnectOnInvalidHitTestRegionList,
 
 namespace {
 
-// The maximum amount of time to wait for a new interactive frame before
-// assuming that interaction has ended.
-constexpr base::TimeDelta kInteractionTimeout = base::Milliseconds(250);
-
 bool RecordShouldSendBeginFrame(const std::string& reason, bool should_send) {
   TRACE_EVENT2("viz", "SendBeginFrameDecision", "reason", reason, "should_send",
                should_send);
@@ -287,22 +283,7 @@ void CompositorFrameSinkSupport::SetAllowThrottling(bool allowed) {
   throttler_.SetAllowThrottling(allowed);
 }
 
-void CompositorFrameSinkSupport::SetThrottledDueToInteraction(bool throttled) {
-  throttler_.SetThrottledDueToInteraction(throttled);
-}
 
-void CompositorFrameSinkSupport::SetIsHandlingInteraction(
-    bool is_handling_interaction) {
-  if (is_handling_interaction_ != is_handling_interaction) {
-    is_handling_interaction_ = is_handling_interaction;
-    frame_sink_manager_->OnFrameSinkInteractionChanged(frame_sink_id_,
-                                                       is_handling_interaction);
-  }
-
-  if (is_handling_interaction_) {
-    last_interaction_time_ = base::TimeTicks::Now();
-  }
-}
 
 void CompositorFrameSinkSupport::OnSurfaceCommitted(Surface* surface) {
   if (surface->HasPendingFrame()) {
@@ -601,7 +582,6 @@ void CompositorFrameSinkSupport::EvictLastActiveSurface() {
 
 void CompositorFrameSinkSupport::SetNeedsBeginFrame(bool needs_begin_frame) {
   client_needs_begin_frame_ = needs_begin_frame;
-  SetIsHandlingInteraction(false);
   UpdateNeedsBeginFramesInternal();
 }
 
@@ -664,7 +644,7 @@ void CompositorFrameSinkSupport::UpdateThreadIdsPostVerification(
   }
 }
 
-void CompositorFrameSinkSupport::DidNotProduceFrame(const BeginFrameAck& ack) {
+bool CompositorFrameSinkSupport::DidNotProduceFrame(const BeginFrameAck& ack) {
   TRACE_EVENT(
       "viz,benchmark,graphics.pipeline", "Graphics.Pipeline",
       perfetto::Flow::Global(ack.trace_id), [&](perfetto::EventContext ctx) {
@@ -676,20 +656,15 @@ void CompositorFrameSinkSupport::DidNotProduceFrame(const BeginFrameAck& ack) {
         frame_sink_id_.WriteIntoTrace(ctx.Wrap(data->set_frame_sink_id()));
         data->set_surface_frame_trace_id(ack.trace_id);
       });
-  DCHECK(ack.frame_id.IsSequenceValid());
+  if (!ack.frame_id.IsSequenceValid()) {
+    return false;
+  }
 
   begin_frame_tracker_.ReceivedAck(ack);
 
   // Override the has_damage flag (ignoring invalid data from clients).
   BeginFrameAck modified_ack(ack);
   modified_ack.has_damage = false;
-
-  // We only check for a timeout if we are currently handling an interaction.
-  if (is_handling_interaction_ &&
-      (last_begin_frame_args_.frame_time - last_interaction_time_) >=
-          kInteractionTimeout) {
-    SetIsHandlingInteraction(false);
-  }
 
   // If the client doesn't produce a frame, we assume it's no longer interactive
   // for scheduling.
@@ -702,6 +677,7 @@ void CompositorFrameSinkSupport::DidNotProduceFrame(const BeginFrameAck& ack) {
     begin_frame_source_->DidFinishFrame(this);
     frame_sink_manager_->DidFinishFrame(frame_sink_id_, last_begin_frame_args_);
   }
+  return true;
 }
 
 void CompositorFrameSinkSupport::SubmitCompositorFrame(
@@ -766,6 +742,10 @@ SubmitResult CompositorFrameSinkSupport::MaybeSubmitCompositorFrame(
     return SubmitResult::INVALID_DISPLAY_TRANSFORM;
   }
 
+  if (!frame.metadata.begin_frame_ack.frame_id.IsSequenceValid()) {
+    return SubmitResult::INVALID_BEGIN_FRAME_ACK;
+  }
+
   CHECK(callback_received_begin_frame_);
   CHECK(callback_received_receive_ack_);
 
@@ -781,7 +761,6 @@ SubmitResult CompositorFrameSinkSupport::MaybeSubmitCompositorFrame(
 
   // Override the has_damage flag (ignoring invalid data from clients).
   frame.metadata.begin_frame_ack.has_damage = true;
-  DCHECK(frame.metadata.begin_frame_ack.frame_id.IsSequenceValid());
 
   if (!ui::LatencyInfo::Verify(
           frame.metadata.latency_info,
@@ -1008,11 +987,6 @@ SubmitResult CompositorFrameSinkSupport::MaybeSubmitCompositorFrame(
       return SubmitResult::HIT_TEST_DATA_INVALID;
     }
   }
-  // Update the interaction state at the end of this method to ensure it only
-  // reflects valid frames that were successfully accepted. This prevents
-  // invalid frames (e.g. those with a size mismatch) from affecting the global
-  // interaction state.
-  SetIsHandlingInteraction(frame.metadata.is_handling_interaction);
 
   Surface::QueueFrameResult result = current_surface->QueueFrame(
       std::move(frame), frame_index, std::move(frame_rejected_callback));
@@ -1469,6 +1443,8 @@ const char* CompositorFrameSinkSupport::GetSubmitResultAsString(
       return "Invalid CompositorFrame";
     case SubmitResult::INVALID_DISPLAY_TRANSFORM:
       return "Invalid display transform hint";
+    case SubmitResult::INVALID_BEGIN_FRAME_ACK:
+      return "Invalid BeginFrameAck sequence";
   }
   NOTREACHED();
 }

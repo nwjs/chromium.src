@@ -25,6 +25,8 @@
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/test/metrics/histogram_tester.h"
+#include "base/test/metrics/user_action_tester.h"
 #include "base/test/mock_callback.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/time/time.h"
@@ -445,22 +447,14 @@ class MockTabStripModelObserver : public TabStripModelObserver {
 
 }  // namespace
 
-class TabStripModelTest : public testing::TestWithParam<bool> {
+class TabStripModelTest : public testing::Test {
  public:
   TabStripModelTest() : profile_(new TestingProfile) {}
   TabStripModelTest(const TabStripModelTest&) = delete;
   TabStripModelTest& operator=(const TabStripModelTest&) = delete;
 
   void SetUp() override {
-    std::vector<base::test::FeatureRef> enabled_features = {
-        features::kTabGroupsFocusing};
-    std::vector<base::test::FeatureRef> disabled_features;
-    if (GetParam()) {
-      enabled_features.push_back(tabs::kTabSelectionByPointer);
-    } else {
-      disabled_features.push_back(tabs::kTabSelectionByPointer);
-    }
-    scoped_feature_list_.InitWithFeatures(enabled_features, disabled_features);
+    scoped_feature_list_.InitWithFeatures({features::kTabGroupsFocusing}, {});
 
     tabstrip_ = std::make_unique<TabStripModel>(delegate(), profile());
     tabstrip()->AddObserver(observer());
@@ -571,7 +565,7 @@ class TabStripModelTest : public testing::TestWithParam<bool> {
   std::unique_ptr<TabStripModel> tabstrip_ = nullptr;
 };
 
-TEST_P(TabStripModelTest, TestBasicAPI) {
+TEST_F(TabStripModelTest, TestBasicAPI) {
   typedef MockTabStripModelObserver::State State;
 
   std::unique_ptr<WebContents> contents1 = CreateWebContentsWithID(1);
@@ -792,7 +786,7 @@ TEST_P(TabStripModelTest, TestBasicAPI) {
   tabstrip()->RemoveObserver(observer());
 }
 
-TEST_P(TabStripModelTest, TestTabHandlesStaticTabstrip) {
+TEST_F(TabStripModelTest, TestTabHandlesStaticTabstrip) {
   tabstrip()->AppendWebContents(CreateWebContentsWithID(1), true);
   const tabs::TabHandle handle1 = tabstrip()->GetTabAtIndex(0)->GetHandle();
   tabstrip()->AppendWebContents(CreateWebContentsWithID(2), true);
@@ -804,7 +798,7 @@ TEST_P(TabStripModelTest, TestTabHandlesStaticTabstrip) {
   EXPECT_EQ(handle2, tabstrip()->GetTabAtIndex(1)->GetHandle());
 }
 
-TEST_P(TabStripModelTest, TestTabHandlesMovingTabInSameTabstrip) {
+TEST_F(TabStripModelTest, TestTabHandlesMovingTabInSameTabstrip) {
   tabstrip()->AppendWebContents(CreateWebContentsWithID(1), true);
   const tabs::TabHandle handle1 = tabstrip()->GetTabAtIndex(0)->GetHandle();
   tabstrip()->AppendWebContents(CreateWebContentsWithID(2), true);
@@ -818,7 +812,7 @@ TEST_P(TabStripModelTest, TestTabHandlesMovingTabInSameTabstrip) {
   EXPECT_EQ(handle1, tabstrip()->GetTabAtIndex(1)->GetHandle());
 }
 
-TEST_P(TabStripModelTest, TestTabHandlesTabClosed) {
+TEST_F(TabStripModelTest, TestTabHandlesTabClosed) {
   tabstrip()->AppendWebContents(CreateWebContentsWithID(1), true);
   const tabs::TabHandle handle = tabstrip()->GetTabAtIndex(0)->GetHandle();
   tabstrip()->AppendWebContents(CreateWebContentsWithID(2), true);
@@ -829,7 +823,7 @@ TEST_P(TabStripModelTest, TestTabHandlesTabClosed) {
   EXPECT_EQ(nullptr, handle.Get());
 }
 
-TEST_P(TabStripModelTest, TestTabHandlesOutOfBounds) {
+TEST_F(TabStripModelTest, TestTabHandlesOutOfBounds) {
   tabstrip()->AppendWebContents(CreateWebContentsWithID(1), true);
   tabstrip()->AppendWebContents(CreateWebContentsWithID(2), true);
 
@@ -838,7 +832,7 @@ TEST_P(TabStripModelTest, TestTabHandlesOutOfBounds) {
   EXPECT_DEATH_IF_SUPPORTED(tabstrip()->GetTabAtIndex(-1)->GetHandle(), "");
 }
 
-TEST_P(TabStripModelTest, TestTabHandlesAcrossModels) {
+TEST_F(TabStripModelTest, TestTabHandlesAcrossModels) {
   MockBrowserWindowInterface bwi;
   delegate()->SetBrowserWindowInterface(&bwi);
   ON_CALL(bwi, GetTabStripModel()).WillByDefault(::testing::Return(tabstrip()));
@@ -892,7 +886,7 @@ TEST_P(TabStripModelTest, TestTabHandlesAcrossModels) {
   delegate()->SetBrowserWindowInterface(nullptr);
 }
 
-TEST_P(TabStripModelTest, TestDetachSplitInGroupNewSelection) {
+TEST_F(TabStripModelTest, TestDetachSplitInGroupNewSelection) {
   tabstrip()->AppendWebContents(CreateWebContentsWithID(1), false);
   tabstrip()->AppendWebContents(CreateWebContentsWithID(2), false);
   tabstrip()->AppendWebContents(CreateWebContentsWithID(3), true);
@@ -913,7 +907,7 @@ TEST_P(TabStripModelTest, TestDetachSplitInGroupNewSelection) {
   EXPECT_EQ(tabstrip()->active_index(), 1);
 }
 
-TEST_P(TabStripModelTest, TestDetachTabInGroupNewSelection) {
+TEST_F(TabStripModelTest, TestDetachTabInGroupNewSelection) {
   tabstrip()->AppendWebContents(CreateWebContentsWithID(1), false);
   tabstrip()->AppendWebContents(CreateWebContentsWithID(2), false);
   tabstrip()->AppendWebContents(CreateWebContentsWithID(3), true);
@@ -931,7 +925,7 @@ TEST_P(TabStripModelTest, TestDetachTabInGroupNewSelection) {
   EXPECT_EQ(tabstrip()->active_index(), 1);
 }
 
-TEST_P(TabStripModelTest, TestDetachTabInSplitNewSelection) {
+TEST_F(TabStripModelTest, TestDetachTabInSplitNewSelection) {
   tabstrip()->AppendWebContents(CreateWebContentsWithID(1), false);
   tabstrip()->AppendWebContents(CreateWebContentsWithID(2), false);
   tabstrip()->AppendWebContents(CreateWebContentsWithID(3), true);
@@ -950,7 +944,7 @@ TEST_P(TabStripModelTest, TestDetachTabInSplitNewSelection) {
   EXPECT_EQ(tabstrip()->active_index(), 1);
 }
 
-TEST_P(TabStripModelTest, TestDetachSplitForInsertion) {
+TEST_F(TabStripModelTest, TestDetachSplitForInsertion) {
   tabstrip()->AppendWebContents(CreateWebContentsWithID(1), false);
   tabstrip()->AppendWebContents(CreateWebContentsWithID(2), false);
   tabstrip()->AppendWebContents(CreateWebContentsWithID(3), true);
@@ -990,7 +984,7 @@ TEST_P(TabStripModelTest, TestDetachSplitForInsertion) {
   EXPECT_EQ(tabstrip()->count(), 6);
 }
 
-TEST_P(TabStripModelTest, TestDetachGroupForInsertion) {
+TEST_F(TabStripModelTest, TestDetachGroupForInsertion) {
   tabstrip()->AppendWebContents(CreateWebContentsWithID(1), false);
   tabstrip()->AppendWebContents(CreateWebContentsWithID(2), false);
   tabstrip()->AppendWebContents(CreateWebContentsWithID(3), true);
@@ -1023,7 +1017,7 @@ TEST_P(TabStripModelTest, TestDetachGroupForInsertion) {
   EXPECT_EQ(tabstrip()->count(), 6);
 }
 
-TEST_P(TabStripModelTest, TestInsertDetachGroupStartOfTabstrip) {
+TEST_F(TabStripModelTest, TestInsertDetachGroupStartOfTabstrip) {
   PrepareTabstripForSelectionTest(tabstrip(), 5, 2, {2});
 
   tab_groups::TabGroupId group_id =
@@ -1053,7 +1047,7 @@ TEST_P(TabStripModelTest, TestInsertDetachGroupStartOfTabstrip) {
   EXPECT_EQ(insert_indices, gfx::Range(2, 4));
 }
 
-TEST_P(TabStripModelTest, TestDetachGroupNewSelection) {
+TEST_F(TabStripModelTest, TestDetachGroupNewSelection) {
   tabstrip()->AppendWebContents(CreateWebContentsWithID(1), false);
   tabstrip()->AppendWebContents(CreateWebContentsWithID(2), false);
   tabstrip()->AppendWebContents(CreateWebContentsWithID(3), true);
@@ -1119,7 +1113,7 @@ TEST_P(TabStripModelTest, TestDetachGroupNewSelection) {
   EXPECT_EQ(tabstrip()->active_index(), 3);
 }
 
-TEST_P(TabStripModelTest, TestDetachAndInsertGroupWithSplit) {
+TEST_F(TabStripModelTest, TestDetachAndInsertGroupWithSplit) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 5, 0, {2}));
 
@@ -1161,7 +1155,7 @@ TEST_P(TabStripModelTest, TestDetachAndInsertGroupWithSplit) {
   EXPECT_EQ("1 2s 3s 0 4", GetTabStripStateString(tabstrip()));
 }
 
-TEST_P(TabStripModelTest, InsertDetachedGroupSelectionObserver) {
+TEST_F(TabStripModelTest, InsertDetachedGroupSelectionObserver) {
   tabstrip()->AppendWebContents(CreateWebContentsWithID(1), false);
   tabstrip()->AppendWebContents(CreateWebContentsWithID(2), true);
   tabstrip()->AppendWebContents(CreateWebContentsWithID(3), false);
@@ -1189,7 +1183,7 @@ TEST_P(TabStripModelTest, InsertDetachedGroupSelectionObserver) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, TestBasicOpenerAPI) {
+TEST_F(TabStripModelTest, TestBasicOpenerAPI) {
   // This is a basic test of opener functionality. opener is created
   // as the first tab in the strip and then we create 5 other tabs in the
   // background with opener set as their opener.
@@ -1307,7 +1301,7 @@ static bool IsSiteInContentSettingExceptionList(
 }
 
 // Tests opening background tabs.
-TEST_P(TabStripModelTest, TestLTRInsertionOptions) {
+TEST_F(TabStripModelTest, TestLTRInsertionOptions) {
   std::unique_ptr<WebContents> opener = CreateWebContents();
   tabstrip()->AppendWebContents(std::move(opener), true);
 
@@ -1329,7 +1323,7 @@ TEST_P(TabStripModelTest, TestLTRInsertionOptions) {
   EXPECT_TRUE(tabstrip()->empty());
 }
 
-TEST_P(TabStripModelTest, FocusMode) {
+TEST_F(TabStripModelTest, FocusMode) {
   ASSERT_TRUE(tabstrip()->SupportsTabGroups());
 
   // Initially, no group should be focused.
@@ -1354,7 +1348,7 @@ TEST_P(TabStripModelTest, FocusMode) {
   EXPECT_FALSE(tabstrip()->GetFocusedGroup().has_value());
 }
 
-TEST_P(TabStripModelTest, ClosingFocusedGroupUnsetsFocus) {
+TEST_F(TabStripModelTest, ClosingFocusedGroupUnsetsFocus) {
   TestTabStripModelDelegate delegate;
   TabStripModel model(&delegate, profile());
   ASSERT_TRUE(model.empty());
@@ -1370,7 +1364,7 @@ TEST_P(TabStripModelTest, ClosingFocusedGroupUnsetsFocus) {
   EXPECT_EQ(model.GetFocusedGroup(), std::nullopt);
 }
 
-TEST_P(TabStripModelTest, UngroupingFocusedGroupUnsetsFocus) {
+TEST_F(TabStripModelTest, UngroupingFocusedGroupUnsetsFocus) {
   TestTabStripModelDelegate delegate;
   TabStripModel model(&delegate, profile());
   ASSERT_TRUE(model.empty());
@@ -1386,7 +1380,7 @@ TEST_P(TabStripModelTest, UngroupingFocusedGroupUnsetsFocus) {
   EXPECT_EQ(model.GetFocusedGroup(), std::nullopt);
 }
 
-TEST_P(TabStripModelTest, RemovingLastTabOfFocusedGroupUnsetsFocus) {
+TEST_F(TabStripModelTest, RemovingLastTabOfFocusedGroupUnsetsFocus) {
   TestTabStripModelDelegate delegate;
   TabStripModel model(&delegate, profile());
   ASSERT_TRUE(model.empty());
@@ -1405,7 +1399,7 @@ TEST_P(TabStripModelTest, RemovingLastTabOfFocusedGroupUnsetsFocus) {
   EXPECT_EQ(model.GetFocusedGroup(), std::nullopt);
 }
 
-TEST_P(TabStripModelTest, FocusGroupActivatesTabs) {
+TEST_F(TabStripModelTest, FocusGroupActivatesTabs) {
   ASSERT_TRUE(tabstrip()->SupportsTabGroups());
 
   // Add 4 tabs.
@@ -1475,7 +1469,7 @@ TEST_P(TabStripModelTest, FocusGroupActivatesTabs) {
   EXPECT_EQ(3, tabstrip()->active_index());
 }
 
-TEST_P(TabStripModelTest, FocusGroupClampsSelection) {
+TEST_F(TabStripModelTest, FocusGroupClampsSelection) {
   // Add 4 tabs.
   tabstrip()->AppendWebContents(CreateWebContents(), true);
   tabstrip()->AppendWebContents(CreateWebContents(), false);
@@ -1522,7 +1516,7 @@ TEST_P(TabStripModelTest, FocusGroupClampsSelection) {
   EXPECT_EQ(2, tabstrip()->active_index());
 }
 
-TEST_P(TabStripModelTest, OnTabGroupFocusChangedObserver) {
+TEST_F(TabStripModelTest, OnTabGroupFocusChangedObserver) {
   ASSERT_TRUE(tabstrip()->SupportsTabGroups());
 
   // Add some tabs and create a group.
@@ -1557,7 +1551,7 @@ TEST_P(TabStripModelTest, OnTabGroupFocusChangedObserver) {
   tabstrip()->RemoveObserver(&mock_observer);
 }
 
-TEST_P(TabStripModelTest, ClosingFocusedGroupUnsetsFocusAndNotifies) {
+TEST_F(TabStripModelTest, ClosingFocusedGroupUnsetsFocusAndNotifies) {
   ASSERT_TRUE(tabstrip()->SupportsTabGroups());
   tabstrip()->AppendWebContents(CreateWebContents(), true);
   tabstrip()->AppendWebContents(CreateWebContents(), true);
@@ -1581,7 +1575,7 @@ TEST_P(TabStripModelTest, ClosingFocusedGroupUnsetsFocusAndNotifies) {
   tabstrip()->RemoveObserver(&mock_observer);
 }
 
-TEST_P(TabStripModelTest, UngroupingFocusedGroupUnsetsFocusAndNotifies) {
+TEST_F(TabStripModelTest, UngroupingFocusedGroupUnsetsFocusAndNotifies) {
   ASSERT_TRUE(tabstrip()->SupportsTabGroups());
   tabstrip()->AppendWebContents(CreateWebContents(), true);
   tabstrip()->AppendWebContents(CreateWebContents(), true);
@@ -1605,7 +1599,7 @@ TEST_P(TabStripModelTest, UngroupingFocusedGroupUnsetsFocusAndNotifies) {
   tabstrip()->RemoveObserver(&mock_observer);
 }
 
-TEST_P(TabStripModelTest, ClosingLastTabOfFocusedGroupUnsetsFocusAndNotifies) {
+TEST_F(TabStripModelTest, ClosingLastTabOfFocusedGroupUnsetsFocusAndNotifies) {
   ASSERT_TRUE(tabstrip()->SupportsTabGroups());
   tabstrip()->AppendWebContents(CreateWebContents(), true);
 
@@ -1634,7 +1628,7 @@ TEST_P(TabStripModelTest, ClosingLastTabOfFocusedGroupUnsetsFocusAndNotifies) {
 // that this tab is opened adjacent to the opener, then closes it.
 // Finally it tests that a tab opened for some non-link purpose opens at the
 // end of the strip, not bundled to any existing context.
-TEST_P(TabStripModelTest, TestInsertionIndexDetermination) {
+TEST_F(TabStripModelTest, TestInsertionIndexDetermination) {
   std::unique_ptr<WebContents> opener = CreateWebContents();
   WebContents* raw_opener = opener.get();
   tabstrip()->AppendWebContents(std::move(opener), true);
@@ -1716,7 +1710,7 @@ TEST_P(TabStripModelTest, TestInsertionIndexDetermination) {
 
 // Tests that non-adjacent tabs with an opener are ignored when deciding where
 // to position tabs.
-TEST_P(TabStripModelTest, TestInsertionIndexDeterminationAfterDragged) {
+TEST_F(TabStripModelTest, TestInsertionIndexDeterminationAfterDragged) {
   // Start with three tabs, of which the first is active.
   std::unique_ptr<WebContents> opener1 = CreateWebContentsWithID(1);
   WebContents* raw_opener1 = opener1.get();
@@ -1768,7 +1762,7 @@ TEST_P(TabStripModelTest, TestInsertionIndexDeterminationAfterDragged) {
 
 // Tests that grandchild tabs are considered to be opened by their grandparent
 // tab when deciding where to position tabs.
-TEST_P(TabStripModelTest, TestInsertionIndexDeterminationNestedOpener) {
+TEST_F(TabStripModelTest, TestInsertionIndexDeterminationNestedOpener) {
   // Start with two tabs, of which the first is active:
   std::unique_ptr<WebContents> opener1 = CreateWebContentsWithID(1);
   WebContents* raw_opener1 = opener1.get();
@@ -1842,7 +1836,7 @@ TEST_P(TabStripModelTest, TestInsertionIndexDeterminationNestedOpener) {
 // Tests that selection is shifted to the correct tab when a tab is closed.
 // If the tab is in the background when it is closed, the selection does not
 // change.
-TEST_P(TabStripModelTest, CloseInactiveTabKeepsSelection) {
+TEST_F(TabStripModelTest, CloseInactiveTabKeepsSelection) {
   std::unique_ptr<WebContents> opener = CreateWebContents();
   tabstrip()->AppendWebContents(std::move(opener), true);
   InsertWebContentses(tabstrip(), CreateWebContents(), CreateWebContents(),
@@ -1862,7 +1856,7 @@ TEST_P(TabStripModelTest, CloseInactiveTabKeepsSelection) {
 
 // Tests that selection is shifted to the correct tab when a tab is closed.
 // If the tab doesn't have an opener or a group, selection shifts to the right.
-TEST_P(TabStripModelTest, CloseActiveTabShiftsSelectionRight) {
+TEST_F(TabStripModelTest, CloseActiveTabShiftsSelectionRight) {
   std::unique_ptr<WebContents> opener = CreateWebContents();
   tabstrip()->AppendWebContents(std::move(opener), true);
   InsertWebContentses(tabstrip(), CreateWebContents(), CreateWebContents(),
@@ -1889,7 +1883,7 @@ TEST_P(TabStripModelTest, CloseActiveTabShiftsSelectionRight) {
 // Tests that selection is shifted to the correct tab when a tab is closed.
 // If the tab doesn't have an opener but is in a group, selection shifts to
 // another tab in the same group.
-TEST_P(TabStripModelTest, CloseGroupedTabShiftsSelectionWithinGroup) {
+TEST_F(TabStripModelTest, CloseGroupedTabShiftsSelectionWithinGroup) {
   ASSERT_TRUE(tabstrip()->SupportsTabGroups());
 
   std::unique_ptr<WebContents> opener = CreateWebContents();
@@ -1918,7 +1912,7 @@ TEST_P(TabStripModelTest, CloseGroupedTabShiftsSelectionWithinGroup) {
 
 // Tests that the active selection will change to another non collapsed tab when
 // the active index is in the collapsing group.
-TEST_P(TabStripModelTest, CollapseGroupShiftsSelection_SuccessNextTab) {
+TEST_F(TabStripModelTest, CollapseGroupShiftsSelection_SuccessNextTab) {
   ASSERT_TRUE(tabstrip()->SupportsTabGroups());
 
   std::unique_ptr<WebContents> opener = CreateWebContents();
@@ -1944,7 +1938,7 @@ TEST_P(TabStripModelTest, CollapseGroupShiftsSelection_SuccessNextTab) {
 
 // Tests that the active selection will change to another non collapsed tab when
 // the active index is in the collapsing group.
-TEST_P(TabStripModelTest, CollapseGroupShiftsSelection_SuccessPreviousTab) {
+TEST_F(TabStripModelTest, CollapseGroupShiftsSelection_SuccessPreviousTab) {
   ASSERT_TRUE(tabstrip()->SupportsTabGroups());
 
   std::unique_ptr<WebContents> opener = CreateWebContents();
@@ -1970,7 +1964,7 @@ TEST_P(TabStripModelTest, CollapseGroupShiftsSelection_SuccessPreviousTab) {
 
 // Tests that there is no valid selection to shift to when the active tab is in
 // the group that will be collapsed.
-TEST_P(TabStripModelTest, CollapseGroupShiftsSelection_NoAvailableTabs) {
+TEST_F(TabStripModelTest, CollapseGroupShiftsSelection_NoAvailableTabs) {
   ASSERT_TRUE(tabstrip()->SupportsTabGroups());
 
   std::unique_ptr<WebContents> opener = CreateWebContents();
@@ -1997,7 +1991,7 @@ TEST_P(TabStripModelTest, CollapseGroupShiftsSelection_NoAvailableTabs) {
 // Tests that selection is shifted to the correct tab when a tab is closed.
 // If the tab does have an opener, selection shifts to the next tab opened by
 // the same opener scanning LTR.
-TEST_P(TabStripModelTest, CloseTabWithOpenerShiftsSelectionWithinOpened) {
+TEST_F(TabStripModelTest, CloseTabWithOpenerShiftsSelectionWithinOpened) {
   std::unique_ptr<WebContents> opener = CreateWebContents();
   tabstrip()->AppendWebContents(std::move(opener), true);
   InsertWebContentses(tabstrip(), CreateWebContents(), CreateWebContents(),
@@ -2023,7 +2017,7 @@ TEST_P(TabStripModelTest, CloseTabWithOpenerShiftsSelectionWithinOpened) {
 // Tests that selection is shifted to the correct tab when a tab is closed.
 // If the tab has an opener but no "siblings" opened by the same opener,
 // selection shifts to the opener itself.
-TEST_P(TabStripModelTest, CloseTabWithOpenerShiftsSelectionToOpener) {
+TEST_F(TabStripModelTest, CloseTabWithOpenerShiftsSelectionToOpener) {
   std::unique_ptr<WebContents> opener = CreateWebContents();
   tabstrip()->AppendWebContents(std::move(opener), true);
   std::unique_ptr<WebContents> other_contents = CreateWebContents();
@@ -2043,7 +2037,7 @@ TEST_P(TabStripModelTest, CloseTabWithOpenerShiftsSelectionToOpener) {
   ASSERT_TRUE(tabstrip()->empty());
 }
 
-TEST_P(TabStripModelTest, IsContextMenuCommandEnabledBadIndex) {
+TEST_F(TabStripModelTest, IsContextMenuCommandEnabledBadIndex) {
   constexpr int kTestTabCount = 1;
 
   ASSERT_NO_FATAL_FAILURE(
@@ -2063,7 +2057,7 @@ TEST_P(TabStripModelTest, IsContextMenuCommandEnabledBadIndex) {
 
 // Tests IsContextMenuCommandEnabled and ExecuteContextMenuCommand with
 // CommandCloseTab.
-TEST_P(TabStripModelTest, CommandCloseTab) {
+TEST_F(TabStripModelTest, CommandCloseTab) {
   // Make sure can_close is honored.
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 1, 0, {0}));
@@ -2110,7 +2104,7 @@ TEST_P(TabStripModelTest, CommandCloseTab) {
 
 // Tests IsContextMenuCommandEnabled and ExecuteContextMenuCommand with
 // CommandCloseOtherTabs.
-TEST_P(TabStripModelTest, CommandCloseOtherTabs) {
+TEST_F(TabStripModelTest, CommandCloseOtherTabs) {
   // Create three tabs, select two tabs, CommandCloseOtherTabs should be enabled
   // and close two tabs.
   ASSERT_NO_FATAL_FAILURE(
@@ -2189,7 +2183,7 @@ TEST_P(TabStripModelTest, CommandCloseOtherTabs) {
 
 // Tests IsContextMenuCommandEnabled and ExecuteContextMenuCommand with
 // CommandCloseTabsToRight.
-TEST_P(TabStripModelTest, CommandCloseTabsToRight) {
+TEST_F(TabStripModelTest, CommandCloseTabsToRight) {
   // Create three tabs, select last two tabs, CommandCloseTabsToRight should
   // only be enabled for the first tab.
   ASSERT_NO_FATAL_FAILURE(
@@ -2227,7 +2221,7 @@ TEST_P(TabStripModelTest, CommandCloseTabsToRight) {
 
 // Tests IsContextMenuCommandEnabled and ExecuteContextMenuCommand with
 // CommandTogglePinned.
-TEST_P(TabStripModelTest, CommandTogglePinned) {
+TEST_F(TabStripModelTest, CommandTogglePinned) {
   // Create three tabs with one pinned, pin the first two.
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 3, 1, {0, 1}));
@@ -2252,7 +2246,7 @@ TEST_P(TabStripModelTest, CommandTogglePinned) {
   EXPECT_TRUE(tabstrip()->empty());
 }
 
-TEST_P(TabStripModelTest, SetFocusedGroupActivatesTab) {
+TEST_F(TabStripModelTest, SetFocusedGroupActivatesTab) {
   ASSERT_TRUE(tabstrip()->SupportsTabGroups());
 
   // Add some tabs and create a group.
@@ -2276,7 +2270,7 @@ TEST_P(TabStripModelTest, SetFocusedGroupActivatesTab) {
             tabstrip()->GetTabGroupForTab(tabstrip()->active_index()));
 }
 
-TEST_P(TabStripModelTest, DetachingFocusedGroupUnsetsFocus) {
+TEST_F(TabStripModelTest, DetachingFocusedGroupUnsetsFocus) {
   TestTabStripModelDelegate delegate;
   TabStripModel model(&delegate, profile());
   ASSERT_TRUE(model.empty());
@@ -2292,7 +2286,7 @@ TEST_P(TabStripModelTest, DetachingFocusedGroupUnsetsFocus) {
   EXPECT_EQ(model.GetFocusedGroup(), std::nullopt);
 }
 
-TEST_P(TabStripModelTest, TabGroupsFocusingAutoClose) {
+TEST_F(TabStripModelTest, TabGroupsFocusingAutoClose) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeatureWithParameters(
       features::kTabGroupsFocusing,
@@ -2313,7 +2307,7 @@ TEST_P(TabStripModelTest, TabGroupsFocusingAutoClose) {
   EXPECT_EQ(3, tabstrip()->count());
 }
 
-TEST_P(TabStripModelTest, TabGroupsFocusingAutoCloseSwitchFocus) {
+TEST_F(TabStripModelTest, TabGroupsFocusingAutoCloseSwitchFocus) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeatureWithParameters(
       features::kTabGroupsFocusing,
@@ -2335,7 +2329,7 @@ TEST_P(TabStripModelTest, TabGroupsFocusingAutoCloseSwitchFocus) {
   EXPECT_EQ(4, tabstrip()->count());
 }
 
-TEST_P(TabStripModelTest, ActivateTabUnfocusesAndClosesGroupNoCrash) {
+TEST_F(TabStripModelTest, ActivateTabUnfocusesAndClosesGroupNoCrash) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeatureWithParameters(
       features::kTabGroupsFocusing,
@@ -2358,7 +2352,7 @@ TEST_P(TabStripModelTest, ActivateTabUnfocusesAndClosesGroupNoCrash) {
   EXPECT_EQ(1, tabstrip()->count());
 }
 
-TEST_P(TabStripModelTest, SplitTabPinning) {
+TEST_F(TabStripModelTest, SplitTabPinning) {
   for (bool split_is_selected : {true, false}) {
     for (bool use_left_tab : {true, false}) {
       ASSERT_NO_FATAL_FAILURE(
@@ -2385,7 +2379,7 @@ TEST_P(TabStripModelTest, SplitTabPinning) {
   }
 }
 
-TEST_P(TabStripModelTest, SplitTabPinningBulk) {
+TEST_F(TabStripModelTest, SplitTabPinningBulk) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 12, 2, {4}));
   tabstrip()->AddToNewSplit({5}, split_tabs::SplitTabVisualData(),
@@ -2430,7 +2424,7 @@ TEST_P(TabStripModelTest, SplitTabPinningBulk) {
   EXPECT_TRUE(tabstrip()->empty());
 }
 
-TEST_P(TabStripModelTest, RestoreSplit) {
+TEST_F(TabStripModelTest, RestoreSplit) {
   // Create five tabs with two pinned.
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 5, 2, {2}));
@@ -2445,7 +2439,7 @@ TEST_P(TabStripModelTest, RestoreSplit) {
   EXPECT_TRUE(tabstrip()->empty());
 }
 
-TEST_P(TabStripModelTest, AddToSplitInGroup) {
+TEST_F(TabStripModelTest, AddToSplitInGroup) {
   // Create five tabs with two pinned.
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 5, 2, {2}));
@@ -2468,7 +2462,7 @@ TEST_P(TabStripModelTest, AddToSplitInGroup) {
   EXPECT_TRUE(tabstrip()->empty());
 }
 
-TEST_P(TabStripModelTest, AddToSplitInPinned) {
+TEST_F(TabStripModelTest, AddToSplitInPinned) {
   // Create five tabs with two pinned.
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 5, 2, {2}));
@@ -2488,7 +2482,7 @@ TEST_P(TabStripModelTest, AddToSplitInPinned) {
   EXPECT_TRUE(tabstrip()->empty());
 }
 
-TEST_P(TabStripModelTest, AddToSplitInSelected) {
+TEST_F(TabStripModelTest, AddToSplitInSelected) {
   // Create five tabs.
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 5, 0, {2}));
@@ -2508,7 +2502,7 @@ TEST_P(TabStripModelTest, AddToSplitInSelected) {
   EXPECT_TRUE(tabstrip()->empty());
 }
 
-TEST_P(TabStripModelTest, AddToSplitBlocked) {
+TEST_F(TabStripModelTest, AddToSplitBlocked) {
   // Create five tabs.
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 5, 0, {2}));
@@ -2530,7 +2524,7 @@ TEST_P(TabStripModelTest, AddToSplitBlocked) {
   EXPECT_TRUE(tabstrip()->empty());
 }
 
-TEST_P(TabStripModelTest, UnsplitOperation) {
+TEST_F(TabStripModelTest, UnsplitOperation) {
   // Create five tabs with two pinned.
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 5, 2, {2}));
@@ -2558,7 +2552,7 @@ TEST_P(TabStripModelTest, UnsplitOperation) {
   EXPECT_TRUE(tabstrip()->empty());
 }
 
-TEST_P(TabStripModelTest, MoveInsideSplitRemovesSplit) {
+TEST_F(TabStripModelTest, MoveInsideSplitRemovesSplit) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 5, 0, {2}));
 
@@ -2578,7 +2572,7 @@ TEST_P(TabStripModelTest, MoveInsideSplitRemovesSplit) {
   EXPECT_TRUE(tabstrip()->empty());
 }
 
-TEST_P(TabStripModelTest, MoveFromSplitRemovesSplit) {
+TEST_F(TabStripModelTest, MoveFromSplitRemovesSplit) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 5, 0, {2}));
 
@@ -2598,7 +2592,7 @@ TEST_P(TabStripModelTest, MoveFromSplitRemovesSplit) {
   EXPECT_TRUE(tabstrip()->empty());
 }
 
-TEST_P(TabStripModelTest, AddTabInsideSplitRemovesSplit) {
+TEST_F(TabStripModelTest, AddTabInsideSplitRemovesSplit) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 5, 0, {2}));
 
@@ -2621,7 +2615,7 @@ TEST_P(TabStripModelTest, AddTabInsideSplitRemovesSplit) {
   EXPECT_TRUE(tabstrip()->empty());
 }
 
-TEST_P(TabStripModelTest, RemoveSplitTabRemovesEntireSplit) {
+TEST_F(TabStripModelTest, RemoveSplitTabRemovesEntireSplit) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 5, 0, {2}));
 
@@ -2642,7 +2636,7 @@ TEST_P(TabStripModelTest, RemoveSplitTabRemovesEntireSplit) {
   EXPECT_TRUE(tabstrip()->empty());
 }
 
-TEST_P(TabStripModelTest, MoveGroupWithinSplitRemovesSplit) {
+TEST_F(TabStripModelTest, MoveGroupWithinSplitRemovesSplit) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 5, 0, {2}));
 
@@ -2663,7 +2657,7 @@ TEST_P(TabStripModelTest, MoveGroupWithinSplitRemovesSplit) {
   EXPECT_TRUE(tabstrip()->empty());
 }
 
-TEST_P(TabStripModelTest, AddToNewGroupRemovesPartialSplits) {
+TEST_F(TabStripModelTest, AddToNewGroupRemovesPartialSplits) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 5, 0, {0}));
 
@@ -2690,7 +2684,7 @@ TEST_P(TabStripModelTest, AddToNewGroupRemovesPartialSplits) {
   EXPECT_FALSE(tabstrip()->ContainsSplit(remove_split));
 }
 
-TEST_P(TabStripModelTest, AddToExistingGroupRemovesPartialSplits) {
+TEST_F(TabStripModelTest, AddToExistingGroupRemovesPartialSplits) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 6, 0, {0}));
 
@@ -2720,7 +2714,7 @@ TEST_P(TabStripModelTest, AddToExistingGroupRemovesPartialSplits) {
   EXPECT_FALSE(tabstrip()->ContainsSplit(remove_split));
 }
 
-TEST_P(TabStripModelTest, RemoveFromGroupRemovesPartialSplits) {
+TEST_F(TabStripModelTest, RemoveFromGroupRemovesPartialSplits) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 5, 0, {0}));
 
@@ -2750,7 +2744,10 @@ TEST_P(TabStripModelTest, RemoveFromGroupRemovesPartialSplits) {
   EXPECT_FALSE(tabstrip()->ContainsSplit(remove_split));
 }
 
-TEST_P(TabStripModelTest, SplitLayoutTest) {
+TEST_F(TabStripModelTest, SplitLayoutTest) {
+  base::HistogramTester histogram_tester;
+  base::UserActionTester user_action_tester;
+
   // Create five tabs with two pinned, select the last.
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 5, 2, {2}));
@@ -2770,17 +2767,31 @@ TEST_P(TabStripModelTest, SplitLayoutTest) {
       tabstrip()->GetSplitData(split_tab_id)->visual_data()->split_layout(),
       split_tabs::SplitTabLayout::kSideBySide);
 
-  tabstrip()->UpdateSplitLayout(split_tab_id,
-                                split_tabs::SplitTabLayout::kStacked);
+  histogram_tester.ExpectUniqueSample(
+      "TabStrip.SplitView.Created",
+      split_tabs::SplitTabCreatedSource::kToolbarButton, 1);
+  histogram_tester.ExpectUniqueSample(
+      "TabStrip.SplitView.OrientationOnCreation",
+      split_tabs::SplitTabLayout::kSideBySide, 1);
+  histogram_tester.ExpectUniqueSample(
+      "TabStrip.SplitView.ToolbarButton.OrientationOnCreation",
+      split_tabs::SplitTabLayout::kSideBySide, 1);
+
+  tabstrip()->UpdateSplitLayout(
+      split_tab_id, split_tabs::SplitTabLayout::kStacked,
+      split_tabs::SplitTabOrientationChangeSource::kToolbarButton);
   EXPECT_EQ(
       tabstrip()->GetSplitData(split_tab_id)->visual_data()->split_layout(),
       split_tabs::SplitTabLayout::kStacked);
+
+  EXPECT_EQ(1, user_action_tester.GetActionCount(
+                   "SplitViewOrientationChanged.ToolbarButton"));
 
   tabstrip()->CloseAllTabs();
   EXPECT_TRUE(tabstrip()->empty());
 }
 
-TEST_P(TabStripModelTest, SplitRatioTest) {
+TEST_F(TabStripModelTest, SplitRatioTest) {
   // Create five tabs with two pinned, select the last.
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 5, 2, {2}));
@@ -2843,7 +2854,7 @@ class SplitTabVisualsObserver : public TabStripModelObserver {
   int call_count_ = 0;
 };
 
-TEST_P(TabStripModelTest, UpdateSplitRatioIntermediate) {
+TEST_F(TabStripModelTest, UpdateSplitRatioIntermediate) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 5, 2, {2}));
 
@@ -2888,7 +2899,7 @@ TEST_P(TabStripModelTest, UpdateSplitRatioIntermediate) {
   EXPECT_TRUE(tabstrip()->empty());
 }
 
-TEST_P(TabStripModelTest, ReplaceActiveTabInSplit) {
+TEST_F(TabStripModelTest, ReplaceActiveTabInSplit) {
   // Create five tabs with two pinned, select the last.
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 5, 2, {2}));
@@ -2912,7 +2923,7 @@ TEST_P(TabStripModelTest, ReplaceActiveTabInSplit) {
   EXPECT_TRUE(tabstrip()->empty());
 }
 
-TEST_P(TabStripModelTest, SwapActiveTabInSplit) {
+TEST_F(TabStripModelTest, SwapActiveTabInSplit) {
   // Create five tabs with two pinned, select the last.
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 5, 2, {2}));
@@ -2942,7 +2953,7 @@ TEST_P(TabStripModelTest, SwapActiveTabInSplit) {
   EXPECT_TRUE(tabstrip()->empty());
 }
 
-TEST_P(TabStripModelTest, SwapActiveTabInSplitWithOnlyTabInGroup) {
+TEST_F(TabStripModelTest, SwapActiveTabInSplitWithOnlyTabInGroup) {
   // Create five tabs with two pinned, select the last.
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 5, 2, {2}));
@@ -2966,7 +2977,7 @@ TEST_P(TabStripModelTest, SwapActiveTabInSplitWithOnlyTabInGroup) {
   EXPECT_TRUE(tabstrip()->empty());
 }
 
-TEST_P(TabStripModelTest, ReverseTabsInSplit) {
+TEST_F(TabStripModelTest, ReverseTabsInSplit) {
   // Create five tabs with two pinned, select the last.
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 5, 2, {2}));
@@ -2999,7 +3010,7 @@ TEST_P(TabStripModelTest, ReverseTabsInSplit) {
   EXPECT_TRUE(tabstrip()->empty());
 }
 
-TEST_P(TabStripModelTest, ReverseAndReplaceTabsInSplit) {
+TEST_F(TabStripModelTest, ReverseAndReplaceTabsInSplit) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 3, 0, {1}));
 
@@ -3025,7 +3036,7 @@ TEST_P(TabStripModelTest, ReverseAndReplaceTabsInSplit) {
 
 // Tests IsContextMenuCommandEnabled and ExecuteContextMenuCommand with
 // CommandToggleGrouped.
-TEST_P(TabStripModelTest, CommandToggleGrouped) {
+TEST_F(TabStripModelTest, CommandToggleGrouped) {
   ASSERT_TRUE(tabstrip()->SupportsTabGroups());
 
   // Create three tabs, select the first two, and add the first to a group.
@@ -3072,7 +3083,7 @@ TEST_P(TabStripModelTest, CommandToggleGrouped) {
 //  - Close Tab
 //  - Close Other Tabs
 //  - Close Tabs To Right
-TEST_P(TabStripModelTest, TestContextMenuCloseCommands) {
+TEST_F(TabStripModelTest, TestContextMenuCloseCommands) {
   std::unique_ptr<WebContents> opener = CreateWebContents();
   WebContents* raw_opener = opener.get();
   tabstrip()->AppendWebContents(std::move(opener), true);
@@ -3119,7 +3130,7 @@ TEST_P(TabStripModelTest, TestContextMenuCloseCommands) {
   EXPECT_TRUE(tabstrip()->empty());
 }
 
-TEST_P(TabStripModelTest, GetIndicesClosedByCommand) {
+TEST_F(TabStripModelTest, GetIndicesClosedByCommand) {
   const auto indicesClosedAsString =
       [this](int index, TabStripModel::ContextMenuCommand id) {
         std::vector<int> indices =
@@ -3170,7 +3181,7 @@ TEST_P(TabStripModelTest, GetIndicesClosedByCommand) {
 // Tests whether or not WebContentses are inserted in the correct position
 // using this "smart" function with a simulated middle click action on a series
 // of links on the home page.
-TEST_P(TabStripModelTest, AddWebContents_MiddleClickLinksAndClose) {
+TEST_F(TabStripModelTest, AddWebContents_MiddleClickLinksAndClose) {
   // Open the Home Page.
   std::unique_ptr<WebContents> homepage_contents = CreateWebContents();
   WebContents* raw_homepage_contents = homepage_contents.get();
@@ -3241,7 +3252,7 @@ TEST_P(TabStripModelTest, AddWebContents_MiddleClickLinksAndClose) {
 // Tests whether or not a WebContents created by a left click on a link
 // that opens a new tab is inserted correctly adjacent to the tab that spawned
 // it.
-TEST_P(TabStripModelTest, AddWebContents_LeftClickPopup) {
+TEST_F(TabStripModelTest, AddWebContents_LeftClickPopup) {
   // Open the Home Page.
   std::unique_ptr<WebContents> homepage_contents = CreateWebContents();
   WebContents* raw_homepage_contents = homepage_contents.get();
@@ -3292,7 +3303,7 @@ TEST_P(TabStripModelTest, AddWebContents_LeftClickPopup) {
 // Tests whether or not new tabs that should split context (typed pages,
 // generated urls, also blank tabs) open at the end of the tabstrip instead of
 // in the middle.
-TEST_P(TabStripModelTest, AddWebContents_CreateNewBlankTab) {
+TEST_F(TabStripModelTest, AddWebContents_CreateNewBlankTab) {
   // Open the Home Page.
   std::unique_ptr<WebContents> homepage_contents = CreateWebContents();
   WebContents* raw_homepage_contents = homepage_contents.get();
@@ -3352,7 +3363,7 @@ TEST_P(TabStripModelTest, AddWebContents_CreateNewBlankTab) {
 
 // Tests whether opener state is correctly forgotten when the user switches
 // context.
-TEST_P(TabStripModelTest, AddWebContents_ForgetOpeners) {
+TEST_F(TabStripModelTest, AddWebContents_ForgetOpeners) {
   // Open the home page.
   std::unique_ptr<WebContents> homepage_contents = CreateWebContents();
   WebContents* raw_homepage_contents = homepage_contents.get();
@@ -3420,7 +3431,7 @@ TEST_P(TabStripModelTest, AddWebContents_ForgetOpeners) {
 
 // Tests whether or not a WebContents in a new tab belongs in the same tab
 // group as its opener.
-TEST_P(TabStripModelTest, AddWebContents_LinkOpensInSameGroupAsOpener) {
+TEST_F(TabStripModelTest, AddWebContents_LinkOpensInSameGroupAsOpener) {
   // Open the home page and add the tab to a group.
   std::unique_ptr<WebContents> homepage_contents = CreateWebContents();
   tabstrip()->AddWebContents(std::move(homepage_contents), -1,
@@ -3448,7 +3459,7 @@ TEST_P(TabStripModelTest, AddWebContents_LinkOpensInSameGroupAsOpener) {
 
 // Tests that a inserting a new ungrouped tab between two tabs in the same group
 // will add that new tab to the group.
-TEST_P(TabStripModelTest, AddWebContents_UngroupedTabDoesNotBreakContinuity) {
+TEST_F(TabStripModelTest, AddWebContents_UngroupedTabDoesNotBreakContinuity) {
   // Open two tabs and add them to a tab group.
   std::unique_ptr<WebContents> contents1 = CreateWebContents();
   tabstrip()->AddWebContents(std::move(contents1), -1,
@@ -3478,7 +3489,7 @@ TEST_P(TabStripModelTest, AddWebContents_UngroupedTabDoesNotBreakContinuity) {
   ASSERT_TRUE(tabstrip()->empty());
 }
 // Added for http://b/issue?id=958960
-TEST_P(TabStripModelTest, AppendContentsReselectionTest) {
+TEST_F(TabStripModelTest, AppendContentsReselectionTest) {
   // Open the Home Page.
   tabstrip()->AddWebContents(CreateWebContents(), -1,
                              ui::PAGE_TRANSITION_AUTO_BOOKMARK,
@@ -3505,7 +3516,7 @@ TEST_P(TabStripModelTest, AppendContentsReselectionTest) {
 }
 
 // Added for http://b/issue?id=1027661
-TEST_P(TabStripModelTest, ReselectionConsidersChildrenTest) {
+TEST_F(TabStripModelTest, ReselectionConsidersChildrenTest) {
   // Open page A
   std::unique_ptr<WebContents> page_a_contents = CreateWebContents();
   WebContents* raw_page_a_contents = page_a_contents.get();
@@ -3562,7 +3573,7 @@ TEST_P(TabStripModelTest, ReselectionConsidersChildrenTest) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, NewTabAtEndOfStripInheritsOpener) {
+TEST_F(TabStripModelTest, NewTabAtEndOfStripInheritsOpener) {
   // Open page A
   tabstrip()->AddWebContents(CreateWebContents(), -1,
                              ui::PAGE_TRANSITION_AUTO_TOPLEVEL,
@@ -3637,7 +3648,7 @@ TEST_P(TabStripModelTest, NewTabAtEndOfStripInheritsOpener) {
 // A test of navigations in a tab that is part of a tree of openers from some
 // parent tab. If the navigations are link clicks, the opener relationships of
 // the tab. If they are of any other type, they are not preserved.
-TEST_P(TabStripModelTest, NavigationForgetsOpeners) {
+TEST_F(TabStripModelTest, NavigationForgetsOpeners) {
   // Open page A
   tabstrip()->AddWebContents(CreateWebContents(), -1,
                              ui::PAGE_TRANSITION_AUTO_TOPLEVEL,
@@ -3688,7 +3699,7 @@ TEST_P(TabStripModelTest, NavigationForgetsOpeners) {
 // A test for the "quick look" use case where the user can open a new tab at the
 // end of the tab strip, do one search, and then close the tab to get back to
 // where they were.
-TEST_P(TabStripModelTest, NavigationForgettingDoesntAffectNewTab) {
+TEST_F(TabStripModelTest, NavigationForgettingDoesntAffectNewTab) {
   // Open a tab and several tabs from it, then select one of the tabs that was
   // opened.
   tabstrip()->AddWebContents(CreateWebContents(), -1,
@@ -3815,7 +3826,7 @@ class UnloadListenerTabStripModelDelegate : public TestTabStripModelDelegate {
 }  // namespace
 
 // Tests that fast shutdown is attempted appropriately.
-TEST_P(TabStripModelTest, FastShutdown) {
+TEST_F(TabStripModelTest, FastShutdown) {
   UnloadListenerTabStripModelDelegate delegate;
   TabStripModel tabstrip(&delegate, profile());
   MockTabStripModelObserver observer;
@@ -3881,7 +3892,7 @@ TEST_P(TabStripModelTest, FastShutdown) {
 }
 
 // Tests that close_types are preserved when unload listeners are triggered.
-TEST_P(TabStripModelTest, CloseTypesPreservedAfterUnload) {
+TEST_F(TabStripModelTest, CloseTypesPreservedAfterUnload) {
   UnloadListenerTabStripModelDelegate delegate;
   TabStripModel tabstrip(&delegate, profile());
 
@@ -3898,7 +3909,7 @@ TEST_P(TabStripModelTest, CloseTypesPreservedAfterUnload) {
 }
 
 // Tests various permutations of pinning tabs.
-TEST_P(TabStripModelTest, Pinning) {
+TEST_F(TabStripModelTest, Pinning) {
   typedef MockTabStripModelObserver::State State;
 
   std::unique_ptr<WebContents> contents1 = CreateWebContentsWithID(1);
@@ -4055,7 +4066,7 @@ TEST_P(TabStripModelTest, Pinning) {
 
 // Makes sure the TabStripModel calls the right observer methods during a
 // replace.
-TEST_P(TabStripModelTest, ReplaceSendsSelected) {
+TEST_F(TabStripModelTest, ReplaceSendsSelected) {
   typedef MockTabStripModelObserver::State State;
 
   std::unique_ptr<WebContents> first_contents = CreateWebContents();
@@ -4108,7 +4119,7 @@ TEST_P(TabStripModelTest, ReplaceSendsSelected) {
 
 // Ensure pinned tabs are not mixed with non-pinned tabs when using
 // MoveWebContentsAt.
-TEST_P(TabStripModelTest, MoveWebContentsAtWithPinned) {
+TEST_F(TabStripModelTest, MoveWebContentsAtWithPinned) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 6, 3, {0}));
   EXPECT_EQ("0p 1p 2p 3 4 5", GetTabStripStateString(tabstrip()));
@@ -4134,7 +4145,7 @@ TEST_P(TabStripModelTest, MoveWebContentsAtWithPinned) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MoveTabNext) {
+TEST_F(TabStripModelTest, MoveTabNext) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 6, 3, {3}));
   EXPECT_EQ("0p 1p 2p 3 4 5", GetTabStripStateString(tabstrip()));
@@ -4151,7 +4162,7 @@ TEST_P(TabStripModelTest, MoveTabNext) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MoveTabNext_Pinned) {
+TEST_F(TabStripModelTest, MoveTabNext_Pinned) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 6, 3, {0}));
   EXPECT_EQ("0p 1p 2p 3 4 5", GetTabStripStateString(tabstrip()));
@@ -4168,7 +4179,7 @@ TEST_P(TabStripModelTest, MoveTabNext_Pinned) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MoveTabNext_Group) {
+TEST_F(TabStripModelTest, MoveTabNext_Group) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 4, 0, {0}));
   EXPECT_EQ("0 1 2 3", GetTabStripStateString(tabstrip()));
@@ -4195,7 +4206,7 @@ TEST_P(TabStripModelTest, MoveTabNext_Group) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MoveTabNext_GroupAtEnd) {
+TEST_F(TabStripModelTest, MoveTabNext_GroupAtEnd) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 2, 0, {0}));
   EXPECT_EQ("0 1", GetTabStripStateString(tabstrip()));
@@ -4213,7 +4224,7 @@ TEST_P(TabStripModelTest, MoveTabNext_GroupAtEnd) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MoveTabNext_PinnedDoesNotGroup) {
+TEST_F(TabStripModelTest, MoveTabNext_PinnedDoesNotGroup) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 4, 1, {0}));
   EXPECT_EQ("0p 1 2 3", GetTabStripStateString(tabstrip()));
@@ -4228,7 +4239,7 @@ TEST_P(TabStripModelTest, MoveTabNext_PinnedDoesNotGroup) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MoveTabNext_Split) {
+TEST_F(TabStripModelTest, MoveTabNext_Split) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 5, 0, {1}));
   tabstrip()->AddToNewSplit({2}, split_tabs::SplitTabVisualData(),
@@ -4274,7 +4285,7 @@ TEST_P(TabStripModelTest, MoveTabNext_Split) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MoveTabNext_SplitPinned) {
+TEST_F(TabStripModelTest, MoveTabNext_SplitPinned) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 3, 3, {0}));
   tabstrip()->ActivateTabAt(1);
@@ -4299,7 +4310,7 @@ TEST_P(TabStripModelTest, MoveTabNext_SplitPinned) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MoveTabPrevious) {
+TEST_F(TabStripModelTest, MoveTabPrevious) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 6, 3, {5}));
   EXPECT_EQ("0p 1p 2p 3 4 5", GetTabStripStateString(tabstrip()));
@@ -4316,7 +4327,7 @@ TEST_P(TabStripModelTest, MoveTabPrevious) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MoveTabPrevious_Pinned) {
+TEST_F(TabStripModelTest, MoveTabPrevious_Pinned) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 6, 3, {2}));
   EXPECT_EQ("0p 1p 2p 3 4 5", GetTabStripStateString(tabstrip()));
@@ -4333,7 +4344,7 @@ TEST_P(TabStripModelTest, MoveTabPrevious_Pinned) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MoveTabPrevious_Group) {
+TEST_F(TabStripModelTest, MoveTabPrevious_Group) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 4, 0, {3}));
   EXPECT_EQ("0 1 2 3", GetTabStripStateString(tabstrip()));
@@ -4360,7 +4371,7 @@ TEST_P(TabStripModelTest, MoveTabPrevious_Group) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MoveTabPrevious_GroupAtEnd) {
+TEST_F(TabStripModelTest, MoveTabPrevious_GroupAtEnd) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 2, 0, {1}));
   EXPECT_EQ("0 1", GetTabStripStateString(tabstrip()));
@@ -4378,7 +4389,7 @@ TEST_P(TabStripModelTest, MoveTabPrevious_GroupAtEnd) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MoveTabPrevious_Split) {
+TEST_F(TabStripModelTest, MoveTabPrevious_Split) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 5, 0, {0}));
   tabstrip()->AddToNewSplit({1}, split_tabs::SplitTabVisualData(),
@@ -4424,7 +4435,7 @@ TEST_P(TabStripModelTest, MoveTabPrevious_Split) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MoveTabPrevious_SplitPinned) {
+TEST_F(TabStripModelTest, MoveTabPrevious_SplitPinned) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 3, 3, {0}));
   tabstrip()->AddToNewSplit({1}, split_tabs::SplitTabVisualData(),
@@ -4448,7 +4459,7 @@ TEST_P(TabStripModelTest, MoveTabPrevious_SplitPinned) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MoveSelectedTabsTo) {
+TEST_F(TabStripModelTest, MoveSelectedTabsTo) {
   struct TestData {
     // Number of tabs the tab strip should have.
     const int tab_count;
@@ -4514,7 +4525,7 @@ TEST_P(TabStripModelTest, MoveSelectedTabsTo) {
   }
 }
 
-TEST_P(TabStripModelTest, MoveSelectedTabsToWithEntireGroupSelected) {
+TEST_F(TabStripModelTest, MoveSelectedTabsToWithEntireGroupSelected) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 10, 5, {2, 3, 6, 7}));
 
@@ -4529,7 +4540,7 @@ TEST_P(TabStripModelTest, MoveSelectedTabsToWithEntireGroupSelected) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MoveSelectedTabsToWithPartGroupSelected) {
+TEST_F(TabStripModelTest, MoveSelectedTabsToWithPartGroupSelected) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 10, 5, {2, 3}));
 
@@ -4543,7 +4554,7 @@ TEST_P(TabStripModelTest, MoveSelectedTabsToWithPartGroupSelected) {
       1u);
 }
 
-TEST_P(TabStripModelTest, MoveSelectedTabsToWithSplit) {
+TEST_F(TabStripModelTest, MoveSelectedTabsToWithSplit) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 10, 5, {2, 3, 6, 7}));
 
@@ -4560,7 +4571,7 @@ TEST_P(TabStripModelTest, MoveSelectedTabsToWithSplit) {
   EXPECT_EQ("0p 1p 2p 3p 4p 6s 7s 5 8 9", GetTabStripStateString(tabstrip()));
 }
 
-TEST_P(TabStripModelTest, MoveSelectedTabsToWithGroupAndSplit) {
+TEST_F(TabStripModelTest, MoveSelectedTabsToWithGroupAndSplit) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 13, 5, {2, 3}));
 
@@ -4598,7 +4609,7 @@ TEST_P(TabStripModelTest, MoveSelectedTabsToWithGroupAndSplit) {
 }
 
 // Tests that moving a tab forgets all openers referencing it.
-TEST_P(TabStripModelTest, MoveSelectedTabsTo_ForgetOpeners) {
+TEST_F(TabStripModelTest, MoveSelectedTabsTo_ForgetOpeners) {
   // Open page A as a new tab and then A1 in the background from A.
   std::unique_ptr<WebContents> page_a_contents = CreateWebContents();
   WebContents* raw_page_a_contents = page_a_contents.get();
@@ -4661,7 +4672,7 @@ TEST_P(TabStripModelTest, MoveSelectedTabsTo_ForgetOpeners) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MoveTwoUngroupedTabsIntoGroupLeftToRight) {
+TEST_F(TabStripModelTest, MoveTwoUngroupedTabsIntoGroupLeftToRight) {
   PrepareTabs(tabstrip(), 6);
   const tab_groups::TabGroupId existing_group_id =
       tabstrip()->AddToNewGroup({3, 4});
@@ -4680,7 +4691,7 @@ TEST_P(TabStripModelTest, MoveTwoUngroupedTabsIntoGroupLeftToRight) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MoveTwoUngroupedTabsIntoGroupRightToLeft) {
+TEST_F(TabStripModelTest, MoveTwoUngroupedTabsIntoGroupRightToLeft) {
   PrepareTabs(tabstrip(), 7);
   const tab_groups::TabGroupId existing_group_id =
       tabstrip()->AddToNewGroup({3, 4});
@@ -4699,7 +4710,7 @@ TEST_P(TabStripModelTest, MoveTwoUngroupedTabsIntoGroupRightToLeft) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MoveTwoGroupedTabsOutOfGroupLeft) {
+TEST_F(TabStripModelTest, MoveTwoGroupedTabsOutOfGroupLeft) {
   PrepareTabs(tabstrip(), 6);
   const tab_groups::TabGroupId existing_group_id =
       tabstrip()->AddToNewGroup({1, 2, 3, 4});
@@ -4721,7 +4732,7 @@ TEST_P(TabStripModelTest, MoveTwoGroupedTabsOutOfGroupLeft) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MoveTwoGroupedTabsOutOfGroupRight) {
+TEST_F(TabStripModelTest, MoveTwoGroupedTabsOutOfGroupRight) {
   PrepareTabs(tabstrip(), 6);
   const tab_groups::TabGroupId existing_group_id =
       tabstrip()->AddToNewGroup({1, 2, 3, 4});
@@ -4743,7 +4754,7 @@ TEST_P(TabStripModelTest, MoveTwoGroupedTabsOutOfGroupRight) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MoveTwoPinnedTabsToGroupWithoutChangingIndex) {
+TEST_F(TabStripModelTest, MoveTwoPinnedTabsToGroupWithoutChangingIndex) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 4, 2, {0, 1}));
   EXPECT_EQ("0p 1p 2 3", GetTabStripStateString(tabstrip()));
@@ -4759,7 +4770,7 @@ TEST_P(TabStripModelTest, MoveTwoPinnedTabsToGroupWithoutChangingIndex) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MoveTwoGroupTabs) {
+TEST_F(TabStripModelTest, MoveTwoGroupTabs) {
   PrepareTabs(tabstrip(), 5);
   const tab_groups::TabGroupId group_id = tabstrip()->AddToNewGroup({1, 2, 3});
   EXPECT_EQ("0 1g0 2g0 3g0 4", GetTabStripStateString(tabstrip(), true));
@@ -4781,7 +4792,7 @@ TEST_P(TabStripModelTest, MoveTwoGroupTabs) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, CloseSelectedTabs) {
+TEST_F(TabStripModelTest, CloseSelectedTabs) {
   for (int i = 0; i < 3; ++i) {
     tabstrip()->AppendWebContents(CreateWebContents(), true);
   }
@@ -4792,7 +4803,7 @@ TEST_P(TabStripModelTest, CloseSelectedTabs) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, FirstTabIsActive) {
+TEST_F(TabStripModelTest, FirstTabIsActive) {
   // Add the first tab as a background tab.
   tabstrip()->AppendWebContents(CreateWebContents(), /*foreground=*/false);
 
@@ -4800,7 +4811,7 @@ TEST_P(TabStripModelTest, FirstTabIsActive) {
   EXPECT_EQ(0, tabstrip()->active_index());
 }
 
-TEST_P(TabStripModelTest, MultipleSelection) {
+TEST_F(TabStripModelTest, MultipleSelection) {
   typedef MockTabStripModelObserver::State State;
 
   std::unique_ptr<WebContents> contents0 = CreateWebContents();
@@ -4914,7 +4925,7 @@ TEST_P(TabStripModelTest, MultipleSelection) {
 // Verifies that if we change the selection from a multi selection to a single
 // selection, but not in a way that changes the selected_index that
 // TabSelectionChanged is invoked.
-TEST_P(TabStripModelTest, MultipleToSingle) {
+TEST_F(TabStripModelTest, MultipleToSingle) {
   typedef MockTabStripModelObserver::State State;
 
   std::unique_ptr<WebContents> contents2 = CreateWebContents();
@@ -5027,7 +5038,7 @@ class DummySingleWebContentsDialogManager
 
 // Verifies a newly inserted tab retains its previous blocked state.
 // http://crbug.com/41038967
-TEST_P(TabStripModelTest, TabBlockedState) {
+TEST_F(TabStripModelTest, TabBlockedState) {
   // Start with a source tab tabstrip()->
   TestTabStripModelDelegate dummy_tab_strip_delegate;
   TabStripModel strip_src(&dummy_tab_strip_delegate, profile());
@@ -5081,7 +5092,7 @@ TEST_P(TabStripModelTest, TabBlockedState) {
 
 // Verifies ordering of tabs opened via a link from a pinned tab with a
 // subsequent pinned tab.
-TEST_P(TabStripModelTest, LinkClicksWithPinnedTabOrdering) {
+TEST_F(TabStripModelTest, LinkClicksWithPinnedTabOrdering) {
   // Open two pages, pinned.
   tabstrip()->AddWebContents(CreateWebContents(), -1,
                              ui::PAGE_TRANSITION_AUTO_TOPLEVEL,
@@ -5114,7 +5125,7 @@ TEST_P(TabStripModelTest, LinkClicksWithPinnedTabOrdering) {
 // This test covers a bug in TabStripModel::MoveWebContentsAt(). Specifically
 // if |select_after_move| was true it checked if the index
 // select_after_move (as an int) was selected rather than |to_position|.
-TEST_P(TabStripModelTest, MoveWebContentsAt) {
+TEST_F(TabStripModelTest, MoveWebContentsAt) {
   tabstrip()->AppendWebContents(CreateWebContents(), false);
   tabstrip()->AppendWebContents(CreateWebContents(), false);
   tabstrip()->AppendWebContents(CreateWebContents(), false);
@@ -5132,7 +5143,7 @@ TEST_P(TabStripModelTest, MoveWebContentsAt) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, NewTabsUngrouped) {
+TEST_F(TabStripModelTest, NewTabsUngrouped) {
   tabstrip()->AppendWebContents(CreateWebContents(), false);
 
   EXPECT_FALSE(tabstrip()->GetTabGroupForTab(0).has_value());
@@ -5143,7 +5154,7 @@ TEST_P(TabStripModelTest, NewTabsUngrouped) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, AddTabToNewGroup) {
+TEST_F(TabStripModelTest, AddTabToNewGroup) {
   ASSERT_TRUE(tabstrip()->SupportsTabGroups());
 
   tabstrip()->AppendWebContents(CreateWebContents(), false);
@@ -5170,7 +5181,7 @@ TEST_P(TabStripModelTest, AddTabToNewGroup) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, FindGroupIdFor) {
+TEST_F(TabStripModelTest, FindGroupIdFor) {
   ASSERT_TRUE(tabstrip()->SupportsTabGroups());
 
   {
@@ -5195,7 +5206,7 @@ TEST_P(TabStripModelTest, FindGroupIdFor) {
   }
 }
 
-TEST_P(TabStripModelTest, AddTabToNewGroupUpdatesObservers) {
+TEST_F(TabStripModelTest, AddTabToNewGroupUpdatesObservers) {
   ASSERT_TRUE(tabstrip()->SupportsTabGroups());
 
   tabstrip()->AppendWebContents(CreateWebContents(), true);
@@ -5209,7 +5220,7 @@ TEST_P(TabStripModelTest, AddTabToNewGroupUpdatesObservers) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, ReplacingTabGroupUpdatesObservers) {
+TEST_F(TabStripModelTest, ReplacingTabGroupUpdatesObservers) {
   ASSERT_TRUE(tabstrip()->SupportsTabGroups());
 
   tabstrip()->AppendWebContents(CreateWebContents(), true);
@@ -5226,7 +5237,7 @@ TEST_P(TabStripModelTest, ReplacingTabGroupUpdatesObservers) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, AddTabToNewGroupMiddleOfExistingGroup) {
+TEST_F(TabStripModelTest, AddTabToNewGroupMiddleOfExistingGroup) {
   ASSERT_TRUE(tabstrip()->SupportsTabGroups());
 
   PrepareTabs(tabstrip(), 4);
@@ -5238,7 +5249,7 @@ TEST_P(TabStripModelTest, AddTabToNewGroupMiddleOfExistingGroup) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest,
+TEST_F(TabStripModelTest,
        AddActiveTabToExistingGroupVerifyListSelectionModelUpdate) {
   ASSERT_TRUE(tabstrip()->SupportsTabGroups());
 
@@ -5260,7 +5271,7 @@ TEST_P(TabStripModelTest,
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, AddTabToNewGroupMiddleOfExistingGroupTwoGroups) {
+TEST_F(TabStripModelTest, AddTabToNewGroupMiddleOfExistingGroupTwoGroups) {
   PrepareTabs(tabstrip(), 4);
   tabstrip()->AddToNewGroup({0, 1, 2});
   tabstrip()->AddToNewGroup({3});
@@ -5271,7 +5282,7 @@ TEST_P(TabStripModelTest, AddTabToNewGroupMiddleOfExistingGroupTwoGroups) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, AddTabToNewGroupReorders) {
+TEST_F(TabStripModelTest, AddTabToNewGroupReorders) {
   PrepareTabs(tabstrip(), 3);
 
   tabstrip()->AddToNewGroup({0, 2});
@@ -5281,7 +5292,7 @@ TEST_P(TabStripModelTest, AddTabToNewGroupReorders) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, AddTabToNewGroupUnpins) {
+TEST_F(TabStripModelTest, AddTabToNewGroupUnpins) {
   PrepareTabs(tabstrip(), 2);
 
   tabstrip()->SetTabPinned(0, true);
@@ -5292,7 +5303,7 @@ TEST_P(TabStripModelTest, AddTabToNewGroupUnpins) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, AddTabToNewGroupUnpinsAndReorders) {
+TEST_F(TabStripModelTest, AddTabToNewGroupUnpinsAndReorders) {
   PrepareTabs(tabstrip(), 3);
 
   tabstrip()->SetTabPinned(0, true);
@@ -5304,7 +5315,7 @@ TEST_P(TabStripModelTest, AddTabToNewGroupUnpinsAndReorders) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, AddTabToNewGroupMovesPinnedAndUnpinnedTabs) {
+TEST_F(TabStripModelTest, AddTabToNewGroupMovesPinnedAndUnpinnedTabs) {
   PrepareTabs(tabstrip(), 4);
 
   tabstrip()->SetTabPinned(0, true);
@@ -5319,7 +5330,7 @@ TEST_P(TabStripModelTest, AddTabToNewGroupMovesPinnedAndUnpinnedTabs) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, AddTabAndSplitsToNewGroup) {
+TEST_F(TabStripModelTest, AddTabAndSplitsToNewGroup) {
   PrepareTabs(tabstrip(), 8);
 
   tabstrip()->SetTabPinned(0, true);
@@ -5346,7 +5357,7 @@ TEST_P(TabStripModelTest, AddTabAndSplitsToNewGroup) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, AddTabToExistingGroupIdempotent) {
+TEST_F(TabStripModelTest, AddTabToExistingGroupIdempotent) {
   tabstrip()->AppendWebContents(CreateWebContents(), true);
 
   tabstrip()->AddToNewGroup({0});
@@ -5362,7 +5373,7 @@ TEST_P(TabStripModelTest, AddTabToExistingGroupIdempotent) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, AddTabToExistingGroup) {
+TEST_F(TabStripModelTest, AddTabToExistingGroup) {
   PrepareTabs(tabstrip(), 2);
 
   tabstrip()->AddToNewGroup({0});
@@ -5375,7 +5386,7 @@ TEST_P(TabStripModelTest, AddTabToExistingGroup) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, AddTabToExistingGroupUpdatesObservers) {
+TEST_F(TabStripModelTest, AddTabToExistingGroupUpdatesObservers) {
   PrepareTabs(tabstrip(), 2);
 
   tab_groups::TabGroupId group = tabstrip()->AddToNewGroup({0});
@@ -5392,7 +5403,7 @@ TEST_P(TabStripModelTest, AddTabToExistingGroupUpdatesObservers) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, AddTabToLeftOfExistingGroupReorders) {
+TEST_F(TabStripModelTest, AddTabToLeftOfExistingGroupReorders) {
   PrepareTabs(tabstrip(), 3);
 
   tabstrip()->AddToNewGroup({2});
@@ -5405,7 +5416,7 @@ TEST_P(TabStripModelTest, AddTabToLeftOfExistingGroupReorders) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, AddTabToRighOfExistingGroupReorders) {
+TEST_F(TabStripModelTest, AddTabToRighOfExistingGroupReorders) {
   PrepareTabs(tabstrip(), 3);
 
   tabstrip()->AddToNewGroup({0});
@@ -5418,7 +5429,7 @@ TEST_P(TabStripModelTest, AddTabToRighOfExistingGroupReorders) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, AddTabToExistingGroupReorders) {
+TEST_F(TabStripModelTest, AddTabToExistingGroupReorders) {
   PrepareTabs(tabstrip(), 4);
 
   tabstrip()->AddToNewGroup({1});
@@ -5435,7 +5446,7 @@ TEST_P(TabStripModelTest, AddTabToExistingGroupReorders) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, AddTabToExistingGroupUnpins) {
+TEST_F(TabStripModelTest, AddTabToExistingGroupUnpins) {
   PrepareTabs(tabstrip(), 2);
 
   tabstrip()->SetTabPinned(0, true);
@@ -5451,7 +5462,7 @@ TEST_P(TabStripModelTest, AddTabToExistingGroupUnpins) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, AddTabAndSplitsToExistingGroup) {
+TEST_F(TabStripModelTest, AddTabAndSplitsToExistingGroup) {
   PrepareTabs(tabstrip(), 8);
 
   tabstrip()->SetTabPinned(0, true);
@@ -5477,7 +5488,7 @@ TEST_P(TabStripModelTest, AddTabAndSplitsToExistingGroup) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, PinTabInGroupUngroups) {
+TEST_F(TabStripModelTest, PinTabInGroupUngroups) {
   PrepareTabs(tabstrip(), 2);
 
   tabstrip()->AddToNewGroup({0, 1});
@@ -5490,7 +5501,7 @@ TEST_P(TabStripModelTest, PinTabInGroupUngroups) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, TogglePinnedTabInSplitUnsplits) {
+TEST_F(TabStripModelTest, TogglePinnedTabInSplitUnsplits) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 5, 2, {0}));
   tabstrip()->ActivateTabAt(0);
@@ -5508,7 +5519,7 @@ TEST_P(TabStripModelTest, TogglePinnedTabInSplitUnsplits) {
   EXPECT_EQ("1p 2p 0 3 4", GetTabStripStateString(tabstrip()));
 }
 
-TEST_P(TabStripModelTest, RemoveTabFromGroupNoopForUngroupedTab) {
+TEST_F(TabStripModelTest, RemoveTabFromGroupNoopForUngroupedTab) {
   tabstrip()->AppendWebContents(CreateWebContents(), true);
 
   observer()->ClearStates();
@@ -5519,7 +5530,7 @@ TEST_P(TabStripModelTest, RemoveTabFromGroupNoopForUngroupedTab) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, RemoveTabFromGroup) {
+TEST_F(TabStripModelTest, RemoveTabFromGroup) {
   tabstrip()->AppendWebContents(CreateWebContents(), true);
   tabstrip()->AddToNewGroup({0});
 
@@ -5530,7 +5541,7 @@ TEST_P(TabStripModelTest, RemoveTabFromGroup) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, RemoveTabFromGroupUpdatesObservers) {
+TEST_F(TabStripModelTest, RemoveTabFromGroupUpdatesObservers) {
   tabstrip()->AppendWebContents(CreateWebContents(), true);
   tabstrip()->AppendWebContents(CreateWebContents(), false);
   observer()->ClearStates();
@@ -5546,7 +5557,7 @@ TEST_P(TabStripModelTest, RemoveTabFromGroupUpdatesObservers) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, RemoveTabFromGroupMaintainsOrder) {
+TEST_F(TabStripModelTest, RemoveTabFromGroupMaintainsOrder) {
   PrepareTabs(tabstrip(), 2);
   tabstrip()->AddToNewGroup({0, 1});
 
@@ -5556,7 +5567,7 @@ TEST_P(TabStripModelTest, RemoveTabFromGroupMaintainsOrder) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, RemoveTabFromGroupDoesntReorderIfNoGroup) {
+TEST_F(TabStripModelTest, RemoveTabFromGroupDoesntReorderIfNoGroup) {
   PrepareTabs(tabstrip(), 3);
   tabstrip()->AddToNewGroup({0});
 
@@ -5566,7 +5577,7 @@ TEST_P(TabStripModelTest, RemoveTabFromGroupDoesntReorderIfNoGroup) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest,
+TEST_F(TabStripModelTest,
        RemoveTabFromGroupMaintainsRelativeOrderOfSelectedTabs) {
   PrepareTabs(tabstrip(), 4);
   tabstrip()->AddToNewGroup({0, 1, 2, 3});
@@ -5577,7 +5588,7 @@ TEST_P(TabStripModelTest,
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, RemoveTabFromGroupMixtureOfGroups) {
+TEST_F(TabStripModelTest, RemoveTabFromGroupMixtureOfGroups) {
   PrepareTabs(tabstrip(), 5);
   tabstrip()->AddToNewGroup({0, 1});
   tabstrip()->AddToNewGroup({2, 3});
@@ -5588,7 +5599,7 @@ TEST_P(TabStripModelTest, RemoveTabFromGroupMixtureOfGroups) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, RemoveTabFromGroupDeletesGroup) {
+TEST_F(TabStripModelTest, RemoveTabFromGroupDeletesGroup) {
   tabstrip()->AppendWebContents(CreateWebContents(), true);
   tabstrip()->AddToNewGroup({0});
   EXPECT_EQ(tabstrip()->group_model()->ListTabGroups().size(), 1U);
@@ -5600,7 +5611,7 @@ TEST_P(TabStripModelTest, RemoveTabFromGroupDeletesGroup) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, RemoveTabsAndSplitsFromGroup) {
+TEST_F(TabStripModelTest, RemoveTabsAndSplitsFromGroup) {
   PrepareTabs(tabstrip(), 5);
   tabstrip()->ActivateTabAt(1);
   tabstrip()->AddToNewSplit({2}, split_tabs::SplitTabVisualData(),
@@ -5626,7 +5637,7 @@ TEST_P(TabStripModelTest, RemoveTabsAndSplitsFromGroup) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, AddToNewGroupDeletesGroup) {
+TEST_F(TabStripModelTest, AddToNewGroupDeletesGroup) {
   tabstrip()->AppendWebContents(CreateWebContents(), true);
   tabstrip()->AddToNewGroup({0});
   EXPECT_EQ(tabstrip()->group_model()->ListTabGroups().size(), 1U);
@@ -5641,7 +5652,7 @@ TEST_P(TabStripModelTest, AddToNewGroupDeletesGroup) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MoveGroupToTest) {
+TEST_F(TabStripModelTest, MoveGroupToTest) {
   PrepareTabs(tabstrip(), 5);
 
   const tab_groups::TabGroupId group1 = tabstrip()->AddToNewGroup({0, 1, 2});
@@ -5654,7 +5665,7 @@ TEST_P(TabStripModelTest, MoveGroupToTest) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, AddToExistingGroupDeletesGroup) {
+TEST_F(TabStripModelTest, AddToExistingGroupDeletesGroup) {
   tabstrip()->AppendWebContents(CreateWebContents(), true);
   tabstrip()->AppendWebContents(CreateWebContents(), false);
   tabstrip()->AddToNewGroup({0});
@@ -5671,7 +5682,7 @@ TEST_P(TabStripModelTest, AddToExistingGroupDeletesGroup) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, CloseTabDeletesGroup) {
+TEST_F(TabStripModelTest, CloseTabDeletesGroup) {
   tabstrip()->AppendWebContents(CreateWebContents(), true);
   tabstrip()->AddToNewGroup({0});
   EXPECT_EQ(tabstrip()->group_model()->ListTabGroups().size(), 1U);
@@ -5681,7 +5692,7 @@ TEST_P(TabStripModelTest, CloseTabDeletesGroup) {
   EXPECT_EQ(tabstrip()->group_model()->ListTabGroups().size(), 0U);
 }
 
-TEST_P(TabStripModelTest, CloseTabNotifiesObserversOfGroupChange) {
+TEST_F(TabStripModelTest, CloseTabNotifiesObserversOfGroupChange) {
   tabstrip()->AppendWebContents(CreateWebContents(), true);
   observer()->ClearStates();
 
@@ -5694,7 +5705,7 @@ TEST_P(TabStripModelTest, CloseTabNotifiesObserversOfGroupChange) {
   EXPECT_EQ(0u, observer()->group_updates().size());
 }
 
-TEST_P(TabStripModelTest, InsertWebContentsAtWithGroupNotifiesObservers) {
+TEST_F(TabStripModelTest, InsertWebContentsAtWithGroupNotifiesObservers) {
   tabstrip()->AppendWebContents(CreateWebContents(), true);
   tabstrip()->AppendWebContents(CreateWebContents(), false);
   observer()->ClearStates();
@@ -5715,7 +5726,7 @@ TEST_P(TabStripModelTest, InsertWebContentsAtWithGroupNotifiesObservers) {
 
 // When inserting a WebContents, if a group is not specified, the new tab
 // should be left ungrouped.
-TEST_P(TabStripModelTest, InsertWebContentsAtDoesNotGroupByDefault) {
+TEST_F(TabStripModelTest, InsertWebContentsAtDoesNotGroupByDefault) {
   tabstrip()->AppendWebContents(CreateWebContents(), true);
   tabstrip()->AppendWebContents(CreateWebContents(), false);
   tabstrip()->AddToNewGroup({0, 1});
@@ -5733,7 +5744,7 @@ TEST_P(TabStripModelTest, InsertWebContentsAtDoesNotGroupByDefault) {
 
 // When inserting a WebContents, if a group is specified, the new tab should be
 // added to that group.
-TEST_P(TabStripModelTest, InsertWebContentsAtWithGroupGroups) {
+TEST_F(TabStripModelTest, InsertWebContentsAtWithGroupGroups) {
   tabstrip()->AppendWebContents(CreateWebContentsWithID(0), true);
   tabstrip()->AppendWebContents(CreateWebContentsWithID(1), false);
   tabstrip()->AddToNewGroup({0, 1});
@@ -5751,7 +5762,7 @@ TEST_P(TabStripModelTest, InsertWebContentsAtWithGroupGroups) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, NewTabWithGroup) {
+TEST_F(TabStripModelTest, NewTabWithGroup) {
   PrepareTabs(tabstrip(), 3);
   auto group = tabstrip()->AddToNewGroup({1});
 
@@ -5764,7 +5775,7 @@ TEST_P(TabStripModelTest, NewTabWithGroup) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, NewTabWithGroupDeletedCorrectly) {
+TEST_F(TabStripModelTest, NewTabWithGroupDeletedCorrectly) {
   tabstrip()->AppendWebContents(CreateWebContents(), true);
   tabstrip()->AddToNewGroup({0});
   tabstrip()->InsertWebContentsAt(1, CreateWebContents(), AddTabTypes::ADD_NONE,
@@ -5778,7 +5789,7 @@ TEST_P(TabStripModelTest, NewTabWithGroupDeletedCorrectly) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, NewTabWithoutIndexInsertsAtEndOfGroup) {
+TEST_F(TabStripModelTest, NewTabWithoutIndexInsertsAtEndOfGroup) {
   PrepareTabs(tabstrip(), 3);
   auto group = tabstrip()->AddToNewGroup({0, 1});
 
@@ -5790,7 +5801,7 @@ TEST_P(TabStripModelTest, NewTabWithoutIndexInsertsAtEndOfGroup) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, DiscontinuousNewTabIndexTooHigh) {
+TEST_F(TabStripModelTest, DiscontinuousNewTabIndexTooHigh) {
   PrepareTabs(tabstrip(), 3);
   auto group = tabstrip()->AddToNewGroup({0, 1});
 
@@ -5802,7 +5813,7 @@ TEST_P(TabStripModelTest, DiscontinuousNewTabIndexTooHigh) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, DiscontinuousNewTabIndexTooLow) {
+TEST_F(TabStripModelTest, DiscontinuousNewTabIndexTooLow) {
   PrepareTabs(tabstrip(), 3);
   auto group = tabstrip()->AddToNewGroup({1, 2});
 
@@ -5814,7 +5825,7 @@ TEST_P(TabStripModelTest, DiscontinuousNewTabIndexTooLow) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, CreateGroupSetsVisualData) {
+TEST_F(TabStripModelTest, CreateGroupSetsVisualData) {
   tab_groups::ColorLabelMap all_colors = tab_groups::GetTabGroupColorLabelMap();
   PrepareTabs(tabstrip(), all_colors.size() + 1);
 
@@ -5837,7 +5848,7 @@ TEST_P(TabStripModelTest, CreateGroupSetsVisualData) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, SetVisualDataForGroup) {
+TEST_F(TabStripModelTest, SetVisualDataForGroup) {
   PrepareTabs(tabstrip(), 1);
   const tab_groups::TabGroupId group = tabstrip()->AddToNewGroup({0});
 
@@ -5852,7 +5863,7 @@ TEST_P(TabStripModelTest, SetVisualDataForGroup) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, VisualDataChangeNotifiesObservers) {
+TEST_F(TabStripModelTest, VisualDataChangeNotifiesObservers) {
   PrepareTabs(tabstrip(), 1);
   const tab_groups::TabGroupId group = tabstrip()->AddToNewGroup({0});
 
@@ -5874,7 +5885,7 @@ TEST_P(TabStripModelTest, VisualDataChangeNotifiesObservers) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MovingTabToStartOfGroupDoesNotChangeGroup) {
+TEST_F(TabStripModelTest, MovingTabToStartOfGroupDoesNotChangeGroup) {
   PrepareTabs(tabstrip(), 5);
   const auto group = tabstrip()->AddToNewGroup({1, 2, 3});
 
@@ -5887,7 +5898,7 @@ TEST_P(TabStripModelTest, MovingTabToStartOfGroupDoesNotChangeGroup) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MovingTabToMiddleOfGroupDoesNotChangeGroup) {
+TEST_F(TabStripModelTest, MovingTabToMiddleOfGroupDoesNotChangeGroup) {
   PrepareTabs(tabstrip(), 5);
   const auto group = tabstrip()->AddToNewGroup({1, 2, 3});
 
@@ -5900,7 +5911,7 @@ TEST_P(TabStripModelTest, MovingTabToMiddleOfGroupDoesNotChangeGroup) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MovingTabToEndOfGroupDoesNotChangeGroup) {
+TEST_F(TabStripModelTest, MovingTabToEndOfGroupDoesNotChangeGroup) {
   PrepareTabs(tabstrip(), 5);
   const auto group = tabstrip()->AddToNewGroup({1, 2, 3});
 
@@ -5913,7 +5924,7 @@ TEST_P(TabStripModelTest, MovingTabToEndOfGroupDoesNotChangeGroup) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MovingTabOutsideOfGroupToStartOfTabstripClearsGroup) {
+TEST_F(TabStripModelTest, MovingTabOutsideOfGroupToStartOfTabstripClearsGroup) {
   PrepareTabs(tabstrip(), 5);
   const auto group = tabstrip()->AddToNewGroup({1, 2, 3});
 
@@ -5926,7 +5937,7 @@ TEST_P(TabStripModelTest, MovingTabOutsideOfGroupToStartOfTabstripClearsGroup) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MovingTabOutsideOfGroupToEndOfTabstripClearsGroup) {
+TEST_F(TabStripModelTest, MovingTabOutsideOfGroupToEndOfTabstripClearsGroup) {
   PrepareTabs(tabstrip(), 5);
   const auto group = tabstrip()->AddToNewGroup({1, 2, 3});
 
@@ -5939,7 +5950,7 @@ TEST_P(TabStripModelTest, MovingTabOutsideOfGroupToEndOfTabstripClearsGroup) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MovingTabBetweenUngroupedTabsClearsGroup) {
+TEST_F(TabStripModelTest, MovingTabBetweenUngroupedTabsClearsGroup) {
   PrepareTabs(tabstrip(), 5);
   tabstrip()->AddToNewGroup({0, 1, 2});
 
@@ -5952,7 +5963,7 @@ TEST_P(TabStripModelTest, MovingTabBetweenUngroupedTabsClearsGroup) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MovingUngroupedTabBetweenGroupsDoesNotAssignGroup) {
+TEST_F(TabStripModelTest, MovingUngroupedTabBetweenGroupsDoesNotAssignGroup) {
   PrepareTabs(tabstrip(), 5);
   const auto group1 = tabstrip()->AddToNewGroup({1, 2});
   const auto group2 = tabstrip()->AddToNewGroup({3, 4});
@@ -5966,7 +5977,7 @@ TEST_P(TabStripModelTest, MovingUngroupedTabBetweenGroupsDoesNotAssignGroup) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest,
+TEST_F(TabStripModelTest,
        MovingUngroupedTabBetweenGroupAndUngroupedDoesNotAssignGroup) {
   PrepareTabs(tabstrip(), 4);
   const auto group = tabstrip()->AddToNewGroup({1, 2});
@@ -5980,7 +5991,7 @@ TEST_P(TabStripModelTest,
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest,
+TEST_F(TabStripModelTest,
        MovingUngroupedTabBetweenUngroupedAndGroupDoesNotAssignGroup) {
   PrepareTabs(tabstrip(), 4);
   const auto group = tabstrip()->AddToNewGroup({2, 3});
@@ -5994,7 +6005,7 @@ TEST_P(TabStripModelTest,
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest,
+TEST_F(TabStripModelTest,
        MovingGroupMemberBetweenTwoDifferentGroupsClearsGroup) {
   PrepareTabs(tabstrip(), 6);
   const auto group1 = tabstrip()->AddToNewGroup({0, 1});
@@ -6011,7 +6022,7 @@ TEST_P(TabStripModelTest,
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest,
+TEST_F(TabStripModelTest,
        MovingSingleTabGroupBetweenTwoGroupsDoesNotClearGroup) {
   PrepareTabs(tabstrip(), 5);
   const auto group1 = tabstrip()->AddToNewGroup({0});
@@ -6028,7 +6039,7 @@ TEST_P(TabStripModelTest,
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MovingUngroupedTabIntoGroupSetsGroup) {
+TEST_F(TabStripModelTest, MovingUngroupedTabIntoGroupSetsGroup) {
   PrepareTabs(tabstrip(), 3);
   const auto group = tabstrip()->AddToNewGroup({1, 2});
 
@@ -6041,7 +6052,7 @@ TEST_P(TabStripModelTest, MovingUngroupedTabIntoGroupSetsGroup) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MovingGroupedTabIntoGroupChangesGroup) {
+TEST_F(TabStripModelTest, MovingGroupedTabIntoGroupChangesGroup) {
   PrepareTabs(tabstrip(), 3);
   tabstrip()->AddToNewGroup({0});
   const auto group2 = tabstrip()->AddToNewGroup({1, 2});
@@ -6055,7 +6066,7 @@ TEST_P(TabStripModelTest, MovingGroupedTabIntoGroupChangesGroup) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MoveWebContentsAtCorrectlyRemovesGroupEntries) {
+TEST_F(TabStripModelTest, MoveWebContentsAtCorrectlyRemovesGroupEntries) {
   PrepareTabs(tabstrip(), 3);
   tabstrip()->AddToNewGroup({0});
   const auto group2 = tabstrip()->AddToNewGroup({1, 2});
@@ -6069,7 +6080,7 @@ TEST_P(TabStripModelTest, MoveWebContentsAtCorrectlyRemovesGroupEntries) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MoveWebContentsAtCorrectlySendsGroupChangedEvent) {
+TEST_F(TabStripModelTest, MoveWebContentsAtCorrectlySendsGroupChangedEvent) {
   PrepareTabs(tabstrip(), 3);
 
   const tab_groups::TabGroupId group1 = tabstrip()->AddToNewGroup({0});
@@ -6091,7 +6102,7 @@ TEST_P(TabStripModelTest, MoveWebContentsAtCorrectlySendsGroupChangedEvent) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, MoveWebContentsAtCorrectlySendsGroupClearedEvent) {
+TEST_F(TabStripModelTest, MoveWebContentsAtCorrectlySendsGroupClearedEvent) {
   PrepareTabs(tabstrip(), 3);
 
   const tab_groups::TabGroupId group1 = tabstrip()->AddToNewGroup({0, 1});
@@ -6115,7 +6126,7 @@ TEST_P(TabStripModelTest, MoveWebContentsAtCorrectlySendsGroupClearedEvent) {
 
 // Ensure that the opener for a tab never refers to a dangling WebContents.
 // Regression test for crbug.com/40052517.
-TEST_P(TabStripModelTest, DanglingOpener) {
+TEST_F(TabStripModelTest, DanglingOpener) {
   PrepareTabs(tabstrip(), 2);
 
   tabs::TabInterface* tab_1 = tabstrip()->GetTabAtIndex(0);
@@ -6177,7 +6188,7 @@ class TabToWindowTestTabStripModelDelegate : public TestTabStripModelDelegate {
 
 // Sanity check to ensure that the "Move Tabs to Window" command talks to
 // the delegate correctly.
-TEST_P(TabStripModelTest, MoveTabsToNewWindow) {
+TEST_F(TabStripModelTest, MoveTabsToNewWindow) {
   TabToWindowTestTabStripModelDelegate delegate;
   TabStripModel tabstrip(&delegate, profile());
   PrepareTabs(&tabstrip, 3);
@@ -6204,7 +6215,7 @@ TEST_P(TabStripModelTest, MoveTabsToNewWindow) {
   tabstrip.CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, SurroundingGroupAtIndex) {
+TEST_F(TabStripModelTest, SurroundingGroupAtIndex) {
   PrepareTabs(tabstrip(), 4);
 
   auto group1 = tabstrip()->AddToNewGroup({1, 2});
@@ -6219,7 +6230,7 @@ TEST_P(TabStripModelTest, SurroundingGroupAtIndex) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, ActivateRecordsStartTime) {
+TEST_F(TabStripModelTest, ActivateRecordsStartTime) {
   PrepareTabs(tabstrip(), 2);
 
   // PrepareTabs should leave the last tab active.
@@ -6246,7 +6257,7 @@ TEST_P(TabStripModelTest, ActivateRecordsStartTime) {
   EXPECT_TRUE(HasTabSwitchStartTimeAtIndex(1));
 }
 
-TEST_P(TabStripModelTest, ActivateRecordsStartTime_UnSplitToSplit) {
+TEST_F(TabStripModelTest, ActivateRecordsStartTime_UnSplitToSplit) {
   // Create 3 tabs with a split containing tabs 1 and 2.
   PrepareTabs(tabstrip(), 3);
   ASSERT_EQ(tabstrip()->GetActiveWebContents(),
@@ -6263,7 +6274,7 @@ TEST_P(TabStripModelTest, ActivateRecordsStartTime_UnSplitToSplit) {
   EXPECT_TRUE(HasTabSwitchStartTimeAtIndex(0));
 }
 
-TEST_P(TabStripModelTest, ActivateRecordsStartTime_SplitToUnSplit) {
+TEST_F(TabStripModelTest, ActivateRecordsStartTime_SplitToUnSplit) {
   // Create 3 tabs with a split containing tabs 1 and 2.
   PrepareTabs(tabstrip(), 3);
   ASSERT_EQ(tabstrip()->GetActiveWebContents(),
@@ -6283,7 +6294,7 @@ TEST_P(TabStripModelTest, ActivateRecordsStartTime_SplitToUnSplit) {
   EXPECT_FALSE(HasTabSwitchStartTimeAtIndex(2));
 }
 
-TEST_P(TabStripModelTest, ActivateRecordsStartTime_SplitToSameSplit) {
+TEST_F(TabStripModelTest, ActivateRecordsStartTime_SplitToSameSplit) {
   // Create 3 tabs with a split containing tabs 1 and 2.
   PrepareTabs(tabstrip(), 3);
   ASSERT_EQ(tabstrip()->GetActiveWebContents(),
@@ -6302,7 +6313,7 @@ TEST_P(TabStripModelTest, ActivateRecordsStartTime_SplitToSameSplit) {
   EXPECT_FALSE(HasTabSwitchStartTimeAtIndex(2));
 }
 
-TEST_P(TabStripModelTest, ActivateRecordsStartTime_SplitToOtherSplit) {
+TEST_F(TabStripModelTest, ActivateRecordsStartTime_SplitToOtherSplit) {
   // Create 4 tabs, with a split containing tabs 0 and 1, and a split containing
   // tabs 2 and 3.
   PrepareTabs(tabstrip(), 4);
@@ -6325,7 +6336,7 @@ TEST_P(TabStripModelTest, ActivateRecordsStartTime_SplitToOtherSplit) {
   EXPECT_FALSE(HasTabSwitchStartTimeAtIndex(3));
 }
 
-TEST_P(TabStripModelTest, ToggleSiteMuted) {
+TEST_F(TabStripModelTest, ToggleSiteMuted) {
   GURL url("https://example.com/");
   HostContentSettingsMap* settings =
       HostContentSettingsMapFactory::GetForProfile(profile());
@@ -6360,7 +6371,7 @@ TEST_P(TabStripModelTest, ToggleSiteMuted) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, ToggleSiteMutedWithLessSpecificRule) {
+TEST_F(TabStripModelTest, ToggleSiteMutedWithLessSpecificRule) {
   GURL url("https://example.com/");
   HostContentSettingsMap* settings =
       HostContentSettingsMapFactory::GetForProfile(profile());
@@ -6410,7 +6421,7 @@ TEST_P(TabStripModelTest, ToggleSiteMutedWithLessSpecificRule) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, ToggleSiteMutedWithOtherDisjointRule) {
+TEST_F(TabStripModelTest, ToggleSiteMutedWithOtherDisjointRule) {
   GURL url("https://example.com/");
   HostContentSettingsMap* settings =
       HostContentSettingsMapFactory::GetForProfile(profile());
@@ -6455,7 +6466,7 @@ TEST_P(TabStripModelTest, ToggleSiteMutedWithOtherDisjointRule) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, ToggleSiteMutedWithDifferentDefault) {
+TEST_F(TabStripModelTest, ToggleSiteMutedWithDifferentDefault) {
   GURL url("https://example.com/");
   HostContentSettingsMap* settings =
       HostContentSettingsMapFactory::GetForProfile(profile());
@@ -6486,7 +6497,7 @@ TEST_P(TabStripModelTest, ToggleSiteMutedWithDifferentDefault) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, ToggleMuteUnmuteMultipleSites) {
+TEST_F(TabStripModelTest, ToggleMuteUnmuteMultipleSites) {
   GURL url1("https://example1.com/");
   std::unique_ptr<WebContents> new_tab_contents1 = CreateWebContents();
   content::WebContentsTester::For(new_tab_contents1.get())
@@ -6522,7 +6533,7 @@ TEST_P(TabStripModelTest, ToggleMuteUnmuteMultipleSites) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, AppendTab) {
+TEST_F(TabStripModelTest, AppendTab) {
   MockBrowserWindowInterface bwi;
   delegate()->SetBrowserWindowInterface(&bwi);
   ON_CALL(bwi, GetTabStripModel()).WillByDefault(::testing::Return(tabstrip()));
@@ -6582,7 +6593,7 @@ TEST_P(TabStripModelTest, AppendTab) {
   delegate()->SetBrowserWindowInterface(nullptr);
 }
 
-TEST_P(TabStripModelTest, SelectionChangedSingleOperationObserverTest) {
+TEST_F(TabStripModelTest, SelectionChangedSingleOperationObserverTest) {
   // Add 4 tabs to the tabstrip model
   PrepareTabs(tabstrip(), 4);
   ASSERT_EQ(4, tabstrip()->count());
@@ -6633,7 +6644,7 @@ TEST_P(TabStripModelTest, SelectionChangedSingleOperationObserverTest) {
   observer()->ClearStates();
 }
 
-TEST_P(TabStripModelTest, SelectionChangedForMoveGroupWithSelectedTab) {
+TEST_F(TabStripModelTest, SelectionChangedForMoveGroupWithSelectedTab) {
   // Add 6 tabs to the tabstrip model.
   PrepareTabs(tabstrip(), 6);
   ASSERT_EQ(6, tabstrip()->count());
@@ -6667,7 +6678,7 @@ TEST_P(TabStripModelTest, SelectionChangedForMoveGroupWithSelectedTab) {
   observer()->ClearStates();
 }
 
-TEST_P(TabStripModelTest, SelectionChangedForMoveSelectedTabsTo) {
+TEST_F(TabStripModelTest, SelectionChangedForMoveSelectedTabsTo) {
   // Add 6 tabs to the tabstrip model.
   PrepareTabs(tabstrip(), 6);
   ASSERT_EQ(6, tabstrip()->count());
@@ -6705,7 +6716,7 @@ TEST_P(TabStripModelTest, SelectionChangedForMoveSelectedTabsTo) {
   observer()->ClearStates();
 }
 
-TEST_P(TabStripModelTest, LifecycleCallbacks_SwitchingTabToSplit) {
+TEST_F(TabStripModelTest, LifecycleCallbacks_SwitchingTabToSplit) {
   // Create three tabs with a split containing tabs 0 and 1.
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 3, 0, {0}));
@@ -6724,7 +6735,7 @@ TEST_P(TabStripModelTest, LifecycleCallbacks_SwitchingTabToSplit) {
   VerifyAndClearCallbacks();
 }
 
-TEST_P(TabStripModelTest, LifecycleCallbacks_SwitchingTabAwayFromSplit) {
+TEST_F(TabStripModelTest, LifecycleCallbacks_SwitchingTabAwayFromSplit) {
   // Create three tabs with a split containing tabs 0 and 1.
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 3, 0, {0}));
@@ -6744,7 +6755,7 @@ TEST_P(TabStripModelTest, LifecycleCallbacks_SwitchingTabAwayFromSplit) {
   VerifyAndClearCallbacks();
 }
 
-TEST_P(TabStripModelTest, LifecycleCallbacks_SwitchingTabWithinSplit) {
+TEST_F(TabStripModelTest, LifecycleCallbacks_SwitchingTabWithinSplit) {
   // Create three tabs with a split containing tabs 0 and 1.
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 3, 0, {0}));
@@ -6764,7 +6775,7 @@ TEST_P(TabStripModelTest, LifecycleCallbacks_SwitchingTabWithinSplit) {
   VerifyAndClearCallbacks();
 }
 
-TEST_P(TabStripModelTest, LifecycleCallbacks_UnsplitTabs) {
+TEST_F(TabStripModelTest, LifecycleCallbacks_UnsplitTabs) {
   // Create three tabs with a split containing tabs 0 and 1.
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 3, 0, {0}));
@@ -6785,7 +6796,7 @@ TEST_P(TabStripModelTest, LifecycleCallbacks_UnsplitTabs) {
   VerifyAndClearCallbacks();
 }
 
-TEST_P(TabStripModelTest, ExtendSelectionTo_SplitTabs) {
+TEST_F(TabStripModelTest, ExtendSelectionTo_SplitTabs) {
   // Create six tabs with a split containing tabs 0 and 1 and another split with
   // tabs 4 and 5.
   ASSERT_NO_FATAL_FAILURE(
@@ -6817,7 +6828,7 @@ TEST_P(TabStripModelTest, ExtendSelectionTo_SplitTabs) {
   ExpectSelectionIsExactly(tabstrip(), {3, 4, 5});
 }
 
-TEST_P(TabStripModelTest, ExtendSelectionTo_MultipleInDifferentDirection) {
+TEST_F(TabStripModelTest, ExtendSelectionTo_MultipleInDifferentDirection) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 5, 0, {2}));
   tabstrip()->ActivateTabAt(2);
@@ -6831,7 +6842,7 @@ TEST_P(TabStripModelTest, ExtendSelectionTo_MultipleInDifferentDirection) {
   EXPECT_EQ(tabstrip()->active_index(), 0);
 }
 
-TEST_P(TabStripModelTest, ExtendSelectionTo_MultipleInSameDirection) {
+TEST_F(TabStripModelTest, ExtendSelectionTo_MultipleInSameDirection) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 5, 0, {0}));
   tabstrip()->ActivateTabAt(0);
@@ -6845,7 +6856,7 @@ TEST_P(TabStripModelTest, ExtendSelectionTo_MultipleInSameDirection) {
   EXPECT_EQ(tabstrip()->active_index(), 2);
 }
 
-TEST_P(TabStripModelTest, AddSelectionFromAnchorTo_SplitTabs) {
+TEST_F(TabStripModelTest, AddSelectionFromAnchorTo_SplitTabs) {
   // Create six tabs with a split containing tabs 0 and 1 and another split with
   // tabs 4 and 5.
   ASSERT_NO_FATAL_FAILURE(
@@ -6868,7 +6879,7 @@ TEST_P(TabStripModelTest, AddSelectionFromAnchorTo_SplitTabs) {
   EXPECT_EQ(tabstrip()->active_index(), 1);
 }
 
-TEST_P(TabStripModelTest,
+TEST_F(TabStripModelTest,
        AddSelectionFromAnchorTo_MultipleInDifferentDirection) {
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 5, 0, {2}));
@@ -6883,7 +6894,7 @@ TEST_P(TabStripModelTest,
   EXPECT_EQ(tabstrip()->active_index(), 0);
 }
 
-TEST_P(TabStripModelTest, AddSelectionFromModel_SplitActiveTab) {
+TEST_F(TabStripModelTest, AddSelectionFromModel_SplitActiveTab) {
   // Create four tabs with a split containing tabs 2 and 3.
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 4, 0, {0}));
@@ -6905,7 +6916,7 @@ TEST_P(TabStripModelTest, AddSelectionFromModel_SplitActiveTab) {
   EXPECT_EQ(tabstrip()->active_index(), 3);
 }
 
-TEST_P(TabStripModelTest, AddSelectionFromAnchorTo_SplitTab) {
+TEST_F(TabStripModelTest, AddSelectionFromAnchorTo_SplitTab) {
   // Create six tabs with a split containing tabs 0 and 1.
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 6, 0, {0}));
@@ -6923,7 +6934,7 @@ TEST_P(TabStripModelTest, AddSelectionFromAnchorTo_SplitTab) {
   ExpectSelectionIsExactly(tabstrip(), {0, 1, 2, 3});
 }
 
-TEST_P(TabStripModelTest, SelectTabAt_SplitTabs) {
+TEST_F(TabStripModelTest, SelectTabAt_SplitTabs) {
   // Create four tabs with a split containing tabs 2 and 3.
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 4, 0, {0}));
@@ -6939,7 +6950,7 @@ TEST_P(TabStripModelTest, SelectTabAt_SplitTabs) {
   ExpectSelectionIsExactly(tabstrip(), {1, 2, 3});
 }
 
-TEST_P(TabStripModelTest, DeselectTabAt_SplitTabs) {
+TEST_F(TabStripModelTest, DeselectTabAt_SplitTabs) {
   // Create four tabs with a split containing tabs 2 and 3.
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 4, 0, {0}));
@@ -6957,7 +6968,7 @@ TEST_P(TabStripModelTest, DeselectTabAt_SplitTabs) {
   ExpectSelectionIsExactly(tabstrip(), {0});
 }
 
-TEST_P(TabStripModelTest, DeselectTabAt_CantDeselectOnlySelectedSplitTabs) {
+TEST_F(TabStripModelTest, DeselectTabAt_CantDeselectOnlySelectedSplitTabs) {
   // Create four tabs with a split containing tabs 2 and 3.
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tabstrip(), 4, 0, {0}));
@@ -6974,7 +6985,7 @@ TEST_P(TabStripModelTest, DeselectTabAt_CantDeselectOnlySelectedSplitTabs) {
   ExpectSelectionIsExactly(tabstrip(), {2, 3});
 }
 
-TEST_P(TabStripModelTest, RemoveSplitInSelectionActivatesRemainingTab) {
+TEST_F(TabStripModelTest, RemoveSplitInSelectionActivatesRemainingTab) {
   // Add 6 tabs to the tabstrip model. The first 4 tabs will be selected with
   // the tab at index 1 as the active tab. Tabs 1 and 2 are in a split view.
   PrepareTabs(tabstrip(), 6);
@@ -6999,7 +7010,7 @@ TEST_P(TabStripModelTest, RemoveSplitInSelectionActivatesRemainingTab) {
   ExpectSelectionIsExactly(tabstrip(), {0, 1, 2});
 }
 
-TEST_P(TabStripModelTest, RemoveSplitUnselectsNonActiveTab) {
+TEST_F(TabStripModelTest, RemoveSplitUnselectsNonActiveTab) {
   // Add 4 tabs to the tabstrip model. Tabs 1 and 2 are in a split view and
   // active/selected.
   PrepareTabs(tabstrip(), 4);
@@ -7021,7 +7032,7 @@ TEST_P(TabStripModelTest, RemoveSplitUnselectsNonActiveTab) {
   ExpectSelectionIsExactly(tabstrip(), {1});
 }
 
-TEST_P(TabStripModelTest, SplitSelectionTestFromModel) {
+TEST_F(TabStripModelTest, SplitSelectionTestFromModel) {
   TestTabStripModelDelegate delegate;
   TabStripModel tabstrip(&delegate, profile());
   EXPECT_TRUE(tabstrip.empty());
@@ -7055,7 +7066,7 @@ TEST_P(TabStripModelTest, SplitSelectionTestFromModel) {
       expected_sel_indices);
 }
 
-TEST_P(TabStripModelTest, RemoveLeftTabInSplitActivatesRemainingTab) {
+TEST_F(TabStripModelTest, RemoveLeftTabInSplitActivatesRemainingTab) {
   // Add 4 tabs to the tabstrip model. Tabs 0 and 1 are in a split view.
   PrepareTabs(tabstrip(), 4);
   ASSERT_EQ(4, tabstrip()->count());
@@ -7076,7 +7087,7 @@ TEST_P(TabStripModelTest, RemoveLeftTabInSplitActivatesRemainingTab) {
   ExpectSelectionIsExactly(tabstrip(), {0});
 }
 
-TEST_P(TabStripModelTest,
+TEST_F(TabStripModelTest,
        RemoveRightTabInSplitActivatesRemainingTabNotBackgroundTab) {
   // Add 3 tabs to the tabstrip model. Tabs 0 and 2 are in a split view.
   PrepareTabs(tabstrip(), 3);
@@ -7097,7 +7108,7 @@ TEST_P(TabStripModelTest,
   ExpectSelectionIsExactly(tabstrip(), {0});
 }
 
-TEST_P(TabStripModelTest, IteratorTest) {
+TEST_F(TabStripModelTest, IteratorTest) {
   // Get the iterator without any tabs being present.
   TabStripModel::TabIterator it = tabstrip()->begin();
   EXPECT_EQ(*it, nullptr);
@@ -7125,7 +7136,7 @@ TEST_P(TabStripModelTest, IteratorTest) {
   EXPECT_EQ(i, tabstrip()->count());
 }
 
-TEST_P(TabStripModelTest, IteratorTestPinnedTab) {
+TEST_F(TabStripModelTest, IteratorTestPinnedTab) {
   // Add only one unpinned tab
   PrepareTabstripForSelectionTest(tabstrip(), 10, 10, {0});
 
@@ -7138,7 +7149,7 @@ TEST_P(TabStripModelTest, IteratorTestPinnedTab) {
   EXPECT_EQ(i, tabstrip()->count());
 }
 
-TEST_P(TabStripModelTest, IteratorTestGroupOnlyTabs) {
+TEST_F(TabStripModelTest, IteratorTestGroupOnlyTabs) {
   // Add only one unpinned tab
   PrepareTabstripForSelectionTest(tabstrip(), 5, 0, {0});
   tabstrip()->AddToNewGroup({0, 1, 2, 3, 4});
@@ -7152,7 +7163,7 @@ TEST_P(TabStripModelTest, IteratorTestGroupOnlyTabs) {
   EXPECT_EQ(i, tabstrip()->count());
 }
 
-TEST_P(TabStripModelTest, GetTabsAtIndices) {
+TEST_F(TabStripModelTest, GetTabsAtIndices) {
   // Add a bunch of tabs.
   PrepareTabstripForSelectionTest(tabstrip(), 7, 2, {0});
   tabstrip()->AddToNewGroup({3, 4, 5});
@@ -7171,7 +7182,7 @@ TEST_P(TabStripModelTest, GetTabsAtIndices) {
   EXPECT_EQ(tabs, tabstrip()->GetTabsAtIndices({1, 3, 4, 6}));
 }
 
-TEST_P(TabStripModelTest, TestSelectionModelAccessor) {
+TEST_F(TabStripModelTest, TestSelectionModelAccessor) {
   PrepareTabstripForSelectionTest(tabstrip(), /*tab_count*/ 10,
                                   /*pinned_count*/ 0,
                                   /*selected_tabs*/ {2, 4, 6, 8});
@@ -7187,15 +7198,6 @@ TEST_P(TabStripModelTest, TestSelectionModelAccessor) {
   EXPECT_EQ(expected_model,
             tabstrip()->selection_model().GetListSelectionModel());
 }
-
-INSTANTIATE_TEST_SUITE_P(SelectionWithPointers,
-                         TabStripModelTest,
-                         testing::Bool(),
-                         [](const testing::TestParamInfo<bool>& info) {
-                           // info.param is the boolean value for this test
-                           // instance.
-                           return info.param ? "Enabled" : "Disabled";
-                         });
 
 // A TestTabStripModelDelegate that allows controlling when the group
 // destruction callback is run.
@@ -7304,7 +7306,7 @@ TEST_F(TabStripModelCallbackTest, MoveTabToGroupThenDeleteGroup) {
   tabstrip()->CloseAllTabs();
 }
 
-TEST_P(TabStripModelTest, CommandGlicUnshare) {
+TEST_F(TabStripModelTest, CommandGlicUnshare) {
   tabstrip()->AppendWebContents(CreateWebContentsWithID(1), true);
   EXPECT_TRUE(tabstrip()->IsContextMenuCommandEnabled(
       0, TabStripModel::CommandGlicUnshare));
@@ -7313,7 +7315,7 @@ TEST_P(TabStripModelTest, CommandGlicUnshare) {
   tabstrip()->ExecuteContextMenuCommand(0, TabStripModel::CommandGlicUnshare);
 }
 
-TEST_P(TabStripModelTest, TabStripUIWasSetResetOnObserverRemoval) {
+TEST_F(TabStripModelTest, TabStripUIWasSetResetOnObserverRemoval) {
   MockTabStripModelObserver observer;
   tabstrip()->SetTabStripUI(&observer);
 
@@ -7326,7 +7328,7 @@ TEST_P(TabStripModelTest, TabStripUIWasSetResetOnObserverRemoval) {
   tabstrip()->RemoveObserver(&observer2);
 }
 
-TEST_P(TabStripModelTest, ReinsertSplitCollectionVerifyListSelectionModel) {
+TEST_F(TabStripModelTest, ReinsertSplitCollectionVerifyListSelectionModel) {
   PrepareTabstripForSelectionTest(tabstrip(), /*tab_count*/ 5,
                                   /*pinned_count*/ 0,
                                   /*selected_tabs*/ {0, 2, 3, 4});
@@ -7354,7 +7356,7 @@ TEST_P(TabStripModelTest, ReinsertSplitCollectionVerifyListSelectionModel) {
             tabstrip()->selection_model().GetListSelectionModel().ToString());
 }
 
-TEST_P(TabStripModelTest, ReinsertTabGroupCollectionVerifyListSelectionModel) {
+TEST_F(TabStripModelTest, ReinsertTabGroupCollectionVerifyListSelectionModel) {
   PrepareTabstripForSelectionTest(tabstrip(), /*tab_count*/ 5,
                                   /*pinned_count*/ 0,
                                   /*selected_tabs*/ {0, 2, 4});
@@ -7378,7 +7380,7 @@ TEST_P(TabStripModelTest, ReinsertTabGroupCollectionVerifyListSelectionModel) {
             tabstrip()->selection_model().GetListSelectionModel().ToString());
 }
 
-TEST_P(TabStripModelTest, TabGroupCallbackOnTabAdded) {
+TEST_F(TabStripModelTest, TabGroupCallbackOnTabAdded) {
   PrepareTabstripForSelectionTest(tabstrip(), /*tab_count*/ 2,
                                   /*pinned_count*/ 0,
                                   /*selected_tabs*/ {0});
@@ -7395,7 +7397,7 @@ TEST_P(TabStripModelTest, TabGroupCallbackOnTabAdded) {
   EXPECT_TRUE(was_notified);
 }
 
-TEST_P(TabStripModelTest, TabGroupCallbackOnTabRemoved) {
+TEST_F(TabStripModelTest, TabGroupCallbackOnTabRemoved) {
   PrepareTabstripForSelectionTest(tabstrip(), /*tab_count*/ 2,
                                   /*pinned_count*/ 0,
                                   /*selected_tabs*/ {0});
@@ -7412,7 +7414,7 @@ TEST_P(TabStripModelTest, TabGroupCallbackOnTabRemoved) {
   EXPECT_TRUE(was_notified);
 }
 
-TEST_P(TabStripModelTest, TabGroupCallbackOnTabMoved) {
+TEST_F(TabStripModelTest, TabGroupCallbackOnTabMoved) {
   PrepareTabstripForSelectionTest(tabstrip(), /*tab_count*/ 2,
                                   /*pinned_count*/ 0,
                                   /*selected_tabs*/ {0});

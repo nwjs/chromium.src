@@ -16,7 +16,6 @@
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
-#include "chrome/browser/ui/views/interaction/browser_elements_views.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/tabs/public/tab_interface.h"
@@ -271,8 +270,9 @@ void HandoffButtonController::UpdateState(HandoffButtonState state,
       a11y_text =
           l10n_util::GetStringUTF16(IDS_HANDOFF_GIVE_TASK_BACK_A11Y_LABEL);
       icon = ImageModel::FromVectorIcon(
-          features::IsRoundedIconsEnabled() ? vector_icons::kPlayArrowFilledIcon
-                                            : vector_icons::kPlayArrowOldIcon,
+          features::IsRoundedIconsEnabled()
+              ? vector_icons::kPlayArrowFilledFlippableIcon
+              : vector_icons::kPlayArrowOldIcon,
           ::ui::kColorLabelForeground, kHandoffButtonIconSize);
       break;
   }

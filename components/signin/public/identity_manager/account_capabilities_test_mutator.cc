@@ -11,10 +11,15 @@
 #include "build/build_config.h"
 #include "components/signin/internal/identity_manager/account_capabilities_constants.h"
 #include "components/signin/public/base/signin_switches.h"
+#include "components/signin/public/identity_manager/account_info.h"
 
 AccountCapabilitiesTestMutator::AccountCapabilitiesTestMutator(
     AccountCapabilities* capabilities)
     : capabilities_(capabilities) {}
+
+AccountCapabilitiesTestMutator::AccountCapabilitiesTestMutator(
+    AccountInfo* account_info)
+    : capabilities_(&account_info->capabilities_) {}
 
 // static
 base::span<const std::string_view>
@@ -229,6 +234,12 @@ void AccountCapabilitiesTestMutator::set_must_skip_apple_age_range_in_chrome(
 }
 #endif
 
+void AccountCapabilitiesTestMutator::
+    set_supports_wallet_private_passes_in_autofill(bool value) {
+  capabilities_->capabilities_map_
+      [kSupportsWalletPrivatePassesInAutofillCapabilityName] = value;
+}
+
 // keep-sorted end
 
 void AccountCapabilitiesTestMutator::SetAllSupportedCapabilities(bool value) {
@@ -245,4 +256,10 @@ void AccountCapabilitiesTestMutator::SetCapability(const std::string& name,
   CHECK(std::ranges::contains(capability_names, name))
       << "Invalid capability name: " << name;
   capabilities_->capabilities_map_[name] = value;
+}
+
+void AccountCapabilitiesTestMutator::SetCapabilityOverride(
+    std::string_view name,
+    std::optional<signin::Tribool> value) {
+  capabilities_->SetCapabilityOverride(name, value);
 }

@@ -274,24 +274,13 @@ class SupportLibWebSettingsNoOpAdapter implements WebSettingsBoundaryInterface {
     }
 
     @Override
-    public void setIgnoreDuplicateNavEnabled(boolean ignoreDuplicateNavEnabled) {
-        recordApiCall(ApiCall.SET_IGNORE_DUPLICATE_NAV_ENABLED);
+    public void setDownloadFaviconsEnabled(boolean enabled) {
+        recordApiCall(ApiCall.SET_DOWNLOAD_FAVICONS_ENABLED);
     }
 
     @Override
-    public boolean getIgnoreDuplicateNavEnabled() {
-        recordApiCall(ApiCall.GET_IGNORE_DUPLICATE_NAV_ENABLED);
-        return false;
-    }
-
-    @Override
-    public void setIgnoreDuplicateNavThreshold(long thresholdMs) {
-        recordApiCall(ApiCall.SET_IGNORE_DUPLICATE_NAV_THRESHOLD_MS);
-    }
-
-    @Override
-    public long getIgnoreDuplicateNavThreshold() {
-        recordApiCall(ApiCall.GET_IGNORE_DUPLICATE_NAV_THRESHOLD_MS);
-        return -1L;
+    public boolean getDownloadFaviconsEnabled() {
+        recordApiCall(ApiCall.GET_DOWNLOAD_FAVICONS_ENABLED);
+        return true;
     }
 }

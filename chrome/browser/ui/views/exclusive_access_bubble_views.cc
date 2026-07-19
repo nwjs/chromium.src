@@ -16,10 +16,10 @@
 #include "chrome/browser/ui/exclusive_access/exclusive_access_context.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/exclusive_access/fullscreen_controller.h"
+#include "chrome/browser/ui/immersive/immersive_mode_controller.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/url_identity.h"
 #include "chrome/browser/ui/views/exclusive_access_bubble_views_context.h"
-#include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
 #include "components/fullscreen_control/fullscreen_features.h"
 #include "components/fullscreen_control/subtle_notification_view.h"
@@ -43,6 +43,7 @@
 #endif
 
 bool ExclusiveAccessBubbleViews::skip_presentation_delay_for_testing_ = false;
+bool ExclusiveAccessBubbleViews::simulate_gpu_hang_for_testing_ = false;
 
 namespace {
 
@@ -326,7 +327,10 @@ void ExclusiveAccessBubbleViews::AnimationProgressed(
   } else {
     if (presentation_cb_) {
       ui::Compositor* compositor = popup_->GetCompositor();
-      if (!compositor || skip_presentation_delay_for_testing_) {
+      if (simulate_gpu_hang_for_testing_) {
+        // Do nothing. presentation_cb_ will never be called, triggering
+        // watchdog.
+      } else if (!compositor || skip_presentation_delay_for_testing_) {
         // Start the hide timer immediately, since we won't get any feedback.
         std::move(presentation_cb_).Run({});
       } else {
@@ -407,6 +411,17 @@ void ExclusiveAccessBubbleViews::Show() {
   }
   animation_->SetSlideDuration(base::Milliseconds(350));
   animation_->Show();
+
+#if !BUILDFLAG(IS_MAC)
+  // presentation_watchdog_timer_ does not play nicely with the OS-native
+  // fullscreen capabilities on Mac. See crbug.com/524763230 and
+  // crbug.com/527790135
+  // TODO(crbug.com/528276492): Reenable on Mac.
+  presentation_watchdog_timer_.Start(
+      FROM_HERE, base::Milliseconds(1500),
+      base::BindOnce(&ExclusiveAccessBubbleViews::OnPresentationTimeout,
+                     weak_ptr_factory_.GetWeakPtr()));
+#endif
 }
 
 void ExclusiveAccessBubbleViews::ShowAndStartTimers() {
@@ -436,6 +451,7 @@ void ExclusiveAccessBubbleViews::OnWidgetDestroyed(views::Widget* widget) {
 
 void ExclusiveAccessBubbleViews::OnFirstPresentation(
     const viz::FrameTimingDetails& details) {
+  presentation_watchdog_timer_.Stop();
   StartHideTimer();
 }
 
@@ -444,4 +460,8 @@ void ExclusiveAccessBubbleViews::RunHideCallbackIfNeeded(
   if (first_hide_callback_) {
     std::move(first_hide_callback_).Run(reason);
   }
+}
+
+void ExclusiveAccessBubbleViews::OnPresentationTimeout() {
+  bubble_view_context_->GetExclusiveAccessManager()->ExitExclusiveAccess();
 }

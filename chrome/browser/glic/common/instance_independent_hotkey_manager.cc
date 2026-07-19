@@ -6,11 +6,14 @@
 
 #include <array>
 
+#include "base/feature_list.h"
 #include "build/build_config.h"
 #include "chrome/browser/glic/common/application_hotkey_delegate.h"
+#include "chrome/browser/glic/public/features.h"
+#include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_invoke_options.h"
-#include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/service/glic_instance_coordinator.h"
+#include "chrome/browser/glic/widget/browser_conditions.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
@@ -18,12 +21,17 @@
 
 namespace glic {
 
+namespace {
+constexpr LocalHotkeyManager::Command kSupportedCommands[] = {
+    LocalHotkeyManager::Command::kPanelToggle,
+    LocalHotkeyManager::Command::kCaptureRegion,
+};
+}  // namespace
+
 InstanceIndependentHotkeyManager::InstanceIndependentHotkeyManager(
     GlicInstanceCoordinator* coordinator,
     Profile* profile)
     : coordinator_(coordinator), profile_(profile) {
-  static constexpr std::array<LocalHotkeyManager::Command, 1>
-      kSupportedCommands = {LocalHotkeyManager::Command::kCaptureRegion};
   hotkey_manager_ = std::make_unique<LocalHotkeyManager>(
       std::make_unique<ApplicationScopedRegistrationDelegate>(profile), this,
       kSupportedCommands);
@@ -40,23 +48,39 @@ void InstanceIndependentHotkeyManager::RequestCaptureRegion() {
   // CanHandleAccelerators.
   CHECK(bwi);
   CHECK_EQ(bwi->GetProfile(), profile_);
+  auto* active_tab = bwi->GetActiveTabInterface();
+  if (!active_tab) {
+    return;
+  }
   GlicInvokeOptions options(
-      glic::mojom::InvocationSource::kCaptureRegionHotkey);
+      Target(*active_tab), glic::mojom::InvocationSource::kCaptureRegionHotkey);
   options.wait_for_panel_open = true;
-  options.target = Target(bwi->GetActiveTabInterface());
   coordinator_->Invoke(std::move(options));
 }
 #endif
 
 bool InstanceIndependentHotkeyManager::AcceleratorPressed(
     LocalHotkeyManager::Command command) {
+  switch (command) {
+    case LocalHotkeyManager::Command::kPanelToggle:
+      // If the hotkey is scoped globally (i.e. local scope is disabled),
+      // it is handled globally by GlicBackgroundModeManager. Let this local
+      // manager pass through to prevent duplicate triggering inside Chrome.
+      if (!base::FeatureList::IsEnabled(features::kGlicHotkeyLocalScope)) {
+        return false;
+      }
+      coordinator_->Toggle(GetActiveGlicEligibleBrowser(profile_),
+                           /*prevent_close=*/false,
+                           mojom::InvocationSource::kOsHotkey);
+      return true;
 #if !BUILDFLAG(IS_ANDROID)
-  if (command == LocalHotkeyManager::Command::kCaptureRegion) {
-    RequestCaptureRegion();
-    return true;
-  }
+    case LocalHotkeyManager::Command::kCaptureRegion:
+      RequestCaptureRegion();
+      return true;
 #endif
-  return false;
+    default:
+      return false;
+  }
 }
 
 bool InstanceIndependentHotkeyManager::CanHandleAccelerators() const {

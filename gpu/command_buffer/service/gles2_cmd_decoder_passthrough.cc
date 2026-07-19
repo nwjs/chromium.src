@@ -844,8 +844,9 @@ GLES2DecoderPassthroughImpl::GLES2DecoderPassthroughImpl(
       context_(),
       offscreen_(false),
       group_(group),
-      feature_info_(new FeatureInfo(group->feature_info()->workarounds(),
-                                    group->gpu_feature_info())),
+      feature_info_(base::MakeRefCounted<FeatureInfo>(
+          group->feature_info()->workarounds(),
+          group->gpu_feature_info())),
       emulated_back_buffer_(nullptr),
       bound_draw_framebuffer_(0),
       bound_read_framebuffer_(0),
@@ -1706,10 +1707,15 @@ void GLES2DecoderPassthroughImpl::MarkContextLost(
       resources_->MarkContextLost();
     }
 
-    // SECURITY: crbug.com/500187083. Unconditionally clear the debug callback
-    // if current context IsCurrent before it gets lost to prevent UAF.
+    // SECURITY: crbug.com/500187083 and crbug.com/517018374.
+    // Unconditionally clear per-context callbacks that hold a raw
+    // `this` pointer if the context IsCurrent before it gets lost, to
+    // prevent UAF when Destroy(have_context=false) skips them.
     if (api()) {
       api()->glDebugMessageCallbackKHRFn(nullptr, nullptr);
+      if (feature_info_ && feature_info_->feature_flags().angle_blob_cache) {
+        api()->glBlobCacheCallbacksANGLEFn(nullptr, nullptr, nullptr);
+      }
     }
   }
 
@@ -2612,7 +2618,8 @@ void GLES2DecoderPassthroughImpl::ProcessDescheduleUntilFinished() {
 
   TRACE_EVENT_END(
       "cc", /*"GLES2DecoderPassthroughImpl::DescheduleUntilFinished"*/
-      perfetto::Track::FromPointer(this));
+      perfetto::NamedTrack::FromPointer(
+          "gpu::gles2::GLES2DecoderPassthroughImpl", this));
   deschedule_until_finished_fences_.pop_front();
   client()->OnRescheduleAfterFinished();
 }

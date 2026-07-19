@@ -28,8 +28,8 @@
 #         web-engine-shell
 #         cros-chrome ]
 # GPU
-# tags: [ amd amd-0x150e amd-0x1900 amd-0x6613 amd-0x679e amd-0x67ef amd-0x6821
-#             amd-0x7340 amd-0x7480 amd-0x7550
+# tags: [ amd amd-0x150e amd-0x1900 amd-0x6613 amd-0x67ef amd-0x6821 amd-0x7340
+#             amd-0x7480 amd-0x7550
 #         apple apple-apple-m1 apple-apple-m2 apple-apple-m3
 #             apple-angle-metal-renderer:-apple-m1
 #             apple-angle-metal-renderer:-apple-m2
@@ -144,6 +144,9 @@ crbug.com/479096333 [ mac amd-0x67ef ] WebRTC_Hardware_Encode_Loopback_VP9 [ Fai
 crbug.com/479096333 [ mac amd-0x67ef ] WebRTC_Hardware_Decode_Loopback_VP9 [ Failure ]
 crbug.com/479096333 [ mac amd-0x67ef ] WebRTC_Hardware_Encode_Loopback_AV1 [ Failure ]
 crbug.com/479096333 [ mac amd-0x67ef ] WebRTC_Hardware_Decode_Loopback_AV1 [ Failure ]
+
+crbug.com/525087041 [ mac intel-0x3e9b ] WebRTC_Hardware_Decode_Loopback_H265 [ Failure ]
+crbug.com/525087041 [ mac intel-0x3e9b ] WebRTC_Hardware_Encode_Loopback_H265 [ Failure ]
 
 #######################################################################
 # Automated Entries After This Point - Do Not Manually Add Below Here #

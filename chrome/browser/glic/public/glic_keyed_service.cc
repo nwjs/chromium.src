@@ -32,7 +32,6 @@
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/glic/experimental_opt_in/glic_experimental_opt_in_controller.h"
 #endif
-#include "chrome/browser/glic/fre/glic_fre_controller.h"
 #include "chrome/browser/glic/glic_enums.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/glic_profile_manager.h"
@@ -148,11 +147,10 @@ GlicKeyedService::GlicKeyedService(
               ? std::make_unique<GlicActorPolicyChecker>(*profile_)
               : nullptr),
       enabling_(std::make_unique<GlicEnabling>(
+          base::PassKey<GlicKeyedService>(),
           profile,
           &profile_manager->GetProfileAttributesStorage())),
       metrics_(std::make_unique<GlicMetrics>(profile, enabling_.get())),
-      fre_controller_(
-          std::make_unique<GlicFreController>(profile, identity_manager)),
 #if !BUILDFLAG(IS_ANDROID)
       opt_in_controller_(
           std::make_unique<GlicExperimentalOptInController>(profile)),
@@ -266,8 +264,10 @@ bool GlicKeyedService::MaybeInvoke(BrowserWindowInterface* bwi,
   if (fre_override_compatible && panel_closed &&
       base::FeatureList::IsEnabled(features::kGlicMessageFirstFre)) {
     GlicInvokeOptions options(source);
+    if (auto* active_tab = TabListInterface::From(target_bwi)->GetActiveTab()) {
+      options.target = Target(*active_tab);
+    }
     options.fre_override = mojom::FreOverride::kTrustFirstInline;
-    options.target.surface = TabListInterface::From(target_bwi)->GetActiveTab();
     Invoke(std::move(options));
     return true;
   }
@@ -286,8 +286,6 @@ base::WeakPtr<GlicInstance> GlicKeyedService::InvokeWithAutoSubmit(
     InvokeWithAutoSubmitPasskey auto_submit_passkey,
     GlicInvokeOptions options,
     GlicInvokeWithAutoSubmitOptions auto_submit_options) {
-  CHECK(GlicEnabling::IsEnabledForProfile(profile_));
-
   return static_cast<GlicInstanceCoordinatorImpl&>(instance_coordinator())
       .InvokeWithAutoSubmit(auto_submit_passkey, std::move(options),
                             std::move(auto_submit_options));
@@ -295,8 +293,6 @@ base::WeakPtr<GlicInstance> GlicKeyedService::InvokeWithAutoSubmit(
 
 base::WeakPtr<GlicInstance> GlicKeyedService::Invoke(
     GlicInvokeOptions options) {
-  CHECK(GlicEnabling::IsEnabledForProfile(profile_));
-
   return static_cast<GlicInstanceCoordinatorImpl&>(instance_coordinator())
       .Invoke(std::move(options));
 }
@@ -315,11 +311,6 @@ GlicInstanceCoordinator& GlicKeyedService::instance_coordinator() const {
   return *instance_coordinator_.get();
 }
 
-GlicFreController& GlicKeyedService::fre_controller() {
-  CHECK(fre_controller_);
-  return *fre_controller_.get();
-}
-
 #if !BUILDFLAG(IS_ANDROID)
 GlicExperimentalOptInController& GlicKeyedService::opt_in_controller() {
   CHECK(opt_in_controller_);
@@ -327,7 +318,8 @@ GlicExperimentalOptInController& GlicKeyedService::opt_in_controller() {
 }
 #endif
 
-GlicSharingManager& GlicKeyedService::active_instance_sharing_manager() {
+GlicSharingManagerInternal&
+GlicKeyedService::active_instance_sharing_manager() {
   return instance_coordinator().active_instance_sharing_manager();
 }
 

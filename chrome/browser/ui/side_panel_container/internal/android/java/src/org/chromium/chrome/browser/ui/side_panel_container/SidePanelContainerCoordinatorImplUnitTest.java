@@ -8,7 +8,7 @@ import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
-import static org.chromium.chrome.browser.ui.side_panel_container.SidePanelContainerCoordinator.MIN_SIDE_PANEL_WIDTH_DP;
+import static org.chromium.chrome.browser.ui.side_panel_container.SidePanelContainerCoordinator.MIN_SIDE_PANEL_CONTENT_WIDTH_DP;
 import static org.chromium.chrome.browser.ui.side_panel_container.SidePanelContainerCoordinator.MIN_WINDOW_WIDTH_DP_FOR_WIDE_SIDE_PANEL;
 import static org.chromium.chrome.browser.ui.side_panel_container.SidePanelContainerCoordinator.NARROW_SIDE_PANEL_WIDTH_DP;
 import static org.chromium.chrome.browser.ui.side_panel_container.SidePanelContainerCoordinator.WIDE_SIDE_PANEL_WIDTH_DP;
@@ -47,7 +47,8 @@ public class SidePanelContainerCoordinatorImplUnitTest {
     public void init_registerSelfAsSideUiContainer() {
         var sidePanelContainerCoordinator = createSidePanelContainerCoordinator();
 
-        sidePanelContainerCoordinator.init(mock(SidePanelCoordinatorAndroid.class));
+        sidePanelContainerCoordinator.init(
+                mock(SidePanelCoordinatorAndroid.class), /* sidePanelDevFeature= */ null);
 
         verify(mMockSideUiCoordinator).registerSideUiContainer(sidePanelContainerCoordinator);
     }
@@ -62,38 +63,41 @@ public class SidePanelContainerCoordinatorImplUnitTest {
     }
 
     @Test
-    public void determineContainerWidthDp_calculatePerWindowWidthAndAvailableWidth() {
+    public void determineShowableWidthDp_calculatePerWindowWidthAndAvailableWidth() {
         // 1. Wide side panel.
         int windowWidthDp = MIN_WINDOW_WIDTH_DP_FOR_WIDE_SIDE_PANEL;
         int availableWidthDp = WIDE_SIDE_PANEL_WIDTH_DP;
+        int minSidePanelContainerWidthDp =
+                MIN_SIDE_PANEL_CONTENT_WIDTH_DP + 12 /* horizontal padding */;
+
         assertEquals(
                 WIDE_SIDE_PANEL_WIDTH_DP,
-                SidePanelContainerCoordinatorImpl.determineContainerWidthDp(
-                        availableWidthDp, windowWidthDp));
+                SidePanelContainerCoordinatorImpl.determineShowableWidthDp(
+                        availableWidthDp, windowWidthDp, minSidePanelContainerWidthDp));
 
         // 2. Narrow side panel.
         windowWidthDp = MIN_WINDOW_WIDTH_DP_FOR_WIDE_SIDE_PANEL - 10;
         availableWidthDp = NARROW_SIDE_PANEL_WIDTH_DP;
         assertEquals(
                 NARROW_SIDE_PANEL_WIDTH_DP,
-                SidePanelContainerCoordinatorImpl.determineContainerWidthDp(
-                        availableWidthDp, windowWidthDp));
+                SidePanelContainerCoordinatorImpl.determineShowableWidthDp(
+                        availableWidthDp, windowWidthDp, minSidePanelContainerWidthDp));
 
         // 3. Fill available space.
-        availableWidthDp = MIN_SIDE_PANEL_WIDTH_DP + 10;
+        availableWidthDp = minSidePanelContainerWidthDp + 10;
         windowWidthDp = MIN_WEB_CONTENTS_WIDTH_DP + availableWidthDp;
         assertEquals(
                 availableWidthDp,
-                SidePanelContainerCoordinatorImpl.determineContainerWidthDp(
-                        availableWidthDp, windowWidthDp));
+                SidePanelContainerCoordinatorImpl.determineShowableWidthDp(
+                        availableWidthDp, windowWidthDp, minSidePanelContainerWidthDp));
 
         // 4. Not enough space to accommodate MIN_SIDE_PANEL_WIDTH_DP.
-        availableWidthDp = MIN_SIDE_PANEL_WIDTH_DP - 10;
+        availableWidthDp = minSidePanelContainerWidthDp - 10;
         windowWidthDp = MIN_WEB_CONTENTS_WIDTH_DP + availableWidthDp;
         assertEquals(
                 0,
-                SidePanelContainerCoordinatorImpl.determineContainerWidthDp(
-                        availableWidthDp, windowWidthDp));
+                SidePanelContainerCoordinatorImpl.determineShowableWidthDp(
+                        availableWidthDp, windowWidthDp, minSidePanelContainerWidthDp));
     }
 
     private SidePanelContainerCoordinatorImpl createSidePanelContainerCoordinator() {

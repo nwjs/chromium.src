@@ -4,9 +4,6 @@
 
 package org.chromium.chrome.browser.pdf;
 
-import static org.chromium.build.NullUtil.assumeNonNull;
-
-import android.app.Activity;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.net.Uri;
@@ -16,9 +13,7 @@ import android.text.TextUtils;
 import android.view.View;
 
 import androidx.annotation.IntDef;
-import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
-import androidx.pdf.viewer.fragment.PdfViewerFragment;
 
 import org.jni_zero.CalledByNative;
 
@@ -30,6 +25,7 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.chrome.browser.util.ChromeFileProvider;
+import org.chromium.chrome.modules.on_demand.OnDemandModule;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.ui.base.MimeTypeUtils;
@@ -40,7 +36,6 @@ import java.io.UnsupportedEncodingException;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.net.URLEncoder;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -144,20 +139,18 @@ public class PdfUtils {
     @CalledByNative
     public static boolean shouldOpenPdfInline(boolean isIncognito) {
         if (sShouldOpenPdfInlineForTesting) return true;
+        if (isIncognito) {
+            return false;
+        }
+        return isPlatformSupported();
+    }
+
+    private static boolean isPlatformSupported() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
-            if (isIncognito) {
-                return false;
-            }
             return true;
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-                && SdkExtensions.getExtensionVersion(Build.VERSION_CODES.S) >= 13) {
-            if (isIncognito) {
-                return false;
-            }
-            return true;
-        }
-        return false;
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                && SdkExtensions.getExtensionVersion(Build.VERSION_CODES.S) >= 13;
     }
 
     /**
@@ -371,15 +364,8 @@ public class PdfUtils {
     }
 
     /** Collects all the View objects for PdfViewerFragment found after activity restart. */
-    public static List<View> findAllPdfFragmentViews(Activity activity) {
-        List<View> allViews = new ArrayList<>();
-        var fragmentManager = ((FragmentActivity) activity).getSupportFragmentManager();
-        for (Fragment fragment : fragmentManager.getFragments()) {
-            if (fragment instanceof PdfViewerFragment) {
-                allViews.add(assumeNonNull(fragment.getView()));
-            }
-        }
-        return allViews;
+    public static List<View> findAllPdfFragmentViews(FragmentActivity activity) {
+        return OnDemandModule.getImpl().getPdfEntryPoint().findAllPdfFragmentViews(activity);
     }
 
     /**
@@ -388,8 +374,20 @@ public class PdfUtils {
      * @return {@code true} if the inline PDF V2 feature is enabled, {@code false} otherwise.
      */
     public static boolean isInlinePdfV2Enabled() {
-        // TODO(crbug.com/484388543): Add a check for minimum SDK version.
-        return ChromeFeatureList.sInlinePdfV2.isEnabled();
+        if (!ChromeFeatureList.sInlinePdfV2.isEnabled()) {
+            return false;
+        }
+        return isPlatformSupported();
+    }
+
+    /**
+     * Checks whether the inline PDF V2 download feature is enabled.
+     *
+     * @return {@code true} if the inline PDF V2 download feature is enabled, {@code false}
+     *     otherwise.
+     */
+    public static boolean isInlinePdfV2DownloadEnabled() {
+        return isInlinePdfV2Enabled() && ChromeFeatureList.sInlinePdfV2Download.isEnabled();
     }
 
     /** Returns {@code true} if {@link PdfViewFragment} is reused on activity restart. */
@@ -443,5 +441,73 @@ public class PdfUtils {
 
     public static void recordIsUriNull(boolean isNull) {
         RecordHistogram.recordBooleanHistogram("Android.Pdf.UriIsNull", isNull);
+    }
+
+    /**
+     * Checks if the given URI is valid and safe for sharing with external applications.
+     * Specifically, if the URI belongs to one of Chrome's internal content providers, we restrict
+     * sharing to only designated safe paths (like downloaded PDFs).
+     *
+     * @param uri The URI to validate.
+     * @param context The context to retrieve package and provider info.
+     * @return True if the URI is safe for sharing, false otherwise.
+     */
+    public static boolean isUriSafeForSharing(@Nullable Uri uri, Context context) {
+        if (uri == null) {
+            return false;
+        }
+
+        String scheme = uri.getScheme();
+        // Non-content URIs (like file:// or https://) are safe because they either rely on the OS
+        // sandbox to restrict access (file://) or do not expose local files (https://).
+        if (!UrlConstants.CONTENT_SCHEME.equals(scheme)) {
+            return true;
+        }
+
+        String authority = uri.getAuthority();
+        if (TextUtils.isEmpty(authority)) {
+            return false;
+        }
+
+        if (!ContentUriUtils.isUriFromThisApp(uri, context)) {
+            return true;
+        }
+
+        // Chrome's main FileProvider (uses file_paths.xml). We only allow sharing from the
+        // temporary PDF cache ("pdfs") and the public downloads folder ("downloads").
+        // Sensitive directories like "passwords" or "cache" (net-export) are blocked.
+        if (authority.endsWith(".FileProvider")) {
+            List<String> pathSegments = uri.getPathSegments();
+            if (pathSegments == null || pathSegments.isEmpty()) {
+                return false;
+            }
+            String firstSegment = pathSegments.get(0);
+            return "pdfs".equals(firstSegment) || "downloads".equals(firstSegment);
+        }
+
+        // Chrome's custom DownloadFileProvider (used for SD cards).
+        // It programmatically restricts access to download directories only. We whitelist
+        // its valid path segments: "download" (primary storage fallback), "download_external"
+        // (legacy SD card), and "external_volume" (Android R+ SD card).
+        if (authority.endsWith(".DownloadFileProvider")) {
+            List<String> pathSegments = uri.getPathSegments();
+            if (pathSegments == null || pathSegments.isEmpty()) {
+                return false;
+            }
+            String firstSegment = pathSegments.get(0);
+            return "download".equals(firstSegment)
+                    || "download_external".equals(firstSegment)
+                    || "external_volume".equals(firstSegment);
+        }
+
+        // PdfContentProvider is a dedicated, unexported provider designed solely for serving
+        // PDF content safely. All its paths are safe.
+        if (authority.endsWith(".PdfContentProvider")) {
+            return true;
+        }
+
+        // Fallback: block any other internal Chrome providers to prevent accidental exposure of
+        // sensitive data (e.g. ChromeBrowserProvider).
+        return false;
     }
 }

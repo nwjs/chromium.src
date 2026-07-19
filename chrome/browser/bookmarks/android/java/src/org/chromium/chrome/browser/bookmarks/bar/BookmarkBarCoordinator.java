@@ -58,6 +58,7 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.CurrentTabObserver;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabObscuringHandler;
 import org.chromium.chrome.browser.theme.ThemeUtils;
 import org.chromium.chrome.browser.theme.TopUiThemeColorProvider;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiSpecs;
@@ -84,7 +85,8 @@ public class BookmarkBarCoordinator
                 View.OnLayoutChangeListener,
                 BrowserControlsStateProvider.Observer,
                 FullscreenManager.Observer,
-                TopResumedActivityChangedObserver {
+                TopResumedActivityChangedObserver,
+                TabObscuringHandler.Observer {
 
     private final Context mContext;
     private final ActivityLifecycleDispatcher mActivityLifecycleDispatcher;
@@ -98,6 +100,7 @@ public class BookmarkBarCoordinator
     private final SideUiObserver mSideUiObserver;
     private @Nullable SideUiStateProvider mSideUiStateProvider;
     private final TopControlsStacker mTopControlsStacker;
+    private final TabObscuringHandler mTabObscuringHandler;
     private final Callback<@Nullable Void> mHeightChangeCallback;
     private final Runnable mRequestUpdate;
     private final BrowserControlsStateProvider mBrowserControlsStateProvider;
@@ -124,6 +127,9 @@ public class BookmarkBarCoordinator
 
     // Represents the latest non-zero height for the Android view.
     private int mContentHeight;
+
+    private final int mDefaultUnobscuredImportantForAccessibility;
+    private boolean mIsObscured;
 
     /**
      * Constructs the bookmark bar coordinator.
@@ -163,9 +169,12 @@ public class BookmarkBarCoordinator
             TopControlsStacker topControlsStacker,
             NullableObservableSupplier<Tab> currentTabSupplier,
             TopUiThemeColorProvider topUiThemeColorProvider,
-            OneshotSupplier<SideUiStateProvider> sideUiStateProviderSupplier) {
+            OneshotSupplier<SideUiStateProvider> sideUiStateProviderSupplier,
+            TabObscuringHandler tabObscuringHandler) {
         mContext = activity;
         mRequestUpdate = requestUpdate;
+        mTabObscuringHandler = tabObscuringHandler;
+        mTabObscuringHandler.addObserver(this);
         mResourceManager = resourceManager;
         mFullscreenManager = fullscreenManager;
         mFullscreenManager.addObserver(this);
@@ -179,10 +188,7 @@ public class BookmarkBarCoordinator
 
         // The Bookmark Bar may first be turned on in fullscreen mode, in which case we want its
         // initial state to be hidden, which is tracked by this member variable.
-        if (currentTabSupplier.get() != null && currentTabSupplier.get().getWebContents() != null) {
-            mIsInFullscreenMode =
-                    currentTabSupplier.get().getWebContents().isFullscreenForCurrentTab();
-        }
+        mIsInFullscreenMode = fullscreenManager.getPersistentFullscreenMode();
 
         // Inflate the Bookmark Bar. The bar is a ViewStub which contains a container to hold all
         // the content of the Bookmark Bar, and a hairline footer.
@@ -312,10 +318,16 @@ public class BookmarkBarCoordinator
 
         mMediator.setTopMargin(
                 mTopControlsStacker.getHeightFromLayerToTop(TopControlType.BOOKMARK_BAR));
+
+        mDefaultUnobscuredImportantForAccessibility = mView.getImportantForAccessibility();
+
+        // Initialize Android widget visibility to match the current screen state.
+        updateAndroidWidgetVisibility();
     }
 
     /** Destroys the bookmark bar coordinator. */
     public void destroy() {
+        mTabObscuringHandler.removeObserver(this);
         // Stop all pending animations and remove animator to stop any running async update calls.
         if (mItemsContainer != null) {
             mItemsContainer.setItemAnimator(null);
@@ -468,11 +480,9 @@ public class BookmarkBarCoordinator
 
     @Override
     public void onTopControlLayerHeightChanged(int topControlsHeight, int topControlsMinHeight) {
-        // Here we are subtracting the height of the TopControl, |mView|, to bottom align the
-        // BookmarkBar relative to the other TopControls.
-        // TODO(crbug.com/417238089): We should not hardcode this offset functionality since it
-        // assumes an absolute BookmarkBar position, and fails when topControlsHeight becomes 0.
-        mMediator.setTopMargin(topControlsHeight - getTopControlHeight());
+        // Here we are using sceneLayerHeightOffset() to align the BookmarkBar relative to the other
+        // TopControls above it.
+        mMediator.setTopMargin(sceneLayerHeightOffset());
         mMediator.onBrowserControlsChanged(
                 topControlsHeight, mBrowserControlsStateProvider.getBottomControlsHeight());
         mBookmarkBarSceneLayerModel.set(
@@ -495,6 +505,19 @@ public class BookmarkBarCoordinator
                     BookmarkBarSceneLayerProperties.SCENE_LAYER_OFFSET_HEIGHT,
                     sceneLayerHeightOffset() + mBrowserControlsStateProvider.getTopControlOffset());
         }
+    }
+
+    // TabObscuringHandler.Observer implementation:
+
+    @Override
+    public void updateObscured(boolean obscureTabContent, boolean obscureToolbar) {
+        if (obscureToolbar == mIsObscured) return;
+
+        mIsObscured = obscureToolbar;
+        mView.setImportantForAccessibility(
+                mIsObscured
+                        ? View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+                        : mDefaultUnobscuredImportantForAccessibility);
     }
 
     // BookmarkBarVisibilityObserver implementation:
@@ -662,12 +685,7 @@ public class BookmarkBarCoordinator
     }
 
     private int sceneLayerHeightOffset() {
-        // Top controls height is the sum of all top browser control heights which includes that of
-        // the bookmark bar. Subtract the bookmark bar's height from the top controls height when
-        // calculating offset/topMargin in order to bottom align the bookmark bar relative to other
-        // top browser controls.
-        // TODO(crbug.com/454114987): Use offset from TopControlsStacker instead.
-        return mTopControlsStacker.getVisibleTopControlsTotalHeight() - getTopControlHeight();
+        return mTopControlsStacker.getHeightFromLayerToTop(TopControlType.BOOKMARK_BAR);
     }
 
     @VisibleForTesting

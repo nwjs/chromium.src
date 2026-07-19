@@ -20,7 +20,9 @@ class WebContents;
 namespace infobars {
 
 enum class InfoBarScope {
-  kCurrentTab,
+  // The infobar will only show for the web contents specified.
+  kTab,
+  // The infobar will show for all the tabs/web contents across all browsers.
   kGlobal,
 };
 
@@ -54,6 +56,7 @@ class InfoBarSpec {
   const gfx::VectorIcon* icon() const { return icon_; }
   int icon_id() const { return icon_id_; }
   bool expire_on_navigation() const { return expire_on_navigation_; }
+  bool should_hide_in_fullscreen() const { return should_hide_in_fullscreen_; }
 
   const std::u16string& ok_button_label() const { return ok_button_label_; }
   const ActionCallback& ok_button_callback() const {
@@ -77,10 +80,11 @@ class InfoBarSpec {
   std::u16string link_text_;
   GURL link_navigation_url_;
   InfoBarPriority priority_ = InfoBarPriority::kDefault;
-  InfoBarScope scope_ = InfoBarScope::kCurrentTab;
+  InfoBarScope scope_ = InfoBarScope::kTab;
   raw_ptr<const gfx::VectorIcon> icon_ = nullptr;
   int icon_id_ = 0;
   bool expire_on_navigation_ = true;
+  bool should_hide_in_fullscreen_ = false;
 
   std::u16string ok_button_label_;
   ActionCallback ok_button_callback_;
@@ -105,6 +109,7 @@ class InfoBarSpec::Builder {
   Builder& SetScope(InfoBarScope scope);
   Builder& SetPriority(InfoBarPriority priority);
   Builder& SetExpireOnNavigation(bool expire_on_navigation);
+  Builder& SetShouldHideInFullscreen(bool should_hide_in_fullscreen);
 
   Builder& AddOkButton(const std::u16string& label,
                        InfoBarSpec::ActionCallback callback);

@@ -11,6 +11,7 @@
 #include "ash/constants/webui_url_constants.h"
 #include "ash/public/cpp/new_window_delegate.h"
 #include "ash/resources/vector_icons/vector_icons.h"
+#include "base/check_deref.h"
 #include "base/containers/enum_set.h"
 #include "base/files/file.h"
 #include "base/files/file_path.h"
@@ -55,7 +56,6 @@
 #include "chrome/browser/ui/webui/ash/cloud_upload/hats_office_trigger.h"
 #include "chrome/browser/ui/webui/ash/cloud_upload/one_drive_upload_handler.h"
 #include "chrome/browser/ui/webui/ash/office_fallback/office_fallback_ui.h"
-#include "chrome/common/extensions/extension_constants.h"
 #include "chrome/grit/generated_resources.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/constants/chromeos_features.h"
@@ -1545,9 +1545,10 @@ void CloudOpenTask::SetTasksForTest(
 
 void CloudUploadDialog::OnDialogShown(content::WebUI* webui) {
   CHECK(dialog_args_);
+  auto* dialog_ui_ =
+      &CHECK_DEREF(webui->GetController()->GetAs<CloudUploadUI>());
   SystemWebDialogDelegate::OnDialogShown(webui);
-  static_cast<CloudUploadUI*>(webui->GetController())
-      ->SetDialogArgs(dialog_args_.Clone());
+  dialog_ui_->SetDialogArgs(dialog_args_.Clone());
 }
 
 void CloudUploadDialog::OnDialogClosed(const std::string& json_retval) {

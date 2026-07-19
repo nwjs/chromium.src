@@ -36,6 +36,7 @@ struct TabContext {
   url.mojom.Url url;
   string title;
   int32 tab_id;
+  bool has_chrome_tab_data;
 };
 
 // Represents the the visual information needed to display a single context row
@@ -70,12 +71,14 @@ struct ComposeboxPosition {
   int32? margin_left;
 };
 
+// Keep in sync with AimIconType proto.
 enum IconType {
   kUnspecified = 0,
   kAdd = 9,
   kCheck = 30,
   kFormatQuoteFilled = 79,
   kImage = 84,
+  kFollowUp = 100,
   kDrivePdf = 101,
   kInvertedFormatQuoteFilled = 186,
 };
@@ -202,6 +205,9 @@ interface PageHandler {
 
   // Requests the browser to close a tracked window.
   CloseWindow(ContextualWindowId window_id);
+
+  // Triggers the pinning promo IPH if eligible.
+  MaybeTriggerPinningPromo();
 };
 
 // WebUI-side handler for requests from the browser.

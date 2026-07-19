@@ -552,10 +552,6 @@ BOOL IsAllSelected(NSUInteger selected_unread_count,
                                      incognito:YES];
 }
 
-- (void)openItemOffline:(id<ReadingListListItem>)item {
-  [self.delegate readingListListViewController:self
-                       openItemOfflineInNewTab:item];
-}
 
 - (void)markItemRead:(id<ReadingListListItem>)item {
   TableViewModel* model = self.tableViewModel;
@@ -1044,8 +1040,7 @@ BOOL IsAllSelected(NSUInteger selected_unread_count,
     }
 
     [[self.tableViewModel itemAtIndexPath:indexPath]
-        configureCell:[self.tableView cellForRowAtIndexPath:indexPath]
-           withStyler:self.styler];
+        configureCell:[self.tableView cellForRowAtIndexPath:indexPath]];
   }
 
   NSInteger sectionCreatedIndex = [self initializeTableViewSection:toSection];

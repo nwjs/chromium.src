@@ -15,6 +15,7 @@
 #include "base/gtest_prod_util.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
+#include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks.mojom.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_eligibility_manager.h"
@@ -23,10 +24,13 @@
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "components/contextual_search/contextual_search_session_handle.h"
 #include "components/keyed_service/core/keyed_service.h"
-#include "content/public/browser/frame_tree_node_id.h"
+#include "content/public/browser/page_navigator.h"
 #include "net/base/backoff_entry.h"
+#include "third_party/blink/public/common/tokens/tokens.h"
+#include "third_party/blink/public/mojom/window_features/window_features.mojom.h"
 #include "third_party/omnibox_proto/chrome_aim_entry_point.pb.h"
 #include "url/gurl.h"
+#include "url/origin.h"
 
 class AimEligibilityService;
 class BrowserWindowInterface;
@@ -40,6 +44,8 @@ class Uuid;
 namespace content {
 struct OpenURLParams;
 class WebContents;
+class RenderFrameHost;
+struct GlobalRenderFrameHostToken;
 }  // namespace content
 
 namespace signin {
@@ -57,6 +63,7 @@ class LensMediaLinkHandler;
 }  // namespace lens
 
 namespace contextual_tasks {
+
 inline constexpr char kTaskQueryParam[] = "chrome_task_id";
 inline constexpr char kChromeHostParam[] = "chrome_host";
 
@@ -125,7 +132,8 @@ class ContextualTasksUiService : public KeyedService {
       const GURL& url,
       base::Uuid task_id,
       base::WeakPtr<tabs::TabInterface> tab,
-      base::WeakPtr<BrowserWindowInterface> browser);
+      base::WeakPtr<BrowserWindowInterface> browser,
+      const url::Origin& initiator_origin);
 
   // Determines if a new tab should be allowed to open for a thread link click.
   // Returns false if the link can be handled by focusing an existing tab or
@@ -153,16 +161,21 @@ class ContextualTasksUiService : public KeyedService {
   // order to handle it manually. Returns true if the navigation is being
   // handled by the service (e.g. the navigation is blocked), and false
   // otherwise. The WebContents the navigation originated from is provided
-  // along with `is_to_new_tab` which indicates whether the navigation would
-  // open in a new tab or window. The `initiated_in_page` param is to help
-  // determine if the navigation was from something like a link or redirect
+  // along with `from_can_create_window` which indicates whether the navigation
+  // would open in a new tab or window. The `is_from_embedded_page` param is to
+  // help determine if the navigation was from something like a link or redirect
   // versus an action in Chrome's UI like back/forward.
-  virtual bool HandleNavigation(content::OpenURLParams url_params,
-                                content::WebContents* source_contents,
-                                bool is_from_embedded_page,
-                                bool from_can_create_window,
-                                bool is_same_site_or_from_ui,
-                                bool is_mobile_ua = false);
+  virtual bool HandleNavigation(
+      content::OpenURLParams url_params,
+      content::WebContents* source_contents,
+      bool is_from_embedded_page,
+      bool from_can_create_window,
+      bool is_same_site_or_from_ui,
+      bool is_mobile_ua,
+      const std::optional<url::Origin>& initiator_origin,
+      const std::optional<content::GlobalRenderFrameHostToken>&
+          initiator_frame_token,
+      const blink::mojom::WindowFeatures& window_features);
 
   // Returns the contextual_task UI for a task.
   virtual GURL GetContextualTaskUrlForTask(const base::Uuid& task_id);
@@ -212,6 +225,16 @@ class ContextualTasksUiService : public KeyedService {
   // Returns whether the provided WebContents is a tracked window for any task.
   virtual bool IsTrackedWindow(content::WebContents* web_contents);
 
+  // Returns the RenderFrameHost that is tied to the `target_rfh` message proxy.
+  // This is used to route messages from opened windows back to the <webview>
+  // that opened them, even across separate StoragePartitions. If
+  //  `target_rfh` isn't a tracked message proxy or `source_origin` isn't an
+  //  allowlisted origin to send postMessages to the <webview>, then returns
+  //  null.
+  content::RenderFrameHost* GetGuestForMessage(
+      content::RenderFrameHost* target_rfh,
+      const url::Origin& source_origin);
+
   // either in a full tab or in the side panel. If |task_id| is invalid, the
   // UI is in a zero-state that is waiting for user to create a new task.
   virtual void OnTaskChanged(BrowserWindowInterface* browser_window_interface,
@@ -240,7 +263,25 @@ class ContextualTasksUiService : public KeyedService {
       tabs::TabInterface* tab_interface,
       const GURL& url,
       std::unique_ptr<contextual_search::ContextualSearchSessionHandle>
-          session_handle);
+          session_handle,
+      omnibox::ChromeAimEntryPoint entry_point =
+          omnibox::ChromeAimEntryPoint::UNKNOWN_AIM_ENTRY_POINT);
+
+  // Opens the contextual tasks side panel and creates a new task with the given
+  // URL as its initial thread URL. Allows specifying whether the active tab's
+  // WebContents should be associated with the new task. If
+  // `associate_web_contents` is false, the task is started in the side panel
+  // but remains independent of the active tab. This allows the auto suggested
+  // tab chip/coin to appear immediately on open.
+  virtual void StartTaskUiInSidePanel(
+      BrowserWindowInterface* browser_window_interface,
+      tabs::TabInterface* tab_interface,
+      const GURL& url,
+      std::unique_ptr<contextual_search::ContextualSearchSessionHandle>
+          session_handle,
+      bool associate_web_contents,
+      omnibox::ChromeAimEntryPoint entry_point =
+          omnibox::ChromeAimEntryPoint::UNKNOWN_AIM_ENTRY_POINT);
 
   // Opens the contextual tasks side panel showing a ghost loader while waiting
   // for the initial thread URL to be provided for that task. This creates an
@@ -249,7 +290,9 @@ class ContextualTasksUiService : public KeyedService {
       BrowserWindowInterface* browser_window_interface,
       tabs::TabInterface* tab_interface,
       std::unique_ptr<contextual_search::ContextualSearchSessionHandle>
-          session_handle);
+          session_handle,
+      omnibox::ChromeAimEntryPoint entry_point =
+          omnibox::ChromeAimEntryPoint::UNKNOWN_AIM_ENTRY_POINT);
 
   // Opens the contextual tasks side panel with the protected error page showing
   // by default.
@@ -257,7 +300,9 @@ class ContextualTasksUiService : public KeyedService {
       BrowserWindowInterface* browser_window_interface,
       tabs::TabInterface* tab_interface,
       std::unique_ptr<contextual_search::ContextualSearchSessionHandle>
-          session_handle);
+          session_handle,
+      omnibox::ChromeAimEntryPoint entry_point =
+          omnibox::ChromeAimEntryPoint::UNKNOWN_AIM_ENTRY_POINT);
 
   // Returns whether the provided URL is to an AI page.
   virtual bool IsAiUrl(const GURL& url);
@@ -279,7 +324,7 @@ class ContextualTasksUiService : public KeyedService {
   // Returns whether the provided URL is a Google search results page. This
   // method does not check for the validity of any parameters that
   // differentiate different modes or queries.
-  static bool IsSearchResultsUrl(const GURL& url);
+  virtual bool IsSearchResultsUrl(const GURL& url);
 
   // Returns whether the provided URL is a share URL.
   bool IsShareUrl(const GURL& url);
@@ -360,6 +405,14 @@ class ContextualTasksUiService : public KeyedService {
   virtual void ShowUndoSnackbar(
       BrowserWindowInterface* browser_window_interface);
 
+  // Invokes the platform's native voice recognition system.
+  virtual void StartPlatformVoiceRecognition(
+      BrowserWindowInterface* browser,
+      content::WebContents* requesting_contents);
+
+  // Called when the platform voice recognition completes with a result.
+  virtual void OnVoiceTranscribed(const std::string& query);
+
   // Returns whether the provided URL is for the primary account in Chrome.
   virtual bool IsUrlForPrimaryAccount(const GURL& url);
 
@@ -370,22 +423,43 @@ class ContextualTasksUiService : public KeyedService {
     return weak_ptr_factory_.GetWeakPtr();
   }
 
+  // Returns true if there is an active session on `web_contents` or a pending
+  // session for `task_id` that is allowed while ineligible.
+  bool IsSessionAllowedWhileIneligible(content::WebContents* web_contents,
+                                       const base::Uuid& task_id) const;
+
+  void AddPendingSessionHandleForTesting(
+      const base::Uuid& task_id,
+      std::unique_ptr<contextual_search::ContextualSearchSessionHandle>
+          session_handle);
+
  protected:
   // The actual implementation of `HandleNavigation` that extracts more of the
   // components needed to decide if the navigation should be handled by this
   // service.
-  virtual bool HandleNavigationImpl(content::OpenURLParams url_params,
-                                    content::WebContents* source_contents,
-                                    tabs::TabInterface* tab,
-                                    bool is_from_embedded_page,
-                                    bool from_can_create_window,
-                                    bool is_same_site_or_from_ui,
-                                    bool is_mobile_ua = false);
+  virtual bool HandleNavigationImpl(
+      content::OpenURLParams url_params,
+      content::WebContents* source_contents,
+      tabs::TabInterface* tab,
+      bool is_from_embedded_page,
+      bool from_can_create_window,
+      bool is_same_site_or_from_ui,
+      bool is_mobile_ua,
+      const std::optional<url::Origin>& initiator_origin,
+      const std::optional<content::GlobalRenderFrameHostToken>&
+          initiator_frame_token,
+      const blink::mojom::WindowFeatures& window_features);
 
   // Used primarily for debugging - loads a URL in the specified WebContents.
   virtual void LoadUrlInWebContents(
       const GURL& url,
       base::WeakPtr<content::WebContents> web_contents);
+
+  // Redirects a navigation to a contextual tasks WebUI URL to an AIM URL.
+  void ScheduleRedirectWebUIUrlToAim(
+      content::OpenURLParams url_params,
+      base::WeakPtr<content::WebContents> source_contents,
+      tabs::TabInterface* target_tab);
 
   // Creates a LensMediaLinkHandler for the given WebContents.
   // Virtual to allow overriding in tests to mock the handler.
@@ -401,8 +475,38 @@ class ContextualTasksUiService : public KeyedService {
                                       tabs::TabInterface* tab,
                                       const base::Uuid& task_id);
 
+  // Checks whether a top-level navigation targeting a Contextual Tasks WebUI
+  // URL occurs in an environment that is ineligible for the feature (e.g., user
+  // is ineligible or Google is not the default search provider).
+  virtual bool ShouldRedirectIneligibleRequest(
+      const GURL& url,
+      content::WebContents* source_contents) const;
+
  private:
-  void StartAccessTokenFetch();
+  enum class OAuthFetchTrigger {
+    // The fetch triggered by the navigation interception of a Google AI page.
+    kAimNavigationInterception,
+    // A resource request within the Contextual Tasks <webview>.
+    kFetchRequest,
+  };
+
+  // Starts an access token fetch for the primary account. Trigger is used
+  // to slice the access token metrics.
+  void StartAccessTokenFetch(
+      std::optional<OAuthFetchTrigger> trigger = std::nullopt);
+
+  // Records various metrics related to OAuth.
+  void RecordOAuthMetrics(GoogleServiceAuthError error,
+                          signin::AccessTokenInfo access_token_info);
+
+  // Creates a WebContents for the given origin to be used as an
+  // opener for message routing. This WebContents is not loading any content.
+  // Origin will be used as the initiator_origin and initiator_base_url for the
+  // created WebContents. This is the value shown to window.opener.origin`
+  // when assigned to an opener. This should be the same origin as the
+  // initiator of creating the WebContents that this will be the proxy for.
+  std::unique_ptr<content::WebContents> CreateMessageProxyWebContents(
+      const url::Origin& origin);
 
   // Called when the OAuth token is received. If the token is valid, it is
   // passed to all pending access token callbacks. Otherwise, the fetch is
@@ -457,7 +561,9 @@ class ContextualTasksUiService : public KeyedService {
           session_handle);
 
   // Navigates to a share URL.
-  virtual void OpenUrl(const content::OpenURLParams& url_params);
+  virtual void OpenUrl(const content::OpenURLParams& url_params,
+                       const blink::mojom::WindowFeatures& window_features,
+                       BrowserWindowInterface* browser);
 
   // Sets the initial thread URL for a given task and runs any pending
   // callbacks.
@@ -502,6 +608,12 @@ class ContextualTasksUiService : public KeyedService {
   // A timer used to refresh the OAuth token before it expires.
   base::OneShotTimer token_refresh_timer_;
 
+  // The trigger that started the current active OAuth token fetch.
+  std::optional<OAuthFetchTrigger> current_oauth_fetch_trigger_;
+
+  // The time when the current active OAuth token fetch was started.
+  base::TimeTicks fetch_start_time_;
+
   // The cookie synchronizer for the isolated partition.
   std::unique_ptr<ContextualTasksCookieSynchronizer> cookie_synchronizer_;
 
@@ -536,6 +648,19 @@ class ContextualTasksUiService : public KeyedService {
   // Manager for window trackers. Class responsible for creating and destroying
   // trackers and matching them to URLs and WebContents.
   std::unique_ptr<ContextualTasksWindowTrackerManager> tracker_manager_;
+
+  // The WebContents that initiated the platform voice recognition. Used to
+  // safely inject the transcribed query back into the correct WebUI panel.
+  base::WeakPtr<content::WebContents>
+      web_contents_for_outstanding_voice_request_;
+
+  // Map of task IDs to pending session handles. Storing handles here before
+  // calling Show() prevents a race condition where the NavigationThrottle
+  // runs before InitializeTaskInSidePanel() has a chance to associate the
+  // handle with the WebContents.
+  std::map<base::Uuid,
+           std::unique_ptr<contextual_search::ContextualSearchSessionHandle>>
+      pending_session_handles_;
 
   base::WeakPtrFactory<ContextualTasksUiService> weak_ptr_factory_{this};
 };

@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/base64.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -17,6 +18,7 @@
 #include "base/path_service.h"
 #include "base/strings/strcat.h"
 #include "base/test/bind.h"
+#include "base/test/run_until.h"
 #include "base/test/test_future.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
@@ -230,6 +232,13 @@ int BrowsingDataRemoverBrowserTestBase::GetSiteDataCount(
   return count;
 }
 
+bool BrowsingDataRemoverBrowserTestBase::WaitForSiteDataCount(
+    int expected_count,
+    content::WebContents* web_contents) {
+  return base::test::RunUntil(
+      [&]() { return GetSiteDataCount(web_contents) == expected_count; });
+}
+
 network::mojom::NetworkContext*
 BrowsingDataRemoverBrowserTestBase::network_context() {
   return GetProfile()->GetDefaultStoragePartition()->GetNetworkContext();
@@ -374,11 +383,13 @@ void BrowsingDataRemoverBrowserTestBase::CheckUserDirectoryForString(
     size_t pos = content.find(hostname);
     if (pos != std::string::npos) {
       // Print surrounding text of the match.
-      std::string partial_content = content.substr(
-          pos < 30 ? 0 : pos - 30,
-          std::min(content.size() - 1, pos + hostname.size() + 30));
+      size_t start = pos < 30 ? 0 : pos - 30;
+      size_t end = std::min(content.size(), pos + hostname.size() + 30);
+      std::string partial_content_b64 =
+          base::Base64Encode(content.substr(start, end - start));
       ADD_FAILURE() << "Found file content: " << file << "\n"
-                    << "  which had partial_content: " << partial_content;
+                    << "  which had partial_content (base64 encoded): "
+                    << partial_content_b64;
     }
   }
 }

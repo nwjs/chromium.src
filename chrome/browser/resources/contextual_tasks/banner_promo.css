@@ -22,13 +22,10 @@
 }
 
 #container {
-  background-color: var(--color-sys-surface-container,
-                    var(--surface-container-color,
-                    var(--cr-fallback-color-surface-container, #f0f4f9)));
+  background-color: var(--color-contextual-tasks-banner-promo-background);
   border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 8px rgba(0, 0, 0, 0.15);
   box-sizing: border-box;
-  color: var(--paper-tooltip-text-color);
+  color: var(--color-contextual-tasks-banner-promo-text);
   display: flex;
   flex-direction: row;
   font-family: var(--google-sans-font);
@@ -37,26 +34,15 @@
   width: 100%;
 }
 
-.icon-wrapper {
-  align-items: center;
-  background-color: var(--color-sys-tonal-container,
-                    var(--color-sys-secondary-container,
-                    var(--color-sys-primary-container, #D3E3FD)));
-  border-radius: 33px;
-  display: flex;
-  flex-shrink: 0;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-}
 
 cr-icon {
-  --iron-icon-fill-color: var(--color-sys-primary,
-                          var(--cr-fallback-color-primary, #1558D6));
+  --iron-icon-fill-color:
+      var(--color-contextual-tasks-banner-promo-text);
   /* These lines can be removed if standard 24px size is wanted,
      but 20px is in the spec. */
   --iron-icon-height: 20px;
   --iron-icon-width: 20px;
+  margin-inline-end: 4px;
 }
 
 .content-wrapper {
@@ -68,7 +54,6 @@ cr-icon {
 
 .header {
   font-size: 16px;
-  font-weight: 500;
   line-height: 24px;
   margin-bottom: 8px;
 }
@@ -77,10 +62,6 @@ cr-icon {
   font-size: 13px;
   line-height: 20px;
   margin-bottom: 16px;
-}
-
-::slotted(a) {
-  color: var(--cr-link-color);
 }
 
 .buttons {

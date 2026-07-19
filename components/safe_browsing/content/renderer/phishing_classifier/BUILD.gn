@@ -8,9 +8,10 @@ import("//third_party/libprotobuf-mutator/fuzzable_proto_library.gni")
 
 if (safe_browsing_mode != 0) {
   source_set("phishing_classifier") {
+    _configs = configs
+    configs = []
+    configs = [ "//third_party/tflite:tflite_shim_config" ] + _configs
     sources = [
-      "features.cc",
-      "features.h",
       "murmurhash3_util.cc",
       "murmurhash3_util.h",
       "phishing_classifier.cc",
@@ -27,8 +28,6 @@ if (safe_browsing_mode != 0) {
       "phishing_model_setter_impl.h",
       "phishing_visual_feature_extractor.cc",
       "phishing_visual_feature_extractor.h",
-      "scorer.cc",
-      "scorer.h",
     ]
 
     configs += [ "//build/config/compiler:wexit_time_destructors" ]
@@ -37,16 +36,15 @@ if (safe_browsing_mode != 0) {
     deps = [
       "//cc/paint",
       "//components/paint_preview/common",
-      "//components/safe_browsing:buildflags",
       "//components/safe_browsing/content/common:interfaces",
-      "//components/safe_browsing/content/common:visual_utils",
       "//components/safe_browsing/content/renderer",
       "//components/safe_browsing/core/common",
+      "//components/safe_browsing/core/common:visual_utils",
       "//components/safe_browsing/core/common/fbs:client_model",
+      "//components/safe_browsing/core/common/phishing_classifier",
       "//components/safe_browsing/core/common/proto:client_model_proto",
       "//components/safe_browsing/core/common/proto:csd_proto",
       "//content/public/renderer",
-      "//crypto",
       "//mojo/public/mojom/base:protobuf_support",
       "//skia",
       "//third_party/blink/public:blink_headers",
@@ -64,37 +62,11 @@ if (safe_browsing_mode != 0) {
 
   source_set("unit_tests") {
     testonly = true
-    sources = [
-      "features_unittest.cc",
-      "murmurhash3_util_unittest.cc",
-      "scorer_unittest.cc",
-    ]
+    sources = [ "murmurhash3_util_unittest.cc" ]
     deps = [
       ":phishing_classifier",
       "//base",
-      "//base/test:test_support",
-      "//components/safe_browsing/content/renderer/phishing_classifier:unit_tests_support",
-      "//components/safe_browsing/core/common/fbs:client_model",
-      "//components/safe_browsing/core/common/proto:client_model_proto",
-      "//components/safe_browsing/core/common/proto:csd_proto",
-      "//content/test:test_support",
-      "//crypto",
-      "//skia",
-      "//testing/gmock",
       "//testing/gtest",
-      "//url",
-    ]
-  }
-
-  source_set("unit_tests_support") {
-    testonly = true
-    sources = [
-      "test_utils.cc",
-      "test_utils.h",
-    ]
-    deps = [
-      ":phishing_classifier",
-      "//testing/gmock",
     ]
   }
 
@@ -106,11 +78,11 @@ if (safe_browsing_mode != 0) {
         ":phishing_classifier",
         "//base",
         "//components/safe_browsing/core/common/fbs:client_model",
+        "//components/safe_browsing/core/common/phishing_classifier",
         "//components/safe_browsing/core/common/proto:client_model_proto",
         "//skia",
         "//third_party/libprotobuf-mutator",
       ]
-      deps += [ "//components/safe_browsing/content/browser:client_side_detection_service" ]
 
       # TODO(crbug.com/505034799): Migrate to FUZZ_TEST.
       is_fuzztest_compatible = false

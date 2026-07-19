@@ -188,7 +188,7 @@ void ApplyStyleCommand::UpdateStartEnd(const EphemeralRange& range) {
   GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kEditing);
   const bool was_base_first =
       StartingSelection().IsAnchorFirst() || !SelectionIsDirectional();
-  SelectionInDOMTree::Builder builder;
+  SelectionInDomTree::Builder builder;
   if (was_base_first)
     builder.SetAsForwardSelection(range);
   else
@@ -197,6 +197,10 @@ void ApplyStyleCommand::UpdateStartEnd(const EphemeralRange& range) {
       CreateVisibleSelection(builder.Build());
   SetEndingSelection(
       SelectionForUndoStep::From(visible_selection.AsSelection()));
+  if (RuntimeEnabledFeatures::EditingUseDomPositionApiEnabled()) {
+    SetEndingDomSelection(
+        SelectionForUndoStep::From(visible_selection.AsSelection()));
+  }
   start_ = range.StartPosition();
   end_ = range.EndPosition();
 }

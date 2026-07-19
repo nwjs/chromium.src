@@ -35,15 +35,14 @@ class MetricsPresubmitCheckType(enum.Enum):
 
 _CACHE_DIR_PATH = os.path.join(tempfile.gettempdir(), 'metrics_presubmit_cache')
 
-
 import chromium_src.tools.metrics.python_support.tests_helpers as tests_helpers
 import chromium_src.tools.metrics.python_support.mypy_helpers as mypy_helpers
 import chromium_src.tools.metrics.python_support.script_checker as script_checker
 import chromium_src.tools.metrics.python_support.dependency_solver as dependency_solver
+import chromium_src.tools.metrics.python_support.quote_checker as quote_checker
 
 UKM_XML = 'ukm.xml'
 ENUMS_XML = 'enums.xml'
-
 
 _FILES_MISSING_IN_BUILD_GN_ERROR_TEMPLATE = """
 There are test files that are not listed in tools/metrics/BUILD.gn
@@ -51,9 +50,6 @@ metrics_python_tests rule. Those test will not be run by CI.
 Please add the missing files to BUILD.gn:
 {missing_files_list}
 """
-
-
-
 
 
 def _RunSelectedTests(
@@ -153,6 +149,7 @@ def _ReportPythonIssuesList(input_api, output_api):
 def _ReportXmlIssuesList(input_api, output_api):
   return list(_ReportXmlIssues(input_api, output_api))
 
+
 def _ReportEnumXmlIssues(input_api: Type, output_api: Type,
                          affected_files: List[str]) -> Iterable[Any]:
   enums_changed = any(
@@ -216,9 +213,57 @@ def _CheckNoManualSysPathManipulation(input_api: Any,
   return results
 
 
+def _CheckQuoteConsistency(input_api: Any, output_api: Any) -> List[Any]:
+  """Checks that single quotes are used consistently in python files.
+
+  Double quotes are allowed only when they contain single quotes (to avoid
+  escaping), e.g. "don't". Triple double quotes (docstrings) and escaped
+  double quotes (e.g. \\") are ignored.
+  """
+  results = []
+  cwd = input_api.PresubmitLocalPath()
+
+  for affected_file in input_api.AffectedFiles(include_deletes=False):
+    filepath = input_api.os_path.relpath(affected_file.AbsoluteLocalPath(), cwd)
+    if not filepath.endswith('.py'):
+      continue
+
+    changed_lines = {
+        line_number
+        for line_number, _ in affected_file.ChangedContents()
+    }
+    if not changed_lines:
+      continue
+
+    file_text = '\n'.join(affected_file.NewContents())
+    try:
+      modified_strings = quote_checker.GetModifiedStrings(
+          Path(filepath), file_text)
+    except Exception as e:
+      results.append(
+          output_api.PresubmitError(f'Failed to parse {filepath}: {e}'))
+      continue
+
+    for modified_string in modified_strings:
+      if quote_checker.CheckQuoteConsistency(modified_string, changed_lines):
+        continue
+      report_line = sorted(
+          list(changed_lines.intersection(modified_string.lines)))[0]
+      results.append(
+          output_api.PresubmitError(
+              f'{filepath}:{report_line} uses double quotes. '
+              'Favor single quotes unless double quotes are needed '
+              'to avoid escapes.'))
+
+  return results
+
+
 def CheckChange(input_api: Type, output_api: Type):
   problems: List[Any] = []
   problems.extend(_CheckNoManualSysPathManipulation(input_api, output_api))
+  problems.extend(_CheckQuoteConsistency(input_api, output_api))
+  problems.extend(
+      input_api.canned_checks.CheckPatchFormatted(input_api, output_api))
   problems.extend(
       presubmit_caching_support.RunCheckWithCache(
           _ReportPythonIssuesList,

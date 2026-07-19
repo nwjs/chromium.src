@@ -37,7 +37,6 @@
 #include "media/base/media_switches.h"
 #include "services/audio/audio_manager_power_user.h"
 #include "services/audio/output_tapper.h"
-#include "services/audio/processing_audio_fifo.h"
 #include "services/audio/reference_output.h"
 #include "services/audio/reference_signal_provider.h"
 
@@ -184,7 +183,10 @@ class InputController::StatsReporter {
         last_periodic_log_time_(start_time_),
         aec_type_(GetAecTypeFromReferenceSignal(reference_signal_provider)),
         report_cb_(GetOnReportCallback(aec_type_)),
-        controller_(controller) {}
+        controller_(controller),
+        task_runner_(base::SingleThreadTaskRunner::GetCurrentDefault()) {
+    weak_this_ = weak_ptr_factory_.GetWeakPtr();
+  }
 
   ~StatsReporter() { LogStats("Dtor", base::TimeTicks::Now()); }
 
@@ -204,18 +206,28 @@ class InputController::StatsReporter {
     }
   }
 
-  void LogStats(const std::string& call_name, base::TimeTicks now) {
+  void LogStats(const char* call_name, base::TimeTicks now) {
     const base::TimeDelta total_duration = now - start_time_;
     const double glitch_percentage =
         total_duration.is_zero()
             ? 0
             : glitch_info_.duration.InSecondsF() / total_duration.InSecondsF();
+    task_runner_->PostTask(
+        FROM_HERE,
+        base::BindOnce(&StatsReporter::DoLogStats, weak_this_, call_name,
+                       total_duration, glitch_info_, glitch_percentage));
+  }
+
+  void DoLogStats(const char* call_name,
+                  base::TimeDelta total_duration,
+                  media::AudioGlitchInfo glitch_info,
+                  double glitch_percentage) {
     controller_->SendLogMessage(
-        base::StringPrintf("%s => (duration=%" PRId64 " sec)",
-                           call_name.c_str(), total_duration.InSeconds()));
+        base::StringPrintf("%s => (duration=%" PRId64 " sec)", call_name,
+                           total_duration.InSeconds()));
     controller_->SendLogMessage(base::StringPrintf(
-        "%s => (glitches=[%s], glitch_percentage=%.3f%%)", call_name.c_str(),
-        glitch_info_.ToString().c_str(), glitch_percentage * 100));
+        "%s => (glitches=[%s], glitch_percentage=%.3f%%)", call_name,
+        glitch_info.ToString().c_str(), glitch_percentage * 100));
   }
 
   AECType GetAecType() const { return aec_type_; }
@@ -272,6 +284,11 @@ class InputController::StatsReporter {
   // RAW_PTR_EXCLUSION: InputController object will outlive the
   // StatsReporter object.
   RAW_PTR_EXCLUSION InputController* const controller_;
+
+  const scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
+
+  base::WeakPtr<StatsReporter> weak_this_;
+  base::WeakPtrFactory<StatsReporter> weak_ptr_factory_{this};
 };
 
 // This class implements the AudioInputCallback interface in place of the
@@ -322,7 +339,9 @@ class AudioCallback : public media::AudioInputStream::AudioInputCallback {
     on_data_callback_.Run(source, capture_time, volume, glitch_info);
   }
 
-  void OnError() override {
+  using Error = media::AudioInputStream::AudioInputCallback::Error;
+
+  void OnError(Error error_code) override {
     error_during_callback_ = true;
     on_error_callback_.Run();
   }
@@ -428,31 +447,13 @@ void InputController::MaybeSetUpAudioProcessing(
       std::move(processing_config->controls_receiver),
       aecdump_recording_manager, ml_model_manager);
 
-  // If we are not running echo cancellation the processing is lightweight, so
-  // there is no need to offload work to a new thread.
-  const bool echo_cancellation_is_enabled =
-      audio_processor_handler_->needs_playout_reference();
-  SendLogMessage(base::StringPrintf(
-      "%s => (echo cancellation is: %s)", __func__,
-      (echo_cancellation_is_enabled ? "enabled" : "disabled")));
-  if (!echo_cancellation_is_enabled) {
-    return;
+  if (audio_processor_handler_->needs_playout_reference()) {
+    // Unretained() is safe, since |event_handler_| outlives |output_tapper_|.
+    output_tapper_ = std::make_unique<OutputTapper>(
+        std::move(reference_signal_provider), audio_processor_handler_.get(),
+        base::BindRepeating(&EventHandler::OnLog,
+                            base::Unretained(event_handler_)));
   }
-
-  // base::Unretained() is safe since both |audio_processor_handler_| and
-  // |event_handler_| outlive |processing_fifo_|.
-  processing_fifo_ = std::make_unique<ProcessingAudioFifo>(
-      *processing_input_params, kProcessingFifoSize,
-      base::BindRepeating(&AudioProcessorHandler::ProcessCapturedAudio,
-                          base::Unretained(audio_processor_handler_.get())),
-      base::BindRepeating(&EventHandler::OnLog,
-                          base::Unretained(event_handler_.get())));
-
-  // Unretained() is safe, since |event_handler_| outlives |output_tapper_|.
-  output_tapper_ = std::make_unique<OutputTapper>(
-      std::move(reference_signal_provider), audio_processor_handler_.get(),
-      base::BindRepeating(&EventHandler::OnLog,
-                          base::Unretained(event_handler_)));
 }
 #endif
 
@@ -523,8 +524,8 @@ void InputController::Record() {
     }
   }
 
-  if (processing_fifo_) {
-    processing_fifo_->Start();
+  if (audio_processor_handler_) {
+    audio_processor_handler_->StartProcessing();
   }
 #endif
 
@@ -578,13 +579,8 @@ void InputController::Close() {
     if (output_tapper_) {
       output_tapper_->Stop();
     }
-
-    if (processing_fifo_) {
-      // Stop the FIFO after |stream_| is stopped, to guarantee there are no
-      // more calls to OnData().
-      // Note: destroying the FIFO will synchronously wait for the processing
-      // thread to stop.
-      processing_fifo_.reset();
+    if (audio_processor_handler_) {
+      audio_processor_handler_->StopProcessing();
     }
 #endif
 
@@ -909,10 +905,7 @@ void InputController::OnData(const media::AudioBus* source,
               "capture_delay (ms)",
               (base::TimeTicks::Now() - capture_time).InMillisecondsF());
 #if BUILDFLAG(CHROME_WIDE_ECHO_CANCELLATION)
-  if (processing_fifo_) {
-    DCHECK(audio_processor_handler_);
-    processing_fifo_->PushData(source, capture_time, volume, glitch_info);
-  } else if (audio_processor_handler_) {
+  if (audio_processor_handler_) {
     audio_processor_handler_->ProcessCapturedAudio(*source, capture_time,
                                                    volume, glitch_info);
   } else

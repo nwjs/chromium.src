@@ -34,7 +34,11 @@
 #include "components/signin/public/base/signin_buildflags.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
+#include "content/public/test/scoped_accessibility_mode_override.h"
 #include "third_party/blink/public/common/switches.h"
+#include "ui/accessibility/ax_mode.h"
+#include "ui/accessibility/ax_tree_data.h"
+#include "ui/accessibility/platform/ax_platform_node_delegate.h"
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 #include "chrome/browser/password_manager/password_manager_signin_intercept_test_helper.h"
@@ -85,11 +89,6 @@ class PasswordManagerInteractiveTest
     // in PasswordFormManager unit tests.
     password_manager::PasswordFormManager::
         set_wait_for_server_predictions_for_filling(false);
-
-    // TODO(504600482): Remove this and update tests when the bug is closed.
-    // Disable kFillOnAccountSelect by default to match test assumptions.
-    feature_list_.InitAndDisableFeature(
-        password_manager::features::kFillOnAccountSelect);
   }
   ~PasswordManagerInteractiveTest() override = default;
 
@@ -99,9 +98,6 @@ class PasswordManagerInteractiveTest
     // deferred commits.
     command_line->AppendSwitch(blink::switches::kAllowPreCommitInput);
   }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(PasswordManagerInteractiveTest, UsernameChanged) {
@@ -338,7 +334,8 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerInteractiveTest,
 }
 
 IN_PROC_BROWSER_TEST_F(PasswordManagerInteractiveTest,
-                       DISABLED_DeleteCredentialsUpdateDropdown) {
+                       DeleteCredentialsUpdateDropdown) {
+  content::ScopedAccessibilityModeOverride mode_override(::ui::kAXModeComplete);
   scoped_refptr<password_manager::TestPasswordStore> password_store =
       GetDefaultPasswordStore(browser()->profile());
 
@@ -390,6 +387,13 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerInteractiveTest,
   autofill::FormFieldData dummy_field;
   dummy_field.set_renderer_id(kElementId.renderer_id);
   form.set_fields({dummy_field});
+
+  // Wait until the accessibility tree is ready and has a valid tree ID.
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    ::ui::AXPlatformNodeDelegate* root =
+        content::GetRootAccessibilityNode(WebContents());
+    return root && root->GetTreeData().tree_id != ::ui::AXTreeIDUnknown();
+  })) << "Accessibility tree ID did not become valid.";
 
   TriggerPasswordSuggestionsAndWait(autofill_driver, form, element_bounds);
 

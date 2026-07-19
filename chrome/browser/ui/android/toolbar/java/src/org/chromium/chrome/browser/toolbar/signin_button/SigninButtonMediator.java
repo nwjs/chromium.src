@@ -50,6 +50,7 @@ import org.chromium.components.browser_ui.settings.SettingsNavigation;
 import org.chromium.components.feature_engagement.EventConstants;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.signin.SigninFeatureMap;
+import org.chromium.components.signin.base.AccountInfo;
 import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.identitymanager.PrimaryAccountChangeEvent;
@@ -112,6 +113,8 @@ final class SigninButtonMediator
 
     private final SigninAndHistorySyncActivityLauncher mSigninAndHistorySyncActivityLauncher;
 
+    private final Runnable mOnSigninTapped;
+
     /**
      * @param context The {@link Context} to retrieve resources.
      * @param windowAndroid The {@link WindowAndroid} for the current window.
@@ -127,6 +130,7 @@ final class SigninButtonMediator
      * @param modalDialogManager The {@link ModalDialogManager} to manage the dialog.
      * @param snackbarManager The {@link SnackbarManager} to show sign-in/sign-out snackbars.
      * @param themeColorProvider The {@link ThemeColorProvider} to get toolbar tint changes.
+     * @param onSigninTapped Runnable to be called when the sign-in button is tapped.
      */
     public SigninButtonMediator(
             Context context,
@@ -139,7 +143,8 @@ final class SigninButtonMediator
             BottomSheetController bottomSheetController,
             ModalDialogManager modalDialogManager,
             SnackbarManager snackbarManager,
-            ThemeColorProvider themeColorProvider) {
+            ThemeColorProvider themeColorProvider,
+            Runnable onSigninTapped) {
         mContext = context;
         mModel = model;
         mProfileSupplier = profileSupplier;
@@ -152,6 +157,7 @@ final class SigninButtonMediator
         mBottomSheetController = bottomSheetController;
         mSigninAndHistorySyncActivityLauncher = signinAndHistorySyncActivityLauncher;
         mThemeColorProvider = themeColorProvider;
+        mOnSigninTapped = onSigninTapped;
         mActivityFocusTint = mThemeColorProvider.getActivityFocusTint();
         mThemeColorProvider.addTintObserver(this);
         mModel.set(
@@ -258,11 +264,11 @@ final class SigninButtonMediator
                         ? UserActionableError.NONE
                         : mSyncService.getUserActionableError();
 
-        CoreAccountInfo coreAccountInfo = assumeNonNull(mIdentityManager).getPrimaryAccountInfo();
-        if (coreAccountInfo != null) {
+        @Nullable AccountInfo accountInfo = assumeNonNull(mIdentityManager).getPrimaryAccountInfo();
+        if (accountInfo != null) {
             assumeNonNull(mProfileDataCache)
                     .setBadge(
-                            coreAccountInfo.getId(),
+                            accountInfo.getId(),
                             mIdentityError == UserActionableError.NONE
                                     ? null
                                     : BadgeConfig.create(R.drawable.ic_error_badge_16dp)
@@ -270,7 +276,7 @@ final class SigninButtonMediator
                                             .build(mContext));
         }
 
-        @Nullable CoreAccountId id = CoreAccountInfo.getIdFrom(coreAccountInfo);
+        @Nullable CoreAccountId id = AccountInfo.getIdFrom(accountInfo);
         DisplayableProfileData profileData =
                 id == null ? null : assumeNonNull(mProfileDataCache).getById(id);
         setButton(profileData);
@@ -350,6 +356,8 @@ final class SigninButtonMediator
         if (mProfile == null || mProfile.isOffTheRecord()) {
             return;
         }
+
+        mOnSigninTapped.run();
         recordSigninButtonUsed(mProfile);
 
         Profile originalProfile = mProfile.getOriginalProfile();

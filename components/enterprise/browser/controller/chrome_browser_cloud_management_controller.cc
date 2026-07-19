@@ -23,6 +23,7 @@
 #include "components/enterprise/browser/device_trust/device_trust_key_manager.h"
 #include "components/enterprise/browser/enterprise_switches.h"
 #include "components/enterprise/browser/groups/enterprise_groups_handler.h"
+#include "components/enterprise/browser/reporting/browser_launch/browser_launch_event_controller.h"
 #include "components/enterprise/browser/reporting/real_time_report_controller.h"
 #include "components/enterprise/browser/reporting/report_scheduler.h"
 #include "components/enterprise/browser/reporting/reporting_delegate_factory.h"
@@ -39,6 +40,7 @@
 #include "components/policy/core/common/cloud/machine_level_user_cloud_policy_manager.h"
 #include "components/policy/core/common/cloud/machine_level_user_cloud_policy_store.h"
 #include "components/policy/core/common/configuration_policy_provider.h"
+#include "components/policy/core/common/features.h"
 #include "components/policy/core/common/policy_logger.h"
 #include "components/prefs/pref_service.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
@@ -240,6 +242,14 @@ void ChromeBrowserCloudManagementController::Init(
         << "No machine level policy manager exists.";
     return;
   }
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+  if (policy_manager->extension_install_store() &&
+      !base::FeatureList::IsEnabled(
+          features::kEnableExtensionInstallPolicyFetching)) {
+    policy_manager->extension_install_store()->Clear();
+  }
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
   // If there exists an enrollment token, then there are three states:
   //   1/ There also exists a valid DM token.  This machine is already
@@ -581,6 +591,15 @@ void ChromeBrowserCloudManagementController::InitializeReporting() {
       saas_usage_report_scheduler_ =
           enterprise_reporting::SaasUsageReportScheduler::Create(
               "browser", saas_usage_reporting_delegate_factory.get());
+    }
+  }
+
+  if (base::FeatureList::IsEnabled(
+          enterprise_reporting::kBrowserLaunchMetadataReporting)) {
+    browser_launch_controller_ =
+        delegate_->CreateBrowserLaunchEventController();
+    if (browser_launch_controller_) {
+      browser_launch_controller_->CollectAndUpload();
     }
   }
 

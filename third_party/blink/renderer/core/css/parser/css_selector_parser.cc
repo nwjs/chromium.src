@@ -76,6 +76,7 @@ CSSSelector::RelationType GetImplicitCombinatorForMatching(
     case CSSSelector::PseudoType::kPseudoFileSelectorButton:
     case CSSSelector::PseudoType::kPseudoPicker:
     case CSSSelector::PseudoType::kPseudoPermissionIcon:
+    case CSSSelector::PseudoType::kPseudoSelectListbox:
       return CSSSelector::RelationType::kUAShadow;
     case CSSSelector::PseudoType::kPseudoPart:
       return CSSSelector::RelationType::kShadowPart;
@@ -201,8 +202,7 @@ base::span<CSSSelector> CSSSelectorParser::ParseScopeBoundary(
 
 // static
 ActiveNavigationCondition* CSSSelectorParser::ParseActiveNavigationCondition(
-    CSSParserTokenStream& stream,
-    const Document& document) {
+    CSSParserTokenStream& stream) {
   // https://drafts.csswg.org/css-navigation-1/#typedef-active-navigation-condition
   //
   // <active-navigation-condition> =
@@ -210,10 +210,9 @@ ActiveNavigationCondition* CSSSelectorParser::ParseActiveNavigationCondition(
   // <navigation-relation> = at | with | from | to
   NavigationPreposition preposition = NavigationPreposition::kWith;
   if (stream.Peek().GetType() == kIdentToken) {
-    AtomicString ident(stream.Peek().Value().ToString());
     // <navigation-relation>?
     if (std::optional<NavigationPreposition> parsed_preposition =
-            NavigationParser::ParsePrepositionIdent(ident)) {
+            NavigationParser::ParsePrepositionIdent(stream.Peek())) {
       preposition = *parsed_preposition;
       stream.ConsumeIncludingWhitespace();
     }
@@ -222,9 +221,11 @@ ActiveNavigationCondition* CSSSelectorParser::ParseActiveNavigationCondition(
   // [ <route-location> | link-href ]?
   if (!stream.AtEnd()) {
     // Leave route_location as nullptr if "link-href".
-    if (stream.Peek().GetType() != kIdentToken ||
-        stream.Peek().Value().ToString() != "link-href") {
-      route_location = NavigationParser::ParseLocation(stream, document);
+    if (stream.Peek().GetType() == kIdentToken &&
+        EqualIgnoringAsciiCase(stream.Peek().Value(), "link-href")) {
+      stream.ConsumeIncludingWhitespace();
+    } else {
+      route_location = NavigationParser::ParseLocation(stream);
       if (!route_location) {
         return nullptr;
       }
@@ -1763,7 +1764,25 @@ bool CSSSelectorParser::ConsumePseudo(CSSParserTokenStream& stream,
       output_.push_back(std::move(selector));
       return true;
     }
-    case CSSSelector::kPseudoPicker:
+    case CSSSelector::kPseudoPicker: {
+      const CSSParserToken& ident = stream.Peek();
+      if (ident.GetType() != kIdentToken) {
+        return false;
+      }
+      // If we add more valid arguments to ::picker() in the future, then we
+      // would probably have to turn this into a list instead of just checking
+      // for "select".
+      if (!EqualIgnoringAsciiCase(ident.Value(), "select")) {
+        return false;
+      }
+      selector.SetArgument(AtomicString("select"));
+      stream.ConsumeIncludingWhitespace();
+      if (!stream.AtEnd()) {
+        return false;
+      }
+      output_.push_back(std::move(selector));
+      return true;
+    }
     case CSSSelector::kPseudoDir:
     case CSSSelector::kPseudoState: {
       const CSSParserToken& ident = stream.Peek();
@@ -2029,8 +2048,11 @@ bool CSSSelectorParser::ConsumePseudo(CSSParserTokenStream& stream,
       if (!RuntimeEnabledFeatures::RouteMatchingEnabled()) {
         return false;
       }
-      if (RouteLocation* location = NavigationParser::ParseLocation(
-              stream, *context_->GetDocument())) {
+      if (RouteLocation* location = NavigationParser::ParseLocation(stream)) {
+        stream.ConsumeWhitespace();
+        if (!stream.AtEnd()) {
+          return false;
+        }
         selector.SetRouteLocation(location);
         output_.push_back(std::move(selector));
         return true;
@@ -2041,8 +2063,7 @@ bool CSSSelectorParser::ConsumePseudo(CSSParserTokenStream& stream,
         return false;
       }
       if (ActiveNavigationCondition* active_navigation_condition =
-              ParseActiveNavigationCondition(stream,
-                                             *context_->GetDocument())) {
+              ParseActiveNavigationCondition(stream)) {
         selector.SetActiveNavigationCondition(active_navigation_condition);
         output_.push_back(std::move(selector));
         return true;
@@ -2567,8 +2588,8 @@ WebFeature FeatureForWebKitCustomPseudoElement(const AtomicString& name) {
   for (const auto& entry : feature_table) {
     // SAFETY: The PseudoElementFeatureMapEntry constructor guarantees `key` and
     // `key_length` are safe.
-    if (name == StringView(base::as_bytes(
-                    UNSAFE_BUFFERS(base::span(entry.key, entry.key_length))))) {
+    if (name == StringView(base::as_bytes(UNSAFE_BUFFERS(base::span(
+                    base::unchecked, entry.key, entry.key_length))))) {
       return static_cast<WebFeature>(entry.feature);
     }
   }

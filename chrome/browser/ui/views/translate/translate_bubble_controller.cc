@@ -24,6 +24,7 @@
 #include "chrome/browser/ui/views/translate/partial_translate_bubble_view.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/touch_to_search/core/browser/contextual_search_delegate_impl.h"
+#include "components/translate/content/browser/contextual_translate_delegate.h"
 #include "components/translate/content/browser/partial_translate_manager.h"
 #include "components/translate/core/browser/translate_language_list.h"
 #include "components/translate/core/browser/translate_manager.h"
@@ -167,14 +168,16 @@ void TranslateBubbleController::StartPartialTranslate(
   views::BubbleAnchor anchor;
   std::optional<ui::ElementIdentifier> highlighted_element;
 
-  BrowserView* browser_view =
-      BrowserView::GetBrowserViewForBrowser(browser_window_);
-  if (browser_view) {
-    anchor = browser_view->toolbar_button_provider()->GetBubbleAnchor(
-        kActionShowTranslate);
-    highlighted_element = kTranslatePageActionElementId;
-  } else if (anchor_view_for_testing_) {
+  if (anchor_view_for_testing_) {
     anchor = views::BubbleAnchor(anchor_view_for_testing_);
+  } else {
+    BrowserView* browser_view =
+        BrowserView::GetBrowserViewForBrowser(browser_window_);
+    if (browser_view) {
+      anchor = browser_view->toolbar_button_provider()->GetBubbleAnchor(
+          kActionShowTranslate);
+      highlighted_element = kTranslatePageActionElementId;
+    }
   }
 
   CreatePartialTranslateBubble(web_contents, anchor, highlighted_element,
@@ -297,7 +300,9 @@ void TranslateBubbleController::CreatePartialTranslateBubble(
     auto partial_translate_manager = std::make_unique<PartialTranslateManager>(
         std::make_unique<ContextualSearchDelegateImpl>(
             profile->GetURLLoaderFactory(),
-            TemplateURLServiceFactory::GetForProfile(profile)));
+            TemplateURLServiceFactory::GetForProfile(profile)),
+        std::make_unique<ContextualTranslateDelegate>(
+            profile->GetURLLoaderFactory()));
 
     model = std::make_unique<PartialTranslateBubbleModelImpl>(
         view_state, error_type, truncated_source_text, target_text,

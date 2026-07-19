@@ -15,6 +15,7 @@
 #include "base/observer_list_types.h"
 #include "base/scoped_observation.h"
 #include "base/scoped_observation_traits.h"
+#include "base/time/time.h"
 #include "build/build_config.h"
 #include "chrome/browser/glic/host/glic_web_client_access.h"
 #include "chrome/browser/glic/host/host.h"
@@ -51,6 +52,13 @@ class GlicWidget;
 // GlicInstanceCoordinator is the interface for managing Glic instances.
 class GlicInstanceCoordinator {
  public:
+  enum class ActivateTabResult {
+    kSuccess,
+    kConversationNotFound,
+    kNoBoundTabs,
+    kTabNotInWindow,
+  };
+
   using StateObserver = PanelStateObserver;
   GlicInstanceCoordinator(const GlicInstanceCoordinator&) = delete;
   GlicInstanceCoordinator& operator=(const GlicInstanceCoordinator&) = delete;
@@ -60,9 +68,11 @@ class GlicInstanceCoordinator {
   virtual bool IsAnyPanelShowing() const = 0;
   virtual bool IsConversationPresent(
       const std::string& conversation_id) const = 0;
+  virtual ActivateTabResult ActivateTabWithConversation(
+      const std::string& conversation_id) = 0;
   virtual GlicInstance* GetInstanceForTab(
       const tabs::TabInterface* tab) const = 0;
-  virtual GlicSharingManager& active_instance_sharing_manager() = 0;
+  virtual GlicSharingManagerInternal& active_instance_sharing_manager() = 0;
   virtual GlicInstance* GetInstanceWithGlicWebContents(
       content::WebContents* glic_web_contents) const = 0;
   virtual void CreateNewConversationForTabs(
@@ -70,7 +80,8 @@ class GlicInstanceCoordinator {
   virtual void ShowInstanceForTabs(const std::vector<tabs::TabInterface*>& tabs,
                                    const InstanceId& instance_id) = 0;
   virtual std::vector<ConversationInfo> GetRecentlyActiveInstances(
-      size_t limit) = 0;
+      size_t limit,
+      base::TimeDelta max_time_since_active) = 0;
 
   virtual bool IsTabPinnedToAnyInstance(
       const tabs::TabHandle& tab_handle) const = 0;

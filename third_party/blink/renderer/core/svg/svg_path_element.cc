@@ -20,15 +20,19 @@
 
 #include "third_party/blink/renderer/core/svg/svg_path_element.h"
 
+#include "third_party/blink/renderer/bindings/core/v8/v8_svg_path_data_settings.h"
 #include "third_party/blink/renderer/core/dom/document.h"
+#include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/core/svg/svg_animated_path.h"
 #include "third_party/blink/renderer/core/svg/svg_mpath_element.h"
+#include "third_party/blink/renderer/core/svg/svg_path.h"
 #include "third_party/blink/renderer/core/svg/svg_path_query.h"
 #include "third_party/blink/renderer/core/svg/svg_path_utilities.h"
 #include "third_party/blink/renderer/core/svg/svg_point_tear_off.h"
 #include "third_party/blink/renderer/platform/geometry/path_builder.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 
 namespace blink {
 
@@ -99,6 +103,36 @@ SVGPointTearOff* SVGPathElement::getPointAtLength(
   }
   gfx::PointF point = path_query.GetPointAtLength(length);
   return SVGPointTearOff::CreateDetached(point);
+}
+
+HeapVector<Member<SVGPathSegment>> SVGPathElement::getPathData(
+    const SVGPathDataSettings* settings) {
+  const bool normalize = settings->normalize();
+  if (normalize) {
+    UseCounter::Count(GetDocument(),
+                      WebFeature::kSVGPathElementGetPathDataNormalized);
+  }
+  // Read the attribute base value, unaffected by SMIL or CSS.
+  return BuildPathSegmentsFromByteStream(path_->BaseValue()->ByteStream(),
+                                         normalize);
+}
+
+void SVGPathElement::setPathData(
+    const HeapVector<Member<SVGPathSegment>>& path_data) {
+  // Build the valid-prefix byte stream and route it through setAttribute("d")
+  // so the full attribute mutation pipeline fires (invalidation, <use>
+  // instances, MutationObserver).
+  // TODO(crbug.com/40441025): Write the byte stream directly into SVGPath
+  // once lazy attribute sync fires Will/DidModifyAttribute.
+  SVGPathByteStream byte_stream = BuildByteStreamFromSegments(path_data);
+  // An empty result removes the attribute, matching other list-valued
+  // attributes.
+  if (byte_stream.IsEmpty()) {
+    removeAttribute(svg_names::kDAttr);
+    return;
+  }
+  setAttribute(svg_names::kDAttr, AtomicString(BuildStringFromByteStream(
+                                      byte_stream, kNoTransformation)));
 }
 
 void SVGPathElement::DidRecalcStyle(const StyleRecalcChange change) {

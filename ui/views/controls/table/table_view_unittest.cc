@@ -28,6 +28,7 @@
 #include "ui/display/test/test_screen.h"
 #include "ui/events/event_utils.h"
 #include "ui/events/test/event_generator.h"
+#include "ui/gfx/geometry/point_conversions.h"
 #include "ui/gfx/text_utils.h"
 #include "ui/views/accessibility/ax_virtual_view.h"
 #include "ui/views/accessibility/view_accessibility.h"
@@ -174,7 +175,7 @@ class TableViewTestHelper {
   }
 
   gfx::Transform GetHoverLayerTransform() const {
-    return table_->hover_layer_.transform();
+    return table_->hover_view_->layer()->transform();
   }
 
   void SetHover(gfx::Point view_coordinates) {
@@ -183,7 +184,13 @@ class TableViewTestHelper {
 
   void ClearHover() { table_->ClearHover(); }
 
-  gfx::Point GetScrollOffset() { return table_->scroll_offset_; }
+  gfx::Point GetScrollOffset() {
+    if (auto* scroll_view = ScrollView::GetScrollViewForContents(table_);
+        scroll_view) {
+      return gfx::ToFlooredPoint(scroll_view->CurrentOffset());
+    }
+    return gfx::Point();
+  }
 
   void ScrollTableTo(gfx::PointF offset) {
     ScrollView* scroll_view = ScrollView::GetScrollViewForContents(table_);
@@ -2452,6 +2459,41 @@ TEST_P(TableViewTest, FocusAfterRemovingAnchor) {
   table_->RequestFocus();
 }
 
+TEST_P(TableViewTest, SelectOnFocus) {
+  // Set select_on_focus to true.
+  table_->SetSelectOnFocus(true);
+
+  // Initially no selection.
+  EXPECT_EQ("active=<none> anchor=<none> selection=", SelectionStateAsString());
+
+  // Focus the table.
+  table_->RequestFocus();
+
+  // The first row should be automatically selected.
+  EXPECT_EQ("active=0 anchor=0 selection=0", SelectionStateAsString());
+
+  // Clear focus, then set selection to row 1.
+  table_->GetFocusManager()->ClearFocus();
+  table_->Select(1);
+  EXPECT_EQ("active=1 anchor=1 selection=1", SelectionStateAsString());
+
+  // Re-focus the table. It should NOT change the selection because there
+  // already was a selection.
+  table_->RequestFocus();
+  EXPECT_EQ("active=1 anchor=1 selection=1", SelectionStateAsString());
+
+  // Clear focus, clear selection, and set select_on_focus to false.
+  table_->GetFocusManager()->ClearFocus();
+  table_->Select(std::nullopt);
+  table_->SetSelectOnFocus(false);
+  EXPECT_EQ("active=<none> anchor=<none> selection=", SelectionStateAsString());
+
+  // Focus the table again. It should NOT select the first row because
+  // select_on_focus is false.
+  table_->RequestFocus();
+  EXPECT_EQ("active=<none> anchor=<none> selection=", SelectionStateAsString());
+}
+
 // OnItemsRemoved() should ensure view-model mappings are updated in response to
 // the table model change before these view-model mappings are used.
 // Test for (https://crbug.com/1173373).
@@ -2950,7 +2992,7 @@ TEST_F(TableViewMouseHoverTest, TestScrollingHoverInteraction) {
   helper_->ScrollTableTo(gfx::PointF(0, table_->GetRowHeight()));
   EXPECT_SCROLL_OFFSET(0, table_->GetRowHeight());
   EXPECT_HOVERED_ROWS(GroupRange(1, 1));
-  EXPECT_HOVERED_TRANSFORM(/*x=*/0, /*y=*/0,
+  EXPECT_HOVERED_TRANSFORM(/*x=*/0, /*y=*/table_->GetRowHeight(),
                            /*width=*/table_->GetLocalBounds().width(),
                            /*height=*/table_->GetRowHeight());
 }

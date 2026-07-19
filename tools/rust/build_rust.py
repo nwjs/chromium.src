@@ -58,7 +58,8 @@ sys.path.append(
 from build import (AddCMakeToPath, AddZlibToPath, CheckoutGitRepo, CopyFile,
                    DownloadDebianSysroot, GetLibXml2Dirs, GitCherryPick,
                    GitRevert, LLVM_DIR, IsGitAncestorToHead,
-                   LLVM_BUILD_TOOLS_DIR, RunCommand)
+                   LLVM_BUILD_TOOLS_DIR, RunCommand,
+                   DEFAULT_MACOSX_DEPLOYMENT_TARGET, GetLatestCommit)
 from update import (CHROMIUM_DIR, DownloadAndUnpack, EnsureDirExists,
                     GetDefaultHostOs, RmTree, ReadStampFile, WriteStampFile,
                     UpdatePackage, STAMP_FILENAME as LLVM_STAMP_FILENAME,
@@ -76,6 +77,9 @@ EXCLUDED_TESTS = [
     os.path.join('tests', 'codegen-llvm', 'common_prim_int_ptr.rs'),
     # Temporarily disabled due to https://crbug.com/433249564
     os.path.join('tests', 'codegen-llvm', 'enum', 'enum-discriminant-eq.rs'),
+    # Temporarily disabled due to https://crbug.com/522257311
+    os.path.join('tests', 'codegen-llvm', 'issues', 'issue-118306.rs'),
+    os.path.join('tests', 'codegen-llvm', 'pow_known_base.rs'),
 ]
 EXCLUDED_TESTS_WINDOWS = [
     # Temporarily disabled due to https://crbug.com/379308086
@@ -369,10 +373,12 @@ class XPy:
             # `SDKROOT`.
             self._env['SDKROOT'] = sdk_path
 
-            # We don't have an official policy of which platforms we support
-            # building chromium on, but we generally expect builders to be
-            # recent, so this should track the OS versions on our buildbots.
-            self._env['MACOSX_DEPLOYMENT_TARGET'] = '15.6'
+            self._env[
+                'MACOSX_DEPLOYMENT_TARGET'] = DEFAULT_MACOSX_DEPLOYMENT_TARGET
+
+            # Due to an interaction with Homebrew installed `liblzma.dylib`, we
+            # must tell lzma-sys explicitly to build it from source.
+            self._env['LZMA_API_STATIC'] = '1'
 
         if zlib_path:
             self._env['CFLAGS'] += f' -I{zlib_path}'
@@ -557,9 +563,7 @@ def GetLatestRustCommit():
         'https://chromium.googlesource.com/external/' +
         'github.com/rust-lang/rust/+/refs/heads/main?format=JSON'  # nocheck
     )
-    main = json.loads(
-        urllib.request.urlopen(url).read().decode("utf-8").replace(")]}'", ""))
-    return main['commit']
+    return GetLatestCommit(url)
 
 
 def RustTargetTriple():

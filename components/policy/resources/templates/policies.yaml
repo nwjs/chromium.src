@@ -1457,6 +1457,16 @@ policies:
   1456: RestrictBackgroundFetchFromServiceWorkerEnabled
   1457: GeminiEnterpriseSettings
   1458: RestrictYouTubeCookiesDeletion
+  1459: AutofillSettings
+  1460: IsolateOriginsShortlist
+  1461: DeviceWeeklyScheduledResuspendDelayMs
+  1462: DefaultAutomaticDownloadsSetting
+  1463: AutomaticDownloadsAllowedForUrls
+  1464: AutomaticDownloadsBlockedForUrls
+  1465: VoiceTypingSettings
+  1466: ProxyProvisioningDomains
+  1467: ThirdPartyAiChatSettings
+  1468: ProcessIsolationEnabled
 
 atomic_groups:
   1: Homepage
@@ -1523,3 +1533,4 @@ atomic_groups:
   62: GeolocationSettings
   63: SocketPoolSizeSettings
   64: SubAppsWithoutPromptsSettings
+  65: AutomaticDownloadsSettings

@@ -160,11 +160,11 @@ TEST_F(AccessibilitySelectionTest, ClearCurrentSelection) {
   GetDocument().body()->AppendChild(script_element);
   UpdateAllLifecyclePhasesForTest();
 
-  SelectionInDOMTree selection = Selection().GetSelectionInDOMTree();
+  SelectionInDomTree selection = Selection().GetSelectionInDomTree();
   ASSERT_FALSE(selection.IsNone());
 
   AXSelection::ClearCurrentSelection(GetDocument());
-  selection = Selection().GetSelectionInDOMTree();
+  selection = Selection().GetSelectionInDomTree();
   EXPECT_TRUE(selection.IsNone());
 
   const auto ax_selection =
@@ -208,7 +208,7 @@ TEST_F(AccessibilitySelectionTest, CancelSelect) {
           .Build();
 
   EXPECT_FALSE(ax_selection.Select()) << "The operation has been cancelled.";
-  EXPECT_TRUE(Selection().GetSelectionInDOMTree().IsNone());
+  EXPECT_TRUE(Selection().GetSelectionInDomTree().IsNone());
   EXPECT_FALSE(
       AXSelection::FromCurrentSelection(GetDocument(), GetAXObjectCache())
           .IsValid());
@@ -216,7 +216,7 @@ TEST_F(AccessibilitySelectionTest, CancelSelect) {
   GetDocument().RemoveAllEventListeners();
 
   EXPECT_TRUE(ax_selection.Select()) << "The operation should now go through.";
-  EXPECT_FALSE(Selection().GetSelectionInDOMTree().IsNone());
+  EXPECT_FALSE(Selection().GetSelectionInDomTree().IsNone());
   EXPECT_EQ(
       "++<GenericContainer>\n"
       "++++<GenericContainer>\n"
@@ -250,7 +250,7 @@ TEST_F(AccessibilitySelectionTest, DocumentRangeMatchesSelection) {
           .SetFocus(AXPosition::CreateLastPositionInObject(*ax_paragraph_2))
           .Build();
   EXPECT_TRUE(ax_selection.Select());
-  ASSERT_FALSE(Selection().GetSelectionInDOMTree().IsNone());
+  ASSERT_FALSE(Selection().GetSelectionInDomTree().IsNone());
   ASSERT_NE(nullptr, Selection().DocumentCachedRange());
   EXPECT_EQ(String("lo.\n      How are you?"),
             Selection().DocumentCachedRange()->toString());
@@ -276,7 +276,7 @@ TEST_F(AccessibilitySelectionTest, SetSelectionInText) {
   AXSelection::Builder builder(GetAXObjectCache());
   const AXSelection ax_selection =
       builder.SetAnchor(ax_base).SetFocus(ax_extent).Build();
-  const SelectionInDOMTree dom_selection = ax_selection.AsSelection();
+  const SelectionInDomTree dom_selection = ax_selection.AsSelection();
   EXPECT_EQ(text, dom_selection.Anchor().AnchorNode());
   EXPECT_EQ(3, dom_selection.Anchor().OffsetInContainerNode());
   EXPECT_EQ(text, dom_selection.Focus().AnchorNode());
@@ -390,7 +390,7 @@ TEST_F(AccessibilitySelectionTest, SetSelectionInTextWithWhiteSpace) {
   AXSelection::Builder builder(GetAXObjectCache());
   const AXSelection ax_selection =
       builder.SetAnchor(ax_base).SetFocus(ax_extent).Build();
-  const SelectionInDOMTree dom_selection = ax_selection.AsSelection();
+  const SelectionInDomTree dom_selection = ax_selection.AsSelection();
   EXPECT_EQ(text, dom_selection.Anchor().AnchorNode());
   EXPECT_EQ(8, dom_selection.Anchor().OffsetInContainerNode());
   EXPECT_EQ(text, dom_selection.Focus().AnchorNode());
@@ -433,7 +433,7 @@ TEST_F(AccessibilitySelectionTest, SetSelectionAcrossLineBreak) {
   AXSelection::Builder builder(GetAXObjectCache());
   const AXSelection ax_selection =
       builder.SetAnchor(ax_base).SetFocus(ax_extent).Build();
-  const SelectionInDOMTree dom_selection = ax_selection.AsSelection();
+  const SelectionInDomTree dom_selection = ax_selection.AsSelection();
   EXPECT_EQ(paragraph, dom_selection.Anchor().AnchorNode());
   EXPECT_EQ(1, dom_selection.Anchor().OffsetInContainerNode());
   EXPECT_EQ(line2, dom_selection.Focus().AnchorNode());
@@ -483,7 +483,7 @@ TEST_F(AccessibilitySelectionTest, SetSelectionAcrossLineBreakInEditableText) {
   AXSelection::Builder builder(GetAXObjectCache());
   const AXSelection ax_selection =
       builder.SetAnchor(ax_base).SetFocus(ax_extent).Build();
-  const SelectionInDOMTree dom_selection = ax_selection.AsSelection();
+  const SelectionInDomTree dom_selection = ax_selection.AsSelection();
   EXPECT_EQ(paragraph, dom_selection.Anchor().AnchorNode());
   EXPECT_EQ(1, dom_selection.Anchor().OffsetInContainerNode());
   EXPECT_EQ(line2, dom_selection.Focus().AnchorNode());
@@ -561,7 +561,7 @@ TEST_F(AccessibilitySelectionTest, SetSelectionInDisplayNone) {
 
   const auto hidden_1_first = Position::FirstPositionInNode(*hidden_1);
   const auto hidden_2_first = Position::FirstPositionInNode(*hidden_2);
-  const auto selection = SelectionInDOMTree::Builder()
+  const auto selection = SelectionInDomTree::Builder()
                              .SetBaseAndExtent(hidden_1_first, hidden_2_first)
                              .Build();
 
@@ -671,8 +671,8 @@ TEST_F(AccessibilitySelectionTest, SetSelectionAroundListBullet) {
   // This should be further optimized to a text position at the start of the
   // text object inside the first <li>.
   ax_selection.Select(AXSelectionBehavior::kShrinkToValidRange);
-  const SelectionInDOMTree shrunk_selection =
-      Selection().GetSelectionInDOMTree();
+  const SelectionInDomTree shrunk_selection =
+      Selection().GetSelectionInDomTree();
 
   EXPECT_EQ(text_1, shrunk_selection.Anchor().AnchorNode());
   ASSERT_TRUE(shrunk_selection.Anchor().IsOffsetInAnchor());
@@ -684,8 +684,8 @@ TEST_F(AccessibilitySelectionTest, SetSelectionAroundListBullet) {
   // The list bullet is not included in the DOM tree. Extending the
   // |AXSelection| should move the anchor to before the first <li>.
   ax_selection.Select(AXSelectionBehavior::kExtendToValidRange);
-  const SelectionInDOMTree extended_selection =
-      Selection().GetSelectionInDOMTree();
+  const SelectionInDomTree extended_selection =
+      Selection().GetSelectionInDomTree();
 
   ASSERT_TRUE(extended_selection.Anchor().IsOffsetInAnchor());
   EXPECT_EQ(item_1->parentNode(), extended_selection.Anchor().AnchorNode());
@@ -1124,11 +1124,11 @@ TEST_F(AccessibilitySelectionTest, ClearCurrentSelectionInTextField) {
   GetDocument().body()->AppendChild(script_element);
   UpdateAllLifecyclePhasesForTest();
 
-  SelectionInDOMTree selection = Selection().GetSelectionInDOMTree();
+  SelectionInDomTree selection = Selection().GetSelectionInDomTree();
   ASSERT_FALSE(selection.IsNone());
 
   AXSelection::ClearCurrentSelection(GetDocument());
-  selection = Selection().GetSelectionInDOMTree();
+  selection = Selection().GetSelectionInDomTree();
   EXPECT_TRUE(selection.IsNone());
 
   const auto ax_selection =
@@ -1163,11 +1163,11 @@ TEST_F(AccessibilitySelectionTest, ClearCurrentSelectionInTextarea) {
   GetDocument().body()->AppendChild(script_element);
   UpdateAllLifecyclePhasesForTest();
 
-  SelectionInDOMTree selection = Selection().GetSelectionInDOMTree();
+  SelectionInDomTree selection = Selection().GetSelectionInDomTree();
   ASSERT_FALSE(selection.IsNone());
 
   AXSelection::ClearCurrentSelection(GetDocument());
-  selection = Selection().GetSelectionInDOMTree();
+  selection = Selection().GetSelectionInDomTree();
   EXPECT_TRUE(selection.IsNone());
 
   const auto ax_selection =
@@ -1277,7 +1277,7 @@ TEST_F(AccessibilitySelectionTest, SelectingTheWholeOfTheTextField) {
 
   EXPECT_TRUE(ax_selection.Select());
 
-  const SelectionInDOMTree dom_selection = Selection().GetSelectionInDOMTree();
+  const SelectionInDomTree dom_selection = Selection().GetSelectionInDomTree();
   EXPECT_EQ(GetDocument().body(), dom_selection.Anchor().AnchorNode());
   EXPECT_EQ(1, dom_selection.Anchor().OffsetInContainerNode());
   EXPECT_EQ(GetElementById("before"),
@@ -1473,7 +1473,7 @@ TEST_F(AccessibilitySelectionTest, InvalidSelectionInTextField) {
   EXPECT_FALSE(ax_selection.IsValid());
 
   // The selection in the light DOM should remain unchanged.
-  const SelectionInDOMTree dom_selection = Selection().GetSelectionInDOMTree();
+  const SelectionInDomTree dom_selection = Selection().GetSelectionInDomTree();
   EXPECT_EQ(GetDocument().body(), dom_selection.Anchor().AnchorNode());
   EXPECT_EQ(1, dom_selection.Anchor().OffsetInContainerNode());
   EXPECT_EQ(GetElementById("before"),
@@ -1609,7 +1609,7 @@ TEST_F(AccessibilitySelectionTest, SelectTheWholeOfTheTextarea) {
 
   EXPECT_TRUE(ax_selection.Select());
 
-  const SelectionInDOMTree dom_selection = Selection().GetSelectionInDOMTree();
+  const SelectionInDomTree dom_selection = Selection().GetSelectionInDomTree();
   EXPECT_EQ(GetDocument().body(), dom_selection.Anchor().AnchorNode());
   EXPECT_EQ(1, dom_selection.Anchor().OffsetInContainerNode());
   EXPECT_EQ(GetElementById("before"),
@@ -1739,7 +1739,7 @@ TEST_F(AccessibilitySelectionTest, InvalidSelectionInTextarea) {
   EXPECT_FALSE(ax_selection.IsValid());
 
   // The selection in the light DOM should remain unchanged.
-  const SelectionInDOMTree dom_selection = Selection().GetSelectionInDOMTree();
+  const SelectionInDomTree dom_selection = Selection().GetSelectionInDomTree();
   EXPECT_EQ(GetDocument().body(), dom_selection.Anchor().AnchorNode());
   EXPECT_EQ(1, dom_selection.Anchor().OffsetInContainerNode());
   EXPECT_EQ(GetElementById("before"),
@@ -1788,7 +1788,7 @@ TEST_F(AccessibilitySelectionTest,
                      TextGranularity::kLineBoundary, SetSelectionBy::kUser);
   UpdateAllLifecyclePhasesForTest();
   ASSERT_EQ(TextAffinity::kUpstream,
-            Selection().GetSelectionInDOMTree().Affinity());
+            Selection().GetSelectionInDomTree().Affinity());
 
   const AXObject* ax_contenteditable =
       GetAXObjectByElementId("contenteditable");
@@ -1862,8 +1862,8 @@ TEST_F(AccessibilitySelectionTest,
     SCOPED_TRACE(message);
     EXPECT_TRUE(ax_selection.Select());
 
-    const SelectionInDOMTree dom_selection =
-        Selection().GetSelectionInDOMTree();
+    const SelectionInDomTree dom_selection =
+        Selection().GetSelectionInDomTree();
     EXPECT_EQ(text, dom_selection.Anchor().AnchorNode());
     EXPECT_EQ(text, dom_selection.Focus().AnchorNode());
     // The discrepancy between DOM and AX text offsets is due to the fact that
@@ -1892,8 +1892,8 @@ TEST_F(AccessibilitySelectionTest,
     SCOPED_TRACE(message);
     EXPECT_TRUE(ax_selection.Select());
 
-    const SelectionInDOMTree dom_selection =
-        Selection().GetSelectionInDOMTree();
+    const SelectionInDomTree dom_selection =
+        Selection().GetSelectionInDomTree();
     EXPECT_EQ(text, dom_selection.Anchor().AnchorNode());
     EXPECT_EQ(text, dom_selection.Focus().AnchorNode());
     // The discrepancy between DOM and AX text offsets is due to the fact that
@@ -1941,7 +1941,7 @@ TEST_F(AccessibilitySelectionTest, InvalidSelectionOnAShadowRoot) {
   const Position extent = Position::EditingPositionOf(shadow_root, 1);
 
   const auto selection =
-      SelectionInDOMTree::Builder().SetBaseAndExtent(base, extent).Build();
+      SelectionInDomTree::Builder().SetBaseAndExtent(base, extent).Build();
   EXPECT_FALSE(
       AXSelection::FromSelection(selection, GetAXObjectCache()).IsValid());
 }

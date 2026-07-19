@@ -35,6 +35,7 @@ class OmniboxPopupUI;
 class OmniboxEditModel;
 class OmniboxController;
 class OmniboxContextMenuControllerPecBrowserTest;
+class OmniboxContextMenuControllerPecBrowserTestWithFlagsDisabled;
 
 namespace favicon_base {
 struct FaviconImageResult;
@@ -64,6 +65,9 @@ class TabSimpleMenuModel : public ui::SimpleMenuModel {
   explicit TabSimpleMenuModel(OmniboxContextMenuController* controller);
 
   const gfx::FontList* GetLabelFontListAt(size_t index) const override;
+  std::optional<ui::ColorId> GetForegroundColorId(size_t index) override;
+  std::optional<ui::ColorId> GetSelectedBackgroundColorId(
+      size_t index) override;
 
  private:
   raw_ptr<OmniboxContextMenuController> controller_;
@@ -124,12 +128,16 @@ class OmniboxContextMenuController : public ui::SimpleMenuModel::Delegate {
   static OmniboxController* GetOmniboxController(
       content::WebContents* web_contents);
   static OmniboxPopupUI* GetOmniboxPopupUI(content::WebContents* web_contents);
-  int GetMaxTabSuggestions() const;
+  std::optional<size_t> GetMaxTabSuggestions() const;
+  bool IsTabCommandId(int command_id) const;
 
  private:
   friend class TabSimpleMenuModel;
   FRIEND_TEST_ALL_PREFIXES(OmniboxContextMenuControllerPecBrowserTest,
                            ModelPickerCheckmark);
+  FRIEND_TEST_ALL_PREFIXES(
+      OmniboxContextMenuControllerPecBrowserTestWithFlagsDisabled,
+      VerifyModelPickerCheckmark_FlagOff);
 
   FRIEND_TEST_ALL_PREFIXES(OmniboxContextMenuControllerTest,
                            IsCommandIdEnabledHelper_InitialState);
@@ -147,6 +155,8 @@ class OmniboxContextMenuController : public ui::SimpleMenuModel::Delegate {
                            GetIconForInputType_Drive);
   FRIEND_TEST_ALL_PREFIXES(OmniboxContextMenuControllerTest,
                            ExecuteCommand_DriveInputType);
+  FRIEND_TEST_ALL_PREFIXES(OmniboxContextMenuControllerTest,
+                           IsTabCommandId_HandlesInfinity);
 
   // Keeps track of various bits of info that are necessary to dynamically
   // render the contents of the context menu, based on the InputState received
@@ -185,7 +195,7 @@ class OmniboxContextMenuController : public ui::SimpleMenuModel::Delegate {
   // Adds a title with a localized string to the menu.
   void AddTitleWithStringId(int localization_id);
   // Gets the most recent tabs.
-  std::vector<OmniboxContextMenuController::TabInfo> GetRecentTabs();
+  std::vector<OmniboxContextMenuController::TabInfo> GetRecentTabs() const;
   // Adds the tabs favicon to the menu.
   void AddTabFavicon(int command_id,
                      const GURL& url,
@@ -199,6 +209,8 @@ class OmniboxContextMenuController : public ui::SimpleMenuModel::Delegate {
   void UpdateSearchboxContextToolMode(omnibox::ToolMode tool_mode);
 
   bool IsContentSharingEnabled() const;
+
+  bool IsTabContextEnabled() const;
 
   omnibox::ContextType CommandIdToEnum(int command_id) const;
 
@@ -252,6 +264,9 @@ class OmniboxContextMenuController : public ui::SimpleMenuModel::Delegate {
 
   std::map<omnibox::ModelMode, MenuItemInfo> model_info_;
   std::map<int, omnibox::ModelMode> model_for_command_id_;
+
+  mutable std::optional<std::vector<OmniboxContextMenuController::TabInfo>>
+      cached_recent_tabs_;
 
   base::WeakPtrFactory<OmniboxContextMenuController> weak_ptr_factory_{this};
 };

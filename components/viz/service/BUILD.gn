@@ -640,9 +640,7 @@ viz_source_set("unit_tests") {
     "display_embedder/vsync_parameter_listener_unittest.cc",
     "frame_sinks/begin_frame_tracker_unittest.cc",
     "frame_sinks/compositor_frame_sink_support_unittest.cc",
-    "frame_sinks/external_begin_frame_source_mojo_unittest.cc",
     "frame_sinks/frame_sink_bundle_impl_unittest.cc",
-    "frame_sinks/frame_sink_manager_priority_unittest.cc",
     "frame_sinks/frame_sink_manager_unittest.cc",
     "frame_sinks/frame_sink_throttler_unittest.cc",
     "frame_sinks/surface_references_unittest.cc",
@@ -676,6 +674,12 @@ viz_source_set("unit_tests") {
     "surfaces/surface_unittest.cc",
     "transitions/transferable_resource_tracker_unittest.cc",
   ]
+
+  if (!is_ios) {
+    # ExternalBeginFrameSourceMojo is only built on non-iOS; iOS uses
+    # ExternalBeginFrameSourceMojoIOS instead.
+    sources += [ "frame_sinks/external_begin_frame_source_mojo_unittest.cc" ]
+  }
 
   if (!is_android) {
     sources += [
@@ -873,6 +877,11 @@ mojolpm_fuzzer_test("layer_context_impl_mojolpm_fuzzer") {
   ]
 
   proto_source = "layers/layer_context_impl_mojolpm_fuzzer.proto"
+
+  seed_corpus_sources = [
+    "layers/layer_context_impl_mojolpm_fuzzer_seed_corpus/simple.textproto",
+  ]
+  testcase_proto_kind = "viz.fuzzing.layer_context.proto.Testcase"
 
   deps = [
     ":service",

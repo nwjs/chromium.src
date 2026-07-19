@@ -1,4 +1,4 @@
-# tags: [ Android Fuchsia Linux Mac Mac12 Mac13 Mac13-arm64 Mac14 Mac14-arm64 Mac15 Mac15-arm64  Win Win10.20h2 Win11 Win11-arm64 ]
+# tags: [ Android Fuchsia Linux Mac Mac13 Mac13-arm64 Mac14 Mac14-arm64 Mac15 Mac15-arm64 Mac26 Mac26-arm64 Win Win10.20h2 Win11 Win11-arm64 ]
 # tags: [ Release Debug ]
 # results: [ Timeout Crash Pass Failure Slow Skip ]
 
@@ -399,7 +399,6 @@ crbug.com/1266821 paint/invalidation/scroll/scrollbar-damage-and-full-viewport-r
 crbug.com/1266821 paint/invalidation/table/composited-table-background-section-composited-row-initial-empty.html [ Failure ]
 crbug.com/1266821 paint/invalidation/table/composited-table-background-section-composited-row.html [ Failure ]
 crbug.com/1266821 svg/wicd/test-scalable-background-image2.xhtml [ Failure ]
-crbug.com/1266821 transforms/3d/point-mapping/3d-point-mapping-preserve-3d.html [ Failure ]
 
 # Existing failures. Mark these as [ Pass ] when these tests are fixed.
 crbug.com/626703 external/wpt/acid/acid3/test.html [ Failure ]

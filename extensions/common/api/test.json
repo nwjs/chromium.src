@@ -151,6 +151,45 @@
         }
       },
       {
+        "name": "notifyTestStarted",
+        "type": "function",
+        "description": "Notifies the browser process that a specific test case in the test code started running. The chrome.test API uses this internally.",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "testName"
+          }
+        ]
+      },
+      {
+        "name": "notifyTestFinished",
+        "type": "function",
+        "description": "Notifies the browser process that a specific test case in the test code finished running. The chrome.test API uses this internally.",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "testName"
+          },
+          {
+            "type": "boolean",
+            "name": "result"
+          },
+          {
+            "type": "integer",
+            "name": "remainingTests"
+          },
+          {
+            "type": "string",
+            "name": "assertionDescription"
+          },
+          {
+            "type": "string",
+            "name": "message",
+            "optional": true
+          }
+        ]
+      },
+      {
         "name": "callbackAdded",
         "type": "function",
         "nocompile": true,
@@ -271,16 +310,24 @@
         "name": "assertThrows",
         "type": "function",
         "nocompile": true,
+        "description": "Asserts that a given function throws an error. If it does not, or if the thrown error doesn't match expectedError (if defined), the test fails.",
         "parameters": [
           {"type": "function", "name": "fn"},
           {
-            "type": "object",
-            "name": "self",
-            "additionalProperties": {"type": "any"},
-            "optional": true
+            "choices": [
+              {"type": "string"},
+              {"type": "object", "isInstanceOf": "RegExp"}
+            ],
+            "name": "expectedError",
+            "optional": true,
+            "description": "Expected error message or RegExp."
           },
-          {"type": "array", "items": {"type": "any"}, "name": "args"},
-          {"choices": [ {"type": "string"}, {"type": "object", "isInstanceOf": "RegExp"} ], "name": "message", "optional": true}
+          {
+            "type": "string",
+            "name": "message",
+            "optional": true,
+            "description": "Custom failure message."
+          }
         ]
       },
       {
@@ -385,18 +432,6 @@
         }
       },
       {
-        "name": "setUseStandardizedApiBehaviorForTesting",
-        "type": "function",
-        "nocompile": true,
-        "description": "Sets whether to diverge behavior to support the browser.test proposal (true) from (https://github.com/w3c/webextensions/blob/main/proposals/browser_test_api.md) or maintain existing behavior (false). For testing purposes only.",
-        "parameters": [
-          {
-            "type": "boolean",
-            "name": "enabled"
-          }
-        ]
-      },
-      {
         "name": "getApiFeatures",
         "type": "function",
         "nocompile": true,
@@ -494,6 +529,38 @@
             "properties": {
               "data": { "type": "string", "description": "Additional information." },
               "lastMessage": { "type": "boolean", "description": "True if this was the last message for this test" }
+            }
+          }
+        ]
+      },
+      {
+        "name": "onTestStarted",
+        "type": "function",
+        "description": "Fired when a test is started, before any test logic has run.",
+        "parameters": [
+          {
+            "type": "object",
+            "name": "info",
+            "properties": {
+              "testName": { "type": "string" }
+            }
+          }
+        ]
+      },
+      {
+        "name": "onTestFinished",
+        "type": "function",
+        "description": "Fired when a test evaluates to success or failure.",
+        "parameters": [
+          {
+            "type": "object",
+            "name": "info",
+            "properties": {
+              "testName": { "type": "string" },
+              "result": { "type": "boolean" },
+              "remainingTests": { "type": "integer" },
+              "assertionDescription": { "type": "string" },
+              "message": { "type": "string", "optional": true }
             }
           }
         ]

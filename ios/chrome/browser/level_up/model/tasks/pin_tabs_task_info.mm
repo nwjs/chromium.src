@@ -1,0 +1,44 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#import "base/functional/callback_helpers.h"
+#import "base/strings/sys_string_conversions.h"
+#import "ios/chrome/browser/level_up/model/task_info.h"
+#import "ios/chrome/browser/level_up/model/tasks/task_factories.h"
+#import "ios/chrome/browser/shared/ui/symbols/symbols.h"
+#import "ios/chrome/grit/ios_strings.h"
+#import "ui/base/l10n/l10n_util.h"
+
+class PinTabsTaskInfo : public TaskInfo {
+ public:
+  PinTabsTaskInfo() = default;
+  ~PinTabsTaskInfo() override = default;
+
+  // TaskInfo implementation.
+  TaskType GetTaskType() const override { return TaskType::kPinTabs; }
+  std::string GetTitle() const override { return "Pin tabs"; }
+  std::string GetTaskDescription() const override {
+    return "Save your favorite sites by pinning them";
+  }
+  std::string GetIconSymbolName() const override {
+    return base::SysNSStringToUTF8(kPinSymbol);
+  }
+  bool IsCustomSymbol() const override { return false; }
+  LevelUpTaskCategory GetCategory() const override {
+    return LevelUpTaskCategory::kProductivity;
+  }
+  std::string GetTriggerUserAction() const override {
+    return "MobileTabPinned";
+  }
+  std::string GetCompletionSnackbarMessage() const override {
+    return l10n_util::GetStringUTF8(IDS_IOS_LEVEL_UP_TASK_COMPLETED_PIN_TABS);
+  }
+  TaskInfo::NavigationAction GetNavigationAction() const override {
+    return base::DoNothing();
+  }
+};
+
+std::unique_ptr<TaskInfo> CreatePinTabsTaskInfo() {
+  return std::make_unique<PinTabsTaskInfo>();
+}

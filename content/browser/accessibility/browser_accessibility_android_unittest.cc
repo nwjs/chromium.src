@@ -11,6 +11,7 @@
 #include "content/browser/accessibility/ax_style_data.h"
 #include "content/browser/accessibility/browser_accessibility_manager_android.h"
 #include "content/browser/accessibility/web_contents_accessibility_android.h"
+#include "content/common/features.h"
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/test_content_client.h"
@@ -103,6 +104,14 @@ class BrowserAccessibilityAndroidTest : public ::testing::Test {
       const BrowserAccessibilityAndroidTest&) = delete;
 
   ~BrowserAccessibilityAndroidTest() override;
+
+  std::unique_ptr<ui::BrowserAccessibilityManager> CreateManager(
+      const ui::AXTreeUpdate& tree_update) {
+    return std::unique_ptr<ui::BrowserAccessibilityManager>(
+        BrowserAccessibilityManagerAndroid::Create(
+            tree_update, node_id_delegate_,
+            test_browser_accessibility_delegate_.get()));
+  }
 
  protected:
   static const ui::AXNodeID ROOT_ID = 100;
@@ -763,6 +772,78 @@ TEST_F(BrowserAccessibilityAndroidTest,
   EXPECT_EQ(u"test_annotation",
             image_succeeded_with_name->GetAndroidSupplementalDescription());
   EXPECT_EQ(std::u16string(), image_succeeded_with_name->GetTextContentUTF16());
+}
+
+TEST_F(BrowserAccessibilityAndroidTest, TestCanvasInnerText_Annotation) {
+  ui::AXTreeUpdate tree;
+  tree.root_id = 1;
+  tree.nodes.resize(4);
+  tree.nodes[0].id = 1;
+  tree.nodes[0].child_ids = {2, 3, 4};
+
+  // Case 1: Unnamed canvas.
+  tree.nodes[1].id = 2;
+  tree.nodes[1].role = ax::mojom::Role::kCanvas;
+  tree.nodes[1].SetNameFrom(ax::mojom::NameFrom::kNone);
+  tree.nodes[1].AddStringAttribute(
+      ax::mojom::StringAttribute::kCanvasAnnotation, "test_annotation");
+
+  // Case 2: Named canvas (from attribute, e.g. aria-label).
+  tree.nodes[2].id = 3;
+  tree.nodes[2].role = ax::mojom::Role::kCanvas;
+  tree.nodes[2].SetName("canvas_name");
+  tree.nodes[2].SetNameFrom(ax::mojom::NameFrom::kAttribute);
+  tree.nodes[2].AddStringAttribute(
+      ax::mojom::StringAttribute::kCanvasAnnotation, "test_annotation");
+
+  // Case 3: Named canvas (from contents).
+  tree.nodes[3].id = 4;
+  tree.nodes[3].role = ax::mojom::Role::kCanvas;
+  tree.nodes[3].SetName("canvas_name");
+  tree.nodes[3].SetNameFrom(ax::mojom::NameFrom::kContents);
+  tree.nodes[3].AddStringAttribute(
+      ax::mojom::StringAttribute::kCanvasAnnotation, "test_annotation");
+
+  std::unique_ptr<ui::BrowserAccessibilityManager> manager(
+      BrowserAccessibilityManagerAndroid::Create(
+          tree, node_id_delegate_, test_browser_accessibility_delegate_.get()));
+
+  BrowserAccessibilityAndroid* canvas_unnamed =
+      static_cast<BrowserAccessibilityAndroid*>(
+          manager->GetBrowserAccessibilityRoot()->PlatformGetChild(0));
+
+  BrowserAccessibilityAndroid* canvas_named_attribute =
+      static_cast<BrowserAccessibilityAndroid*>(
+          manager->GetBrowserAccessibilityRoot()->PlatformGetChild(1));
+
+  BrowserAccessibilityAndroid* canvas_named_contents =
+      static_cast<BrowserAccessibilityAndroid*>(
+          manager->GetBrowserAccessibilityRoot()->PlatformGetChild(2));
+
+  // Case 1: When there is no name, the canvas annotation is promoted to
+  // contentDescription.
+  EXPECT_EQ(u"test_annotation", canvas_unnamed->GetAndroidContentDescription());
+  EXPECT_EQ(std::u16string(), canvas_unnamed->GetTextContentUTF16());
+  EXPECT_EQ(std::u16string(),
+            canvas_unnamed->GetAndroidSupplementalDescription());
+
+  // Case 2: When the name is from an attribute (e.g. aria-label), the name
+  // should go to contentDescription and the annotation goes to
+  // supplementalDescription.
+  EXPECT_EQ(u"canvas_name",
+            canvas_named_attribute->GetAndroidContentDescription());
+  EXPECT_EQ(u"test_annotation",
+            canvas_named_attribute->GetAndroidSupplementalDescription());
+  EXPECT_EQ(std::u16string(), canvas_named_attribute->GetTextContentUTF16());
+
+  // Case 3: When the name is from contents (e.g. inner text), the name should
+  // go to the text (GetTextContentUTF16), and the annotation should go to
+  // supplementalDescription.
+  EXPECT_EQ(std::u16string(),
+            canvas_named_contents->GetAndroidContentDescription());
+  EXPECT_EQ(u"canvas_name", canvas_named_contents->GetTextContentUTF16());
+  EXPECT_EQ(u"test_annotation",
+            canvas_named_contents->GetAndroidSupplementalDescription());
 }
 
 TEST_F(BrowserAccessibilityAndroidTest, TextStyling_Suggestions) {
@@ -1850,6 +1931,122 @@ TEST_F(BrowserAccessibilityAndroidTest, TwoSnapshotsDoNotCollide) {
 
   EXPECT_EQ(node2, wcaa2.GetAXFromUniqueIDForTesting(unique_id2));
   EXPECT_EQ(nullptr, wcaa2.GetAXFromUniqueIDForTesting(unique_id1));
+}
+
+// Test that BrowserAccessibilityAndroid::IsLeaf() returns true for a
+// non-atomic-text-field without children.
+TEST_F(BrowserAccessibilityAndroidTest,
+       TestIsLeafContentEditableWithoutChildren) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kAccessibilityExposeNonAtomicTextFieldChildren);
+
+  int kNonAtomicTextFieldId = 11;
+
+  ui::AXNodeData non_atomic_text_field;
+  non_atomic_text_field.id = kNonAtomicTextFieldId;
+  non_atomic_text_field.role = ax::mojom::Role::kGenericContainer;
+  non_atomic_text_field.AddBoolAttribute(
+      ax::mojom::BoolAttribute::kNonAtomicTextFieldRoot, true);
+
+  ui::AXNodeData root;
+  root.id = 1;
+  root.role = ax::mojom::Role::kRootWebArea;
+  root.child_ids = {kNonAtomicTextFieldId};
+
+  // With 0 children, IsLeaf() must return true.
+  std::unique_ptr<ui::BrowserAccessibilityManager> manager(
+      BrowserAccessibilityManagerAndroid::Create(
+          MakeAXTreeUpdateForTesting(root, non_atomic_text_field),
+          node_id_delegate_, test_browser_accessibility_delegate_.get()));
+  ui::BrowserAccessibility* node = manager->GetFromID(kNonAtomicTextFieldId);
+  EXPECT_TRUE(node->GetData().IsNonAtomicTextField());
+  EXPECT_TRUE(node->IsLeaf());
+}
+
+void RunIsLeafContentEditableWithChildrenTest(
+    BrowserAccessibilityAndroidTest* test,
+    bool should_enable_expose_non_atomic_children_feature) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  if (should_enable_expose_non_atomic_children_feature) {
+    scoped_feature_list.InitAndEnableFeature(
+        features::kAccessibilityExposeNonAtomicTextFieldChildren);
+  } else {
+    scoped_feature_list.InitAndDisableFeature(
+        features::kAccessibilityExposeNonAtomicTextFieldChildren);
+  }
+
+  int kNonAtomicTextFieldId = 11;
+
+  ui::AXNodeData text;
+  text.id = 111;
+  text.role = ax::mojom::Role::kStaticText;
+  text.SetName("Hello");
+
+  ui::AXNodeData non_atomic_text_field;
+  non_atomic_text_field.id = kNonAtomicTextFieldId;
+  non_atomic_text_field.role = ax::mojom::Role::kGenericContainer;
+  non_atomic_text_field.AddBoolAttribute(
+      ax::mojom::BoolAttribute::kNonAtomicTextFieldRoot, true);
+  non_atomic_text_field.child_ids = {text.id};
+
+  ui::AXNodeData root;
+  root.id = 1;
+  root.role = ax::mojom::Role::kRootWebArea;
+  root.child_ids = {kNonAtomicTextFieldId};
+
+  std::unique_ptr<ui::BrowserAccessibilityManager> manager =
+      test->CreateManager(
+          ui::MakeAXTreeUpdateForTesting(root, non_atomic_text_field, text));
+
+  ui::BrowserAccessibility* node = manager->GetFromID(kNonAtomicTextFieldId);
+  EXPECT_TRUE(node->GetData().IsNonAtomicTextField());
+  EXPECT_EQ(!should_enable_expose_non_atomic_children_feature, node->IsLeaf());
+}
+
+TEST_F(
+    BrowserAccessibilityAndroidTest,
+    TestIsLeafContentEditableWithChildren_ExposeNonAtomicChildrenFeatureDisabled) {
+  RunIsLeafContentEditableWithChildrenTest(
+      this, /*should_enable_expose_non_atomic_children_feature=*/false);
+}
+
+TEST_F(
+    BrowserAccessibilityAndroidTest,
+    TestIsLeafContentEditableWithChildren_ExposeNonAtomicChildrenFeatureEnabled) {
+  RunIsLeafContentEditableWithChildrenTest(
+      this, /*should_enable_expose_non_atomic_children_feature=*/true);
+}
+
+// Check that BrowserAccessibilityAndroid::IsLeaf() can be called on an ignored
+// node with ignored children.
+TEST_F(BrowserAccessibilityAndroidTest, TestIsLeafIgnoredWithChildren) {
+  int kParentId = 11;
+
+  ui::AXNodeData child1;
+  child1.id = 12;
+  child1.role = ax::mojom::Role::kRowGroup;
+
+  ui::AXNodeData child2;
+  child2.id = 13;
+  child2.role = ax::mojom::Role::kRowGroup;
+
+  ui::AXNodeData parent;
+  parent.id = kParentId;
+  parent.role = ax::mojom::Role::kRowGroup;
+  parent.child_ids = {12, 13};
+
+  ui::AXNodeData root;
+  root.id = 1;
+  root.role = ax::mojom::Role::kRootWebArea;
+  root.child_ids = {kParentId};
+
+  std::unique_ptr<ui::BrowserAccessibilityManager> manager(
+      BrowserAccessibilityManagerAndroid::Create(
+          MakeAXTreeUpdateForTesting(root, parent, child1, child2),
+          node_id_delegate_, test_browser_accessibility_delegate_.get()));
+  ui::BrowserAccessibility* node = manager->GetFromID(kParentId);
+  EXPECT_TRUE(node->IsLeaf());
 }
 
 }  // namespace content

@@ -21,13 +21,13 @@
 #include "chrome/browser/glic/public/glic_invoke_options.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_passkeys.h"
-#include "chrome/browser/password_manager/actor_login/password_change_from_checkup_actor_login_service.h"
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
 #include "chrome/browser/password_manager/password_change/change_password_form_waiter.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/actor_webui.mojom.h"
 #include "chrome/grit/browser_resources.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
+#include "components/password_manager/core/browser/actor_login/password_change_from_checkup_actor_login_service.h"
 #include "components/password_manager/core/browser/browser_save_password_progress_logger.h"
 #include "components/password_manager/core/browser/password_form_manager.h"
 #include "components/password_manager/core/browser/password_generation_frame_helper.h"
@@ -247,7 +247,7 @@ void PasswordChangeFromCheckupDelegate::StartPasswordChangeFlow(
   }
 
   glic::GlicInvokeOptions options(
-      glic::Target(new_tab_interface),
+      glic::Target(*new_tab_interface),
       glic::mojom::InvocationSource::kPasswordChange);
   options.prompts.push_back(std::move(reach_form_prompt));
   options.target.actuation_target = glic::mojom::ActuationTarget::kCurrentTab;
@@ -510,8 +510,8 @@ void PasswordChangeFromCheckupDelegate::InvokeVerificationFlow(
   }
   glic::Target target =
       conversation_id.empty()
-          ? glic::Target(tab_interface, glic::NewConversation())
-          : glic::Target(tab_interface, glic::ConversationId(conversation_id));
+          ? glic::Target(*tab_interface, glic::NewConversation())
+          : glic::Target(*tab_interface, glic::ConversationId(conversation_id));
   glic::GlicInvokeOptions options(
       std::move(target), glic::mojom::InvocationSource::kPasswordChange);
   options.prompts.push_back(std::move(post_submission_prompt));

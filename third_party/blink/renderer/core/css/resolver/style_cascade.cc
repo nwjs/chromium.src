@@ -785,6 +785,19 @@ void StyleCascade::ApplyWideOverlapping(CascadeResolver& resolver) {
       maybe_skip(GetCSSPropertyBoxDecorationBreak(), *priority);
     }
   }
+
+  if (RuntimeEnabledFeatures::CSSLineClampEnabled() &&
+      !RuntimeEnabledFeatures::CSSLineClampAsShorthandEnabled()) {
+    const CSSProperty& line_clamp = GetCSSPropertyLineClamp();
+    if (resolver.filter_.Accepts(line_clamp)) {
+      if (const CascadePriority* priority =
+              map_.Find(line_clamp.GetCSSPropertyName())) {
+        LookupAndApply(line_clamp, resolver);
+        maybe_skip(GetCSSPropertyAlternativeWebkitLineClampLonghand(),
+                   *priority);
+      }
+    }
+  }
 }
 
 // Go through all properties that were found during the "collect" phase
@@ -1206,7 +1219,7 @@ StyleCascade::MakeFunctionContextFromMixinAndResolveSubstitutions(
     // We have all the mixin context that we need, so we can now do the actual
     // resolution.
     if (const auto* v = DynamicTo<CSSUnparsedDeclarationValue>(value)) {
-      if (property.GetCSSPropertyName().IsCustomProperty()) {
+      if (IsA<CustomProperty>(property)) {
         return ResolveCustomProperty(property, *v, tree_scope, function_context,
                                      resolver);
       } else {
@@ -2308,6 +2321,7 @@ void StyleCascade::FlattenFunctionBody(
       }
     } else if (auto* navigation_rule =
                    DynamicTo<StyleRuleNavigation>(child.Get())) {
+      state_.StyleBuilder().SetAffectedByFunctionalNavigation();
       // TODO(crbug.com/493044687): Implement
       (void)navigation_rule;
     }
@@ -2832,8 +2846,11 @@ bool StyleCascade::EvalIfCondition(CSSParserTokenStream& stream,
     KleeneValue EvaluateNavigationExpNode(
         const NavigationExpNode& node) override {
       // Evaluate navigation() function
+      resolver_state_.StyleBuilder().SetAffectedByFunctionalNavigation();
+      StyleEngine& style_engine =
+          resolver_state_.GetDocument().GetStyleEngine();
       bool result =
-          node.NavigationTest().Matches(resolver_state_.GetDocument());
+          style_engine.EvaluateFunctionalNavigationQuery(node.NavigationTest());
       return result ? KleeneValue::kTrue : KleeneValue::kFalse;
     }
 

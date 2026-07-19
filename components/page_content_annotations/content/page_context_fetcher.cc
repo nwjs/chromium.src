@@ -26,6 +26,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
@@ -386,7 +387,13 @@ PageContextFetcher::PageContextFetcher(
     : get_screenshot_service_callback_(
           std::move(get_screenshot_service_callback)),
       progress_listener_(std::move(progress_listener)) {}
-PageContextFetcher::~PageContextFetcher() = default;
+PageContextFetcher::~PageContextFetcher() {
+  if (callback_) {
+    std::move(callback_).Run(base::unexpected(FetchPageContextErrorDetails{
+        FetchPageContextError::kWebContentsWentAway,
+        "web contents went away (fetcher destroyed)"}));
+  }
+}
 
 void PageContextFetcher::FetchStart(content::WebContents& aweb_contents,
                                     const FetchPageContextOptions& options,
@@ -735,7 +742,7 @@ void PageContextFetcher::ReceivedViewportBitmapOrError(
       progress_listener_->ScreenshotCaptured(*bitmap);
     }
     ProcessTrackedElementRects(tracked_element_rects);
-    MaybeAddIframeInfoToAPC();
+    MaybeAddIframeInfo();
     RedactAndEncodeScreenshotIfNeeded();
   } else {
     ReceivedEncodedScreenshot(base::unexpected(bitmap_result.error()));
@@ -932,7 +939,7 @@ void PageContextFetcher::ReceivedAnnotatedPageContent(
     }
   }
 
-  MaybeAddIframeInfoToAPC();
+  MaybeAddIframeInfo();
   RedactAndEncodeScreenshotIfNeeded();
 
   RunCallbackIfComplete();
@@ -1040,9 +1047,13 @@ void PageContextFetcher::CollectTrackedElementRectsForIframes(
   }
 }
 
-void PageContextFetcher::MaybeAddIframeInfoToAPC() {
-  // We need to wait for both the screenshot capture to be done and the APC to
-  // be done before adding the iframe info to the APC.
+void PageContextFetcher::MaybeAddIframeInfo() {
+  // We need to wait for:
+  // 1. Screenshot capture to complete, because iframe layout metadata is
+  //    extracted from the tracked element rects obtained during screenshot.
+  // 2. Annotated Page Content (APC) extraction to complete (if requested).
+  //    This is because we need to copy `screenshot_info` to the nested, legacy
+  //    APC field for backward compatibility.
   if (!screenshot_capture_done_ || !annotated_page_content_done_) {
     return;
   }
@@ -1052,25 +1063,32 @@ void PageContextFetcher::MaybeAddIframeInfoToAPC() {
     return;
   }
 
-  // If we don't have an APC result or iframe info, there's nothing to do.
-  // TODO(b/441532128): If we don't have an APC result, we should create one and
-  // populate the screenshot iframe info.
-  if (!pending_result_->annotated_page_content_result.has_value() ||
-      iframe_info_.empty()) {
+  if (iframe_info_.empty()) {
     base::UmaHistogramBoolean("Glic.PageContextFetcher.IframeInfoAddedToAPC",
                               false);
     return;
   }
 
-  // Add the iframe bounding boxes and url/origin data to the screenshot info.
-  optimization_guide::proto::ScreenshotInfo* screenshot_info =
-      pending_result_->annotated_page_content_result->proto
-          .mutable_gemini_in_chrome_page_metadata()
-          ->mutable_screenshot_info();
+  // Populate the standalone screenshot_info on FetchPageContextResult.
+  pending_result_->screenshot_info.emplace();
+  size_t iframe_proto_size = 0;
   for (const auto& iframe_info : iframe_info_) {
     base::UmaHistogramBoolean("Glic.PageContextFetcher.IframeInfoHasUrlOrigin",
                               iframe_info.has_security_origin());
-    *screenshot_info->add_iframe_info() = iframe_info;
+    *pending_result_->screenshot_info->add_iframe_info() = iframe_info;
+    iframe_proto_size += iframe_info.ByteSizeLong();
+  }
+
+  base::UmaHistogramCounts10000(
+      "Glic.PageContextFetcher.ScreenshotInfo.IframeInfo.ProtoSize",
+      base::saturated_cast<int>(iframe_proto_size));
+
+  // Also copy to the field inside AnnotatedPageContent to ensure backward
+  // compatibility.
+  if (pending_result_->annotated_page_content_result.has_value()) {
+    *pending_result_->annotated_page_content_result->proto
+         .mutable_gemini_in_chrome_page_metadata()
+         ->mutable_screenshot_info() = *pending_result_->screenshot_info;
   }
 
   base::UmaHistogramBoolean("Glic.PageContextFetcher.IframeInfoAddedToAPC",

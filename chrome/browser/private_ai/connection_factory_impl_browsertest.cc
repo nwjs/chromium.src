@@ -7,14 +7,14 @@
 #include "base/functional/callback_helpers.h"
 #include "base/test/gtest_util.h"
 #include "base/test/scoped_feature_list.h"
-#include "chrome/browser/private_ai/private_ai_service.h"
 #include "chrome/browser/private_ai/private_ai_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/test/base/in_process_browser_test.h"
+#include "chrome/test/base/chrome_test_utils.h"
+#include "chrome/test/base/platform_browser_test.h"
 #include "components/private_ai/common/private_ai_logger.h"
 #include "components/private_ai/features.h"
 #include "components/private_ai/phosphor/token_manager.h"
+#include "components/private_ai/private_ai_service.h"
 #include "components/private_ai/testing/fake_private_ai_network_driver.h"
 #include "components/private_ai/testing/fake_private_ai_oak_session_driver.h"
 #include "content/public/browser/storage_partition.h"
@@ -27,7 +27,7 @@ namespace private_ai {
 
 namespace {
 
-class ConnectionFactoryImplBrowserTest : public InProcessBrowserTest {
+class ConnectionFactoryImplBrowserTest : public PlatformBrowserTest {
  public:
   ConnectionFactoryImplBrowserTest() {
     feature_list_.InitAndEnableFeatureWithParameters(
@@ -37,15 +37,14 @@ class ConnectionFactoryImplBrowserTest : public InProcessBrowserTest {
 
  protected:
   network::mojom::NetworkContext* GetNetworkContext() {
-    return browser()
-        ->profile()
+    return chrome_test_utils::GetProfile(this)
         ->GetDefaultStoragePartition()
         ->GetNetworkContext();
   }
 
   phosphor::TokenManager* GetTokenManager() {
-    auto* service =
-        PrivateAiServiceFactory::GetForProfile(browser()->profile());
+    auto* service = PrivateAiServiceFactory::GetForProfile(
+        chrome_test_utils::GetProfile(this));
     CHECK(service);
     auto* token_manager = service->GetTokenManager();
     CHECK(token_manager);

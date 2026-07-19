@@ -93,7 +93,9 @@ class AppMenuHandlerImpl
 
         @Override
         public boolean isEnabled(int position) {
-            return getItemViewType(position) != AppMenuItemType.DIVIDER
+            int type = getItemViewType(position);
+            return type != AppMenuItemType.DIVIDER
+                    && type != AppMenuItemType.HEADER
                     && ((ListItem) getItem(position)).model.get(AppMenuItemProperties.ENABLED);
         }
     }
@@ -372,7 +374,8 @@ class AppMenuHandlerImpl
                             assert false : "ModelList is null";
                             return false;
                         }
-                        return mModelList.get(index).type != AppMenuItemType.DIVIDER;
+                        int type = mModelList.get(index).type;
+                        return type != AppMenuItemType.DIVIDER && type != AppMenuItemType.HEADER;
                     }
                 };
 
@@ -487,6 +490,13 @@ class AppMenuHandlerImpl
         if (!model.get(AppMenuItemProperties.ENABLED)) return;
 
         int itemId = model.get(AppMenuItemProperties.MENU_ITEM_ID);
+
+        // Empty menu items are technically enabled for keyboard navigation, but clicks should be
+        // ignored.
+        if (itemId == R.id.empty_item_menu_id) {
+            return;
+        }
+
         mAppMenu.setSelectedItemBeforeDismiss(true);
         mAppMenu.dismiss();
 
@@ -503,6 +513,12 @@ class AppMenuHandlerImpl
     public boolean onItemLongClick(PropertyModel model, View view) {
         if (mAppMenu == null) return false;
         if (!model.get(AppMenuItemProperties.ENABLED)) return false;
+
+        // Empty menu items are technically enabled for keyboard navigation, but long clicks should
+        // be ignored.
+        if (model.get(AppMenuItemProperties.MENU_ITEM_ID) == R.id.empty_item_menu_id) {
+            return false;
+        }
 
         mAppMenu.setSelectedItemBeforeDismiss(true);
 
@@ -577,6 +593,10 @@ class AppMenuHandlerImpl
                 new LayoutViewBuilder<>(standardItemResId),
                 AppMenuItemViewBinder::bindStandardItem);
         adapter.registerType(
+                AppMenuItemType.STANDARD_NO_ICON,
+                new LayoutViewBuilder<>(R.layout.menu_item_no_icon),
+                AppMenuItemViewBinder::bindStandardItem);
+        adapter.registerType(
                 AppMenuItemType.TITLE_BUTTON,
                 new LayoutViewBuilder<ViewGroup>(R.layout.title_button_menu_item) {
                     @Override
@@ -598,6 +618,10 @@ class AppMenuHandlerImpl
                 new LayoutViewBuilder<>(R.layout.menu_item_with_submenu),
                 AppMenuItemViewBinder::bindItemWithSubmenu);
         adapter.registerType(
+                AppMenuItemType.MENU_ITEM_WITH_SUBMENU_NO_ICON,
+                new LayoutViewBuilder<>(R.layout.menu_item_with_submenu_no_icon),
+                AppMenuItemViewBinder::bindItemWithSubmenu);
+        adapter.registerType(
                 AppMenuItemType.SUBMENU_HEADER,
                 new LayoutViewBuilder<>(R.layout.submenu_header),
                 AppMenuItemViewBinder::bindSubmenuHeader);
@@ -614,9 +638,21 @@ class AppMenuHandlerImpl
                 new LayoutViewBuilder<>(standardItemResId),
                 AppMenuItemViewBinder::bindStandardItem);
         adapter.registerType(
+                AppMenuItemType.RECENT_ENTRY,
+                new LayoutViewBuilder<>(standardItemResId),
+                AppMenuItemViewBinder::bindStandardItem);
+        adapter.registerType(
+                AppMenuItemType.RECENT_ENTRY_NO_ICON,
+                new LayoutViewBuilder<>(R.layout.menu_item_no_icon),
+                AppMenuItemViewBinder::bindStandardItem);
+        adapter.registerType(
                 AppMenuItemType.EMPTY,
                 new LayoutViewBuilder<>(R.layout.menu_item_empty),
                 AppMenuItemViewBinder::bindStandardItem);
+        adapter.registerType(
+                AppMenuItemType.HEADER,
+                new LayoutViewBuilder<>(R.layout.menu_header),
+                AppMenuItemViewBinder::bindHeaderItem);
     }
 
     private void registerViewBinders(
@@ -630,6 +666,8 @@ class AppMenuHandlerImpl
                 AppMenuItemType.BUTTON_ROW, AppMenuItemViewBinder::getIconRowItemPixelHeight);
         customSizingProviders.append(
                 AppMenuItemType.SUBMENU_HEADER, AppMenuItemViewBinder::getSubmenuHeaderPixelHeight);
+        customSizingProviders.append(
+                AppMenuItemType.HEADER, AppMenuItemViewBinder::getHeaderPixelHeight);
 
         mDelegate.registerCustomViewBinders(adapter, customSizingProviders);
     }

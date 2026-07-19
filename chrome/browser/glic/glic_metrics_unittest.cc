@@ -222,7 +222,7 @@ class GlicMetricsTest : public GlicMetricsTestBase {
         /*disabled_features=*/{features::kGlicFixTimeToFirstQueryKillSwitch});
     GlicMetricsTestBase::SetUp();
 
-    enabling_ = std::make_unique<GlicEnabling>(
+    enabling_ = GlicEnabling::CreateForTesting(
         profile(), &profile_manager()->GetProfileAttributesStorage());
     metrics_ = std::make_unique<GlicMetrics>(profile(), enabling_.get());
     auto delegate = std::make_unique<MockDelegate>();
@@ -692,6 +692,15 @@ TEST_F(GlicMetricsTest, LogGetContextFromFocusedTabError_ChangingModes) {
       "Glic.Api.GetContextFromFocusedTab.Error.Unknown", 0);
 }
 
+TEST_F(GlicMetricsTest, LogGetImageBytesFromTabError) {
+  metrics()->LogGetImageBytesFromTabError(
+      GlicGetContextFromTabError::kTabNotFound);
+
+  histogram_tester().ExpectUniqueSample(
+      "Glic.Api.GetImageBytesFromTab.Error",
+      GlicGetContextFromTabError::kTabNotFound, 1);
+}
+
 TEST_F(GlicMetricsTest, ImpressionBeforeFreNotPermittedByPolicy) {
   enabling()->SetCompletedFre(prefs::FreStatus::kNotStarted);
 
@@ -735,7 +744,7 @@ TEST_F(GlicMetricsFeaturesEnabledTest, TimeToEnabledFromStartupDelayed) {
   // Create new GlicMetrics that starts with glic disabled.
   // We use a manual instance here to avoid interference with the one in
   // GlicKeyedService which might already have recorded something.
-  auto enabling = std::make_unique<GlicEnabling>(
+  auto enabling = GlicEnabling::CreateForTesting(
       profile(), &profile_manager()->GetProfileAttributesStorage());
   base::HistogramTester delayed_histogram_tester;
   auto manual_metrics =
@@ -844,6 +853,16 @@ TEST_F(GlicMetricsFeaturesEnabledTest, EnablingChanged) {
   EXPECT_EQ(user_action_tester().GetActionCount("Glic.Enabled"), 3);
 }
 
+TEST_F(GlicMetricsFeaturesEnabledTest, PinnedChanged) {
+  EXPECT_EQ(user_action_tester().GetActionCount("Glic.Pinned"), 0);
+  EXPECT_EQ(user_action_tester().GetActionCount("Glic.Unpinned"), 0);
+  profile()->GetPrefs()->SetBoolean(prefs::kGlicPinnedToTabstrip, false);
+  EXPECT_EQ(user_action_tester().GetActionCount("Glic.Pinned"), 0);
+  EXPECT_EQ(user_action_tester().GetActionCount("Glic.Unpinned"), 1);
+  profile()->GetPrefs()->SetBoolean(prefs::kGlicPinnedToTabstrip, true);
+  EXPECT_EQ(user_action_tester().GetActionCount("Glic.Pinned"), 1);
+  EXPECT_EQ(user_action_tester().GetActionCount("Glic.Unpinned"), 1);
+}
 
 TEST_F(GlicMetricsFeaturesEnabledTest, ShortcutStatus) {
   task_environment().FastForwardBy(base::Minutes(16));
@@ -995,7 +1014,7 @@ class GlicMetricsTrustFirstOnboardingTest : public GlicMetricsTest {
         {}, {features::kGlicFixTimeToFirstQueryKillSwitch});
     GlicMetricsTestBase::SetUp();
 
-    enabling_ = std::make_unique<GlicEnabling>(
+    enabling_ = GlicEnabling::CreateForTesting(
         profile(), &profile_manager()->GetProfileAttributesStorage());
     metrics_ = std::make_unique<GlicMetrics>(profile(), enabling_.get());
     auto delegate = std::make_unique<MockDelegate>();
@@ -1011,16 +1030,12 @@ TEST_F(GlicMetricsTrustFirstOnboardingTest, ShownAndDismissed) {
   metrics()->OnGlicWindowStartedOpening(/*attached=*/false,
                                         mojom::InvocationSource::kOsButton);
   EXPECT_EQ(user_action_tester().GetActionCount("Glic.Fre.Shown"), 1);
-  EXPECT_EQ(user_action_tester().GetActionCount("Glic.Fre.Shown.Onboarding"),
-            1);
   histogram_tester().ExpectUniqueSample("Glic.Fre.Shown.FlowSource",
                                         OptInFlow::kGlicFre, 1);
 
   // Closing without accept triggers "Dismissed".
   metrics()->OnInstanceClosed();
   EXPECT_EQ(user_action_tester().GetActionCount("Glic.Fre.Dismissed"), 1);
-  EXPECT_EQ(
-      user_action_tester().GetActionCount("Glic.Fre.Dismissed.Onboarding"), 1);
   histogram_tester().ExpectTotalCount("Glic.Fre.TotalTime.Dismissed.Onboarding",
                                       1);
   histogram_tester().ExpectUniqueSample("Glic.Fre.Shown.InvocationSource",
@@ -1035,14 +1050,11 @@ TEST_F(GlicMetricsTrustFirstOnboardingTest, ShownAndAccepted) {
   metrics()->OnGlicWindowStartedOpening(/*attached=*/false,
                                         mojom::InvocationSource::kOsButton);
   EXPECT_EQ(user_action_tester().GetActionCount("Glic.Fre.Shown"), 1);
-  EXPECT_EQ(user_action_tester().GetActionCount("Glic.Fre.Shown.Onboarding"),
-            1);
   histogram_tester().ExpectUniqueSample("Glic.Fre.Shown.FlowSource",
                                         OptInFlow::kGlicFre, 1);
 
   metrics()->OnTrustFirstOnboardingAccept();
-  EXPECT_EQ(user_action_tester().GetActionCount("Glic.Fre.Accept"), 1);
-  EXPECT_EQ(user_action_tester().GetActionCount("Glic.Fre.Accept.Onboarding"),
+  EXPECT_EQ(user_action_tester().GetActionCount("Glic.Onboarding.OptInAccept"),
             1);
   histogram_tester().ExpectTotalCount("Glic.Fre.TotalTime.Accepted.Onboarding",
                                       1);
@@ -1050,8 +1062,6 @@ TEST_F(GlicMetricsTrustFirstOnboardingTest, ShownAndAccepted) {
   // Closing after accept should NOT trigger "Dismissed".
   metrics()->OnGlicWindowClose(nullptr, std::nullopt, gfx::Rect());
   EXPECT_EQ(user_action_tester().GetActionCount("Glic.Fre.Dismissed"), 0);
-  EXPECT_EQ(
-      user_action_tester().GetActionCount("Glic.Fre.Dismissed.Onboarding"), 0);
   histogram_tester().ExpectUniqueSample("Glic.Fre.Shown.InvocationSource",
                                         mojom::InvocationSource::kOsButton, 1);
   histogram_tester().ExpectUniqueSample("Glic.Fre.Accept.InvocationSource",
@@ -1059,6 +1069,21 @@ TEST_F(GlicMetricsTrustFirstOnboardingTest, ShownAndAccepted) {
   histogram_tester().ExpectUniqueSample("Glic.Fre.Accept.FlowSource",
                                         OptInFlow::kGlicFre, 1);
   histogram_tester().ExpectTotalCount("Glic.Fre.Dismissed.InvocationSource", 0);
+}
+
+TEST_F(GlicMetricsTrustFirstOnboardingTest, ShownAndAccepted_FeatureDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      features::kGlicOnboardingMetricsMigration);
+
+  metrics()->OnGlicWindowStartedOpening(/*attached=*/false,
+                                        mojom::InvocationSource::kOsButton);
+  EXPECT_EQ(user_action_tester().GetActionCount("Glic.Fre.Shown"), 1);
+
+  metrics()->OnTrustFirstOnboardingAccept();
+  // Glic.Fre.Accept was renamed and the two metrics are mutually exclusive.
+  EXPECT_EQ(user_action_tester().GetActionCount("Glic.Fre.Accept"), 1);
+  EXPECT_EQ(user_action_tester().GetActionCount("Glic.Onboarding.Accept"), 0);
 }
 
 TEST_F(GlicMetricsTrustFirstOnboardingTest, NotShownIfConsented) {

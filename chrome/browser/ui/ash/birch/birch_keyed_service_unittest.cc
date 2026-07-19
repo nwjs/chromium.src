@@ -22,6 +22,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/time/time.h"
 #include "base/version_info/version_info.h"
 #include "chrome/browser/ash/file_suggest/file_suggest_keyed_service.h"
@@ -42,13 +43,13 @@
 #include "chrome/browser/ui/ash/birch/birch_lost_media_provider.h"
 #include "chrome/browser/ui/ash/birch/birch_self_share_provider.h"
 #include "chrome/browser/ui/ash/holding_space/scoped_test_mount_point.h"
-#include "chrome/common/pref_names.h"
 #include "chrome/test/base/browser_with_test_window_test.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
 #include "components/favicon/core/test/mock_favicon_service.h"
 #include "components/send_tab_to_self/fake_send_tab_to_self_model.h"
+#include "components/send_tab_to_self/metrics_util.h"
 #include "components/send_tab_to_self/page_context.h"
 #include "components/send_tab_to_self/send_tab_to_self_entry.h"
 #include "components/send_tab_to_self/send_tab_to_self_model.h"
@@ -399,10 +400,10 @@ class BirchKeyedServiceTest : public BrowserWithTestWindowTest {
     const GURL kUrl(kChromeSyncUrl);
     const std::string kTitle("Chrome Sync Title");
     const std::string kTargetDeviceSyncCacheGuid(kTargetDeviceCacheGuid);
-    send_tab_to_self_model_->SendEntry(kUrl, kTitle, kTargetDeviceSyncCacheGuid,
-                                       send_tab_to_self::PageContext(),
-                                       send_tab_to_self::NavigationHistory(),
-                                       base::DoNothing());
+    send_tab_to_self_model_->SendEntry(
+        kUrl, kTitle, kTargetDeviceSyncCacheGuid,
+        send_tab_to_self::PageContext(), send_tab_to_self::NavigationHistory(),
+        base::DoNothing(), send_tab_to_self::ShareEntryPoint::kShareSheet);
   }
 
   void SimulateMediaMetadataInit() {
@@ -463,7 +464,7 @@ class BirchKeyedServiceTest : public BrowserWithTestWindowTest {
 
   void ClearReleaseNotesSurfacesTimesLeftToShowPref() {
     GetProfile()->GetPrefs()->ClearPref(
-        ::prefs::kReleaseNotesSuggestionChipTimesLeftToShow);
+        ash::prefs::kReleaseNotesSuggestionChipTimesLeftToShow);
   }
 
   void MarkMilestoneUpToDate() {
@@ -472,7 +473,7 @@ class BirchKeyedServiceTest : public BrowserWithTestWindowTest {
 
   void MarkReleaseNotesSurfacesTimesLeftToShow(int times_left_to_show) {
     GetProfile()->GetPrefs()->SetInteger(
-        ::prefs::kReleaseNotesSuggestionChipTimesLeftToShow,
+        ash::prefs::kReleaseNotesSuggestionChipTimesLeftToShow,
         times_left_to_show);
   }
 
@@ -529,9 +530,6 @@ class BirchKeyedServiceTest : public BrowserWithTestWindowTest {
             FileSuggestKeyedServiceFactory::GetInstance(),
             base::BindRepeating(
                 &MockFileSuggestKeyedService::BuildMockFileSuggestKeyedService,
-                TestingBrowserProcess::GetGlobal()
-                    ->GetFeatures()
-                    ->application_locale_storage(),
                 temp_dir_.GetPath())},
         TestingProfile::TestingFactory{
             SessionSyncServiceFactory::GetInstance(),
@@ -744,7 +742,7 @@ TEST_F(BirchKeyedServiceTest, ReleaseNotesProvider) {
   EXPECT_EQ(release_notes_items[0].subtitle(), u"See what's new");
   EXPECT_EQ(release_notes_items[0].url(), GURL("chrome://help-app/updates"));
   EXPECT_EQ(GetProfile()->GetPrefs()->GetInteger(
-                ::prefs::kReleaseNotesSuggestionChipTimesLeftToShow),
+                ash::prefs::kReleaseNotesSuggestionChipTimesLeftToShow),
             3);
 
   MarkMilestoneUpToDate();
@@ -762,7 +760,7 @@ TEST_F(BirchKeyedServiceTest, ReleaseNotesProvider) {
                 ash::help_app::prefs::kHelpAppNotificationLastShownMilestone),
             GetCurrentMilestone());
   EXPECT_EQ(GetProfile()->GetPrefs()->GetInteger(
-                ::prefs::kReleaseNotesSuggestionChipTimesLeftToShow),
+                ash::prefs::kReleaseNotesSuggestionChipTimesLeftToShow),
             1);
 
   ClearReleaseNotesSurfacesTimesLeftToShowPref();
@@ -777,11 +775,11 @@ TEST_F(BirchKeyedServiceTest, ReleaseNotesProvider) {
   EXPECT_EQ(GetProfile()->GetPrefs()->GetInteger(
                 ash::help_app::prefs::kHelpAppNotificationLastShownMilestone),
             GetCurrentMilestone());
-  EXPECT_TRUE(
-      GetProfile()
-          ->GetPrefs()
-          ->FindPreference(::prefs::kReleaseNotesSuggestionChipTimesLeftToShow)
-          ->IsDefaultValue());
+  EXPECT_TRUE(GetProfile()
+                  ->GetPrefs()
+                  ->FindPreference(
+                      ash::prefs::kReleaseNotesSuggestionChipTimesLeftToShow)
+                  ->IsDefaultValue());
 }
 
 TEST_F(BirchKeyedServiceTest, BirchRecentTabsWaitForForeignSessionsChange) {
@@ -803,6 +801,7 @@ TEST_F(BirchKeyedServiceTest, BirchRecentTabsWaitForForeignSessionsChange) {
 }
 
 TEST_F(BirchKeyedServiceTest, SelfShareProvider_FromTablet) {
+  base::HistogramTester histogram_tester;
   BirchModel* model = Shell::Get()->birch_model();
   BirchDataProvider* self_share_provider =
       birch_keyed_service()->GetSelfShareProvider();
@@ -825,11 +824,15 @@ TEST_F(BirchKeyedServiceTest, SelfShareProvider_FromTablet) {
 
   // Mark Self Share Item as opened, the provider should now return zero items.
   model->GetSelfShareItemsForTest()[0].PerformAction();
+  histogram_tester.ExpectUniqueSample(
+      "Sharing.SendTabToSelf.ActivatedEntryPoint",
+      send_tab_to_self::ShareActivatedEntryPoint::kChromeOSBirch, 1);
   self_share_provider->RequestBirchDataFetch();
   EXPECT_EQ(model->GetSelfShareItemsForTest().size(), 0u);
 }
 
 TEST_F(BirchKeyedServiceTest, SelfShareProvider_FromPhone) {
+  base::HistogramTester histogram_tester;
   BirchModel* model = Shell::Get()->birch_model();
   BirchDataProvider* self_share_provider =
       birch_keyed_service()->GetSelfShareProvider();
@@ -851,11 +854,15 @@ TEST_F(BirchKeyedServiceTest, SelfShareProvider_FromPhone) {
 
   // Mark Self Share Item as opened, the provider should now return zero items.
   model->GetSelfShareItemsForTest()[0].PerformAction();
+  histogram_tester.ExpectUniqueSample(
+      "Sharing.SendTabToSelf.ActivatedEntryPoint",
+      send_tab_to_self::ShareActivatedEntryPoint::kChromeOSBirch, 1);
   self_share_provider->RequestBirchDataFetch();
   EXPECT_EQ(model->GetSelfShareItemsForTest().size(), 0u);
 }
 
 TEST_F(BirchKeyedServiceTest, SelfShareProvider_FromDesktop) {
+  base::HistogramTester histogram_tester;
   BirchModel* model = Shell::Get()->birch_model();
   BirchDataProvider* self_share_provider =
       birch_keyed_service()->GetSelfShareProvider();
@@ -877,6 +884,9 @@ TEST_F(BirchKeyedServiceTest, SelfShareProvider_FromDesktop) {
 
   // Mark Self Share Item as opened, the provider should now return zero items.
   model->GetSelfShareItemsForTest()[0].PerformAction();
+  histogram_tester.ExpectUniqueSample(
+      "Sharing.SendTabToSelf.ActivatedEntryPoint",
+      send_tab_to_self::ShareActivatedEntryPoint::kChromeOSBirch, 1);
   self_share_provider->RequestBirchDataFetch();
   EXPECT_EQ(model->GetSelfShareItemsForTest().size(), 0u);
 }

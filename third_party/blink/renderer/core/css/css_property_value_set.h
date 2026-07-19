@@ -334,7 +334,8 @@ ImmutableCSSPropertyValueSet::Properties() const {
   }
   // SAFETY: By funneling all allocation of ImmutableCSSPropertyValueSet through
   // Create(), we guarantee that the array will have the size we expect.
-  return UNSAFE_BUFFERS(base::span(ArrayBase(), bits_.get<ArraySizeField>()));
+  return UNSAFE_BUFFERS(
+      base::span(base::unchecked, ArrayBase(), bits_.get<ArraySizeField>()));
 }
 
 template <>
@@ -436,7 +437,6 @@ class CORE_EXPORT MutableCSSPropertyValueSet : public CSSPropertyValueSet {
   // TODO (crbug.com/488310961): We may want to refactor these functions
   // including the logic about shorthand.
   void RemoveEquivalentProperties(const CSSPropertyValueSet*);
-  void RemoveEquivalentProperties(const CSSStyleDeclaration*);
   // Instead of comparing isolated longhand properties,
   // RemoveEquivalentPropertiesPreservingShorthands evaluates a serialized
   // shorthand so it's only removed if all its associated longhand properties

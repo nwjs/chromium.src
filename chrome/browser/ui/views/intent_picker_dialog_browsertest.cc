@@ -56,7 +56,8 @@ class IntentPickerDialogTest : public DialogBrowserTest {
     add_entry("c");
     add_entry("d");
     IntentPickerBubbleView::ShowBubble(
-        BrowserView::GetBrowserViewForBrowser(browser())->GetLocationBarView(),
+        views::BubbleAnchor(BrowserView::GetBrowserViewForBrowser(browser())
+                                ->GetLocationBarView()),
         GetHighlightElement(),
         IntentPickerBubbleView::BubbleType::kLinkCapturing,
         browser()->tab_strip_model()->GetActiveWebContents(),
@@ -133,12 +134,8 @@ INSTANTIATE_TEST_SUITE_P(
     ,
     IntentPickerDialogGridViewTest,
     testing::Combine(
-#if BUILDFLAG(IS_CHROMEOS)
-        testing::Values(apps::test::LinkCapturingFeatureVersion::kV2DefaultOff),
-#else
         testing::Values(apps::test::LinkCapturingFeatureVersion::kV2DefaultOff,
                         apps::test::LinkCapturingFeatureVersion::kV2DefaultOn),
-#endif  // BUILDFLAG(IS_CHROMEOS)
         testing::Bool()),
     [](const testing::TestParamInfo<
         std::tuple<apps::test::LinkCapturingFeatureVersion, bool>>& info) {

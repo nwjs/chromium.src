@@ -10,6 +10,7 @@
 #import "ios/chrome/browser/keyboard/ui_bundled/key_command_actions.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_grid_paging.h"
 
+@class LayoutState;
 @class TabGridNewTabButton;
 @protocol TabGridToolbarsGridDelegate;
 
@@ -48,6 +49,8 @@
 @property(nonatomic, weak) id<TabGridToolbarsGridDelegate> buttonsDelegate;
 // Whether the the scrolled to edge background should be hidden.
 @property(nonatomic, assign) BOOL hideScrolledToEdgeBackground;
+// The layout state.
+@property(nonatomic, weak) LayoutState* layoutState;
 
 // Sets `enabled` on the new tab button.
 - (void)setNewTabButtonEnabled:(BOOL)enabled;
@@ -73,12 +76,6 @@
 - (void)setEditButtonMenu:(UIMenu*)menu;
 // Sets `enabled` on the Edit button.
 - (void)setEditButtonEnabled:(BOOL)enabled;
-
-// Hides components and uses a black background color for tab grid transition
-// animation.
-- (void)hide;
-// Recovers the normal appearance for tab grid transition animation.
-- (void)show;
 // Updates the appearance of the this toolbar, based on whether the content
 // below it is `scrolledToEdge` or not.
 - (void)setScrollViewScrolledToEdge:(BOOL)scrolledToEdge;

@@ -53,6 +53,7 @@
 #include "chrome/browser/web_applications/web_app_sync_bridge.h"
 #include "chrome/browser/web_applications/web_app_tab_helper.h"
 #include "chrome/browser/web_applications/web_app_ui_manager.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/keep_alive_registry/scoped_keep_alive.h"
@@ -79,7 +80,6 @@
 #include "chrome/browser/ash/apps/apk_web_app_service.h"
 #include "chrome/browser/ash/system_web_apps/color_helpers.h"
 #include "chrome/browser/web_applications/chromeos_web_app_experiments.h"
-#include "chrome/common/chrome_features.h"
 #include "chromeos/ash/experiences/system_web_apps/types/system_web_app_delegate.h"
 #include "chromeos/constants/chromeos_features.h"
 #endif
@@ -204,6 +204,13 @@ bool WebAppBrowserController::AppUsesWindowControlsOverlay() const {
 }
 
 bool WebAppBrowserController::IsWindowControlsOverlayEnabled() const {
+  if (AppUsesWindowControlsOverlay() &&
+      base::FeatureList::IsEnabled(
+          features::kDesktopPWAsWindowControlsOverlayWithNoToggle)) {
+    return true;
+  }
+
+  // Default behavior: require both manifest support and user enablement.
   return AppUsesWindowControlsOverlay() && per_window_wco_enabled_;
 }
 
@@ -462,8 +469,8 @@ void WebAppBrowserController::OnRelationshipCheckComplete(
       break;
   }
   is_verified_ = should_show_cct;
-  browser()->window()->UpdateCustomTabBarVisibility(should_show_cct,
-                                                    false /* animate */);
+  BrowserWindow::FromBrowser(browser())->UpdateCustomTabBarVisibility(
+      should_show_cct, false /* animate */);
 }
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
@@ -484,7 +491,7 @@ void WebAppBrowserController::OnWebAppManifestUpdated(
   if (updated_app_id == app_id()) {
     UpdateThemePack();
     app_icon_.reset();
-    browser()->window()->UpdateTitleBar();
+    BrowserWindow::FromBrowser(browser())->UpdateTitleBar();
 
     if (ManifestUpdateAppliedCallbackForTesting()) {
       std::move(ManifestUpdateAppliedCallbackForTesting()).Run();
@@ -757,7 +764,7 @@ bool WebAppBrowserController::IsPreinstalledOnly() const {
 void WebAppBrowserController::Uninstall(
     webapps::WebappUninstallSource webapp_uninstall_source) {
   provider_->ui_manager().PresentUserUninstallDialog(
-      app_id(), webapp_uninstall_source, browser()->window(),
+      app_id(), webapp_uninstall_source, BrowserWindow::FromBrowser(browser()),
       base::DoNothing());
 }
 
@@ -941,7 +948,7 @@ void WebAppBrowserController::OnUpdateDialogResult(
     case WebAppIdentityUpdateResult::kUninstallApp:
       web_app_provider->ui_manager().PresentUserUninstallDialog(
           app_id(), webapps::WebappUninstallSource::kAppMenu,
-          browser()->window(), base::DoNothing());
+          BrowserWindow::FromBrowser(browser()), base::DoNothing());
       return;
     case WebAppIdentityUpdateResult::kCloseApp:
       // kCloseApp is only used for migration dialogs.
@@ -1018,7 +1025,7 @@ void WebAppBrowserController::OnMigrationDialogResult(
               : base::DoNothing();
       web_app_provider->ui_manager().PresentUserUninstallDialog(
           app_id(), webapps::WebappUninstallSource::kAppMenu,
-          browser()->window(), std::move(complete_callback));
+          BrowserWindow::FromBrowser(browser()), std::move(complete_callback));
       return;
     }
     case WebAppIdentityUpdateResult::kCloseApp:

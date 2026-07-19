@@ -50,7 +50,6 @@ class AuthController;
 class ContextualCueingService;
 class GlicActorPolicyChecker;
 class GlicEnabling;
-class GlicFreController;
 class GlicMetrics;
 class GlicProfileManager;
 class GlicShareImageHandler;
@@ -88,6 +87,8 @@ class GlicKeyedService : public KeyedService, public base::SupportsUserData {
   // GlicKeyedService.
   static base::android::ScopedJavaLocalRef<jobject> GetJavaObject(
       GlicKeyedService* glic_keyed_service);
+  bool IsGlicShortcutActive();
+  bool IsBottomBarEnabled();
 #endif  // BUILDFLAG(IS_ANDROID)
 
   // Convenience method, may return nullptr.
@@ -132,7 +133,6 @@ class GlicKeyedService : public KeyedService, public base::SupportsUserData {
   GlicEnabling& enabling() { return *enabling_.get(); }
 
   GlicMetrics* metrics() { return metrics_.get(); }
-  virtual GlicFreController& fre_controller();
 #if !BUILDFLAG(IS_ANDROID)
   virtual GlicExperimentalOptInController& opt_in_controller();
 #endif
@@ -142,7 +142,7 @@ class GlicKeyedService : public KeyedService, public base::SupportsUserData {
   // for whichever instance is active. Please prefer to use the sharing manager
   // on the `GlicInstance` if you don't need one that automatically tracks the
   // active instance.
-  GlicSharingManager& active_instance_sharing_manager();
+  GlicSharingManagerInternal& active_instance_sharing_manager();
 
   // Returns true if `bwi` has a glic panel showing for its active tab. Virtual
   // for testing.
@@ -238,6 +238,8 @@ class GlicKeyedService : public KeyedService, public base::SupportsUserData {
   // Virtual for testing.
   virtual GlicActorPolicyChecker& actor_policy_checker();
 
+  bool HasActorPolicyChecker() const { return !!actor_policy_checker_; }
+
  private:
   // A helper function to route GetZeroStateSuggestionsForFocusedTabCallback
   // callbacks.
@@ -273,7 +275,6 @@ class GlicKeyedService : public KeyedService, public base::SupportsUserData {
 
   std::unique_ptr<GlicEnabling> enabling_;
   std::unique_ptr<GlicMetrics> metrics_;
-  std::unique_ptr<GlicFreController> fre_controller_;
 #if !BUILDFLAG(IS_ANDROID)
   std::unique_ptr<GlicExperimentalOptInController> opt_in_controller_;
 #endif

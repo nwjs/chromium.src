@@ -14,8 +14,8 @@
 #include "build/build_config.h"
 #include "chrome/browser/policy/developer_tools_policy_handler.h"
 #include "chrome/browser/web_applications/isolated_web_apps/install/non_installed_bundle_inspection_context.h"
-#include "chrome/browser/web_applications/isolated_web_apps/isolation_data.h"
 #include "chrome/browser/web_applications/isolated_web_apps/test/fake_chrome_iwa_runtime_data_provider.h"
+#include "chrome/browser/web_applications/model/isolation_data.h"
 #include "chrome/browser/web_applications/test/web_app_test.h"
 #include "chrome/browser/web_applications/web_app.h"
 #include "chrome/common/chrome_features.h"
@@ -24,6 +24,7 @@
 #include "components/web_package/signed_web_bundles/ed25519_public_key.h"
 #include "components/web_package/signed_web_bundles/signed_web_bundle_id.h"
 #include "components/webapps/browser/installable/installable_metrics.h"
+#include "components/webapps/isolated_web_apps/public/iwa_runtime_data_provider.h"
 #include "components/webapps/isolated_web_apps/scheme.h"
 #include "components/webapps/isolated_web_apps/types/storage_location.h"
 #include "content/public/common/content_features.h"
@@ -73,7 +74,7 @@ class IsolatedWebAppTrustCheckerTest : public WebAppTest {
 
   void SetUp() override {
     data_provider_reset_.emplace(
-        ChromeIwaRuntimeDataProvider::SetInstanceForTesting(&data_provider_));
+        IwaRuntimeDataProvider::SetInstanceForTesting(&data_provider_));
     WebAppTest::SetUp();
   }
 
@@ -101,8 +102,7 @@ class IsolatedWebAppTrustCheckerTest : public WebAppTest {
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
   FakeIwaRuntimeDataProvider data_provider_;
-  std::optional<base::AutoReset<ChromeIwaRuntimeDataProvider*>>
-      data_provider_reset_;
+  std::optional<base::AutoReset<IwaRuntimeDataProvider*>> data_provider_reset_;
 };
 
 TEST_F(IsolatedWebAppTrustCheckerTest, DevWebBundleId) {
@@ -204,7 +204,7 @@ TEST_F(IsolatedWebAppTrustCheckerTest, TrustedViaDevMode) {
   pref_service().SetInteger(
       prefs::kDevToolsAvailability,
       std::to_underlying(
-          policy::DeveloperToolsPolicyHandler::Availability::kDisallowed));
+          policy::DeveloperToolsAvailability::kDisallowed));
 
   EXPECT_THAT(IsolatedWebAppTrustChecker::IsOperationAllowed(
                   *profile(), kWebBundleId1, /*dev_mode=*/true,

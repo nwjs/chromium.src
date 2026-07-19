@@ -37,6 +37,7 @@
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_quick_actions_view_controller.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_shortcuts_handler.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_trait.h"
+#import "ios/chrome/browser/ntp/ui_bundled/ntp_identity_disc_button.h"
 #import "ios/chrome/browser/overscroll_actions/ui_bundled/overscroll_actions_controller.h"
 #import "ios/chrome/browser/shared/model/utils/first_run_util.h"
 #import "ios/chrome/browser/shared/public/commands/help_commands.h"
@@ -77,9 +78,10 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 @property(nonatomic, strong)
     OverscrollActionsController* overscrollActionsController;
 
-// Whether or not the fake omnibox is pinned to the top of the NTP. Redefined
-// to make readwrite.
 @property(nonatomic, assign) BOOL isFakeboxPinned;
+
+// Layout guide for NTP modules.
+@property(nonatomic, readonly) UILayoutGuide* moduleLayoutGuide;
 
 // Array of constraints used to pin the fake Omnibox header into the top of the
 // view.
@@ -98,10 +100,6 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 // Constraint for the height of the container view surrounding the feed.
 @property(nonatomic, strong) NSLayoutConstraint* feedContainerHeightConstraint;
 
-// Whether the NTP is currently transitioning to landscape orientation.
-@property(nonatomic, assign, getter=isTransitioningToLandscape)
-    BOOL transitioningToLandscape;
-
 // `YES` if the NTP starting content offset should be set to a previous scroll
 // state (when navigating away and back), and `NO` if it should be the top of
 // the NTP.
@@ -119,9 +117,6 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 
 // Array of all objects (views or view controllers) above the feed.
 @property(nonatomic, strong) NSMutableArray<id>* objectsAboveFeed;
-
-// Identity disc shown in the NTP.
-@property(nonatomic, weak) UIButton* identityDiscButton;
 
 // Tap gesture recognizer when the omnibox is focused.
 @property(nonatomic, strong) UITapGestureRecognizer* tapGestureRecognizer;
@@ -250,22 +245,15 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
   [self updateModularHomeBackgroundColorForUserInterfaceStyle:
             self.traitCollection.userInterfaceStyle];
 
-  if (IsNTPBackgroundCustomizationEnabled()) {
-    _backgroundImageView = [[HomeCustomizationImageView alloc] init];
-    _backgroundImageView.translatesAutoresizingMaskIntoConstraints = NO;
-    [self updateBackgroundImageView];
-    [self.view addSubview:_backgroundImageView];
-    AddSameConstraints(_backgroundImageView, self.view);
-  } else {
-    self.view.backgroundColor = [UIColor colorNamed:@"ntp_background_color"];
-  }
+  _backgroundImageView = [[HomeCustomizationImageView alloc] init];
+  _backgroundImageView.translatesAutoresizingMaskIntoConstraints = NO;
+  [self updateBackgroundImageView];
+  [self.view addSubview:_backgroundImageView];
+  AddSameConstraints(_backgroundImageView, self.view);
 
   [self registerNotifications];
 
   [self layoutContentInParentCollectionView];
-
-  self.identityDiscButton = [self.headerView identityDiscButton];
-  DCHECK(self.identityDiscButton);
 
   self.viewDidFinishLoading = YES;
 
@@ -279,12 +267,10 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
     [weakSelf updateUIOnTraitChange:previousCollection];
   };
   [self registerForTraitChanges:traits withHandler:handler];
-  if (IsNTPBackgroundCustomizationEnabled()) {
-    [self registerForTraitChanges:
-              @[ NewTabPageTrait.class, NewTabPageImageBackgroundTrait.class ]
-                       withAction:@selector(applyBackgroundTheme)];
-    [self applyBackgroundTheme];
-  }
+  [self registerForTraitChanges:
+            @[ NewTabPageTrait.class, NewTabPageImageBackgroundTrait.class ]
+                     withAction:@selector(applyBackgroundTheme)];
+  [self applyBackgroundTheme];
   [self.mutator checkNewBadgeEligibility];
 }
 
@@ -310,6 +296,9 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 
 - (void)viewDidAppear:(BOOL)animated {
   [super viewDidAppear:animated];
+  if (!self.objectsAboveFeed) {
+    return;
+  }
   [self.headerView didAppear];
 
   [self updateHeightAboveFeed];
@@ -350,19 +339,6 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 
   [self.helpHandler
       presentInProductHelpWithType:InProductHelpType::kDiscoverFeedMenu];
-
-  if (!IsFirstRunRecent(base::Days(3))) {
-    if (!IsNTPBackgroundCustomizationEnabled()) {
-      [self.helpHandler presentInProductHelpWithType:
-                            InProductHelpType::kHomeCustomizationMenu];
-    }
-  }
-
-  // Scrolls NTP into feed initially if `shouldScrollIntoFeed`.
-  if (self.shouldScrollIntoFeed) {
-    [self scrollIntoFeed];
-    self.shouldScrollIntoFeed = NO;
-  }
 
   [self updateFeedSigninPromoIsVisible];
 
@@ -468,19 +444,15 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
     _feedContainer = [[UIView alloc] initWithFrame:CGRectZero];
     _feedContainer.userInteractionEnabled = YES;
     _feedContainer.translatesAutoresizingMaskIntoConstraints = NO;
-    if (IsNTPBackgroundCustomizationEnabled()) {
-      UIVisualEffect* blurEffect =
-          [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemMaterial];
-      _feedVisualEffectBackgroundView =
-          [[UIVisualEffectView alloc] initWithEffect:blurEffect];
-      _feedVisualEffectBackgroundView
-          .translatesAutoresizingMaskIntoConstraints = NO;
-      [_feedContainer addSubview:_feedVisualEffectBackgroundView];
-      AddSameConstraints(_feedContainer, _feedVisualEffectBackgroundView);
-      [self applyBackgroundThemeToFeedContainer];
-    } else {
-      _feedContainer.backgroundColor = [UIColor colorNamed:kBackgroundColor];
-    }
+    UIVisualEffect* blurEffect =
+        [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemMaterial];
+    _feedVisualEffectBackgroundView =
+        [[UIVisualEffectView alloc] initWithEffect:blurEffect];
+    _feedVisualEffectBackgroundView.translatesAutoresizingMaskIntoConstraints =
+        NO;
+    [_feedContainer addSubview:_feedVisualEffectBackgroundView];
+    AddSameConstraints(_feedContainer, _feedVisualEffectBackgroundView);
+    [self applyBackgroundThemeToFeedContainer];
 
     // Add corner radius to the top border.
     _feedContainer.clipsToBounds = YES;
@@ -1209,9 +1181,6 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 - (void)updateLayoutForSize:(CGSize)size
             previousYOffset:(CGFloat)previousYOffset
     previousHeightAboveFeed:(CGFloat)previousHeightAboveFeed {
-  self.transitioningToLandscape =
-      IsChromeNextIaEnabled() && [self isOrientationLandscapeForSize:size];
-
   [self updateModuleWidthWithWidth:size.width];
   [self handleStickyElementsForScrollPosition:[self scrollPosition] force:YES];
 
@@ -1245,10 +1214,6 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 // `viewWillTransitionToSize:withTransitionCoordinator:`. Finishes updating the
 // layout of the NTP after a size transition.
 - (void)completeLayoutSizeUpdate {
-  if (IsChromeNextIaEnabled()) {
-    self.transitioningToLandscape = NO;
-  }
-
   [self updateNTPLayout];
 
   if (self.feedVisible) {
@@ -1321,6 +1286,7 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
     weakSelf.scrolledToMinimumHeight = NO;
     weakSelf.headerView.allowFontScaleAnimation = NO;
     weakSelf.shiftDownInProgress = NO;
+    [weakSelf.headerView revertHeaderExpansionOnUnfocus];
   }];
   self.animator.interruptible = YES;
   [self.animator startAnimation];
@@ -1406,19 +1372,13 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
     // -viewDidLayoutSubviews.  Since self.collectionView and it's superview
     // should always have the same safeArea, this should be safe.
     UIEdgeInsets insets = self.collectionView.superview.safeAreaInsets;
-    CGFloat offset;
-    if (IsChromeNextIaEnabled()) {
-      // Passing 0.0 offset during rotation to landscape because in landscape
-      // orientation the header is fully visible while on the screen.
-      offset = self.isTransitioningToLandscape ? 0.0 : [self adjustedOffset].y;
-    } else {
-      offset = [self adjustedOffset].y;
-    }
 
-    [self.headerView updateFakeOmniboxForOffset:offset
+    [self.headerView updateFakeOmniboxForOffset:[self adjustedOffset].y
                                     screenWidth:width
                                  safeAreaInsets:insets
                          animateScrollAnimation:!self.disableScrollAnimation];
+    [self.NTPContentDelegate
+        didUpdateNTPTabOmniboxScrollProgress:self.headerView.scrollProgress];
   } else {
     [self.headerView updateFakeOmniboxForWidth:width];
   }
@@ -1444,6 +1404,8 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
                        screenWidth:self.collectionView.frame.size.width
                     safeAreaInsets:insets
             animateScrollAnimation:animateScrollAnimation];
+    [self.NTPContentDelegate
+        didUpdateNTPTabOmniboxScrollProgress:self.headerView.scrollProgress];
   }
 }
 
@@ -1811,19 +1773,9 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
                   completion:nil];
 }
 
-// Returns if the given size represents a landscape orientation on an iPhone or
-// iPad.
+// Returns if the given size represents a landscape orientation.
 - (BOOL)isOrientationLandscapeForSize:(CGSize)size {
-  BOOL isLandscape = size.width > size.height;
-  if (isLandscape) {
-    UIUserInterfaceIdiom deviceIdiom =
-        [[UIDevice currentDevice] userInterfaceIdiom];
-    if (deviceIdiom == UIUserInterfaceIdiomPad ||
-        deviceIdiom == UIUserInterfaceIdiomPhone) {
-      return YES;
-    }
-  }
-  return NO;
+  return size.width > size.height;
 }
 
 // Lays out content above feed and adjusts content suggestions for the given

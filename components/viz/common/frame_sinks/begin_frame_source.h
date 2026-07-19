@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "base/check.h"
+#include "base/containers/flat_map.h"
 #include "base/containers/flat_set.h"
 #include "base/memory/raw_ptr.h"
 #include "base/rand_util.h"
@@ -245,12 +246,6 @@ class VIZ_COMMON_EXPORT BeginFrameSource {
   virtual void UpdateVSyncDisplay(int64_t display_id,
                                   bool is_browser_vsync_supported) {}
 
-  // Notifies the source that the refresh rate has changed on the same display.
-  virtual void RefreshRateChangedOnSameDisplay() {}
-
-  // Notifies the source that new CALayerParams have been received from the GPU,
-  // indicating that a new frame has been swapped.
-  virtual void DidReceiveNewCALayerParams() {}
 #endif
 
   virtual void SetUpdateVSyncParametersCallback(
@@ -485,6 +480,18 @@ class VIZ_COMMON_EXPORT ExternalBeginFrameSource : public BeginFrameSource {
   // Returns the minimium supported frame interval for a given BFS.
   // This gives the maximium refresh rate that can be requested.
   virtual base::TimeDelta GetMinimumFrameInterval();
+
+#if BUILDFLAG(IS_ANDROID)
+  // Sets the refresh rates supported by the display. See
+  // https://developer.android.com/reference/android/view/Display#getSupportedRefreshRates().
+  //
+  // `supported_rates` is a map from supported VSync intervals to the equivalent
+  // supported refresh rates. For example, if the display supports 60 Hz and 120
+  // Hz, `supported_rates` will contain two entries: `base::Milliseconds(8.333)`
+  // → `120.0f` and `base::Milliseconds(16.666)` → `60.0f`.
+  virtual void SetSupportedRefreshRates(
+      const base::flat_map<base::TimeDelta, float>& supported_rates) {}
+#endif
 
   virtual base::flat_set<base::TimeDelta> GetSupportedFrameIntervals(
       base::TimeDelta interval);

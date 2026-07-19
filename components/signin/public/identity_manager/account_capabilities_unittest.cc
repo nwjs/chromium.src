@@ -162,7 +162,7 @@ TEST_F(AccountCapabilitiesTest, CanSignInToChrome) {
 
 TEST_F(AccountCapabilitiesTest, MustFetchAppleAgeRangeInChrome) {
   base::test::ScopedFeatureList feature_list{
-      switches::kEnforceMustFetchAppleAgeRangeInChromeCapability};
+      switches::kBuildExternalPrivacyContext};
   AccountCapabilities capabilities;
   EXPECT_EQ(capabilities.must_fetch_apple_age_range_in_chrome(),
             signin::Tribool::kUnknown);
@@ -179,7 +179,7 @@ TEST_F(AccountCapabilitiesTest, MustFetchAppleAgeRangeInChrome) {
 
 TEST_F(AccountCapabilitiesTest, MustSkipAppleAgeRangeInChrome) {
   base::test::ScopedFeatureList feature_list{
-      switches::kEnforceMustSkipAppleAgeRangeInChromeCapability};
+      switches::kBuildExternalPrivacyContext};
   AccountCapabilities capabilities;
   EXPECT_EQ(capabilities.must_skip_apple_age_range_in_chrome(),
             signin::Tribool::kUnknown);
@@ -451,6 +451,21 @@ TEST_F(AccountCapabilitiesTest,
       signin::Tribool::kFalse);
 }
 
+TEST_F(AccountCapabilitiesTest, SupportsWalletPrivatePassesInAutofill) {
+  AccountCapabilities capabilities;
+  EXPECT_EQ(capabilities.supports_wallet_private_passes_in_autofill(),
+            signin::Tribool::kUnknown);
+
+  AccountCapabilitiesTestMutator mutator(&capabilities);
+  mutator.set_supports_wallet_private_passes_in_autofill(true);
+  EXPECT_EQ(capabilities.supports_wallet_private_passes_in_autofill(),
+            signin::Tribool::kTrue);
+
+  mutator.set_supports_wallet_private_passes_in_autofill(false);
+  EXPECT_EQ(capabilities.supports_wallet_private_passes_in_autofill(),
+            signin::Tribool::kFalse);
+}
+
 TEST_F(AccountCapabilitiesTest, AreAnyCapabilitiesKnown_Empty) {
   AccountCapabilities capabilities;
   EXPECT_FALSE(capabilities.AreAnyCapabilitiesKnown());
@@ -534,6 +549,114 @@ TEST_F(AccountCapabilitiesTest, UpdateWith_OverwriteKnown) {
       capabilities
           .can_show_history_sync_opt_ins_without_minor_mode_restrictions());
 }
+
+TEST_F(AccountCapabilitiesTest, Equality) {
+  AccountCapabilities capabilities_1;
+  AccountCapabilities capabilities_2;
+  EXPECT_EQ(capabilities_1, capabilities_2);
+
+  AccountCapabilitiesTestMutator mutator_1(&capabilities_1);
+  mutator_1.set_can_fetch_family_member_info(true);
+  // Different fetched capability map.
+  EXPECT_NE(capabilities_1, capabilities_2);
+
+  AccountCapabilitiesTestMutator mutator_2(&capabilities_2);
+  mutator_2.set_can_fetch_family_member_info(true);
+  // Identical fetched capabilities.
+  EXPECT_EQ(capabilities_1, capabilities_2);
+
+  // Set override in one but not the other.
+  mutator_1.SetCapabilityOverride(
+      kCanShowHistorySyncOptInsWithoutMinorModeRestrictionsCapabilityName,
+      signin::Tribool::kTrue);
+  EXPECT_NE(capabilities_1, capabilities_2);
+
+  // Set different override in other.
+  mutator_2.SetCapabilityOverride(
+      kCanShowHistorySyncOptInsWithoutMinorModeRestrictionsCapabilityName,
+      signin::Tribool::kFalse);
+  EXPECT_NE(capabilities_1, capabilities_2);
+
+  // Set identical override in other.
+  mutator_2.SetCapabilityOverride(
+      kCanShowHistorySyncOptInsWithoutMinorModeRestrictionsCapabilityName,
+      signin::Tribool::kTrue);
+  EXPECT_EQ(capabilities_1, capabilities_2);
+
+  // Having the same effective capability state but one with overrides and one
+  // with fetched map values should not be equal.
+  AccountCapabilities capabilities_a;
+  AccountCapabilities capabilities_b;
+  AccountCapabilitiesTestMutator mutator_a(&capabilities_a);
+  mutator_a.set_can_fetch_family_member_info(true);
+
+  AccountCapabilitiesTestMutator mutator_b(&capabilities_b);
+  mutator_b.SetCapabilityOverride(kCanFetchFamilyMemberInfoCapabilityName,
+                                  signin::Tribool::kTrue);
+
+  // Effective capability for both is Tribool::kTrue, but fetched capabilities
+  // and overrides differ, so they are not equal.
+  EXPECT_NE(capabilities_a, capabilities_b);
+}
+
+TEST_F(AccountCapabilitiesTest, CapabilityOverrides) {
+  AccountCapabilities capabilities;
+  EXPECT_TRUE(capabilities.GetCapabilityOverrides().empty());
+
+  capabilities.SetCapabilityOverride(
+      kCanShowHistorySyncOptInsWithoutMinorModeRestrictionsCapabilityName,
+      signin::Tribool::kTrue);
+  capabilities.SetCapabilityOverride(kCanFetchFamilyMemberInfoCapabilityName,
+                                     signin::Tribool::kFalse);
+
+  // Check the overrides are returned on GetCapabilityOverrides().
+  base::flat_map<std::string, signin::Tribool> expected_overrides = {
+      {kCanShowHistorySyncOptInsWithoutMinorModeRestrictionsCapabilityName,
+       signin::Tribool::kTrue},
+      {kCanFetchFamilyMemberInfoCapabilityName, signin::Tribool::kFalse}};
+  EXPECT_EQ(capabilities.GetCapabilityOverrides(), expected_overrides);
+
+  // Check that reading the capability returns the overridden value.
+  EXPECT_EQ(
+      capabilities
+          .can_show_history_sync_opt_ins_without_minor_mode_restrictions(),
+      signin::Tribool::kTrue);
+  EXPECT_EQ(capabilities.can_fetch_family_member_info(),
+            signin::Tribool::kFalse);
+
+  // Clear override
+  capabilities.SetCapabilityOverride(
+      kCanShowHistorySyncOptInsWithoutMinorModeRestrictionsCapabilityName,
+      std::nullopt);
+  expected_overrides = {
+      {kCanFetchFamilyMemberInfoCapabilityName, signin::Tribool::kFalse}};
+  EXPECT_EQ(capabilities.GetCapabilityOverrides(), expected_overrides);
+
+  // Check that reading the capability returns the non-overridden value.
+  EXPECT_EQ(
+      capabilities
+          .can_show_history_sync_opt_ins_without_minor_mode_restrictions(),
+      signin::Tribool::kUnknown);
+  EXPECT_EQ(capabilities.can_fetch_family_member_info(),
+            signin::Tribool::kFalse);
+}
+
+TEST_F(AccountCapabilitiesTest, CapabilityOverridesPrecedence) {
+  AccountCapabilities capabilities;
+  AccountCapabilitiesTestMutator mutator(&capabilities);
+
+  // 1. Configures an override.
+  mutator.SetCapabilityOverride(
+      kCanFetchFamilyMemberInfoCapabilityName, signin::Tribool::kTrue);
+
+  // 2. Simulates receiving a different value for the same capability from the server.
+  mutator.set_can_fetch_family_member_info(false);
+
+  // 3. Checks that capability still has the overridden value, and not the one received later from the server.
+  EXPECT_EQ(capabilities.can_fetch_family_member_info(),
+            signin::Tribool::kTrue);
+}
+
 
 #if BUILDFLAG(IS_ANDROID)
 

@@ -16,19 +16,19 @@
 #include "base/types/expected_macros.h"
 #include "base/types/optional_util.h"
 #include "chrome/browser/file_select_helper.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/web_app_internals/web_app_internals.mojom.h"
 #include "chrome/browser/web_applications/isolated_web_apps/commands/install_isolated_web_app_command.h"
-#include "chrome/browser/web_applications/isolated_web_apps/commands/isolated_web_app_install_command_helper.h"
 #include "chrome/browser/web_applications/isolated_web_apps/install/isolated_web_app_dev_install_manager.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_features.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
-#include "chrome/browser/web_applications/isolated_web_apps/isolation_data.h"
 #include "chrome/browser/web_applications/isolated_web_apps/key_distribution/iwa_key_distribution_info_provider.h"
-#include "chrome/browser/web_applications/isolated_web_apps/update/isolated_web_app_update_discovery_task.h"
+#include "chrome/browser/web_applications/isolated_web_apps/update/isolated_web_app_update_check_and_prepare_task.h"
 #include "chrome/browser/web_applications/isolated_web_apps/update/isolated_web_app_update_manager.h"
 #include "chrome/browser/web_applications/isolated_web_apps/update_manifest/update_manifest.h"
 #include "chrome/browser/web_applications/isolated_web_apps/update_manifest/update_manifest_fetcher.h"
 #include "chrome/browser/web_applications/locks/app_lock.h"
+#include "chrome/browser/web_applications/model/isolation_data.h"
 #include "chrome/browser/web_applications/web_app_command_scheduler.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
@@ -40,6 +40,7 @@
 #include "components/webapps/isolated_web_apps/types/iwa_version.h"
 #include "content/public/browser/file_select_listener.h"
 #include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
@@ -159,7 +160,7 @@ class IwaInternalsHandler::IwaManifestInstallUpdateHandler
     // For now, we do not enable setting pinned_version field via iwa internals.
     // By not setting `pinned_version` argument, discovery task defaults to
     // searching for the latest available version on current update channel.
-    provider_->isolated_web_app_update_manager().DiscoverUpdatesForApp(
+    provider_->isolated_web_app_update_manager().DiscoverAndPrepareUpdate(
         *IsolatedWebAppUrlInfo::Create(iwa->scope()),
         *isolation_data.update_manifest_url(),
         /*update_channel=*/
@@ -170,22 +171,25 @@ class IwaInternalsHandler::IwaManifestInstallUpdateHandler
   }
 
   // IsolatedWebAppUpdateManager::Observer:
-  void OnUpdateDiscoveryTaskCompleted(
+  void OnUpdateDiscoverAndPrepareTaskCompleted(
       const webapps::AppId& app_id,
-      IsolatedWebAppUpdateDiscoveryTask::CompletionStatus status) override {
+      IsolatedWebAppUpdateCheckAndPrepareTask::CompletionStatus status)
+      override {
     if (status.has_value()) {
       switch (*status) {
-        case IsolatedWebAppUpdateDiscoveryTask::Success::
+        case IsolatedWebAppUpdateCheckAndPrepareTask::Success::
             kUpdateFoundAndSavedInDatabase:
-        case IsolatedWebAppUpdateDiscoveryTask::Success::
+        case IsolatedWebAppUpdateCheckAndPrepareTask::Success::
             kPinnedVersionUpdateFoundAndSavedInDatabase:
-        case IsolatedWebAppUpdateDiscoveryTask::Success::
+        case IsolatedWebAppUpdateCheckAndPrepareTask::Success::
             kDowngradeVersionFoundAndSavedInDatabase:
           // An update has been found and is now pending. Return and wait for
           // OnUpdateApplyTaskCompleted to be called.
           return;
-        case IsolatedWebAppUpdateDiscoveryTask::Success::kNoUpdateFound:
-        case IsolatedWebAppUpdateDiscoveryTask::Success::kUpdateAlreadyPending:
+        case IsolatedWebAppUpdateCheckAndPrepareTask::Success::kNoUpdateFound:
+        case IsolatedWebAppUpdateCheckAndPrepareTask::Success::
+            kUpdateAlreadyPending:
+        case IsolatedWebAppUpdateCheckAndPrepareTask::Success::kUpdateFound:
           // No update will be applied, so we can proceed to call the callback.
           break;
       }
@@ -199,7 +203,8 @@ class IwaInternalsHandler::IwaManifestInstallUpdateHandler
     } else {
       std::move(callback).Run(
           "Update failed: " +
-          IsolatedWebAppUpdateDiscoveryTask::ErrorToString(status.error()));
+          IsolatedWebAppUpdateCheckAndPrepareTask::ErrorToString(
+              status.error()));
     }
   }
 
@@ -291,7 +296,9 @@ void IwaInternalsHandler::ParseUpdateManifestFromUrl(
 
   auto fetcher = std::make_unique<UpdateManifestFetcher>(
       update_manifest_url, kUpdateManifestFetchAnnotation,
-      profile()->GetURLLoaderFactory());
+      profile()->GetURLLoaderFactory(),
+      profile()->GetDefaultStoragePartition()->GetNetworkContext());
+
   auto* fetcher_ptr = fetcher.get();
 
   base::OnceClosure fetcher_keep_alive =
@@ -446,8 +453,8 @@ void IwaInternalsHandler::SearchForIsolatedWebAppUpdates(
     return;
   }
 
-  size_t queued_task_count =
-      provider->isolated_web_app_update_manager().DiscoverUpdatesNow();
+  size_t queued_task_count = provider->isolated_web_app_update_manager()
+                                 .DiscoverAndPrepareUpdatesNow();
   std::move(callback).Run(base::StringPrintf(
       "queued %zu update discovery tasks", queued_task_count));
 }
@@ -576,14 +583,6 @@ void IwaInternalsHandler::ApplyDevModeUpdate(
         }
         return "Update failed: " + result.error();
       }).Then(std::move(callback)));
-}
-
-void IwaInternalsHandler::RotateKey(const std::string& web_bundle_id,
-                                    const std::vector<uint8_t>& public_key) {
-  IwaKeyDistributionInfoProvider::GetInstance(
-      base::PassKey<IwaInternalsHandler>())
-      .RotateKeyForDevMode(base::PassKey<IwaInternalsHandler>(), web_bundle_id,
-                           public_key);
 }
 
 void IwaInternalsHandler::UpdateManifestInstalledIsolatedWebApp(

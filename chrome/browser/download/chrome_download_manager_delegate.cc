@@ -212,8 +212,6 @@ bool IsEphemeralWarningCancellationEnabled() {
 
 #if BUILDFLAG(IS_ANDROID)
 const char kPdfDirName[] = "pdfs";
-// File suffix for APKs.
-constexpr base::FilePath::CharType kApkSuffix[] = FILE_PATH_LITERAL(".apk");
 #endif
 
 // Used with GetPlatformDownloadPath() to indicate which platform path to
@@ -292,6 +290,20 @@ bool IsForceSaveToCloud(download::DownloadDangerType danger_type) {
 std::string GetMimeType(const base::FilePath& path) {
 #if BUILDFLAG(IS_ANDROID)
   if (path.IsContentUri()) {
+    if (base::FeatureList::IsEnabled(
+            download::features::kRemapGenericMimeType)) {
+      // Determine the MIME type registered with the content URI. If it is a
+      // generic MIME type (e.g., application/octet-stream), attempt to deduce a
+      // more specific MIME type from the display name extension.
+      std::string mime_type = base::GetContentUriMimeType(path);
+      std::u16string display_name;
+      if (base::MaybeGetFileDisplayName(path, &display_name)) {
+        mime_type = DownloadUtils::RemapGenericMimeType(
+            mime_type, GURL(), base::UTF16ToUTF8(display_name));
+      }
+      return mime_type;
+    }
+
     // Here we should determine the MIME type from the display name of the
     // content URI. GetContentUriMimeType() will return the current MIME type
     // that is registered with the URI. As a result, calling it will not change
@@ -732,6 +744,15 @@ void ChromeDownloadManagerDelegate::GetNextId(
         std::move(callback));
     return;
   }
+
+  // If deferred history loading is enabled, make sure the history system is
+  // initialized as soon as we assign an ID to a new or in-progress download,
+  // so that it can start observing and persisting download events.
+  DownloadCoreService* service =
+      DownloadCoreServiceFactory::GetForBrowserContext(profile_);
+  if (service) {
+    service->InitializeHistory();
+  }
   if (!next_id_retrieved_) {
     id_callbacks_.push_back(std::move(callback));
     return;
@@ -979,6 +1000,21 @@ bool ChromeDownloadManagerDelegate::IsDownloadReadyForCompletion(
       state->CompleteDownload();
       return false;
     }
+#if BUILDFLAG(IS_ANDROID)
+  } else if (ShouldShowSafeBrowsingAndroidDownloadWarnings() &&
+             IsApkFile(item) && state->is_complete() && !item->IsDangerous() &&
+             item->GetDangerType() !=
+                 download::DOWNLOAD_DANGER_TYPE_USER_VALIDATED &&
+             !item->IsUserConfirmed() &&
+             download_prefs_->download_restriction() != policy::DownloadRestriction::MALICIOUS_FILES) {
+    // Don't complete the download of a non-dangerous file until the user
+    // consents.
+    if (DownloadController::GetInstance()->ShowDangerousDownloadDialog(item)) {
+      DownloadItemModel model{item};
+      MaybeRecordDangerousDownloadWarningShown(model);
+    }
+    return false;
+#endif  // BUILDFLAG(IS_ANDROID)
   } else if (!state->is_complete() &&
              item->GetDangerType() !=
                  download::DOWNLOAD_DANGER_TYPE_USER_VALIDATED) {
@@ -986,7 +1022,6 @@ bool ChromeDownloadManagerDelegate::IsDownloadReadyForCompletion(
     state->set_callback(std::move(internal_complete_callback));
     return false;
   }
-
 #endif  // BUILDFLAG(SAFE_BROWSING_DOWNLOAD_PROTECTION)
   return true;
 }
@@ -1429,6 +1464,7 @@ void ChromeDownloadManagerDelegate::ReserveVirtualPath(
     const base::FilePath& virtual_path,
     bool create_directory,
     DownloadPathReservationTracker::FilenameConflictAction conflict_action,
+    const base::FilePath& containment_directory,
     DownloadTargetDeterminerDelegate::ReservedPathCallback callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   DCHECK(!virtual_path.empty());
@@ -1437,7 +1473,8 @@ void ChromeDownloadManagerDelegate::ReserveVirtualPath(
   base::PathService::Get(chrome::DIR_USER_DOCUMENTS, &document_dir);
   DownloadPathReservationTracker::GetReservedPath(
       download, virtual_path, download_prefs_->DownloadPath(), document_dir,
-      create_directory, conflict_action, std::move(callback));
+      create_directory, conflict_action, std::move(callback),
+      containment_directory);
 }
 
 #if BUILDFLAG(IS_ANDROID)
@@ -1777,7 +1814,7 @@ void ChromeDownloadManagerDelegate::CheckClientDownloadDone(
         // DANGEROUS_FILE and produce a generic warning.
         if (base::FeatureList::IsEnabled(
                 safe_browsing::kMaliciousApkDownloadCheck) &&
-            item->GetFileNameToReportUser().MatchesExtension(kApkSuffix)) {
+            IsApkFile(item)) {
           danger_type = download::DOWNLOAD_DANGER_TYPE_DANGEROUS_FILE;
           break;
         }

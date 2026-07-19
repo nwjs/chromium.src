@@ -5,8 +5,10 @@
 #ifndef EXTENSIONS_BROWSER_HOST_ACCESS_REQUEST_HELPER_H_
 #define EXTENSIONS_BROWSER_HOST_ACCESS_REQUEST_HELPER_H_
 
+#include "base/auto_reset.h"
 #include "base/memory/raw_ptr.h"
 #include "base/scoped_observation.h"
+#include "base/time/time.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "extensions/browser/extension_registry_observer.h"
 #include "extensions/common/extension.h"
@@ -39,22 +41,42 @@ class HostAccessRequestsHelper : public ExtensionRegistryObserver,
       delete;
   ~HostAccessRequestsHelper() override;
 
+  // Sets the cooldown duration for site access requests.
+  [[nodiscard]]
+  static base::AutoReset<base::TimeDelta> SetCooldownForTesting(
+      base::TimeDelta cooldown);
+
+  // The result of adding a host access request.
+  enum class AddRequestResult {
+    kSuccess,
+    kDuplicate,
+    kThrottled,
+  };
+
   // Adds `extension` to the set of extensions with site access requests.
   // Request will be matched to `filter`, if existent. Extension must not have
-  // granted access to the current site.
-  void AddRequest(const Extension& extension,
-                  const std::optional<URLPattern>& filter);
+  // granted access to the current site. Returns the result of the addition.
+  AddRequestResult AddRequest(const Extension& extension,
+                              const std::optional<URLPattern>& filter);
 
   // Updates the site access request entry for `extension`. Request will be
-  // matched to `filter, if existent.
-  void UpdateRequest(const Extension& extension,
-                     const std::optional<URLPattern>& filter);
+  // matched to `filter`, if existent. Returns the result of the update.
+  AddRequestResult UpdateRequest(const Extension& extension,
+                                 const std::optional<URLPattern>& filter);
+
+  // The result of removing a host access request.
+  enum class RemoveRequestResult {
+    kSuccess,
+    kNotFound,
+    kThrottled,
+  };
 
   // Removes `extension_id` from the set of extensions with site access
-  // requests. Request will be matches to `filter`, if existent. Returns whether
-  // request was removed.
-  bool RemoveRequest(const ExtensionId& extension_id,
-                     const std::optional<URLPattern>& filter);
+  // requests. Request will be matches to `filter`, if existent. Returns the
+  // result of the removal.
+  RemoveRequestResult RemoveRequest(const ExtensionId& extension_id,
+                                    const std::optional<URLPattern>& filter,
+                                    bool bypass_cooldown = false);
 
   // Removes `extension` from the set of extensions with site access requests
   // iff extension has granted access to the current site. Returns whether
@@ -89,6 +111,13 @@ class HostAccessRequestsHelper : public ExtensionRegistryObserver,
       content::NavigationHandle* navigation_handle) override;
   void WebContentsDestroyed() override;
 
+  // Returns whether the request action for `extension_id` is throttled due to
+  // cooldown.
+  bool IsThrottled(const ExtensionId& extension_id) const;
+
+  // Records the current time as the last request time for `extension_id`.
+  void RecordRequest(const ExtensionId& extension_id);
+
   // PermissionsManager owns this object, thus `permissions_manager_` will
   // always be valid.
   raw_ptr<PermissionsManager> permissions_manager_;
@@ -103,9 +132,14 @@ class HostAccessRequestsHelper : public ExtensionRegistryObserver,
   // dismissed by the user.
   std::set<ExtensionId> extensions_with_requests_dismissed_;
 
+  // The last time an extension added or removed a request on this tab.
+  std::map<ExtensionId, base::TimeTicks> last_request_times_;
+
   base::ScopedObservation<extensions::ExtensionRegistry,
                           extensions::ExtensionRegistryObserver>
       extension_registry_observation_{this};
+
+  static base::TimeDelta cooldown_duration_;
 };
 
 }  // namespace extensions

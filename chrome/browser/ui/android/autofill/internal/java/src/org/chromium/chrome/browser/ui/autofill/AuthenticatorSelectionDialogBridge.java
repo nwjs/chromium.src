@@ -12,6 +12,7 @@ import org.jni_zero.NativeMethods;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.ui.autofill.data.AuthenticatorOption;
 import org.chromium.chrome.browser.ui.autofill.internal.R;
 import org.chromium.ui.base.WindowAndroid;
@@ -25,8 +26,8 @@ import java.util.List;
 @JNINamespace("autofill")
 @NullMarked
 public class AuthenticatorSelectionDialogBridge implements AuthenticatorSelectionDialog.Listener {
-    private final AuthenticatorSelectionDialog mAuthenticatorSelectionDialog;
     private long mNativeCardUnmaskAuthenticationSelectionDialogView;
+    private final AuthenticatorSelectionDialog mAuthenticatorSelectionDialog;
 
     public AuthenticatorSelectionDialogBridge(
             long nativeAuthenticatorSelectionDialogView,
@@ -120,9 +121,6 @@ public class AuthenticatorSelectionDialogBridge implements AuthenticatorSelectio
     @CalledByNative
     public void dismiss() {
         mAuthenticatorSelectionDialog.dismiss(DialogDismissalCause.DISMISSED_BY_NATIVE);
-        // The native C++ view is destroyed after the dialog is dismissed, reset the native pointer
-        // to make it unreachable.
-        mNativeCardUnmaskAuthenticationSelectionDialogView = 0;
     }
 
     /**
@@ -132,9 +130,7 @@ public class AuthenticatorSelectionDialogBridge implements AuthenticatorSelectio
      */
     @Override
     public void onOptionSelected(String authenticatorOptionIdentifier) {
-        if (mNativeCardUnmaskAuthenticationSelectionDialogView == 0) {
-            return;
-        }
+        if (mNativeCardUnmaskAuthenticationSelectionDialogView == 0) return;
         AuthenticatorSelectionDialogBridgeJni.get()
                 .onOptionSelected(
                         mNativeCardUnmaskAuthenticationSelectionDialogView,
@@ -144,14 +140,13 @@ public class AuthenticatorSelectionDialogBridge implements AuthenticatorSelectio
     /** Notify that the dialog was dismissed. */
     @Override
     public void onDialogDismissed() {
-        if (mNativeCardUnmaskAuthenticationSelectionDialogView == 0) {
-            return;
-        }
+        if (mNativeCardUnmaskAuthenticationSelectionDialogView == 0) return;
         AuthenticatorSelectionDialogBridgeJni.get()
                 .onDismissed(mNativeCardUnmaskAuthenticationSelectionDialogView);
-        // The native C++ view is destroyed after the dialog is dismissed, reset the native pointer
-        // to make it unreachable.
-        mNativeCardUnmaskAuthenticationSelectionDialogView = 0;
+        if (ChromeFeatureList.isEnabled(
+                ChromeFeatureList.RESET_NATIVE_POINTER_IN_CREDIT_CARD_AUTH_DIALOG)) {
+            mNativeCardUnmaskAuthenticationSelectionDialogView = 0;
+        }
     }
 
     @NativeMethods

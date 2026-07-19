@@ -1,9 +1,6 @@
-import six
-from six.moves import range
-
-from mod_pywebsocket import common
-from mod_pywebsocket import msgutil
-from mod_pywebsocket import util
+from pywebsocket3 import common
+from pywebsocket3 import msgutil
+from pywebsocket3 import util
 
 
 def web_socket_do_extra_handshake(request):
@@ -15,7 +12,7 @@ def web_socket_transfer_data(request):
 
     for test_number, expected_message in enumerate(expected_messages):
         message = msgutil.receive_message(request)
-        if isinstance(message, six.binary_type) and message == expected_message:
+        if isinstance(message, bytes) and message == expected_message:
             msgutil.send_message(request, 'PASS: Message #%d.' % test_number)
         else:
             msgutil.send_message(

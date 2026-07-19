@@ -5,9 +5,11 @@
 #ifndef CHROME_BROWSER_ASH_POLICY_SERVER_BACKED_STATE_SERVER_BACKED_DEVICE_STATE_H_
 #define CHROME_BROWSER_ASH_POLICY_SERVER_BACKED_STATE_SERVER_BACKED_DEVICE_STATE_H_
 
+class PrefService;
+
 namespace policy {
 
-// Dictionary key constants for prefs::kServerBackedDeviceState.
+// Dictionary key constants for ash::prefs::kServerBackedDeviceState.
 extern const char kDeviceStateManagementDomain[];
 extern const char kDeviceStateMode[];
 extern const char kDeviceStateDisabledMessage[];
@@ -65,7 +67,7 @@ enum DeviceStateMode {
 
 // Parses the contents of the kDeviceStateMode dictionary entry and
 // returns it as a DeviceStateMode.
-DeviceStateMode GetDeviceStateMode();
+DeviceStateMode GetDeviceStateMode(const PrefService& local_state);
 
 }  // namespace policy
 

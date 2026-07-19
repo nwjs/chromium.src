@@ -17,6 +17,7 @@ import org.chromium.base.Token;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.cc.input.OffsetTag;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.compositor.LayerTitleCache;
 import org.chromium.chrome.browser.compositor.layouts.components.CompositorButton;
 import org.chromium.chrome.browser.compositor.layouts.components.TintedCompositorButton;
@@ -170,6 +171,13 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
             float topPaddingPx) {
         final int width = Math.round(layoutHelper.getWidth() * mDpToPx);
         final int height = Math.round(layoutHelper.getHeight() * mDpToPx);
+        boolean shouldShowDivider = trailingButtonsCoordinator.shouldShowDivider();
+        int dividerResId = R.drawable.bg_tabstrip_tab_divider;
+        int dividerTint =
+                TabUiThemeUtil.getDividerTint(
+                        layoutHelper.getContext(), layoutHelper.isIncognito());
+        float dividerY =
+                (StripLayoutTab.getTopMargin() + StripLayoutTab.getContentOffsetY()) * mDpToPx;
         TabStripSceneLayerJni.get()
                 .updateTabStripLayer(
                         mNativePtr,
@@ -181,7 +189,11 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
                         scrimOpacity,
                         leftPaddingPx,
                         rightPaddingPx,
-                        topPaddingPx);
+                        topPaddingPx,
+                        dividerY,
+                        shouldShowDivider,
+                        dividerResId,
+                        dividerTint);
 
         TintedCompositorButton newTabButton = layoutHelper.getNewTabButton();
         boolean newTabButtonVisible = newTabButton.isVisible();
@@ -205,6 +217,7 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
         TintedCompositorTextButton glicButton = trailingButtonsCoordinator.getGlicButton();
         TintedCompositorTextButton glicActorButton =
                 trailingButtonsCoordinator.getGlicActorButton();
+        boolean glicActorVisible = glicActorButton != null && glicActorButton.isVisible();
         if (glicButton != null && glicButton.getDismissButton() != null) {
             TintedCompositorButton dismissNudge = glicButton.getDismissButton();
             boolean glicButtonVisible = glicButton.isVisible();
@@ -220,7 +233,7 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
             float glicCornerRadiusOuter =
                     StripLayoutTrailingButtonsCoordinator.GLIC_BUTTON_CORNER_RADIUS_DP;
             float glicCornerRadiusInner = glicCornerRadiusOuter;
-            if (glicActorButton != null && glicActorButton.isVisible()) {
+            if (glicActorVisible) {
                 glicCornerRadiusInner =
                         StripLayoutTrailingButtonsCoordinator.GLIC_BUTTON_INNER_CORNER_RADIUS_DP;
             }
@@ -236,12 +249,13 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
                             glicButtonVisible,
                             glicButton.getShouldApplyHoverBackground(),
                             glicButton.getTint(),
-                            /* shouldTint= */ false,
+                            /* shouldTint= */ layoutHelper.isIncognito(),
                             glicButton.getBackgroundTint(),
                             glicButton.getOpacity(),
                             glicButton.isKeyboardFocused(),
-                            TabUiThemeUtil.getCircularButtonKeyboardFocusDrawableRes(),
+                            TabUiThemeUtil.getGlicButtonKeyboardFocusDrawableRes(glicActorVisible),
                             glicButton.getKeyboardFocusRingColor(),
+                            TabUiThemeUtil.getFocusRingOffset(layoutHelper.getContext()),
                             glicButton.getTextResourceId(),
                             glicButtonStartPadding,
                             glicIconTextPadding,
@@ -258,7 +272,7 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
         }
 
         if (glicActorButton != null) {
-            boolean glicActorButtonVisible = glicActorButton.isVisible();
+            boolean glicActorButtonVisible = glicActorVisible;
             int glicActorButtonStartPadding =
                     Math.round(
                             StripLayoutTrailingButtonsCoordinator.GLIC_BUTTON_START_PADDING_DP
@@ -288,8 +302,10 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
                             glicActorButton.getBackgroundTint(),
                             glicActorButton.getOpacity(),
                             glicActorButton.isKeyboardFocused(),
-                            TabUiThemeUtil.getCircularButtonKeyboardFocusDrawableRes(),
+                            TabUiThemeUtil.getGlicButtonKeyboardFocusDrawableRes(
+                                    /* isSplit= */ true),
                             glicActorButton.getKeyboardFocusRingColor(),
+                            TabUiThemeUtil.getFocusRingOffset(layoutHelper.getContext()),
                             glicActorButton.getTextResourceId(),
                             glicActorButtonStartPadding,
                             glicActorIconTextPadding,
@@ -316,6 +332,28 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
                             modelSelectorButton.isKeyboardFocused(),
                             TabUiThemeUtil.getCircularButtonKeyboardFocusDrawableRes(),
                             modelSelectorButton.getKeyboardFocusRingColor());
+        }
+
+        TintedCompositorButton tabSearchButton =
+                (TintedCompositorButton)
+                        layoutHelper.getActiveStripLayoutHelper().getTabSearchButton();
+        if (tabSearchButton != null) {
+            boolean tabSearchButtonVisible = tabSearchButton.isVisible();
+            TabStripSceneLayerJni.get()
+                    .updateTabSearchButton(
+                            mNativePtr,
+                            tabSearchButton.getResourceId(),
+                            tabSearchButton.getBackgroundResourceId(),
+                            Math.round(tabSearchButton.getDrawX() * mDpToPx),
+                            Math.round(tabSearchButton.getDrawY() * mDpToPx),
+                            tabSearchButtonVisible,
+                            tabSearchButton.getShouldApplyHoverBackground(),
+                            tabSearchButton.getTint(),
+                            tabSearchButton.getBackgroundTint(),
+                            tabSearchButton.getOpacity(),
+                            tabSearchButton.isKeyboardFocused(),
+                            TabUiThemeUtil.getCircularButtonKeyboardFocusDrawableRes(),
+                            tabSearchButton.getKeyboardFocusRingColor());
         }
 
         TabStripSceneLayerJni.get()
@@ -410,10 +448,10 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
                             Math.round(st.getDrawY() * mDpToPx),
                             Math.round(st.getWidth() * mDpToPx),
                             Math.round(st.getHeight() * mDpToPx),
-                            Math.round(st.getContentOffsetY() * mDpToPx),
+                            Math.round(StripLayoutTab.getContentOffsetY() * mDpToPx),
                             Math.round(st.getDividerOffsetX() * mDpToPx),
                             Math.round(st.getBottomMargin() * mDpToPx),
-                            Math.round(st.getTopMargin() * mDpToPx),
+                            Math.round(StripLayoutTab.getTopMargin() * mDpToPx),
                             Math.round(st.getCloseButtonPadding() * mDpToPx),
                             closeButton.getOpacity(),
                             Math.round(widthToHideTabTitle * mDpToPx),
@@ -430,7 +468,8 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
                             Math.round(FOLIO_FOOT_LENGTH_DP * mDpToPx),
                             isPinned,
                             Math.round(st.getPinnedTabFaviconOffsetX() * mDpToPx),
-                            st.isUnderlined(),
+                            st.getUnderlineOpacity(),
+                            st.getUnderlineShimmerOffset(),
                             underlineStartColor,
                             underlineEndColor,
                             Math.round(StripLayoutTab.FAVICON_WIDTH * 2 * mDpToPx));
@@ -515,7 +554,11 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
                 float scrimOpacity,
                 float leftPaddingPx,
                 float rightPaddingPx,
-                float topPaddingPx);
+                float topPaddingPx,
+                float dividerY,
+                boolean shouldShowDivider,
+                int dividerResourceId,
+                int dividerTint);
 
         void updateNewTabButton(
                 long nativeTabStripSceneLayer,
@@ -549,6 +592,7 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
                 boolean isKeyboardFocused,
                 @DrawableRes int keyboardFocusRingResourceId,
                 @ColorInt int keyboardFocusRingColor,
+                float keyboardFocusRingOffset,
                 int textTextureId,
                 float buttonStartPadding,
                 float buttonTextPadding,
@@ -579,6 +623,7 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
                 boolean isKeyboardFocused,
                 @DrawableRes int keyboardFocusRingResourceId,
                 @ColorInt int keyboardFocusRingColor,
+                float keyboardFocusRingOffset,
                 int textTextureId,
                 float buttonStartPadding,
                 float buttonTextPadding,
@@ -586,6 +631,21 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
                 float cornerRadiusInner);
 
         void updateModelSelectorButton(
+                long nativeTabStripSceneLayer,
+                @DrawableRes int resourceId,
+                @DrawableRes int backgroundResourceId,
+                float x,
+                float y,
+                boolean visible,
+                boolean isHovered,
+                @ColorInt int tint,
+                @ColorInt int backgroundTint,
+                float buttonAlpha,
+                boolean isKeyboardFocused,
+                @DrawableRes int keyboardFocusRingResourceId,
+                @ColorInt int keyboardFocusRingColor);
+
+        void updateTabSearchButton(
                 long nativeTabStripSceneLayer,
                 @DrawableRes int resourceId,
                 @DrawableRes int backgroundResourceId,
@@ -663,7 +723,8 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
                 float folioFootLength,
                 boolean isPinned,
                 float pinnedIconOffsetX,
-                boolean isUnderlined,
+                float underlineOpacity,
+                float underlineShimmerOffset,
                 @ColorInt int underlineStartColor,
                 @ColorInt int underlineEndColor,
                 int underlineWidthThreshold);

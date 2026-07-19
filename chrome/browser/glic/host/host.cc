@@ -13,7 +13,6 @@
 #include "base/no_destructor.h"
 #include "base/notimplemented.h"
 #include "base/trace_event/trace_event.h"
-#include "chrome/browser/glic/fre/glic_fre_controller.h"
 #include "chrome/browser/glic/glic_profile_manager.h"
 #include "chrome/browser/glic/host/context/glic_pin_candidate_provider.h"
 #include "chrome/browser/glic/host/context/glic_screenshot_capturer.h"
@@ -45,6 +44,16 @@
 
 namespace glic {
 BASE_FEATURE(kGlicReloadUsesFreshWebContents, base::FEATURE_ENABLED_BY_DEFAULT);
+
+void Host::EmbedderDelegate::Resize(const gfx::Size& size,
+                                    base::TimeDelta duration,
+                                    base::OnceClosure callback) {
+  std::move(callback).Run();
+}
+
+void Host::EmbedderDelegate::EnableDragResize(bool enabled) {}
+
+void Host::EmbedderDelegate::SetMinimumWidgetSize(const gfx::Size& size) {}
 
 bool EmptyEmbedderDelegate::IsShowing() const {
   return true;
@@ -125,12 +134,6 @@ void Host::NotifyActorTaskListRowClicked(int32_t task_id) {
   }
 }
 
-void Host::NotifyIsInvoking(bool is_invoking) {
-  if (auto* client = GetPrimaryWebClient()) {
-    client->NotifyIsInvoking(is_invoking);
-  }
-}
-
 void Host::NotifyContextualSkillsChanged(
     std::vector<mojom::SkillPreviewPtr> contextual_skill_previews) {
   if (auto* client = GetPrimaryWebClient()) {
@@ -208,7 +211,6 @@ void Host::CreateContents() {
   TRACE_EVENT("glic", "Host::CreateContents");
   VLOG(1) << "Glic [Host] CreateContents";
 
-  glic_service().fre_controller().RecordFrameworkStartTime();
   contents_ = instance_delegate_->CreateWebUIContentsContainer();
   contents_->AttachToHost(this);
 }
@@ -328,8 +330,8 @@ GlicKeyedService& Host::glic_service() {
   return *GlicKeyedService::Get(profile_);
 }
 
-GlicSharingManager& Host::sharing_manager() {
-  return sharing_manager_provider_->sharing_manager();
+GlicSharingManagerInternal& Host::GetSharingManagerInternal() {
+  return sharing_manager_provider_->GetSharingManagerInternal();
 }
 
 GlicPinCandidateProvider& Host::pin_candidate_provider() {
@@ -614,6 +616,18 @@ void Host::NotifyInstanceActivationChanged(bool is_active) {
   }
 }
 
+void Host::OnActuatingChanged(bool actuating) {
+  if (contents_) {
+    contents_->OnActuatingChanged(actuating);
+  }
+}
+
+void Host::OnTaskTabsVisibilityChanged(bool has_visible_tab) {
+  if (contents_) {
+    contents_->OnTaskTabsVisibilityChanged(has_visible_tab);
+  }
+}
+
 void Host::NotifyAdditionalContext(mojom::AdditionalContextPtr context) {
   if (auto* client = GetPrimaryWebClient()) {
     client->NotifyAdditionalContext(std::move(context));
@@ -685,7 +699,7 @@ bool Host::IsWidgetShowing(GlicWebClientAccess* client) const {
   return delegate_->IsShowing();
 }
 
-mojom::PanelState Host::GetPanelState(GlicWebClientAccess* client) const {
+mojom::PanelState Host::GetPanelState() const {
   return glic_instance_ ? glic_instance_->GetPanelState() : mojom::PanelState();
 }
 

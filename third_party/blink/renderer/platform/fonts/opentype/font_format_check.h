@@ -8,7 +8,6 @@
 #include "third_party/blink/renderer/platform/fonts/opentype/format_check.rs.h"
 #include "third_party/blink/renderer/platform/platform_export.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
-#include "third_party/blink/renderer/platform/wtf/vector.h"
 #include "third_party/skia/include/core/SkData.h"
 #include "third_party/skia/include/core/SkRefCnt.h"
 #include "third_party/skia/include/core/SkTypeface.h"
@@ -23,6 +22,7 @@ class PLATFORM_EXPORT FontFormatCheck {
   virtual ~FontFormatCheck() = default;
   virtual bool IsVariableFont() const;
   virtual bool IsCbdtCblcColorFont() const;
+  virtual bool IsEbdtEblcMonochromeFont() const;
   virtual bool IsColrCpalColorFont() const {
     return IsColrCpalColorFontV0() || IsColrCpalColorFontV1();
   }
@@ -42,9 +42,6 @@ class PLATFORM_EXPORT FontFormatCheck {
   };
 
   static VariableFontSubType ProbeVariableFont(sk_sp<SkTypeface>);
-
-  // hb-common.h: typedef uint32_t hb_tag_t;
-  using TableTagsVector = Vector<uint32_t>;
 
   enum class COLRVersion { kCOLRV0, kCOLRV1, kNoCOLR };
 

@@ -16,6 +16,8 @@
 
 namespace media {
 
+using Error = AudioInputStream::AudioInputCallback::Error;
+
 class AAudioInputDiscontinuityReporter {
  public:
   explicit AAudioInputDiscontinuityReporter(const AudioParameters& params)
@@ -34,9 +36,14 @@ class AAudioInputDiscontinuityReporter {
     }
 
     const base::TimeDelta delta = capture_time - *last_capture_time_;
+    const base::TimeDelta discontinuity_size =
+        (delta - buffer_duration_).magnitude();
 
-    if ((delta - buffer_duration_).magnitude() > discontinuity_threshold_) {
+    if (discontinuity_size > discontinuity_threshold_) {
       discontinuity_count_++;
+      base::UmaHistogramTimes(
+          "Media.Audio.Android.AAudio.InputTimestampDiscontinuitySize",
+          discontinuity_size);
     }
 
     last_capture_time_ = capture_time;
@@ -117,7 +124,7 @@ void AAudioInputStream::Start(AudioInputCallback* callback) {
 
     if (error_during_device_change_) {
       // Report the error that came up in HandleDeviceChange().
-      callback->OnError();
+      callback->OnError(Error::kRuntimeError);
       return;
     }
 
@@ -135,7 +142,7 @@ void AAudioInputStream::Start(AudioInputCallback* callback) {
   audio_manager_->ReleaseScoState(this);
   {
     base::AutoLock al(lock_);
-    callback_->OnError();
+    callback_->OnError(Error::kStartupFailed);
     callback_ = nullptr;
   }
 }
@@ -152,7 +159,7 @@ void AAudioInputStream::Stop() {
       return;
     }
 
-    // Save a copy of copy of the callback for error reporting.
+    // Save a copy of the callback for error reporting.
     temp_error_callback = callback_;
 
     // OnAudioDataRequested() should no longer provide data from this point on.
@@ -163,7 +170,7 @@ void AAudioInputStream::Stop() {
   audio_manager_->ReleaseScoState(this);
 
   if (!stream_wrapper_->Stop()) {
-    temp_error_callback->OnError();
+    temp_error_callback->OnError(Error::kRuntimeError);
   }
 }
 
@@ -253,7 +260,7 @@ void AAudioInputStream::DeliverAudio(const AudioBus& audio_bus,
 void AAudioInputStream::OnError() {
   base::AutoLock al(lock_);
   if (callback_) {
-    callback_->OnError();
+    callback_->OnError(Error::kRuntimeError);
   }
 }
 
@@ -278,7 +285,7 @@ void AAudioInputStream::HandleDeviceChange() {
     base::AutoLock al(lock_);
     if (!open_success) {
       if (callback_) {
-        callback_->OnError();
+        callback_->OnError(Error::kRuntimeError);
       } else {
         // Report this error at the next start() call.
         error_during_device_change_ = true;
@@ -301,7 +308,7 @@ void AAudioInputStream::HandleDeviceChange() {
     audio_manager_->ReleaseScoState(this);
     base::AutoLock al(lock_);
     if (callback_) {
-      callback_->OnError();
+      callback_->OnError(Error::kRuntimeError);
     }
   }
 }

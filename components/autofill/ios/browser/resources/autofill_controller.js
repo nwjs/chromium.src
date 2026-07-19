@@ -83,13 +83,6 @@ function isAutofillUndoEnabled() {
 }
 
 /**
- * Returns true if autofill optimization form search is enabled.
- */
-function isAutofillOptimizationFormSearchEnabled() {
-  return window.gCrWebPlaceholderAutofillOptimizationFormSearch;
-}
-
-/**
  * Determines whether the form is interesting enough to send to the browser for
  * further operations.
  *
@@ -144,8 +137,19 @@ function countEditableElements_(elements) {
  *     empty if no match.
  */
 function getUnownedIframes() {
-  return Array.from(getIframeElements(document))
-      .filter(e => !e.closest('form'));
+  if (fillUtil.isAutofillOptimizationFormSearchEnabled()) {
+    const iframes = getIframeElements(document);
+    const result = [];
+    for (const iframe of iframes) {
+      if (!iframe.closest('form')) {
+        result.push(iframe);
+      }
+    }
+    return result;
+  } else {
+    return Array.from(getIframeElements(document))
+        .filter(e => !e.closest('form'));
+  }
 }
 
 /**
@@ -158,11 +162,8 @@ function getUnownedIframes() {
  */
 function extractUnownedFields(restrictUnownedFieldsToFormlessCheckout) {
   const fieldsets = [];
-  const elements = isAutofillOptimizationFormSearchEnabled() ?
-      document.querySelectorAll('input, select, textarea, fieldset') :
-      document.all;
   const unownedControlElements =
-      fillUtil.getUnownedAutofillableFormFieldElements(elements, fieldsets);
+      fillUtil.getUnownedAutofillableFormFieldElements(fieldsets);
   const numEditableUnownedElements =
       countEditableElements_(unownedControlElements);
   const iframeElements =
@@ -250,11 +251,9 @@ function controlElementInputListener_(evt) {
  * |forceFillFieldID| will always be filled even if non-empty.
  *
  * @param {!FormData} data Autofill data to fill in.
- * @param {number} forceFillFieldID Identified field will always be
- *     filled even if non-empty. May be RENDERER_ID_NOT_SET.
  * @return {string} JSON encoded list of renderer IDs of filled elements.
  */
-function fillForm(data, forceFillFieldID) {
+function fillForm(data) {
   // Inject CSS to style the autofilled elements with a yellow background.
   if (!styleInjected) {
     const style = document.createElement('style');
@@ -289,7 +288,7 @@ function fillForm(data, forceFillFieldID) {
     //    always autofilled; see AutofillManager::FillOrPreviewDataModelForm().
     // c) The "value" or "placeholder" attributes match the value, if any; or
     // d) The value has not been set by the user.
-    const shouldBeForceFilled = fieldId === forceFillFieldID.toString();
+    const shouldBeForceFilled = element === document.activeElement;
     if (element.value && fieldWasEditedByUser(element) &&
         !sanitizedFieldIsEmpty(element.value) && !shouldBeForceFilled &&
         !inferenceUtil.isSelectElement(element) &&
@@ -395,9 +394,7 @@ function clearAutofilledFields(formUniqueID, fieldUniqueID) {
 
   const controlElements = form ?
       getFormControlElements(form) :
-      fillUtil.getUnownedAutofillableFormFieldElements(
-          document.all,
-          /*fieldsets=*/[]);
+      fillUtil.getUnownedAutofillableFormFieldElements(/*fieldsets=*/[]);
 
   let formField = null;
   for (let i = 0; i < controlElements.length; ++i) {

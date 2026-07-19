@@ -107,6 +107,12 @@ class BookmarkBarController : public TabStripModelObserver,
   // Checks whether bookmark bar should be shown for the current browser.
   bool ShouldShowBookmarkBar() const;
 
+  // Handles changes to `kBookmarkBarVisibilityState` when the NTP
+  // Simplification experiment is active.
+  void OnBookmarkBarVisibilityStateChanged();
+
+  void MaybeUpdateAutoRemovalPrefs();
+
   const raw_ref<BrowserWindowInterface> browser_;
   const raw_ref<TabStripModel> tab_strip_model_;
 

@@ -8,6 +8,7 @@
 #import <optional>
 
 #import "base/memory/raw_ptr.h"
+#import "base/observer_list.h"
 #import "base/scoped_observation.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service.h"
@@ -16,7 +17,7 @@ class AuthenticationService;
 struct CoreAccountInfo;
 namespace gemini {
 struct IneligibilityReasons;
-enum class FREState;
+enum class FirstRunState;
 }  // namespace gemini
 namespace signin {
 class IdentityManager;
@@ -38,6 +39,8 @@ class GeminiServiceImpl : public GeminiService,
   void Shutdown() override;
 
   // GeminiService:
+  void AddObserver(GeminiService::Observer* observer) override;
+  void RemoveObserver(GeminiService::Observer* observer) override;
   bool IsProfileEligibleForGemini() override;
   std::optional<gemini::IneligibilityReasons> GeminiIneligibilityForProfile()
       override;
@@ -76,8 +79,8 @@ class GeminiServiceImpl : public GeminiService,
   // Enterprise).
   std::optional<bool> is_disabled_by_gemini_policy_;
 
-  // The last FRE state for Gemini to have been logged this session.
-  std::optional<gemini::FREState> last_logged_fre_state_;
+  // The last First Run state for Gemini to have been logged this session.
+  std::optional<gemini::FirstRunState> last_logged_first_run_state_;
 
   // Checks if the account is eligible for Gemini Enterprise and populates
   // `is_disabled_by_gemini_policy_`.
@@ -86,14 +89,20 @@ class GeminiServiceImpl : public GeminiService,
   // Clears the Gemini consent profile pref.
   void ClearConsentPref();
 
-  // Logs the current FRE state whenever deemed necessary.
-  void LogFREState();
+  // Logs the current First Run state whenever deemed necessary.
+  void LogFirstRunState();
 
   // Invoked when the eligibility check is done.
   void OnGeminiEligibilityResult(bool eligible);
 
   // Returns the extended AccountInfo for the primary account.
   AccountInfo PrimaryAccountInfo() const;
+
+  // List of observers.
+  base::ObserverList<GeminiService::Observer> observers_;
+
+  // Sets whether the user is disabled by Gemini policy and notifies observers.
+  void SetIsDisabledByGeminiPolicy(std::optional<bool> disabled);
 
   base::ScopedObservation<signin::IdentityManager,
                           signin::IdentityManager::Observer>

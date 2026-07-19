@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <memory>
+
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/qualified_name.h"
 #include "third_party/blink/renderer/core/editing/commands/format_block_command.h"
@@ -15,8 +17,7 @@
 #include "third_party/blink/renderer/core/html/html_head_element.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
-
-#include <memory>
+#include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 
 namespace blink {
 
@@ -39,7 +40,7 @@ TEST_F(ApplyBlockElementCommandTest, selectionCrossingOverBody) {
   GetDocument().setDesignMode("on");
   GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
   Selection().SetSelection(
-      SelectionInDOMTree::Builder()
+      SelectionInDomTree::Builder()
           .SetBaseAndExtent(Position(GetDocument().documentElement(), 1),
                             Position(GetDocument()
                                          .getElementById(AtomicString("va"))
@@ -70,7 +71,7 @@ TEST_F(ApplyBlockElementCommandTest, visibilityChangeDuringCommand) {
   GetDocument().setDesignMode("on");
 
   UpdateAllLifecyclePhasesForTest();
-  Selection().SetSelection(SelectionInDOMTree::Builder()
+  Selection().SetSelection(SelectionInDomTree::Builder()
                                .Collapse(Position(QuerySelector("li"), 0))
                                .Build(),
                            SetSelectionOptions());
@@ -94,7 +95,7 @@ TEST_F(ApplyBlockElementCommandTest, IndentHeadingIntoBlockquote) {
       "</div>");
   Element* button = QuerySelector("button");
   Element* object = QuerySelector("object");
-  Selection().SetSelection(SelectionInDOMTree::Builder()
+  Selection().SetSelection(SelectionInDomTree::Builder()
                                .Collapse(Position(button, 0))
                                .Extend(Position(object, 0))
                                .Build(),
@@ -110,9 +111,9 @@ TEST_F(ApplyBlockElementCommandTest, IndentHeadingIntoBlockquote) {
       "<blockquote style=\"margin: 0 0 0 40px; border: none; padding: 0px;\">"
       "<h6><button></button></h6>"
       "<h6><button><table></table></button></h6>"
+      "<object></object>"
       "</blockquote>"
       "<br>"
-      "<object></object>"
       "</div>",
       GetDocument().body()->GetInnerHTMLString());
 }
@@ -129,8 +130,9 @@ TEST_F(ApplyBlockElementCommandTest, InsertPlaceHolderAtDisconnectedPosition) {
                                                            html_names::kPreTag);
   // Crash happens here.
   EXPECT_TRUE(command->Apply());
+  // Selection collapses because input is disconnected during formatting.
   EXPECT_EQ(
-      "<pre>^<input>|</pre><input class=\"input\" style=\"position:absolute\">",
+      "<pre><input>|</pre><input class=\"input\" style=\"position:absolute\">",
       GetSelectionTextFromBody());
 }
 
@@ -164,9 +166,10 @@ TEST_F(ApplyBlockElementCommandTest,
   auto* command = MakeGarbageCollected<FormatBlockCommand>(GetDocument(),
                                                            html_names::kPreTag);
   EXPECT_TRUE(command->Apply());
+  // Selection ends after kbd because user-modify boundary stops formatting.
   EXPECT_EQ(
-      "<pre><table>|</table></pre>"
-      "<kbd style=\"-webkit-user-modify:read-only\"><button></button></kbd>",
+      "<pre><table></table></pre>"
+      "<kbd style=\"-webkit-user-modify:read-only\"><button></button></kbd>|",
       GetSelectionTextFromBody());
 }
 
@@ -181,13 +184,14 @@ TEST_F(ApplyBlockElementCommandTest, FormatBlockWithDirectChildrenOfRoot) {
   UpdateAllLifecyclePhasesForTest();
 
   Selection().SetSelection(
-      SelectionInDOMTree::Builder().SelectAllChildren(*root).Build(),
+      SelectionInDomTree::Builder().SelectAllChildren(*root).Build(),
       SetSelectionOptions());
   auto* command = MakeGarbageCollected<FormatBlockCommand>(GetDocument(),
                                                            html_names::kPreTag);
   // Shouldn't crash here.
   EXPECT_FALSE(command->Apply());
-  const SelectionInDOMTree& selection = Selection().GetSelectionInDOMTree();
+  // Selection extends to end of root because SelectAllChildren includes 'c'.
+  const SelectionInDomTree& selection = Selection().GetSelectionInDomTree();
   EXPECT_EQ("^a<div>b</div>c|",
             SelectionSample::GetSelectionText(*root, selection));
 }
@@ -366,6 +370,84 @@ TEST_F(ApplyBlockElementCommandTest, SplitTextNodeWithJustNewline) {
   ASSERT_TRUE(format_block->Apply());
   EXPECT_EQ("<pre contenteditable><b><div>|X</div>\n</b></pre>",
             GetSelectionTextFromBody());
+}
+
+TEST_F(ApplyBlockElementCommandTest, IndentHeadingIntoBlockquoteDomApi) {
+  ScopedEditingUseDomPositionApiForTest scoped_dom_position(true);
+
+  SetBodyContent(
+      "<div contenteditable=\"true\">"
+      "<h6><button><table></table></button></h6>"
+      "<object></object>"
+      "</div>");
+  Element* button = QuerySelector("button");
+  Element* object = QuerySelector("object");
+  Selection().SetSelection(SelectionInDomTree::Builder()
+                               .Collapse(Position(button, 0))
+                               .Extend(Position(object, 0))
+                               .Build(),
+                           SetSelectionOptions());
+
+  auto* command = MakeGarbageCollected<IndentOutdentCommand>(
+      GetDocument(), IndentOutdentCommand::kIndent);
+  command->Apply();
+
+  EXPECT_EQ(
+      "<div contenteditable=\"true\">"
+      "<blockquote style=\"margin: 0 0 0 40px; border: none; padding: 0px;\">"
+      "<h6><button></button></h6>"
+      "<h6><button><table></table></button></h6>"
+      "<object></object>"
+      "</blockquote>"
+      "<br>"
+      "</div>",
+      GetDocument().body()->GetInnerHTMLString());
+}
+
+TEST_F(ApplyBlockElementCommandTest,
+       FormatBlockWithTableCrossingUserModifyBoundaryDomApi) {
+  ScopedEditingUseDomPositionApiForTest scoped_dom_position(true);
+
+  InsertStyleElement("*{-webkit-user-modify:read-write}");
+  Selection().SetSelection(
+      SetSelectionTextToBody("^<table></table>"
+                             "<kbd "
+                             "style=\"-webkit-user-modify:read-only\"><button><"
+                             "/button></kbd>|"),
+      SetSelectionOptions());
+  auto* command = MakeGarbageCollected<FormatBlockCommand>(GetDocument(),
+                                                           html_names::kPreTag);
+  EXPECT_TRUE(command->Apply());
+  // Selection ends after kbd because user-modify boundary stops formatting.
+  EXPECT_EQ(
+      "<pre><table></table></pre>"
+      "<kbd style=\"-webkit-user-modify:read-only\"><button></button></kbd>|",
+      GetSelectionTextFromBody());
+}
+
+TEST_F(ApplyBlockElementCommandTest, ParagraphBoundaryAdjustmentDomApi) {
+  ScopedEditingUseDomPositionApiForTest scoped_dom_position(true);
+
+  // Selection ends at the start of the second paragraph, triggering the
+  // paragraph boundary adjustment in DoApply().
+  Selection().SetSelection(SetSelectionTextToBody("<div contenteditable>"
+                                                  "^first paragraph<br>"
+                                                  "|second paragraph"
+                                                  "</div>"),
+                           SetSelectionOptions());
+
+  auto* command = MakeGarbageCollected<IndentOutdentCommand>(
+      GetDocument(), IndentOutdentCommand::kIndent);
+  EXPECT_TRUE(command->Apply());
+
+  EXPECT_EQ(
+      "<div contenteditable>"
+      "<blockquote style=\"margin: 0 0 0 40px; border: none; padding: 0px;\">"
+      "^first paragraph|"
+      "</blockquote>"
+      "second paragraph"
+      "</div>",
+      GetSelectionTextFromBody());
 }
 
 }  // namespace blink

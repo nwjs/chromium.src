@@ -82,6 +82,26 @@ void PipScreenCaptureCoordinatorImpl::RemoveCapture(
   }
 }
 
+base::UnguessableToken
+PipScreenCaptureCoordinatorImpl::RegisterMediaPickerAsCapture(
+    const GlobalRenderFrameHostId& render_frame_host_id) {
+  CHECK_CURRENTLY_ON(BrowserThread::UI);
+  base::UnguessableToken session_id = base::UnguessableToken::Create();
+  PipScreenCaptureCoordinatorProxy::CaptureInfo capture_info;
+  capture_info.session_id = session_id;
+  capture_info.render_frame_host_id = render_frame_host_id;
+  capture_info.desktop_media_id =
+      DesktopMediaID(DesktopMediaID::TYPE_SCREEN, DesktopMediaID::kNullId);
+  AddCaptureOnUIThread(std::move(capture_info));
+  return session_id;
+}
+
+void PipScreenCaptureCoordinatorImpl::UnregisterMediaPickerAsCapture(
+    const base::UnguessableToken& session_id) {
+  CHECK_CURRENTLY_ON(BrowserThread::UI);
+  RemoveCaptureOnUIThread(session_id);
+}
+
 PipScreenCaptureCoordinatorImpl::PipScreenCaptureCoordinatorImpl() = default;
 
 PipScreenCaptureCoordinatorImpl::~PipScreenCaptureCoordinatorImpl() = default;
@@ -189,7 +209,8 @@ void PipScreenCaptureCoordinatorImpl::NotifyExclusionChanged(
     bool was_excluded) {
   bool is_excluded = IsExcludedFromScreenCapture();
   if (was_excluded != is_excluded) {
-    for (PipScreenCaptureExclusionObserver& obs : exclusion_observers_) {
+    for (desktop_capture::PipScreenCaptureExclusionObserver& obs :
+         exclusion_observers_) {
       obs.OnExcludeFromScreenCaptureChanged(is_excluded);
     }
   }
@@ -211,12 +232,12 @@ void PipScreenCaptureCoordinatorImpl::RemoveObserver(Observer* observer) {
 }
 
 void PipScreenCaptureCoordinatorImpl::AddExclusionObserver(
-    PipScreenCaptureExclusionObserver* observer) {
+    desktop_capture::PipScreenCaptureExclusionObserver* observer) {
   exclusion_observers_.AddObserver(observer);
 }
 
 void PipScreenCaptureCoordinatorImpl::RemoveExclusionObserver(
-    PipScreenCaptureExclusionObserver* observer) {
+    desktop_capture::PipScreenCaptureExclusionObserver* observer) {
   exclusion_observers_.RemoveObserver(observer);
 }
 

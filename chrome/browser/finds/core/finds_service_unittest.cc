@@ -450,8 +450,7 @@ TEST_F(FindsServiceTest, VerifyHistoryLookbackIntervalWithFinchParam) {
   // Override the feature param to something non-default.
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeatureWithParameters(
-      finds::features::kChromeFinds,
-      {{"model_execution_cooldown_duration_in_days", "14"}});
+      finds::features::kChromeFinds, {{"history_time_window_in_days", "14"}});
 
   EXPECT_CALL(*history_service_, QueryHistory(_, _, _, _))
       .WillOnce([](const std::u16string& text_query,
@@ -494,6 +493,21 @@ TEST_F(FindsServiceTest, VerifyMaxHistoryEntriesDefault) {
                    history::HistoryService::QueryHistoryCallback callback,
                    base::CancelableTaskTracker* tracker) {
         EXPECT_EQ(options.max_count, 0);  // Default should be 0 (no limit)
+        history::QueryResults results;
+        std::move(callback).Run(std::move(results));
+        return base::CancelableTaskTracker::kBadTaskId;
+      });
+
+  service_->ExecuteModelAndScheduleNotification(base::DoNothing());
+}
+
+TEST_F(FindsServiceTest, VerifyRestrictToSyncedUrls) {
+  EXPECT_CALL(*history_service_, QueryHistory(_, _, _, _))
+      .WillOnce([](const std::u16string& text_query,
+                   const history::QueryOptions& options,
+                   history::HistoryService::QueryHistoryCallback callback,
+                   base::CancelableTaskTracker* tracker) {
+        EXPECT_TRUE(options.restrict_to_synced_urls);
         history::QueryResults results;
         std::move(callback).Run(std::move(results));
         return base::CancelableTaskTracker::kBadTaskId;
@@ -999,28 +1013,42 @@ TEST_F(FindsServiceTest, SRPBackNavigationTriggersOptIn) {
 
   service_->RemoveObserver(&observer);
 }
-
-TEST_F(FindsServiceTest, ScheduleNotificationForInternalsPage) {
-  std::unique_ptr<notifications::NotificationParams> scheduled_params;
-  EXPECT_CALL(*notification_schedule_service_, Schedule(_))
-      .WillOnce([&](std::unique_ptr<notifications::NotificationParams> params) {
-        scheduled_params = std::move(params);
+TEST_F(FindsServiceTest, ClearNotificationsBeforeScheduling) {
+  EXPECT_CALL(*history_service_, QueryHistory(_, _, _, _))
+      .WillOnce([](const std::u16string& text_query,
+                   const history::QueryOptions& options,
+                   history::HistoryService::QueryHistoryCallback callback,
+                   base::CancelableTaskTracker* tracker) {
+        history::QueryResults results;
+        std::vector<history::URLResult> urls;
+        urls.emplace_back(GURL("https://example.com"), base::Time::Now());
+        results.SetURLResults(std::move(urls));
+        std::move(callback).Run(std::move(results));
+        return base::CancelableTaskTracker::kBadTaskId;
       });
 
-  bool success = service_->ScheduleNotificationForInternalsPage();
-  EXPECT_TRUE(success);
+  EXPECT_CALL(*opt_guide_service_, ExecuteModel(_, _, _, _))
+      .WillOnce(
+          [](optimization_guide::ModelBasedCapabilityKey feature,
+             const google::protobuf::MessageLite& request_metadata,
+             const optimization_guide::ModelExecutionOptions& execution_options,
+             optimization_guide::OptimizationGuideModelExecutionResultCallback
+                 callback) {
+            optimization_guide::OptimizationGuideModelExecutionResult result;
+            optimization_guide::proto::FindsSuggestionResponse response;
+            auto* suggestion_theme = response.add_suggested_themes();
+            suggestion_theme->set_theme_title("Shopping");
+            suggestion_theme->set_theme_type(SuggestionTheme::SHOPPING);
+            suggestion_theme->add_theme_suggested_contents();
+            optimization_guide::proto::Any any;
+            any.set_type_url(
+                "type.googleapis.com/"
+                "optimization_guide.proto.FindsSuggestionResponse");
+            response.SerializeToString(any.mutable_value());
+            result.response = any;
+            std::move(callback).Run(std::move(result), nullptr);
+          });
 
-  ASSERT_NE(nullptr, scheduled_params);
-  EXPECT_EQ(u"Test Notification", scheduled_params->notification_data.title);
-  EXPECT_EQ(u"This is a test notification from the internals page.",
-            scheduled_params->notification_data.message);
-  EXPECT_EQ("https://www.google.com",
-            scheduled_params->notification_data
-                .custom_data[notifications::kChromeFindsNotificationsUrl]);
-  EXPECT_NE(0, prefs_.GetInt64(prefs::kFindsModelExecutionLastTimestamp));
-}
-
-TEST_F(FindsServiceTest, ClearNotificationsBeforeScheduling) {
   testing::InSequence enforce_call_order;
   EXPECT_CALL(
       *notification_schedule_service_,
@@ -1028,8 +1056,7 @@ TEST_F(FindsServiceTest, ClearNotificationsBeforeScheduling) {
       .Times(1);
   EXPECT_CALL(*notification_schedule_service_, Schedule(_)).Times(1);
 
-  bool success = service_->ScheduleNotificationForInternalsPage();
-  EXPECT_TRUE(success);
+  service_->ExecuteModelAndScheduleNotification(base::DoNothing());
 }
 
 TEST_F(FindsServiceTest, MaybeRescheduleNotifications_Empty_NoOp) {

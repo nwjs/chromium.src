@@ -336,9 +336,9 @@ void FindsService::ExecuteModelAndScheduleNotification(
   }
 
   history::QueryOptions options;
-  options.begin_time =
-      base::Time::Now() - GetModelExecutionCooldownDurationTimeDelta();
+  options.begin_time = base::Time::Now() - GetHistoryTimeWindowTimeDelta();
   options.max_count = finds::features::kMaxHistoryEntries.Get();
+  options.restrict_to_synced_urls = true;
 
   history_service_->QueryHistory(
       std::u16string(), options,
@@ -426,22 +426,6 @@ void FindsService::MaybeRescheduleNotifications() {
                      weak_ptr_factory_.GetWeakPtr()));
 }
 
-bool FindsService::ScheduleNotificationForInternalsPage() {
-  // Mock a suggestion model response and schedule notification.
-  optimization_guide::proto::FindsSuggestionResponse::SuggestionTheme theme;
-  theme.set_theme_type(optimization_guide::proto::FindsSuggestionResponse::
-                           SuggestionTheme::SHOPPING);
-  theme.set_theme_title("Internals Test Theme");
-
-  auto* suggestion = theme.add_theme_suggested_contents();
-  suggestion->set_content_title("Test Notification");
-  suggestion->set_content_description(
-      "This is a test notification from the internals page.");
-  suggestion->set_content_url("https://www.google.com");
-
-  return ScheduleNotificationWithModelResult(theme);
-}
-
 void FindsService::CheckFindsNotificationsEnabledAndMaybeExecute() {
 #if BUILDFLAG(IS_ANDROID)
   if (!IsFindsFeatureAllowedForUser()) {
@@ -484,7 +468,9 @@ void FindsService::OnHistoryQueryComplete(
   }
 
   opt_guide_service_->ExecuteModel(
-      optimization_guide::ModelBasedCapabilityKey::kFinds, request, {},
+      optimization_guide::ModelBasedCapabilityKey::kFinds, request,
+      optimization_guide::ModelExecutionOptions{
+          .execution_timeout = features::kModelExecutionRequestTimeout.Get()},
       base::BindOnce(&FindsService::OnModelExecutionComplete,
                      weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
 }

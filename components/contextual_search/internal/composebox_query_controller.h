@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 
+#include "base/memory/raw_ptr.h"
 #include "build/build_config.h"
 
 #if BUILDFLAG(IS_IOS)
@@ -21,9 +22,11 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
+#include "base/time/time.h"
 #include "components/contextual_search/contextual_search_context_controller.h"
 #include "components/endpoint_fetcher/endpoint_fetcher.h"
 #include "components/lens/lens_overlay_request_id_generator.h"
+#include "components/lens/lens_upload_chunker.h"
 #include "components/lens/proto/server/lens_overlay_response.pb.h"
 #include "net/base/backoff_entry.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
@@ -119,7 +122,8 @@ class ComposeboxQueryController
       override;
   const contextual_search::FileInfo* GetFileInfo(
       const base::UnguessableToken& file_token) override;
-  std::vector<const contextual_search::FileInfo*> GetFileInfoList() override;
+  std::vector<raw_ptr<const contextual_search::FileInfo>> GetFileInfoList()
+      override;
   base::WeakPtr<ContextualSearchContextController> AsWeakPtr() override;
 
   // Returns a request id to use for the viewport image upload request for the
@@ -182,9 +186,9 @@ class ComposeboxQueryController
     ~UploadRequest();
 
     // The time the request was sent.
-    base::Time start_time;
+    base::TimeTicks start_time;
     // The time the response was received.
-    base::Time response_time;
+    base::TimeTicks response_time;
     // The response code of the request. 0 if the response has not been
     // received.
     int response_code = 0;
@@ -245,6 +249,19 @@ class ComposeboxQueryController
     // StartFileUploadFlow() and decremented when successful network responses
     // are received.
     size_t num_outstanding_network_requests_ = 0;
+
+    // True if the file should be chunked for upload.
+    bool is_chunked_upload = false;
+
+    // The upload chunker delegate for the file.
+    std::unique_ptr<lens::LensUploadChunker::Delegate> upload_chunker_delegate;
+
+    // The upload chunker for the file.
+    std::unique_ptr<lens::LensUploadChunker> upload_chunker;
+
+    // The endpoint fetchers for the chunked upload requests.
+    std::vector<std::unique_ptr<endpoint_fetcher::EndpointFetcher>>
+        chunk_upload_endpoint_fetchers;
 
 #if BUILDFLAG(IS_IOS)
     // Background execution assertion to prevent iOS from suspending the app
@@ -334,6 +351,10 @@ class ComposeboxQueryController
   scoped_refptr<base::TaskRunner> create_request_task_runner_;
 
  private:
+  // Implementation of the LensUploadChunker::Delegate interface. Every chunked
+  // file upload is handled by its own delegate.
+  class ChunkUploadDelegate;
+
   // Data class for constructing an interaction request to the Lens server.
   struct LensServerInteractionRequest {
    public:
@@ -527,6 +548,18 @@ class ComposeboxQueryController
       endpoint_fetcher::EndpointFetcherCallback response_received_callback,
       UploadProgressCallback upload_progress_callback = base::NullCallback());
 
+  // Lower-level overload accepting raw string payloads and explicit URL.
+  void PerformFetchRequest(
+      std::string request_string,
+      std::vector<std::string>* request_headers,
+      base::TimeDelta timeout,
+      base::OnceCallback<
+          void(std::unique_ptr<endpoint_fetcher::EndpointFetcher>)>
+          fetcher_created_callback,
+      endpoint_fetcher::EndpointFetcherCallback response_received_callback,
+      UploadProgressCallback upload_progress_callback,
+      GURL fetch_url);
+
   // Creates the encoded visual search interaction log data and attaches it to
   // the url param list.
   void AddEncodedVisualSearchInteractionLogDataParam(
@@ -543,6 +576,51 @@ class ComposeboxQueryController
       const std::optional<std::string>& query_text,
       std::optional<lens::LensOverlaySelectionType> lens_overlay_selection_type,
       bool force_include_latest_interaction_request_data);
+
+  // Initiates the chunked upload flow. Fetches the required authentication
+  // headers before starting the chunker.
+  void PrepareChunkedUpload(
+      const base::UnguessableToken& file_token,
+      std::unique_ptr<lens::ContextualInputData> contextual_input_data);
+
+  // Callback executed when the OAuth access token headers are successfully
+  // fetched. Triggers MaybeStartUploadChunker to start the chunker.
+  void OnChunkedUploadHeadersReady(const base::UnguessableToken& file_token,
+                                   std::vector<std::string> headers);
+
+  // Checks if the OAuth headers and cluster info are both ready. If they are,
+  // initializes and starts the LensUploadChunker.
+  void MaybeStartUploadChunker(const base::UnguessableToken& file_token);
+
+  // Callback used by the chunker to dispatch individual chunk upload requests.
+  // Sends the chunk payload to the chunking server endpoint.
+  void UploadChunk(
+      const base::UnguessableToken& file_token,
+      const lens::LensOverlayUploadChunkRequest& request,
+      base::RepeatingCallback<void(uint64_t position, uint64_t total)>
+          progress_callback,
+      base::OnceCallback<
+          void(std::unique_ptr<endpoint_fetcher::EndpointResponse>)>
+          completion_callback);
+
+  // Callback executed by the chunker when all chunks have been successfully
+  // uploaded to the staging area. Constructs the final metadata-only objects
+  // request.
+  void OnPageContentPayloadForChunkUploadReady(
+      const base::UnguessableToken& file_token,
+      const lens::LensOverlayRequestId& request_id,
+      lens::Payload payload);
+
+  // Callback executed by the chunker if any chunk fails to compress or upload,
+  // or if retries are exhausted. Marks the file upload as failed.
+  void OnChunkUploadError(const base::UnguessableToken& file_token,
+                          lens::LensUploadChunker::ErrorType error_type);
+
+  // Callback executed when an EndpointFetcher has been created for a chunk
+  // upload request. Tracks the fetcher in the file's file info struct.
+  void OnChunkUploadEndpointFetcherCreated(
+      const base::UnguessableToken& file_token,
+      std::unique_ptr<endpoint_fetcher::EndpointFetcher> endpoint_fetcher);
 
   // The last received cluster info.
   std::optional<lens::LensOverlayClusterInfo> cluster_info_ = std::nullopt;

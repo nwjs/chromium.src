@@ -106,6 +106,8 @@ import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.content_public.browser.SelectionPopupController;
+import org.chromium.content_public.browser.ViewEventSink;
+import org.chromium.content_public.browser.ViewFocusChangeSuppression;
 import org.chromium.content_public.browser.Visibility;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsAccessibility;
@@ -133,7 +135,7 @@ import java.util.Objects;
  * class is not intended to be extended.
  */
 @NullMarked
-class TabImpl implements Tab {
+class TabImpl implements Tab, TabInternal {
     /** Used for logging. */
     private static final String TAG = "Tab";
 
@@ -305,6 +307,7 @@ class TabImpl implements Tab {
             ObservableSuppliers.createNonNull(false);
 
     private boolean mIsDestroyed;
+    private boolean mFocusChangesSuppressed;
 
     private int mThemeColor;
     private int mWebContentBackgroundColor;
@@ -1113,9 +1116,35 @@ class TabImpl implements Tab {
         return mIsDestroyed;
     }
 
+    @Override
+    public void setFocusChangeSuppressed(boolean suppressed) {
+        if (mFocusChangesSuppressed == suppressed) return;
+
+        mFocusChangesSuppressed = suppressed;
+
+        if (getWebContents() == null || getView() == null) return;
+
+        var viewSuppression = ViewFocusChangeSuppression.from(getWebContents());
+
+        if (suppressed) {
+            ViewEventSink sink = ViewEventSink.from(getWebContents());
+            sink.onWindowFocusChanged(true);
+            sink.onViewFocusChanged(true);
+        }
+
+        viewSuppression.setSuppressed(suppressed);
+
+        if (!suppressed) {
+            ViewEventSink sink = ViewEventSink.from(getWebContents());
+            sink.onWindowFocusChanged(getView().hasWindowFocus());
+            sink.onViewFocusChanged(getView().hasFocus());
+        }
+    }
+
     private void updateWebContentsVisibility() {
         var webContents = getWebContents();
         if (webContents == null) return;
+
         if (mIsHidden) {
             webContents.updateWebContentsVisibility(Visibility.HIDDEN);
         } else if (!mIsDetachedFromActivity
@@ -1502,7 +1531,9 @@ class TabImpl implements Tab {
             // Avoid an empty title by updating the title here. This could happen if restoring from
             // a WebContents that has no renderer and didn't force a reload. This happens on
             // background tab creation from Recent Tabs (TabRestoreService).
-            updateTitle();
+            if (TextUtils.isEmpty(mTitle)) {
+                updateTitle();
+            }
 
             if (!createWebContents && webContents.shouldShowLoadingUI()) {
                 didStartPageLoad(webContents.getVisibleUrl());
@@ -1835,14 +1866,15 @@ class TabImpl implements Tab {
         if (!UrlConstants.CHROME_SCHEME.equals(scheme)) return false;
 
         String host = url.getHost();
-        if (UrlConstants.SETTINGS_HOST.equals(host)) {
-            // TODO(crbug.com/456164910): Use the URL path to open deeplinks into Settings.
-            SettingsNavigationFactory.createSettingsNavigation()
-                    .startSettings(assumeNonNull(getActivity()));
-            goBack(); // Keep showing the previous contents in the tab.
-            return true;
-        }
-        return false;
+        if (!UrlConstants.SETTINGS_HOST.equals(host)) return false;
+
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.SETTINGS_IN_TAB)) return false;
+
+        // TODO(crbug.com/456164910): Use the URL path to open deeplinks into Settings.
+        SettingsNavigationFactory.createSettingsNavigation()
+                .startSettings(assumeNonNull(getActivity()));
+        goBack(); // Keep showing the previous contents in the tab.
+        return true;
     }
 
     /**
@@ -2084,8 +2116,9 @@ class TabImpl implements Tab {
     /**
      * @return The native pointer representing the native side of this {@link TabImpl} object.
      */
+    @Override
     @CalledByNative
-    private long getNativePtr() {
+    public long getNativePtr() {
         return mNativeTabAndroid;
     }
 
@@ -2122,17 +2155,6 @@ class TabImpl implements Tab {
     @CalledByNative
     private static @Nullable TabImpl getJavaObject(long nativePtr) {
         return sTabMap.get(nativePtr);
-    }
-
-    @CalledByNative
-    private static long @Nullable [] getAllNativePtrs(Tab @Nullable [] tabsArray) {
-        if (tabsArray == null) return null;
-
-        long[] tabsPtrArray = new long[tabsArray.length];
-        for (int i = 0; i < tabsArray.length; i++) {
-            tabsPtrArray[i] = ((TabImpl) tabsArray[i]).getNativePtr();
-        }
-        return tabsPtrArray;
     }
 
     @CalledByNative
@@ -2216,6 +2238,11 @@ class TabImpl implements Tab {
             if (oldWebContents != null) {
                 assumeNonNull(getWebContentsAccessibility(oldWebContents))
                         .setObscuredByAnotherView(false);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM
+                        && mSensitiveContentClientObserver != null) {
+                    SensitiveContentClient.fromWebContents(oldWebContents)
+                            .removeObserver(mSensitiveContentClientObserver);
+                }
             }
 
             ContentUtils.setUserAgentOverride(
@@ -2255,6 +2282,12 @@ class TabImpl implements Tab {
             }
             TabHelpers.initWebContentsHelpers(this);
             notifyContentChanged();
+
+            if (mFocusChangesSuppressed) {
+                ViewFocusChangeSuppression suppression =
+                        ViewFocusChangeSuppression.from(webContents);
+                suppression.setSuppressed(true);
+            }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM
                     && ChromeFeatureList.isEnabled(SensitiveContentFeatures.SENSITIVE_CONTENT)
@@ -2951,10 +2984,8 @@ class TabImpl implements Tab {
         mMediaState = mediaState;
         RecordHistogram.recordEnumeratedHistogram(
                 "Tab.Android.MediaState", mediaState, MediaState.MAX_VALUE + 1);
-        if (ChromeFeatureList.sMediaIndicatorsAndroid.isEnabled()) {
-            for (TabObserver observer : mObservers) {
-                observer.onMediaStateChanged(this, mediaState);
-            }
+        for (TabObserver observer : mObservers) {
+            observer.onMediaStateChanged(this, mediaState);
         }
     }
 

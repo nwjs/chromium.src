@@ -39,7 +39,6 @@ import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.base.supplier.SettableNullableObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.RobolectricUtil;
-import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.app.appmenu.AppMenuPropertiesDelegateImpl.MenuGroup;
@@ -68,12 +67,13 @@ import org.chromium.chrome.browser.ui.appmenu.AppMenuItemProperties;
 import org.chromium.chrome.browser.webapps.WebappRegistry;
 import org.chromium.components.bookmarks.BookmarkId;
 import org.chromium.components.browser_ui.accessibility.PageZoomUtils;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetControllerProvider;
 import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridge;
 import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridgeJni;
 import org.chromium.components.commerce.core.CommerceFeatureUtils;
 import org.chromium.components.commerce.core.CommerceFeatureUtilsJni;
 import org.chromium.components.commerce.core.ShoppingService;
-import org.chromium.components.dom_distiller.core.DomDistillerFeatures;
 import org.chromium.components.dom_distiller.core.DomDistillerUrlUtilsJni;
 import org.chromium.components.power_bookmarks.PowerBookmarkMeta;
 import org.chromium.components.power_bookmarks.PowerBookmarkType;
@@ -85,6 +85,7 @@ import org.chromium.components.webapps.AppBannerManager;
 import org.chromium.components.webapps.AppBannerManagerJni;
 import org.chromium.content_public.browser.NavigationController;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.MVCListAdapter;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.url.GURL;
@@ -95,7 +96,6 @@ import java.util.List;
 
 /** Unit tests for {@link AppMenuPropertiesDelegateImpl}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@DisableFeatures({DomDistillerFeatures.READER_MODE_IMPROVEMENTS})
 public class AppMenuPropertiesDelegateUnitTest {
 
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
@@ -197,6 +197,7 @@ public class AppMenuPropertiesDelegateUnitTest {
                         mLayoutStateProviderSupplier,
                         mBookmarkModelSupplier,
                         mReadAloudControllerSupplier,
+                        /* pageZoomManager= */ null,
                         /* openInAppMenuItemProvider= */ null) {
                     @Override
                     public MVCListAdapter.ModelList buildMenuModelList() {
@@ -233,7 +234,7 @@ public class AppMenuPropertiesDelegateUnitTest {
     @Test
     @Config(qualifiers = "sw600dp")
     public void testShouldShowPageMenu_Tablet() {
-        when(mLayoutStateProvider.isLayoutVisible(LayoutType.TAB_SWITCHER)).thenReturn(false);
+        when(mLayoutStateProvider.isLayoutVisible(LayoutType.HUB)).thenReturn(false);
         when(mTabModel.getCount()).thenReturn(1);
         assertTrue(mAppMenuPropertiesDelegate.shouldShowPageMenu());
         Assert.assertEquals(MenuGroup.PAGE_MENU, mAppMenuPropertiesDelegate.getMenuGroup());
@@ -242,7 +243,7 @@ public class AppMenuPropertiesDelegateUnitTest {
     @Test
     @Config(qualifiers = "sw600dp")
     public void testShouldShowOverviewMenu_Tablet() {
-        when(mLayoutStateProvider.isLayoutVisible(LayoutType.TAB_SWITCHER)).thenReturn(true);
+        when(mLayoutStateProvider.isLayoutVisible(LayoutType.HUB)).thenReturn(true);
         when(mTabModel.getCount()).thenReturn(1);
         Assert.assertFalse(mAppMenuPropertiesDelegate.shouldShowPageMenu());
         Assert.assertEquals(
@@ -452,11 +453,46 @@ public class AppMenuPropertiesDelegateUnitTest {
         assertFalse(mAppMenuPropertiesDelegate.isReaderModeShowing(mTab));
     }
 
+    @Mock private BottomSheetController mBottomSheetControllerMock;
+
+    @Test
+    public void testPageZoomMenuItem_hiddenWhenBottomSheetOpen() {
+        // Setup: Bottom sheet controller is available and sheet is open
+        BottomSheetControllerProvider.setInstanceForTesting(mBottomSheetControllerMock);
+        when(mBottomSheetControllerMock.isSheetOpen()).thenReturn(true);
+        PageZoomUtils.setShouldShowMenuItemForTesting(true);
+
+        // Stub dependent tab setup
+        when(mTab.getWindowAndroid()).thenReturn(mock(WindowAndroid.class));
+        doReturn(true)
+                .when(mAppMenuPropertiesDelegate)
+                .shouldShowWebContentsDependentMenuItem(any());
+
+        // Verify the zoom item is NOT shown
+        assertFalse(mAppMenuPropertiesDelegate.shouldShowPageZoomItem(mTab));
+    }
+
+    @Test
+    public void testPageZoomMenuItem_visibleWhenBottomSheetClosed() {
+        // Setup: Bottom sheet controller is available and sheet is closed
+        BottomSheetControllerProvider.setInstanceForTesting(mBottomSheetControllerMock);
+        when(mBottomSheetControllerMock.isSheetOpen()).thenReturn(false);
+        PageZoomUtils.setShouldShowMenuItemForTesting(true);
+
+        // Stub dependent tab setup
+        when(mTab.getWindowAndroid()).thenReturn(mock(WindowAndroid.class));
+        doReturn(true)
+                .when(mAppMenuPropertiesDelegate)
+                .shouldShowWebContentsDependentMenuItem(any());
+
+        // Verify the zoom item IS shown
+        assertTrue(mAppMenuPropertiesDelegate.shouldShowPageZoomItem(mTab));
+    }
+
     private void setUpMocksForPageMenu() {
-        when(mLayoutStateProvider.isLayoutVisible(LayoutType.TAB_SWITCHER)).thenReturn(false);
+        when(mLayoutStateProvider.isLayoutVisible(LayoutType.HUB)).thenReturn(false);
         doReturn(false).when(mAppMenuPropertiesDelegate).shouldCheckBookmarkStar(any(Tab.class));
         doReturn(false).when(mAppMenuPropertiesDelegate).shouldEnableDownloadPage(any(Tab.class));
-        doReturn(false).when(mAppMenuPropertiesDelegate).shouldShowReaderModePrefs(any(Tab.class));
         doReturn(true)
                 .when(mAppMenuPropertiesDelegate)
                 .shouldShowAutoDarkItem(any(Tab.class), eq(false));

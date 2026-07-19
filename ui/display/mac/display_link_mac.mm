@@ -12,6 +12,7 @@
 #include "ui/display/mac/ca_display_link_mac.h"
 #include "ui/display/mac/cv_display_link_mac.h"
 #include "ui/display/mac/external_display_link_mac.h"
+#include "ui/display/mac/screen_utils_mac.h"
 #include "ui/display/types/display_constants.h"
 
 namespace ui {
@@ -57,17 +58,6 @@ scoped_refptr<DisplayLinkMac> DisplayLinkMac::GetForDisplay(
 
   scoped_refptr<DisplayLinkMac> display_link;
   if (SupportsDisplayLinkMacInBrowser()) {
-    if (CADisplayLinkMac::IsValidInGpuProcess(display_id)) {
-      // Start with CADisplayLinkMac in the GPU process.
-      display_link = CADisplayLinkMac::GetForDisplay(display_id,
-                                                     /*in_gpu_process=*/true);
-      if (display_link) {
-        return display_link;
-      }
-      // Fallback to ExternalDisplayLinkMac (CADisplayLinkMac in the Browser
-      // process) if failed.
-    }
-
     display_link = ExternalDisplayLinkMac::GetForDisplay(display_id);
     if (display_link) {
       return display_link;
@@ -83,14 +73,23 @@ void DisplayLinkMac::RecordDisplayLinkCreation(bool success) {
                         success);
 }
 
+// static
+base::TimeDelta DisplayLinkMac::GetScreenDefaultRefreshInterval(
+    int64_t vsync_display_id) {
+  if (!base::IsValueInRangeForNumericType<CGDirectDisplayID>(
+          vsync_display_id)) {
+    return base::Seconds(1) / 60.0;
+  }
+
+  CGDirectDisplayID display_id =
+      static_cast<CGDirectDisplayID>(vsync_display_id);
+  return display::GetNSScreenRefreshInterval(display_id);
+}
+
 std::unique_ptr<PresentationCallbackMac>
 DisplayLinkMac::RegisterPresentationCallback(
     PresentationCallbackMac::Callback callback) {
   NOTREACHED();
-}
-
-bool DisplayLinkMac::NotifyEventAndCheckValidity() {
-  return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

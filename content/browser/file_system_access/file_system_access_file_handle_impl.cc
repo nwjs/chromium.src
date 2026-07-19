@@ -44,8 +44,10 @@
 #include "third_party/blink/public/mojom/file_system_access/file_system_access_transfer_token.mojom.h"
 
 #if BUILDFLAG(IS_ANDROID)
+#include "base/strings/string_view_util.h"
+#include "crypto/obsolete/sha1.h"
 #include "base/path_service.h"
-#include "base/strings/escape.h"
+#include "base/strings/string_number_conversions.h"
 #include "content/public/common/content_paths.h"
 #endif
 
@@ -66,6 +68,17 @@ using storage::FileSystemOperation;
 using storage::FileSystemOperationRunner;
 
 namespace content {
+
+#if BUILDFLAG(IS_ANDROID)
+// Computes a SHA-1 hash of |url_path_value| and returns it as a hex string.
+// This function is intentionally declared in a separate header file
+// "crypto/obsolete/sha1.h", so as to easily monitor current usage of SHA-1 in
+// Chrome, since SHA-1 is now discouraged for new code.
+std::string GetHashedUrlPath(std::string_view url_path_value) {
+  return base::HexEncode(
+            base::as_string_view(crypto::obsolete::Sha1::Hash(url_path_value)));
+}
+#endif
 
 namespace {
 
@@ -192,7 +205,9 @@ void FileSystemAccessFileHandleImpl::CreateFileWriter(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   RunWithPermission(
-      FileSystemAccessManagerImpl::GetEffectiveWritePermissionMode(),
+      keep_existing_data
+          ? blink::mojom::FileSystemAccessPermissionMode::kReadWrite
+          : FileSystemAccessManagerImpl::GetEffectiveWritePermissionMode(),
       base::BindOnce(&FileSystemAccessFileHandleImpl::CreateFileWriterImpl,
                      weak_factory_.GetWeakPtr(), keep_existing_data, auto_close,
                      mode),
@@ -534,7 +549,8 @@ void FileSystemAccessFileHandleImpl::CreateFileWriterImpl(
     blink::mojom::FileSystemAccessWritableFileStreamLockMode mode,
     CreateFileWriterCallback callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK_EQ(GetEffectiveWritePermissionStatus(),
+  DCHECK_EQ(keep_existing_data ? GetReadWritePermissionStatus()
+                               : GetEffectiveWritePermissionStatus(),
             blink::mojom::PermissionStatus::GRANTED);
 
   // TODO(crbug.com/40194651): Expand this check to all backends.
@@ -610,7 +626,9 @@ void FileSystemAccessFileHandleImpl::StartCreateSwapFile(
     return;
   }
 
-  if (GetEffectiveWritePermissionStatus() != PermissionStatus::GRANTED) {
+  if ((keep_existing_data ? GetReadWritePermissionStatus()
+                          : GetEffectiveWritePermissionStatus()) !=
+      PermissionStatus::GRANTED) {
     std::move(callback).Run(file_system_access_error::FromStatus(
                                 FileSystemAccessStatus::kPermissionDenied),
                             mojo::NullRemote());
@@ -638,11 +656,14 @@ void FileSystemAccessFileHandleImpl::StartCreateSwapFile(
     //  copy back to the original content-URI when done.
     storage::FileSystemURL swap_url;
     if (url().path().IsContentUri()) {
-      // We must escape 'content://com.android...' to use it as the file name.
-      std::string file_name = base::EscapeAllExceptUnreserved(
-          url().path().DirName().Append(*opt_swap_name).value());
+      // Use SHA1 hash instead of escape to avoid exceeding filename length
+      // limits.
+      std::string file_name = GetHashedUrlPath(url().path().value());
+      if (count > 0) {
+        file_name += base::StringPrintf(".%d", count);
+      }
       swap_url = manager()->CreateFileSystemURLFromPath(
-          PathInfo(swap_dir_.Append(file_name)));
+          PathInfo(swap_dir_.Append(file_name).AddExtension(".crswap")));
     } else {
       swap_url = url().CreateSibling(*opt_swap_name);
     }

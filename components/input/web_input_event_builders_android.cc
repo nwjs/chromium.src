@@ -7,11 +7,15 @@
 #include <android/input.h>
 
 #include "base/check.h"
+#include "base/strings/string_util.h"
+#include "base/strings/utf_string_conversion_utils.h"
 #include "base/time/time.h"
+#include "base/trace_event/trace_event.h"
 #include "ui/events/android/key_event_utils.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/events/blink/blink_event_util.h"
 #include "ui/events/event_constants.h"
+#include "ui/events/features.h"
 #include "ui/events/keycodes/dom/dom_code.h"
 #include "ui/events/keycodes/dom/keycode_converter.h"
 #include "ui/events/keycodes/keyboard_code_conversion.h"
@@ -31,6 +35,39 @@ using blink::WebTouchPoint;
 namespace input {
 
 namespace {
+
+const char* InputSourceToString(int source) {
+  switch (source) {
+    case AINPUT_SOURCE_UNKNOWN:
+      return "UNKNOWN";
+    case AINPUT_SOURCE_KEYBOARD:
+      return "KEYBOARD";
+    case AINPUT_SOURCE_DPAD:
+      return "DPAD";
+    case AINPUT_SOURCE_GAMEPAD:
+      return "GAMEPAD";
+    case AINPUT_SOURCE_TOUCHSCREEN:
+      return "TOUCHSCREEN";
+    case AINPUT_SOURCE_MOUSE:
+      return "MOUSE";
+    case AINPUT_SOURCE_STYLUS:
+      return "STYLUS";
+    case AINPUT_SOURCE_TRACKBALL:
+      return "TRACKBALL";
+    case AINPUT_SOURCE_MOUSE_RELATIVE:
+      return "MOUSE_RELATIVE";
+    case AINPUT_SOURCE_TOUCHPAD:
+      return "TOUCHPAD";
+    case AINPUT_SOURCE_TOUCH_NAVIGATION:
+      return "TOUCH_NAVIGATION";
+    case AINPUT_SOURCE_ROTARY_ENCODER:
+      return "ROTARY_ENCODER";
+    case AINPUT_SOURCE_JOYSTICK:
+      return "JOYSTICK";
+    default:
+      return "OTHER";
+  }
+}
 
 int WebInputEventToAndroidModifier(int web_modifier) {
   int android_modifier = 0;
@@ -109,14 +146,19 @@ WebKeyboardEvent WebKeyboardEventBuilder::Build(
   result.dom_code = static_cast<int>(dom_code);
   result.dom_key = GetDomKeyFromEvent(env, android_key_event, keycode,
                                       modifiers, unicode_character);
-  result.unmodified_text[0] = unicode_character;
+  std::u16string unmodified_text_str;
+  if (unicode_character) {
+    base::WriteUnicodeCharacter(unicode_character, &unmodified_text_str);
+  }
   if (result.windows_key_code == ui::VKEY_RETURN) {
     // This is the same behavior as GTK:
     // We need to treat the enter key as a key press of character \r. This
     // is apparently just how webkit handles it and what it expects.
-    result.unmodified_text[0] = '\r';
+    unmodified_text_str = u"\r";
   }
-  result.text[0] = result.unmodified_text[0];
+  base::u16cstrlcpy(result.unmodified_text.data(), unmodified_text_str.c_str(),
+                    result.unmodified_text.size());
+  result.text = result.unmodified_text;
   result.is_system_key = is_system_key;
   result.is_confirmed_physical_keyboard_input =
       IsConfirmedPhysicalKeyboardEvent(env, android_key_event);
@@ -170,13 +212,35 @@ WebMouseEvent WebMouseEventBuilder::Build(
 
 WebMouseWheelEvent WebMouseWheelEventBuilder::Build(
     const ui::MotionEventAndroid& motion_event) {
+  TRACE_EVENT("input", "WebMouseWheelEventBuilder::Build", "source",
+              InputSourceToString(motion_event.GetSource()), "tool_type",
+              motion_event.GetToolType(0));
   WebMouseWheelEvent result(WebInputEvent::Type::kMouseWheel,
                             WebInputEvent::kNoModifiers,
                             motion_event.GetEventTime());
   result.SetPositionInWidget(motion_event.GetX(0), motion_event.GetY(0));
   result.SetPositionInScreen(motion_event.GetRawX(0), motion_event.GetRawY(0));
   result.button = WebMouseEvent::Button::kNoButton;
-  result.delta_units = motion_event.GetSource() == AINPUT_SOURCE_TOUCHPAD
+
+  bool is_touchpad = motion_event.GetSource() == AINPUT_SOURCE_TOUCHPAD;
+
+  // Touchpads can be represented in several ways on Android. It is important to
+  // mark those as precise, otherwise with smooth scrolling, we get
+  // acceleration, which translates to very high latency for the user.
+  //
+  // Note that in practice, the tool has been seen to be set to UNKNOWN locally,
+  // so this may overtrigger, but there isn't an easy clean way to make sure
+  // that touchpads are properly handled. However, it is properly set to MOUSE
+  // locally when using an external USB mouse, so we still get smooth scrolling.
+  if (base::FeatureList::IsEnabled(ui::kAndroidTouchpadDetection)) {
+    is_touchpad =
+        (motion_event.GetSource() & AINPUT_SOURCE_TOUCHPAD) ==
+            AINPUT_SOURCE_TOUCHPAD ||
+        ((motion_event.GetSource() & AINPUT_SOURCE_MOUSE) ==
+             AINPUT_SOURCE_MOUSE &&
+         motion_event.GetToolType(0) != ui::MotionEvent::ToolType::MOUSE);
+  }
+  result.delta_units = is_touchpad
                            ? ui::ScrollGranularity::kScrollByPrecisePixel
                            : ui::ScrollGranularity::kScrollByPixel;
   // For vertical scrolling (delta_y, wheel_ticks_y), Android's MotionEvent
@@ -188,8 +252,9 @@ WebMouseWheelEvent WebMouseWheelEventBuilder::Build(
   // "natural" scrolling expectation for horizontal input, we negate the x-axis
   // values.
   // However, this negation should ONLY apply to Physical Mouse inputs.
-  // Other sources like Trackpads (Source Mouse + Tool Finger), Touchpads,
-  // and Joysticks already provide "natural" direction values (or standard
+  // Other sources like Touchpads (Source Mouse + Tool Finger or Source
+  // Touchpad), and Joysticks already provide "natural" direction values (or
+  // standard
   // Cartesian direction) and should not be negated.
   // Note: AINPUT_SOURCE_TRACKBALL and AINPUT_SOURCE_MOUSE_RELATIVE are
   // AINPUT_SOURCE_CLASS_NAVIGATION (similar to Joysticks), so they are also

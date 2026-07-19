@@ -4,6 +4,7 @@
 
 #include "chrome/browser/glic/glic_metrics_provider.h"
 
+#include <algorithm>
 #include <vector>
 
 #include "base/metrics/histogram_functions.h"
@@ -11,6 +12,7 @@
 #include "chrome/browser/glic/glic_enums.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
+#include "chrome/browser/glic/service/glic_onboarding_status.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "components/prefs/pref_service.h"
@@ -29,8 +31,12 @@ void GlicMetricsProvider::ProvideCurrentSessionData(
   }
 
   std::vector<Profile*> profile_list = profile_manager->GetLoadedProfiles();
-  int num_enabled_profiles_enabled_for_tiered_rollout = 0;
-  int num_enabled_profiles = 0;
+  int tiered_rollout_count = 0;
+  int enabled_count = 0;
+  OnboardingStatus onboarding_progression = OnboardingStatus::kNoInteraction;
+  int invoked_count = 0;
+  int opt_in_count = 0;
+  int user_submit_count = 0;
   for (auto* profile : profile_list) {
     GlicEnabling::EnablementForProfile(profile).RecordSteadyStateMetrics();
 
@@ -41,29 +47,53 @@ void GlicMetricsProvider::ProvideCurrentSessionData(
     }
 
     if (GlicEnabling::IsEnabledForProfile(profile)) {
-      num_enabled_profiles++;
+      enabled_count++;
       if (GlicEnabling::IsEligibleForGlicTieredRollout(profile)) {
-        num_enabled_profiles_enabled_for_tiered_rollout++;
+        tiered_rollout_count++;
+      }
+
+      GlicOnboardingStatus onboarding_status(profile->GetPrefs());
+      OnboardingStatus status = onboarding_status.GetStatus();
+
+      onboarding_progression = std::max(onboarding_progression, status);
+      if (onboarding_status.IsInvoked()) {
+        invoked_count++;
+      }
+      if (onboarding_status.IsOptedIn()) {
+        opt_in_count++;
+      }
+      if (onboarding_status.HasPrompt()) {
+        user_submit_count++;
       }
     }
   }
 
   // No profiles enabled.
-  if (num_enabled_profiles == 0) {
+  if (enabled_count == 0) {
     return;
   }
 
-  GlicTieredRolloutEnablementStatus enablement_status;
-  if (num_enabled_profiles == num_enabled_profiles_enabled_for_tiered_rollout) {
-    enablement_status = GlicTieredRolloutEnablementStatus::kAllProfilesEnabled;
-  } else if (num_enabled_profiles_enabled_for_tiered_rollout == 0) {
-    enablement_status = GlicTieredRolloutEnablementStatus::kNoProfilesEnabled;
-  } else {
-    enablement_status = GlicTieredRolloutEnablementStatus::kSomeProfilesEnabled;
-  }
+  base::UmaHistogramEnumeration("Glic.Onboarding.Profiles.Status",
+                                onboarding_progression);
 
+  auto to_none_some_all = [enabled_count](int count) {
+    if (count == 0) {
+      return GlicProfilesAllSomeNone::kNone;
+    }
+    if (count == enabled_count) {
+      return GlicProfilesAllSomeNone::kAll;
+    }
+    return GlicProfilesAllSomeNone::kSome;
+  };
+
+  base::UmaHistogramEnumeration("Glic.Onboarding.Profiles.Invoked",
+                                to_none_some_all(invoked_count));
+  base::UmaHistogramEnumeration("Glic.Onboarding.Profiles.OptIn",
+                                to_none_some_all(opt_in_count));
+  base::UmaHistogramEnumeration("Glic.Onboarding.Profiles.UserSubmit",
+                                to_none_some_all(user_submit_count));
   base::UmaHistogramEnumeration("Glic.TieredRolloutEnablementStatus",
-                                enablement_status);
+                                to_none_some_all(tiered_rollout_count));
 }
 
 }  // namespace glic

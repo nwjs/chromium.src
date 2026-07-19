@@ -15,7 +15,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/side_panel/side_panel_entry.h"
@@ -94,7 +93,7 @@ void GlicSidePanelCoordinatorImpl::Show(const ShowOptions& options) {
   SidePanelUIBase::UniqueKey unique_key{
       .tab_handle = tab_->GetHandle(),
       .key = SidePanelEntry::Key(SidePanelEntry::Id::kGlic)};
-  window_side_panel_coordinator->Show(unique_key, std::nullopt,
+  window_side_panel_coordinator->Show(unique_key, options.open_trigger,
                                       options.suppress_animations);
 }
 

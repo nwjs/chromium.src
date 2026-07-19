@@ -44,10 +44,13 @@
 #import "ui/gfx/mac/coordinate_conversion.h"
 #include "ui/gfx/native_ui_types.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
+#include "ui/views/cocoa/native_widget_mac_event_monitor.h"
 #include "ui/views/cocoa/native_widget_mac_ns_window_host.h"
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/controls/native/native_view_host.h"
+#include "ui/views/focus/native_view_focus_manager.h"
+#include "ui/views/test/focus_manager_test.h"
 #include "ui/views/test/native_widget_factory.h"
 #include "ui/views/test/test_widget_observer.h"
 #include "ui/views/test/widget_test.h"
@@ -147,6 +150,17 @@ class BridgedNativeWidgetTestApi {
   remote_cocoa::NativeWidgetNSWindowBridge* bridge() { return &*bridge_; }
   void set_wants_to_be_visible(bool visible) {
     bridge_->wants_to_be_visible_ = visible;
+  }
+
+  static std::unique_ptr<remote_cocoa::NativeWidgetNSWindowBridge>
+  TakeInProcessBridge(NativeWidgetMacNSWindowHost* host) {
+    return std::move(host->in_process_ns_window_bridge_);
+  }
+
+  static void RestoreInProcessBridge(
+      NativeWidgetMacNSWindowHost* host,
+      std::unique_ptr<remote_cocoa::NativeWidgetNSWindowBridge> bridge) {
+    host->in_process_ns_window_bridge_ = std::move(bridge);
   }
 
  private:
@@ -1000,6 +1014,46 @@ TEST_F(NativeWidgetMacTest, NonWidgetParent) {
   [native_parent close];
 }
 
+// Tests that a key-status change does not crash when the child widget has no
+// top-level widget, so Widget::GetFocusManager() returns null.
+TEST_F(NativeWidgetMacTest, KeyStatusChangeWithNoTopLevelDoesNotCrash) {
+  NSWindow* native_parent = MakeBorderlessNativeParent();
+  Widget* child = AttachPopupToNativeParent(native_parent);
+  child->Show();
+  ASSERT_FALSE(child->is_top_level());
+
+  NativeWidgetMacNSWindowHost* host =
+      NativeWidgetMacNSWindowHost::GetFromNativeWindow(
+          child->GetNativeWindow());
+  ASSERT_TRUE(host);
+
+  // Without a parent host, GetTopLevelNativeWidget() resolves to the child,
+  // which is not top-level and owns no FocusManager.
+  host->SetParent(nullptr);
+  ASSERT_EQ(nullptr, child->GetFocusManager());
+
+  TestNativeViewFocusChangeListener focus_listener;
+  base::ScopedObservation<NativeViewFocusManager, NativeViewFocusChangeListener>
+      observation(&focus_listener);
+  observation.Observe(NativeViewFocusManager::GetInstance());
+
+  NativeWidgetMac* native_widget = host->native_widget_mac();
+
+  // Pre-fix both branches dereference the null FocusManager and crash.
+  native_widget->OnWindowKeyStatusChanged(
+      /*is_key=*/true, /*is_content_first_responder=*/true);
+  native_widget->OnWindowKeyStatusChanged(
+      /*is_key=*/false, /*is_content_first_responder=*/true);
+
+  // OnNativeFocus()/OnNativeBlur() still run; only the null deref is skipped.
+  EXPECT_THAT(focus_listener.focus_changes(),
+              testing::Contains(child->GetNativeView()));
+
+  // The child is detached from `native_parent`, so close it directly.
+  [child->GetNativeWindow().GetNativeNSWindow() close];
+  [native_parent close];
+}
+
 // Tests that CloseAllWidgets behaves in various configurations.
 TEST_F(NativeWidgetMacTest, CloseAllWidgetsValidState) {
   NativeWidgetMacTestWindow* __weak last_window_weak = nil;
@@ -1095,9 +1149,9 @@ TEST_F(NativeWidgetMacTest, NonWidgetParentLastReference) {
     native_parent = nil;
   }
 
-  // As of macOS 13 (Ventura), it seems that exiting the autoreleasepool
-  // block does not immediately trigger a release of its contents. Wait
-  // here for the deallocations to occur before proceeding.
+  // It seems that exiting the autoreleasepool block does not immediately
+  // trigger a release of its contents. Wait here for the deallocations to occur
+  // before proceeding.
   EXPECT_TRUE(base::test::RunUntil([&]() { return child_dealloced; }));
   EXPECT_TRUE(base::test::RunUntil([&]() { return native_parent_dealloced; }));
 }
@@ -2771,6 +2825,46 @@ TEST_F(NativeWidgetMacTest, CenterWindowClampsToScreen) {
       << " should be within screen bounds " << screen_bounds.ToString();
 
   parent->CloseNow();
+}
+
+namespace {
+
+class NoopEventMonitorClient : public NativeWidgetMacEventMonitor::Client {
+ public:
+  void NativeWidgetMacEventMonitorOnEvent(ui::Event*, bool, bool*) override {}
+};
+
+}  // namespace
+
+// Destroying an event monitor while the host's bridge is gone but the host is
+// still alive must not dereference the null mojo interface. This reproduces the
+// teardown window in ~NativeWidgetMacNSWindowHost where the bridge has been
+// cleared but weak_factory_ is still valid.
+TEST_F(NativeWidgetMacTest, RemoveEventMonitorAfterBridgeGone) {
+  Widget* widget = CreateTopLevelPlatformWidget();
+  widget->Show();
+  NativeWidgetMacNSWindowHost* host =
+      NativeWidgetMacNSWindowHost::GetFromNativeWindow(
+          widget->GetNativeWindow());
+  ASSERT_TRUE(host);
+  ASSERT_TRUE(host->GetNSWindowMojo());
+
+  NoopEventMonitorClient client;
+  std::unique_ptr<NativeWidgetMacEventMonitor> monitor =
+      host->AddEventMonitor(&client);
+  ASSERT_TRUE(monitor);
+
+  auto bridge = BridgedNativeWidgetTestApi::TakeInProcessBridge(host);
+  ASSERT_FALSE(host->GetNSWindowMojo());
+
+  // Without the fix, this dereferences the null mojo interface in the monitor's
+  // remove closure.
+  monitor.reset();
+
+  // Restore the bridge so the host tears down normally.
+  BridgedNativeWidgetTestApi::RestoreInProcessBridge(host, std::move(bridge));
+  ASSERT_TRUE(host->GetNSWindowMojo());
+  widget->CloseNow();
 }
 
 }  // namespace views::test

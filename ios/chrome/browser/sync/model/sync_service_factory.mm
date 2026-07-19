@@ -16,6 +16,7 @@
 #import "components/collaboration/public/collaboration_service.h"
 #import "components/keyed_service/core/service_access_type.h"
 #import "components/network_time/network_time_tracker.h"
+#import "components/password_manager/core/browser/features/password_features.h"
 #import "components/password_manager/core/browser/password_store/password_store_interface.h"
 #import "components/password_manager/core/browser/sharing/password_receiver_service.h"
 #import "components/prefs/pref_service.h"
@@ -154,8 +155,7 @@ syncer::DataTypeController::TypeVector CreateControllers(
   syncer::DataTypeController::TypeVector controllers = builder.Build(
       /*disabled_types=*/{}, sync_service, ::GetChannel());
 
-  if (base::FeatureList::IsEnabled(syncer::kSyncThemesIos) &&
-      IsNTPBackgroundCustomizationEnabled()) {
+  if (base::FeatureList::IsEnabled(syncer::kSyncThemesIos)) {
     HomeBackgroundCustomizationService* service =
         HomeBackgroundCustomizationServiceFactory::GetForProfile(profile);
     // TODO(crbug.com/481713548): Log metrics indicating service
@@ -247,6 +247,25 @@ std::unique_ptr<KeyedService> BuildSyncService(ProfileIOS* profile) {
     groups_updater_service->OnSyncServiceInitialized(sync_service.get());
   }
 
+  if (base::FeatureList::IsEnabled(
+          password_manager::features::kPasswordSaveInContextErrorResolution)) {
+    scoped_refptr<password_manager::PasswordStoreInterface>
+        profile_password_store =
+            IOSChromeProfilePasswordStoreFactory::GetForProfile(
+                profile, ServiceAccessType::EXPLICIT_ACCESS);
+    if (profile_password_store) {
+      profile_password_store->OnSyncServiceInitialized(sync_service.get());
+    }
+
+    scoped_refptr<password_manager::PasswordStoreInterface>
+        account_password_store =
+            IOSChromeAccountPasswordStoreFactory::GetForProfile(
+                profile, ServiceAccessType::EXPLICIT_ACCESS);
+    if (account_password_store) {
+      account_password_store->OnSyncServiceInitialized(sync_service.get());
+    }
+  }
+
   return sync_service;
 }
 
@@ -303,6 +322,11 @@ SyncServiceFactory::GetAllSyncServices() {
     }
   }
   return sync_services;
+}
+
+// static
+SyncServiceFactory::TestingFactory SyncServiceFactory::GetDefaultFactory() {
+  return base::BindOnce(&BuildSyncService);
 }
 
 SyncServiceFactory::SyncServiceFactory()

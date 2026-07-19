@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "base/auto_reset.h"
+#include "base/functional/callback_helpers.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
 #include "base/types/expected.h"
@@ -35,6 +36,8 @@ class AppLock;
 struct WebAppInstallInfo;
 class WebAppDataRetriever;
 class WebAppProvider;
+class WebInstallManifestFetcher;
+enum class WebInstallManifestFetchError;
 
 // Result codes for Web Install API results.
 // These values are persisted to logs. Entries should not be renumbered and
@@ -51,8 +54,9 @@ enum class WebInstallServiceResult {
   kInstallCommandFailed = 6,
   kNoCustomManifestId = 7,
   kManifestIdMismatch = 8,
+  kInstallInProgress = 9,
   // Insert new values above this line.
-  kMaxValue = kManifestIdMismatch,
+  kMaxValue = kInstallInProgress,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/webapps/enums.xml:WebInstallServiceResult)
 
@@ -75,6 +79,11 @@ using InstallCallbackWithMetrics =
     base::OnceCallback<void(web_app::WebInstallServiceResult,
                             blink::mojom::WebInstallServiceResult,
                             std::optional<webapps::ManifestId>)>;
+
+// Wraps the `InstallFromManifestCallback` so that the install-in-progress guard
+// is automatically released on every exit path.
+using InstallFromManifestCallbackWithGuard =
+    base::OnceCallback<void(blink::mojom::WebInstallServiceResult)>;
 
 // Service side implementation for the Blink Web Install API. Takes the
 // parameters from the API call in the form of `InstallOptionsPtr`, and decides
@@ -100,10 +109,13 @@ class WebInstallServiceImpl
   // blink::mojom::WebInstallService implementation:
   void IsInstalled(blink::mojom::InstallOptionsPtr options,
                    IsInstalledCallback callback) override;
+  // TODO(crbug.com/520025525): Clean up install_url code.
   void Install(blink::mojom::InstallOptionsPtr options,
                InstallCallback callback) override;
   void InstallFromElement(blink::mojom::InstallOptionsPtr options,
                           InstallCallback callback) override;
+  void InstallFromManifest(blink::mojom::ManifestInstallOptionsPtr options,
+                           InstallFromManifestCallback callback) override;
 
  private:
   // Shared implementation for Install() and InstallFromElement().
@@ -113,10 +125,23 @@ class WebInstallServiceImpl
   void InstallInternal(blink::mojom::InstallOptionsPtr options,
                        InstallCallback callback,
                        bool triggered_from_element);
+
+  // Internal entry point for the manifest URL install flow. Acquires the
+  // install-in-progress guard and wraps the callback so the guard is
+  // released on every exit path.
+  void InstallFromManifestInternal(
+      blink::mojom::ManifestInstallOptionsPtr options,
+      InstallFromManifestCallback callback);
+
   WebInstallServiceImpl(
       content::RenderFrameHost& render_frame_host,
       mojo::PendingReceiver<blink::mojom::WebInstallService> receiver);
   ~WebInstallServiceImpl() override;
+
+  // Manages `install_in_progress_`.
+  bool IsInstallInProgress() const;
+  base::ScopedClosureRunner ReserveInstallInProgress();
+  void ReleaseInstallInProgress();
 
   void OnInstallNotSupportedDialogClosed(
       InstallCallbackWithMetrics callback_with_metrics);
@@ -187,6 +212,21 @@ class WebInstallServiceImpl
                             std::optional<GURL> manifest_id,
                             IsInstalledCallback callback);
 
+  // Callback for when InstallFromManifest's fetch completes.
+  void OnManifestFetched(
+      InstallFromManifestCallbackWithGuard callback_with_guard,
+      blink::mojom::ManifestInstallOptionsPtr options,
+      base::expected<std::string, WebInstallManifestFetchError> result);
+
+  // Callback for when the manifest parse command completes.
+  void OnManifestParsed(
+      InstallFromManifestCallbackWithGuard callback_with_guard,
+      blink::mojom::ManifestInstallOptionsPtr options,
+      blink::mojom::ManifestPtr manifest);
+
+  // Only one install can be in progress at a time.
+  bool install_in_progress_ = false;
+
   const content::GlobalRenderFrameHostId frame_routing_id_;
   GURL last_committed_url_;
   // Active data retrievers. They are destroyed when this service is destroyed
@@ -200,6 +240,10 @@ class WebInstallServiceImpl
   // run; it advances monotonically each time a lookup is scheduled, paced by
   // `g_min_cross_origin_query_interval`.
   base::TimeTicks next_cross_origin_query_dispatch_time_;
+
+  // Active manifest fetcher for InstallFromManifest. Destroyed when the
+  // fetch completes or this service is destroyed.
+  std::unique_ptr<WebInstallManifestFetcher> manifest_fetcher_;
 
   base::WeakPtrFactory<web_app::WebInstallServiceImpl> weak_ptr_factory_{this};
 };

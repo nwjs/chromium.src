@@ -13,6 +13,7 @@
 
 #include "base/command_line.h"
 #include "base/functional/callback_helpers.h"
+#include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/run_loop.h"
@@ -219,6 +220,8 @@ class MockWebMediaPlayerClient : public MediaPlayerClient {
   MOCK_METHOD1(DidUseAudioServiceChange, void(bool uses_audio_service));
   MOCK_METHOD1(DidPlayerSizeChange, void(const gfx::Size&));
   MOCK_METHOD1(OnRemotePlaybackDisabled, void(bool));
+  MOCK_METHOD0(OnFrameHidden, void());
+  MOCK_METHOD0(OnFrameShown, void());
   MOCK_METHOD0(DidBufferUnderflow, void());
   MOCK_METHOD0(DidSeek, void());
   MOCK_METHOD2(OnFirstFrame, void(base::TimeTicks, size_t));
@@ -293,8 +296,6 @@ class MockWebMediaPlayerDelegate : public WebMediaPlayerDelegate {
 
   bool IsPageHidden() override { return is_page_hidden_; }
 
-  bool IsFrameHidden() override { return is_frame_hidden_; }
-
   void SetIdleForTesting(bool is_idle) { is_idle_ = is_idle; }
 
   void SetStaleForTesting(bool is_stale) {
@@ -316,10 +317,6 @@ class MockWebMediaPlayerDelegate : public WebMediaPlayerDelegate {
     is_page_hidden_ = is_page_hidden;
   }
 
-  void SetFrameHiddenForTesting(bool is_frame_hidden) {
-    is_frame_hidden_ = is_frame_hidden;
-  }
-
   int player_id() { return player_id_; }
 
  private:
@@ -328,7 +325,6 @@ class MockWebMediaPlayerDelegate : public WebMediaPlayerDelegate {
   bool is_idle_ = false;
   bool is_stale_ = false;
   bool is_page_hidden_ = false;
-  bool is_frame_hidden_ = false;
 };
 
 class MockSurfaceLayerBridge : public WebSurfaceLayerBridge {
@@ -676,13 +672,11 @@ class WebMediaPlayerImplTest
   }
 
   void HidePlayerFrame() {
-    delegate_.SetFrameHiddenForTesting(true);
     SetWasSuspendedForFrameClosed(false);
     wmpi_->OnFrameHidden();
   }
 
   void ShowPlayerFrame() {
-    delegate_.SetFrameHiddenForTesting(false);
     SetWasSuspendedForFrameClosed(false);
     wmpi_->OnFrameShown();
   }
@@ -756,11 +750,6 @@ class WebMediaPlayerImplTest
   bool ShouldCancelUponDefer() const {
     auto* ds = wmpi_->demuxer_manager_->GetDataSourceForTesting();
     CHECK_NE(ds, nullptr);
-    CHECK_NE(ds->GetAsCrossOriginDataSource(), nullptr);
-    // Right now, the only implementation of DataSource that WMPI can get
-    // which returns non-null from GetAsCrossOriginDataSource is
-    // MultiBufferDataSource, so the CHECKs above allow us to be safe casting
-    // this here.
     // TODO(crbug.com/40243452): Can we add |cancel_on_defer_for_testing| to
     // CrossOriginDataSource? We can't do a |GetAsMultiBufferDataSource| since
     // MBDS is in blink, and we can't import that into media.
@@ -771,7 +760,6 @@ class WebMediaPlayerImplTest
   bool IsDataSourceMarkedAsPlaying() const {
     auto* ds = wmpi_->demuxer_manager_->GetDataSourceForTesting();
     CHECK_NE(ds, nullptr);
-    CHECK_NE(ds->GetAsCrossOriginDataSource(), nullptr);
     // See comment in |ShouldCancelUponDefer|.
     return static_cast<const MultiBufferDataSource*>(ds)->media_has_played();
   }
@@ -3413,7 +3401,7 @@ TEST_F(WebMediaPlayerImplTest, DISABLED_DemuxerOverride) {
       std::make_unique<NiceMock<media::MockDemuxer>>();
   StrictMock<media::MockDemuxerStream> stream(media::DemuxerStream::AUDIO);
   stream.set_audio_decoder_config(TestAudioConfig::Normal());
-  std::vector<media::DemuxerStream*> streams;
+  auto streams = demuxer->GetAllStreams();
   streams.push_back(&stream);
 
   EXPECT_CALL(stream, SupportsConfigChanges()).WillRepeatedly(Return(false));

@@ -46,6 +46,7 @@
 #include "chrome/grit/generated_resources.h"
 #include "components/global_media_controls/public/format_duration.h"
 #include "components/vector_icons/vector_icons.h"
+#include "content/public/browser/immersive_playback_options.h"
 #include "content/public/browser/media_session.h"
 #include "content/public/browser/picture_in_picture_window_controller.h"
 #include "content/public/browser/render_frame_host.h"
@@ -69,6 +70,7 @@
 #include "ui/gfx/geometry/resize_utils.h"
 #include "ui/gfx/geometry/skia_conversions.h"
 #include "ui/gfx/text_constants.h"
+#include "ui/views/background.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/widget/widget_delegate.h"
@@ -174,43 +176,6 @@ T* AddChildView(std::vector<std::unique_ptr<views::View>>* views,
   views->push_back(std::move(child));
   return static_cast<T*>(views->back().get());
 }
-
-class WindowBackgroundView : public views::View {
-  METADATA_HEADER(WindowBackgroundView, views::View)
-
- public:
-  WindowBackgroundView() = default;
-  WindowBackgroundView(const WindowBackgroundView&) = delete;
-  WindowBackgroundView& operator=(const WindowBackgroundView&) = delete;
-  ~WindowBackgroundView() override = default;
-
-  void OnThemeChanged() override {
-    views::View::OnThemeChanged();
-    layer()->SetColor(GetColorProvider()->GetColor(kColorPipWindowBackground));
-  }
-};
-
-BEGIN_METADATA(WindowBackgroundView)
-END_METADATA
-
-class ControlsBackgroundView : public views::View {
-  METADATA_HEADER(ControlsBackgroundView, views::View)
-
- public:
-  ControlsBackgroundView() = default;
-  ControlsBackgroundView(const ControlsBackgroundView&) = delete;
-  ControlsBackgroundView& operator=(const ControlsBackgroundView&) = delete;
-  ~ControlsBackgroundView() override = default;
-
-  void OnThemeChanged() override {
-    views::View::OnThemeChanged();
-    SetBackground(views::CreateSolidBackground(
-        GetColorProvider()->GetColor(kColorPipWindowScrimFull)));
-  }
-};
-
-BEGIN_METADATA(ControlsBackgroundView)
-END_METADATA
 
 class GradientBackground : public views::Background {
  public:
@@ -382,10 +347,7 @@ std::unique_ptr<VideoOverlayWindowViews> VideoOverlayWindowViews::Create(
 // Windows. On Windows, resizable windows can not be translucent. See
 // crbug.com/425711450.
 #if !BUILDFLAG(IS_WIN)
-  if (base::FeatureList::IsEnabled(
-          media::kPictureInPictureShowWindowAnimation)) {
-    params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
-  }
+  params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
 #endif
 
 #if BUILDFLAG(IS_MAC)
@@ -1094,9 +1056,18 @@ void VideoOverlayWindowViews::SetUpViews() {
   // View that is displayed when video is hidden. ------------------------------
   // Adding an extra pixel to width/height makes sure controls background cover
   // entirely window when platform has fractional scale applied.
-  auto window_background_view = std::make_unique<WindowBackgroundView>();
+  auto window_background_view = std::make_unique<views::View>();
+  window_background_view->SetBackground(
+      views::CreateLayerBasedSolidBackground(kColorPipWindowBackground));
+  window_background_view->GetBackground()->SetInternalName(
+      "WindowBackgroundView");
+
   auto video_view = std::make_unique<views::View>();
-  auto controls_scrim_view = std::make_unique<ControlsBackgroundView>();
+
+  auto controls_scrim_view = std::make_unique<views::View>();
+  controls_scrim_view->SetBackground(
+      views::CreateSolidBackground(kColorPipWindowScrimFull));
+
   auto controls_container_view = std::make_unique<views::View>();
   auto title_view = std::make_unique<views::View>();
   auto close_controls_view = std::make_unique<CloseImageButton>(
@@ -1309,9 +1280,6 @@ void VideoOverlayWindowViews::SetUpViews() {
   auto resize_handle_view =
       std::make_unique<ResizeHandleButton>(views::Button::PressedCallback());
 #endif
-
-  window_background_view->SetPaintToLayer(ui::LAYER_SOLID_COLOR);
-  window_background_view->layer()->SetName("WindowBackgroundView");
 
   // view::View that holds the video. -----------------------------------------
   video_view->SetPaintToLayer(ui::LAYER_TEXTURED);
@@ -1762,17 +1730,11 @@ void VideoOverlayWindowViews::ShowInactive() {
 #if BUILDFLAG(IS_WIN)
   views::Widget::ShowInactive();
 #else
-  if (base::FeatureList::IsEnabled(
-          media::kPictureInPictureShowWindowAnimation)) {
-    if (!fade_animator_) {
-      fade_animator_ = std::make_unique<PictureInPictureWidgetFadeAnimator>();
-    }
-    fade_animator_->AnimateShowWindow(
-        this,
-        PictureInPictureWidgetFadeAnimator::WidgetShowType::kShowInactive);
-  } else {
-    views::Widget::ShowInactive();
+  if (!fade_animator_) {
+    fade_animator_ = std::make_unique<PictureInPictureWidgetFadeAnimator>();
   }
+  fade_animator_->AnimateShowWindow(
+      this, PictureInPictureWidgetFadeAnimator::WidgetShowType::kShowInactive);
 #endif
 
   views::Widget::SetVisibleOnAllWorkspaces(true);
@@ -2034,7 +1996,7 @@ void VideoOverlayWindowViews::SetPlaybackControlsVisibility(bool is_visible) {
 }
 
 void VideoOverlayWindowViews::SetImmersiveVideoOptions(
-    blink::mojom::ImmersiveOptionsPtr options) {
+    const content::ImmersiveOptions& options) {
   NOTREACHED();
 }
 

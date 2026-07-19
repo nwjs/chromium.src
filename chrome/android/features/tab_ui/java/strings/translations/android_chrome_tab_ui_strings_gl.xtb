@@ -31,6 +31,7 @@
 <translation id="1828808367831369073"><ph name="TABS_COUNT_ONE" /> pestana agrupada</translation>
 <translation id="1844381456014878100">Despois de 7 días sen actividade</translation>
 <translation id="1869137256605757565">{TABS_COUNT,plural, =1{<ph name="TABS_COUNT_ONE" /> pestana}other{<ph name="TABS_COUNT_MANY" /> pestanas}}</translation>
+<translation id="1894429470045525403">{TAB_COUNT,plural, =1{Engadir a pestana á lista de lectura}other{Engadir as pestanas á lista de lectura}}</translation>
 <translation id="1909810060368225529">Aviso: Todo o mundo poderá ver os cambios neste grupo de pestanas compartido. Todos os membros do grupo poden facer cambios nos grupos de pestanas compartidos</translation>
 <translation id="1925363809167540686">{TAB_COUNT,plural, =1{Fixar a pestana}other{Fixar as pestanas}}</translation>
 <translation id="1982637982196732906">Mover á sección de elementos inactivos</translation>
@@ -76,6 +77,8 @@
 <translation id="3052964831964880138">Baixada de prezo de <ph name="PRICE_DROP" /> no seguinte produto: <ph name="PRODUCT_NAME" /></translation>
 <translation id="3078350928901129212">Icona de cor <ph name="COLOR_NAME" /> do grupo de pestanas</translation>
 <translation id="311432875115153175">Lista dos grupos de pestanas pechada</translation>
+<translation id="3152596030350326139">Mostrar pestanas en horizontal</translation>
+<translation id="31806439105337256">Mostrar pestanas en vertical</translation>
 <translation id="3194464645767632461">valoración</translation>
 <translation id="3269930881809501915">{TABS_COUNT,plural, =1{Engadir <ph name="TABS_COUNT_ONE" /> pestana ao grupo}other{Engadir <ph name="TABS_COUNT_MANY" /> pestanas ao grupo}}</translation>
 <translation id="3328308545011660196">Suxestión: Hai <ph name="NUMBER_OF_TABS" /> pestanas que parecen relacionadas. Queres agrupalas?</translation>
@@ -180,7 +183,6 @@
 <translation id="7129458170538955174">A folla de información sobre esta tenda está aberta a media pantalla</translation>
 <translation id="7204204600596740190">Modo de selección múltiple</translation>
 <translation id="7211038039686180558">Os grupos de pestanas gárdanse e actualízanse automaticamente en todos os dispositivos nos que teñas a sesión iniciada</translation>
-<translation id="731648547091221002"><ph name="COLOR_NAME" />, opción seleccionada</translation>
 <translation id="7326879924029668159">Consulta a política de devolución e outra información</translation>
 <translation id="7352298686197644113">Descubre que artigo baixou de prezo nunha das pestanas que tes abertas</translation>
 <translation id="7369451074646620503">O grupo "<ph name="TAB_GROUP_NAME" />" xa non está dispoñible</translation>
@@ -206,7 +208,6 @@
 <translation id="7854360405711302755">{REVIEWS,plural, =1{ Valoración: <ph name="CURRENT_RATING" />/<ph name="RATING_BASELINE" /> (<ph name="REVIEWS_COUNT_ONE" /> recensión)}other{Valoración: <ph name="CURRENT_RATING" />/<ph name="RATING_BASELINE" /> (<ph name="REVIEWS_COUNT_MANY" /> recensións)}}</translation>
 <translation id="7885132941432959125">Mover pestana cara á dereita</translation>
 <translation id="7887334752153342268">Duplicar</translation>
-<translation id="7939917283308035850"><ph name="COLOR_NAME" />, opción non seleccionada</translation>
 <translation id="7961015016161918242">Nunca</translation>
 <translation id="7966321538264951561">Ignorar estas suxestións.</translation>
 <translation id="796696298310625748">{WINDOW_COUNT,plural, =1{Mover a pestana a unha ventá nova}other{Mover a pestana a outra ventá}}</translation>

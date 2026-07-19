@@ -1,0 +1,60 @@
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//mojo/public/tools/bindings/mojom.gni")
+
+mojom("mojo_bindings") {
+  sources = [ "context_hub.mojom" ]
+  webui_module_path = "/"
+  public_deps = [
+    "//mojo/public/mojom/base",
+    "//url/mojom:url_mojom_gurl",
+  ]
+}
+
+source_set("context_hub") {
+  sources = [
+    "context_hub_page_handler.cc",
+    "context_hub_page_handler.h",
+    "context_hub_ui.cc",
+    "context_hub_ui.h",
+  ]
+
+  public_deps = [
+    "//base",
+    "//content/public/browser",
+    "//mojo/public/cpp/bindings",
+    "//ui/webui",
+  ]
+
+  deps = [
+    ":mojo_bindings",
+    "//chrome/browser/context_hub",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/resources/context_hub:resources",
+    "//chrome/common",
+    "//components/personal_context/proto:personal_context_proto",
+  ]
+
+  if (!is_android) {
+    deps += [ "//chrome/browser/ui/webui:favicon_source" ]
+  }
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [ "context_hub_page_handler_unittest.cc" ]
+  deps = [
+    ":context_hub",
+    "//base/test:test_support",
+    "//chrome/browser/context_hub",
+    "//chrome/browser/personal_context",
+    "//chrome/test:test_support",
+    "//components/personal_context/core:test_support",
+    "//components/personal_context/proto:personal_context_proto",
+    "//content/test:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+}

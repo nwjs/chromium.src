@@ -2,13 +2,21 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//build/config/ui.gni")
+
+assert(toolkit_views)
+
+source_set("web_apps") {
+  public = [ "web_app_views_utils.h" ]
+}
+
 source_set("browser_tests") {
   testonly = true
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
   sources = [
     "create_shortcut_confirmation_view_browsertest.cc",
     "simple_install_dialog_bubble_view_browsertest.cc",
-    "sub_apps_install_dialog_controller_browsertest.cc",
+    "sub_apps/sub_apps_install_dialog_controller_browsertest.cc",
     "web_app_blocked_migration_infobar_delegate_browsertest.cc",
     "web_app_install_dialog_browsertest.cc",
     "web_app_install_flow_browsertest.cc",

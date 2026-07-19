@@ -267,7 +267,6 @@ class OSCryptAsyncExtraSetUp : public ChromeBrowserMainExtraParts {
     // that verify rollback from async to sync will fail as data might be
     // encrypted with the test key above.
     bool UseForEncryption() override { return false; }
-    bool IsCompatibleWithOsCryptSync() override { return false; }
     const base::TimeDelta sleep_time_;
   };
 };
@@ -711,7 +710,8 @@ bool InProcessBrowserTest::AddTabAtIndexToBrowser(
   NavigateParams params(browser, url, transition);
   params.tabstrip_index = index;
   params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
-  params.pwa_navigation_capturing_force_off = true;
+  params.web_app_navigation_data.emplace();
+  params.web_app_navigation_data->SetNavigationCapturingForceOff(true);
   Navigate(&params);
   RunScheduledLayouts();
 
@@ -828,7 +828,7 @@ void InProcessBrowserTest::AddBlankTabAndShow(Browser* browser,
   content::TestNavigationObserver observer(blank_tab);
   observer.Wait();
   RunScheduledLayouts();
-  browser->window()->Show();
+  browser->GetWindow()->Show();
   if (wait_for_activation && !browser_shutdown::IsTryingToQuit()) {
     ui_test_utils::WaitForBrowserSetLastActive(browser);
   }

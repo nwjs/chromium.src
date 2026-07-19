@@ -9,12 +9,14 @@
 #include <optional>
 #include <string>
 
+#include "base/barrier_closure.h"
 #include "base/containers/span.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_refptr.h"
@@ -22,6 +24,7 @@
 #include "base/numerics/safe_conversions.h"
 #include "base/sequence_checker.h"
 #include "base/system/sys_info.h"
+#include "base/task/bind_post_task.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner_thread_mode.h"
 #include "base/task/task_traits.h"
@@ -48,6 +51,29 @@
 #endif
 
 namespace content {
+
+#if !BUILDFLAG(IS_FUCHSIA)
+namespace {
+
+std::unique_ptr<persistent_cache::PersistentCacheCollection>
+MakePersistentCacheCollection(
+    int max_bytes,
+    const base::FilePath& disk_cache_path,
+    const base::FilePath& persistent_cache_collection_path) {
+  int64_t disk_cache_max_size =
+      max_bytes > 0 ? max_bytes
+                    : disk_cache::PreferredCacheSize(
+                          base::SysInfo::AmountOfFreeDiskSpace(disk_cache_path)
+                              .value_or(-1),
+                          net::GENERATED_BYTE_CODE_CACHE);
+
+  return std::make_unique<persistent_cache::PersistentCacheCollection>(
+      persistent_cache_collection_path, disk_cache_max_size,
+      persistent_cache::Client::kCodeCache);
+}
+
+}  // namespace
+#endif  // !BUILDFLAG(IS_FUCHSIA)
 
 // static
 void GeneratedCodeCacheContext::RunOrPostTask(
@@ -81,7 +107,8 @@ void GeneratedCodeCacheContext::Initialize(const base::FilePath& path,
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   CHECK(!task_runner_);  // Only initialize once.
 
-  if (blink::features::IsPersistentCacheForCodeCacheEnabled()) {
+  if (blink::features::IsPersistentCacheForCodeCacheEnabled() ||
+      blink::features::IsInlineScriptCacheEnabled()) {
     // Use a SequencedTaskRunner tied to the path resource. This ensures that if
     // this StoragePartition is destroyed and recreated with the same path,
     // operations (including deletions of old files and creation of new ones)
@@ -114,9 +141,9 @@ void GeneratedCodeCacheContext::InitializeOnThread(const base::FilePath& path,
   base::FilePath persistent_cache_collection_path = path.AppendASCII("pc");
 #endif  // !BUILDFLAG(IS_FUCHSIA)
 
-  const bool use_persistent_cache =
+  const bool replace_by_persistent_cache =
       blink::features::IsPersistentCacheForCodeCacheEnabled();
-  if (!use_persistent_cache) {
+  if (!replace_by_persistent_cache) {
     if (base::FeatureList::IsEnabled(features::kWebUICodeCache)) {
       int max_bytes_webui_js = max_bytes;
       if (max_bytes > 0) {
@@ -158,32 +185,26 @@ void GeneratedCodeCacheContext::InitializeOnThread(const base::FilePath& path,
         GeneratedCodeCache::CodeCacheType::kWebAssembly);
 
 #if !BUILDFLAG(IS_FUCHSIA)
-    // Delete the PersistentCache files that won't be used to avoid wasting
-    // space.
-    base::ThreadPool::CreateSequencedTaskRunner({base::MayBlock()})
-        ->PostTask(
-            FROM_HERE,
-            base::BindOnce(base::IgnoreResult(base::DeletePathRecursively),
-                           persistent_cache_collection_path));
+    if (blink::features::IsInlineScriptCacheEnabled()) {
+      persistent_cache_collection_ = MakePersistentCacheCollection(
+          max_bytes_js, path, persistent_cache_collection_path);
+    } else {
+      // Delete the PersistentCache files that won't be used to avoid wasting
+      // space.
+      base::ThreadPool::CreateSequencedTaskRunner({base::MayBlock()})
+          ->PostTask(
+              FROM_HERE,
+              base::BindOnce(base::IgnoreResult(base::DeletePathRecursively),
+                             persistent_cache_collection_path));
+    }
 #endif  // !BUILDFLAG(IS_FUCHSIA)
   } else {
 #if !BUILDFLAG(IS_FUCHSIA)
-    // Target the same amount of disk space used for persistent_cache as is used
-    // for disk_cache or use `max_bytes` if provided.
-    int64_t disk_cache_max_size =
-        max_bytes > 0
-            ? max_bytes
-            : disk_cache::PreferredCacheSize(
-                  base::SysInfo::AmountOfFreeDiskSpace(path).value_or(-1),
-                  net::GENERATED_BYTE_CODE_CACHE);
+    persistent_cache_collection_ = MakePersistentCacheCollection(
+        max_bytes, path, persistent_cache_collection_path);
 
-    persistent_cache_collection_ =
-        std::make_unique<persistent_cache::PersistentCacheCollection>(
-            persistent_cache_collection_path, disk_cache_max_size,
-            persistent_cache::Client::kCodeCache);
-
-    // Delete the GeneratedCodeCache files that won't be used to avoid wasting
-    // space.
+    // Delete the GeneratedCodeCache files that won't be used to avoid
+    // wasting space.
     base::ThreadPool::CreateSequencedTaskRunner({base::MayBlock()})
         ->PostTask(FROM_HERE,
                    base::BindOnce(
@@ -207,6 +228,18 @@ void GeneratedCodeCacheContext::Shutdown() {
   RunOrPostTask(this, FROM_HERE,
                 base::BindOnce(&GeneratedCodeCacheContext::ShutdownOnThread,
                                this, std::move(task_runner_for_resource_)));
+  task_runner_.reset();
+}
+
+void GeneratedCodeCacheContext::ShutdownForTesting(base::OnceClosure callback) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  auto ui_callback = base::BindPostTaskToCurrentDefault(std::move(callback));
+
+  RunOrPostTask(
+      this, FROM_HERE,
+      base::BindOnce(&GeneratedCodeCacheContext::ShutdownOnThreadForTesting,
+                     this, std::move(ui_callback),
+                     std::move(task_runner_for_resource_)));
   task_runner_.reset();
 }
 
@@ -264,7 +297,7 @@ GeneratedCodeCacheContext::FindInPersistentCacheCollection(
 
   mojo_base::BigBuffer content_buffer;
 
-  // A BufferProvider for PersistentCache that puts a new mojo_base::BugBuffer
+  // A BufferProvider for PersistentCache that puts a new mojo_base::BigBuffer
   // in `content_buffer` to hold an entry's content and returns a view into it.
   auto buffer_provider = [&content_buffer](size_t content_size) {
     content_buffer = mojo_base::BigBuffer(content_size);
@@ -301,6 +334,51 @@ void GeneratedCodeCacheContext::ShutdownOnThread(
   generated_js_code_cache_.reset();
   generated_wasm_code_cache_.reset();
   generated_webui_js_code_cache_.reset();
+}
+
+void GeneratedCodeCacheContext::ShutdownOnThreadForTesting(  // IN-TEST
+    base::OnceClosure callback,
+    DedicatedTaskRunnerForResource task_runner_for_resource) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  std::vector<GeneratedCodeCache*> caches_to_wait;
+  if (generated_js_code_cache_) {
+    caches_to_wait.push_back(generated_js_code_cache_.get());
+  }
+  if (generated_wasm_code_cache_) {
+    caches_to_wait.push_back(generated_wasm_code_cache_.get());
+  }
+  if (generated_webui_js_code_cache_) {
+    caches_to_wait.push_back(generated_webui_js_code_cache_.get());
+  }
+
+  if (caches_to_wait.empty()) {
+    ShutdownOnThread(std::move(task_runner_for_resource));
+    std::move(callback).Run();
+    return;
+  }
+
+#if !BUILDFLAG(IS_FUCHSIA)
+  persistent_cache_collection_.reset();
+#endif  // !BUILDFLAG(IS_FUCHSIA)
+
+  // A callback to be run once all GeneratedCodeCache instances have completely
+  // shut down their backends.
+  auto on_cleanup_complete = base::BindOnce(
+      [](scoped_refptr<GeneratedCodeCacheContext> self,
+         base::OnceClosure callback,
+         DedicatedTaskRunnerForResource task_runner_for_resource) {
+        self->ShutdownOnThread(std::move(task_runner_for_resource));
+        std::move(callback).Run();
+      },
+      base::WrapRefCounted(this), std::move(callback),
+      std::move(task_runner_for_resource));
+
+  auto barrier = base::BarrierClosure(caches_to_wait.size(),
+                                      std::move(on_cleanup_complete));
+  for (auto* cache : caches_to_wait) {
+    cache->ShutdownForTesting(barrier);  // IN-TEST
+  }
 }
 
 GeneratedCodeCache* GeneratedCodeCacheContext::generated_js_code_cache() const {

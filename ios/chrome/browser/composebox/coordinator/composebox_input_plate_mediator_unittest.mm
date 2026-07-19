@@ -11,6 +11,7 @@
 #import "base/no_destructor.h"
 #import "base/run_loop.h"
 #import "base/strings/sys_string_conversions.h"
+#import "base/test/metrics/histogram_tester.h"
 #import "base/test/run_until.h"
 #import "base/test/scoped_feature_list.h"
 #import "base/test/task_environment.h"
@@ -40,11 +41,15 @@
 #import "ios/chrome/browser/composebox/ui/composebox_ui_input_state.h"
 #import "ios/chrome/browser/lens/ui_bundled/lens_availability.h"
 #import "ios/chrome/browser/lens/ui_bundled/lens_entrypoint.h"
+#import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
+#import "ios/chrome/browser/ntp/shared/metrics/home_metrics.h"
+#import "ios/chrome/browser/ntp/shared/metrics/new_tab_page_metrics_constants.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/shared/model/web_state_list/test/fake_web_state_list_delegate.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
+#import "ios/chrome/browser/url_loading/model/url_loading_params.h"
 #import "ios/web/public/test/fakes/fake_web_state.h"
 #import "net/base/apple/url_conversions.h"
 #import "services/network/public/cpp/shared_url_loader_factory.h"
@@ -52,6 +57,7 @@
 #import "services/network/test/test_url_loader_factory.h"
 #import "testing/gmock/include/gmock/gmock.h"
 #import "testing/gtest/include/gtest/gtest.h"
+#import "testing/gtest_mac.h"
 #import "testing/platform_test.h"
 #import "third_party/omnibox_proto/searchbox_config.pb.h"
 
@@ -137,7 +143,8 @@ class ComposeboxInputPlateMediatorTest : public PlatformTest {
     fake_variations_client_ = std::make_unique<FakeVariationsClient>();
     service_ = std::make_unique<contextual_search::ContextualSearchService>(
         nullptr, shared_url_loader_factory_, template_url_service(),
-        fake_variations_client_.get(), version_info::Channel::STABLE, "en-US");
+        fake_variations_client_.get(), version_info::Channel::STABLE, "en-US",
+        /*tab_validator=*/nullptr);
     auto config_params = std::make_unique<
         contextual_search::ContextualSearchContextController::ConfigParams>();
     static base::NoDestructor<network::TestURLLoaderFactory>
@@ -785,7 +792,8 @@ TEST_F(ComposeboxInputPlateMediatorTest, AwaitingSignalsSetOnFocus) {
       [[ComposeboxAttachmentSelection alloc] initWithTabIDs:{}
           cachedWebStateIDs:{}
           images:@[]
-          files:@[ url ]];
+          files:@[ url ]
+          driveItems:@[]];
 
   ComposeboxFocusParams* params = [[ComposeboxFocusParams alloc]
       initWithEntrypoint:ComposeboxEntrypoint::kOther
@@ -829,7 +837,8 @@ TEST_F(ComposeboxInputPlateMediatorTest, AwaitingSignalsClearedOnItemRemoval) {
       [[ComposeboxAttachmentSelection alloc] initWithTabIDs:{}
           cachedWebStateIDs:{}
           images:@[]
-          files:@[ url ]];
+          files:@[ url ]
+          driveItems:@[]];
 
   ComposeboxFocusParams* params = [[ComposeboxFocusParams alloc]
       initWithEntrypoint:ComposeboxEntrypoint::kOther
@@ -866,7 +875,8 @@ TEST_F(ComposeboxInputPlateMediatorTest, AwaitingSignalsClearedOnItemError) {
       [[ComposeboxAttachmentSelection alloc] initWithTabIDs:{}
           cachedWebStateIDs:{}
           images:@[]
-          files:@[ url ]];
+          files:@[ url ]
+          driveItems:@[]];
 
   ComposeboxFocusParams* params = [[ComposeboxFocusParams alloc]
       initWithEntrypoint:ComposeboxEntrypoint::kOther
@@ -904,7 +914,8 @@ TEST_F(ComposeboxInputPlateMediatorTest,
       [[ComposeboxAttachmentSelection alloc] initWithTabIDs:{}
           cachedWebStateIDs:{}
           images:@[]
-          files:@[ url ]];
+          files:@[ url ]
+          driveItems:@[]];
 
   ComposeboxFocusParams* params = [[ComposeboxFocusParams alloc]
       initWithEntrypoint:ComposeboxEntrypoint::kOther
@@ -930,6 +941,121 @@ TEST_F(ComposeboxInputPlateMediatorTest,
         invalidatedAttachments:@[ item ]];
 
   EXPECT_FALSE([delegate awaitingAttachmentSignals]);
+}
+
+// Tests that kOmnibox is logged when a regular search is accepted while on the
+// NTP.
+TEST_F(ComposeboxInputPlateMediatorTest, LogsOmniboxMetricOnNTP) {
+  base::HistogramTester histogram_tester;
+
+  // Set active web state to NTP.
+  web::FakeWebState* active_web_state =
+      static_cast<web::FakeWebState*>(web_state_list_->GetActiveWebState());
+  active_web_state->SetVisibleURL(GURL("chrome://newtab"));
+  NewTabPageTabHelper::CreateForWebState(active_web_state);
+  NewTabPageTabHelper::FromWebState(active_web_state)
+      ->SetShowStartSurface(false);
+
+  // Set mode to RegularSearch.
+  ComposeboxFocusParams* params = [[ComposeboxFocusParams alloc]
+      initWithEntrypoint:ComposeboxEntrypoint::kOther
+                   query:nil
+                toolMode:ComposeboxMode::kRegularSearch
+               modelMode:ComposeboxModelOption::kNone
+          attachmentList:nil];
+  [mediator_ applyFocusParams:params];
+
+  UrlLoadParams load_params =
+      UrlLoadParams::InCurrentTab(GURL("https://google.com"));
+
+  [mediator_ omniboxDidAcceptText:u"query"
+                   destinationURL:GURL("https://google.com")
+                    URLLoadParams:load_params
+                     isSearchType:YES];
+
+  histogram_tester.ExpectUniqueSample(
+      kActionOnHomeHistogram, static_cast<int>(IOSHomeActionType::kOmnibox), 1);
+  histogram_tester.ExpectUniqueSample(
+      kActionOnNTPHistogram, static_cast<int>(IOSHomeActionType::kOmnibox), 1);
+  histogram_tester.ExpectTotalCount(kActionOnStartHistogram, 0);
+}
+
+// Tests that kOmnibox is logged when a regular search is accepted while on the
+// Start Surface.
+TEST_F(ComposeboxInputPlateMediatorTest, LogsOmniboxMetricOnStartSurface) {
+  base::HistogramTester histogram_tester;
+
+  // Set active web state to NTP with Start Surface.
+  web::FakeWebState* active_web_state =
+      static_cast<web::FakeWebState*>(web_state_list_->GetActiveWebState());
+  active_web_state->SetVisibleURL(GURL("chrome://newtab"));
+  NewTabPageTabHelper::CreateForWebState(active_web_state);
+  NewTabPageTabHelper::FromWebState(active_web_state)
+      ->SetShowStartSurface(true);
+
+  ComposeboxFocusParams* params = [[ComposeboxFocusParams alloc]
+      initWithEntrypoint:ComposeboxEntrypoint::kOther
+                   query:nil
+                toolMode:ComposeboxMode::kRegularSearch
+               modelMode:ComposeboxModelOption::kNone
+          attachmentList:nil];
+  [mediator_ applyFocusParams:params];
+
+  UrlLoadParams load_params =
+      UrlLoadParams::InCurrentTab(GURL("https://google.com"));
+
+  [mediator_ omniboxDidAcceptText:u"query"
+                   destinationURL:GURL("https://google.com")
+                    URLLoadParams:load_params
+                     isSearchType:YES];
+
+  histogram_tester.ExpectUniqueSample(
+      kActionOnHomeHistogram, static_cast<int>(IOSHomeActionType::kOmnibox), 1);
+  histogram_tester.ExpectUniqueSample(
+      kActionOnStartHistogram, static_cast<int>(IOSHomeActionType::kOmnibox),
+      1);
+  histogram_tester.ExpectTotalCount(kActionOnNTPHistogram, 0);
+}
+
+// Tests that processContextLibraryWebpageSignalWithURL:title: successfully adds
+// the webpage context item when the entrypoint is kCobrowse.
+TEST_F(ComposeboxInputPlateMediatorTest,
+       ProcessContextLibraryWebpageSignalSuccessfulWithCobrowse) {
+  ComposeboxInputPlateMediator* mediator = [[ComposeboxInputPlateMediator alloc]
+      initWithContextualSearchSession:nullptr
+                         webStateList:web_state_list_.get()
+                        faviconLoader:nullptr
+               persistTabContextAgent:nullptr
+                          isIncognito:NO
+                           modeHolder:[[ComposeboxModeHolder alloc] init]
+                   templateURLService:template_url_service()
+                aimEligibilityService:aim_eligibility_service_.get()
+                          prefService:&pref_service_
+                              profile:profile_.get()
+                 cobrowseBrowserAgent:nil
+            browserCoordinatorHandler:nil
+                         sceneHandler:nil
+                           entrypoint:ComposeboxEntrypoint::kCobrowse];
+
+  TestComposeboxInputPlateConsumer* consumer =
+      [[TestComposeboxInputPlateConsumer alloc] init];
+  mediator.consumer = consumer;
+
+  NSArray<ComposeboxInputItem*>* items = consumer.items;
+  ASSERT_EQ(items.count, 0U);
+
+  GURL url("https://example.com");
+  NSString* title = @"Example Title";
+
+  [mediator processContextLibraryWebpageSignalWithURL:url title:title];
+
+  items = consumer.items;
+  ASSERT_EQ(items.count, 1U);
+  ComposeboxInputItem* item = items.firstObject;
+  EXPECT_EQ(item.type, ComposeboxInputItemType::kComposeboxInputItemTypeTab);
+  EXPECT_NSEQ(item.title, title);
+
+  [mediator disconnect];
 }
 
 }  // namespace

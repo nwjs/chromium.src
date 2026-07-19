@@ -12,6 +12,7 @@ source_set("actor_tool_factory") {
   ]
   deps = [
     ":actor_tool_interface",
+    ":attempt_login_tool",
     ":click_tool",
     ":history_tool",
     ":navigate_tool",
@@ -33,12 +34,18 @@ source_set("actor_tool_interface") {
     "actor_tool.mm",
     "actor_tool_java_script_feature_util.h",
     "actor_tool_java_script_feature_util.mm",
+    "actor_tool_request.h",
+    "actor_tool_request.mm",
+    "tool_delegate.h",
   ]
 
   deps = [
     "//base",
     "//components/optimization_guide/proto:optimization_guide_proto",
+    "//ios/chrome/browser/intelligence/actor/public:actor_types",
     "//ios/chrome/browser/intelligence/actor/tools/public",
+    "//ios/chrome/browser/intelligence/actor/tools/utils:actor_browser_utils",
+    "//ios/chrome/browser/intelligence/actor/tools/utils:actor_tool_utils",
     "//ios/chrome/browser/shared/model/browser",
     "//ios/chrome/browser/shared/model/web_state_list",
     "//ios/chrome/browser/shared/model/web_state_list:utils",
@@ -100,6 +107,21 @@ source_set("wait_tool") {
   ]
 }
 
+source_set("attempt_login_tool") {
+  sources = [
+    "attempt_login_tool.h",
+    "attempt_login_tool.mm",
+  ]
+
+  deps = [
+    ":actor_tool_interface",
+    "//base",
+    "//components/optimization_guide/proto:optimization_guide_proto",
+    "//ios/chrome/browser/intelligence/actor/tools/public",
+    "//ios/web/public",
+  ]
+}
+
 source_set("history_tool") {
   sources = [
     "history_tool.h",
@@ -138,6 +160,16 @@ optimize_ts("click_tool_ts") {
     ":actor_tool_utils_ts",
     "//ios/chrome/browser/intelligence/proto_wrappers:dom_node_ids_ts",
     "//ios/web/public/js_messaging:gcrweb",
+  ]
+}
+
+optimize_ts("page_stability_ts") {
+  sources = [ "resources/page_stability.ts" ]
+  output_name = "page_stability"
+
+  deps = [
+    "//ios/web/public/js_messaging:gcrweb",
+    "//ios/web/public/js_messaging:util_scripts",
   ]
 }
 
@@ -330,11 +362,23 @@ source_set("page_stability") {
   ]
 }
 
-optimize_ts("page_stability_ts") {
-  sources = [ "resources/page_stability.ts" ]
+source_set("tool_controller") {
+  sources = [
+    "tool_controller.h",
+    "tool_controller.mm",
+  ]
   deps = [
-    "//ios/web/public/js_messaging:gcrweb",
-    "//ios/web/public/js_messaging:util_scripts",
+    ":actor_tool_factory",
+    ":actor_tool_interface",
+    ":page_stability",
+    "//base",
+    "//components/actor/core:journal",
+    "//ios/chrome/browser/intelligence/actor/public:actor_types",
+    "//ios/chrome/browser/intelligence/actor/tools/public",
+    "//ios/chrome/browser/intelligence/actor/tools/utils:actor_tool_utils",
+    "//ios/chrome/browser/intelligence/actor/tools/utils:logging_util",
+    "//ios/chrome/browser/intelligence/features",
+    "//ios/web/public",
   ]
 }
 
@@ -362,6 +406,7 @@ source_set("unit_tests") {
     "action_target_java_script_feature_unittest.mm",
     "action_target_js_unittest.mm",
     "actor_tool_factory_unittest.mm",
+    "actor_tool_request_unittest.mm",
     "click_tool_java_script_feature_unittest.mm",
     "click_tool_js_unittest.mm",
     "click_tool_unittest.mm",
@@ -369,6 +414,7 @@ source_set("unit_tests") {
     "navigate_tool_unittest.mm",
     "observation_delay_controller_unittest.mm",
     "page_stability_java_script_feature_unittest.mm",
+    "page_stability_js_unittest.mm",
     "page_stability_monitor_unittest.mm",
     "scroll_to_tool_unittest.mm",
     "scroll_tool_java_script_feature_unittest.mm",
@@ -377,6 +423,7 @@ source_set("unit_tests") {
     "select_tool_java_script_feature_unittest.mm",
     "select_tool_js_unittest.mm",
     "select_tool_unittest.mm",
+    "tool_controller_unittest.mm",
     "type_tool_java_script_feature_unittest.mm",
     "type_tool_js_unittest.mm",
     "type_tool_unittest.mm",
@@ -388,6 +435,7 @@ source_set("unit_tests") {
     ":actor_tool_factory",
     ":actor_tool_interface",
     ":actor_tool_java_script_feature_test_base",
+    ":attempt_login_tool",
     ":click_tool",
     ":click_tool_ts",
     ":history_tool",
@@ -399,6 +447,7 @@ source_set("unit_tests") {
     ":scroll_tool_ts",
     ":select_tool",
     ":select_tool_ts",
+    ":tool_controller",
     ":type_tool",
     ":type_tool_ts",
     ":wait_tool",
@@ -412,6 +461,7 @@ source_set("unit_tests") {
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//ios/chrome/browser/intelligence/actor/public:actor_types",
     "//ios/chrome/browser/intelligence/actor/tools/public",
+    "//ios/chrome/browser/intelligence/actor/util:test_support",
     "//ios/chrome/browser/intelligence/features",
     "//ios/chrome/browser/shared/model/browser",
     "//ios/chrome/browser/shared/model/browser/test:test_support",

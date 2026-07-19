@@ -13,61 +13,6 @@
 
 namespace optimization_guide {
 
-// The name of the file that stores the unindexed hints.
-// TODO: crbug.com/514743962 - Move this to the only file that uses it:
-// components/component_updater/installer_policies/optimization_hints_component_installer.cc
-COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
-extern const base::FilePath::CharType kUnindexedHintsFileName[];
-
-// TODO: crbug.com/514743962 - Move this to the only file that uses it:
-// components/component_updater/installer_policies/optimization_hints_component_installer.cc
-COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
-extern const char kRulesetFormatVersionString[];
-
-// The remote Optimization Guide Service production server to fetch hints from.
-// TODO: crbug.com/514743962 - Move this to the only file that uses it:
-// components/optimization_guide/core/hints/hints_manager.cc
-COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
-extern const char kOptimizationGuideServiceGetHintsDefaultURL[];
-
-// The remote Optimization Guide Service production server to fetch models and
-// hosts features from.
-// TODO: crbug.com/514743962 - Move this to the only file that uses it:
-// components/optimization_guide/core/optimization_guide_features.cc
-COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
-extern const char kOptimizationGuideServiceGetModelsDefaultURL[];
-
-// The remote Optimization Guide Service production server to execute models.
-// TODO: crbug.com/514743962 - Move this to the only file that uses it:
-// components/optimization_guide/core/optimization_guide_switches.cc
-COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
-extern const char kOptimizationGuideServiceModelExecutionDefaultURL[];
-
-// The remote Optimization Guide Service model quality server to log data.
-// TODO: crbug.com/514743962 - Move this to the only file that uses it:
-// components/optimization_guide/core/model_quality/model_quality_logs_uploader_service.cc
-COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
-extern const char kOptimizationGuideServiceModelQualtiyDefaultURL[];
-
-// The local histogram used to record that the component hints are stored in
-// the cache and are ready for use.
-// TODO: crbug.com/514743962 - Move this to the only file that uses it:
-// components/optimization_guide/core/hints/hints_manager.cc
-COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
-extern const char kLoadedHintLocalHistogramString[];
-
-// The name of the language override request header.
-// TODO: crbug.com/514743962 - Move this to the only file that uses it:
-// components/optimization_guide/core/hints/hints_fetcher.cc
-COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
-extern const char kOptimizationGuideLanguageOverrideHeaderKey[];
-
-// The folder where the hint data will be stored on disk.
-// TODO: crbug.com/514743962 - This defines hint cache storage directory and
-// should be moved to
-// components/optimization_guide/core/hints/optimization_guide_store.h.
-COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
-extern const base::FilePath::CharType kOptimizationGuideHintStore[];
 
 // The prefix for the folder where models are stored by the new install-wide
 // model store.
@@ -101,13 +46,6 @@ extern const base::FilePath::CharType kProgramCacheFile[];
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 extern const base::FilePath::CharType kOnDeviceModelExecutionConfigFile[];
 
-// Files expected to be in the text safety model bundle.
-// TODO: crbug.com/514743962 - Move these to the only file that uses them:
-// components/optimization_guide/core/model_execution/safety_model_info.cc
-COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
-extern const base::FilePath::CharType kTsDataFile[];
-COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
-extern const base::FilePath::CharType kTsSpModelFile[];
 
 // Files expected to be in the on device model adaptation bundle.
 // TODO: crbug.com/514743962 - Move this to the only file that uses it:

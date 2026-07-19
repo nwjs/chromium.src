@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-2-Clause OR Apache-2.0 OR MIT
+//
 // Copyright 2023 The Fuchsia Authors
 //
 // Licensed under a BSD-style license <LICENSE-BSD>, Apache License, Version 2.0
@@ -982,8 +984,37 @@ macro_rules! codegen_preamble {
     }
 }
 
+/// Stub for rendering codegen documentation; used to break build dependency
+/// between benches and zerocopy when re-blessing codegen tests.
+#[allow(unused)]
+#[cfg(not(doc))]
+macro_rules! codegen_section {
+    (
+        header = $level:expr,
+        bench = $bench:expr,
+        format = $format:expr,
+        arity = $arity:literal,
+        $([
+            $($open:ident)?
+            @index $index:literal
+            @title $title:literal
+            @variant $variant:literal
+        ]),*
+    ) => {
+        ""
+    };
+    (
+        header = $level:expr,
+        bench = $bench:expr,
+        format = $format:expr,
+    ) => {
+        ""
+    };
+}
+
 /// Generates the HTML for code generation documentation.
 #[allow(unused)]
+#[cfg(doc)]
 macro_rules! codegen_section {
     (
         header = $level:expr,

@@ -95,8 +95,8 @@ void LocalStorageSqliteTest::GetDatabasePath(base::FilePath* result) {
   if (!temp_dir_.IsValid()) {
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
   }
-  *result = DomStorageDatabase::GetPath(StorageType::kLocalStorage,
-                                        temp_dir_.GetPath());
+  *result = DomStorageDatabase::GetSqlitePath(StorageType::kLocalStorage,
+                                              temp_dir_.GetPath());
 }
 
 base::PassKey<DomStorageDatabaseFactory> LocalStorageSqliteTest::GetPassKey() {
@@ -137,7 +137,6 @@ void LocalStorageSqliteTest::InitializeMetadata(
     const DomStorageDatabase::Metadata& metadata) {
   // Write `metadata` to `database`.
   DomStorageDatabase::Metadata metadata_to_write;
-  metadata_to_write.next_map_id = metadata.next_map_id;
   metadata_to_write.map_metadata =
       CloneMapMetadataVector(metadata.map_metadata);
 
@@ -147,10 +146,6 @@ void LocalStorageSqliteTest::InitializeMetadata(
   // Read back the metadata from the database to verify persistence.
   ASSERT_OK_AND_ASSIGN(DomStorageDatabase::Metadata actual_metadata,
                        database.ReadAllMetadata());
-
-  // Local storage does not use `next_map_id`.
-  EXPECT_EQ(actual_metadata.next_map_id, std::nullopt);
-
   ExpectEqualsMapMetadataSpan(actual_metadata.map_metadata,
                               metadata.map_metadata);
 }
@@ -179,7 +174,6 @@ void LocalStorageSqliteTest::UpdateMapWithMetadata(
   // Read back the map usage metadata from the database.
   ASSERT_OK_AND_ASSIGN(DomStorageDatabase::Metadata all_metadata,
                        database.ReadAllMetadata());
-  EXPECT_EQ(all_metadata.next_map_id, std::nullopt);
   ExpectEqualsMapMetadataSpan(all_metadata.map_metadata,
                               base::span_from_ref(metadata_to_update));
 }
@@ -222,15 +216,13 @@ TEST_F(LocalStorageSqliteTest, VersionTooNew) {
 }
 
 // Verifies that reading metadata from an empty database returns default values:
-// `next_map_id` should be `std::nullopt` and `map_metadata` should be empty.
+// `map_metadata` should be empty.
 TEST_F(LocalStorageSqliteTest, ReadAllMetadataWithEmpty) {
   std::unique_ptr<LocalStorageSqlite> database;
   ASSERT_NO_FATAL_FAILURE(OpenInMemory(&database));
 
   ASSERT_OK_AND_ASSIGN(DomStorageDatabase::Metadata metadata,
                        database->ReadAllMetadata());
-
-  EXPECT_EQ(metadata.next_map_id, std::nullopt);
   EXPECT_EQ(metadata.map_metadata.size(), 0u);
 }
 
@@ -335,7 +327,6 @@ TEST_F(LocalStorageSqliteTest, MetadataPersistence) {
 
     ExpectEqualsMapMetadataSpan(read_metadata.map_metadata,
                                 kExpectedMapMetadata);
-    EXPECT_EQ(read_metadata.next_map_id, std::nullopt);
   }
 }
 
@@ -511,8 +502,6 @@ TEST_F(LocalStorageSqliteTest, UpdateMapsClearsMetadata) {
   // Verify the map row has been deleted from the database.
   ASSERT_OK_AND_ASSIGN(DomStorageDatabase::Metadata all_metadata,
                        database->ReadAllMetadata());
-
-  EXPECT_EQ(all_metadata.next_map_id, std::nullopt);
   EXPECT_EQ(all_metadata.map_metadata.size(), 0u);
 }
 

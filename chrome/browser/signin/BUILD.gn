@@ -32,6 +32,7 @@ source_set("signin") {
     "signin_policy_service_factory.h",
     "signin_profile_attributes_updater.h",
     "signin_profile_attributes_updater_factory.h",
+    "signin_ui_delegate.h",
     "signin_util.h",
   ]
   public_deps = [
@@ -49,6 +50,7 @@ source_set("signin") {
 
   if (enable_dice_support) {
     public += [
+      "cross_device_signin_promo_manager.h",
       "dice_intercepted_session_startup_helper.h",
       "dice_response_handler.h",
       "dice_response_handler_factory.h",
@@ -84,6 +86,7 @@ source_set("signin") {
       "android/signin_manager_android.h",
       "android/web_signin_bridge.h",
       "signin_manager_android_factory.h",
+      "signin_ui_delegate_impl_android.h",
     ]
     public_deps += [
       "//components/signin/public/base:signin_deep_link",
@@ -95,7 +98,6 @@ source_set("signin") {
   if (!is_android) {
     public += [
       "signin_promo_util.h",
-      "signin_ui_delegate.h",
       "signin_ui_util.h",
     ]
     public_deps += [ ":signin_promo" ]
@@ -113,6 +115,7 @@ source_set("signin") {
   } else {
     public += [
       "chrome_signin_and_sync_status_metrics_provider.h",
+      "signin_ui_util_extensions.h",
       "wait_for_network_callback_helper_chrome.h",
     ]
   }
@@ -232,6 +235,7 @@ source_set("impl") {
     "//components/skills:features",
     "//components/supervised_user/core/browser",
     "//components/sync_bookmarks",
+    "//extensions/buildflags",
   ]
 
   if (enable_extensions_core) {
@@ -240,6 +244,7 @@ source_set("impl") {
 
   if (enable_dice_support) {
     sources += [
+      "cross_device_signin_promo_manager.cc",
       "dice_intercepted_session_startup_helper.cc",
       "dice_response_handler.cc",
       "dice_response_handler_factory.cc",
@@ -312,6 +317,7 @@ source_set("impl") {
       "android/web_signin_bridge.cc",
       "identity_services_provider_android.cc",
       "signin_manager_android_factory.cc",
+      "signin_ui_delegate_impl_android.cc",
     ]
     deps += [
       "//chrome/android:jni_headers",
@@ -338,6 +344,7 @@ source_set("impl") {
       "//chrome/browser/feature_engagement",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/navigator",
+      "//device/bluetooth",
     ]
   }
 
@@ -365,6 +372,7 @@ source_set("impl") {
   } else {
     sources += [
       "chrome_signin_and_sync_status_metrics_provider.cc",
+      "signin_ui_util_extensions.cc",
       "wait_for_network_callback_helper_chrome.cc",
     ]
   }

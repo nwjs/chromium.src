@@ -31,6 +31,7 @@
 #include "base/task/thread_pool.h"
 #include "base/values.h"
 #include "base/version.h"
+#include "build/branding_buildflags.h"
 #include "chrome/browser/browser_process.h"
 #include "components/component_updater/component_updater_paths.h"
 #include "components/component_updater/component_updater_service.h"
@@ -79,6 +80,14 @@ constexpr uint8_t kManifestPublicKeySHA256[32] = {
     0xed, 0x6b, 0x22, 0x15, 0x90, 0x9a, 0x44, 0xf0, 0x88, 0xdc, 0x19,
     0xfa, 0x5d, 0xd4, 0x55, 0xf7, 0x95, 0x88, 0xff, 0xfd, 0x8a};
 static_assert(std::size(kManifestPublicKeySHA256) == crypto::kSHA256Length);
+
+BASE_FEATURE(kModelManifestChannelFeature,
+             "ModelManifestChannel",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(std::string,
+                   kModelManifestChannel,
+                   &kModelManifestChannelFeature,
+                   "");
 
 bool IsModelAlreadyInstalled(ComponentUpdateService* cus,
                              const std::string& extension_id,
@@ -267,7 +276,15 @@ class OnDeviceModelComponentStateManagerDelegate final
   void GetFreeDiskSpace(const base::FilePath& path,
                         base::OnceCallback<void(std::optional<base::ByteCount>)>
                             callback) override {
+#if BUILDFLAG(CHROME_FOR_TESTING)
+    // No need for free disk space check in CfT, so invoke the callback
+    // asynchronously so that large size on device components are updated after
+    // all other components.
+    content::GetUIThreadTaskRunner({})->PostTask(
+        FROM_HERE, base::BindOnce(std::move(callback), base::ByteCount::Max()));
+#else
     GetComponentFreeDiskSpace(path, std::move(callback));
+#endif
   }
 
   void RegisterInstaller(
@@ -457,6 +474,10 @@ class ManifestMonitorInstallerPolicy final
 
   std::string GetName() const override {
     return kOptimizationGuideModelsManifestName;
+  }
+
+  update_client::InstallerAttributes GetInstallerAttributes() const override {
+    return {{"manifest_channel", kModelManifestChannel.Get()}};
   }
 
   // Manifest should never be uninstalled.

@@ -92,7 +92,11 @@ void ConversationNotificationView::ToggleExpand() {
   actions_view_->SetExpanded(expanded_);
   // Updates expand state to message center, and let notification delegate
   // handle the state update.
+  auto weak_ptr = weak_factory_.GetWeakPtr();
   SetExpanded(expanded_);
+  if (!weak_ptr) {
+    return;
+  }
 
   app_name_view_->SetVisible(expanded_);
   app_name_divider_->SetVisible(expanded_);
@@ -221,7 +225,7 @@ ConversationNotificationView::CreateRightControlsContainer() {
   view->SetID(ViewId::kControlButtonsView);
   view->SetBetweenButtonSpacing(kNotificationControlButtonsHorizontalSpacing);
   view->SetCloseButtonIcon(::features::IsRoundedIconsEnabled()
-                               ? vector_icons::kCloseSmallIcon
+                               ? vector_icons::kCloseIcon
                                : vector_icons::kCloseChromeRefreshOldIcon);
   view->SetSettingsButtonIcon(::features::IsRoundedIconsEnabled()
                                   ? vector_icons::kSettingsIcon

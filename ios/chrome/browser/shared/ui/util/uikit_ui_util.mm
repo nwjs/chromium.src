@@ -24,6 +24,8 @@
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/util/rtl_geometry.h"
 #import "ios/chrome/common/ui/util/ui_util.h"
+#import "ios/web/public/thread/web_task_traits.h"
+#import "ios/web/public/thread/web_thread.h"
 #import "ui/base/device_form_factor.h"
 #import "ui/base/l10n/l10n_util.h"
 #import "ui/base/l10n/l10n_util_mac.h"
@@ -501,8 +503,6 @@ CGFloat RemainingScrollDistanceToBottom(UIScrollView* scroll_view) {
 }
 
 CGFloat DeviceCornerRadius() {
-  UIUserInterfaceIdiom idiom = [[UIDevice currentDevice] userInterfaceIdiom];
-
   UIWindow* window = nil;
   for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
     UIWindowScene* windowScene =
@@ -515,12 +515,14 @@ CGFloat DeviceCornerRadius() {
   }
 
   // Estimated iPhone rounded corners radii.
-  if (window.safeAreaInsets.bottom && idiom == UIUserInterfaceIdiomPhone) {
+  if (window.safeAreaInsets.bottom &&
+      ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_PHONE) {
     return 50.0;
   }
 
   // Estimated iPad rounded corners radii.
-  if (window.safeAreaInsets.bottom && idiom == UIUserInterfaceIdiomPad) {
+  if (window.safeAreaInsets.bottom &&
+      ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
     return 18.0;
   }
 
@@ -554,12 +556,8 @@ NSArray<UITrait>* TraitCollectionSetForTraits(NSArray<UITrait>* traits) {
       UITraitSceneCaptureState.class, UITraitToolbarItemPresentationSize.class,
       UITraitTypesettingLanguage.class, UITraitUserInterfaceIdiom.class,
       UITraitUserInterfaceLevel.class, UITraitUserInterfaceStyle.class,
-      UITraitVerticalSizeClass.class
+      UITraitVerticalSizeClass.class, UITraitListEnvironment.class
     ] mutableCopy];
-
-    if (@available(iOS 18, *)) {
-      [mutableTraits addObject:UITraitListEnvironment.class];
-    }
 
     everyUIMutableTrait = [NSArray arrayWithArray:mutableTraits];
   });
@@ -573,4 +571,51 @@ size_t MemoryFootprintForImage(UIImage* image) {
   size_t height = CGImageGetHeight(cgImage);
   size_t totalBytes = bytesPerRow * height;
   return totalBytes / 1024;
+}
+
+void ExecuteWhenTransitionsComplete(ProceduralBlock action,
+                                    UIViewController* viewController) {
+  if (!viewController) {
+    return;
+  }
+
+  // If there is another transition going on (e.g. dismissal/presentation),
+  // postpone the execution of the block to allow it to complete first.
+  id<UIViewControllerTransitionCoordinator> transitionCoordinator =
+      viewController.transitionCoordinator;
+  if (transitionCoordinator) {
+    __weak UIViewController* weakViewController = viewController;
+    [transitionCoordinator
+        animateAlongsideTransition:nil
+                        completion:^(
+                            id<UIViewControllerTransitionCoordinatorContext>
+                                context) {
+                          // Re-evaluate in the next run loop turn.
+                          web::GetUIThreadTaskRunner({})->PostTask(
+                              FROM_HERE, base::BindOnce(^{
+                                ExecuteWhenTransitionsComplete(
+                                    action, weakViewController);
+                              }));
+                        }];
+    return;
+  }
+
+  id<ContextMenuTransitionStateProviding> provider = nil;
+  if ([viewController
+          conformsToProtocol:@protocol(ContextMenuTransitionStateProviding)]) {
+    provider = (id<ContextMenuTransitionStateProviding>)viewController;
+  }
+
+  if (provider.activeContextMenuAnimator) {
+    __weak UIViewController* weakViewController = viewController;
+    [provider.activeContextMenuAnimator addCompletion:^{
+      // Re-evaluate in the next run loop turn.
+      web::GetUIThreadTaskRunner({})->PostTask(
+          FROM_HERE, base::BindOnce(^{
+            ExecuteWhenTransitionsComplete(action, weakViewController);
+          }));
+    }];
+  } else {
+    action();
+  }
 }

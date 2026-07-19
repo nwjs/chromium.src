@@ -11,10 +11,10 @@
 #include <string_view>
 #include <utility>
 
+#include "base/feature_list.h"
 #include "chrome/browser/ui/views/frame/browser_widget.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "content/browser/web_contents/web_contents_impl.h"
-
 #include "base/memory/raw_ptr.h"
 #include "base/notimplemented.h"
 #include "base/notreached.h"
@@ -50,6 +50,7 @@
 #include "chrome/browser/ui/web_applications/web_app_tabbed_utils.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chrome/browser/web_applications/web_app_tab_helper.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/webui_url_constants.h"
 #include "components/captive_portal/core/buildflags.h"
 #include "components/constrained_window/constrained_window_views.h"
@@ -123,9 +124,8 @@ bool WindowCanOpenTabs(const NavigateParams& params) {
   // url is in the app scope since we know it was saved directly from the app.
   if (params.browser->GetBrowserForMigrationOnly()->creation_source() !=
           Browser::CreationSource::kDeskTemplate &&
-      params.browser->GetBrowserForMigrationOnly()->app_controller() &&
-      !params.browser->GetBrowserForMigrationOnly()
-           ->app_controller()
+      web_app::AppBrowserController::From(params.browser) &&
+      !web_app::AppBrowserController::From(params.browser)
            ->IsUrlInAppScope(params.url)) {
     return false;
   }
@@ -472,8 +472,7 @@ class ScopedBrowserShower {
       if (params_->is_tab_modal_popup_deprecated) {
         CHECK_EQ(params_->disposition, WindowOpenDisposition::NEW_POPUP);
         CHECK_NE(source_contents_, nullptr);
-        params_->browser->GetBrowserForMigrationOnly()
-            ->window()
+        BrowserWindow::FromBrowser(params_->browser)
             ->SetIsTabModalPopupDeprecated(true);
         constrained_window::ShowModalDialog(window->GetNativeWindow(),
                                             source_contents_);
@@ -708,6 +707,25 @@ base::WeakPtr<content::NavigationHandle> Navigate(NavigateParams* params) {
       return nullptr;
     }
 
+    // When the standalone Document PiP window is enabled, route to the
+    // DocumentPipHost-backed path instead of creating a Browser. The manager
+    // takes ownership of the child WebContents and shows the window itself, so
+    // Navigate() returns early without a Browser.
+    if (base::FeatureList::IsEnabled(features::kDocumentPipStandaloneWindow)) {
+      std::optional<blink::mojom::PictureInPictureWindowOptions> pip_options =
+          contents_to_navigate_or_insert->GetPictureInPictureOptions();
+      if (pip_options.has_value()) {
+        PictureInPictureWindowManager::GetInstance()
+            ->EnterStandaloneDocumentPictureInPicture(
+                params->source_contents, std::move(params->contents_to_insert),
+                std::move(*pip_options));
+      }
+      // If the WebContents doesn't have valid PiP options, don't enter PiP
+      // mode and don't create a browser window.
+      params->browser = nullptr;
+      return nullptr;
+    }
+
     PictureInPictureWindowManager::GetInstance()->EnterDocumentPictureInPicture(
         params->source_contents, contents_to_navigate_or_insert);
   }
@@ -744,8 +762,8 @@ base::WeakPtr<content::NavigationHandle> Navigate(NavigateParams* params) {
   // the new tab is focused.
   if (source_browser && source_browser->is_type_app() &&
       params->disposition == WindowOpenDisposition::NEW_BACKGROUND_TAB &&
-      !(source_browser->app_controller() &&
-        source_browser->app_controller()->has_tab_strip())) {
+      !(web_app::AppBrowserController::From(source_browser) &&
+        web_app::AppBrowserController::From(source_browser)->has_tab_strip())) {
     params->disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
   }
 
@@ -776,7 +794,7 @@ base::WeakPtr<content::NavigationHandle> Navigate(NavigateParams* params) {
     auto* window_manager = ash::Shell::Get()->multi_user_window_manager();
     // Some unit tests have no client instantiated.
     if (window_manager) {
-      aura::Window* src_window = source_browser->window()->GetNativeWindow();
+      aura::Window* src_window = source_browser->GetWindow()->GetNativeWindow();
       aura::Window* new_window =
           params->browser->GetWindow()->GetNativeWindow();
       const AccountId& src_account_id =
@@ -941,8 +959,7 @@ base::WeakPtr<content::NavigationHandle> Navigate(NavigateParams* params) {
     // TODO(crbug.com/40719979): preferably pipe this information through the
     // TabStripModel instead. See bug for deeper discussion.
     if (params->user_gesture && source_browser == params->browser) {
-      params->browser->GetBrowserForMigrationOnly()
-          ->window()
+      BrowserWindow::FromBrowser(params->browser)
           ->LinkOpeningFromGesture(params->disposition);
     }
 
@@ -969,7 +986,12 @@ base::WeakPtr<content::NavigationHandle> Navigate(NavigateParams* params) {
         tab_strip_model->AddToNewSplit(
             {new_tab_index}, split_tabs::SplitTabVisualData(),
             split_tabs::SplitTabCreatedSource::kLinkClick);
-        tab_strip_model->ActivateTabAt(new_tab_index);
+        // Re-query the index after adding to split, as `AddToNewSplit()` may
+        // have moved the tab to a different position.
+        const int inserted_tab_index = tab_strip_model->GetIndexOfWebContents(
+            contents_to_navigate_or_insert);
+        CHECK_NE(inserted_tab_index, TabStripModel::kNoTab);
+        tab_strip_model->ActivateTabAt(inserted_tab_index);
       }
     }
   }
@@ -1033,10 +1055,14 @@ base::WeakPtr<content::NavigationHandle> Navigate(NavigateParams* params) {
 
   // If launch_params are provided, store them in the navigation handle so that
   // the LaunchQueue can pick them up once the navigation commits.
-  if (navigation_handle && params->launch_params) {
+  if (navigation_handle && params->web_app_navigation_data &&
+      params->web_app_navigation_data->launch_params()) {
     auto* user_data = web_app::WebAppLaunchNavigationHandleUserData::
         GetOrCreateForNavigationHandle(*navigation_handle);
-    user_data->SetLaunchParams(std::move(*params->launch_params));
+    const auto& web_app_navigation_data = params->web_app_navigation_data;
+    user_data->SetLaunchParams(
+        std::move(*web_app_navigation_data->launch_params()));
+    user_data->SetLaunchSource(web_app_navigation_data->launch_source());
   }
 
   if (app_navigation) {

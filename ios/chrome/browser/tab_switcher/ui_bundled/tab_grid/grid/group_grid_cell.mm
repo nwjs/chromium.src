@@ -58,6 +58,10 @@ const CGFloat kTopBarLargeInset = 20;
 @property(nonatomic, strong) UIView* groupingBackgroundView;
 // Dimming view over the cell contents while cell is highlighted.
 @property(nonatomic, strong) UIView* dimmingView;
+// The trait change registration object for system trait changes.
+@property(nonatomic, strong) id<UITraitChangeRegistration> traitRegistration;
+// The window scene that the trait change registration is registered on.
+@property(nonatomic, weak) UIWindowScene* registeredWindowScene;
 
 @end
 
@@ -209,6 +213,10 @@ const CGFloat kTopBarLargeInset = 20;
   return self;
 }
 
+- (void)dealloc {
+  [self updateInterfaceStyleForWindow:nil];
+}
+
 #pragma mark - UIView
 
 - (void)didMoveToWindow {
@@ -226,6 +234,7 @@ const CGFloat kTopBarLargeInset = 20;
 
 - (void)prepareForReuse {
   [super prepareForReuse];
+  [self updateInterfaceStyleForWindow:nil];
   self.title = nil;
   self.selected = NO;
   self.opacity = 1.0;
@@ -306,7 +315,7 @@ const CGFloat kTopBarLargeInset = 20;
 // Updates the theme to either forced dark or dynamic. Updating is only done if
 // the current theme is not the desired theme.
 - (void)setTheme:(GridTheme)theme {
-  if (_theme == theme) {
+  if (self.registeredWindowScene && _theme == theme) {
     return;
   }
 
@@ -320,6 +329,7 @@ const CGFloat kTopBarLargeInset = 20;
           [UIColor colorNamed:kStaticBlue400Color].CGColor;
       break;
     case GridTheme::kDark:
+      [self updateInterfaceStyleForWindow:nil];
       self.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
       _border.layer.borderColor = UIColor.whiteColor.CGColor;
       break;
@@ -328,16 +338,6 @@ const CGFloat kTopBarLargeInset = 20;
   _theme = theme;
 }
 
-- (void)setGroupColor:(UIColor*)groupColor {
-  _groupColor = groupColor;
-  _dotContainer.color = _groupColor;
-
-  // Apply the default coloring to each surfaces.
-  UIColor* backgroundColor = [UIColor colorNamed:kSecondaryBackgroundColor];
-  _topBar.backgroundColor = backgroundColor;
-  self.contentView.backgroundColor = backgroundColor;
-  _groupSnapshotsView.backgroundColor = backgroundColor;
-}
 
 - (void)setTabGroupColorPalette:(TabGroupColorPalette*)tabGroupColorPalette {
   _tabGroupColorPalette = tabGroupColorPalette;
@@ -623,16 +623,23 @@ const CGFloat kTopBarLargeInset = 20;
 // If window is not nil, register for updates to its interface style updates and
 // set the user interface style to be the same as the window.
 - (void)updateInterfaceStyleForWindow:(UIWindow*)window {
+  if (self.traitRegistration && self.registeredWindowScene) {
+    [self.registeredWindowScene
+        unregisterForTraitChanges:self.traitRegistration];
+    self.traitRegistration = nil;
+    self.registeredWindowScene = nil;
+  }
   if (!window) {
     return;
   }
-  [self.window.windowScene
+  self.registeredWindowScene = window.windowScene;
+  self.traitRegistration = [window.windowScene
       registerForTraitChanges:@[ UITraitUserInterfaceStyle.class ]
                    withTarget:self
                        action:@selector(interfaceStyleChangedForWindow:
                                                        traitCollection:)];
   self.overrideUserInterfaceStyle =
-      self.window.windowScene.traitCollection.userInterfaceStyle;
+      window.windowScene.traitCollection.userInterfaceStyle;
 }
 
 // Callback for the observation of the user interface style trait of the window
@@ -640,7 +647,7 @@ const CGFloat kTopBarLargeInset = 20;
 - (void)interfaceStyleChangedForWindow:(UIView*)window
                        traitCollection:(UITraitCollection*)traitCollection {
   self.overrideUserInterfaceStyle =
-      self.window.windowScene.traitCollection.userInterfaceStyle;
+      self.registeredWindowScene.traitCollection.userInterfaceStyle;
 }
 
 // Updates the top bar constraints accoring to the availability of

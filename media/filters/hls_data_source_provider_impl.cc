@@ -18,6 +18,12 @@ namespace media {
 
 namespace {
 
+perfetto::NamedTrack GetTracingTrack(
+    const HlsDataSourceProviderImpl* provider) {
+  return perfetto::NamedTrack::FromPointer("media::HlsDataSourceProviderImpl",
+                                           provider);
+}
+
 // A small-ish size that it should probably be able to get most manifests in
 // a single chunk. Chosen somewhat arbitrarily otherwise.
 constexpr size_t kDefaultReadSize = 1024 * 16;
@@ -25,11 +31,10 @@ constexpr size_t kDefaultReadSize = 1024 * 16;
 void OnMultiBufferReadComplete(
     std::unique_ptr<HlsDataSourceStream> stream,
     HlsDataSourceProviderImpl::ReadCb callback,
-    base::OnceCallback<void(HlsDataSourceStream&)> update_metadata,
     size_t requested_read_size,
-    uint64_t trace_key,
+    perfetto::NamedTrack trace_track,
     int read_size) {
-  TRACE_EVENT_END("media", perfetto::Track(trace_key), "size", read_size);
+  TRACE_EVENT_END("media", trace_track, "size", read_size);
   switch (read_size) {
     case DataSource::kReadError: {
       stream->UnlockStreamPostWrite(0, true);
@@ -44,7 +49,6 @@ void OnMultiBufferReadComplete(
     default: {
       CHECK_GE(read_size, 0);
       stream->UnlockStreamPostWrite(read_size, 0 == read_size);
-      std::move(update_metadata).Run(*stream);
       std::move(callback).Run(std::move(stream));
     }
   }
@@ -53,7 +57,7 @@ void OnMultiBufferReadComplete(
 }  // namespace
 
 HlsDataSourceProviderImpl::HlsDataSourceProviderImpl(
-    std::unique_ptr<DataSource::Factory> factory)
+    std::unique_ptr<CrossOriginDataSource::Factory> factory)
     : data_source_factory_(std::move(factory)) {}
 
 HlsDataSourceProviderImpl::~HlsDataSourceProviderImpl() {
@@ -68,36 +72,16 @@ HlsDataSourceProviderImpl::~HlsDataSourceProviderImpl() {
   data_source_factory_.reset();
 }
 
-void HlsDataSourceProviderImpl::ReadFromCombinedUrlQueue(SegmentQueue segments,
-                                                         ReadCb callback) {
+void HlsDataSourceProviderImpl::ReadFromUrl(UrlDataSegment segment,
+                                            ReadCb callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  CHECK(!segments.empty());
   auto stream_id = stream_id_generator_.GenerateNextId();
   auto stream = std::make_unique<HlsDataSourceStream>(
-      stream_id, std::move(segments),
+      stream_id, std::move(segment),
       base::BindPostTaskToCurrentDefault(
           base::BindOnce(&HlsDataSourceProviderImpl::OnStreamReleased,
                          weak_factory_.GetWeakPtr(), stream_id)));
   ReadFromExistingStream(std::move(stream), std::move(callback));
-}
-
-void HlsDataSourceProviderImpl::UpdateStreamMetadata(
-    HlsDataSourceStream::StreamId stream_id,
-    HlsDataSourceStream& stream) {
-  uint64_t usage = 0;
-  for (const auto& it : data_source_map_) {
-    usage += it.second->GetMemoryUsage();
-    would_taint_origin_ |= it.second->WouldTaintOrigin();
-    if (it.first == stream.stream_id()) {
-      if (it.second->DidRedirect()) {
-        stream.set_did_redirect();
-      }
-    }
-  }
-  stream.set_total_memory_usage(usage);
-  if (would_taint_origin_) {
-    stream.set_would_taint_origin();
-  }
 }
 
 void HlsDataSourceProviderImpl::ReadFromExistingStream(
@@ -108,11 +92,11 @@ void HlsDataSourceProviderImpl::ReadFromExistingStream(
   // There might be no data source attached to the stream yet, so we should
   // try to make one. Creating a new data source will re-enter this function to
   // complete `callback`.
-  if (stream->RequiresNextDataSource()) {
+  if (stream->RequiresInit()) {
     auto [new_uri, cache_mode, range_mode, encoding_mode] =
-        stream->GetNextSegmentURIAndCacheStatus();
-    TRACE_EVENT_BEGIN("media", "HLS::CreateDataSource",
-                      perfetto::Track::FromPointer(this), "uri", new_uri);
+        stream->GetSegmentInfo();
+    TRACE_EVENT_BEGIN("media", "HLS::CreateDataSource", GetTracingTrack(this),
+                      "uri", new_uri);
     data_source_factory_->Create(
         std::move(new_uri), cache_mode, encoding_mode,
         base::BindOnce(&HlsDataSourceProviderImpl::OnDataSourceCreated,
@@ -121,12 +105,11 @@ void HlsDataSourceProviderImpl::ReadFromExistingStream(
     return;
   }
 
-  TRACE_EVENT_BEGIN("media", "HLS::ReadExistingStream",
-                    perfetto::Track::FromPointer(this));
+  TRACE_EVENT_BEGIN("media", "HLS::ReadExistingStream", GetTracingTrack(this));
   // A finished stream may have removed any attached data source, so it might
   // not be present in the map.
   if (!stream->CanReadMore()) {
-    TRACE_EVENT_END("media", perfetto::Track::FromPointer(this));
+    TRACE_EVENT_END("media", GetTracingTrack(this));
     std::move(callback).Run(std::move(stream));
     return;
   }
@@ -134,7 +117,7 @@ void HlsDataSourceProviderImpl::ReadFromExistingStream(
   // Any stream which can read more _must_ have an active data source attached.
   auto it = data_source_map_.find(stream->stream_id());
   if (it == data_source_map_.end()) {
-    TRACE_EVENT_END("media", perfetto::Track::FromPointer(this));
+    TRACE_EVENT_END("media", GetTracingTrack(this));
     std::move(callback).Run(ReadStatus::Codes::kError);
     return;
   }
@@ -150,23 +133,17 @@ void HlsDataSourceProviderImpl::ReadFromExistingStream(
   }
 
   base::span<uint8_t> buffer_data = stream->LockStreamForWriting(read_size);
-  auto stream_id = stream->stream_id();
-  uint64_t async_event_key = reinterpret_cast<std::uintptr_t>(this);
-
   it->second->Read(
       base::checked_cast<int64_t>(pos), buffer_data,
-      base::BindOnce(
-          &OnMultiBufferReadComplete, std::move(stream), std::move(callback),
-          base::BindOnce(&HlsDataSourceProviderImpl::UpdateStreamMetadata,
-                         weak_factory_.GetWeakPtr(), stream_id),
-          read_size, async_event_key));
+      base::BindOnce(&OnMultiBufferReadComplete, std::move(stream),
+                     std::move(callback), read_size, GetTracingTrack(this)));
 }
 
 void HlsDataSourceProviderImpl::OnDataSourceCreated(
     DataSource::RangeMode range_mode,
     std::unique_ptr<HlsDataSourceStream> stream,
     ReadCb callback,
-    std::unique_ptr<DataSource> data_source) {
+    std::unique_ptr<CrossOriginDataSource> data_source) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   CHECK(data_source);
   auto stream_id = stream->stream_id();
@@ -183,7 +160,7 @@ void HlsDataSourceProviderImpl::OnDataSourceCreated(
     stream->set_requires_range_request();
   }
 
-  if (stream->HasIncompatibleRangeAndOrigin()) {
+  if (stream->SecurityInfo().HasIncompatibleRangeAndOrigin()) {
     std::move(callback).Run(
         {ReadStatus::Codes::kError,
          "Range requests are not allowed for cross-origin content"});
@@ -192,17 +169,10 @@ void HlsDataSourceProviderImpl::OnDataSourceCreated(
   }
 
   auto pair = data_source_map_.try_emplace(stream_id, std::move(data_source));
-  // Cross origin data sources have an asynchronous initialize method which
-  // must be called after they're put into `data_source_map_`. Other types of
-  // data source (including the test framework ones) come from the factory ready
-  // to go, and don't have an async init process.
-  if (auto* cross_origin = pair.first->second->GetAsCrossOriginDataSource()) {
-    cross_origin->Initialize(base::BindPostTaskToCurrentDefault(base::BindOnce(
-        &HlsDataSourceProviderImpl::DataSourceInitialized,
-        weak_factory_.GetWeakPtr(), std::move(stream), std::move(callback))));
-  } else {
-    DataSourceInitialized(std::move(stream), std::move(callback), true);
-  }
+  pair.first->second->Initialize(
+      base::BindPostTaskToCurrentDefault(base::BindOnce(
+          &HlsDataSourceProviderImpl::DataSourceInitialized,
+          weak_factory_.GetWeakPtr(), std::move(stream), std::move(callback))));
 }
 
 void HlsDataSourceProviderImpl::DataSourceInitialized(
@@ -214,7 +184,7 @@ void HlsDataSourceProviderImpl::DataSourceInitialized(
     CHECK(it != data_source_map_.end());
     data_source_map_.erase(it);
     std::move(callback).Run(ReadStatus::Codes::kStopped);
-    TRACE_EVENT_END("media", perfetto::Track::FromPointer(this));
+    TRACE_EVENT_END("media", GetTracingTrack(this));
     return;
   }
 
@@ -224,17 +194,24 @@ void HlsDataSourceProviderImpl::DataSourceInitialized(
     if (would_taint_origin_) {
       stream->set_would_taint_origin();
     }
+    if (it->second->DidRedirect()) {
+      stream->set_did_redirect();
+    }
+    const auto& response_uri = it->second->GetUrlAfterRedirects();
+    if (!response_uri.is_empty() && !response_uri.SchemeIs("data")) {
+      stream->TrackOrigin(url::Origin::Create(response_uri));
+    }
   }
 
-  if (stream->HasIncompatibleRangeAndOrigin()) {
+  if (stream->SecurityInfo().HasIncompatibleRangeAndOrigin()) {
     std::move(callback).Run(
         {ReadStatus::Codes::kError,
          "Range requests are not allowed for cross-origin content"});
-    TRACE_EVENT_END("media", perfetto::Track::FromPointer(this));
+    TRACE_EVENT_END("media", GetTracingTrack(this));
     return;
   }
 
-  TRACE_EVENT_END("media", perfetto::Track::FromPointer(this));
+  TRACE_EVENT_END("media", GetTracingTrack(this));
   ReadFromExistingStream(std::move(stream), std::move(callback));
 }
 

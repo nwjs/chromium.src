@@ -37,8 +37,9 @@ constexpr base::TimeDelta kAccessTokenExpiration = base::Minutes(5);
 
 // Returns a hosted domain for identity.
 NSString* FakeGetHostedDomainForIdentity(id<SystemIdentity> identity) {
-  return base::SysUTF8ToNSString(
+  NSString* domain = base::SysUTF8ToNSString(
       gaia::ExtractDomainName(base::SysNSStringToUTF8(identity.userEmail)));
+  return [domain isEqualToString:@"gmail.com"] ? @"" : domain;
 }
 
 // Stores a pointer to the last created FakeSystemIdentityManager*. Used to
@@ -58,14 +59,15 @@ FakeSystemIdentityManager::FakeSystemIdentityManager(
 
   for (FakeSystemIdentity* fake_identity in fake_identities) {
     [storage_ addFakeIdentity:fake_identity];
-    // Set up capabilities to remove the delay while displaying the history sync
-    // opt-in screen for testing.
+    // Set up capabilities to remove fetch delays during the authentication
+    // flow.
     // TODO(b/327221052): verify if this should be replaced by a handler for
     // default capabilities.
     AccountCapabilitiesTestMutator* mutator =
         GetPendingCapabilitiesMutator(fake_identity);
     mutator->set_can_show_history_sync_opt_ins_without_minor_mode_restrictions(
         true);
+    mutator->set_can_sign_in_to_chrome(true);
   }
 }
 
@@ -92,14 +94,14 @@ void FakeSystemIdentityManager::AddIdentity(id<SystemIdentity> identity) {
   [storage_ addFakeIdentity:fake_identity];
   FireIdentityListChanged();
 
-  // Set up capabilities to remove the delay while displaying the history sync
-  // opt-in screen for testing.
+  // Set up capabilities to remove fetch delays during the authentication flow.
   // TODO(b/327221052): verify if this should be replaced by a handler for
   // default capabilities.
   AccountCapabilitiesTestMutator* mutator =
       GetPendingCapabilitiesMutator(identity);
   mutator->set_can_show_history_sync_opt_ins_without_minor_mode_restrictions(
       true);
+  mutator->set_can_sign_in_to_chrome(true);
 }
 
 void FakeSystemIdentityManager::AddIdentityWithUnknownCapabilities(
@@ -500,8 +502,7 @@ NSString* FakeSystemIdentityManager::GetCachedHostedDomainForIdentity(
   CHECK(identity);
   if (instantly_fill_hosted_domain_cache_ ||
       [hosted_domain_cache_ containsObject:identity]) {
-    NSString* domain = FakeGetHostedDomainForIdentity(identity);
-    return [domain isEqualToString:@"gmail.com"] ? @"" : domain;
+    return FakeGetHostedDomainForIdentity(identity);
   }
   return nil;
 }

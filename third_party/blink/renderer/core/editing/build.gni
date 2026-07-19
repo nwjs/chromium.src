@@ -371,6 +371,8 @@ blink_core_sources_editing = [
   "visible_units_line.cc",
   "visible_units_paragraph.cc",
   "visible_units_sentence.cc",
+  "visual_caret_movement.cc",
+  "visual_caret_movement.h",
 ]
 
 if (is_mac) {
@@ -389,6 +391,7 @@ blink_core_tests_editing = [
   "character_range_mapper_test.cc",
   "commands/apply_block_element_command_test.cc",
   "commands/apply_style_command_test.cc",
+  "commands/clipboard_commands_test.cc",
   "commands/composite_edit_command_test.cc",
   "commands/delete_selection_command_test.cc",
   "commands/editing_command_test.cc",
@@ -421,6 +424,7 @@ blink_core_tests_editing = [
   "granularity_strategy_test.cc",
   "hit_testing_bidi_test.cc",
   "ime/cached_text_input_info_test.cc",
+  "ime/edit_context_test.cc",
   "ime/ime_text_span_test.cc",
   "ime/input_method_controller_test.cc",
   "ime/stylus_writing_gesture_test.cc",
@@ -495,6 +499,7 @@ blink_core_tests_editing = [
   "visible_units_sentence_test.cc",
   "visible_units_test.cc",
   "visible_units_word_test.cc",
+  "visual_caret_movement_test.cc",
 ]
 
 if (is_mac) {

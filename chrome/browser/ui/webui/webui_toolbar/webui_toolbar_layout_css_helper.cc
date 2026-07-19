@@ -15,6 +15,7 @@
 #include "base/strings/string_util.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
+#include "chrome/browser/ui/views/location_bar/icon_label_bubble_view.h"
 #include "chrome/common/webui_url_constants.h"
 #include "ui/base/pointer/touch_ui_controller.h"
 #include "ui/gfx/animation/animation.h"
@@ -24,6 +25,7 @@ namespace {
 
 constexpr char kPathPrefix[] = "layout_constants";
 constexpr char kPathV0[] = "layout_constants_v0.css";
+constexpr int kAvatarChipIconLabelSpacing = 6;
 
 std::string_view LayoutConstantToCssVarName(LayoutConstant layout_constant) {
   using enum LayoutConstant;
@@ -32,6 +34,8 @@ std::string_view LayoutConstantToCssVarName(LayoutConstant layout_constant) {
       return "--app-menu-profile-row-avatar-icon-size";
     case kAppMenuMaximumCharacterLength:
       return "--app-menu-maximum-character-length";
+    case kAppMenuButtonImageLabelPadding:
+      return "--app-menu-button-image-label-padding";
     case kBookmarkBarHeight:
       return "--bookmark-bar-height";
     case kBookmarkBarButtonHeight:
@@ -74,6 +78,10 @@ std::string_view LayoutConstantToCssVarName(LayoutConstant layout_constant) {
       return "--location-bar-trailing-decoration-inner-padding";
     case kLocationBarIconSize:
       return "--location-bar-icon-size";
+    case kLocationBarIconLabelBubbleSpaceBesideSeparator:
+      return "--location-bar-icon-label-bubble-space-beside-separator";
+    case kLocationBarIconLabelBubbleSeparatorWidth:
+      return "--location-bar-icon-label-bubble-separator-width";
     case kLocationBarLeadingIconSize:
       return "--location-bar-leading-icon-size";
     case kLocationBarTrailingIconSize:
@@ -175,9 +183,10 @@ std::string_view LayoutConstantToCssVarName(LayoutConstant layout_constant) {
 // static
 std::string WebUIToolbarLayoutCssHelper::GenerateLayoutConstantsCss() {
   std::string css_string;
-  // At the time of this update, actual usage was about 3.2K.
-  css_string.reserve(4 * 1024);
+  // At the time of this update, actual usage was about 3.7K.
+  css_string.reserve(5 * 1024);
 
+  // Add some boolean flags.
   css_string.append(
       "@property --touch-mode {\n"
       "  syntax: \"<number>\";\n"
@@ -199,6 +208,7 @@ std::string WebUIToolbarLayoutCssHelper::GenerateLayoutConstantsCss() {
     css_string.append("--animations-enabled: 0;");
   }
 
+  // Add LayoutConstant values.
   for (int layout_constant_num = 0;
        layout_constant_num <= static_cast<int>(LayoutConstant::kLast);
        ++layout_constant_num) {
@@ -210,28 +220,25 @@ std::string WebUIToolbarLayoutCssHelper::GenerateLayoutConstantsCss() {
          base::NumberToString(GetLayoutConstant(layout_constant)), "px;"});
   }
 
-  gfx::Insets location_bar_page_info_icon_padding =
-      GetLayoutInsets(LOCATION_BAR_PAGE_INFO_ICON_PADDING);
-  base::StrAppend(
-      &css_string,
-      {"--location-bar-page-info-icon-padding-top:",
-       base::NumberToString(location_bar_page_info_icon_padding.top()), "px;"});
-  base::StrAppend(
-      &css_string,
-      {"--location-bar-page-info-icon-padding-bottom:",
-       base::NumberToString(location_bar_page_info_icon_padding.bottom()),
-       "px;"});
-  base::StrAppend(
-      &css_string,
-      {"--location-bar-page-info-icon-padding-left:",
-       base::NumberToString(location_bar_page_info_icon_padding.left()),
-       "px;"});
-  base::StrAppend(
-      &css_string,
-      {"--location-bar-page-info-icon-padding-right:",
-       base::NumberToString(location_bar_page_info_icon_padding.right()),
-       "px;"});
+  // Add insets.
+  AddInsets("--location-bar-page-info-icon-padding",
+            GetLayoutInsets(LOCATION_BAR_PAGE_INFO_ICON_PADDING), css_string);
 
+  AddInsets("--location-bar-icon-interior-padding",
+            GetLayoutInsets(LOCATION_BAR_ICON_INTERIOR_PADDING), css_string);
+
+  AddInsets("--app-menu-chip-padding",
+            GetLayoutInsets(BROWSER_APP_MENU_CHIP_PADDING), css_string);
+
+  AddInsets("--avatar-chip-padding", GetLayoutInsets(AVATAR_CHIP_PADDING),
+            css_string);
+  AddInsets("--toolbar-button-padding", GetLayoutInsets(TOOLBAR_BUTTON),
+            css_string);
+  base::StrAppend(&css_string,
+                  {"--avatar-chip-icon-label-spacing:",
+                   base::NumberToString(kAvatarChipIconLabelSpacing), "px;"});
+
+  // Add fonts.
   const auto& typography_provider = views::TypographyProvider::Get();
   AddFontVariables("--omnibox-primary", CONTEXT_OMNIBOX_PRIMARY,
                    views::style::STYLE_PRIMARY, typography_provider,
@@ -245,8 +252,25 @@ std::string WebUIToolbarLayoutCssHelper::GenerateLayoutConstantsCss() {
   AddFontVariables("--permission-chip", views::style::CONTEXT_BUTTON_MD,
                    views::style::STYLE_PRIMARY, typography_provider,
                    css_string);
+  AddFontVariables("--toolbar-button", CONTEXT_TOOLBAR_BUTTON,
+                   views::style::STYLE_PRIMARY, typography_provider,
+                   css_string);
+
+  // Add durations.
+  base::StrAppend(&css_string,
+                  {"--duration-selected-keyword-separator-fade-in: ",
+                   base::NumberToString(
+                       IconLabelBubbleView::kIconLabelBubbleFadeInDurationMs),
+                   "ms;"});
+
+  base::StrAppend(&css_string,
+                  {"--duration-selected-keyword-separator-fade-out: ",
+                   base::NumberToString(
+                       IconLabelBubbleView::kIconLabelBubbleFadeOutDurationMs),
+                   "ms;"});
 
   css_string.push_back('}');
+
   return css_string;
 }
 
@@ -340,4 +364,21 @@ void WebUIToolbarLayoutCssHelper::AddFontVariables(
        base::NumberToString(typography_provider.GetLineHeight(context, style)),
        "px;"});
   // clang-format on
+}
+
+// static
+void WebUIToolbarLayoutCssHelper::AddInsets(std::string_view prefix,
+                                            const gfx::Insets& insets,
+                                            std::string& css_string) {
+  base::StrAppend(&css_string,
+                  {prefix, "-top:", base::NumberToString(insets.top()), "px;"});
+  base::StrAppend(
+      &css_string,
+      {prefix, "-bottom:", base::NumberToString(insets.bottom()), "px;"});
+  base::StrAppend(
+      &css_string,
+      {prefix, "-left:", base::NumberToString(insets.left()), "px;"});
+  base::StrAppend(
+      &css_string,
+      {prefix, "-right:", base::NumberToString(insets.right()), "px;"});
 }

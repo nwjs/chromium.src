@@ -322,6 +322,8 @@ void ScrollMarkerGroupData::RemoveFromFocusGroup(Element& scroll_marker) {
       }
       selected_marker_ = focus_group_[index];
     }
+  } else if (selected_marker_ == scroll_marker) {
+    selected_marker_ = nullptr;
   }
 }
 
@@ -685,7 +687,7 @@ void ScrollMarkerGroupData::Trace(Visitor* v) const {
   v->Trace(focus_group_);
   v->Trace(scrollable_areas_);
   PostLayoutSnapshotClient::Trace(v);
-  ElementRareDataField::Trace(v);
+  NodeRareDataField::Trace(v);
 }
 
 }  // namespace blink

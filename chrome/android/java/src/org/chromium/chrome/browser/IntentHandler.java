@@ -147,6 +147,9 @@ public class IntentHandler {
     public static final String EXTRA_INVOKED_FROM_SHORTCUT =
             "com.android.chrome.invoked_from_shortcut";
 
+    /** An extra to indicate that the intent was triggered from a relaunch/restart. */
+    public static final String EXTRA_FROM_RELAUNCH = "com.android.chrome.from_relaunch";
+
     /** An extra to indicate that the intent was triggered from an app widget. */
     public static final String EXTRA_INVOKED_FROM_APP_WIDGET =
             "com.android.chrome.invoked_from_app_widget";
@@ -373,7 +376,7 @@ public class IntentHandler {
     public static final String BRING_TAB_GROUP_TO_FRONT_SOURCE_EXTRA =
             "BRING_TAB_GROUP_TO_FRONT_SOURCE";
     public static final String DAYDREAM_CATEGORY = "com.google.intent.category.DAYDREAM";
-    public static final String SHARE_INTENT_HISTOGRAM = "Android.Intent.ShareIntentUrlCount";
+    public static final String TRUSTED_REFERRER_HISTOGRAM = "Android.Intent.TrustedReferrer";
 
     /**
      * Represents popular external applications that can load a page in Chrome via intent. DO NOT
@@ -428,6 +431,25 @@ public class IntentHandler {
         int SAMSUNG_LAUNCHER = 19;
         // Update ClientAppId in enums.xml when adding new items.
         int NUM_ENTRIES = 20;
+    }
+
+    /** Histogram for insecure usage of first party referrer string. */
+    @IntDef({
+        IntentReferrer.IGNORED,
+        IntentReferrer.ALLOWED_THROUGH_SESSION,
+        IntentReferrer.ALLOWED_INSECURE,
+        IntentReferrer.NUM_ENTRIES
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface IntentReferrer {
+        /* The intent's specified referrer was ignored. */
+        int IGNORED = 0;
+        /* The intent was allowed to specify a referrer through its CustomTabs session. */
+        int ALLOWED_THROUGH_SESSION = 1;
+        /* The intent was allowed to specify a referrer through an insecure PendingIntent check. */
+        int ALLOWED_INSECURE = 2;
+
+        int NUM_ENTRIES = 6;
     }
 
     /** Intent extra to open an incognito tab. */
@@ -650,14 +672,27 @@ public class IntentHandler {
                 referrerExtra = Uri.parse(referrer.getUrl());
             }
         }
-
         if (referrerExtra == null) return null;
         if (isValidReferrerHeader(referrerExtra)) {
             return referrerExtra.toString();
-        } else if (IntentHandler.notSecureIsIntentChromeOrFirstParty(intent)
-                || SessionDataHolder.getInstance()
-                        .canActiveHandlerUseReferrer(session, referrerExtra)) {
+        } else if (IntentUtils.isTrustedIntentFromSelf(intent)) {
             return referrerExtra.toString();
+        } else if (SessionDataHolder.getInstance()
+                .canActiveHandlerUseReferrer(session, referrerExtra)) {
+            RecordHistogram.recordEnumeratedHistogram(
+                    TRUSTED_REFERRER_HISTOGRAM,
+                    IntentReferrer.ALLOWED_THROUGH_SESSION,
+                    IntentReferrer.NUM_ENTRIES);
+            return referrerExtra.toString();
+        } else if (IntentHandler.notSecureIsIntentChromeOrFirstParty(intent)) {
+            RecordHistogram.recordEnumeratedHistogram(
+                    TRUSTED_REFERRER_HISTOGRAM,
+                    IntentReferrer.ALLOWED_INSECURE,
+                    IntentReferrer.NUM_ENTRIES);
+            return referrerExtra.toString();
+        } else {
+            RecordHistogram.recordEnumeratedHistogram(
+                    TRUSTED_REFERRER_HISTOGRAM, IntentReferrer.IGNORED, IntentReferrer.NUM_ENTRIES);
         }
         return null;
     }
@@ -1280,10 +1315,6 @@ public class IntentHandler {
             extractStringsWithPrefix(text, UrlConstants.HTTPS_URL_PREFIX, urls);
         }
 
-        // Record a small exact linear histogram as we mostly care about 0/1/2, but the presence of
-        // larger counts would be interesting.
-        RecordHistogram.recordExactLinearHistogram(SHARE_INTENT_HISTOGRAM, urls.size(), 5);
-
         if (!urls.isEmpty()) {
             // If multiple URLs are present, somewhat arbitrarily pick the last one (preferring
             // https) - share actions seem to usually put the URL at the end.
@@ -1453,24 +1484,17 @@ public class IntentHandler {
     }
 
     /**
-     * Some applications may request to load the URL with a particular transition type.
+     * Chrome itself may request to load the URL with a particular transition type.
+     *
      * @param intent Intent causing the URL load, may be null.
      * @param defaultTransition The transition to return if none specified in the intent.
      * @return The transition type to use for loading the URL.
      */
     public static int getTransitionTypeFromIntent(Intent intent, int defaultTransition) {
-        if (intent == null) return defaultTransition;
-        int transitionType =
-                IntentUtils.safeGetIntExtra(
-                        intent, IntentHandler.EXTRA_PAGE_TRANSITION_TYPE, PageTransition.LINK);
-        if (transitionType == PageTransition.TYPED) {
-            return transitionType;
-        } else if (transitionType != PageTransition.LINK
-                && notSecureIsIntentChromeOrFirstParty(intent)) {
-            // 1st party applications may specify any transition type.
-            return transitionType;
-        }
-        return defaultTransition;
+        if (!IntentUtils.isTrustedIntentFromSelf(intent)) return defaultTransition;
+        if (!intent.hasExtra(IntentHandler.EXTRA_PAGE_TRANSITION_TYPE)) return defaultTransition;
+        return IntentUtils.safeGetIntExtra(
+                intent, IntentHandler.EXTRA_PAGE_TRANSITION_TYPE, PageTransition.LINK);
     }
 
     /**

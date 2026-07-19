@@ -9,7 +9,6 @@ assert(current_toolchain == default_toolchain)
 
 import("//build/config/android/config.gni")
 import("//build/config/apple/symbols.gni")
-import("//build/config/chromeos/ui_mode.gni")
 import("//build/config/compiler/compiler.gni")
 import("//build/config/coverage/coverage.gni")
 import("//build/config/sanitizers/sanitizers.gni")
@@ -51,7 +50,13 @@ if (concurrent_links == -1) {
              use_sanitizer_coverage || use_fuzzing_engine) {
     # Full sanitizer coverage instrumentation increases linker memory
     # consumption significantly.
-    _args = [ "--mem_per_link_gb=16" ]
+    if (is_component_build) {
+      _args = [ "--mem_per_link_gb=16" ]
+    } else if (use_mold) {
+      _args = [ "--mem_per_link_gb=28" ]
+    } else {
+      _args = [ "--mem_per_link_gb=24" ]
+    }
   } else if (is_win && symbol_level == 1 && !is_debug && is_component_build) {
     _args = [ "--mem_per_link_gb=3" ]
   } else if (is_win && target_cpu == "arm64") {
@@ -65,6 +70,38 @@ if (concurrent_links == -1) {
       _args = [ "--mem_per_link_gb=12" ]
     } else {
       _args = [ "--mem_per_link_gb=4" ]
+    }
+  } else if (use_mold) {
+    # Measurements made in June 2026 with libchromefortest.so.
+    # Measured by adding -Wl,--no-fork,--thread-count=24 and using /bin/time -v.
+    # Assumes is_component_build=false.
+    if (current_cpu == "x86" || current_cpu == "arm") {
+      if (symbol_level == 0) {
+        _args = [ "--mem_per_link_gb=5" ]
+      } else if (use_debug_fission) {
+        if (current_cpu == "x86") {
+          # Used only 7.5gb with symbol_level=2, yet 9gb with symbol_level=1.
+          _args = [ "--mem_per_link_gb=9" ]
+        } else {
+          # For some reason arm uses more memory.
+          _args = [ "--mem_per_link_gb=11" ]
+        }
+      } else if (symbol_level == 1) {
+        _args = [ "--mem_per_link_gb=18" ]
+      } else {  # symbol_level == 2
+        _args = [ "--mem_per_link_gb=40" ]
+      }
+    } else {  # x64 or arm64
+      if (symbol_level == 0) {
+        _args = [ "--mem_per_link_gb=6" ]
+      } else if (use_debug_fission) {
+        # Used only 9.5gb with symbol_level=2, yet 11gb with symbol_level=1.
+        _args = [ "--mem_per_link_gb=11" ]
+      } else if (symbol_level == 1) {
+        _args = [ "--mem_per_link_gb=20" ]
+      } else {  # symbol_level == 2
+        _args = [ "--mem_per_link_gb=54" ]
+      }
     }
   } else if (is_android && !is_component_build && symbol_level == 2) {
     # Full debug symbols require large memory for link.

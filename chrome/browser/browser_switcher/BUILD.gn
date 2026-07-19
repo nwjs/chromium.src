@@ -105,7 +105,6 @@ source_set("unit_tests") {
     deps += [
       ":browser_switcher",
       "//base/test:test_support",
-      "//chrome/app:generated_resources",
       "//chrome/test:test_support",
       "//components/policy:generated",
       "//components/policy:policy_code_generate",
@@ -174,7 +173,4 @@ fuzzer_test("browser_switcher_ieem_sitelist_parser_fuzzer") {
       "//components/crash/core/app:test_support",
     ]
   }
-
-  # The fuzzed code needs more RAM that the default limit.
-  libfuzzer_options = [ "rss_limit_mb=4096" ]
 }

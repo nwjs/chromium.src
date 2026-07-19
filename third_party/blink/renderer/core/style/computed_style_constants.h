@@ -74,6 +74,7 @@ enum PseudoId : uint8_t {
   kPseudoIdInterestButton,
   kPseudoIdMarker,
   kPseudoIdBackdrop,
+  kPseudoIdOverscrollBackdrop,
   kPseudoIdSelection,
   kPseudoIdScrollbar,
   kPseudoIdScrollMarker,
@@ -118,7 +119,9 @@ enum PseudoId : uint8_t {
   kPseudoIdFileSelectorButton,
   kPseudoIdDetailsContent,
   kPseudoIdPickerSelect,
+  kPseudoIdSelectListbox,
   kPseudoIdPermissionIcon,
+  kPseudoIdSkeleton,
 
   // Special values follow:
   kAfterLastInternalPseudoId,

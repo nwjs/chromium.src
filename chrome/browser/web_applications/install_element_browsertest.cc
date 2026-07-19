@@ -14,7 +14,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/views/web_apps/web_app_dialog_test_support.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/ui/web_applications/web_app_browser_controller.h"
@@ -27,6 +26,7 @@
 #include "chrome/browser/web_applications/web_install_service_impl.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/permissions/permission_request_manager.h"
 #include "components/ukm/test_ukm_recorder.h"
 #include "components/webapps/browser/install_result_code.h"
@@ -163,7 +163,9 @@ IN_PROC_BROWSER_TEST_F(InstallElementBrowserTest, Install) {
       embedded_https_test_server().GetURL(kInstallElementPageStartUrl)));
 
   // Setup test listeners and dialog auto-accepts.
-  web_app::test::ScopedAutoAcceptWebAppDialogs auto_accept_pwa;
+  base::AutoReset<web_app::InstallDialogTestResponse> auto_accept_pwa =
+      web_app::SetPwaInstallationAutoRespondForTesting(
+          web_app::InstallDialogTestResponse::kAcceptAndLaunch);
 
   // Click the install element and wait for the app to open.
   ui_test_utils::BrowserCreatedObserver browser_created_observer;
@@ -215,7 +217,9 @@ IN_PROC_BROWSER_TEST_F(InstallElementBrowserTest, InstallWithUrl) {
       embedded_https_test_server().GetURL(kInstallElementPageStartUrl)));
 
   // Setup test listeners and dialog auto-accepts.
-  web_app::test::ScopedAutoAcceptWebAppDialogs auto_accept_pwa;
+  base::AutoReset<web_app::InstallDialogTestResponse> auto_accept_pwa =
+      web_app::SetPwaInstallationAutoRespondForTesting(
+          web_app::InstallDialogTestResponse::kAcceptAndLaunch);
   ukm::TestAutoSetUkmRecorder ukm_recorder;
 
   // Dynamically set the installurl attribute.
@@ -290,7 +294,9 @@ IN_PROC_BROWSER_TEST_F(InstallElementBrowserTest, InstallWithUrlAndId) {
       embedded_https_test_server().GetURL(kInstallElementPageStartUrl)));
 
   // Setup test listeners and dialog auto-accepts.
-  web_app::test::ScopedAutoAcceptWebAppDialogs auto_accept_pwa;
+  base::AutoReset<web_app::InstallDialogTestResponse> auto_accept_pwa =
+      web_app::SetPwaInstallationAutoRespondForTesting(
+          web_app::InstallDialogTestResponse::kAcceptAndLaunch);
   ukm::TestAutoSetUkmRecorder ukm_recorder;
 
   // Dynamically set the installurl and manifestid attributes.
@@ -360,7 +366,9 @@ IN_PROC_BROWSER_TEST_F(InstallElementBrowserTest, InstallWithUrl_UserDenies) {
       embedded_https_test_server().GetURL(kInstallElementPageStartUrl)));
 
   // Simulate the user declining the install prompt.
-  web_app::test::ScopedAutoDeclineInstallDialogs auto_decline;
+  base::AutoReset<web_app::InstallDialogTestResponse> auto_decline =
+      web_app::SetPwaInstallationAutoRespondForTesting(
+          web_app::InstallDialogTestResponse::kDeny);
   base::HistogramTester histograms;
   ukm::TestAutoSetUkmRecorder ukm_recorder;
 
@@ -419,7 +427,9 @@ IN_PROC_BROWSER_TEST_F(InstallElementBrowserTest, Install_DenyPermission) {
       embedded_https_test_server().GetURL(kInstallElementPageStartUrl);
   EXPECT_TRUE(ui_test_utils::NavigateToURL(browser(), current_document_url));
 
-  web_app::test::ScopedAutoAcceptWebAppDialogs auto_accept_pwa;
+  base::AutoReset<web_app::InstallDialogTestResponse> auto_accept_pwa =
+      web_app::SetPwaInstallationAutoRespondForTesting(
+          web_app::InstallDialogTestResponse::kAcceptAndLaunch);
   base::HistogramTester histograms;
 
   // Block the web install permission for the current document origin.
@@ -467,7 +477,9 @@ IN_PROC_BROWSER_TEST_F(InstallElementBrowserTest,
       embedded_https_test_server().GetURL(kInstallElementPageStartUrl)));
 
   // Setup test listeners and dialog auto-accepts.
-  web_app::test::ScopedAutoAcceptWebAppDialogs auto_accept_pwa;
+  base::AutoReset<web_app::InstallDialogTestResponse> auto_accept_pwa =
+      web_app::SetPwaInstallationAutoRespondForTesting(
+          web_app::InstallDialogTestResponse::kAcceptAndLaunch);
 
   // Dynamically set the installurl attribute to a background document URL.
   const GURL install_url =
@@ -562,8 +574,9 @@ IN_PROC_BROWSER_TEST_F(InstallElementBrowserTest,
   // Dynamically set the installurl attribute to the background document just
   // installed.
   ASSERT_TRUE(SetButtonInstallUrl(background_doc_install_url));
-  base::AutoReset<bool> auto_accept =
-      SetAutoAcceptWebInstallLaunchDialogForTesting();
+  base::AutoReset<web_app::InstallDialogTestResponse> auto_accept =
+      web_app::SetPwaInstallationAutoRespondForTesting(
+          web_app::InstallDialogTestResponse::kAcceptAndLaunch);
 
   // Click the install element.
   ui_test_utils::BrowserCreatedObserver browser_created_observer;
@@ -572,6 +585,7 @@ IN_PROC_BROWSER_TEST_F(InstallElementBrowserTest,
 
   // Verify promptaction event was fired.
   WaitForPromptActionEvent(kInstallElementId);
+  test::CompletePageLoadForAllWebContents();
 
   // Verify the app is still installed.
   EXPECT_TRUE(provider().registrar_unsafe().AppMatches(
@@ -705,7 +719,9 @@ IN_PROC_BROWSER_TEST_F(InstallElementAndApiInteractionBrowserTest,
       browser(),
       embedded_https_test_server().GetURL(kInstallElementPageStartUrl)));
 
-  web_app::test::ScopedAutoAcceptWebAppDialogs auto_accept;
+  base::AutoReset<web_app::InstallDialogTestResponse> auto_accept =
+      web_app::SetPwaInstallationAutoRespondForTesting(
+          web_app::InstallDialogTestResponse::kAcceptAndLaunch);
 
   // Set the <install> element's installurl to a another test page.
   const GURL element_install_url =

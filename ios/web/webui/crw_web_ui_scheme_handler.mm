@@ -9,6 +9,8 @@
 
 #import "base/files/file_path.h"
 #import "base/strings/sys_string_conversions.h"
+#import "ios/web/js_messaging/web_view_web_state_map.h"
+#import "ios/web/public/web_state.h"
 #import "ios/web/webui/url_fetcher_block_adapter.h"
 #import "ios/web/webui/web_ui_constants.h"
 #import "ios/web/webui/web_ui_ios_controller_factory_registry.h"
@@ -64,10 +66,23 @@ NSInteger GetErrorCodeForUrl(const GURL& URL) {
   // The "Access-Control-Allow-Origin" header is required below to allow
   // requests from any WebUI page to load chrome://resources URLs. However,
   // requests between different WebUI pages are blocked directly instead.
-  if (!webView.URL ||
-      (!URL.DomainIs(web::kWebUIResourcesHost) &&
-       url::SchemeHostPort(URL) !=
-           url::SchemeHostPort(net::GURLWithNSURL(webView.URL)))) {
+
+  // Allow the main-frame navigation request itself (its URL matches the
+  // provisional webView.URL).
+  // Subresource requests are gated on the WebState's last committed URL
+  // because both `webView.URL` and `backForwardList.currentItem.URL` may
+  // already point at the destination of an in-progress navigation. The main
+  // document request itself is loaded before commit and is identified by
+  // matching `webView.URL`.
+  GURL webViewURL = net::GURLWithNSURL(webView.URL);
+  web::WebState* webState = web::GetWebStateForWebView(webView);
+  GURL committedURL = webState ? webState->GetLastCommittedURL() : GURL();
+  BOOL isMainDocumentRequest = URL.EqualsIgnoringRef(webViewURL);
+  BOOL isSharedResourceRequest = URL.DomainIs(web::kWebUIResourcesHost) &&
+                                 GetErrorCodeForUrl(committedURL) == 0;
+  if (!webState || !webViewURL.is_valid() ||
+      (!isMainDocumentRequest && !isSharedResourceRequest &&
+       url::SchemeHostPort(URL) != url::SchemeHostPort(committedURL))) {
     NSError* error = [NSError
         errorWithDomain:NSURLErrorDomain
                    code:NSURLErrorNoPermissionsToReadFile

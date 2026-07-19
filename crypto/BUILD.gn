@@ -27,10 +27,7 @@ rust_static_library("tpm") {
   # Required for cxx bridge generated code.
   allow_unsafe = true
 
-  deps = [
-    "//base",
-    "//third_party/boringssl:bssl_crypto",
-  ]
+  deps = [ "//base" ]
 }
 
 rust_static_library("tpm_unittests") {
@@ -41,7 +38,6 @@ rust_static_library("tpm_unittests") {
   deps = [
     ":tpm",
     "//testing/rust_gtest_interop",
-    "//third_party/boringssl:bssl_crypto",
   ]
 }
 
@@ -104,6 +100,8 @@ component("crypto") {
     "signature_verifier.h",
     "subtle_passkey.cc",
     "subtle_passkey.h",
+    "tpm_parser.cc",
+    "tpm_parser.h",
     "unexportable_key.cc",
     "unexportable_key.h",
     "unexportable_key_metrics.cc",
@@ -174,7 +172,9 @@ component("crypto") {
     libs = [
       "crypt32.lib",
       "ncrypt.lib",
+      "tbs.lib",
     ]
+    ldflags = [ "/DELAYLOAD:tbs.dll" ]
   }
 
   # Some files are built when NSS is used for the platform certificate library.
@@ -253,12 +253,15 @@ test("crypto_unittests") {
     "sha2_unittest.cc",
     "sign_unittest.cc",
     "signature_verifier_unittest.cc",
+    "tpm_parser_unittest.cc",
+    "unexportable_key_metrics_unittest.cc",
     "unexportable_key_unittest.cc",
   ]
 
   deps = [
     ":crypto",
     ":test_support",
+    ":tpm",
     ":tpm_unittests",
     "//base",
     "//base/test:run_all_unittests",
@@ -267,10 +270,6 @@ test("crypto_unittests") {
     "//testing/gmock",
     "//testing/gtest",
   ]
-
-  if (is_win || is_mac) {
-    sources += [ "unexportable_key_metrics_unittest.cc" ]
-  }
 
   if (is_apple) {
     if (!(is_ios && target_platform == "tvos")) {

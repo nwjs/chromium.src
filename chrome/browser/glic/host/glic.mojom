@@ -27,6 +27,13 @@ import "url/mojom/url.mojom";
 // Run this script to update them, and read it for details.
 // chrome/browser/resources/glic/glic_api_impl/generate.py
 
+// @generate glic_api
+struct GeminiEnterpriseSettings {
+  string project_id;
+  string app_id;
+  string location;
+};
+
 // Struct containing data about eligibility for GLIC.
 struct ProfileEnablement {
   // Whether the GLIC feature is enabled.
@@ -74,17 +81,20 @@ struct ProfileEnablement {
   // account type.
   bool share_image_allowed;
 
+  // Settings for Gemini Enterprise.
+  GeminiEnterpriseSettings? gemini_enterprise_settings;
+
   // Summary of whether actuation is enabled, and if not, why not.
   ActuationEligibility actuation_eligibility;
+
+  // Summary of whether Glic API actuation is enabled, and if not, why not.
+  ActuationEligibility glic_api_actuation_eligibility;
 };
 
 // Basic configuration information about Glic.
 struct ConfigInfo {
   // The URL from which the guest web client is loaded from.
   url.mojom.Url guest_url;
-
-  // The URL from which the FRE page is loaded from.
-  url.mojom.Url fre_guest_url;
 
   // User configured preset URLs for different environments of the guest web
   // client.
@@ -521,13 +531,6 @@ enum FormFactor {
   kTablet = 3,
 };
 
-// @generate glic_api
-struct GeminiEnterpriseSettings {
-  string project_id;
-  string app_id;
-  string location;
-};
-
 // The result of `WebClientCreated()`. Contains information that needs to be
 // available before the web client is initialized.
 struct WebClientInitialState {
@@ -571,8 +574,6 @@ struct WebClientInitialState {
   array<HostCapability> host_capabilities;
   // Whether get page metadata is enabled.
   bool enable_get_page_metadata;
-  // Whether kGlicApiActivationGating is enabled.
-  bool enable_api_activation_gating;
   // Whether capture region is enabled.
   bool enable_capture_region;
   // Whether kGlicWebActuationSetting is enabled.
@@ -599,6 +600,8 @@ struct WebClientInitialState {
   bool enable_process_counter_abuse_verdict;
   // Settings for Gemini Enterprise.
   GeminiEnterpriseSettings? gemini_enterprise_settings;
+  // Whether features::kGlicActorAutofillOneTimePassword is enabled.
+  bool enable_gmail_otp_opt_in;
 };
 
 // @generate glic_api
@@ -1033,6 +1036,10 @@ interface ActorClient {
   // Notify that the actor task with the given id has changed to the indicated
   // state.
   NotifyActorTaskStateChanged(int32 task_id, ActorTaskState state);
+
+  // Requests the web client to show the Gmail OTP opt-in dialog to the user.
+  RequestToShowGmailOtpOptInDialog(int32 task_id)
+      => (actor.webui.mojom.GmailOtpOptInResult result);
 };
 
 // Interface for actor-related functionality.
@@ -1182,6 +1189,26 @@ struct CaptureRegionParams {
   GetTabContextOptions options;
 };
 
+// Interface for annotation-related functionality, used by the web client.
+interface AnnotationHandler {
+  // Scrolls to and (optionally) highlights content specified by `params`. Only
+  // one highlight is active at a time. Returns an error reason if the scroll
+  // fails, or null otherwise.
+  ScrollTo(ScrollToParams params) => (ScrollToErrorReason? error_reason);
+
+  // Drops the content highlight from scrollTo(). No effects if no contents are
+  // highlighted.
+  DropScrollToHighlight();
+};
+
+// Options used to customize ActivateTabWithUrl behavior.
+struct ActivateTabOptions {
+  // Wildcard pattern (using '*' and '?') matched against tab URLs. If empty
+  // (""), wildcard matching is not performed.
+  string pattern = "";
+  int32? fallback_window_id;
+};
+
 // Access to the browser from the web client by proxy through the WebUI.
 // A single WebClientHandler will provide access to the browser for only
 // a single web client. If the webview navigates or refreshes, a new
@@ -1204,10 +1231,19 @@ interface WebClientHandler {
   CreateActorHandler(pending_receiver<ActorHandler> receiver,
                      pending_remote<ActorClient> client);
 
+  // Creates the annotation handler.
+  CreateAnnotationHandler(pending_receiver<AnnotationHandler> receiver);
+
   // Creates a new tab. `url` must have a http or https protocol.
   // `tab_data` is null if the tab could not be created, which may happen if the
   // url or window_id is invalid.
   CreateTab(url.mojom.Url url, bool open_in_background, int32? window_id)
+      => (TabData? tab_data);
+
+  // Activates an existing tab matching `exact_url` or the wildcard pattern in
+  // `options` (if provided), falling back to creating a new tab navigated to
+  // `exact_url`.
+  ActivateTabWithUrl(url.mojom.Url exact_url, ActivateTabOptions? options)
       => (TabData? tab_data);
 
   // Creates a new popup window.
@@ -1261,6 +1297,11 @@ interface WebClientHandler {
   // before data is collected.
   GetContextFromTab(int32 tab_id, GetTabContextOptions options)
       => (GetContextResult result);
+
+  // Returns raw image bytes and MIME type for an image node from the tab
+  // associated with `tab_id`.
+  GetImageBytesFromTab(int32 tab_id, string document_id, int32 dom_node_id)
+      => (GetImageBytesResult result);
 
   // Sets the maximum number of supported pinned tabs. Negative means that the
   // client has no limit. Since the browser may only support so many, the
@@ -1451,15 +1492,6 @@ interface WebClientHandler {
   // Called when the web client sends a browser actuation result over the
   // network.
   OnActionSubmitted(bool is_retry);
-
-  // Scrolls to and (optionally) highlights content specified by `params`. Only
-  // one highlight is active at a time. Returns an error reason if the scroll
-  // fails, or null otherwise.
-  ScrollTo(ScrollToParams params) => (ScrollToErrorReason? error_reason);
-
-  // Drops the content highlight from scrollTo(). No effects if no contents are
-  // highlighted.
-  DropScrollToHighlight();
 
   // Enrolls Chrome in the synthetic experiment group specified by
   // trial_name.group_name. Enrollment will start when the API is called and end
@@ -1696,6 +1728,7 @@ enum InvocationSource {
   // User clicked on text selection widget.
   [MinVersion=16] kTextSelectionWidget = 25,
   // Automatic summarization upon opening.
+  // Deprecated.
   [MinVersion=17] kZeroStateAutoSummarize = 26,
   // From the universal cart.
   [MinVersion=18] kUniversalCart = 27,
@@ -1716,7 +1749,7 @@ enum InvocationSource {
   [MinVersion=25] kPromotionPage = 34,
 };
 
-// LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicInvocationSource, //chrome/browser/glic/service/metrics/metrics_types.h:ResponseSegmentation)
+// LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicInvocationSource, //tools/metrics/histograms/metadata/glic/histograms.xml:GlicInvocationSource, //chrome/browser/glic/service/metrics/metrics_types.h:ResponseSegmentation)
 
 // @generate glic_api
 // Target for actuation.
@@ -1730,6 +1763,11 @@ enum ActuationTarget {
   kCurrentTab = 2,
   // Forces actuation in a new tab.
   kNewTab = 3,
+  // Forces actuation on the target surface, if the surface is a valid tab.
+  // Note: kTargetSurface can be different than kCurrentTab if the target
+  // surface is not the foregrounded tab. This option has no effect if the
+  // surface does not resolve to a valid tab.
+  [MinVersion=1] kTargetSurface = 4,
 };
 
 struct UniversalCartPayload {
@@ -1776,6 +1814,10 @@ struct InvokeOptions {
 
   // Source-specific payload for the invocation.
   InvocationPayload? payload;
+
+  // The ID of the tab to actuate on, if actuation_target is kTargetSurface.
+  [MinVersion=1]
+  int32? actuation_tab_id;
 };
 
 // @generate glic_api
@@ -1879,6 +1921,15 @@ struct ContextData {
   string? filename;
 };
 
+// @generate glic_api
+// Metadata of the parent conversation. Some, all, or none, of this information
+// may be available, depending on what context information was available from
+// the server when the parent conversation was initiated.
+struct ParentConversationMetadata {
+  string? conversation_id;
+  string? conversation_title;
+};
+
 // Part of an additional context object.
 union AdditionalContextPart {
   ContextData data;
@@ -1890,6 +1941,7 @@ union AdditionalContextPart {
   TabContext tab_context;
   CapturedRegion region;
   PendingCapturedRegion pending_region;
+  ParentConversationMetadata parent_conversation_metadata;
 };
 
 // @generate glic_api
@@ -1900,6 +1952,7 @@ enum AdditionalContextSource {
   kRegionSelection = 1,
   kTextSelection = 3,
   [MinVersion=1] kWebDragDrop = 4,
+  [MinVersion=2] kExperimentalTriggering = 5,
 };
 
 // An additional context object.
@@ -1985,9 +2038,6 @@ interface WebClient {
   // inactive if it's attached to a browser window, and that browser window is
   // not the active window.
   NotifyPanelActiveChange(bool panel_active);
-
-  // Informs the client whether the browser is currently invoking Glic.
-  NotifyIsInvoking(bool is_invoking);
 
   // Informs the client that whether the panel can be attached right now.
   NotifyPanelCanAttachChange(bool can_attach);
@@ -2099,6 +2149,11 @@ struct TabContext {
   // A screenshot of the user-visible portion of the tab. Provided only if
   // requested.
   Screenshot? viewport_screenshot;
+  // Proto for ScreenshotInfo.
+  // See components/optimization_guide/proto/features/common_quality_data.proto.
+  // Provided if include_viewport_screenshot was requested in
+  // GetTabContextOptions and layout metadata is available.
+  mojo_base.mojom.ProtoWrapper? screenshot_info;
   // Information about a PDF document. Provided if the document is a PDF or
   // contains a PDF, and PDF data was requested. Note that it is possible for
   // a document to contain multiple PDFs using iframes. Only the first PDF
@@ -2280,6 +2335,32 @@ struct Screenshot {
   string mime_type;
   // Image annotations for this screenshot.
   ImageOriginAnnotations origin_annotations;
+};
+
+// Information about an image on the page.
+struct ImageInfo {
+  // Caption of the image if available.
+  string? caption;
+  // Security origin of the image resource.
+  url.mojom.Origin? source_origin;
+  // Source URL of the image.
+  url.mojom.Url url;
+  // The image encoding format represented as a MIME type (e.g., image/jpeg).
+  string? mime_type;
+};
+
+// Result of retrieving image bytes.
+struct ImageBytesResult {
+  // Raw encoded image bytes.
+  mojo_base.mojom.BigBuffer bytes;
+  // Metadata about the image.
+  ImageInfo image_info;
+};
+
+// Result of retrieving image bytes or failure reason.
+union GetImageBytesResult {
+  ImageBytesResult image_bytes;
+  string error_reason;
 };
 
 // @generate glic_api

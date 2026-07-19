@@ -19,14 +19,15 @@
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_actions.h"
+#include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/immersive/immersive_mode_controller.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/contextual_tasks/contextual_tasks_ephemeral_button_controller.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_ink_drop_util.h"
 #include "chrome/common/pref_names.h"
@@ -59,9 +60,6 @@
 #include "ui/views/painter.h"
 #include "ui/views/view.h"
 #include "ui/views/view_class_properties.h"
-
-DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(ContextualTasksButton,
-                                      kContextualTasksToolbarButton);
 
 namespace {
 
@@ -201,7 +199,8 @@ ContextualTasksButton::ContextualTasksButton(
       browser_window_interface_(browser_window_interface) {
   SetPaintToLayer();
   layer()->SetFillsBoundsOpaquely(false);
-  SetProperty(views::kElementIdentifierKey, kContextualTasksToolbarButton);
+  SetProperty(views::kElementIdentifierKey,
+              kContextualTasksEphemeralToolbarButtonElementId);
   const std::u16string button_tooltip =
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
       (contextual_tasks::kShowEntryPoint.Get() ==
@@ -222,17 +221,7 @@ ContextualTasksButton::ContextualTasksButton(
                           base::Unretained(this)));
 
   if (contextual_tasks::kShowEntryPoint.Get() ==
-      contextual_tasks::EntryPointOption::kToolbarPermanent) {
-    pin_state_.Init(
-        prefs::kPinContextualTaskButton,
-        browser_window_interface->GetProfile()->GetPrefs(),
-        base::BindRepeating(&ContextualTasksButton::OnPinStateChanged,
-                            base::Unretained(this)));
-  } else {
-    CHECK(contextual_tasks::kShowEntryPoint.Get() ==
-              contextual_tasks::EntryPointOption::kToolbarRevisit ||
-          contextual_tasks::kShowEntryPoint.Get() ==
-              contextual_tasks::EntryPointOption::kToolbarEphemeralBranded);
+      contextual_tasks::EntryPointOption::kToolbarEphemeralBranded) {
     ContextualTasksEphemeralButtonController* const controller =
         ContextualTasksEphemeralButtonController::From(
             browser_window_interface_);
@@ -343,9 +332,6 @@ void ContextualTasksButton::OnButtonPress() {
   }
 }
 
-void ContextualTasksButton::OnPinStateChanged() {
-  MaybeUpdateVisibility();
-}
 
 void ContextualTasksButton::OnSidePanelAlignmentChanged() {
   if (contextual_tasks::kShowEntryPoint.Get() ==
@@ -464,16 +450,7 @@ void ContextualTasksButton::MaybeUpdateVisibility() {
           ->AreEntryPointsEligible();
 
   if (contextual_tasks::kShowEntryPoint.Get() ==
-      contextual_tasks::EntryPointOption::kToolbarPermanent) {
-    SetVisible(is_button_eligible && pin_state_.GetValue());
-  } else if (contextual_tasks::kShowEntryPoint.Get() ==
-             contextual_tasks::EntryPointOption::kToolbarRevisit) {
-    ContextualTasksEphemeralButtonController* const controller =
-        ContextualTasksEphemeralButtonController::From(
-            browser_window_interface_);
-    SetVisible(is_button_eligible && controller->ShouldShowEphemeralButton());
-  } else if (contextual_tasks::kShowEntryPoint.Get() ==
-             contextual_tasks::EntryPointOption::kToolbarEphemeralBranded) {
+      contextual_tasks::EntryPointOption::kToolbarEphemeralBranded) {
     ContextualTasksEphemeralButtonController* const controller =
         ContextualTasksEphemeralButtonController::From(
             browser_window_interface_);

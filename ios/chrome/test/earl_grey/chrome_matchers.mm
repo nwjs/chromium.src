@@ -1050,18 +1050,14 @@ id<GREYMatcher> IncognitoInterstitialCancelButton() {
   return [ChromeMatchersAppInterface incognitoInterstitialCancelButton];
 }
 
-#pragma mark - Tab Grid Edit Mode
+#pragma mark - Tab Grid Overflow Menu
 
-id<GREYMatcher> TabGridEditButton() {
-  return [ChromeMatchersAppInterface tabGridEditButton];
+id<GREYMatcher> TabGridOverflowMenuCloseAllButton() {
+  return [ChromeMatchersAppInterface tabGridOverflowMenuCloseAllButton];
 }
 
-id<GREYMatcher> TabGridEditMenuCloseAllButton() {
-  return [ChromeMatchersAppInterface tabGridEditMenuCloseAllButton];
-}
-
-id<GREYMatcher> TabGridSelectTabsMenuButton() {
-  return [ChromeMatchersAppInterface tabGridSelectTabsMenuButton];
+id<GREYMatcher> TabGridOverflowMenuSelectTabsButton() {
+  return [ChromeMatchersAppInterface tabGridOverflowMenuSelectTabsButton];
 }
 
 id<GREYMatcher> TabGridEditAddToButton() {

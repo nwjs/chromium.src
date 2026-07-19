@@ -11,11 +11,25 @@ namespace views::features {
 
 // Please keep alphabetized.
 
+// When enabled, the screen capture exclusion feature (such as
+// SetExcludeFromScreenCapture) is allowed even when running inside a remote
+// session. By default, it is disabled to prevent excluded windows (such as
+// Picture-in-Picture) from being completely hidden from the remote user's
+// local view of that remote session.
+BASE_FEATURE(kAllowWindowCaptureExclusionInRemoteSessions,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Used to apply the initial URL to the WebContents in WebView. This is a kill
 // switch for this new logic, see crbug.com/456058558.
 // TODO(https://crbug.com/456058558): Remove this flag once the feature becomes
 // stable.
 BASE_FEATURE(kApplyInitialUrlToWebContents, base::FEATURE_ENABLED_BY_DEFAULT);
+
+// When disabled, HWNDMessageHandler is synchronously deleted when handling
+// WM_NCDESTROY. When enabled, HWNDMessageHandler's deletion is deferred by
+// posting a task to the UI task runner.
+BASE_FEATURE(kDeferHWNDMessageHandlerDestruction,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables input protection by blocking interaction with views that are
 // currently or were recently obscured by always-on-top windows, and prevents
@@ -34,5 +48,14 @@ BASE_FEATURE(kEnableTouchDragCursorSync, base::FEATURE_ENABLED_BY_DEFAULT);
 // to kKeyboardAccessibleTooltip in //ui/base/ui_base_features.cc.
 BASE_FEATURE(kKeyboardAccessibleTooltipInViews,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Uses NativeViewHostAuraWithClipWindow instead of NativeViewHostAura.
+#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
+BASE_FEATURE(kUseNativeViewHostAuraWithClipWindow,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#else
+BASE_FEATURE(kUseNativeViewHostAuraWithClipWindow,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
 
 }  // namespace views::features

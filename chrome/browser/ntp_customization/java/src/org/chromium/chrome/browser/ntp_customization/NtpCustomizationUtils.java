@@ -22,6 +22,7 @@ import static org.chromium.chrome.browser.preferences.ChromePreferenceKeys.NTP_B
 import static org.chromium.chrome.browser.preferences.ChromePreferenceKeys.NTP_BACKGROUND_IMAGE_LANDSCAPE_INFO_FOR_DAILY_REFRESH;
 import static org.chromium.chrome.browser.preferences.ChromePreferenceKeys.NTP_BACKGROUND_IMAGE_PORTRAIT_INFO;
 import static org.chromium.chrome.browser.preferences.ChromePreferenceKeys.NTP_BACKGROUND_IMAGE_PORTRAIT_INFO_FOR_DAILY_REFRESH;
+import static org.chromium.chrome.browser.preferences.ChromePreferenceKeys.NTP_CUSTOMIZATION_BACKGROUND_IMAGE_FILE_PATH;
 import static org.chromium.chrome.browser.preferences.ChromePreferenceKeys.NTP_CUSTOMIZATION_BACKGROUND_INFO;
 import static org.chromium.chrome.browser.preferences.ChromePreferenceKeys.NTP_CUSTOMIZATION_BACKGROUND_INFO_FOR_DAILY_REFRESH;
 import static org.chromium.chrome.browser.preferences.ChromePreferenceKeys.NTP_CUSTOMIZATION_BACKGROUND_TYPE;
@@ -29,6 +30,7 @@ import static org.chromium.chrome.browser.preferences.ChromePreferenceKeys.NTP_C
 import static org.chromium.chrome.browser.preferences.ChromePreferenceKeys.NTP_CUSTOMIZATION_LAST_APPLY_THEME_TIMESTAMP_MS;
 import static org.chromium.chrome.browser.preferences.ChromePreferenceKeys.NTP_CUSTOMIZATION_LAST_DAILY_REFRESH_TIMESTAMP;
 import static org.chromium.chrome.browser.preferences.ChromePreferenceKeys.NTP_CUSTOMIZATION_PRIMARY_COLOR;
+import static org.chromium.chrome.browser.preferences.ChromePreferenceKeys.NTP_CUSTOMIZATION_PRIMARY_COLOR_DARK;
 import static org.chromium.chrome.browser.preferences.ChromePreferenceKeys.NTP_CUSTOMIZATION_PRIMARY_COLOR_FOR_DAILY_REFRESH;
 import static org.chromium.chrome.browser.preferences.ChromePreferenceKeys.NTP_CUSTOMIZATION_THEME_COLOR_ID;
 import static org.chromium.chrome.browser.preferences.ChromePreferenceKeys.NTP_CUSTOMIZATION_THEME_IS_SNACKBAR_SHOWN;
@@ -69,7 +71,6 @@ import com.google.android.material.color.DynamicColorsOptions;
 
 import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
-import org.chromium.base.DeviceInfo;
 import org.chromium.base.IntentUtils;
 import org.chromium.base.Log;
 import org.chromium.base.ResettersForTesting;
@@ -89,6 +90,9 @@ import org.chromium.chrome.browser.ntp_customization.theme.daily_refresh.NtpThem
 import org.chromium.chrome.browser.ntp_customization.theme.theme_collections.CustomBackgroundInfo;
 import org.chromium.chrome.browser.ntp_customization.theme.upload_image.BackgroundImageInfo;
 import org.chromium.chrome.browser.ntp_customization.theme.upload_image.CropImageUtils;
+import org.chromium.chrome.browser.ntp_customization.theme_sync.data.NtpBackgroundDataBase;
+import org.chromium.chrome.browser.ntp_customization.theme_sync.data.NtpBackgroundDataUploadImage;
+import org.chromium.chrome.browser.ntp_customization.theme_sync.data.NtpBackgroundDataUtils;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -145,11 +149,33 @@ public class NtpCustomizationUtils {
         Integer getPrimaryColor();
     }
 
+    /** Callback interface for when an image is loaded from a URI. */
+    public interface OnImageLoadedCallback {
+        /**
+         * Called when the image is loaded.
+         *
+         * @param bitmap The loaded bitmap, or null if loading failed.
+         * @param fileIdHash The hash of the image file metadata.
+         */
+        void onImageLoaded(@Nullable Bitmap bitmap, String fileIdHash);
+    }
+
+    private static class ImageLoadResult {
+        public final @Nullable Bitmap bitmap;
+        public final String fileIdHash;
+
+        ImageLoadResult(@Nullable Bitmap bitmap, String fileIdHash) {
+            this.bitmap = bitmap;
+            this.fileIdHash = fileIdHash;
+        }
+    }
+
     /** The time duration limit to refresh NTP's background. */
     @VisibleForTesting
     static final long DEFAULT_DAILY_REFRESH_HOURS_MS = TimeUtils.MILLISECONDS_PER_DAY;
 
     @VisibleForTesting static final String NTP_BACKGROUND_IMAGE_FILE = "ntp_background_image";
+    @VisibleForTesting static final String NTP_UPLOAD_IMAGES_DIR = "upload_images";
 
     @VisibleForTesting
     static final String NTP_BACKGROUND_IMAGE_FILE_FOR_DAILY_REFRESH =
@@ -191,7 +217,11 @@ public class NtpCustomizationUtils {
      * sheet's content description requires special handling beyond this function.
      */
     public static int getSheetContentDescription(
-            @NtpCustomizationCoordinator.BottomSheetType int type) {
+            @Nullable @NtpCustomizationCoordinator.BottomSheetType Integer type) {
+        if (type == null) {
+            return R.string.ntp_customization_main_bottom_sheet;
+        }
+
         switch (type) {
             case MAIN:
                 return R.string.ntp_customization_main_bottom_sheet;
@@ -219,7 +249,11 @@ public class NtpCustomizationUtils {
      * expanded.
      */
     public static int getSheetFullHeightAccessibilityStringId(
-            @NtpCustomizationCoordinator.BottomSheetType int type) {
+            @Nullable @NtpCustomizationCoordinator.BottomSheetType Integer type) {
+        if (type == null) {
+            return R.string.ntp_customization_main_bottom_sheet_opened_full;
+        }
+
         switch (type) {
             case MAIN:
                 return R.string.ntp_customization_main_bottom_sheet_opened_full;
@@ -249,7 +283,11 @@ public class NtpCustomizationUtils {
      * expanded.
      */
     public static int getSheetHalfHeightAccessibilityStringId(
-            @NtpCustomizationCoordinator.BottomSheetType int type) {
+            @Nullable @NtpCustomizationCoordinator.BottomSheetType Integer type) {
+        if (type == null) {
+            return R.string.ntp_customization_main_bottom_sheet_opened_half;
+        }
+
         switch (type) {
             case MAIN:
                 return R.string.ntp_customization_main_bottom_sheet_opened_half;
@@ -284,24 +322,19 @@ public class NtpCustomizationUtils {
      * Returns whether custom Ntp's background theme is enabled.
      *
      * @param windowAndroid The instance of {@link WindowAndroid}
-     * @param isTablet Whether the current device is a tablet.
+     * @param isLff Whether the current device is a large form factor (LFF) device.
      */
     public static boolean isNtpThemeCustomizationEnabled(
-            WindowAndroid windowAndroid, boolean isTablet) {
+            WindowAndroid windowAndroid, boolean isLff) {
         if (!isNtpThemeCustomizationEnabled()) {
             return false;
         }
 
-        if (isTablet) return true;
+        if (isLff) return true;
 
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return false;
 
         return EdgeToEdgeStateProvider.isEdgeToEdgeEnabledForWindow(windowAndroid);
-    }
-
-    /** Returns whether the NTP simplification is enabled on desktop. */
-    public static boolean isNtpSimplificationEnabledOnDesktop() {
-        return ChromeFeatureList.sNtpSimplification.isEnabled() && DeviceInfo.isDesktop();
     }
 
     /**
@@ -330,6 +363,12 @@ public class NtpCustomizationUtils {
                 colorId = ntpThemeDailyRefreshManager.maybeApplyDailyRefreshForChromeColor(colorId);
             }
             return context.getColor(NtpThemeColorUtils.getNtpThemePrimaryColorResId(colorId));
+        } else if (imageType == NtpBackgroundType.COLOR_FROM_HEX) {
+            boolean isNightMode = ColorUtils.inNightMode(context);
+            color =
+                    isNightMode
+                            ? getCustomizedPrimaryColorDarkFromSharedPreference()
+                            : getCustomizedPrimaryColorFromSharedPreference();
         } else if (imageType == NtpBackgroundType.THEME_COLLECTION) {
             if (checkDailyRefresh) {
                 ntpThemeDailyRefreshManager.maybeApplyDailyRefreshForThemeCollection();
@@ -462,10 +501,18 @@ public class NtpCustomizationUtils {
      * Saves the background image.
      *
      * @param backgroundImageBitmap The bitmap of the background image.
+     * @param ntpBackgroundDataBase The instance of {@link NtpBackgroundDataBase}.
      */
     @VisibleForTesting
-    static void saveBackgroundImageFile(@Nullable Bitmap backgroundImageBitmap) {
-        File file = createBackgroundImageFile();
+    static void saveBackgroundImageFile(
+            @Nullable Bitmap backgroundImageBitmap,
+            @Nullable NtpBackgroundDataBase ntpBackgroundDataBase) {
+        String filePath = null;
+        if (ntpBackgroundDataBase != null
+                && ntpBackgroundDataBase instanceof NtpBackgroundDataUploadImage uploadImageData) {
+            filePath = uploadImageData.getLastUploadImageFilePath();
+        }
+        File file = getBackgroundImageFileFromPath(filePath);
         saveBitmapImageToFile(backgroundImageBitmap, file);
     }
 
@@ -584,6 +631,23 @@ public class NtpCustomizationUtils {
                 ContextUtils.getApplicationContext().getFilesDir(), NTP_BACKGROUND_IMAGE_FILE);
     }
 
+    /**
+     * Creates a file for the upload image with provided file name. The file will be in the sub
+     * directory NTP_UPLOAD_IMAGES_DIR.
+     *
+     * @param fileName The file name of the upload image file to create.
+     */
+    public static File createUploadImageFileInDir(String fileName) {
+        File uploadImageDir =
+                new File(ContextUtils.getApplicationContext().getFilesDir(), NTP_UPLOAD_IMAGES_DIR);
+        // Check if the directory already exists; if not, create it.
+        if (!uploadImageDir.exists()) {
+            uploadImageDir.mkdirs();
+        }
+
+        return new File(uploadImageDir, fileName);
+    }
+
     /** Returns the file to save the NTP's daily refresh background image. */
     @VisibleForTesting
     public static File createDailyRefreshBackgroundImageFile() {
@@ -598,22 +662,44 @@ public class NtpCustomizationUtils {
         new BackgroundOnlyAsyncTask<Void>() {
             @Override
             protected Void doInBackground() {
-                deleteBackgroundImageFileImpl(file);
+                maybeDeleteFile(file);
                 return null;
             }
         }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
     /**
-     * Deletes the given file from disk.
+     * Deletes the given file from disk if exists.
      *
      * @param file The file to be deleted.
      */
-    @VisibleForTesting
-    static void deleteBackgroundImageFileImpl(File file) {
+    public static void maybeDeleteFile(File file) {
         if (file.exists()) {
             file.delete();
         }
+    }
+
+    /** Deletes the entire directory of NTP_UPLOAD_IMAGES_DIR. */
+    public static void deleteUploadImageFileDir() {
+        File uploadImageDir =
+                new File(ContextUtils.getApplicationContext().getFilesDir(), NTP_UPLOAD_IMAGES_DIR);
+        if (uploadImageDir.exists()) {
+            deleteDirectory(uploadImageDir);
+        }
+    }
+
+    private static boolean deleteDirectory(File dirToBeDeleted) {
+        File[] listFiles = dirToBeDeleted.listFiles();
+        if (listFiles != null) {
+            for (File file : listFiles) {
+                // Recursively delete if it contains sub-folders, or just deletes the file if it's
+                // a normal file.
+                deleteDirectory(file);
+            }
+        }
+
+        // Deletes the empty folder itself (or individual file) and returns true if successful.
+        return dirToBeDeleted.delete();
     }
 
     /**
@@ -621,10 +707,28 @@ public class NtpCustomizationUtils {
      *
      * @param callback The callback to notice when the image is loaded.
      * @param executor The executor for the loading task.
+     * @param filePath The absolute file path for the selected image file.
      */
     public static void readNtpBackgroundImage(
-            Callback<@Nullable Bitmap> callback, Executor executor) {
-        readNtpBackgroundImageFromFile(callback, executor, createBackgroundImageFile());
+            Callback<@Nullable Bitmap> callback, Executor executor, @Nullable String filePath) {
+        File file = getBackgroundImageFileFromPath(filePath);
+        readNtpBackgroundImageFromFile(callback, executor, file);
+    }
+
+    /**
+     * If the filePath isn't null, returns the file created from this path. Otherwise, returns the
+     * default background image file.
+     *
+     * @param filePath The absolute file path of the image file.
+     */
+    public static File getBackgroundImageFileFromPath(@Nullable String filePath) {
+        File file;
+        if (filePath == null || filePath.isEmpty()) {
+            file = createBackgroundImageFile();
+        } else {
+            file = new File(filePath);
+        }
+        return file;
     }
 
     /**
@@ -715,6 +819,21 @@ public class NtpCustomizationUtils {
         prefs.removeKey(NTP_BACKGROUND_IMAGE_LANDSCAPE_INFO_FOR_DAILY_REFRESH);
     }
 
+    /** Saves the colors of the given NtpThemeColorFromHexInfo to the ShardPreference. */
+    public static void saveThemeColorFromHexInfoToSharedPreference(
+            NtpThemeColorFromHexInfo colorInfo) {
+        SharedPreferencesManager prefsManager = ChromeSharedPreferences.getInstance();
+        prefsManager.writeInt(
+                ChromePreferenceKeys.NTP_CUSTOMIZATION_BACKGROUND_COLOR,
+                colorInfo.backgroundColorLight);
+        prefsManager.writeInt(
+                ChromePreferenceKeys.NTP_CUSTOMIZATION_BACKGROUND_COLOR_DARK,
+                colorInfo.backgroundColorDark);
+        prefsManager.writeInt(
+                ChromePreferenceKeys.NTP_CUSTOMIZATION_PRIMARY_COLOR, colorInfo.primaryColorLight);
+        prefsManager.writeInt(NTP_CUSTOMIZATION_PRIMARY_COLOR_DARK, colorInfo.primaryColorDark);
+    }
+
     /**
      * Sets the NTP's background color to the SharedPreference.
      *
@@ -730,6 +849,14 @@ public class NtpCustomizationUtils {
         SharedPreferencesManager prefsManager = ChromeSharedPreferences.getInstance();
         return prefsManager.readInt(
                 ChromePreferenceKeys.NTP_CUSTOMIZATION_BACKGROUND_COLOR, defaultColor);
+    }
+
+    /** Gets the NTP's background color in dark mode from the SharedPreference. */
+    public static @ColorInt int getBackgroundColorDarkFromSharedPreference(
+            @ColorInt int defaultColor) {
+        SharedPreferencesManager prefsManager = ChromeSharedPreferences.getInstance();
+        return prefsManager.readInt(
+                ChromePreferenceKeys.NTP_CUSTOMIZATION_BACKGROUND_COLOR_DARK, defaultColor);
     }
 
     /**
@@ -754,13 +881,14 @@ public class NtpCustomizationUtils {
      *
      * @param bitmap The bitmap from which to extract and save the primary color.
      */
-    static void pickAndSavePrimaryColor(Bitmap bitmap) {
+    static @Nullable @ColorInt Integer pickAndSavePrimaryColor(Bitmap bitmap) {
         @ColorInt Integer primaryColor = getContentBasedSeedColor(bitmap);
         if (primaryColor != null) {
             setCustomizedPrimaryColorToSharedPreference(primaryColor.intValue());
         } else {
             removeCustomizedPrimaryColorFromSharedPreference();
         }
+        return primaryColor;
     }
 
     /**
@@ -794,6 +922,20 @@ public class NtpCustomizationUtils {
         prefsManager.writeInt(NTP_CUSTOMIZATION_PRIMARY_COLOR, color);
     }
 
+    /** Gets the customized primary color from the SharedPreference. */
+    public static @ColorInt int getCustomizedPrimaryColorFromSharedPreference() {
+        SharedPreferencesManager prefsManager = ChromeSharedPreferences.getInstance();
+        return prefsManager.readInt(
+                NTP_CUSTOMIZATION_PRIMARY_COLOR, NtpThemeColorInfo.COLOR_NOT_SET);
+    }
+
+    /** Gets the customized primary color in dark mode from the SharedPreference. */
+    public static @ColorInt int getCustomizedPrimaryColorDarkFromSharedPreference() {
+        SharedPreferencesManager prefsManager = ChromeSharedPreferences.getInstance();
+        return prefsManager.readInt(
+                NTP_CUSTOMIZATION_PRIMARY_COLOR_DARK, NtpThemeColorInfo.COLOR_NOT_SET);
+    }
+
     /**
      * Sets the customized primary color for daily refresh to SharedPreferences.
      *
@@ -803,13 +945,6 @@ public class NtpCustomizationUtils {
             @ColorInt int color) {
         SharedPreferencesManager prefsManager = ChromeSharedPreferences.getInstance();
         prefsManager.writeInt(NTP_CUSTOMIZATION_PRIMARY_COLOR_FOR_DAILY_REFRESH, color);
-    }
-
-    /** Gets the customized primary color from the SharedPreference. */
-    public static @ColorInt int getCustomizedPrimaryColorFromSharedPreference() {
-        SharedPreferencesManager prefsManager = ChromeSharedPreferences.getInstance();
-        return prefsManager.readInt(
-                NTP_CUSTOMIZATION_PRIMARY_COLOR, NtpThemeColorInfo.COLOR_NOT_SET);
     }
 
     /** Gets the customized primary color for daily refresh from SharedPreferences. */
@@ -911,6 +1046,18 @@ public class NtpCustomizationUtils {
         return prefsManager.contains(NTP_CUSTOMIZATION_THEME_TIP_BOTTOM_SHEET_SHOWN_TIMESTAMP_MS);
     }
 
+    /** Sets the background image file path to SharedPreference. */
+    public static void setBackgroundImageFilePathToSharedPreference(String filePath) {
+        SharedPreferencesManager prefsManager = ChromeSharedPreferences.getInstance();
+        prefsManager.writeString(NTP_CUSTOMIZATION_BACKGROUND_IMAGE_FILE_PATH, filePath);
+    }
+
+    /** Gets the background image file path from SharedPreference. */
+    public static String getBackgroundImageFilePathFromSharedPreference() {
+        SharedPreferencesManager prefsManager = ChromeSharedPreferences.getInstance();
+        return prefsManager.readString(NTP_CUSTOMIZATION_BACKGROUND_IMAGE_FILE_PATH, "");
+    }
+
     /** Sets whether the customized NTP theme snackbar has been shown to the SharedPreference. */
     public static void setThemeSnackbarShownToSharedPreference(boolean shown) {
         SharedPreferencesManager prefsManager = ChromeSharedPreferences.getInstance();
@@ -947,15 +1094,17 @@ public class NtpCustomizationUtils {
     static void resetCustomizedColors() {
         SharedPreferencesManager prefsManager = ChromeSharedPreferences.getInstance();
         prefsManager.removeKey(ChromePreferenceKeys.NTP_CUSTOMIZATION_BACKGROUND_COLOR);
+        prefsManager.removeKey(ChromePreferenceKeys.NTP_CUSTOMIZATION_BACKGROUND_COLOR_DARK);
         prefsManager.removeKey(ChromePreferenceKeys.NTP_CUSTOMIZATION_THEME_COLOR_ID);
         prefsManager.removeKey(
                 ChromePreferenceKeys.NTP_CUSTOMIZATION_CHROME_COLOR_DAILY_REFRESH_ENABLED);
     }
 
     /** Removes the NTP's background image related keys from the SharedPreference */
-    static void resetCustomizedImage() {
+    static void resetCustomizedImage(boolean deleteImageFile) {
         SharedPreferencesManager prefsManager = ChromeSharedPreferences.getInstance();
         prefsManager.removeKey(NTP_CUSTOMIZATION_PRIMARY_COLOR);
+        prefsManager.removeKey(NTP_CUSTOMIZATION_PRIMARY_COLOR_DARK);
         prefsManager.removeKey(NTP_CUSTOMIZATION_PRIMARY_COLOR_FOR_DAILY_REFRESH);
         prefsManager.removeKey(NTP_CUSTOMIZATION_BACKGROUND_INFO);
         prefsManager.removeKey(NTP_CUSTOMIZATION_BACKGROUND_INFO_FOR_DAILY_REFRESH);
@@ -964,8 +1113,11 @@ public class NtpCustomizationUtils {
         prefsManager.removeKey(NTP_BACKGROUND_IMAGE_PORTRAIT_INFO_FOR_DAILY_REFRESH);
         prefsManager.removeKey(NTP_BACKGROUND_IMAGE_LANDSCAPE_INFO);
         prefsManager.removeKey(NTP_BACKGROUND_IMAGE_LANDSCAPE_INFO_FOR_DAILY_REFRESH);
-        deleteBackgroundImageFile(createBackgroundImageFile());
-        deleteBackgroundImageFile(createDailyRefreshBackgroundImageFile());
+        if (deleteImageFile) {
+            deleteBackgroundImageFile(createBackgroundImageFile());
+            deleteBackgroundImageFile(createDailyRefreshBackgroundImageFile());
+            deleteUploadImageFileDir();
+        }
     }
 
     /** Removes all NTP custom background related data. */
@@ -980,7 +1132,8 @@ public class NtpCustomizationUtils {
         removeNtpBackgroundTypeFromSharedPreference();
         switch (type) {
             case CHROME_COLOR -> resetCustomizedColors();
-            case IMAGE_FROM_DISK, THEME_COLLECTION -> resetCustomizedImage();
+            case IMAGE_FROM_DISK, THEME_COLLECTION ->
+                    resetCustomizedImage(/* deleteImageFile= */ true);
         }
     }
 
@@ -989,8 +1142,8 @@ public class NtpCustomizationUtils {
      * top.
      */
     public static boolean supportsEnableEdgeToEdgeOnTop(
-            WindowAndroid windowAndroid, boolean isTablet) {
-        return !isTablet
+            WindowAndroid windowAndroid, boolean isLff) {
+        return !isLff
                 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
                 && NtpCustomizationUtils.isNtpThemeCustomizationEnabled()
                 && EdgeToEdgeStateProvider.isEdgeToEdgeEnabledForWindow(windowAndroid);
@@ -1150,11 +1303,10 @@ public class NtpCustomizationUtils {
      * device is a phone, edge-to-edge is enabled and NTP has a customized background image.
      *
      * @param windowAndroid The instance of {@link WindowAndroid}.
-     * @param isTablet Whether the current device is a tablet.
+     * @param isLff Whether the current device is a large form factor (LFF) device.
      */
-    public static boolean shouldAdjustIconTintForNtp(
-            WindowAndroid windowAndroid, boolean isTablet) {
-        if (!supportsEnableEdgeToEdgeOnTop(windowAndroid, isTablet)) return false;
+    public static boolean shouldAdjustIconTintForNtp(WindowAndroid windowAndroid, boolean isLff) {
+        if (!supportsEnableEdgeToEdgeOnTop(windowAndroid, isLff)) return false;
 
         @NtpBackgroundType
         int backgroundType = NtpCustomizationConfigManager.getInstance().getBackgroundType();
@@ -1329,13 +1481,15 @@ public class NtpCustomizationUtils {
      *     landscape transformation matrices of the image.
      * @param skipSavingPrimaryColor True if color selection and saving are deferred until the
      *     bottom sheet is dismissed.
+     * @param ntpBackgroundData The instance of the {@link NtpBackgroundDataBase}.
      */
-    public static void saveBackgroundInfo(
+    public static @Nullable @ColorInt Integer saveBackgroundInfo(
             @Nullable CustomBackgroundInfo customBackgroundInfo,
             Bitmap bitmap,
             BackgroundImageInfo backgroundImageInfo,
-            boolean skipSavingPrimaryColor) {
-        saveBackgroundImageFile(bitmap);
+            boolean skipSavingPrimaryColor,
+            @Nullable NtpBackgroundDataBase ntpBackgroundData) {
+        saveBackgroundImageFile(bitmap, ntpBackgroundData);
 
         if (customBackgroundInfo != null) {
             setCustomBackgroundInfoToSharedPreference(customBackgroundInfo);
@@ -1343,11 +1497,13 @@ public class NtpCustomizationUtils {
             removeCustomBackgroundInfoFromSharedPreference();
         }
 
+        @ColorInt Integer primaryColor = null;
         if (!skipSavingPrimaryColor) {
-            pickAndSavePrimaryColor(bitmap);
+            primaryColor = pickAndSavePrimaryColor(bitmap);
         }
 
         updateBackgroundImageInfo(backgroundImageInfo);
+        return primaryColor;
     }
 
     /**
@@ -1446,18 +1602,18 @@ public class NtpCustomizationUtils {
     }
 
     /**
-     * Determines if the app is running in a narrow layout (e.g., split-screen) on a tablet.
+     * Determines if the app is running in a narrow layout (e.g., split-screen) on a large form
+     * factor (LFF) device.
      *
-     * <p>A tablet is considered to be in a narrow window if its horizontal display style is less
-     * than {@link HorizontalDisplayStyle#WIDE}.
+     * <p>An LFF device is considered to be in a narrow window if its horizontal display style is
+     * less than {@link HorizontalDisplayStyle#WIDE}.
      *
-     * @param isTablet Whether the device is a tablet.
+     * @param isLff Whether the device is a large form factor (LFF) device.
      * @param uiConfig The {@link UiConfig} providing the current display style.
-     * @return True if the device is a tablet but the current window width is restricted.
+     * @return True if the device is an LFF device but the current window width is restricted.
      */
-    public static boolean isInNarrowWindowOnTablet(boolean isTablet, UiConfig uiConfig) {
-        return isTablet
-                && uiConfig.getCurrentDisplayStyle().horizontal < HorizontalDisplayStyle.WIDE;
+    public static boolean isInNarrowWindowOnLff(boolean isLff, UiConfig uiConfig) {
+        return isLff && uiConfig.getCurrentDisplayStyle().horizontal < HorizontalDisplayStyle.WIDE;
     }
 
     /**
@@ -1466,23 +1622,23 @@ public class NtpCustomizationUtils {
      * <p>The margin scales based on the device type and available window width:
      *
      * <ul>
-     *   <li>Tablets in narrow/split-screen: Uses narrow-window specific margins.
-     *   <li>Tablets in full/wide view: Uses wide-window specific margins.
+     *   <li>LFF devices in narrow/split-screen: Uses narrow-window specific margins.
+     *   <li>LFF devices in full/wide view: Uses wide-window specific margins.
      *   <li>Phones: Uses the standard Most Visited Tiles (MVT) container margin.
      * </ul>
      *
      * @param resource The {@link Resources} to retrieve dimension pixel sizes.
      * @param uiConfig The {@link UiConfig} to check the current display style.
-     * @param isTablet Whether the device is a tablet.
+     * @param isLff Whether the device is a large form factor (LFF) device.
      * @return The combined left and right margins in pixels.
      */
     public static int getSearchBoxTwoSideMargin(
-            Resources resource, UiConfig uiConfig, boolean isTablet) {
-        if (isInNarrowWindowOnTablet(isTablet, uiConfig)) {
+            Resources resource, UiConfig uiConfig, boolean isLff) {
+        if (isInNarrowWindowOnLff(isLff, uiConfig)) {
             return resource.getDimensionPixelSize(
                             R.dimen.ntp_search_box_lateral_margin_narrow_window_tablet)
                     * 2;
-        } else if (isTablet) {
+        } else if (isLff) {
             return resource.getDimensionPixelSize(R.dimen.ntp_search_box_lateral_margin_tablet) * 2;
         } else {
             return resource.getDimensionPixelSize(R.dimen.mvt_container_lateral_margin) * 2;
@@ -1572,6 +1728,7 @@ public class NtpCustomizationUtils {
         prefsManager.removeKey(NTP_CUSTOMIZATION_LAST_DAILY_REFRESH_TIMESTAMP);
         prefsManager.removeKey(NTP_CUSTOMIZATION_CHROME_COLOR_DAILY_REFRESH_ENABLED);
         prefsManager.removeKey(NTP_CUSTOMIZATION_THEME_TIP_BOTTOM_SHEET_SHOWN_TIMESTAMP_MS);
+        prefsManager.removeKey(NTP_CUSTOMIZATION_BACKGROUND_IMAGE_FILE_PATH);
         prefsManager.removeKey(NTP_CUSTOMIZATION_THEME_IS_SNACKBAR_SHOWN);
         prefsManager.removeKey(NTP_CUSTOMIZATION_LAST_APPLY_THEME_TIMESTAMP_MS);
         prefsManager.removeKey(NTP_CUSTOMIZATION_THEME_COLOR_ID);
@@ -1595,10 +1752,11 @@ public class NtpCustomizationUtils {
      * @param callback The callback to invoke with the bitmap.
      */
     public static void getBitmapFromUriAsync(
-            Context context, Uri uri, Callback<@Nullable Bitmap> callback) {
-        new AsyncTask<@Nullable Bitmap>() {
+            Context context, Uri uri, OnImageLoadedCallback callback) {
+        new AsyncTask<ImageLoadResult>() {
             @Override
-            protected @Nullable Bitmap doInBackground() {
+            protected ImageLoadResult doInBackground() {
+                String fileIdHash = NtpBackgroundDataUtils.getMetadataFingerprint(context, uri);
                 try {
                     // 1. Decode with inJustDecodeBounds=true to check dimensions
                     BitmapFactory.Options options = new BitmapFactory.Options();
@@ -1614,17 +1772,18 @@ public class NtpCustomizationUtils {
                     // 3. Decode bitmap with inSampleSize set
                     options.inJustDecodeBounds = false;
                     try (var inputStream = context.getContentResolver().openInputStream(uri)) {
-                        return BitmapFactory.decodeStream(inputStream, null, options);
+                        return new ImageLoadResult(
+                                BitmapFactory.decodeStream(inputStream, null, options), fileIdHash);
                     }
                 } catch (Exception e) {
                     Log.e(TAG, "Error reading bitmap from URI", e);
-                    return null;
+                    return new ImageLoadResult(null, fileIdHash);
                 }
             }
 
             @Override
-            protected void onPostExecute(@Nullable Bitmap bitmap) {
-                callback.onResult(bitmap);
+            protected void onPostExecute(ImageLoadResult result) {
+                callback.onImageLoaded(result.bitmap, result.fileIdHash);
             }
         }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
@@ -1654,5 +1813,11 @@ public class NtpCustomizationUtils {
     public static void resetThemeTipBottomSheetShownTimestampFromSharedPreferenceForTesting() {
         SharedPreferencesManager prefsManager = ChromeSharedPreferences.getInstance();
         prefsManager.removeKey(NTP_CUSTOMIZATION_THEME_TIP_BOTTOM_SHEET_SHOWN_TIMESTAMP_MS);
+    }
+
+    /** Returns whether NTP theme customization sync is enabled. */
+    public static boolean isNTPCustomizationSyncEnabled() {
+        return ChromeFeatureList.sNewTabPageCustomizationV2.isEnabled()
+                && ChromeFeatureList.sNewTabPageCustomizationThemeSync.isEnabled();
     }
 }

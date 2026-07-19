@@ -7,7 +7,7 @@
 #import "ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h"
 #import "ios/chrome/browser/intelligence/bwg/ui/gemini_consent_accordion_view.h"
 #import "ios/chrome/browser/intelligence/bwg/ui/gemini_consent_configuration.h"
-#import "ios/chrome/browser/intelligence/bwg/ui/gemini_consent_mutator.h"
+#import "ios/chrome/browser/intelligence/bwg/ui/gemini_first_run_mutator.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
@@ -56,7 +56,7 @@ const CGFloat kHeaderIconSizeMultiplier = 0.55;
   [self configureMainStackView];
 }
 
-#pragma mark - GeminiFREViewControllerProtocol
+#pragma mark - GeminiFirstRunViewControllerProtocol
 
 - (CGFloat)contentHeight {
   return
@@ -176,7 +176,7 @@ const CGFloat kHeaderIconSizeMultiplier = 0.55;
 
 // Helper to handle link actions.
 - (void)handleLinkAction:(NSString*)actionString {
-  RecordFREConsentAction(IOSGeminiFREAction::kLinkClick);
+  RecordFirstRunConsentAction(IOSGeminiFirstRunAction::kLinkClick);
   if ([actionString isEqualToString:kGeminiFirstFootnoteLinkAction]) {
     [self.mutator openNewTabWithURL:GURL(kFirstFootnoteLinkURL)];
   } else if ([actionString isEqualToString:kGeminiSecondFootnoteLinkAction]) {

@@ -148,6 +148,10 @@ BASE_DECLARE_FEATURE(kDocumentIsolationPolicy);
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kConnectionAllowlists);
 
+// Should connection allowlists in Early Hints responses be enforced?
+COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(bool, kConnectionAllowlistsEarlyHints);
+
 // To actually use the prefetch results, it's also necessary to enable
 // kNetworkContextPrefetchUseCache, below.
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
@@ -423,6 +427,11 @@ BASE_DECLARE_FEATURE(kNetworkContextDirectReceiver);
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 bool ShouldBindNetworkContextDirectReceiver();
 
+// When enabled, creates the NetworkContext on a background thread pool to avoid
+// being blocked by the busy main thread.
+COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
+BASE_DECLARE_FEATURE(kCreateNetworkContextNonBlocking);
+
 // Delays the initial DoH probe. When enabled, the delay is determined by
 // kDelayInitialDohProbeTimeoutParam. When disabled, the probe is activated
 // immediately.
@@ -433,6 +442,8 @@ BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kDelayInitialDohProbeTimeoutParam);
 
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kRestrictForbiddenSecurityHeaders);
+COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(bool, kRestrictForbiddenSecurityHeadersDump);
 
 // Enables the Declarative Performance Observer feature.
 // When enabled, the network service will parse the `Performance-Observer`

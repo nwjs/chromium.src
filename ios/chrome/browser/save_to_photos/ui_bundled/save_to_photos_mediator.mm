@@ -22,6 +22,7 @@
 #import "components/signin/public/identity_manager/objc/identity_manager_observer_bridge.h"
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/account_picker/ui_bundled/account_picker_configuration.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin/signin_utils.h"
 #import "ios/chrome/browser/google_one/shared/google_one_entry_point.h"
 #import "ios/chrome/browser/photos/model/photos_metrics.h"
 #import "ios/chrome/browser/photos/model/photos_service.h"
@@ -64,14 +65,19 @@ NSString* GetSizeString(NSUInteger sizeInBytes) {
                countStyle:NSByteCountFormatterCountStyleFile];
 }
 
-// Helper to call -[mediator startWithImageURL:referrer:webState:]
+// Helper to call -[mediator
+// startWithImageURL:referrer:webState:frameID:frameOrigin:]
 void StartMediatorHelper(__weak SaveToPhotosMediator* mediator,
                          const GURL& image_url,
                          const web::Referrer referrer,
-                         base::WeakPtr<web::WebState> web_state) {
+                         base::WeakPtr<web::WebState> web_state,
+                         const std::string& frame_id,
+                         const url::Origin& frame_origin) {
   [mediator startWithImageURL:image_url
                      referrer:referrer
-                     webState:web_state.get()];
+                     webState:web_state.get()
+                      frameID:frame_id
+                  frameOrigin:frame_origin];
 }
 
 }  // namespace
@@ -167,7 +173,9 @@ NSString* const kGooglePhotosAppURLScheme = @"googlephotos";
 
 - (void)startWithImageURL:(const GURL&)imageURL
                  referrer:(const web::Referrer&)referrer
-                 webState:(web::WebState*)webState {
+                 webState:(web::WebState*)webState
+                  frameID:(const std::string&)frameID
+              frameOrigin:(const url::Origin&)frameOrigin {
   // If the web state does not exist anymore (which can happen when the user
   // tries again), hide Save to Photos.
   if (!webState) {
@@ -184,20 +192,21 @@ NSString* const kGooglePhotosAppURLScheme = @"googlephotos";
   __weak __typeof(self) weakSelf = self;
   ProceduralBlock tryAgainBlock = base::CallbackToBlock(
       base::BindOnce(&StartMediatorHelper, weakSelf, imageURL, referrer,
-                     webState->GetWeakPtr()));
+                     webState->GetWeakPtr(), frameID, frameOrigin));
 
   _imageName = base::SysUTF8ToNSString(imageURL.ExtractFileName());
 
   ImageFetchTabHelper* imageFetcher =
       ImageFetchTabHelper::FromWebState(webState);
   CHECK(imageFetcher);
-  imageFetcher->GetImageData(imageURL, referrer, ^(NSData* imageData) {
-    if (imageData) {
-      [weakSelf continueSaveImageWithData:imageData];
-    } else {
-      [weakSelf showTryAgainOrCancelAlertWithTryAgainBlock:tryAgainBlock];
-    }
-  });
+  imageFetcher->GetImageData(
+      imageURL, referrer, frameID, frameOrigin, ^(NSData* imageData) {
+        if (imageData) {
+          [weakSelf continueSaveImageWithData:imageData];
+        } else {
+          [weakSelf showTryAgainOrCancelAlertWithTryAgainBlock:tryAgainBlock];
+        }
+      });
 }
 
 - (void)accountPickerDidSelectIdentity:(id<SystemIdentity>)identity
@@ -311,6 +320,14 @@ NSString* const kGooglePhotosAppURLScheme = @"googlephotos";
   // being fetched. Exit now if that happened.
   if (!_identityManager->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
     if (base::FeatureList::IsEnabled(kIOSSaveToPhotosSignedOut)) {
+      BOOL accountOnDevice =
+          [signin::GetIdentitiesOnDevice(_identityManager,
+                                         _accountManagerService) count] > 0;
+      base::UmaHistogramEnumeration(
+          kSaveToPhotosSignInStatusHistogram,
+          accountOnDevice
+              ? SaveToPhotosSignInStatus::kSignedOutWithAccountOnDevice
+              : SaveToPhotosSignInStatus::kSignedOutWithoutAccountOnDevice);
       [self.delegate openSignIn];
     } else {
       base::UmaHistogramEnumeration(kSaveToPhotosActionsHistogram,
@@ -318,6 +335,10 @@ NSString* const kGooglePhotosAppURLScheme = @"googlephotos";
       [self.delegate hideSaveToPhotos];
     }
     return;
+  }
+  if (base::FeatureList::IsEnabled(kIOSSaveToPhotosSignedOut)) {
+    base::UmaHistogramEnumeration(kSaveToPhotosSignInStatusHistogram,
+                                  SaveToPhotosSignInStatus::kSignedIn);
   }
 
   const GaiaId defaultGaiaId(

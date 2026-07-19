@@ -4,18 +4,38 @@
 
 #include "chrome/browser/glic/glic_pref_names.h"
 
+#include <optional>
 #include <utility>
 
 #include "chrome/browser/background/glic/glic_launcher_configuration.h"
 #include "chrome/browser/glic/common/local_hotkey_manager.h"
 #include "chrome/browser/glic/glic_pref_names_internal.h"
+#include "chrome/browser/glic/service/glic_onboarding_status.h"
 #include "chrome/common/chrome_features.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_registry.h"
 #include "components/prefs/pref_registry_simple.h"
+#include "components/prefs/pref_service.h"
 #include "ui/base/accelerators/command.h"
 
 namespace glic::prefs {
+
+std::optional<GlicActuationOnWebPolicyState> GetActuationOnWebCapability(
+    const PrefService* pref_service) {
+  if (!pref_service) {
+    return std::nullopt;
+  }
+  auto capability_pref = static_cast<GlicActuationOnWebPolicyState>(
+      pref_service->GetInteger(kGlicActuationOnWeb));
+  switch (capability_pref) {
+    case GlicActuationOnWebPolicyState::kEnabled:
+    case GlicActuationOnWebPolicyState::kDisabled:
+      break;
+    default:
+      return std::nullopt;
+  }
+  return capability_pref;
+}
 
 GlicActuationOnWebPolicyState GetGlicActuationOnWebPolicyState() {
   auto default_pref_value = features::kGlicActorEnterprisePrefDefault.Get();
@@ -41,6 +61,11 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
       kGlicCompletedFre, static_cast<int>(prefs::FreStatus::kNotStarted));
   registry->RegisterIntegerPref(prefs::kGlicZoomLevel, 100);
   registry->RegisterTimePref(kGlicWindowLastDismissedTime, base::Time());
+  registry->RegisterIntegerPref(
+      kGlicOnboardingStatus,
+      std::to_underlying(OnboardingStatus::kNoInteraction));
+  registry->RegisterTimePref(kGlicLastInvokedTime, base::Time());
+  registry->RegisterTimePref(kGlicLastPromptTime, base::Time());
 
   // The default value is not used. If not set the default position is
   // calculated based on the entrypoint and current active browser.
@@ -55,7 +80,8 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   // Boolean pref for the closed captioning setting.
   registry->RegisterBooleanPref(prefs::kGlicClosedCaptioningEnabled, false);
 
-  registry->RegisterIntegerPref(prefs::kGlicSelectionWidgetDismissCount, 0);
+  // Boolean pref that enables or disables media understanding.
+  registry->RegisterBooleanPref(prefs::kGlicMediaUnderstandingEnabled, true);
 
   // Boolean pref that determines if errors are allowed to be shown.
   registry->RegisterBooleanPref(prefs::kGlicShowErrorAllowed, false);
@@ -84,25 +110,30 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterBooleanPref(prefs::kGlicUserEnabledActuationOnWeb, false);
 
   registry->RegisterBooleanPref(prefs::kGlicPartitionNeedsCookieSync, true);
+  registry->RegisterBooleanPref(prefs::kGlicPreviouslyNotAllowed, false);
 
   registry->RegisterDictionaryPref(prefs::kGlicGeminiEnterpriseSettings);
 }
 
 void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
   registry->RegisterBooleanPref(prefs::kGlicLauncherEnabled, false);
+
   registry->RegisterStringPref(
       prefs::kGlicLauncherHotkey,
       ui::Command::AcceleratorToString(
-          GlicLauncherConfiguration::GetDefaultHotkey()));
+          LocalHotkeyManager::GetDefaultAccelerator(
+              LocalHotkeyManager::Command::kPanelToggle)));
   registry->RegisterStringPref(
       prefs::kGlicSelectionHotkey,
       ui::Command::AcceleratorToString(
-          GlicLauncherConfiguration::GetDefaultSelectionHotkey()));
+          LocalHotkeyManager::GetDefaultAccelerator(
+              LocalHotkeyManager::Command::kCaptureRegion)));
   registry->RegisterStringPref(
       prefs::kGlicFocusToggleHotkey,
       ui::Command::AcceleratorToString(
           LocalHotkeyManager::GetDefaultAccelerator(
               LocalHotkeyManager::Command::kFocusToggle)));
+
   registry->RegisterStringPref(prefs::kGlicGuestUrlPresetAutopush, "");
   registry->RegisterStringPref(prefs::kGlicGuestUrlPresetStaging, "");
   registry->RegisterStringPref(prefs::kGlicGuestUrlPresetPreprod, "");

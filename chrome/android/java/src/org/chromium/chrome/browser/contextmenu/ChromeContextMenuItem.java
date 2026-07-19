@@ -77,10 +77,14 @@ class ChromeContextMenuItem {
         Item.SHARE_PAGE,
         Item.PRINT_PAGE,
         Item.VIEW_PAGE_SOURCE,
+        Item.BACK,
+        Item.FORWARD,
+        Item.RELOAD,
         Item.INSPECT_ELEMENT,
         Item.COPY_VIDEO_FRAME,
         Item.DOWNLOAD_VIDEO_FRAME,
-        Item.LENS_OVERLAY
+        Item.LENS_OVERLAY,
+        Item.READING_MODE
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface Item {
@@ -135,14 +139,18 @@ class ChromeContextMenuItem {
         int SAVE_PAGE = 38;
         int SHARE_PAGE = 39;
         int PRINT_PAGE = 40;
+        int BACK = 41;
+        int FORWARD = 42;
+        int RELOAD = 43;
         // Developer Group
-        int VIEW_PAGE_SOURCE = 41;
-        int INSPECT_ELEMENT = 42;
-        int COPY_VIDEO_FRAME = 43;
-        int DOWNLOAD_VIDEO_FRAME = 44;
-        int LENS_OVERLAY = 45;
+        int VIEW_PAGE_SOURCE = 44;
+        int INSPECT_ELEMENT = 45;
+        int COPY_VIDEO_FRAME = 46;
+        int DOWNLOAD_VIDEO_FRAME = 47;
+        int LENS_OVERLAY = 48;
+        int READING_MODE = 49;
         // ALWAYS UPDATE!
-        int NUM_ENTRIES = 46;
+        int NUM_ENTRIES = 50;
     }
 
     /** Mapping from {@link Item} to the ID found in the ids.xml. */
@@ -188,11 +196,15 @@ class ChromeContextMenuItem {
         R.id.contextmenu_save_page, // Item.SAVE_PAGE
         R.id.contextmenu_share_page, // Item.SHARE_PAGE
         R.id.contextmenu_print_page, // Item.PRINT_PAGE
+        R.id.contextmenu_back, // Item.BACK
+        R.id.contextmenu_forward, // Item.FORWARD
+        R.id.contextmenu_reload, // Item.RELOAD
         R.id.contextmenu_view_page_source, // Item.VIEW_PAGE_SOURCE
         R.id.contextmenu_inspect_element, // Item.INSPECT_ELEMENT
         R.id.contextmenu_copy_video_frame, // Item.COPY_VIDEO_FRAME
         R.id.contextmenu_download_video_frame, // Item.DOWNLOAD_VIDEO_FRAME
         R.id.contextmenu_lens_overlay, // Item.LENS_OVERLAY
+        R.id.contextmenu_open_in_reading_mode, // Item.READING_MODE
     };
 
     /** Mapping from {@link Item} to the ID of the string that describes the action of the item. */
@@ -238,11 +250,15 @@ class ChromeContextMenuItem {
         R.string.contextmenu_save_page, // Item.SAVE_PAGE
         R.string.contextmenu_share_page, // Item.SHARE_PAGE
         R.string.contextmenu_print_page, // Item.PRINT_PAGE
+        R.string.contextmenu_back, // Item.BACK
+        R.string.contextmenu_forward, // Item.FORWARD
+        R.string.contextmenu_reload, // Item.RELOAD
         R.string.contextmenu_view_page_source, // Item.VIEW_PAGE_SOURCE
         R.string.contextmenu_inspect_element, // Item.INSPECT_ELEMENT
         R.string.contextmenu_copy_video_frame, // Item.COPY_VIDEO_FRAME
         R.string.contextmenu_download_video_frame, // Item.DOWNLOAD_VIDEO_FRAME
         R.string.contextmenu_search_tab_with_google_lens, // Item.LENS_OVERLAY
+        R.string.contextmenu_open_in_reading_mode, // Item.READING_MODE
     };
 
     /**

@@ -192,7 +192,7 @@ class CORE_EXPORT LocalDOMWindow final : public DOMWindow,
   void ExceptionThrown(ErrorEvent*) final;
   void AddInspectorIssue(AuditsIssue) final;
   EventTarget* ErrorEventTarget() final { return this; }
-  String OutgoingReferrer() const final;
+  KURL OutgoingReferrerUrl() const final;
   CoreProbeSink* GetProbeSink() final;
   const BrowserInterfaceBrokerProxy& GetBrowserInterfaceBroker() const final;
   FrameOrWorkerScheduler* GetScheduler() final;
@@ -386,6 +386,13 @@ class CORE_EXPORT LocalDOMWindow final : public DOMWindow,
   bool originAgentCluster() const;
 
   // Custom elements
+  //
+  // `window.customElements`. The ScriptState* overload is the web-exposed
+  // accessor and returns nullptr in non-main worlds (window.customElements
+  // only ever exposes the global registry, which is owned by the main
+  // world). See TreeScope::customElementRegistry() for the broader rule
+  // about when to pass ScriptState -- in short, any caller that will hand
+  // the registry to script must pass it.
   CustomElementRegistry* customElements(ScriptState*) const;
   CustomElementRegistry* customElements() const;
   CustomElementRegistry* MaybeCustomElements() const;

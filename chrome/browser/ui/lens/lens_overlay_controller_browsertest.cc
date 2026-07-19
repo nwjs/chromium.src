@@ -53,6 +53,7 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/exclusive_access/fullscreen_controller.h"
@@ -111,6 +112,7 @@
 #include "components/lens/lens_overlay_side_panel_menu_option.h"
 #include "components/lens/lens_overlay_side_panel_result.h"
 #include "components/lens/proto/server/lens_overlay_response.pb.h"
+#include "components/omnibox/browser/aim_eligibility_service_features.h"
 #include "components/omnibox/browser/mock_aim_eligibility_service.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/optimization_guide/content/browser/page_context_eligibility.h"
@@ -150,6 +152,9 @@
 #include "third_party/lens_server_proto/lens_overlay_selection_type.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_server.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_service_deps.pb.h"
+#include "ui/base/clipboard/clipboard.h"
+#include "ui/base/clipboard/clipboard_format_type.h"
+#include "ui/base/clipboard/test/clipboard_test_util.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/unowned_user_data/user_data_factory.h"
 #include "ui/base/window_open_disposition.h"
@@ -413,7 +418,6 @@ class LensOverlayPageFake : public lens::mojom::LensPage {
                           bool is_injected_image) override {
     last_received_text_ = std::move(text);
   }
-
 
   void ShouldShowContextualSearchBox(bool should_show) override {
     last_received_should_show_contextual_searchbox_ = should_show;
@@ -1230,6 +1234,32 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest, CreateAndLoadWebUI) {
   ASSERT_TRUE(content::WaitForLoadStop(GetOverlayWebContents()));
   ASSERT_EQ(GetOverlayWebContents()->GetLastCommittedURL(),
             GURL(chrome::kChromeUILensOverlayUntrustedURL));
+}
+
+IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
+                       IsSidePanelOpenInitializedCorrectlyWithPendingRegion) {
+  WaitForPaint();
+
+  auto* controller = GetLensOverlayController();
+  ASSERT_EQ(controller->state(), State::kOff);
+
+  // Open the overlay with a pending region.
+  OpenLensOverlayWithPendingRegion(
+      LensOverlayInvocationSource::kContentAreaContextMenuImage,
+      kTestRegion->Clone(), CreateNonEmptyBitmap(100, 100));
+
+  // The state should move to kScreenshot and then kOverlay.
+  ASSERT_EQ(controller->state(), State::kScreenshot);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kOverlay; }));
+
+  // Verify that the fake page received `is_side_panel_open` as true.
+  auto* fake_controller = static_cast<LensOverlayControllerFake*>(controller);
+  ASSERT_TRUE(fake_controller);
+  // We need to flush mojo to ensure the call reached the fake page.
+  fake_controller->FlushForTesting();
+  EXPECT_TRUE(fake_controller->fake_overlay_page_
+                  .last_received_is_side_panel_open_.value_or(false));
 }
 
 IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest, ShowSidePanel) {
@@ -4653,11 +4683,8 @@ class LensOverlayControllerEntrypointsBrowserTest
         {lens::features::kLensOverlayOmniboxEntryPoint, {}},
         {lens::features::kLensOverlaySurvey, {}},
         {lens::features::kLensOverlaySidePanelOpenInNewTab, {}}};
-    // TODO(crbug.com/441102004): Update OverlayHidesEntrypoints to support
-    //   kAiModeOmniboxEntryPoint.
-    feature_list_.InitWithFeaturesAndParameters(
-        enabled_features,
-        /*disabled_features=*/{omnibox::kAiModeOmniboxEntryPoint});
+    feature_list_.InitWithFeaturesAndParameters(enabled_features,
+                                                /*disabled_features=*/{});
   }
 
   void VerifyEntrypoints(bool expected_visible) {
@@ -4701,6 +4728,12 @@ class LensOverlayControllerEntrypointsBrowserTest
 
 IN_PROC_BROWSER_TEST_F(LensOverlayControllerEntrypointsBrowserTest,
                        OverlayHidesEntrypoints) {
+  // Lens is only shown if AIM is not.
+  auto* aim_eligibility_service = static_cast<MockAimEligibilityService*>(
+      AimEligibilityServiceFactory::GetForProfile(browser()->profile()));
+  ON_CALL(*aim_eligibility_service, IsAimEligible())
+      .WillByDefault(testing::Return(false));
+
   WaitForPaint();
 
   // State should start in off.
@@ -6349,8 +6382,6 @@ class LensOverlayControllerBrowserWithPixelsTest
     return false;
   }
 };
-
-
 
 IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserWithPixelsTest,
                        ViewportImageBoundingBoxes) {
@@ -8419,7 +8450,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerContextualFeaturesDisabledTest,
   ASSERT_TRUE(preselection_widget->IsVisible());
 
   // Focus the location bar.
-  browser()->window()->GetLocationBar()->FocusLocation(
+  BrowserWindow::FromBrowser(browser())->GetLocationBar()->FocusLocation(
       /*is_user_initiated=*/false, /*clear_focus_if_failed=*/false);
 
   // Must explicitly get preselection bubble from controller. Widget should be
@@ -9813,4 +9844,98 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_EQ(box.y(), 0.5f);
   EXPECT_EQ(box.width(), 1.0f);
   EXPECT_EQ(box.height(), 1.0f);
+}
+
+IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
+                       CopyToClipboardBackgroundCheck) {
+  WaitForPaint();
+
+  auto* controller = GetLensOverlayController();
+  ASSERT_EQ(controller->state(), State::kOff);
+
+  // Show the overlay.
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
+  ASSERT_EQ(controller->state(), State::kScreenshot);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kOverlay; }));
+
+  ui::Clipboard* clipboard = ui::Clipboard::GetForCurrentThread();
+  lens::mojom::LensPageHandler* page_handler = controller;
+
+  // 1. Test CopyText when active.
+  page_handler->CopyText("active text 1");
+  std::u16string clipboard_text = ui::clipboard_test_util::ReadText(
+      clipboard, ui::ClipboardBuffer::kCopyPaste, /* data_dst = */ nullptr);
+  EXPECT_EQ(clipboard_text, u"active text 1");
+
+  // Keep track of the active tab index.
+  int active_controller_tab_index =
+      browser()->tab_strip_model()->active_index();
+
+  // 2. Background the tab by opening a new tab.
+  WaitForPaint(kDocumentWithNamedElement,
+               WindowOpenDisposition::NEW_FOREGROUND_TAB,
+               ui_test_utils::BROWSER_TEST_WAIT_FOR_TAB |
+                   ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kBackground; }));
+
+  // 3. Test CopyText when backgrounded. It should NOT overwrite the clipboard.
+  page_handler->CopyText("background text");
+  clipboard_text = ui::clipboard_test_util::ReadText(
+      clipboard, ui::ClipboardBuffer::kCopyPaste, /* data_dst = */ nullptr);
+  EXPECT_EQ(clipboard_text, u"active text 1");
+
+  // 4. Reactivate the tab.
+  browser()->tab_strip_model()->ActivateTabAt(active_controller_tab_index);
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kOverlay; }));
+
+  // 5. Test CopyText when reactivated.
+  page_handler->CopyText("active text 2");
+  clipboard_text = ui::clipboard_test_util::ReadText(
+      clipboard, ui::ClipboardBuffer::kCopyPaste, /* data_dst = */ nullptr);
+  EXPECT_EQ(clipboard_text, u"active text 2");
+
+  // 6. Background the tab again.
+  WaitForPaint(kDocumentWithNamedElement,
+               WindowOpenDisposition::NEW_FOREGROUND_TAB,
+               ui_test_utils::BROWSER_TEST_WAIT_FOR_TAB |
+                   ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kBackground; }));
+
+  // 7. Test CopyImage when backgrounded. It should NOT overwrite the clipboard.
+  auto region = lens::mojom::CenterRotatedBox::New();
+  region->box = gfx::RectF(0.1, 0.1, 0.2, 0.2);
+  region->coordinate_type =
+      lens::mojom::CenterRotatedBox::CoordinateType::kNormalized;
+
+  page_handler->CopyImage(std::move(region));
+
+  // Clipboard should still have "active text 2" and NOT have an image.
+  clipboard_text = ui::clipboard_test_util::ReadText(
+      clipboard, ui::ClipboardBuffer::kCopyPaste, /* data_dst = */ nullptr);
+  EXPECT_EQ(clipboard_text, u"active text 2");
+  EXPECT_FALSE(ui::clipboard_test_util::IsFormatAvailable(
+      clipboard, ui::ClipboardFormatType::BitmapType(),
+      ui::ClipboardBuffer::kCopyPaste, /* data_dst = */ nullptr));
+
+  // 8. Reactivate the tab.
+  browser()->tab_strip_model()->ActivateTabAt(active_controller_tab_index);
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kOverlay; }));
+
+  // 9. Test CopyImage when active.
+  auto region2 = lens::mojom::CenterRotatedBox::New();
+  region2->box = gfx::RectF(0.1, 0.1, 0.2, 0.2);
+  region2->coordinate_type =
+      lens::mojom::CenterRotatedBox::CoordinateType::kNormalized;
+
+  page_handler->CopyImage(std::move(region2));
+
+  // Clipboard should now have an image format.
+  EXPECT_TRUE(ui::clipboard_test_util::IsFormatAvailable(
+      clipboard, ui::ClipboardFormatType::BitmapType(),
+      ui::ClipboardBuffer::kCopyPaste, /* data_dst = */ nullptr));
 }

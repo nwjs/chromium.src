@@ -20,15 +20,15 @@ namespace gemini {
 //  beyond feature flag enablement.
 enum class Feature {
   kImageRemix,
+  kLive,
 };
 
-// Returns whether the specified feature is available for the given account.
-bool IsFeatureAvailable(Feature feature, const AccountInfo& account_info);
-
-// Returns whether the feature is available for the given profile.
+// Returns whether the feature is available for the primary account in the
+// profile.
 bool IsFeatureAvailable(Feature feature, ProfileIOS* profile);
 
-// Returns whether the feature is available for the given identity manager.
+// Returns whether the feature is available for the primary account in the
+// identity manager.
 bool IsFeatureAvailable(Feature feature,
                         signin::IdentityManager* identity_manager);
 

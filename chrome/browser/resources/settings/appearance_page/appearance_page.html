@@ -165,11 +165,29 @@
             hidden="[[!showHr_(
                 pageVisibility.homeButton, pageVisibility.bookmarksBar)]]">
         </div>
-        <settings-toggle-button
-            hidden="[[!pageVisibility.bookmarksBar]]"
-            pref="{{prefs.bookmark_bar.show_on_all_tabs}}"
-            label="$i18n{showBookmarksBar}">
-        </settings-toggle-button>
+        <template is="dom-if"
+            if="[[!ntpSimplificationBookmarksBarEnabled_]]">
+          <settings-toggle-button id="showBookmarksBar"
+              hidden="[[!pageVisibility.bookmarksBar]]"
+              pref="{{prefs.bookmark_bar.show_on_all_tabs}}"
+              label="$i18n{showBookmarksBar}">
+          </settings-toggle-button>
+        </template>
+        <template is="dom-if"
+            if="[[ntpSimplificationBookmarksBarEnabled_]]">
+          <div class="cr-row" hidden="[[!pageVisibility.bookmarksBar]]">
+            <div class="flex cr-padded-text" aria-hidden="true">
+              $i18n{bookmarksBar}
+            </div>
+            <settings-dropdown-menu id="bookmarksBarVisibilityDropdown"
+                label="$i18n{bookmarksBar}"
+                pref="{{prefs.bookmark_bar.visibility_state}}"
+                menu-options="[[bookmarksBarOptions_]]"
+                on-settings-control-change=
+                    "onBookmarksBarVisibilitySettingChange_">
+            </settings-dropdown-menu>
+          </div>
+        </template>
 
         <template is="dom-if" if="[[showVerticalTabsEnabled_]]">
           <div class="cr-row">
@@ -196,35 +214,31 @@
               </settings-toggle-button>
             </template>
 
-            <template is="dom-if" if="[[showTabSearchEnabled_]]">
-              <template is="dom-if" if="[[showProjectsPanelEnabled_]]">
-                <settings-toggle-button id="showProjectsPanelButton"
-                  pref="{{prefs.projects_panel.pinned_to_tabstrip}}"
-                  label="$i18n{showProjectsPanelButton}"
-                  on-change="onShowProjectsPanelButtonChange_">
-                </settings-toggle-button>
-              </template>
+            <template is="dom-if" if="[[showProjectsPanelEnabled_]]">
+              <settings-toggle-button id="showProjectsPanelButton"
+                pref="{{prefs.projects_panel.pinned_to_tabstrip}}"
+                label="$i18n{showProjectsPanelButton}"
+                on-change="onShowProjectsPanelButtonChange_">
+              </settings-toggle-button>
+            </template>
 
-              <template is="dom-if"
-                if="[[showEverythingMenuToggle_(
-                    showProjectsPanelEnabled_, showEverythingMenuEnabled_)]]">
-                <settings-toggle-button id="showEverythingMenuButton"
-                    pref="{{prefs.everything_menu.pinned_to_tabstrip}}"
-                    label="$i18n{showEverythingMenuButton}"
-                    on-change="onShowEverythingMenuButtonChange_">
-                </settings-toggle-button>
-              </template>
+            <template is="dom-if"
+              if="[[showEverythingMenuToggle_(
+                  showProjectsPanelEnabled_, showEverythingMenuEnabled_)]]">
+              <settings-toggle-button id="showEverythingMenuButton"
+                  pref="{{prefs.everything_menu.pinned_to_tabstrip}}"
+                  label="$i18n{showEverythingMenuButton}"
+                  on-change="onShowEverythingMenuButtonChange_">
+              </settings-toggle-button>
             </template>
           </div>
         </template>
 
-        <template is="dom-if" if="[[showTabSearchEnabled_]]">
-          <settings-toggle-button id="showTabSearchButton" class="hr"
-              pref="{{prefs.tab_search.pinned_to_tabstrip}}"
-              label="$i18n{showTabSearchButton}"
-              on-change="onShowTabSearchButtonChange_">
-          </settings-toggle-button>
-        </template>
+        <settings-toggle-button id="showTabSearchButton" class="hr"
+            pref="{{prefs.tab_search.pinned_to_tabstrip}}"
+            label="$i18n{showTabSearchButton}"
+            on-change="onShowTabSearchButtonChange_">
+        </settings-toggle-button>
 
         <settings-toggle-button class="hr" id="showSavedTabGroups"
             pref="{{prefs.bookmark_bar.show_tab_groups}}"

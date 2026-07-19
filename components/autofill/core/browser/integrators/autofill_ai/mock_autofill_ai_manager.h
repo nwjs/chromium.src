@@ -18,13 +18,13 @@ namespace autofill {
 
 class MockAutofillAiManager : public AutofillAiManager {
  public:
-  MockAutofillAiManager(autofill::AutofillClient* client,
+  MockAutofillAiManager(AutofillClient* client,
                         strike_database::StrikeDatabaseBase* strike_database);
   ~MockAutofillAiManager() override;
 
-  MOCK_METHOD(std::vector<autofill::Suggestion>,
+  MOCK_METHOD(std::vector<Suggestion>,
               GetSuggestions,
-              (const autofill::FormStructure&, const autofill::FormFieldData&),
+              (const FormStructure&, const FormFieldData&),
               (override));
   MOCK_METHOD(bool,
               OnFormSubmitted,
@@ -32,14 +32,15 @@ class MockAutofillAiManager : public AutofillAiManager {
               (override));
   MOCK_METHOD(bool,
               ShouldDisplayIph,
-              (const autofill::FormStructure&, autofill::FieldGlobalId),
+              (const FormStructure&, FieldGlobalId),
               (const override));
   MOCK_METHOD(void,
-              OnSuggestionsShown,
+              OnAutofillAiSuggestionsShown,
               (const FormStructure&,
                const AutofillField&,
                base::span<const Suggestion> shown_suggestions,
-               ukm::SourceId),
+               ukm::SourceId,
+               UpdateSuggestionsCallback),
               (override));
   MOCK_METHOD(void, OnFormSeen, (const FormStructure&), (override));
   MOCK_METHOD(void,
@@ -47,7 +48,7 @@ class MockAutofillAiManager : public AutofillAiManager {
               (const EntityInstance&,
                const FormStructure&,
                const AutofillField&,
-               base::span<const autofill::AutofillField* const>,
+               base::span<const AutofillField* const>,
                ukm::SourceId),
               (override));
   MOCK_METHOD(void,

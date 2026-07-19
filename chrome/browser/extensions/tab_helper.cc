@@ -6,8 +6,10 @@
 
 #include <memory>
 #include "content/public/browser/page.h"
-#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/common/chrome_render_frame.mojom.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 
@@ -189,7 +191,13 @@ void TabHelper::InvokeForContentRulesRegistries(const Func& func) {
 
 void TabHelper::RenderFrameCreated(content::RenderFrameHost* host) {
   SetTabId(host);
-  Browser* browser = chrome::FindBrowserWithTab(web_contents());
+  BrowserWindowInterface* browser_window_interface =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+          web_contents());
+  Browser* browser =
+      browser_window_interface
+          ? browser_window_interface->GetBrowserForMigrationOnly()
+          : nullptr;
   if (browser && browser->is_frameless()) {
     mojo::AssociatedRemote<chrome::mojom::ChromeRenderFrame> client;
     host->GetRemoteAssociatedInterfaces()->GetInterface(&client);
@@ -198,7 +206,13 @@ void TabHelper::RenderFrameCreated(content::RenderFrameHost* host) {
 }
 
 void TabHelper::PrimaryPageChanged(content::Page& page) {
-  Browser* browser = chrome::FindBrowserWithTab(web_contents());
+  BrowserWindowInterface* browser_window_interface =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+          web_contents());
+  Browser* browser =
+      browser_window_interface
+          ? browser_window_interface->GetBrowserForMigrationOnly()
+          : nullptr;
   if (browser && browser->is_frameless()) {
     mojo::AssociatedRemote<chrome::mojom::ChromeRenderFrame> client;
     content::RenderFrameHost& host = page.GetMainDocument();
@@ -233,7 +247,13 @@ void TabHelper::DidFinishNavigation(
 
 void TabHelper::UpdateDraggableRegions(
     const std::vector<blink::mojom::DraggableRegionPtr>& regions) {
-  Browser* browser = chrome::FindBrowserWithTab(web_contents());
+  BrowserWindowInterface* browser_window_interface =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+          web_contents());
+  Browser* browser =
+      browser_window_interface
+          ? browser_window_interface->GetBrowserForMigrationOnly()
+          : nullptr;
   if (!browser)
     return;
   browser->window()->UpdateDraggableRegions(regions);

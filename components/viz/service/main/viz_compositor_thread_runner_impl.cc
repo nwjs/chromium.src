@@ -6,10 +6,12 @@
 
 #include <utility>
 
+#include "base/allocator/partition_alloc_support.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/message_loop/message_pump_type.h"
+#include "base/message_loop/message_pump_wakeup_counter.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/single_thread_task_runner.h"
@@ -57,6 +59,8 @@ class VizCompositorThread : public base::Thread {
  private:
   void Init() override {
     ParentType::Init();
+    base::allocator::ReconfigureSchedulerLoopQuarantineBranch(
+        base::allocator::SchedulerLoopQuarantineBranchType::kVizCompositor);
     if (base::HangWatcher::IsCompositorThreadHangWatchingEnabled()) {
       unregister_thread_closure_ = base::HangWatcher::RegisterThread(
           base::HangWatcher::ThreadType::kCompositorThread);
@@ -70,6 +74,8 @@ class VizCompositorThread : public base::Thread {
   base::ScopedClosureRunner unregister_thread_closure_;
 };
 
+constexpr char kVizCompositorSuffix[] = "VizCompositor";
+
 std::unique_ptr<VizCompositorThreadType> CreateAndStartCompositorThread() {
   const base::ThreadType thread_type = base::ThreadType::kPresentation;
 #if BUILDFLAG(IS_ANDROID)
@@ -78,9 +84,11 @@ std::unique_ptr<VizCompositorThreadType> CreateAndStartCompositorThread() {
   thread->task_runner()->PostTask(
       FROM_HERE, base::BindOnce([]() {
         mojo::InterfaceEndpointClient::SetThreadNameSuffixForMetrics(
-            "VizCompositor");
+            kVizCompositorSuffix);
+        base::MessagePumpWakeupCounter::InitializeForCurrentThread(
+            kVizCompositorSuffix);
         base::PlatformThreadPriorityMonitor::Get().RegisterCurrentThread(
-            "VizCompositor");
+            kVizCompositorSuffix);
       }));
   return thread;
 #else  // !BUILDFLAG(IS_ANDROID)
@@ -123,7 +131,9 @@ std::unique_ptr<VizCompositorThreadType> CreateAndStartCompositorThread() {
   thread->task_runner()->PostTask(
       FROM_HERE, base::BindOnce([]() {
         mojo::InterfaceEndpointClient::SetThreadNameSuffixForMetrics(
-            "VizCompositor");
+            kVizCompositorSuffix);
+        base::MessagePumpWakeupCounter::InitializeForCurrentThread(
+            kVizCompositorSuffix);
       }));
 
   return thread;

@@ -68,7 +68,11 @@ IPEndPoint MakeIPEndPoint(std::string_view ip_literal, uint16_t port = 0) {
 class FakeAddressSorter : public AddressSorter {
  public:
   void Sort(const std::vector<IPEndPoint>& endpoints,
+            const NetworkAnonymizationKey& anonymization_key,
+            handles::NetworkHandle target_network,
             CallbackType callback) const override {
+    // This is used only for testing in scenarios that do not involve multiple
+    // networks. With that in mind, it's safe to ignore `target_network`.
     std::vector<IPEndPoint> sorted = endpoints;
     std::sort(sorted.begin(), sorted.end(),
               [](const IPEndPoint& a, const IPEndPoint& b) {
@@ -339,8 +343,8 @@ class HostResolverServiceEndpointRequestTest
       ResolveHostParameters parameters = ResolveHostParameters()) {
     return Requester(resolver_->CreateServiceEndpointRequest(
         HostResolver::Host(url::SchemeHostPort(GURL(host))),
-        NetworkAnonymizationKey(), net_log_with_source_, std::move(parameters),
-        resolve_context_.get()));
+        NetworkAnonymizationKey(), handles::kInvalidNetworkHandle,
+        net_log_with_source_, std::move(parameters), resolve_context_.get()));
   }
 
   Requester CreateSchemelessRequester(
@@ -348,23 +352,24 @@ class HostResolverServiceEndpointRequestTest
       ResolveHostParameters parameters = ResolveHostParameters()) {
     return Requester(resolver_->CreateServiceEndpointRequest(
         HostResolver::Host(std::move(host_port_pair)),
-        NetworkAnonymizationKey(), net_log_with_source_, std::move(parameters),
-        resolve_context_.get()));
+        NetworkAnonymizationKey(), handles::kInvalidNetworkHandle,
+        net_log_with_source_, std::move(parameters), resolve_context_.get()));
   }
 
   LegacyRequester CreateLegacyRequester(std::string_view host) {
     return LegacyRequester(resolver_->CreateRequest(
         url::SchemeHostPort(GURL(host)), NetworkAnonymizationKey(),
-        NetLogWithSource(), ResolveHostParameters(), resolve_context_.get()));
+        handles::kInvalidNetworkHandle, NetLogWithSource(),
+        ResolveHostParameters(), resolve_context_.get()));
   }
 
   void PopulateCacheForUrl(std::string_view host,
                            std::vector<IPEndPoint> endpoints,
                            bool secure = false) {
-    HostCache::Key key =
-        HostCache::Key(url::SchemeHostPort(GURL(host)),
-                       DnsQueryType::UNSPECIFIED, /*host_resolver_flags=*/0,
-                       HostResolverSource::ANY, NetworkAnonymizationKey());
+    HostCache::Key key = HostCache::Key(
+        url::SchemeHostPort(GURL(host)), DnsQueryType::UNSPECIFIED,
+        /*host_resolver_flags=*/0, HostResolverSource::ANY,
+        NetworkAnonymizationKey(), handles::kInvalidNetworkHandle);
     key.secure = secure;
     PopulateCache(key, std::move(endpoints));
   }
@@ -1504,7 +1509,7 @@ TEST_F(HostResolverServiceEndpointRequestTest, AllowStaleWhileRefreshing) {
   EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
   requester.WaitForOnUpdated();
   EXPECT_TRUE(requester.request()->GetStaleInfo());
-  EXPECT_TRUE(requester.request()->IsStaleWhileRefresing());
+  EXPECT_TRUE(requester.request()->IsStaleWhileRefreshing());
   EXPECT_THAT(requester.request()->GetEndpointResults(),
               ElementsAre(ExpectServiceEndpoint(ElementsAre(stale_endpoint1),
                                                 ElementsAre(stale_endpoint2))));
@@ -1516,7 +1521,7 @@ TEST_F(HostResolverServiceEndpointRequestTest, AllowStaleWhileRefreshing) {
   EXPECT_THAT(requester.finished_endpoints(),
               ElementsAre(ExpectServiceEndpoint(ElementsAre(fresh_endpoint1),
                                                 ElementsAre(fresh_endpoint2))));
-  EXPECT_FALSE(requester.request()->IsStaleWhileRefresing());
+  EXPECT_FALSE(requester.request()->IsStaleWhileRefreshing());
   EXPECT_FALSE(requester.request()->GetStaleInfo());
 }
 
@@ -1546,7 +1551,7 @@ TEST_F(HostResolverServiceEndpointRequestTest,
   EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
   requester.WaitForOnUpdated();
   EXPECT_TRUE(requester.request()->GetStaleInfo());
-  EXPECT_TRUE(requester.request()->IsStaleWhileRefresing());
+  EXPECT_TRUE(requester.request()->IsStaleWhileRefreshing());
   EXPECT_THAT(requester.request()->GetEndpointResults(),
               ElementsAre(ExpectServiceEndpoint(ElementsAre(stale_endpoint1),
                                                 ElementsAre(stale_endpoint2))));
@@ -1563,7 +1568,7 @@ TEST_F(HostResolverServiceEndpointRequestTest,
   EXPECT_THAT(requester.request()->GetEndpointResults(),
               ElementsAre(ExpectServiceEndpoint(IsEmpty(),
                                                 ElementsAre(fresh_endpoint2))));
-  EXPECT_FALSE(requester.request()->IsStaleWhileRefresing());
+  EXPECT_FALSE(requester.request()->IsStaleWhileRefreshing());
   EXPECT_FALSE(requester.request()->GetStaleInfo());
 
   // Complete A request, which finishes the request synchronously.
@@ -1572,7 +1577,7 @@ TEST_F(HostResolverServiceEndpointRequestTest,
   EXPECT_THAT(requester.finished_endpoints(),
               ElementsAre(ExpectServiceEndpoint(ElementsAre(fresh_endpoint1),
                                                 ElementsAre(fresh_endpoint2))));
-  EXPECT_FALSE(requester.request()->IsStaleWhileRefresing());
+  EXPECT_FALSE(requester.request()->IsStaleWhileRefreshing());
   EXPECT_FALSE(requester.request()->GetStaleInfo());
 }
 
@@ -1598,7 +1603,7 @@ TEST_F(HostResolverServiceEndpointRequestTest,
   int rv = requester.Start();
   EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
   EXPECT_TRUE(requester.request()->GetStaleInfo());
-  EXPECT_TRUE(requester.request()->IsStaleWhileRefresing());
+  EXPECT_TRUE(requester.request()->IsStaleWhileRefreshing());
   EXPECT_THAT(requester.request()->GetEndpointResults(),
               ElementsAre(ExpectServiceEndpoint(ElementsAre(stale_endpoint1),
                                                 ElementsAre(stale_endpoint2))));
@@ -1681,7 +1686,7 @@ TEST_F(HostResolverServiceEndpointRequestTest,
   EXPECT_THAT(requester.finished_endpoints(),
               ElementsAre(ExpectServiceEndpoint(ElementsAre(fresh_endpoint),
                                                 IsEmpty())));
-  ASSERT_FALSE(requester.request()->IsStaleWhileRefresing());
+  ASSERT_FALSE(requester.request()->IsStaleWhileRefreshing());
 }
 
 TEST_F(HostResolverServiceEndpointRequestTest, NoSchemeHttpsNotQueried) {

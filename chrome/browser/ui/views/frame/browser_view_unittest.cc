@@ -12,6 +12,7 @@
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
@@ -41,6 +42,7 @@
 #include "chrome/browser/ui/views/infobars/infobar_container_view.h"
 #include "chrome/browser/ui/views/toolbar/app_menu_control.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
+#include "chrome/browser/ui/window_metadata/window_metadata_controller.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/grit/branded_strings.h"
@@ -230,16 +232,16 @@ TEST_F(BrowserViewTest, MAYBE_UpdateActiveBrowser) {
   EXPECT_EQ(2u, GlobalBrowserCollection::GetInstance()->GetSize());
   EXPECT_EQ(browser(), GetLastActiveBrowserWindowInterfaceWithAnyProfile());
 
-  browser2->window()->Show();
+  browser2->GetWindow()->Show();
   EXPECT_EQ(browser2, GetLastActiveBrowserWindowInterfaceWithAnyProfile());
 
-  browser()->window()->Show();
+  browser()->GetWindow()->Show();
   EXPECT_EQ(browser(), GetLastActiveBrowserWindowInterfaceWithAnyProfile());
 
-  browser2->window()->Activate();
+  browser2->GetWindow()->Activate();
   EXPECT_EQ(browser2, GetLastActiveBrowserWindowInterfaceWithAnyProfile());
 
-  browser()->window()->Activate();
+  browser()->GetWindow()->Activate();
   EXPECT_EQ(browser(), GetLastActiveBrowserWindowInterfaceWithAnyProfile());
 
   browser2 = nullptr;
@@ -394,9 +396,8 @@ TEST_F(BrowserViewTest, FindBrowserWindowWithWebContents) {
   // After adding the web contents to the browser's UI hierarchy the browser
   // window should be correctly associated with the contents.
   auto* web_view_ptr = browser_view()->AddChildView(std::move(web_view));
-  EXPECT_EQ(browser()->window(),
-            BrowserWindow::FindBrowserWindowWithWebContents(
-                web_view_ptr->GetWebContents()));
+  EXPECT_EQ(browser_view(), BrowserWindow::FindBrowserWindowWithWebContents(
+                                web_view_ptr->GetWebContents()));
 
   // Removing the web contents from the browser's UI hierarchy should
   // disassociate it with the browser window.
@@ -411,9 +412,8 @@ TEST_F(BrowserViewTest, FindBrowserWindowWithWebContentsTabSwitch) {
   AddTab(browser_view()->browser(), GURL("about:blank"));
   content::WebContents* original_active_contents =
       browser_view()->GetActiveWebContents();
-  EXPECT_EQ(browser()->window(),
-            BrowserWindow::FindBrowserWindowWithWebContents(
-                original_active_contents));
+  EXPECT_EQ(browser_view(), BrowserWindow::FindBrowserWindowWithWebContents(
+                                original_active_contents));
 
   // Inactive tabs (aka tabs with their web contents not currently embedded in
   // the browser's ContentWebView) should still be associated with their hosting
@@ -423,12 +423,28 @@ TEST_F(BrowserViewTest, FindBrowserWindowWithWebContentsTabSwitch) {
       browser_view()->GetActiveWebContents();
   EXPECT_NE(original_active_contents, browser_view()->GetActiveWebContents());
   EXPECT_EQ(new_active_contents, browser_view()->GetActiveWebContents());
-  EXPECT_EQ(browser()->window(),
-            BrowserWindow::FindBrowserWindowWithWebContents(
-                original_active_contents));
-  EXPECT_EQ(
-      browser()->window(),
-      BrowserWindow::FindBrowserWindowWithWebContents(new_active_contents));
+  EXPECT_EQ(browser_view(), BrowserWindow::FindBrowserWindowWithWebContents(
+                                original_active_contents));
+  EXPECT_EQ(browser_view(), BrowserWindow::FindBrowserWindowWithWebContents(
+                                new_active_contents));
+}
+
+// Tests that BrowserWindow::FromBrowser() resolves to the same BrowserWindow as
+// Browser::window(), and handles edge cases.
+TEST_F(BrowserViewTest, FromBrowser) {
+  // For a fully-constructed BrowserView-backed Browser the result must be
+  // identical to the legacy Browser::window() getter.
+  EXPECT_EQ(browser()->window(),  // nocheck
+            BrowserWindow::FromBrowser(browser()));
+  // The result must also match the BrowserView-specific lookup.
+  EXPECT_EQ(browser_view(), BrowserWindow::FromBrowser(browser()));
+
+  // Null input is tolerated and yields null output, mirroring the behavior
+  // callers previously got from a defensive `browser ? browser->window() :
+  // nullptr` pattern. Cast disambiguates between the const/non-const
+  // overloads.
+  EXPECT_EQ(nullptr, BrowserWindow::FromBrowser(
+                         static_cast<BrowserWindowInterface*>(nullptr)));
 }
 
 // On macOS, most accelerators are handled by CommandDispatcher.
@@ -451,19 +467,35 @@ TEST_F(BrowserViewTest, DISABLED_RepeatedAccelerators) {
       ui::VKEY_TAB, ui::EF_CONTROL_DOWN | ui::EF_IS_REPEAT);
   EXPECT_TRUE(browser_view()->AcceleratorPressed(kNextTabRepeatAccel));
 }
+
+TEST_F(BrowserViewTest, RecordShortcutMetrics) {
+  base::HistogramTester histogram_tester;
+
+  const ui::Accelerator kLocationAccel(ui::VKEY_L, ui::EF_PLATFORM_ACCELERATOR);
+  EXPECT_TRUE(browser_view()->AcceleratorPressed(kLocationAccel));
+  histogram_tester.ExpectUniqueSample("Browser.Shortcuts.TriggeredCommandId",
+                                      IDC_FOCUS_LOCATION, 1);
+
+  // Repeated key events should be excluded from telemetry.
+  const ui::Accelerator kLocationRepeatAccel(
+      ui::VKEY_L, ui::EF_PLATFORM_ACCELERATOR | ui::EF_IS_REPEAT);
+  browser_view()->AcceleratorPressed(kLocationRepeatAccel);
+  histogram_tester.ExpectUniqueSample("Browser.Shortcuts.TriggeredCommandId",
+                                      IDC_FOCUS_LOCATION, 1);
+}
 #endif  // !BUILDFLAG(IS_MAC)
 
 TEST_F(BrowserViewTest, UpdateWindowTitle) {
   AddTab(browser(), GURL("about:blank"));
   AddTab(browser(), GURL("about:blank"));
   std::string user_title1 = "Test Title";
-  browser()->SetWindowUserTitle(user_title1);
+  WindowMetadataController::From(browser())->SetWindowUserTitle(user_title1);
   auto window_title = browser_view()->GetAccessibleWindowTitle();
   EXPECT_EQ(base::UTF8ToUTF16(user_title1),
             window_title.substr(0, user_title1.size()));
 
   std::string user_title2 = "Test Title 2";
-  browser()->SetWindowUserTitle(user_title2);
+  WindowMetadataController::From(browser())->SetWindowUserTitle(user_title2);
   window_title = browser_view()->GetAccessibleWindowTitle();
   EXPECT_EQ(base::UTF8ToUTF16(user_title2),
             window_title.substr(0, user_title2.size()));
@@ -759,7 +791,7 @@ using BrowserViewWindowTypeTest = BrowserWithTestWindowTest;
 TEST_F(BrowserViewWindowTypeTest, TestWindowIsNotReturned) {
   // Check that BrowserView::GetBrowserViewForBrowser does not return a
   // non-BrowserView BrowserWindow instance - in this case, a TestBrowserWindow.
-  EXPECT_NE(nullptr, browser()->window());
+  EXPECT_NE(nullptr, BrowserWindow::FromBrowser(browser()));
   EXPECT_EQ(nullptr, BrowserView::GetBrowserViewForBrowser(browser()));
 }
 

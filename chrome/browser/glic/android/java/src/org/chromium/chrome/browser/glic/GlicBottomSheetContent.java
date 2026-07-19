@@ -21,7 +21,6 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab_bottom_sheet.TabBottomSheetContent;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent.GlowSpec;
-import org.chromium.components.browser_ui.widget.text.TextViewWithCompoundDrawables;
 
 import java.util.List;
 
@@ -41,7 +40,7 @@ public class GlicBottomSheetContent extends TabBottomSheetContent {
      * @param backgroundColor The background color for the bottom sheet.
      * @param peekViewHeight The height of the peek view in pixels.
      * @param peekViewContainerId The resource ID for the peek view container.
-     * @param emptyPlaceholderContainerId The resource ID for the empty placeholder container.
+     * @param onBackPressed Callback run when the back button/swipe is triggered.
      * @param profile The active user profile for actor task verification.
      */
     public GlicBottomSheetContent(
@@ -50,7 +49,7 @@ public class GlicBottomSheetContent extends TabBottomSheetContent {
             @ColorInt int backgroundColor,
             @Px int peekViewHeight,
             @IdRes int peekViewContainerId,
-            @IdRes int emptyPlaceholderContainerId,
+            Runnable onBackPressed,
             Profile profile) {
         super(
                 contentView,
@@ -58,32 +57,23 @@ public class GlicBottomSheetContent extends TabBottomSheetContent {
                 backgroundColor,
                 peekViewHeight,
                 peekViewContainerId,
-                emptyPlaceholderContainerId);
+                onBackPressed);
         mProfile = profile;
     }
 
     @Override
     public @StringRes int getSheetHalfHeightAccessibilityStringId() {
-        return R.string.tab_bottom_sheet_half_height;
+        return R.string.glic_bottom_sheet_half_height_a11y_label;
     }
 
     @Override
     public @StringRes int getSheetFullHeightAccessibilityStringId() {
-        return R.string.tab_bottom_sheet_full_height;
+        return R.string.glic_bottom_sheet_full_height_a11y_label;
     }
 
     @Override
     public @StringRes int getSheetClosedAccessibilityStringId() {
-        return R.string.tab_bottom_sheet_closed;
-    }
-
-    @Override
-    protected boolean setupPlaceholder(TextViewWithCompoundDrawables placeholder) {
-        placeholder.setText(R.string.glic_inactive_view_card_text);
-        placeholder.setCompoundDrawablesRelativeWithIntrinsicBounds(
-                0, R.drawable.ic_spark_filled_24dp, 0, 0);
-        placeholder.setVisibility(View.VISIBLE);
-        return true;
+        return R.string.glic_bottom_sheet_closed_a11y_label;
     }
 
     @Override

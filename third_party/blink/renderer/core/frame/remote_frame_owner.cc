@@ -33,6 +33,7 @@ RemoteFrameOwner::RemoteFrameOwner(
       allow_fullscreen_(frame_owner_properties.allow_fullscreen),
       allow_payment_request_(frame_owner_properties.allow_payment_request),
       is_display_none_(frame_owner_properties.is_display_none),
+      responsive_sizing_(frame_owner_properties.responsive_sizing),
       color_scheme_(frame_owner_properties.color_scheme),
       preferred_color_scheme_(frame_owner_properties.preferred_color_scheme),
       needs_occlusion_tracking_(false) {}
@@ -93,6 +94,10 @@ void RemoteFrameOwner::ClearLastNaturalSizingInfo() {
       widget->IntrinsicSizingInfoChanged(std::move(sizing_info));
     }
   }
+}
+
+void RemoteFrameOwner::ClearAllNaturalSizingInfo() {
+  ClearLastNaturalSizingInfo();
 }
 
 void RemoteFrameOwner::SetNeedsOcclusionTracking(bool needs_tracking) {

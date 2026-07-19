@@ -406,10 +406,10 @@ IN_PROC_BROWSER_TEST_F(TabsApiInteractiveTest,
   {
     ASSERT_TRUE(NavigateToURL(GetActiveWebContents(), url1));
     ui_test_utils::BrowserActivationWaiter activation_waiter(browser());
-    browser()->window()->Activate();
+    browser()->GetWindow()->Activate();
     activation_waiter.WaitForActivation();
   }
-  ASSERT_TRUE(browser()->window()->IsActive());
+  ASSERT_TRUE(browser()->GetWindow()->IsActive());
 
   // Create and load an extension that creates a new window with a tab at
   // `url2` with `focused: false` and waits for the tab to complete loading.
@@ -569,7 +569,7 @@ IN_PROC_BROWSER_TEST_F(TabsApiInteractiveTest,
   // Under the hood, the original browser was temporarily pinned to the front by
   // setting its z-order to kFloatingWindow. This checks that the original
   // browser's z-order is reset.
-  EXPECT_EQ(ui::ZOrderLevel::kNormal, browser()->window()->GetZOrderLevel());
+  EXPECT_EQ(ui::ZOrderLevel::kNormal, browser()->GetWindow()->GetZOrderLevel());
 }
 
 }  // namespace extensions

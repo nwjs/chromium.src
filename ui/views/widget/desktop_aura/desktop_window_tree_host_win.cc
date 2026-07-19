@@ -141,6 +141,10 @@ DesktopWindowTreeHostWin::~DesktopWindowTreeHostWin() {
   // DestroyCompositor() is called from both places.
   DestroyCompositor();
   DestroyDispatcher();
+
+  if (HWNDMessageHandler* raw_handler = message_handler_.release()) {
+    raw_handler->DestroyHandler();
+  }
 }
 
 // static
@@ -174,6 +178,11 @@ void DesktopWindowTreeHostWin::FinishTouchDrag(gfx::Point screen_point) {
     ui::SendMouseEvent(screen_point,
                        (MOUSEEVENTF_LEFTUP | MOUSEEVENTF_VIRTUALDESK));
   }
+}
+
+bool DesktopWindowTreeHostWin::IsInNativeMoveResizeLoop() const {
+  return message_handler_ && (message_handler_->IsInNativeMoveResizeLoop() ||
+                              message_handler_->IsInNativeMenuLoop());
 }
 
 // DesktopWindowTreeHostWin, DesktopWindowTreeHost implementation:
@@ -1192,7 +1201,11 @@ void DesktopWindowTreeHostWin::HandleMove() {
   // Adding/removing a monitor, or changing the primary monitor can cause a
   // WM_MOVE message before `OnDisplayChanged()`. Without this call, we would
   // DCHECK due to stale `DisplayInfo`s. See https:://crbug.com/1413940.
+  auto weak_ptr = GetWeakPtr();
   display::win::GetScreenWin()->UpdateDisplayInfosIfNeeded();
+  if (!weak_ptr) {
+    return;
+  }
   CheckForMonitorChange();
   OnHostMovedInPixels();
 }
@@ -1604,7 +1617,7 @@ aura::Window* DesktopWindowTreeHostWin::content_window() {
 
 void DesktopWindowTreeHostWin::UpdateDisplayAffinity() {
   DWORD affinity = WDA_NONE;
-  if (exclude_from_capture_) {
+  if (exclude_from_capture_ && IsCaptureExclusionAllowed()) {
     // `exclude_from_capture_` is used to exclude the window completely from
     // screen capture. On Windows 10 20H1 and newer, we use
     // WDA_EXCLUDEFROMCAPTURE which hides the window from capture while keeping
@@ -1624,6 +1637,17 @@ void DesktopWindowTreeHostWin::UpdateDisplayAffinity() {
   }
 
   SetWindowDisplayAffinity(GetHWND(), affinity);
+}
+
+bool DesktopWindowTreeHostWin::IsCaptureExclusionAllowed() const {
+  const bool is_remote_session = remote_session_for_testing_.value_or(
+      ::GetSystemMetrics(SM_REMOTESESSION) != 0);
+
+  // We allow exclusion if it's a local session, OR if the feature flag
+  // overrides the remote session restriction.
+  return !is_remote_session ||
+         base::FeatureList::IsEnabled(
+             views::features::kAllowWindowCaptureExclusionInRemoteSessions);
 }
 
 void DesktopWindowTreeHostWin::UpdateBackdropColorMode() {

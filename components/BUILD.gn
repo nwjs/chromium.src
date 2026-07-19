@@ -220,10 +220,12 @@ test("components_unittests") {
     "//components/content_settings/core/browser:unit_tests",
     "//components/content_settings/core/common:unit_tests",
     "//components/contextual_search:unit_tests",
+    "//components/contextual_search/footprints:unit_tests",
     "//components/contextual_search/internal:unit_tests",
     "//components/contextual_tasks:unit_tests",
     "//components/country_codes:unit_tests",
     "//components/crash/core/common:unit_tests",
+    "//components/critical_actions/core/browser:unit_tests",
     "//components/cross_device/logging:unit_tests",
     "//components/crx_file:unit_tests",
     "//components/data_sharing:unit_tests",
@@ -275,6 +277,7 @@ test("components_unittests") {
     "//components/open_from_clipboard:unit_tests",
     "//components/openscreen_platform:unittests",
     "//components/optimization_guide/core:unit_tests",
+    "//components/origin_gating/core:unit_tests",
     "//components/os_crypt/async/browser:unit_tests",
     "//components/os_crypt/async/common:unit_tests",
     "//components/os_crypt/common:unit_tests",
@@ -386,6 +389,7 @@ test("components_unittests") {
     "//components/url_pattern:unit_tests",
     "//components/url_pattern_index:unit_tests",
     "//components/user_data_importer/utility:unit_tests",
+    "//components/user_education/product_messaging:unit_tests",
     "//components/user_prefs:unit_tests",
     "//components/variations:unit_tests",
     "//components/variations/field_trial_config:unit_tests",
@@ -616,6 +620,7 @@ test("components_unittests") {
       "//components/password_manager/core/common:unit_tests",
       "//components/password_manager/ios:unit_tests",
       "//components/previous_session_info:unit_tests",
+      "//components/private_ai/ios:unit_tests",
       "//components/safe_browsing/ios/browser:unit_tests",
       "//components/security_state/ios:unit_tests",
       "//components/shared_highlighting/ios:unit_tests",
@@ -776,12 +781,15 @@ test("components_unittests") {
     ]
   }
 
+  if (!is_fuchsia && !is_castos) {
+    deps += [ "//components/private_ai:unit_tests" ]
+  }
+
   if (!is_android && !is_ios && !is_fuchsia && !is_castos) {
     deps += [
       "//components/accessibility_annotator/content/content_annotator:unit_tests",
       "//components/accessibility_annotator/content/live_tab_context:unit_tests",
       "//components/accessibility_annotator/core/live_tab_context:unit_tests",
-      "//components/private_ai:unit_tests",
     ]
   }
 
@@ -789,7 +797,10 @@ test("components_unittests") {
     # guest_contents is a supporting component for any solution that embeds
     # unowned inner WebContents. As it is for embedding WebContents, only
     # add the deps when use_blink is true.
-    deps += [ "//components/guest_contents/browser:unit_tests" ]
+    deps += [
+      "//components/guest_contents/browser:unit_tests",
+      "//components/surface_embed/renderer:unit_tests",
+    ]
   }
 
   if (enable_guest_view) {
@@ -876,7 +887,6 @@ test("components_unittests") {
       "//components/safe_browsing/content/browser/download:unittests",
       "//components/safe_browsing/content/browser/notification_content_detection:unittests",
       "//components/safe_browsing/content/common:file_type_policies_unittest",
-      "//components/safe_browsing/content/common:unit_tests",
       "//components/safe_browsing/core/browser:intelligent_scan_delegate_unittest",
       "//components/safe_browsing/core/browser:referring_app_info_unittest",
       "//components/safe_browsing/core/browser:safe_browsing_hats_delegate_unittest",
@@ -908,6 +918,7 @@ test("components_unittests") {
     deps += [
       "//components/safe_browsing/content/renderer:throttles_unittest",
       "//components/safe_browsing/content/renderer/phishing_classifier:unit_tests",
+      "//components/safe_browsing/core/browser:client_side_detection_service_base_unittest",
       "//components/safe_browsing/core/browser:ping_manager_unittest",
       "//components/safe_browsing/core/browser:user_population_unittest",
       "//components/safe_browsing/core/browser:verdict_cache_manager_unittest",
@@ -916,6 +927,7 @@ test("components_unittests") {
       "//components/safe_browsing/core/browser/password_protection:unit_tests",
       "//components/safe_browsing/core/browser/sync:unittests",
       "//components/safe_browsing/core/common:unit_tests",
+      "//components/safe_browsing/core/common/phishing_classifier:unit_tests",
     ]
   } else if (safe_browsing_mode == 2) {
     deps += [
@@ -1108,6 +1120,10 @@ if (is_android) {
         "//components/test/android/browsertests_apk/AndroidManifest.xml.jinja2"
     output =
         "${target_gen_dir}/components_browsertests_manifest/AndroidManifest.xml"
+    variables = [
+      "javaless_renderers=$enable_javaless_renderers",
+      "library_name=components_browsertests__library",
+    ]
   }
 
   android_resources("components_browsertests_resources") {
@@ -1136,6 +1152,7 @@ if (use_blink) {
       "dom_distiller/content/browser/test/test_util.cc",
       "dom_distiller/content/browser/test/test_util.h",
       "dom_distiller/content/browser/test/viewer_js_browsertest.cc",
+      "optimization_guide/content/browser/page_content_image_extractor_browsertest.cc",
       "optimization_guide/content/browser/page_content_metadata_observer_browsertest.cc",
       "optimization_guide/content/browser/page_content_proto_provider_browsertest.cc",
       "optimization_guide/content/renderer/page_text_agent_browsertest.cc",
@@ -1311,6 +1328,9 @@ if (use_blink) {
         ":components_browsertests_assets",
         ":components_browsertests_java",
       ]
+      if (enable_javaless_renderers) {
+        deps += [ "//content/app:javaless_renderer" ]
+      }
     }
 
     if (is_linux || is_chromeos) {
@@ -1443,8 +1463,8 @@ if (use_blink) {
     if (safe_browsing_mode == 1 || is_ios) {
       sources += [ "safe_browsing/core/browser/db/v4_store_perftest.cc" ]
       deps += [
+        "//components/safe_browsing/core/browser/db:sb_store",
         "//components/safe_browsing/core/browser/db:v4_protocol_manager_util",
-        "//components/safe_browsing/core/browser/db:v4_store",
         "//components/safe_browsing/core/browser/db:v4_test_util",
         "//crypto",
       ]

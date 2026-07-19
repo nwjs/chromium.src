@@ -76,7 +76,11 @@ enum class ContextualCueingDecision {
   // The cue couldn't be shown because not enough time has passed since the
   // last cue was clicked.
   kNotEnoughTimeSinceLastClick = 29,
-  kMaxValue = kNotEnoughTimeSinceLastClick,
+  // There is already another contextual cue or anchored message showing.
+  kAnchoredMessageAlreadyShowing = 30,
+  // The tab is shown in split view.
+  kTabInSplitView = 31,
+  kMaxValue = kTabInSplitView,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/contextual_cueing/enums.xml:ContextualCueingDecision)
 

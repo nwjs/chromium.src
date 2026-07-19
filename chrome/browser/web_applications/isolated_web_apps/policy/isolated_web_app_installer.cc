@@ -14,6 +14,7 @@
 #include "base/strings/to_string.h"
 #include "base/types/expected_macros.h"
 #include "base/types/optional_util.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/web_applications/callback_utils.h"
 #include "chrome/browser/web_applications/isolated_web_apps/commands/install_isolated_web_app_command.h"
 #include "chrome/browser/web_applications/isolated_web_apps/policy/isolated_web_app_external_install_options.h"
@@ -24,6 +25,7 @@
 #include "chrome/common/chrome_features.h"
 #include "components/webapps/isolated_web_apps/download/bundle_downloader.h"
 #include "components/webapps/isolated_web_apps/types/source.h"
+#include "content/public/browser/storage_partition.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -147,18 +149,15 @@ base::DictValue IwaInstallerResult::ToDebugValue() const {
       .Set("message", message_);
 }
 
-IwaInstaller::IwaInstaller(
-    IsolatedWebAppExternalInstallOptions install_options,
-    InstallSourceType install_source_type,
-    scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
-    base::ListValue& log,
-    WebAppProvider* provider,
-    ResultCallback callback)
+IwaInstaller::IwaInstaller(IsolatedWebAppExternalInstallOptions install_options,
+                           InstallSourceType install_source_type,
+                           Profile* profile,
+                           base::ListValue& log,
+                           ResultCallback callback)
     : install_options_(std::move(install_options)),
       install_source_type_(install_source_type),
-      url_loader_factory_(std::move(url_loader_factory)),
+      profile_(profile),
       log_(log),
-      provider_(provider),
       callback_(std::move(callback)) {
 #if BUILDFLAG(IS_CHROMEOS)
   if (IsIwaBundleCacheEnabledInCurrentSession()) {
@@ -200,8 +199,8 @@ void IwaInstaller::Start() {
         IsolatedWebAppUrlInfo::CreateFromSignedWebBundleId(
             install_options_.web_bundle_id());
 
-    CHECK_DEREF(provider_.get())
-        .scheduler()
+    WebAppProvider::GetForWebApps(profile_)
+        ->scheduler()
         .GetIsolatedWebAppBundleCachePath(
             url_info, install_options_.pinned_version(),
             IwaCacheClient::GetCurrentSessionType(),
@@ -235,7 +234,7 @@ void IwaInstaller::InstallFromCache(const base::FilePath& cache_file,
       IsolatedWebAppUrlInfo::CreateFromSignedWebBundleId(
           install_options_.web_bundle_id());
 
-  provider_->scheduler().InstallIsolatedWebApp(
+  WebAppProvider::GetForWebApps(profile_)->scheduler().InstallIsolatedWebApp(
       url_info,
       GetIsolatedWebAppInstallSource(install_source_type_,
                                      std::move(cache_file),
@@ -317,7 +316,8 @@ void IwaInstaller::DownloadUpdateManifest(
 
   update_manifest_fetcher_ = std::make_unique<UpdateManifestFetcher>(
       install_options_.update_manifest_url(),
-      kUpdateManifestFetchTrafficAnnotation, url_loader_factory_);
+      kUpdateManifestFetchTrafficAnnotation, profile_->GetURLLoaderFactory(),
+      profile_->GetDefaultStoragePartition()->GetNetworkContext());
   update_manifest_fetcher_->FetchUpdateManifest(base::BindOnce(
       &IwaInstaller::OnUpdateManifestParsed, weak_factory_.GetWeakPtr(),
       std::move(next_step_callback)));
@@ -366,7 +366,8 @@ void IwaInstaller::DownloadWebBundle(
 
   bundle_downloader_ = IsolatedWebAppDownloader::CreateAndStartDownloading(
       std::move(web_bundle_url), bundle_.path(),
-      kWebBundleDownloadTrafficAnnotation, url_loader_factory_,
+      kWebBundleDownloadTrafficAnnotation, profile_->GetURLLoaderFactory(),
+      profile_->GetDefaultStoragePartition()->GetNetworkContext(),
       base::BindOnce(&IwaInstaller::OnWebBundleDownloaded,
                      // If `this` is deleted, `bundle_downloader_` is deleted
                      // as well, and thus the callback will never run.
@@ -395,7 +396,7 @@ void IwaInstaller::RunInstallFromInternetCommand(IwaVersion expected_version) {
       IsolatedWebAppUrlInfo::CreateFromSignedWebBundleId(
           install_options_.web_bundle_id());
 
-  provider_->scheduler().InstallIsolatedWebApp(
+  WebAppProvider::GetForWebApps(profile_)->scheduler().InstallIsolatedWebApp(
       url_info,
       GetIsolatedWebAppInstallSource(install_source_type_, bundle_.path(),
                                      IwaSourceBundleProdFileOp::kMove),
@@ -428,8 +429,8 @@ void IwaInstaller::OnIwaInstalledFromInternet(
     IsolatedWebAppUrlInfo url_info =
         IsolatedWebAppUrlInfo::CreateFromSignedWebBundleId(
             install_options_.web_bundle_id());
-    CHECK_DEREF(provider_.get())
-        .scheduler()
+    WebAppProvider::GetForWebApps(profile_)
+        ->scheduler()
         .CopyIsolatedWebAppBundleToCache(
             url_info, IwaCacheClient::GetCurrentSessionType(),
             base::BindOnce(&IwaInstaller::OnBundleCopiedToCache,

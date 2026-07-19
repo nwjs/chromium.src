@@ -141,7 +141,7 @@ class TranslateManager {
   // Returns true iff the current page could be manually translated.
   // Logging should only be performed when this method is called to show the
   // Full Page Translate menu item.
-  bool CanManuallyTranslate(bool menuLogging = false);
+  bool CanManuallyTranslate(bool menu_logging = false);
 
   // Whether or not partial translation is supported for the current target
   // language. Partial translate supports a subset of translation languages,
@@ -210,10 +210,6 @@ class TranslateManager {
   // blink's hrefTranslate attribute existence relies on the result.
   // See https://github.com/dtapuska/html-translate
   static bool IsAvailable(const TranslatePrefs* prefs);
-
-  // Returns true if the MATCHES_PREVIOUS_LANGUAGE decision should be overridden
-  // and logs the event appropriately.
-  bool ShouldOverrideMatchesPreviousLanguageDecision();
 
   // Returns true if the BubbleUI should be suppressed, where |target_language|
   // is the target language that would be shown in the UI.

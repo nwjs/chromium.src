@@ -15,6 +15,7 @@
 #import "ios/chrome/browser/composebox/menu/ui/composebox_menu_separator_footer.h"
 #import "ios/chrome/browser/composebox/public/composebox_mode.h"
 #import "ios/chrome/browser/composebox/public/composebox_model_option.h"
+#import "ios/chrome/browser/composebox/public/features.h"
 #import "ios/chrome/browser/composebox/shared/ui/composebox_ui_constants.h"
 #import "ios/chrome/browser/composebox/ui/composebox_strings.h"
 #import "ios/chrome/browser/composebox/ui/composebox_ui_input_state.h"
@@ -25,6 +26,7 @@
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/common/ui/util/ui_util.h"
 #import "ios/chrome/grit/ios_strings.h"
+#import "ui/base/device_form_factor.h"
 #import "ui/base/l10n/l10n_util.h"
 
 namespace {
@@ -67,6 +69,9 @@ std::optional<ComposeboxAttachmentOption> AttachmentOptionForMenuItemType(
       return ComposeboxAttachmentOption::kGallery;
     case ComposeboxMenuItemType::kAttachmentFiles:
       return ComposeboxAttachmentOption::kFile;
+    case ComposeboxMenuItemType::kAttachmentDrive:
+      CHECK(IsComposeboxDriveOptionEnabled());
+      return ComposeboxAttachmentOption::kDrive;
     default:
       return std::nullopt;
   }
@@ -196,8 +201,7 @@ UIImage* IconForModel(ComposeboxModelOption option) {
   size.height =
       _collectionView.contentSize.height + _collectionView.contentInset.top;
 
-  if ([UIDevice currentDevice].userInterfaceIdiom !=
-      UIUserInterfaceIdiomPhone) {
+  if (ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_PHONE) {
     return size;
   }
   // Width is controlled by preferredControlSize on phones (see.
@@ -478,7 +482,25 @@ UIImage* IconForModel(ComposeboxModelOption option) {
            disabled:[_inputState isAttachmentDisabled:
                                      ComposeboxAttachmentOption::kFile]];
 
-  return @[ currentTabItem, tabsItem, cameraItem, galleryItem, filesItem ];
+  NSMutableArray* attachmentItems =
+      [NSMutableArray arrayWithObjects:currentTabItem, tabsItem, cameraItem,
+                                       galleryItem, filesItem, nil];
+  if (IsComposeboxDriveOptionEnabled()) {
+    UIImage* driveSymbol =
+        DefaultSymbolWithPointSize(kFolderSymbol, kSymbolActionPointSize);
+#if BUILDFLAG(IOS_USE_BRANDED_ASSETS)
+    driveSymbol =
+        CustomSymbolWithPointSize(kGoogleDriveSymbol, kSymbolActionPointSize);
+#endif
+    ComposeboxMenuItem* driveItem = [[ComposeboxMenuItem alloc]
+        initWithTitle:l10n_util::GetNSString(IDS_IOS_COMPOSEBOX_DRIVE_ACTION)
+                image:driveSymbol
+                 type:ComposeboxMenuItemType::kAttachmentDrive
+             disabled:[_inputState isAttachmentDisabled:
+                                       ComposeboxAttachmentOption::kDrive]];
+    [attachmentItems addObject:driveItem];
+  }
+  return attachmentItems;
 }
 
 #pragma mark - UICollectionViewDelegate

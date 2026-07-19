@@ -16,6 +16,7 @@ namespace android_webview::features {
 
 // Alphabetical:
 BASE_DECLARE_FEATURE(kWebViewAddQuicHints);
+BASE_DECLARE_FEATURE(kWebViewAwClassPreloader);
 BASE_DECLARE_FEATURE(kWebViewBackForwardCache);
 BASE_DECLARE_FEATURE(kWebViewBackgroundClassPreloading);
 BASE_DECLARE_FEATURE(kWebViewBackgroundTracingInit);
@@ -28,7 +29,11 @@ BASE_DECLARE_FEATURE(kWebViewEarlyTracingInit);
 BASE_DECLARE_FEATURE(kWebViewEnableDnsPlatform);
 BASE_DECLARE_FEATURE(kWebViewFileSystemAccess);
 BASE_DECLARE_FEATURE(kWebViewForceWebAuthn);
+BASE_DECLARE_FEATURE(kWebViewGateTextSizeAdjustOnTextAutosizing);
+BASE_DECLARE_FEATURE(kWebViewIgnoreDuplicateNavs);
+extern const base::FeatureParam<base::TimeDelta> kWebViewDuplicateNavThreshold;
 BASE_DECLARE_FEATURE(kWebViewInvokeZoomPickerOnGSU);
+BASE_DECLARE_FEATURE(kWebViewMemoryProfilingClient);
 BASE_DECLARE_FEATURE(kWebViewProfileStoreNotTriggerStartup);
 BASE_DECLARE_FEATURE(kWebViewLatchedCookiePolicy);
 BASE_DECLARE_FEATURE(kWebViewMixedContentAutoupgrades);
@@ -37,10 +42,7 @@ BASE_DECLARE_FEATURE(kWebViewRenderDocument);
 BASE_DECLARE_FEATURE(kWebViewTestFeature);
 BASE_DECLARE_FEATURE(kWebViewUseMetricsUploadServiceOnlySdkRuntime);
 BASE_DECLARE_FEATURE(kWebViewPropagateNetworkChangeSignals);
-BASE_DECLARE_FEATURE(kWebViewStartupTasksYieldToNative);
 BASE_DECLARE_FEATURE(kWebViewUnreducedProductVersion);
-BASE_DECLARE_FEATURE(kWebViewUseStartupTasksLogic);
-BASE_DECLARE_FEATURE(kWebViewUseStartupTasksLogicP2);
 BASE_DECLARE_FEATURE(kWebViewReduceUAAndroidVersionDeviceModel);
 BASE_DECLARE_FEATURE(kWebViewEnableCrash);
 BASE_DECLARE_FEATURE(kWebViewPrefetchAheadOfPrerender);
@@ -51,7 +53,6 @@ BASE_DECLARE_FEATURE(kWebViewPrefetchOffTheMainThread);
 BASE_DECLARE_FEATURE(kWebViewPreloadServingMetrics);
 BASE_DECLARE_FEATURE(kWebViewSkipInterceptsForPrefetch);
 BASE_DECLARE_FEATURE(kWebViewHyperlinkContextMenu);
-BASE_DECLARE_FEATURE(kCreateSpareRendererOnBrowserContextCreation);
 BASE_DECLARE_FEATURE(kWebViewVizDirectCompositorThreadIpcFrameSinkManager);
 BASE_DECLARE_FEATURE(kWebViewInterceptedCookieHeader);
 BASE_DECLARE_FEATURE(kWebViewInterceptedCookieHeaderReadWrite);
@@ -65,6 +66,7 @@ BASE_DECLARE_FEATURE(kWebViewReducedSeedExpiration);
 BASE_DECLARE_FEATURE(kWebViewReducedSeedRequestPeriod);
 BASE_DECLARE_FEATURE(kWebViewOptInToGmsBindServiceOptimization);
 BASE_DECLARE_FEATURE(kWebViewMoveWorkToProviderInit);
+BASE_DECLARE_FEATURE(kWebViewMoveWorkToProviderInitThreadPool);
 BASE_DECLARE_FEATURE(kWebViewBypassProvisionalCookieManager);
 BASE_DECLARE_FEATURE(kWebViewPersistentMetricsInNoBackupDir);
 BASE_DECLARE_FEATURE(kPrerender2WarmUpCompositorForWebView);
@@ -74,7 +76,6 @@ extern const base::FeatureParam<base::TimeDelta>
 BASE_DECLARE_FEATURE(kWebViewEnableApiCallUserActions);
 BASE_DECLARE_FEATURE(kWebViewWebPerformanceMetricsReporting);
 BASE_DECLARE_FEATURE(kWebViewTestNonembeddedLowEntropySource);
-BASE_DECLARE_FEATURE(kWebViewUseNonembeddedLowEntropySource);
 BASE_DECLARE_FEATURE(kWebViewFasterGetDefaultUserAgent);
 BASE_DECLARE_FEATURE(kWebViewSaveStateIncludeHeaders);
 BASE_DECLARE_FEATURE(kWebViewStaticMethodsNotTriggerStartup);
@@ -83,6 +84,19 @@ BASE_DECLARE_FEATURE(kPostChromiumStartupInWebViewConstructor);
 BASE_DECLARE_FEATURE(kWebViewPersistHttpServerProperties);
 BASE_DECLARE_FEATURE(kWebViewRemoveInstantAppSupport);
 BASE_DECLARE_FEATURE(kWebViewNavigate);
+BASE_DECLARE_FEATURE(kWebViewSetDownloadFaviconsEnabled);
+BASE_DECLARE_FEATURE(kWebViewHttpCacheQuotaApi);
+extern const base::FeatureParam<bool> kWebViewHttpCacheQuotaApiAllowShrinking;
+extern const base::FeatureParam<bool>
+    kWebViewHttpCacheQuotaApiAllowForDefaultProfile;
+extern const base::FeatureParam<bool> kWebViewHttpCacheQuotaApiRuntimeUpdate;
+extern const base::FeatureParam<int> kWebViewHttpCacheQuotaApiMinimum;
+extern const base::FeatureParam<int> kWebViewHttpCacheQuotaApiMaximum;
+extern const base::FeatureParam<bool> kWebViewHttpCacheQuotaApiAffectsCodeCache;
+extern const base::FeatureParam<bool> kWebViewHttpCacheQuotaApiForceBackendInit;
+
+BASE_DECLARE_FEATURE(kWebViewDownloadFavicons);
+
 }  // namespace android_webview::features
 
 #endif  // ANDROID_WEBVIEW_COMMON_AW_FEATURES_H_

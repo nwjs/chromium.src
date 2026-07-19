@@ -58,6 +58,8 @@ import static org.chromium.build.NullUtil.assumeNonNull;
 import static org.chromium.content.browser.accessibility.AccessibilityNodeInfoBuilder.EXTRAS_DATA_REQUEST_IMAGE_DATA_KEY;
 import static org.chromium.content.browser.accessibility.AccessibilityNodeInfoBuilder.EXTRAS_KEY_REQUEST_LAYOUT_BASED_ACTIONS;
 import static org.chromium.content.browser.accessibility.AccessibilityNodeInfoBuilder.EXTRAS_KEY_URL;
+import static org.chromium.content.browser.accessibility.AccessibilityNodeInfoBuilder.EXTRA_SELECTION_END_OFFSET_TYPE;
+import static org.chromium.content.browser.accessibility.AccessibilityNodeInfoBuilder.EXTRA_SELECTION_START_OFFSET_TYPE;
 import static org.chromium.content_public.browser.ContentFeatureList.ACCESSIBILITY_EXTENDED_SELECTION;
 import static org.chromium.content_public.browser.ContentFeatureList.ACCESSIBILITY_MANAGE_BROADCAST_RECEIVER_ON_BACKGROUND;
 
@@ -174,6 +176,14 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
     // Maximum number of times that the auto-disable feature can affect |this|.
     private static final int AUTO_DISABLE_SINGLE_INSTANCE_TOGGLE_LIMIT = 3;
 
+    // Extended selection indices
+    public static final int EXT_SEL_START_NODE = 0;
+    public static final int EXT_SEL_START_OFFSET = 1;
+    public static final int EXT_SEL_START_OFFSET_TYPE = 2;
+    public static final int EXT_SEL_END_NODE = 3;
+    public static final int EXT_SEL_END_OFFSET = 4;
+    public static final int EXT_SEL_END_OFFSET_TYPE = 5;
+
     // Accessibility extras key for absolute drawing order (paint order among all
     // nodes in tree). Used to compute occlusion.
     // TODO(419600429): Update to retrieve this string from AccessibilityNodeInfo when possible.
@@ -268,7 +278,14 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
     // apply throttling rules, delay event construction, etc.
     private final AccessibilityEventDispatcher mEventDispatcher;
     private volatile @Nullable String mSystemLanguageTag;
-    private @Nullable BroadcastReceiver mBroadcastReceiver;
+    private final BroadcastReceiver mBroadcastReceiver =
+            new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    mSystemLanguageTag = Locale.getDefault().toLanguageTag();
+                }
+            };
+
     // Only un-register the broadcast receiver if this is true, otherwise it would result in a
     // crash.
     private volatile boolean mIsBroadcastReceiverRegistered;
@@ -472,7 +489,8 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
                         // Invalidate cached state for the node that has changed.
                         clearNodeInfoCacheForGivenId(virtualViewId);
 
-                        requestSendAccessibilityEvent(event);
+                        requestSendAccessibilityEvent(
+                                event, WindowContentChangedSubtype.NONE, virtualViewId);
 
                         // Always send the ENTER and then the EXIT event, to match a
                         // standard Android View.
@@ -544,13 +562,6 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
 
         mSupportedHtmlElementTypes =
                 WebContentsAccessibilityImplJni.get().getSupportedHtmlElementTypes(mNativeObj);
-        mBroadcastReceiver =
-                new BroadcastReceiver() {
-                    @Override
-                    public void onReceive(Context context, Intent intent) {
-                        mSystemLanguageTag = Locale.getDefault().toLanguageTag();
-                    }
-                };
 
         // Register a broadcast receiver for locale change.
         if (mView.isAttachedToWindow()) {
@@ -685,13 +696,6 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
         return WebContentsAccessibilityImplJni.get().getRootId(mNativeObj);
     }
 
-    // TODO(crbug.com/485227837): Remove experiment's methods
-    public long getAccessibilityTreeSizeForExperiment() {
-        if (!isRootManagerConnected()) return 0;
-        return WebContentsAccessibilityImplJni.get()
-                .getAccessibilityTreeSizeForExperiment(mNativeObj);
-    }
-
     public int getMaxContentChangedEventsToFireForTesting() {
         return WebContentsAccessibilityImplJni.get()
                 .getMaxContentChangedEventsToFireForTesting(mNativeObj);
@@ -751,7 +755,9 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
     }
 
     public void forceRecordFakeCacheHistogramsForTesting() {
-        mHistogramRecorder.recordFakeCacheHistograms();
+        if (mFakeAndroidCache != null) {
+            mFakeAndroidCache.validateAccessibilityForExperiment();
+        }
     }
 
     public boolean hasFinishedLatestAccessibilitySnapshotForTesting() {
@@ -766,12 +772,18 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
 
         if (selection == null) return null;
 
-        AccessibilityNodeInfoCompat startNode = createAccessibilityNodeInfo(selection[0]);
-        int startOffset = selection[1];
-        AccessibilityNodeInfoCompat endNode = createAccessibilityNodeInfo(selection[2]);
-        int endOffset = selection[3];
+        AccessibilityNodeInfoCompat startNode =
+                createAccessibilityNodeInfo(selection[EXT_SEL_START_NODE]);
+        int startOffset = selection[EXT_SEL_START_OFFSET];
+        int startOffsetType = selection[EXT_SEL_START_OFFSET_TYPE];
+        AccessibilityNodeInfoCompat endNode =
+                createAccessibilityNodeInfo(selection[EXT_SEL_END_NODE]);
+        int endOffset = selection[EXT_SEL_END_OFFSET];
+        int endOffsetType = selection[EXT_SEL_END_OFFSET_TYPE];
 
-        return new Object[] {startNode, startOffset, endNode, endOffset};
+        return new Object[] {
+            startNode, startOffset, startOffsetType, endNode, endOffset, endOffsetType
+        };
     }
 
 
@@ -838,11 +850,19 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
     }
 
     private void maybeUnregisterReceiver() {
-        if (mIsBroadcastReceiverRegistered) {
-            if (mBroadcastReceiver != null) {
-                ContextUtils.getApplicationContext().unregisterReceiver(mBroadcastReceiver);
-            }
-            mIsBroadcastReceiverRegistered = false;
+        Runnable doUnregister =
+                () -> {
+                    if (mIsBroadcastReceiverRegistered) {
+                        mIsBroadcastReceiverRegistered = false;
+                        ContextUtils.getApplicationContext().unregisterReceiver(mBroadcastReceiver);
+                    }
+                };
+
+        if (ContentFeatureMap.isEnabled(ACCESSIBILITY_MANAGE_BROADCAST_RECEIVER_ON_BACKGROUND)) {
+            // We must always enqueue in case there is already a register task in the queue.
+            sSequencedTaskRunner.execute(doUnregister);
+        } else {
+            doUnregister.run();
         }
     }
 
@@ -868,12 +888,7 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
             // When the native code was initialized, also record performance metrics unregister
             // our broadcast receiver.
             if (isNativeInitialized()) {
-                if (ContentFeatureMap.isEnabled(
-                        ACCESSIBILITY_MANAGE_BROADCAST_RECEIVER_ON_BACKGROUND)) {
-                    sSequencedTaskRunner.execute(() -> maybeUnregisterReceiver());
-                } else {
-                    maybeUnregisterReceiver();
-                }
+                maybeUnregisterReceiver();
                 mHistogramRecorder.recordAccessibilityPerformanceHistograms();
                 // When we are in an initialized state, accessibility may be disabled. In that
                 // case, we should keep an on-going sum of the time spent disabled (without
@@ -968,6 +983,7 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
         mNodeInfoCache.clear();
         mEventDispatcher.clearQueue();
         mAutoDisableAccessibilityHandler.cancelDisableTimer();
+        maybeUnregisterReceiver();
         WebContents webContents = mDelegate.getWebContents();
         if (webContents == null) {
             deleteEarly();
@@ -1706,14 +1722,26 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
                 return true;
             }
 
+            // Get the offset type for the start and end of the selection.
+            // (crbug.com/443078007): The default value for this argument in Android API is text
+            // offset type. If -1 is returned, it means that something is wrong in accessibility
+            // framework. Consider changing the default value to text offset type.
+            int startOffsetType = arguments.getInt(EXTRA_SELECTION_START_OFFSET_TYPE, -1);
+            int endOffsetType = arguments.getInt(EXTRA_SELECTION_END_OFFSET_TYPE, -1);
+            if (startOffsetType == -1 || endOffsetType == -1) {
+                return false;
+            }
+
             return WebContentsAccessibilityImplJni.get()
                     .setExtendedSelection(
                             mNativeObj,
                             virtualViewId,
                             /* startNodeId= */ selectionStart.first,
                             /* startNodeOffset= */ selectionStart.second,
+                            /* startOffsetType= */ startOffsetType,
                             /* endNodeId= */ selectionEnd.first,
-                            /* endNodeOffset= */ selectionEnd.second);
+                            /* endNodeOffset= */ selectionEnd.second,
+                            /* endOffsetType= */ endOffsetType);
         } else {
             // This should never be hit, so do the equivalent of NOTREACHED;
             assert false : "AccessibilityNodeProvider called performAction with unexpected action.";
@@ -1973,7 +2001,8 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
                         ? ACTION_NEXT_AT_MOVEMENT_GRANULARITY.getId()
                         : ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY.getId());
 
-        requestSendAccessibilityEvent(traverseEvent);
+        requestSendAccessibilityEvent(
+                traverseEvent, WindowContentChangedSubtype.NONE, mAccessibilityFocusId);
     }
 
     private void scrollToMakeNodeVisible(int virtualViewId) {
@@ -2040,9 +2069,6 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
         // Some properties like text formatting spans are populated depending on accessibility
         // focus, so we clear the cache to have them repopulated.
         clearNodeInfoCacheForGivenId(newAccessibilityFocusId);
-        if (mFakeAndroidCache != null) {
-            mFakeAndroidCache.clearNode(newAccessibilityFocusId, /* recursive= */ false);
-        }
 
         mAccessibilityFocusId = newAccessibilityFocusId;
         mSelectionGranularity = NO_GRANULARITY_SELECTED;
@@ -2079,15 +2105,14 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
             return;
         }
 
-        final int focusNodeId = selection[2];
-        final int focusOffset = selection[3];
+        final int focusNodeId = selection[EXT_SEL_END_NODE];
+        final int focusOffset = selection[EXT_SEL_END_OFFSET];
+        final int focusOffsetType = selection[EXT_SEL_END_OFFSET_TYPE];
         // If the selection end is not text-selectable, `mMovementAtGranularityIndex` remains
         // `UNDEFINED_SELECTION_INDEX`. This allows `initializeGranularityAndSelection` to set it
         // to the beginning or end of the node based on movement direction.
-        // TODO(crbug.com/498376490): Use offset type when selection API supports it.
         if (mAccessibilityFocusId == focusNodeId
-                && WebContentsAccessibilityImplJni.get()
-                        .isTextSelectable(mNativeObj, focusNodeId)) {
+                && focusOffsetType == AccessibilityNodeInfoBuilder.OFFSET_TYPE_TEXT) {
             mMovementAtGranularityIndex = focusOffset;
         }
     }
@@ -2337,7 +2362,7 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
 
             event.setContentChangeTypes(AccessibilityEvent.CONTENT_CHANGE_TYPE_CHECKED);
             event.setSource(mView, id);
-            requestSendAccessibilityEvent(event);
+            requestSendAccessibilityEvent(event, WindowContentChangedSubtype.NONE, id);
         }
     }
 
@@ -2356,7 +2381,7 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
                 event.setContentChangeTypes(subType);
             }
             event.setSource(mView, id);
-            requestSendAccessibilityEvent(event);
+            requestSendAccessibilityEvent(event, WindowContentChangedSubtype.NONE, id);
         }
     }
 
@@ -2392,7 +2417,7 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
         if (delegate != null) {
             delegate.setTextChangeTypes(event, subType);
         }
-        requestSendAccessibilityEvent(event);
+        requestSendAccessibilityEvent(event, WindowContentChangedSubtype.NONE, id);
     }
 
     @CalledByNative
@@ -2422,7 +2447,7 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
 
             event.setContentChangeTypes(AccessibilityEvent.CONTENT_CHANGE_TYPE_SUBTREE);
             event.setSource(mView, virtualViewId);
-            requestSendAccessibilityEvent(event);
+            requestSendAccessibilityEvent(event, WindowContentChangedSubtype.NONE, virtualViewId);
         }
     }
 
@@ -2462,7 +2487,7 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
 
         event.setContentChangeTypes(CONTENT_CHANGE_TYPE_SORT_DIRECTION);
 
-        requestSendAccessibilityEvent(event);
+        requestSendAccessibilityEvent(event, WindowContentChangedSubtype.NONE, id);
     }
 
     @CalledByNative
@@ -2508,7 +2533,7 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
 
             event.setContentChangeTypes(CONTENT_CHANGE_TYPE_PANE_APPEARED);
             event.setSource(mView, virtualViewId);
-            requestSendAccessibilityEvent(event);
+            requestSendAccessibilityEvent(event, WindowContentChangedSubtype.NONE, virtualViewId);
         }
     }
 
@@ -2545,7 +2570,7 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
                 return;
             }
             event.setSource(mView, virtualViewId);
-            requestSendAccessibilityEvent(event);
+            requestSendAccessibilityEvent(event, WindowContentChangedSubtype.NONE, virtualViewId);
         }
     }
 
@@ -2832,8 +2857,6 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
 
         int getRootId(long nativeWebContentsAccessibilityAndroid);
 
-        long getAccessibilityTreeSizeForExperiment(long nativeWebContentsAccessibilityAndroid);
-
         boolean isNodeValid(long nativeWebContentsAccessibilityAndroid, int id);
 
         boolean isAutofillPopupNode(long nativeWebContentsAccessibilityAndroid, int id);
@@ -2895,8 +2918,10 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
                 int id,
                 int startNodeId,
                 int startNodeOffset,
+                int startOffsetType,
                 int endNodeId,
-                int endNodeOffset);
+                int endNodeOffset,
+                int endOffsetType);
 
         void clearExtendedSelection(long nativeWebContentsAccessibilityAndroid, int id);
 

@@ -220,6 +220,7 @@ SearchResult HistoryEmbeddingsService::Search(
     std::optional<base::Time> time_range_start,
     size_t count,
     bool skip_answering,
+    std::vector<history::URLID> url_id_filter,
     SearchResultCallback callback) {
   SearchResult result;
 
@@ -271,6 +272,7 @@ SearchResult HistoryEmbeddingsService::Search(
       GetFeatureParameters().word_match_max_term_count;
   result.search_params.word_match_required_term_ratio =
       GetFeatureParameters().word_match_required_term_ratio;
+  result.search_params.url_id_filter = std::move(url_id_filter);
 
   if (QueryIsFiltered(query, result.search_params)) {
     result.count = 0;
@@ -283,7 +285,7 @@ SearchResult HistoryEmbeddingsService::Search(
     return result;
   }
 
-  // Try to cancel the embedding task for the previous query, if any.
+  // Try to cancel the embedding job for the previous query, if any.
   query_embedding_job_.reset();
 
   query_embedding_job_ = embedder_->ComputePassagesEmbeddings(
@@ -299,7 +301,7 @@ void HistoryEmbeddingsService::OnQueryEmbeddingComputed(
     SearchResult result,
     std::vector<std::string> query_passages,
     std::vector<passage_embeddings::Embedding> query_embeddings,
-    passage_embeddings::Embedder::TaskId task_id,
+    uint64_t job_id,
     passage_embeddings::ComputeEmbeddingsStatus status) {
   bool succeeded =
       status == passage_embeddings::ComputeEmbeddingsStatus::kSuccess;
@@ -311,12 +313,13 @@ void HistoryEmbeddingsService::OnQueryEmbeddingComputed(
           << (query_passages.empty() ? "(NONE)" : query_passages[0]) << "'";
 
   // Ignore the previous query if a new one has been submitted to the embedder.
-  if (query_embedding_job_ && query_embedding_job_->task_id() != task_id) {
+  if (query_embedding_job_ && query_embedding_job_->id() != job_id) {
     std::move(callback).Run(std::move(result));
     return;
   }
 
-  // Reset the query embedding task ID to avoid attempting to cancel it later.
+  // Reset the query embedding job handle to avoid attempting to cancel it
+  // later.
   query_embedding_job_.reset();
 
   if (!succeeded) {
@@ -734,9 +737,9 @@ void HistoryEmbeddingsService::OnPassagesEmbeddingsComputed(
     UrlData url_passages,
     std::vector<std::string> passages,
     std::vector<passage_embeddings::Embedding> embeddings,
-    passage_embeddings::Embedder::TaskId task_id,
+    uint64_t job_id,
     passage_embeddings::ComputeEmbeddingsStatus status) {
-  rebuild_jobs_.erase(task_id);
+  rebuild_jobs_.erase(job_id);
 
   if (status != passage_embeddings::ComputeEmbeddingsStatus::kSuccess) {
     return;

@@ -14,6 +14,7 @@
 #include "base/observer_list.h"
 #include "base/observer_list_types.h"
 #include "base/time/time.h"
+#include "chrome/browser/ui/views/profiles/avatar_toolbar_button_state_manager.h"
 #include "chrome/browser/ui/views/profiles/avatar_toolbar_button_types.h"
 #include "chrome/browser/ui/views/toolbar/avatar_toolbar_button_interface.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_button.h"
@@ -22,10 +23,10 @@
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/events/event.h"
 
-class AvatarToolbarButtonStateManager;
 class BrowserView;
 struct AccountInfo;
 class StateProvider;
+class AvatarToolbarButtonTestAccessor;
 
 // This class takes care the Profile Avatar Button.
 // Primarily applies UI configuration.
@@ -95,6 +96,8 @@ class AvatarToolbarButton : public ToolbarButton,
   void OnBoundsChanged(const gfx::Rect& previous_bounds) override;
 
  private:
+  // Used by tests to access the private state_manager_ for verification.
+  friend class ::AvatarToolbarButtonTestAccessor;
   FRIEND_TEST_ALL_PREFIXES(AvatarToolbarButtonTest,
                            HighlightMeetsMinimumContrast);
 
@@ -128,7 +131,7 @@ class AvatarToolbarButton : public ToolbarButton,
   void AnimationProgressed(const gfx::Animation* animation) override;
   void AnimationEnded(const gfx::Animation* animation) override;
 
-  std::unique_ptr<AvatarToolbarButtonStateManager> state_manager_;
+  AvatarToolbarButtonStateManager state_manager_;
 
   // Cached icons for the placeholder avatar in forced-colors mode, to avoid
   // recomputing on every ink drop highlight change. Empty when not in

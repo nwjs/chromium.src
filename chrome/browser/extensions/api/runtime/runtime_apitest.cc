@@ -11,6 +11,7 @@
 #include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/bind.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/simple_test_tick_clock.h"
 #include "base/test/values_test_util.h"
 #include "base/time/time.h"
@@ -51,6 +52,7 @@
 #include "extensions/test/result_catcher.h"
 #include "extensions/test/test_extension_dir.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
+#include "partition_alloc/buildflags.h"
 #include "url/url_constants.h"
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -61,6 +63,23 @@
 
 #if BUILDFLAG(ENABLE_PLATFORM_APPS)
 #include "chrome/browser/apps/platform_apps/app_browsertest_util.h"
+#endif
+
+// Includes used only by the dangling-pointer regression test below.
+#if !BUILDFLAG(IS_ANDROID) && PA_BUILDFLAG(ENABLE_DANGLING_RAW_PTR_CHECKS) && \
+    !BUILDFLAG(IS_CHROMEOS)
+#include "base/allocator/partition_alloc_features.h"
+#include "base/functional/callback_helpers.h"
+#include "base/scoped_observation.h"
+#include "base/task/single_thread_task_runner.h"
+#include "chrome/browser/browser_process.h"
+#include "chrome/browser/profiles/delete_profile_helper.h"
+#include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/profiles/profile_metrics.h"
+#include "chrome/browser/profiles/profile_observer.h"
+#include "chrome/browser/profiles/profile_test_util.h"
+#include "chrome/test/base/profile_destruction_waiter.h"
+#include "extensions/common/extension_builder.h"
 #endif
 
 static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
@@ -572,6 +591,103 @@ IN_PROC_BROWSER_TEST_F(RuntimeAPIUpdateTest,
   }
 }
 
+// The bug this test reproduces can only be detected when dangling-pointer
+// checks are compiled in, so the test is built only in that case.
+// Also exclude from ChromeOS because multiple profiles aren't supported there,
+// so the test can't be set up properly.
+#if !BUILDFLAG(IS_ANDROID) && PA_BUILDFLAG(ENABLE_DANGLING_RAW_PTR_CHECKS) && \
+    !BUILDFLAG(IS_CHROMEOS)
+namespace {
+
+// Test helper. When the observed profile is about to be destroyed, it fires the
+// extension install+load notifications. RuntimeAPI observes those and responds
+// by posting a `DispatchOnInstalledEvent` task that captures the profile's
+// BrowserContext -- leaving that task queued just as the profile is torn down.
+class OnInstalledDuringShutdownPoster : public ProfileObserver {
+ public:
+  OnInstalledDuringShutdownPoster(Profile* profile,
+                                  scoped_refptr<const Extension> extension)
+      : extension_(std::move(extension)) {
+    observation_.Observe(profile);
+  }
+
+  bool posted() const { return posted_; }
+
+  // ProfileObserver:
+  void OnProfileWillBeDestroyed(Profile* profile) override {
+    observation_.Reset();
+    // This fires before the profile's keyed services are destroyed, so
+    // RuntimeAPI and EventRouter are still alive and will post the onInstalled
+    // task that captures the now-doomed BrowserContext.
+    ExtensionRegistry* registry = ExtensionRegistry::Get(profile);
+    registry->TriggerOnWillBeInstalled(extension_.get(), /*is_update=*/false,
+                                       /*old_name=*/std::string());
+    registry->AddEnabled(extension_);
+    registry->TriggerOnLoaded(extension_.get());
+    posted_ = true;
+  }
+
+ private:
+  scoped_refptr<const Extension> extension_;
+  bool posted_ = false;
+  base::ScopedObservation<Profile, ProfileObserver> observation_{this};
+};
+
+}  // namespace
+
+// Enables crash mode for the unretained dangling-pointer check, so a dangling
+// pointer reaching the posted task fails the test instead of passing silently.
+class RuntimeOnInstalledShutdownTest : public RuntimeApiTest {
+ public:
+  RuntimeOnInstalledShutdownTest() {
+    feature_list_.InitAndEnableFeatureWithParameters(
+        base::features::kPartitionAllocUnretainedDanglingPtr,
+        {{"mode", "crash"}});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+// Regression test for crbug.com/360903464.
+//
+// During profile shutdown, RuntimeAPI's posted `DispatchOnInstalledEvent` task
+// can run after its BrowserContext has been freed. The context is therefore
+// passed as `MayBeDangling<void>` (`base::UnsafeDangling`) and re-checked with
+// `IsValidContext()` before any dereference.
+//
+// The test queues that task, destroys the profile, then runs the task; it must
+// not crash.
+IN_PROC_BROWSER_TEST_F(RuntimeOnInstalledShutdownTest,
+                       DispatchOnInstalledSurvivesProfileShutdown) {
+  ProfileManager* profile_manager = g_browser_process->profile_manager();
+  const base::FilePath profile_path =
+      profile_manager->GenerateNextProfileDirectoryPath();
+  Profile& secondary_profile =
+      profiles::testing::CreateProfileSync(profile_manager, profile_path);
+
+  // Create RuntimeAPI so it starts observing this profile's ExtensionRegistry.
+  ASSERT_TRUE(RuntimeAPI::GetFactoryInstance()->Get(&secondary_profile));
+
+  scoped_refptr<const Extension> extension = ExtensionBuilder("Test").Build();
+  OnInstalledDuringShutdownPoster poster(&secondary_profile, extension);
+
+  // Destroying the profile makes `poster` queue the onInstalled task during
+  // teardown; the task then runs below, after the profile is gone.
+  ProfileDestructionWaiter destruction_waiter(&secondary_profile);
+  profile_manager->GetDeleteProfileHelper().MaybeScheduleProfileForDeletion(
+      profile_path, base::DoNothing(),
+      ProfileMetrics::DELETE_PROFILE_USER_MANAGER);
+  destruction_waiter.Wait();
+  EXPECT_TRUE(poster.posted());
+
+  // Run the queued task; it must not crash.
+  base::RunLoop().RunUntilIdle();
+}
+#endif  // !BUILDFLAG(IS_ANDROID) &&
+        // PA_BUILDFLAG(ENABLE_DANGLING_RAW_PTR_CHECKS) &&
+        // !BUILDFLAG(IS_CHROMEOS)
+
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 // TODO(crbug.com/423725749): Port to desktop Android when a cross-platform
 // browser abstraction is available.
@@ -682,6 +798,65 @@ IN_PROC_BROWSER_TEST_F(RuntimeApiTest,
   EXPECT_TRUE(content::WaitForLoadStop(tabs->GetActiveWebContents()));
   EXPECT_EQ(url::kAboutBlankURL, GetActiveUrl());
 }
+
+// TODO(crbug.com/510816360): Remove this histogram test around M155,
+// once we've gathered enough data to analyze usage.
+class ChromeRuntimeUninstallURLHistogramTest : public ExtensionApiTest {
+ public:
+  void SetUp() override {
+    histogram_tester_ = std::make_unique<base::HistogramTester>();
+    ExtensionApiTest::SetUp();
+  }
+
+  void TearDown() override {
+    histogram_tester_ = nullptr;
+    ExtensionApiTest::TearDown();
+  }
+
+ protected:
+  std::string GetUninstallURL() {
+    const Extension* extension = GetSingleLoadedExtension();
+    EXPECT_TRUE(extension) << "Exactly one extension should be loaded.";
+    EXPECT_EQ("Uninstall URL Histogram", extension->name());
+    ExtensionPrefs* extension_prefs = ExtensionPrefs::Get(profile());
+    std::string url_string;
+    extension_prefs->ReadPrefAsString(extension->id(), "uninstall_url",
+                                      &url_string);
+    return url_string;
+  }
+
+  std::unique_ptr<base::HistogramTester> histogram_tester_;
+};
+
+// Test that the histogram for counting secure and insecure uninstall URLs
+// counts URLs on extension load.
+IN_PROC_BROWSER_TEST_F(ChromeRuntimeUninstallURLHistogramTest,
+                       PRE_UninstallURL) {
+  // Write the uninstall URL into persistent storage to be read in the main
+  // part of the test.
+  EXPECT_TRUE(RunExtensionTest("runtime/uninstall_url_histogram")) << message_;
+
+  // The last URL is used.
+  EXPECT_EQ("https://example.com", GetUninstallURL());
+
+  // Nothing is counted yet.
+  histogram_tester_->ExpectTotalCount("Extensions.RuntimeUninstallURL.Host",
+                                      /*expected_count=*/0);
+}
+
+// Confirm the uninstall URL is loaded from and histogram is emitted on
+// extension load.
+IN_PROC_BROWSER_TEST_F(ChromeRuntimeUninstallURLHistogramTest, UninstallURL) {
+  // The last URL is used.
+  EXPECT_EQ("https://example.com", GetUninstallURL());
+
+  // After the extension is loaded, the histogram counts should have
+  // been incremented. Only the last set uninstall URL is counted.
+  histogram_tester_->ExpectUniqueSample("Extensions.RuntimeUninstallURL.Host",
+                                        /*sample=kHTTPS*/ 0,
+                                        /*expected_bucket_count=*/1);
+}
+
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -1467,7 +1642,7 @@ IN_PROC_BROWSER_TEST_P(GetContextsWithDeveloperToolsOpened,
   content::WebContents* devtools_web_contents =
       DevToolsWindowTesting::Get(devtools_window)->main_web_contents();
   bool is_docked = devtools_web_contents->GetTopLevelNativeWindow() ==
-                   browser()->window()->GetNativeWindow();
+                   browser()->GetWindow()->GetNativeWindow();
   ASSERT_EQ(open_docked, is_docked);
 
   // Extract the extension host from the devtools web contents.

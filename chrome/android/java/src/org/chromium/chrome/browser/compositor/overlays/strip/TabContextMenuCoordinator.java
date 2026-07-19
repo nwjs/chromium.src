@@ -10,28 +10,17 @@ import static org.chromium.chrome.browser.share.ShareDelegate.ShareOrigin.TAB_ST
 import static org.chromium.chrome.browser.tabmodel.TabGroupUtils.createNewGroupForTabs;
 import static org.chromium.chrome.browser.tabmodel.TabGroupUtils.mergeTabsToDest;
 import static org.chromium.chrome.browser.tasks.tab_management.GroupWindowState.IN_CURRENT_CLOSING;
-import static org.chromium.components.tab_groups.TabGroupColorPickerUtils.getTabGroupColorPickerItemColor;
 import static org.chromium.ui.listmenu.BasicListMenu.buildMenuDivider;
 
 import android.app.Activity;
 import android.content.Context;
 import android.content.res.Resources;
-import android.graphics.Rect;
-import android.graphics.drawable.Drawable;
-import android.graphics.drawable.GradientDrawable;
-import android.graphics.drawable.InsetDrawable;
-import android.util.TypedValue;
-import android.view.ContextThemeWrapper;
-import android.view.View;
 import android.view.View.OnClickListener;
-import android.widget.TextView;
 
-import androidx.annotation.ColorInt;
 import androidx.annotation.IdRes;
 import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
 
-import org.chromium.base.MathUtils;
 import org.chromium.base.Token;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
@@ -39,6 +28,7 @@ import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.build.annotations.RequiresNonNull;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.app.tabwindow.TabWindowManagerSingleton;
 import org.chromium.chrome.browser.bookmarks.TabBookmarker;
 import org.chromium.chrome.browser.collaboration.CollaborationServiceFactory;
@@ -54,6 +44,7 @@ import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.share.ShareUtils;
 import org.chromium.chrome.browser.share.send_tab_to_self.SendTabToSelfAndroidBridge;
 import org.chromium.chrome.browser.share.send_tab_to_self.SendTabToSelfCoordinator;
+import org.chromium.chrome.browser.share.send_tab_to_self.ShareEntryPoint;
 import org.chromium.chrome.browser.signin.SigninAndHistorySyncActivityLauncherImpl;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
@@ -75,17 +66,17 @@ import org.chromium.chrome.browser.tasks.tab_management.GroupWindowState;
 import org.chromium.chrome.browser.tasks.tab_management.TabGroupListBottomSheetCoordinator;
 import org.chromium.chrome.browser.tasks.tab_management.TabShareUtils;
 import org.chromium.chrome.browser.tasks.tab_management.TabStripReorderingHelper;
-import org.chromium.chrome.browser.tasks.tab_management.vertical_tabs.VerticalTabUtils;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.signin.SigninAndHistorySyncActivityLauncher;
+import org.chromium.chrome.browser.ui.vertical_tabs.VerticalTabUtils;
 import org.chromium.chrome.browser.url_constants.UrlConstantResolver;
 import org.chromium.chrome.browser.url_constants.UrlConstantResolverFactory;
-import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetControllerProvider;
 import org.chromium.components.browser_ui.device_lock.DeviceLockActivityLauncher;
 import org.chromium.components.browser_ui.device_lock.DeviceLockActivityLauncherSupplier;
 import org.chromium.components.browser_ui.widget.ListItemBuilder;
+import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController;
 import org.chromium.components.browser_ui.widget.list_view.ListViewTouchTracker;
 import org.chromium.components.collaboration.CollaborationService;
 import org.chromium.components.embedder_support.util.UrlConstants;
@@ -95,6 +86,7 @@ import org.chromium.components.tab_groups.TabGroupColorId;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.ui.base.ActivityResultTracker;
 import org.chromium.ui.base.WindowAndroid;
+import org.chromium.ui.listmenu.ListItemType;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
@@ -169,7 +161,8 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
                 SigninAndHistorySyncActivityLauncher signinAndHistorySyncActivityLauncher,
                 ActivityResultTracker activityResultTracker,
                 MonotonicObservableSupplier<ModalDialogManager> modalDialogManagerSupplier,
-                SnackbarManager snackbarManager);
+                SnackbarManager snackbarManager,
+                @ShareEntryPoint int entryPoint);
     }
 
     private static SendTabToSelfCoordinatorCreator sSendTabToSelfCreator =
@@ -183,14 +176,10 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
     private final WindowAndroid mWindowAndroid;
     private final Activity mActivity;
     private final int mCircleSize;
-    private final int mIconSize;
-    private final int mRowHeight;
-    private final float mVisualCenterOfTextY;
-    private final float mVisualCenterOfTextYIncognito;
 
     private TabContextMenuCoordinator(
             Supplier<TabModel> tabModelSupplier,
-            TabGroupListBottomSheetCoordinator tabGroupListBottomSheetCoordinator,
+            @Nullable TabGroupListBottomSheetCoordinator tabGroupListBottomSheetCoordinator,
             TabGroupCreationCallback tabGroupCreationCallback,
             MultiInstanceManager multiInstanceManager,
             MonotonicObservableSupplier<ShareDelegate> shareDelegateSupplier,
@@ -198,11 +187,12 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
             Activity activity,
             @Nullable TabGroupSyncService tabGroupSyncService,
             CollaborationService collaborationService,
-            Supplier<TabBookmarker> tabBookmarkerSupplier,
+            @Nullable Supplier<TabBookmarker> tabBookmarkerSupplier,
             BiConsumer<AnchorInfo, Boolean> reorderFunction,
             SnackbarManager snackbarManager,
             @Nullable ActivityResultTracker activityResultTracker,
-            @Nullable ModalDialogManager modalDialogManager) {
+            @Nullable ModalDialogManager modalDialogManager,
+            @TabClosingSource int tabClosingSource) {
         super(
                 R.layout.tab_switcher_action_menu_layout,
                 R.layout.tab_switcher_action_menu_layout,
@@ -217,7 +207,8 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
                         activity,
                         snackbarManager,
                         activityResultTracker,
-                        modalDialogManager),
+                        modalDialogManager,
+                        tabClosingSource),
                 tabModelSupplier,
                 multiInstanceManager,
                 tabGroupSyncService,
@@ -229,68 +220,6 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
         mActivity = activity;
 
         mCircleSize = getDimensionPixelSize(R.dimen.tab_group_nested_menu_color_icon_size);
-
-        Context themedContext =
-                new ContextThemeWrapper(mActivity, R.style.OverflowMenuThemeOverlay);
-        TypedValue value = new TypedValue();
-        themedContext.getTheme().resolveAttribute(R.attr.listItemIconSize, value, true);
-        mIconSize =
-                TypedValue.complexToDimensionPixelSize(
-                        value.data, mActivity.getResources().getDisplayMetrics());
-
-        themedContext.getTheme().resolveAttribute(R.attr.listItemHeight, value, true);
-        mRowHeight =
-                TypedValue.complexToDimensionPixelSize(
-                        value.data, mActivity.getResources().getDisplayMetrics());
-
-        mVisualCenterOfTextY =
-                calculateVisualCenterOfTextY(
-                        themedContext,
-                        R.style.TextAppearance_BrowserUIListMenuItem,
-                        mIconSize,
-                        mRowHeight);
-        mVisualCenterOfTextYIncognito =
-                calculateVisualCenterOfTextY(
-                        themedContext,
-                        R.style.TextAppearance_DensityAdaptive_TextLarge_Primary_Baseline_Light,
-                        mIconSize,
-                        mRowHeight);
-    }
-
-    /**
-     * Calculates the visual center of a text appearance relative to the icon area.
-     *
-     * @param context The {@link Context} to use.
-     * @param textAppearance The style resource for the text.
-     * @param iconSize The size of the icon area.
-     * @param rowHeight The height of the menu item row.
-     * @return The Y coordinate of the visual center of the text.
-     */
-    private static float calculateVisualCenterOfTextY(
-            Context context, int textAppearance, int iconSize, int rowHeight) {
-        TextView textView = new TextView(context);
-        textView.setTextAppearance(textAppearance);
-        // Set text to ensure measure() and getBaseline() return accurate values.
-        textView.setText("x");
-
-        Rect bounds = new Rect();
-        textView.getPaint().getTextBounds("x", 0, 1, bounds);
-        // Visual center of text relative to its baseline.
-        float visualCenterOffset = (bounds.top + bounds.bottom) / 2.0f;
-
-        textView.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
-        int tvBaseline = textView.getBaseline();
-        int tvHeight = textView.getMeasuredHeight();
-
-        // Android's LinearLayout with center_vertical floors the top margin.
-        float textTopInRow = (float) Math.floor((rowHeight - tvHeight) / 2.0f);
-        float iconTopInRow = (float) Math.floor((rowHeight - iconSize) / 2.0f);
-
-        // Visual center relative to the row top.
-        float visualCenterInRow = textTopInRow + tvBaseline + visualCenterOffset;
-
-        // Return visual center relative to the icon area top.
-        return (float) Math.floor(visualCenterInRow - iconTopInRow);
     }
 
     /**
@@ -312,20 +241,22 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
      * @param snackbarManager The {@link SnackbarManager} used to show snackbar UI.
      * @param activityResultTracker The {@link ActivityResultTracker} to track activity results.
      * @param modalDialogManager The {@link ModalDialogManager} to show modal dialogs.
+     * @param tabClosingSource The {@link TabClosingSource} indicating where the tab is closed from.
      */
     public static TabContextMenuCoordinator createContextMenuCoordinator(
             Supplier<TabModel> tabModelSupplier,
-            TabGroupListBottomSheetCoordinator tabGroupListBottomSheetCoordinator,
+            @Nullable TabGroupListBottomSheetCoordinator tabGroupListBottomSheetCoordinator,
             TabGroupCreationCallback tabGroupCreationCallback,
             MultiInstanceManager multiInstanceManager,
             MonotonicObservableSupplier<ShareDelegate> shareDelegateSupplier,
             WindowAndroid windowAndroid,
             Activity activity,
-            Supplier<TabBookmarker> tabBookmarkerSupplier,
+            @Nullable Supplier<TabBookmarker> tabBookmarkerSupplier,
             BiConsumer<AnchorInfo, Boolean> reorderFunction,
             SnackbarManager snackbarManager,
             @Nullable ActivityResultTracker activityResultTracker,
-            @Nullable ModalDialogManager modalDialogManager) {
+            @Nullable ModalDialogManager modalDialogManager,
+            @TabClosingSource int tabClosingSource) {
         Profile profile = assumeNonNull(tabModelSupplier.get().getProfile());
 
         @Nullable TabGroupSyncService tabGroupSyncService =
@@ -348,32 +279,38 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
                 reorderFunction,
                 snackbarManager,
                 activityResultTracker,
-                modalDialogManager);
+                modalDialogManager,
+                tabClosingSource);
     }
 
     @VisibleForTesting
     static OnItemClickedCallback<AnchorInfo> getMenuItemClickedCallback(
             Supplier<TabModel> tabModelSupplier,
-            TabGroupListBottomSheetCoordinator tabGroupListBottomSheetCoordinator,
+            @Nullable TabGroupListBottomSheetCoordinator tabGroupListBottomSheetCoordinator,
             TabGroupCreationCallback tabGroupCreationCallback,
             MultiInstanceManager multiInstanceManager,
             MonotonicObservableSupplier<ShareDelegate> shareDelegateSupplier,
-            Supplier<TabBookmarker> tabBookmarkerSupplier,
+            @Nullable Supplier<TabBookmarker> tabBookmarkerSupplier,
             WindowAndroid windowAndroid,
             Activity activity,
             SnackbarManager snackbarManager,
             @Nullable ActivityResultTracker activityResultTracker,
-            @Nullable ModalDialogManager modalDialogManager) {
+            @Nullable ModalDialogManager modalDialogManager,
+            @TabClosingSource int tabClosingSource) {
         return (menuId, anchorInfo, collaborationId, listViewTouchTracker) -> {
             List<Integer> tabIds = anchorInfo.getAllTabIds();
             assert !tabIds.isEmpty() : "Empty tab id list provided";
             TabModel tabModel = tabModelSupplier.get();
             List<Tab> tabs = TabModelUtils.getTabsById(tabIds, tabModel, /* allowClosing= */ false);
-            assert !tabs.isEmpty() : "Empty tab list provided";
+            // Anchored tab(s) may have been moved to another window or closed between menu open
+            // and item click. Drop the action if any tabs are no longer in this TabModel.
+            if (tabs.size() < tabIds.size()) return;
             recordMenuAction(menuId, tabs.size() > 1, tabModel.isIncognitoBranded());
 
             if (menuId == R.id.add_to_tab_group) {
-                addToTabGroupItemCallback(tabGroupListBottomSheetCoordinator, tabs);
+                if (tabGroupListBottomSheetCoordinator != null) {
+                    addToTabGroupItemCallback(tabGroupListBottomSheetCoordinator, tabs);
+                }
             } else if (menuId == R.id.add_to_new_tab_group) {
                 addToNewTabGroupItemCallback(tabModel, tabs, tabGroupCreationCallback);
             } else if (menuId == R.id.remove_from_tab_group) {
@@ -393,20 +330,22 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
             } else if (menuId == R.id.unmute_site_menu_id) {
                 unmuteSiteItemCallback(tabModel, tabs);
             } else if (menuId == R.id.close_tab) {
-                closeTabItemCallback(tabModel, tabs, listViewTouchTracker);
+                closeTabItemCallback(tabModel, tabs, listViewTouchTracker, tabClosingSource);
             } else if (menuId == R.id.close_all_tabs_menu_id
                     || menuId == R.id.close_all_incognito_tabs_menu_id) {
-                closeAllTabsItemCallback(tabModel);
+                closeAllTabsItemCallback(tabModel, tabClosingSource);
             } else if (menuId == R.id.close_other_tabs_menu_id) {
-                closeOtherTabsItemCallback(tabModel, tabIds);
+                closeOtherTabsItemCallback(tabModel, tabIds, tabClosingSource);
             } else if (menuId == R.id.close_tabs_to_the_right_menu_id) {
-                closeTabsToTheRightItemCallback(tabModel, tabIds);
+                closeTabsToTheRightItemCallback(tabModel, tabIds, tabClosingSource);
             } else if (menuId == R.id.new_tab_to_the_right_menu_id) {
                 newTabToTheRightItemCallback(tabModel, anchorInfo);
             } else if (menuId == R.id.add_tab_to_reading_list_menu_id) {
-                addTabToReadingListItemCallback(tabBookmarkerSupplier, tabs);
+                if (tabBookmarkerSupplier != null) {
+                    addTabToReadingListItemCallback(tabBookmarkerSupplier, tabs);
+                }
             } else if (menuId == R.id.send_to_your_devices_menu_id) {
-                sendToYourDevicesItemCallback(
+                sendTabToYourDevicesItemCallback(
                         tabModel,
                         anchorInfo,
                         windowAndroid,
@@ -414,8 +353,11 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
                         snackbarManager,
                         activityResultTracker,
                         modalDialogManager);
-            } else if (menuId == R.id.show_tabs_vertically_menu_id) {
-                // Click/tab behavior will be added in a follow-up.
+            } else if (menuId == R.id.toggle_tab_layout_menu_id) {
+                if (activity instanceof MenuOrKeyboardActionController controller) {
+                    controller.onMenuOrKeyboardAction(
+                            R.id.toggle_tab_layout_menu_id, /* fromMenu= */ false);
+                }
             }
         };
     }
@@ -484,28 +426,31 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
     private static void closeTabItemCallback(
             TabModel tabModel,
             List<Tab> tabs,
-            @Nullable ListViewTouchTracker listViewTouchTracker) {
+            @Nullable ListViewTouchTracker listViewTouchTracker,
+            @TabClosingSource int tabClosingSource) {
         boolean allowUndo = TabClosureParamsUtils.shouldAllowUndo(listViewTouchTracker);
         tabModel.getTabRemover()
                 .closeTabs(
                         TabClosureParams.closeTabs(tabs)
                                 .allowUndo(allowUndo)
-                                .tabClosingSource(TabClosingSource.TABLET_TAB_STRIP)
+                                .tabClosingSource(tabClosingSource)
                                 .build(),
                         /* allowDialog= */ true);
     }
 
-    private static void closeAllTabsItemCallback(TabModel tabModel) {
+    private static void closeAllTabsItemCallback(
+            TabModel tabModel, @TabClosingSource int tabClosingSource) {
         tabModel.getTabRemover()
                 .closeTabs(
                         TabClosureParams.closeAllTabs()
                                 .hideTabGroups(true)
-                                .tabClosingSource(TabClosingSource.TABLET_TAB_STRIP)
+                                .tabClosingSource(tabClosingSource)
                                 .build(),
                         /* allowDialog= */ true);
     }
 
-    private static void closeOtherTabsItemCallback(TabModel tabModel, List<Integer> tabIds) {
+    private static void closeOtherTabsItemCallback(
+            TabModel tabModel, List<Integer> tabIds, @TabClosingSource int tabClosingSource) {
         List<Tab> otherTabs = new ArrayList<>();
         for (Tab tab : tabModel) {
             if (!tabIds.contains(tab.getId())) {
@@ -516,12 +461,13 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
                 .closeTabs(
                         TabClosureParams.closeTabs(otherTabs)
                                 .hideTabGroups(true)
-                                .tabClosingSource(TabClosingSource.TABLET_TAB_STRIP)
+                                .tabClosingSource(tabClosingSource)
                                 .build(),
                         /* allowDialog= */ true);
     }
 
-    private static void closeTabsToTheRightItemCallback(TabModel tabModel, List<Integer> tabIds) {
+    private static void closeTabsToTheRightItemCallback(
+            TabModel tabModel, List<Integer> tabIds, @TabClosingSource int tabClosingSource) {
         List<Tab> otherTabs = new ArrayList<>();
         boolean foundPivot = false;
         for (Tab tab : tabModel) {
@@ -538,7 +484,7 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
                 .closeTabs(
                         TabClosureParams.closeTabs(otherTabs)
                                 .hideTabGroups(true)
-                                .tabClosingSource(TabClosingSource.TABLET_TAB_STRIP)
+                                .tabClosingSource(tabClosingSource)
                                 .build(),
                         /* allowDialog= */ true);
     }
@@ -572,7 +518,7 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
         }
     }
 
-    private static void sendToYourDevicesItemCallback(
+    private static void sendTabToYourDevicesItemCallback(
             TabModel tabModel,
             AnchorInfo anchorInfo,
             WindowAndroid windowAndroid,
@@ -602,7 +548,6 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
                 || modalDialogManager == null) {
             return;
         }
-        ;
 
         SendTabToSelfCoordinator sttsCoordinator =
                 sSendTabToSelfCreator.create(
@@ -618,7 +563,8 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
                         SigninAndHistorySyncActivityLauncherImpl.get(),
                         activityResultTracker,
                         ObservableSuppliers.createMonotonic(modalDialogManager),
-                        snackbarManager);
+                        snackbarManager,
+                        ShareEntryPoint.TAB_MENU);
         sttsCoordinator.show();
     }
 
@@ -629,7 +575,7 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
      *     coordinates.
      * @param anchorInfo The {@link AnchorInfo} for the context menu to be shown.
      */
-    protected void showMenu(RectProvider anchorViewRectProvider, AnchorInfo anchorInfo) {
+    public void showMenu(RectProvider anchorViewRectProvider, AnchorInfo anchorInfo) {
         createAndShowMenu(
                 anchorViewRectProvider,
                 anchorInfo,
@@ -700,7 +646,8 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
         // Need to check list is non-empty before calling addAll; otherwise we get assertion error.
         if (!reorderItems.isEmpty()) itemList.addAll(reorderItems);
         itemList.add(buildMenuDivider(isIncognito));
-        if (ShareUtils.shouldEnableShare(tabs.get(0))) {
+        if (!ChromeFeatureList.sAndroidContextMenuDisabledMenuItems.isEnabled()
+                && ShareUtils.shouldEnableShare(tabs.get(0))) {
             // Share is only available for single tab selection.
             itemList.add(createShareItem(isIncognito));
         }
@@ -708,18 +655,24 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
             itemList.add(createDuplicateTabsItem(isIncognito));
         }
         itemList.add(createPinUnpinTabItem(tabs, isIncognito));
-        if (ChromeFeatureList.sMediaIndicatorsAndroid.isEnabled()) {
-            itemList.add(createMuteUnmuteSiteItem(tabs, isIncognito));
+        itemList.add(createMuteUnmuteSiteItem(tabs, isIncognito));
+        if (ChromeFeatureList.sAndroidContextMenuNewActions.isEnabled()) {
+            itemList.add(buildMenuDivider(isIncognito));
+        }
+        if (ChromeFeatureList.sAndroidContextMenuDisabledMenuItems.isEnabled() && !isIncognito) {
+            itemList.add(createAddTabToReadingListItem(anchorInfo));
         }
         if (ChromeFeatureList.sAndroidContextMenuNewActions.isEnabled() && !isIncognito) {
-            itemList.add(createAddTabToReadingListItem(anchorInfo));
-            if (shouldShowSendToYourDevicesItem(tabs.get(0))) {
-                itemList.add(createSendToYourDevicesItem());
+            if (shouldShowSendTabToSelfMenuItem(tabs.get(0))) {
+                itemList.add(createSendTabToSelfMenuItem());
+                itemList.add(buildMenuDivider(isIncognito));
             }
         }
         addVerticalTabsItems(itemList, isIncognito);
         itemList.add(createCloseItem(isIncognito));
-        itemList.add(createCloseAllTabsItem(isIncognito));
+        if (!ChromeFeatureList.sAndroidContextMenuNewActions.isEnabled()) {
+            itemList.add(createCloseAllTabsItem(isIncognito));
+        }
         if (ChromeFeatureList.sAndroidContextMenuNewActions.isEnabled()) {
             if (getTabModel().getCount() > 1) {
                 itemList.add(createCloseOtherTabsItem(isIncognito));
@@ -749,10 +702,11 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
             itemList.add(createDuplicateTabsItem(isIncognito));
         }
         itemList.add(createPinUnpinTabItem(tabs, isIncognito));
-        if (ChromeFeatureList.sMediaIndicatorsAndroid.isEnabled()) {
-            itemList.add(createMuteUnmuteSiteItem(tabs, isIncognito));
+        itemList.add(createMuteUnmuteSiteItem(tabs, isIncognito));
+        if (ChromeFeatureList.sAndroidContextMenuNewActions.isEnabled()) {
+            itemList.add(buildMenuDivider(isIncognito));
         }
-        if (ChromeFeatureList.sAndroidContextMenuNewActions.isEnabled() && !isIncognito) {
+        if (ChromeFeatureList.sAndroidContextMenuDisabledMenuItems.isEnabled() && !isIncognito) {
             itemList.add(createAddTabToReadingListItem(anchorInfo));
         }
         addVerticalTabsItems(itemList, isIncognito);
@@ -988,7 +942,7 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
                 .build();
     }
 
-    private boolean shouldShowSendToYourDevicesItem(Tab tab) {
+    private boolean shouldShowSendTabToSelfMenuItem(Tab tab) {
         GURL url = tab.getUrl();
         if (url == null || url.isEmpty()) return false;
 
@@ -1000,7 +954,7 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
         return displayReason != null;
     }
 
-    private ListItem createSendToYourDevicesItem() {
+    private ListItem createSendTabToSelfMenuItem() {
         String title =
                 mActivity.getResources().getString(R.string.send_tab_to_self_context_menu_title);
 
@@ -1011,13 +965,18 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
     }
 
     private void addVerticalTabsItems(ModelList itemList, boolean isIncognito) {
-        if (VerticalTabUtils.shouldShowVerticalTabsEntryPoint(mActivity)) {
-            itemList.add(buildMenuDivider(isIncognito));
+        if (VerticalTabUtils.isVerticalTabsEligible(mActivity)) {
+            if (itemList.isEmpty()
+                    || itemList.get(itemList.size() - 1).type != ListItemType.DIVIDER) {
+                itemList.add(buildMenuDivider(isIncognito));
+            }
+            int layoutTitleRes =
+                    VerticalTabUtils.isVerticalTabsEnabled(mActivity)
+                            ? R.string.show_tabs_horizontally
+                            : R.string.show_tabs_vertically;
+
             itemList.add(
-                    buildListItem(
-                            R.string.show_tabs_vertically,
-                            R.id.show_tabs_vertically_menu_id,
-                            isIncognito));
+                    buildListItem(layoutTitleRes, R.id.toggle_tab_layout_menu_id, isIncognito));
             itemList.add(buildMenuDivider(isIncognito));
         }
     }
@@ -1086,10 +1045,8 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
             recordUserAction("AddTabToReadingList", isMultipleTabs);
         } else if (menuId == R.id.send_to_your_devices_menu_id) {
             recordUserAction("SendToYourDevices", false);
-        } else if (menuId == R.id.show_tabs_vertically_menu_id) {
-            // Force false since switching to a vertical layout is a global UI state toggle
-            // and doesn't benefit from distinguishing single vs multi-tab context.
-            recordUserAction("ShowTabsVertically", /* isMultipleTabs= */ false);
+        } else if (menuId == R.id.toggle_tab_layout_menu_id) {
+            recordUserAction("ToggleTabLayout", /* isMultipleTabs= */ false);
         } else {
             assert false : "Unknown menu id: " + menuId;
         }
@@ -1161,7 +1118,12 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
                             .withTitle(label)
                             .withClickListener(clickListener)
                             .withIsIncognito(false)
-                            .withStartIconDrawable(getCircleDrawable(colorId, false))
+                            .withStartIconDrawable(
+                                    TabGroupUtils.createColorDrawableForMenu(
+                                            mActivity,
+                                            colorId,
+                                            /* isIncognito= */ false,
+                                            mCircleSize))
                             .withStartIconWidth(mCircleSize)
                             .withShouldTintIcon(false)
                             .build());
@@ -1193,8 +1155,11 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
                             .withClickListener(clickListener)
                             .withIsIncognito(true)
                             .withStartIconDrawable(
-                                    getCircleDrawable(
-                                            getTabModel().getTabGroupColor(groupId), true))
+                                    TabGroupUtils.createColorDrawableForMenu(
+                                            mActivity,
+                                            getTabModel().getTabGroupColor(groupId),
+                                            /* isIncognito= */ true,
+                                            mCircleSize))
                             .withStartIconWidth(mCircleSize)
                             .withShouldTintIcon(false)
                             .build());
@@ -1202,36 +1167,9 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
         return result;
     }
 
-    private @Nullable Drawable getCircleDrawable(
-            @TabGroupColorId int colorId, boolean isIncognito) {
-        Drawable sourceDrawable = mActivity.getDrawable(R.drawable.tab_group_dialog_color_icon);
-
-        if (sourceDrawable == null) return null;
-
-        GradientDrawable circleDrawable = (GradientDrawable) sourceDrawable.mutate();
-        @ColorInt int color = getTabGroupColorPickerItemColor(mActivity, colorId, isIncognito);
-        circleDrawable.setColor(color);
-
-        circleDrawable.setSize(mCircleSize, mCircleSize);
-
-        // Center the circle on the appropriate visual center.
-        float visualCenterOfTextY =
-                isIncognito ? mVisualCenterOfTextYIncognito : mVisualCenterOfTextY;
-        float topInsetFloat = visualCenterOfTextY - (mCircleSize / 2.0f);
-        int topInset = (int) Math.floor(topInsetFloat);
-        int bottomInset = (int) Math.ceil(mIconSize - (topInsetFloat + mCircleSize));
-        int leftInset = 0;
-        int rightInset = 0;
-
-        return new InsetDrawable(circleDrawable, leftInset, topInset, rightInset, bottomInset);
-    }
-
     @Override
     protected int getMenuWidth(int anchorViewWidthPx) {
-        return MathUtils.clamp(
-                anchorViewWidthPx,
-                getDimensionPixelSize(R.dimen.tab_strip_context_menu_min_width),
-                getDimensionPixelSize(R.dimen.tab_strip_context_menu_max_width));
+        return getDimensionPixelSize(R.dimen.tab_strip_context_menu_max_width);
     }
 
     @Override

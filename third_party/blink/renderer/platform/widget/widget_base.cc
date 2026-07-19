@@ -668,6 +668,11 @@ void WidgetBase::UpdateCompositorScrollState(
   client_->UpdateCompositorScrollState(commit_data);
 }
 
+void WidgetBase::UpdateAnimatedImageState(
+    const cc::CompositorCommitData& commit_data) {
+  client_->UpdateAnimatedImageState(commit_data);
+}
+
 void WidgetBase::OnDeferMainFrameUpdatesChanged(bool defer) {
   // LayerTreeHost::CreateThreaded() will defer main frame updates immediately
   // until it gets a LocalSurfaceId. That's before the
@@ -796,19 +801,6 @@ void WidgetBase::RequestNewLayerTreeFrameSink(
   // internal begin frame source is started.
   const base::CommandLine& command_line =
       *base::CommandLine::ForCurrentProcess();
-  if (base::FeatureList::IsEnabled(
-          ::features::kInternalBeginFrameSourceOnManyDidNotProduceFrame) &&
-      !params.embedder_params->synthetic_begin_frame_source &&
-      !settings.single_thread_proxy_scheduler &&
-      !settings.using_synchronous_renderer_compositor &&
-      !command_line.HasSwitch(switches::kAllowPreCommitInput)) {
-    static const uint64_t num_did_not_produce_frame = static_cast<uint64_t>(
-        ::features::kNumDidNotProduceFrameBeforeInternalBeginFrameSource.Get());
-    params.embedder_params
-        ->num_did_not_produce_frame_before_internal_begin_frame_source =
-        num_did_not_produce_frame;
-    params.embedder_params->auto_needs_begin_frame = true;
-  }
 
   if (base::FeatureList::IsEnabled(::features::kManualBeginFrame) &&
       !command_line.HasSwitch(switches::kAllowPreCommitInput)) {
@@ -979,6 +971,72 @@ void WidgetBase::FinishRequestNewLayerTreeFrameSink(
            std::move(params.render_frame_metadata_observer));
 }
 
+std::unique_ptr<cc::LayerTreeFrameSink> WidgetBase::CreateUnboundedFrameSink(
+    CrossVariantMojoRemote<viz::mojom::blink::CompositorFrameSinkInterfaceBase>
+        unbounded_sink_remote,
+    CrossVariantMojoReceiver<
+        viz::mojom::blink::CompositorFrameSinkClientInterfaceBase>
+        unbounded_client_receiver) {
+  scoped_refptr<gpu::GpuChannelHost> gpu_channel_host =
+      Platform::Current()->EstablishGpuChannelSync();
+  if (!gpu_channel_host) {
+    return nullptr;
+  }
+
+  auto embedder_params = std::make_unique<
+      cc::mojo_embedder::AsyncLayerTreeFrameSink::InitParams>();
+  embedder_params->compositor_task_runner =
+      Platform::Current()->CompositorThreadTaskRunner();
+  if (!embedder_params->compositor_task_runner) {
+    embedder_params->compositor_task_runner =
+        main_thread_compositor_task_runner_;
+  }
+  embedder_params->io_thread_id = Platform::Current()->GetIOThreadId();
+  if (base::FeatureList::IsEnabled(::features::kEnableADPFRendererMain)) {
+    embedder_params->main_thread_id = main_thread_id_;
+  }
+  embedder_params->wants_animate_only_begin_frames = true;
+  embedder_params->no_compositor_frame_acks =
+      base::FeatureList::IsEnabled(::features::kNoCompositorFrameAcks);
+
+  embedder_params->pipes.compositor_frame_sink_remote =
+      mojo::PendingRemote<viz::mojom::CompositorFrameSink>(
+          std::move(unbounded_sink_remote));
+  embedder_params->pipes.client_receiver =
+      mojo::PendingReceiver<viz::mojom::CompositorFrameSinkClient>(
+          std::move(unbounded_client_receiver));
+
+  if (Platform::Current()->IsGpuCompositingDisabled()) {
+    return std::make_unique<cc::mojo_embedder::AsyncLayerTreeFrameSink>(
+        /*context_provider=*/nullptr,
+        /*worker_context_provider=*/nullptr,
+        gpu_channel_host->CreateClientSharedImageInterface(),
+        embedder_params.get());
+  }
+
+  scoped_refptr<viz::RasterContextProvider> worker_context_provider =
+      Platform::Current()->SharedCompositorWorkerContextProvider(
+          &RasterDarkModeFilterImpl::Instance());
+  if (!worker_context_provider) {
+    return nullptr;
+  }
+
+  gpu::SharedMemoryLimits limits = gpu::SharedMemoryLimits::ForMailboxContext();
+  auto context_provider = viz::ContextProviderCommandBuffer::CreateForRaster(
+      gpu_channel_host, kGpuStreamIdDefault, kGpuStreamPriorityDefault,
+      GURL("chrome://gpu/WidgetBase::CreateUnboundedFrameSink"),
+      /*automatic_flushes=*/false, /*support_locking=*/false, limits,
+      viz::command_buffer_metrics::ContextType::RENDERER_COMPOSITOR);
+  if (!context_provider) {
+    return nullptr;
+  }
+
+  return std::make_unique<cc::mojo_embedder::AsyncLayerTreeFrameSink>(
+      std::move(context_provider), std::move(worker_context_provider),
+      gpu_channel_host->CreateClientSharedImageInterface(),
+      embedder_params.get());
+}
+
 void WidgetBase::DidCommitAndDrawCompositorFrame() {
   // NOTE: Tests may break if this event is renamed or moved. See
   // tab_capture_performancetest.cc.
@@ -1087,7 +1145,11 @@ void WidgetBase::UpdateVisualState() {
       ShouldRecordBeginMainFrameMetrics()
           ? DocumentUpdateReason::kBeginMainFrame
           : DocumentUpdateReason::kTest;
+  auto weak_this = weak_ptr_factory_.GetWeakPtr();
   client_->UpdateLifecycle(WebLifecycleUpdate::kAll, lifecycle_reason);
+  if (!weak_this) {
+    return;
+  }
   client_->SetSuppressFrameRequestsWorkaroundFor704763Only(false);
 }
 
@@ -1481,10 +1543,6 @@ void WidgetBase::SetHidden(bool hidden) {
     FlushInputProcessedCallback();
 
   SetCompositorVisible(!is_hidden_);
-
-  if (widget_input_handler_manager_) {
-    widget_input_handler_manager_->SetHidden(is_hidden_);
-  }
 }
 
 ui::TextInputType WidgetBase::GetTextInputType() {
@@ -1739,7 +1797,8 @@ void WidgetBase::RequestAnimationAfterDelayTimerFired(TimerBase*) {
   bool urgent_for_input =
       input_handler_.handling_input_event() &&
       base::FeatureList::IsEnabled(features::kUrgentMainFrameForInput);
-  client_->ScheduleAnimation(/*urgent=*/urgent_for_input);
+  client_->ScheduleAnimation(cc::BeginMainFrameReason::kDelayedTimerFired,
+                             /*urgent=*/urgent_for_input);
 }
 
 float WidgetBase::GetOriginalDeviceScaleFactor() const {
@@ -1790,8 +1849,13 @@ void WidgetBase::UpdateSurfaceAndScreenInfo(
         screen_infos_.current().display_color_spaces);
   }
 
-  if (orientation_changed)
+  if (orientation_changed) {
+    auto weak_this = weak_ptr_factory_.GetWeakPtr();
     client_->OrientationChanged();
+    if (!weak_this) {
+      return;
+    }
+  }
 
   client_->DidUpdateSurfaceAndScreen(previous_original_screen_infos);
 }

@@ -29,6 +29,10 @@
 #include "extensions/common/extension_id.h"
 #include "mojo/public/cpp/bindings/remote.h"
 
+namespace ash {
+class TelemetryDiagnosticsRoutineServiceAsh;
+}  // namespace ash
+
 namespace chromeos {
 
 // The `DiagnosticRoutineManager` is responsible for creating routines and
@@ -99,8 +103,7 @@ class DiagnosticRoutineManager : public extensions::BrowserContextKeyedAPI,
   // enters the finished state. We are removing the routine in that case.
   void OnRoutineExceptionOrFinished(DiagnosticRoutineInfo info);
 
-  mojo::Remote<crosapi::mojom::TelemetryDiagnosticRoutinesService>&
-  GetRemoteService();
+  ash::TelemetryDiagnosticsRoutineServiceAsh& GetService();
 
   // extensions::BrowserContextKeyedAPI:
   static const char* service_name() { return "DiagnosticRoutineManager"; }

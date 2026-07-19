@@ -33,6 +33,7 @@
 
 #include "base/memory/values_equivalent.h"
 #include "cc/input/scroll_snap_data.h"
+#include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/web_theme_engine.h"
 #include "third_party/blink/public/strings/grit/blink_strings.h"
 #include "third_party/blink/renderer/core/css/properties/longhands.h"
@@ -478,12 +479,6 @@ void RecalcFragmentScrollableOverflow(RecalcScrollableOverflowResult& result,
   }
 }
 
-bool IsAppearanceAutoMenuList(const LayoutBox& obj) {
-  return obj.IsMenuList() &&
-         obj.StyleRef().EffectiveAppearance() != AppearanceValue::kBase &&
-         obj.StyleRef().EffectiveAppearance() != AppearanceValue::kBaseSelect;
-}
-
 const PhysicalBoxFragment* FragmentForEdge(const LayoutBox& box,
                                            const PhysicalBoxSides& edges) {
   // Should only be here if there are multiple fragments. There's a fast-path
@@ -580,10 +575,6 @@ PaintLayerType LayoutBox::LayerTypeRequired() const {
 }
 
 bool LayoutBox::TransformsChangeMayRequireLayout() const {
-  if (!RuntimeEnabledFeatures::CSSAnchorWithTransformsEnabled()) {
-    return false;
-  }
-
   for (const PhysicalBoxFragment& fragment : PhysicalFragments()) {
     if (fragment.HasAnchorsToPropagate()) {
       return true;
@@ -710,7 +701,11 @@ void LayoutBox::StyleDidChange(StyleDifference diff,
           diff.border_radius_changed ||
           (diff.border_shape_changed &&
            (new_style.HasBorderShape() || old_style->HasBorderShape())) ||
-          (HasControlClip() && !old_style->PaddingEqual(new_style))) {
+          (HasControlClip() && !old_style->PaddingEqual(new_style)) ||
+          (new_style.OverflowClipMargin() &&
+           new_style.OverflowClipMargin()->GetReferenceBox() ==
+               StyleOverflowClipMargin::ReferenceBox::kContentBox &&
+           !old_style->PaddingEqual(new_style))) {
         SetNeedsPaintPropertyUpdate();
       }
     }
@@ -2466,21 +2461,10 @@ PhysicalRect LayoutBox::OverflowClipRect(
                       kExcludeScrollbarGutter);
   }
 
-  if (IsA<HTMLInputElement>(GetNode())) [[unlikely]] {
-    // We only apply a clip to <input> buttons, and not regular <button>s.
-    if (IsTextField() || IsInputButton()) {
-      DCHECK(HasControlClip());
-      PhysicalRect control_clip = PhysicalPaddingBoxRect();
-      control_clip.Move(location);
-      clip_rect.Intersect(control_clip);
-    }
-  } else if (IsAppearanceAutoMenuList(*this)) [[unlikely]] {
-    DCHECK(HasControlClip());
+  if (HasControlClip()) [[unlikely]] {
     PhysicalRect control_clip = PhysicalContentBoxRect();
     control_clip.Move(location);
     clip_rect.Intersect(control_clip);
-  } else {
-    DCHECK(!HasControlClip());
   }
 
   return clip_rect;
@@ -2493,11 +2477,9 @@ PhysicalRect LayoutBox::OverflowClipRectForScrollNode(
 
 bool LayoutBox::HasControlClip() const {
   NOT_DESTROYED();
-  if (IsTextField() || IsAppearanceAutoMenuList(*this) || IsInputButton())
-      [[unlikely]] {
-    return true;
-  }
-  return false;
+  return !RuntimeEnabledFeatures::SelectUsesUAClipEnabled() && IsMenuList() &&
+         StyleRef().EffectiveAppearance() != AppearanceValue::kBase &&
+         StyleRef().EffectiveAppearance() != AppearanceValue::kBaseSelect;
 }
 
 void LayoutBox::ExcludeScrollbars(
@@ -4229,7 +4211,26 @@ BackgroundPaintLocation LayoutBox::ComputeBackgroundPaintLocation(
   // contents until we find otherwise.
   BackgroundPaintLocation paint_location = kBackgroundPaintInContentsSpace;
 
+  // If elastic overscroll may shift the content, we have to consider
+  // that this will shift backgrounds painted into the content space when
+  // determining whether we can change the applied background attachment.
+  bool elastic_overscroll_may_shift_content =
+      RuntimeEnabledFeatures::
+          ElasticOverscrollBackgroundPaintLocationFixEnabled() &&
+#if BUILDFLAG(IS_ANDROID)
+      // On android, elastic overscroll stretches the content but does not
+      // shift it beyond its scrolling extents.
+      false;
+#else
+      (IsA<LayoutView>(this)
+           ? Platform::Current()->IsElasticOverscrollEnabledOnRoot()
+           : Platform::Current()->IsElasticOverscrollEnabledForSubscroll()) &&
+      (StyleRef().OverscrollBehaviorX() != EOverscrollBehavior::kNone ||
+       StyleRef().OverscrollBehaviorY() != EOverscrollBehavior::kNone);
+#endif
+
   Color background_color = ResolveColor(GetCSSPropertyBackgroundColor());
+
   const FillLayer* layer = &(StyleRef().BackgroundLayers());
   for (; layer; layer = layer->Next()) {
     if (layer->Attachment() == EFillAttachment::kLocal)
@@ -4242,34 +4243,47 @@ BackgroundPaintLocation LayoutBox::ComputeBackgroundPaintLocation(
         !background_color.IsFullyTransparent() &&
         StyleRef().IsScrollbarGutterAuto()) {
       // Solid color layers with an effective background clip of the padding box
-      // can be treated as local.
-      EFillBox clip = layer->Clip();
-      if (clip == EFillBox::kPadding)
-        continue;
-      // A border box can be treated as a padding box if the border is opaque or
-      // there is no border and we don't have custom scrollbars.
-      if (clip == EFillBox::kBorder) {
-        if (BackgroundClipBorderBoxIsEquivalentToPaddingBox())
-          continue;
-        // If we have an opaque background color, we can safely paint it into
-        // both the scrolling contents layer and the graphics layer to preserve
-        // LCD text. The background color is either the only background or
-        // behind background-attachment:local images (ensured by previous
-        // iterations of the loop). For the latter case, the first paint of the
-        // images doesn't matter because it will be covered by the second paint
-        // of the opaque color.
-        if (background_color.IsOpaque()) {
+      // can be treated as local as long as painting it in the content space
+      // is visually identical. If we have elastic overscroll, we can only
+      // do this if the color is opaque and can be painted in both spaces.
+      if (!elastic_overscroll_may_shift_content ||
+          background_color.IsOpaque()) {
+        // If elastic overscroll may shift the content space, we must upgrade
+        // the background to paint in both spaces if it can be painted in
+        // content space at all (determined by the subsequent checks).
+        if (elastic_overscroll_may_shift_content) {
           paint_location = kBackgroundPaintInBothSpaces;
+        }
+        EFillBox clip = layer->Clip();
+        if (clip == EFillBox::kPadding) {
           continue;
         }
-      } else if (clip == EFillBox::kContent &&
-                 StyleRef().PaddingTop().IsZero() &&
-                 StyleRef().PaddingLeft().IsZero() &&
-                 StyleRef().PaddingRight().IsZero() &&
-                 StyleRef().PaddingBottom().IsZero()) {
-        // A content fill box can be treated as a padding fill box if there is
-        // no padding.
-        continue;
+        // A border box can be treated as a padding box if the border is opaque
+        // or there is no border and we don't have custom scrollbars.
+        if (clip == EFillBox::kBorder) {
+          if (BackgroundClipBorderBoxIsEquivalentToPaddingBox()) {
+            continue;
+          }
+          // If we have an opaque background color, we can safely paint it into
+          // both the scrolling contents layer and the graphics layer to
+          // preserve LCD text. The background color is either the only
+          // background or behind background-attachment:local images (ensured by
+          // previous iterations of the loop). For the latter case, the first
+          // paint of the images doesn't matter because it will be covered by
+          // the second paint of the opaque color.
+          if (background_color.IsOpaque()) {
+            paint_location = kBackgroundPaintInBothSpaces;
+            continue;
+          }
+        } else if (clip == EFillBox::kContent &&
+                   StyleRef().PaddingTop().IsZero() &&
+                   StyleRef().PaddingLeft().IsZero() &&
+                   StyleRef().PaddingRight().IsZero() &&
+                   StyleRef().PaddingBottom().IsZero()) {
+          // A content fill box can be treated as a padding fill box if there is
+          // no padding.
+          continue;
+        }
       }
     }
     return kBackgroundPaintInBorderBoxSpace;

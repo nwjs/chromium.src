@@ -295,15 +295,9 @@ if (is_android) {
     # configured to use it.
     enable_proguard_obfuscation = true
 
-    # Controls whether |short_resource_paths| and |strip_resource_names| are
-    # respected. Useful when trying to analyze APKs using tools that do not
-    # support mapping these names.
-    enable_arsc_obfuscation = true
-
-    # Controls whether |strip_unused_resources| is respected. Useful when trying
-    # to analyze APKs using tools that do not support missing resources from
-    # resources.arsc.
-    enable_unused_resource_stripping = true
+    # Enables all resource optimizations (shrinking, shortening paths, stripping
+    # names).
+    optimize_android_resources = !is_java_debug
 
     # Controls whether specifying |art_profile_path| automatically adds a binary
     # baseline profile to the APK/AAB.
@@ -341,6 +335,9 @@ if (is_android) {
         (android_channel == "default" || android_channel == "canary")
   }
 
+  assert(!optimize_android_resources || !is_java_debug,
+         "optimize_android_resources = true requires is_java_debug = false")
+
   if (is_asan) {
     # Disable lint since increasing min_sdk_version can cause ObsoleteSdkInt
     # warnings.
@@ -360,6 +357,22 @@ if (is_android) {
     # Reduce build time by using d8 incremental build.
     enable_incremental_d8 = true
 
+    # Assemble dex files in tiers to bypass D8 final merge step.
+    tiered_dex_assembly = is_java_debug
+
+    # Path to the JSON configuration file defining the tiered dex layers.
+    # The JSON file should contain a list of objects, each representing a layer:
+    # {
+    #   "name": "layer_name",
+    #   "patterns": [ "glob_pattern1", "glob_pattern2" ],  # Match target paths
+    #   "labels": [ "label1", "label2" ]                   # Match target labels
+    # }
+    # Targets are matched against layers in the order they are defined.
+    # Unmatched first-party targets fall back to the "other" layer.
+    # Unmatched third-party targets fall back to the "3p" layer.
+    tiered_dex_partitions_file =
+        "//build/config/android/tiered_dex_partitions.json"
+
     # Component build breaks javaless renderers - see
     # go/javaless-renderers-component-build
     enable_javaless_renderers = !is_component_build
@@ -371,8 +384,14 @@ if (is_android) {
         !is_java_debug && android_channel != "stable"
   }
 
+  if (tiered_dex_assembly) {
+    tiered_dex_partitions = read_file(tiered_dex_partitions_file, "json")
+  }
+
   assert(!incremental_install || is_java_debug,
          "incremental_install=true && is_java_debug=false is not supported.")
+  assert(!tiered_dex_assembly || is_java_debug,
+         "tiered_dex_assembly=true && is_java_debug=false is not supported.")
 
   # We overwrite system_webview_apk_target if it is an alias
   if (android_64bit_target_cpu) {

@@ -31,6 +31,7 @@
 <translation id="1828808367831369073"><ph name="TABS_COUNT_ONE" /> tabblad gegroepeerd</translation>
 <translation id="1844381456014878100">Na 7 dagen inactiviteit</translation>
 <translation id="1869137256605757565">{TABS_COUNT,plural, =1{<ph name="TABS_COUNT_ONE" /> tabblad}other{<ph name="TABS_COUNT_MANY" /> tabbladen}}</translation>
+<translation id="1894429470045525403">{TAB_COUNT,plural, =1{Tabblad toevoegen aan leeslijst}other{Tabbladen toevoegen aan leeslijst}}</translation>
 <translation id="1909810060368225529">Opmerking: Wijzigingen in deze gedeelde tabbladgroep zijn zichtbaar voor iedereen. Iedereen kan wijzigingen aanbrengen in je gedeelde tabbladgroepen.</translation>
 <translation id="1925363809167540686">{TAB_COUNT,plural, =1{Tabblad vastzetten}other{Tabbladen vastzetten}}</translation>
 <translation id="1982637982196732906">Naar gedeelte Inactief verplaatsen</translation>
@@ -76,6 +77,8 @@
 <translation id="3052964831964880138">Prijsdaling van <ph name="PRICE_DROP" /> voor <ph name="PRODUCT_NAME" /></translation>
 <translation id="3078350928901129212">Kleuricoon <ph name="COLOR_NAME" /> voor tabbladgroep</translation>
 <translation id="311432875115153175">Lijst met tabbladgroepen gesloten</translation>
+<translation id="3152596030350326139">Tabbladen horizontaal tonen</translation>
+<translation id="31806439105337256">Tabbladen verticaal tonen</translation>
 <translation id="3194464645767632461">beoordeling</translation>
 <translation id="3269930881809501915">{TABS_COUNT,plural, =1{<ph name="TABS_COUNT_ONE" /> tabblad toevoegen aan groep}other{<ph name="TABS_COUNT_MANY" /> tabbladen toevoegen aan groep}}</translation>
 <translation id="3328308545011660196">Suggestie: <ph name="NUMBER_OF_TABS" /> tabbladen lijken gerelateerd. Wil je deze groeperen?</translation>
@@ -180,7 +183,6 @@
 <translation id="7129458170538955174">Informatie over deze winkel is op halve hoogte geopend</translation>
 <translation id="7204204600596740190">Optie om meerdere tabbladen te selecteren</translation>
 <translation id="7211038039686180558">Je tabbladgroepen worden automatisch opgeslagen en geüpdatet op al je ingelogde apparaten</translation>
-<translation id="731648547091221002"><ph name="COLOR_NAME" /> is geselecteerd</translation>
 <translation id="7326879924029668159">Retourbeleid en meer bekijken</translation>
 <translation id="7352298686197644113">Bekijk welk item op je geopende tabbladen een lagere prijs heeft</translation>
 <translation id="7369451074646620503">Tabbladgroep <ph name="TAB_GROUP_NAME" /> is niet meer beschikbaar</translation>
@@ -206,7 +208,6 @@
 <translation id="7854360405711302755">{REVIEWS,plural, =1{ <ph name="CURRENT_RATING" />/<ph name="RATING_BASELINE" /> beoordeling, <ph name="REVIEWS_COUNT_ONE" /> review}other{<ph name="CURRENT_RATING" />/<ph name="RATING_BASELINE" /> beoordeling, <ph name="REVIEWS_COUNT_MANY" /> reviews}}</translation>
 <translation id="7885132941432959125">Tabblad naar rechts verplaatsen</translation>
 <translation id="7887334752153342268">Dupliceren</translation>
-<translation id="7939917283308035850"><ph name="COLOR_NAME" /> is niet geselecteerd</translation>
 <translation id="7961015016161918242">Nooit</translation>
 <translation id="7966321538264951561">Sluit de suggesties.</translation>
 <translation id="796696298310625748">{WINDOW_COUNT,plural, =1{Tabblad verplaatsen naar nieuw venster}other{Tabblad verplaatsen naar ander venster}}</translation>

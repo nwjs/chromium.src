@@ -21,6 +21,15 @@ function isFeatureEnabled(featureName: string): boolean {
 }
 
 /**
+ * Returns true if autofill optimization form search is enabled.
+ */
+// TODO(crbug.com/520101866): Use call arguments to avoid placeholder
+// replacement in java_script_feature.mm.
+export function isAutofillOptimizationFormSearchEnabled(): boolean {
+  return (window as any).gCrWebPlaceholderAutofillOptimizationFormSearch;
+}
+
+/**
  * Base class for objects that are intended to be JSON stringified.
  * This class ensures that any `toJSON` method on the prototype is nulled out
  * to prevent unexpected behavior from site-defined `toJSON` overrides.
@@ -629,32 +638,59 @@ export function valueForElement(
  * be "Billing Address".
  */
 function coalesceTextByIdList(
-  element: Element|null, attribute: string): string {
-  if (!element) {
-    return '';
-  }
+    element: Element|null, attribute: string): string {
+  if (isAutofillOptimizationFormSearchEnabled()) {
+    if (!element) {
+      return '';
+    }
 
-  const ids = element.getAttribute(attribute);
-  if (!ids) {
-    return '';
-  }
+    const idsAttr = element.getAttribute(attribute);
+    if (!idsAttr) {
+      return '';
+    }
 
-  return ids.trim()
-      .split(/\s+/)
-      .map(function(i) {
-        return document.getElementById(i);
-      })
-      .filter(function(e) {
-        return e !== null;
-      })
-      .map(function(n) {
-        return findChildText(n!);
-      })
-      .filter(function(s) {
-        return s.length > 0;
-      })
-      .join(' ')
-      .trim();
+    const ids = idsAttr.trim().split(/\s+/);
+    const resultStrings: string[] = [];
+    for (const id of ids) {
+      if (!id) {
+        continue;
+      }
+      const el = document.getElementById(id);
+      if (el) {
+        const text = findChildText(el);
+        if (text.length > 0) {
+          resultStrings.push(text);
+        }
+      }
+    }
+    return resultStrings.join(' ');
+  } else {
+    if (!element) {
+      return '';
+    }
+
+    const ids = element.getAttribute(attribute);
+    if (!ids) {
+      return '';
+    }
+
+    return ids.trim()
+        .split(/\s+/)
+        .map(function(i) {
+          return document.getElementById(i);
+        })
+        .filter(function(e) {
+          return e !== null;
+        })
+        .map(function(n) {
+          return findChildText(n!);
+        })
+        .filter(function(s) {
+          return s.length > 0;
+        })
+        .join(' ')
+        .trim();
+  }
 }
 
 /**
@@ -688,9 +724,7 @@ export function getAriaDescription(element: Element): string {
  * @param element An element to examine.
  * @return Whether the element is inside a <form> or <fieldset>.
  */
-// TODO(crbug.com/454044167): Cleanup autofill TS type casting.
-export function isElementInsideFormOrFieldSet(
-    element: fillConstants.FormControlElement): boolean {
+export function isElementInsideFormOrFieldSet(element: Element): boolean {
   let parentNode = element.parentNode;
   while (parentNode) {
     if ((parentNode.nodeType === Node.ELEMENT_NODE) &&
@@ -784,7 +818,7 @@ export function getOrCreateRemoteFrameToken(): string {
 }
 
 /**
- * Get all form control elements from |elements| that are not part of a form.
+ * Get all form control elements from document that are not part of a form.
  * Also append the fieldsets encountered that are not part of a form to
  * |fieldsets|.
  *
@@ -798,18 +832,20 @@ export function getOrCreateRemoteFrameToken(): string {
  * In the C++ version, |fieldsets| can be NULL, in which case we do not try to
  * append to it.
  *
- * @param elements elements to look through.
  * @param fieldsets out param for unowned fieldsets.
  * @return The elements that are not part of a form.
  */
 export function getUnownedAutofillableFormFieldElements(
-    elements: fillConstants.FormControlElement[],
     fieldsets: Element[]): fillConstants.FormControlElement[] {
+  const elements = isAutofillOptimizationFormSearchEnabled() ?
+      document.querySelectorAll('input, select, textarea, fieldset') :
+      document.all;
   const unownedFieldsetChildren: fillConstants.FormControlElement[] = [];
   for (const element of elements) {
     if (isFormControlElement(element)) {
-      if (!element.form) {
-        unownedFieldsetChildren.push(element);
+      const formControlElement = element as fillConstants.FormControlElement;
+      if (!formControlElement.form) {
+        unownedFieldsetChildren.push(formControlElement);
       }
     }
 

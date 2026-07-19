@@ -45,6 +45,7 @@ class DOMArrayBuffer;
 class EncapsulatedBits;
 class EncapsulatedKey;
 class V8UnionCryptoKeyOrCryptoKeyPair;
+class V8UnionArrayBufferOrJsonWebKey;
 
 class SubtleCrypto final : public ScriptWrappable {
   DEFINE_WRAPPERTYPEINFO();
@@ -52,21 +53,21 @@ class SubtleCrypto final : public ScriptWrappable {
  public:
   SubtleCrypto();
 
-  ScriptPromise<IDLAny> encrypt(ScriptState*,
-                                const V8AlgorithmIdentifier*,
-                                CryptoKey*,
-                                const V8BufferSource*,
-                                ExceptionState&);
-  ScriptPromise<IDLAny> decrypt(ScriptState*,
-                                const V8AlgorithmIdentifier*,
-                                CryptoKey*,
-                                const V8BufferSource*,
-                                ExceptionState&);
-  ScriptPromise<IDLAny> sign(ScriptState*,
-                             const V8AlgorithmIdentifier*,
-                             CryptoKey*,
-                             const V8BufferSource*,
-                             ExceptionState&);
+  ScriptPromise<DOMArrayBuffer> encrypt(ScriptState*,
+                                        const V8AlgorithmIdentifier*,
+                                        CryptoKey*,
+                                        const V8BufferSource*,
+                                        ExceptionState&);
+  ScriptPromise<DOMArrayBuffer> decrypt(ScriptState*,
+                                        const V8AlgorithmIdentifier*,
+                                        CryptoKey*,
+                                        const V8BufferSource*,
+                                        ExceptionState&);
+  ScriptPromise<DOMArrayBuffer> sign(ScriptState*,
+                                     const V8AlgorithmIdentifier*,
+                                     CryptoKey*,
+                                     const V8BufferSource*,
+                                     ExceptionState&);
   // Note that this is not named "verify" because when compiling on Mac that
   // expands to a macro and breaks.
   ScriptPromise<IDLBoolean> verifySignature(ScriptState*,
@@ -75,10 +76,10 @@ class SubtleCrypto final : public ScriptWrappable {
                                             const V8BufferSource* signature,
                                             const V8BufferSource* data,
                                             ExceptionState&);
-  ScriptPromise<IDLAny> digest(ScriptState*,
-                               const V8AlgorithmIdentifier*,
-                               const V8BufferSource* data,
-                               ExceptionState&);
+  ScriptPromise<DOMArrayBuffer> digest(ScriptState*,
+                                       const V8AlgorithmIdentifier*,
+                                       const V8BufferSource* data,
+                                       ExceptionState&);
 
   ScriptPromise<V8UnionCryptoKeyOrCryptoKeyPair> generateKey(
       ScriptState*,
@@ -93,17 +94,17 @@ class SubtleCrypto final : public ScriptWrappable {
                                      bool extractable,
                                      const Vector<String>& key_usages,
                                      ExceptionState&);
-  ScriptPromise<IDLAny> exportKey(ScriptState*,
-                                  const String&,
-                                  CryptoKey*,
-                                  ExceptionState&);
+  ScriptPromise<V8UnionArrayBufferOrJsonWebKey> exportKey(ScriptState*,
+                                                          const String&,
+                                                          CryptoKey*,
+                                                          ExceptionState&);
 
-  ScriptPromise<IDLAny> wrapKey(ScriptState*,
-                                const String&,
-                                CryptoKey*,
-                                CryptoKey*,
-                                const V8AlgorithmIdentifier*,
-                                ExceptionState&);
+  ScriptPromise<DOMArrayBuffer> wrapKey(ScriptState*,
+                                        const String&,
+                                        CryptoKey*,
+                                        CryptoKey*,
+                                        const V8AlgorithmIdentifier*,
+                                        ExceptionState&);
   ScriptPromise<CryptoKey> unwrapKey(ScriptState*,
                                      const String&,
                                      const V8BufferSource*,
@@ -119,13 +120,13 @@ class SubtleCrypto final : public ScriptWrappable {
                                            CryptoKey*,
                                            std::optional<unsigned>,
                                            ExceptionState&);
-  ScriptPromise<IDLAny> deriveKey(ScriptState*,
-                                  const V8AlgorithmIdentifier*,
-                                  CryptoKey*,
-                                  const V8AlgorithmIdentifier*,
-                                  bool extractable,
-                                  const Vector<String>&,
-                                  ExceptionState&);
+  ScriptPromise<CryptoKey> deriveKey(ScriptState*,
+                                     const V8AlgorithmIdentifier*,
+                                     CryptoKey*,
+                                     const V8AlgorithmIdentifier*,
+                                     bool extractable,
+                                     const Vector<String>&,
+                                     ExceptionState&);
 
   ScriptPromise<EncapsulatedKey> encapsulateKey(
       ScriptState*,

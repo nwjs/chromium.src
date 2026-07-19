@@ -93,6 +93,8 @@ export class FakeReadingMode {
   distillationTypeReadability: number = 1;
 
   imagesFeatureEnabled: boolean = false;
+  documentUrl: string = 'https://www.google.com';
+  htmlIds: Map<number, string> = new Map();
 
   // Whether the Immersive Read Anything feature flag is enabled.
   isImmersiveEnabled: boolean = false;
@@ -108,6 +110,9 @@ export class FakeReadingMode {
 
   // Returns true if the webpage corresponds to a Google Doc.
   isGoogleDocs: boolean = false;
+
+  // Returns true if the webpage corresponds to a PDF.
+  isPdf: boolean = false;
 
   // Fonts supported by the browser's preferred language.
   supportedFonts: string[] = ['roboto'];
@@ -197,6 +202,10 @@ export class FakeReadingMode {
     return 'foo';
   }
 
+  getHtmlId(nodeId: number): string {
+    return this.htmlIds.get(nodeId) || '';
+  }
+
   // Returns the alt text of the AXNode for the provided AXNodeID.
   getAltText(_nodeId: number): string {
     return 'foo';
@@ -220,6 +229,10 @@ export class FakeReadingMode {
   // Connects to the browser process. Called by ts when the read anything
   // element is added to the document.
   onConnected() {}
+
+  // Called when the main frame undergoes a same document navigation (such as
+  // a fragment navigation).
+  onMainFrameSameDocumentNavigation(_url: string) {}
 
   // Called when a user tries to copy text from reading mode with keyboard
   // shortcuts.

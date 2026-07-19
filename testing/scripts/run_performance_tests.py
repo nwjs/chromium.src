@@ -58,7 +58,6 @@ if sys.platform == 'darwin':
 
 # vpython-provided modules.
 # pylint: disable=import-error
-import six
 import requests
 # pylint: enable=import-error
 
@@ -1186,11 +1185,10 @@ def parse_arguments(args):
   # Note that the following three arguments are only supported by Telemetry
   # tests right now. See crbug.com/920002.
   parser.add_argument('--isolated-script-test-repeat', type=int, required=False)
-  parser.add_argument(
-      '--isolated-script-test-launcher-retry-limit',
-      type=int,
-      required=False,
-      choices=[0])  # Telemetry does not support retries. crbug.com/894254#c21
+  # Telemetry does not support retries. crbug.com/894254#c21
+  parser.add_argument('--isolated-script-test-launcher-retry-limit',
+                      type=int,
+                      required=False)
   parser.add_argument('--isolated-script-test-also-run-disabled-tests',
                       default=False,
                       action='store_true',
@@ -1277,6 +1275,12 @@ def parse_arguments(args):
                       default=None)
   options, leftover_args = parser.parse_known_args(args)
   options.passthrough_args.extend(leftover_args)
+  if options.isolated_script_test_launcher_retry_limit:
+    logging.warning(
+        'Ignoring non-zero retry limit %d: '
+        'performance tests do not support retries.',
+        options.isolated_script_test_launcher_retry_limit)
+    options.isolated_script_test_launcher_retry_limit = 0
   return options
 
 
@@ -1436,7 +1440,7 @@ def main(sys_args):
     # crbug/1146949#c15
     # In the case that pinpoint passes all arguments to swarming through http
     # request, the passthrough_args are converted into a comma-separated string.
-    if passthrough_args and isinstance(passthrough_args, six.text_type):
+    if passthrough_args and isinstance(passthrough_args, str):
       passthrough_args = passthrough_args.split(',')
     # With --non-telemetry, the gtest executable file path will be passed in as
     # options.executable, which is different from running on shard map. Thus,

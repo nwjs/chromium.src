@@ -95,7 +95,6 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
       base::TimeDelta timeout,
       base::OnceCallback<void(const content::CopyFromSurfaceResult&)> callback)
       override;
-  void EnsureSurfaceSynchronizedForWebTest() override;
   void Hide() override;
   bool IsShowing() override;
   void WasOccluded() override;
@@ -128,7 +127,6 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
   void OnEditElementFocusedForStylusWriting(
       blink::mojom::StylusWritingFocusResultPtr focus_result) override;
 #endif  // BUILDFLAG(IS_WIN)
-  uint32_t GetCaptureSequenceNumber() const override;
   gfx::Size GetCompositorViewportPixelSize() override;
   void InitAsPopup(RenderWidgetHostView* parent_host_view,
                    const gfx::Rect& bounds,
@@ -364,6 +362,10 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
   // The surface client ID of the parent RenderWidgetHostView.  0 if none.
   viz::FrameSinkId parent_frame_sink_id_;
 
+  // True if there is an active frame sink hierarchy registration for
+  // `parent_frame_sink_id_` and `frame_sink_id_`.
+  bool has_frame_sink_hierarchy_registered_ = false;
+
   gfx::Insets insets_;
 
   std::unique_ptr<TouchSelectionControllerClientChildFrame>
@@ -382,6 +384,10 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
       const gfx::Rect& focus_screen_rect_in_dips,
       const gfx::Size& tolerance_screen_distance_in_dips);
 #endif  // BUILDFLAG(IS_WIN)
+
+  // A queue for `IntrinsicSizingInfo` sent from the child renderer before the
+  // frame connector is set.
+  blink::mojom::IntrinsicSizingInfoPtr pending_sizing_info_;
 
   base::WeakPtrFactory<RenderWidgetHostViewChildFrame> weak_factory_{this};
 };

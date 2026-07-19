@@ -12,11 +12,14 @@
 #include "build/build_config.h"
 #include "components/signin/public/identity_manager/account_capabilities.h"
 
+struct AccountInfo;
+
 // Support class that allows callers to modify internal capability state
 // mappings used for tests.
 class AccountCapabilitiesTestMutator {
  public:
   explicit AccountCapabilitiesTestMutator(AccountCapabilities* capabilities);
+  explicit AccountCapabilitiesTestMutator(AccountInfo* account_info);
 
   // Exposes the full list of supported capabilities for tests.
   static base::span<const std::string_view>
@@ -78,12 +81,16 @@ class AccountCapabilitiesTestMutator {
 #if BUILDFLAG(IS_IOS)
   void set_must_skip_apple_age_range_in_chrome(bool value);
 #endif
+  void set_supports_wallet_private_passes_in_autofill(bool value);
   // keep-sorted end
 
   // Modifies all supported capabilities at once.
   void SetAllSupportedCapabilities(bool value);
   // Set capability with `name` to `value`.
   void SetCapability(const std::string& name, bool value);
+  // Set override capability with `name` to `value`.
+  void SetCapabilityOverride(std::string_view name,
+                              std::optional<signin::Tribool> value);
 
  private:
   raw_ptr<AccountCapabilities> capabilities_;

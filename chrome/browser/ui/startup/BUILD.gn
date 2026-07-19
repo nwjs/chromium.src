@@ -112,12 +112,15 @@ source_set("startup") {
     assert(use_aura)
 
     sources += [
+      "credential_provider_signin_dialog_view_with_modal.h",
       "credential_provider_signin_dialog_win.h",
       "credential_provider_signin_info_fetcher_win.h",
     ]
     public_deps += [
       ":buildflags",
+      "//components/web_modal",
       "//google_apis",
+      "//ui/views/controls/webview",
     ]
   }
 }
@@ -347,6 +350,7 @@ source_set("impl") {
     assert(use_aura)
 
     sources += [
+      "credential_provider_signin_dialog_view_with_modal.cc",
       "credential_provider_signin_dialog_win.cc",
       "credential_provider_signin_info_fetcher_win.cc",
     ]
@@ -354,6 +358,10 @@ source_set("impl") {
       "//chrome/browser/signin:signin_promo",
       "//chrome/credential_provider/common:common_constants",
     ]
+  }
+
+  if (!is_android) {
+    deps += [ "//chrome/browser/ui:browser_tab_strip_tracker" ]
   }
 }
 
@@ -484,6 +492,7 @@ if (!is_android) {
       "//chrome/browser/ui/startup/focus:browser_tests",
       "//chrome/browser/ui/toasts",
       "//chrome/browser/ui/web_applications",
+      "//chrome/browser/ui/window_metadata",
       "//chrome/browser/web_applications",
       "//chrome/browser/web_applications:web_applications_test_support",
       "//chrome/common:chrome_features",
@@ -563,6 +572,7 @@ if (!is_android && !is_chromeos_device) {
       "//chrome/browser:main_extra_parts",
       "//chrome/browser/prefs:util",
       "//chrome/browser/sessions",
+      "//chrome/browser/ui:simple_message_box_internal",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/common:constants",

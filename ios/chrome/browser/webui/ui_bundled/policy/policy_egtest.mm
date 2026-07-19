@@ -34,6 +34,7 @@
 #import "ios/chrome/test/earl_grey/test_switches.h"
 #import "ios/testing/earl_grey/app_launch_configuration.h"
 #import "ios/testing/earl_grey/app_launch_manager.h"
+#import "ios/testing/earl_grey/disabled_test_macros.h"
 #import "ios/testing/earl_grey/earl_grey_test.h"
 #import "ios/web/public/test/element_selector.h"
 #import "ui/base/l10n/l10n_util.h"
@@ -63,6 +64,22 @@ std::vector<std::string> PopulateExpectedPolicy(const std::string& name,
   expected_policy.push_back("Machine");
   expected_policy.push_back("Mandatory");
   expected_policy.push_back("OK");
+
+  return expected_policy;
+}
+
+std::vector<std::string> PopulateExpectedRestartPolicy(
+    const std::string& name,
+    const std::string& value) {
+  std::vector<std::string> expected_policy;
+
+  // Populate expected policy column and row fields.
+  expected_policy.push_back(name);
+  expected_policy.push_back(value);
+  expected_policy.push_back("Platform");
+  expected_policy.push_back("Machine");
+  expected_policy.push_back("Mandatory");
+  expected_policy.push_back("Restart required");
 
   return expected_policy;
 }
@@ -282,7 +299,7 @@ id<GREYMatcher> DownloadButton() {
   expected_policies.push_back(
       PopulateExpectedPolicy("AutofillCreditCardEnabled", "false"));
   expected_policies.push_back(
-      PopulateExpectedPolicy("IncognitoModeAvailability", "1"));
+      PopulateExpectedRestartPolicy("IncognitoModeAvailability", "1"));
   VerifyPolicies(expected_policies);
 }
 
@@ -340,6 +357,10 @@ id<GREYMatcher> DownloadButton() {
 
 // Tests that the export button successfully downloads a file.
 - (void)testExportLogsToJson {
+  if ([ChromeEarlGrey isIPadIdiom]) {
+    // TODO(crbug.com/520106708): Failing on ipad device.
+    EARL_GREY_TEST_SKIPPED(@"Disabled on iPad");
+  }
   [ChromeEarlGrey loadURL:GURL(kChromeUIPolicyLogsURL)];
   // Click "Export Logs to JSON" button
   [ChromeEarlGrey tapWebStateElementWithID:kExportLogsButton];

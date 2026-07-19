@@ -36,6 +36,7 @@
 
 #include "base/auto_reset.h"
 #include "base/containers/adapters.h"
+#include "base/dcheck_is_on.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/i18n/time_formatting.h"
 #include "base/metrics/histogram_functions.h"
@@ -152,7 +153,6 @@
 #include "third_party/blink/renderer/core/dom/dom_implementation.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/element_data_cache.h"
-#include "third_party/blink/renderer/core/dom/element_rare_data_vector.h"
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/core/dom/events/event_dispatch_forbidden_scope.h"
@@ -227,6 +227,8 @@
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/frame/viewport_data.h"
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
+#include "third_party/blink/renderer/core/frame/web_frame_widget_impl.h"
+#include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
 #include "third_party/blink/renderer/core/html/anchor_element_metrics_sender.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_font_cache.h"
 #include "third_party/blink/renderer/core/html/collection_type.h"
@@ -341,6 +343,7 @@
 #include "third_party/blink/renderer/core/route_matching/route_map.h"
 #include "third_party/blink/renderer/core/sanitizer/sanitizer.h"
 #include "third_party/blink/renderer/core/sanitizer/sanitizer_api.h"
+#include "third_party/blink/renderer/core/sanitizer/sanitizer_builtins.h"
 #include "third_party/blink/renderer/core/script/detect_javascript_frameworks.h"
 #include "third_party/blink/renderer/core/script/script_runner.h"
 #include "third_party/blink/renderer/core/script_tools/model_context_supplement.h"
@@ -359,6 +362,7 @@
 #include "third_party/blink/renderer/core/timing/render_blocking_metrics_reporter.h"
 #include "third_party/blink/renderer/core/timing/window_performance.h"
 #include "third_party/blink/renderer/core/trustedtypes/trusted_html.h"
+#include "third_party/blink/renderer/core/trustedtypes/trusted_types_util.h"
 #include "third_party/blink/renderer/core/view_transition/page_reveal_event.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_supplement.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_utils.h"
@@ -426,6 +430,7 @@ class IntrinsicSizeResizeObserverDelegate : public ResizeObserver::Delegate {
   bool SkipNonAtomicInlineObservations() const final;
 };
 
+#if DCHECK_IS_ON()
 using WeakDocumentSet = blink::HeapHashSet<blink::WeakMember<blink::Document>>;
 
 WeakDocumentSet& LiveDocumentSet() {
@@ -434,6 +439,7 @@ WeakDocumentSet& LiveDocumentSet() {
                       (blink::MakeGarbageCollected<WeakDocumentSetHolder>()));
   return holder->Value();
 }
+#endif
 
 // Returns true if any of <object> ancestors don't start loading or are loading
 // plugins/frames/images. If there are no <object> ancestors, this function
@@ -968,6 +974,8 @@ Document::Document(const DocumentInit& initializer,
       execution_context_(initializer.GetExecutionContext()),
       agent_(initializer.GetAgent()),
       http_refresh_scheduler_(MakeGarbageCollected<HttpRefreshScheduler>(this)),
+      should_cache_outgoing_referrer_(base::FeatureList::IsEnabled(
+          features::kCacheDocumentOutgoingReferrer)),
       fallback_base_url_(initializer.FallbackBaseURL()),
       cookie_url_(dom_window_ ? initializer.GetCookieUrl()
                               : KURL(g_empty_string)),
@@ -1061,13 +1069,7 @@ Document::Document(const DocumentInit& initializer,
         !dom_window_->IsFeatureEnabled(
             network::mojom::PermissionsPolicyFeature::kVerticalScroll);
     cached_top_frame_site_for_visited_links_ =
-        net::SchemefulSite(TopFrameOrigin()->ToUrlOrigin());
-    // The WidgetCreationObserver can be only added during initialization
-    // of the local root. The observer is added to lower the frate rate
-    // during the loading of the page.
-    if (frame->IsLocalRoot() && !frame->GetWidgetForLocalRoot()) {
-      frame->AddWidgetCreationObserver(this);
-    }
+        TopFrameOrigin()->GetSchemefulSite();
   } else {
     // We disable fetches for frame-less Documents.
     // See https://crbug.com/961614 for details.
@@ -1129,7 +1131,9 @@ Document::Document(const DocumentInit& initializer,
   DCHECK(!ParentDocument() ||
          !ParentDocument()->domWindow()->IsContextPaused());
 
+#if DCHECK_IS_ON()
   LiveDocumentSet().insert(this);
+#endif
 }
 
 Document::~Document() {
@@ -2371,8 +2375,7 @@ Document::CalculateStyleAndLayoutTreeUpdateForThisDocument() const {
   if (!IsActive() || !View())
     return StyleAndLayoutTreeUpdate::kNone;
 
-  if (style_engine_->NeedsFullStyleUpdate() ||
-      OverscrollCommandTargetsDirty()) {
+  if (style_engine_->NeedsFullStyleUpdate()) {
     return StyleAndLayoutTreeUpdate::kFull;
   }
   if (!use_elements_needing_update_.empty())
@@ -2705,8 +2708,6 @@ void Document::UpdateStyleAndLayoutTreeForThisDocument() {
   document_animations_->UpdateAnimationTimingIfNeeded();
   EvaluateMediaQueryListIfNeeded();
   UpdateUseShadowTreesIfNeeded();
-
-  UpdateOverscrollCommandTargets();
 
   style_engine.UpdateActiveStyle();
   style_engine.UpdateCounterStyles();
@@ -4955,12 +4956,23 @@ void Document::SetURL(const KURL& url) {
   new_url = fragment_directive_->ConsumeFragmentDirective(new_url);
 
   url_ = new_url;
+  cached_outgoing_referrer_url_ = std::nullopt;
   UpdateBaseURL();
 
   if (GetFrame()) {
     if (FrameScheduler* frame_scheduler = GetFrame()->GetFrameScheduler())
       frame_scheduler->TraceUrlChange(url_.GetString());
   }
+}
+
+KURL Document::OutgoingReferrerUrl() const {
+  if (should_cache_outgoing_referrer_) {
+    if (!cached_outgoing_referrer_url_) {
+      cached_outgoing_referrer_url_ = Url().UrlStrippedForUseAsReferrer();
+    }
+    return *cached_outgoing_referrer_url_;
+  }
+  return Url().UrlStrippedForUseAsReferrer();
 }
 
 KURL Document::ValidBaseElementURL() const {
@@ -6790,7 +6802,9 @@ void Document::setCookie(const String& value, ExceptionState& exception_state) {
     UseCounter::Count(*this, WebFeature::kFileAccessedCookies);
   }
 
-  cookie_jar_->SetCookie(value);
+  if (cookie_jar_->SetCookie(value)) {
+    IncrementCookieModificationCount();
+  }
 }
 
 bool Document::CookiesEnabled() const {
@@ -7013,20 +7027,20 @@ net::SiteForCookies Document::SiteForCookies() const {
   // like images or video. We do so because when third-party cookie blocking is
   // enabled, access-controlled media cannot be rendered. We only make this
   // exception in this special case to minimize security/privacy risk.
-  url::Origin url_origin = origin->ToUrlOrigin();
-
-  if (override_site_for_cookies_for_csp_media_ && url_origin.opaque() &&
-      !url_origin.GetTupleOrPrecursorTupleIfOpaque().host().empty()) {
-    return net::SiteForCookies::FromOrigin(url::Origin::Create(
-        url_origin.GetTupleOrPrecursorTupleIfOpaque().GetURL()));
+  if (override_site_for_cookies_for_csp_media_ && origin->IsOpaque()) {
+    url::Origin url_origin = origin->ToUrlOrigin();
+    if (!url_origin.GetTupleOrPrecursorTupleIfOpaque().host().empty()) {
+      return net::SiteForCookies::FromOrigin(url::Origin::Create(
+          url_origin.GetTupleOrPrecursorTupleIfOpaque().GetURL()));
+    }
   }
 
-  net::SiteForCookies candidate = net::SiteForCookies::FromOrigin(url_origin);
+  net::SiteForCookies candidate(origin->GetSchemefulSite());
 
-  // If true, CompareWithFrameTreeOriginAndRevise() is skipped if the
-  // SecurityOrigin of the the frames is the same. If any frame has a different
+  // If true, CompareWithFrameTreeSiteAndRevise() is skipped if the
+  // SecurityOrigin of the frames is the same. If any frame has a different
   // SecurityOrigin, then this is set to false so that
-  // CompareWithFrameTreeOriginAndRevise() is called for all remaining frames.
+  // CompareWithFrameTreeSiteAndRevise() is called for all remaining frames.
   bool can_avoid_revise_if_security_origins_match = true;
 
   if (SchemeRegistry::ShouldTreatURLSchemeAsFirstPartyWhenTopLevel(
@@ -7050,8 +7064,10 @@ net::SiteForCookies Document::SiteForCookies() const {
     // If possible, skip revising frames that have the same security origin.
     if (!can_avoid_revise_if_security_origins_match ||
         current_frame_security_origin != origin) {
-      if (!candidate.CompareWithFrameTreeOriginAndRevise(
-              current_frame_security_origin->ToUrlOrigin())) {
+      const bool candidate_still_matches =
+          candidate.CompareWithFrameTreeSiteAndRevise(
+              current_frame_security_origin->GetSchemefulSite());
+      if (!candidate_still_matches) {
         return candidate;
       }
       can_avoid_revise_if_security_origins_match = false;
@@ -7380,8 +7396,6 @@ bool Document::IsValidElementLocalName(const StringView& local_name) {
 
 enum QualifiedNameStatus {
   kQNValid,
-  kQNMultipleColons,
-  kQNInvalidStartChar,
   kQNInvalidChar,
   kQNEmptyPrefix,
   kQNEmptyLocalName
@@ -7399,14 +7413,20 @@ struct ParseQualifiedNameResult {
 
 namespace {
 // https://github.com/whatwg/dom/pull/1079
+// https://github.com/whatwg/dom/pull/1455
 template <typename CharType>
 ParseQualifiedNameResult ParseQualifiedNameInternal(
     base::span<const CharType> characters,
     AtomicString& out_prefix,
     AtomicString& out_local_name,
     Document::QualifiedNameParsingMode parsing_mode) {
-  // Do a first pass to look for the colon. Otherwise, we don't know which
-  // parsing rules to apply to the text we are iterating.
+  // When SplitQualifiedNameOnFirstColon is enabled, the first colon splits the
+  // qualified name into a prefix and a local name; any later colons are part of
+  // the local name, per the DOM "validate and extract" algorithm.
+  // If the runtime flag is disabled and a second colon exists, the local name
+  // is instead the substring between the first two colons.
+  const bool split_on_first_colon =
+      RuntimeEnabledFeatures::SplitQualifiedNameOnFirstColonEnabled();
   std::optional<size_t> colon_index;
   std::optional<size_t> second_colon_index;
   for (size_t i = 0; i < characters.size(); i++) {
@@ -7414,8 +7434,10 @@ ParseQualifiedNameResult ParseQualifiedNameInternal(
       if (colon_index) {
         second_colon_index = i;
         break;
-      } else {
-        colon_index = i;
+      }
+      colon_index = i;
+      if (split_on_first_colon) {
+        break;
       }
     }
   }
@@ -7486,13 +7508,7 @@ bool Document::ParseQualifiedName(const AtomicString& qualified_name,
   message.Append(qualified_name);
   message.Append("') ");
 
-  if (return_value.status == kQNMultipleColons) {
-    message.Append("contains multiple colons.");
-  } else if (return_value.status == kQNInvalidStartChar) {
-    message.Append("contains the invalid name-start character '");
-    message.Append(return_value.character);
-    message.Append("'.");
-  } else if (return_value.status == kQNInvalidChar) {
+  if (return_value.status == kQNInvalidChar) {
     message.Append("contains the invalid character '");
     message.Append(return_value.character);
     message.Append("'.");
@@ -7900,13 +7916,6 @@ void Document::OnLargestContentfulPaintUpdated() {
 void Document::OnPrepareToStopParsing() {
   if (render_blocking_resource_manager_) {
     render_blocking_resource_manager_->ClearPendingParsingElements();
-    if (GetFrame() && GetFrame()->IsLocalRoot() && GetFrame()->GetPage() &&
-        GetFrame()->IsAttached()) {
-      // The frame rate will be implicitly throttled during initialization
-      // if the feature is enabled so unthrottle here.
-      GetFrame()->GetPage()->GetChromeClient().SetShouldThrottleFrameRate(
-          false, *GetFrame());
-    }
   }
   MaybeExecuteDelayedAsyncScripts(
       MilestoneForDelayedAsyncScript::kFinishedParsing);
@@ -7974,6 +7983,13 @@ void Document::FinishedParsing() {
   }
 
   if (LocalFrame* frame = GetFrame()) {
+    // If First Paint has already happened but FCP hasn't (e.g., a page with
+    // only background-color content), release paint holding now that we know
+    // parsing is complete and no more static text/images will arrive.
+    if (frame->View()) {
+      frame->View()->MaybeStopDeferringCommitsWithoutContentfulPaint();
+    }
+
     // Guarantee at least one call to the client specifying a title. (If
     // |title_| is not empty, then the title has already been dispatched.)
     if (title_.empty())
@@ -8695,6 +8711,21 @@ HTMLElement* Document::TopmostPopoverOrHint() const {
     return PopoverAutoStack().back();
   }
   return nullptr;
+}
+
+bool Document::HasActiveUnboundedElements() const {
+  if (!RuntimeEnabledFeatures::UnboundedElementEnabled()) {
+    return false;
+  }
+  if (auto* frame = GetFrame()) {
+    if (auto* web_frame =
+            WebLocalFrameImpl::FromFrame(&frame->LocalFrameRoot())) {
+      if (auto* widget = web_frame->FrameWidgetImpl()) {
+        return widget->HasActiveUnboundedElements();
+      }
+    }
+  }
+  return false;
 }
 void Document::SetPopoverPointerdownTarget(const HTMLElement* popover) {
   CHECK(!RuntimeEnabledFeatures::LightDismissFromClickEnabled());
@@ -9533,8 +9564,7 @@ void Document::Trace(Visitor* visitor) const {
   visitor->Trace(payment_link_handler_);
 #endif  // BUILDFLAG(IS_ANDROID)
   visitor->Trace(view_transitions_);
-  visitor->Trace(overscroll_command_targets_);
-  visitor->Trace(overscroll_command_invokers_);
+
   visitor->Trace(menu_safe_triangle_);
   Supplementable<Document>::Trace(visitor);
   TreeScope::Trace(visitor);
@@ -9555,11 +9585,25 @@ bool Document::IsSlotAssignmentDirty() const {
 bool Document::IsFocusAllowed(FocusTrigger trigger,
                               const LocalFrame& initiator_frame) const {
   LocalFrame* frame = GetFrame();
-  if (!frame || frame->IsMainFrame() ||
-      LocalFrame::HasTransientUserActivation(frame)) {
+  if (!frame) {
     // 'autofocus' runs Element::focus asynchronously at which point the
     // document might not have a frame (see https://crbug.com/960224).
     return true;
+  }
+
+  const bool blocking_focus_feature_flag_enabled =
+      RuntimeEnabledFeatures::BlockingFocusWithoutUserActivationEnabled(
+          GetExecutionContext());
+  if (blocking_focus_feature_flag_enabled) {
+    // Check activation on the focus initiator, not the target frame. Otherwise
+    // a restricted frame could focus an activated target and bypass the policy.
+    if (LocalFrame::HasTransientUserActivation(&initiator_frame)) {
+      return true;
+    }
+  } else {
+    if (frame->IsMainFrame() || LocalFrame::HasTransientUserActivation(frame)) {
+      return true;
+    }
   }
 
   // Allow focus during prerendering to match same-origin behavior.
@@ -9582,8 +9626,7 @@ bool Document::IsFocusAllowed(FocusTrigger trigger,
   CountUse(uma_type);
 
   // All logic below is part of the BlockingFocusWithoutUserActivation feature.
-  if (!RuntimeEnabledFeatures::BlockingFocusWithoutUserActivationEnabled(
-          GetExecutionContext())) {
+  if (!blocking_focus_feature_flag_enabled) {
     return true;
   }
 
@@ -10064,20 +10107,6 @@ void Document::HandlePaymentLink(const KURL& href) {
 }
 #endif  // BUILDFLAG(IS_ANDROID)
 
-void Document::OnLocalRootWidgetCreated() {
-  if (!features::kThrottleFrameRateOnInitialization.Get() || !GetFrame() ||
-      !GetFrame()->GetPage() || !GetFrame()->IsAttached()) {
-    return;
-  }
-  bool allowed_by_security = CanThrottleFrameRate();
-  base::UmaHistogramBoolean(
-      "Blink.ThrottleFrameRate.AllowedBySecurity.DocumentInitialization",
-      allowed_by_security);
-  if (allowed_by_security) {
-    GetFrame()->GetPage()->GetChromeClient().SetShouldThrottleFrameRate(
-        true, *GetFrame());
-  }
-}
 
 void Document::ProcessScheduledShadowTreeCreationsNow() {
   if (elements_needing_shadow_tree_.empty()) {
@@ -10105,34 +10134,8 @@ void Document::ScheduleSelectionchangeEvent() {
 
 void Document::SetHasRenderBlockingExpectLinkElements(bool flag) {
   has_render_blocking_expect_link_elements_ = flag;
-  has_pending_expect_link_elements_ =
-      has_render_blocking_expect_link_elements_ ||
-      has_frame_rate_blocking_expect_link_elements_;
 }
 
-void Document::SetHasFullFrameRateBlockingExpectLinkElements(bool flag) {
-  if (flag == has_frame_rate_blocking_expect_link_elements_) {
-    return;
-  }
-  has_frame_rate_blocking_expect_link_elements_ = flag;
-  has_pending_expect_link_elements_ =
-      has_render_blocking_expect_link_elements_ ||
-      has_frame_rate_blocking_expect_link_elements_;
-  UpdateRenderFrameRate();
-}
-
-void Document::UpdateRenderFrameRate() {
-  if (!GetFrame() || !GetFrame()->GetPage() || !GetFrame()->IsAttached()) {
-    return;
-  }
-  bool allowed_by_security = CanThrottleFrameRate();
-  base::UmaHistogramBoolean("Blink.ThrottleFrameRate.AllowedBySecurity.API",
-                            allowed_by_security);
-  if (allowed_by_security) {
-    GetFrame()->GetPage()->GetChromeClient().SetShouldThrottleFrameRate(
-        has_frame_rate_blocking_expect_link_elements_, *GetFrame());
-  }
-}
 
 // static
 Document* Document::parseHTMLInternal(ExecutionContext* context,
@@ -10158,25 +10161,12 @@ Document* Document::parseHTMLUnsafe(ExecutionContext* context,
                                     const V8UnionStringOrTrustedHTML* html,
                                     ExceptionState& exception_state) {
   UseCounter::Count(context, WebFeature::kHTMLUnsafeMethods);
-  String compliant_html = TrustedTypesCheckForHTML(
-      html, context, trusted_types_names::kDocument,
+  FragmentParserOptions fragment_options;
+  String compliant_html = TrustedTypesCheckForFragment(
+      html, fragment_options, context, trusted_types_names::kDocument,
       trusted_types_names::kParseHTMLUnsafe, exception_state);
   if (exception_state.HadException()) {
     return nullptr;
-  }
-
-  FragmentParserOptions fragment_options;
-  if (RuntimeEnabledFeatures::TrustedTypesCreateParserOptionsEnabled()) {
-    auto trusted_options = TrustedTypesCheckForParserOptions(
-        fragment_options, MarkupInsertionMode::kFragment, context,
-        trusted_types_names::kDocument, trusted_types_names::kParseHTMLUnsafe,
-        exception_state);
-    if (exception_state.HadException()) {
-      return nullptr;
-    }
-    if (trusted_options) {
-      fragment_options = *trusted_options;
-    }
   }
 
   auto* streaming_sanitizer =
@@ -10213,24 +10203,12 @@ Document* Document::parseHTMLUnsafe(ExecutionContext* context,
                                     ExceptionState& exception_state) {
   UseCounter::Count(context, WebFeature::kHTMLUnsafeMethods);
   CHECK(RuntimeEnabledFeatures::SanitizerAPIEnabled());
-  String compliant_html = TrustedTypesCheckForHTML(
-      html, context, trusted_types_names::kDocument,
+  FragmentParserOptions fragment_options(options);
+  String compliant_html = TrustedTypesCheckForFragment(
+      html, fragment_options, context, trusted_types_names::kDocument,
       trusted_types_names::kParseHTMLUnsafe, exception_state);
   if (exception_state.HadException()) {
     return nullptr;
-  }
-
-  FragmentParserOptions fragment_options(options);
-  if (RuntimeEnabledFeatures::TrustedTypesCreateParserOptionsEnabled()) {
-    auto trusted_options = TrustedTypesCheckForParserOptions(
-        fragment_options, MarkupInsertionMode::kFragment, context,
-        trusted_types_names::kDocument, trusted_types_names::kParseHTMLUnsafe,
-        exception_state);
-    CHECK_EQ(exception_state.HadException(), !trusted_options);
-    if (!trusted_options) {
-      return nullptr;
-    }
-    fragment_options = *trusted_options;
   }
 
   auto* streaming_sanitizer =
@@ -10361,22 +10339,6 @@ net::SchemefulSite Document::GetCachedTopFrameSite(VisitedLinkPassKey) {
   return cached_top_frame_site_for_visited_links_.value();
 }
 
-bool Document::CanThrottleFrameRate() {
-  // To prevent side-channel attacks by monitoring the frame rate to detect
-  // page loads from other origins, we only allow the frame rate to be throttled
-  // if the renderer process is only hosting pages from one origin.
-  CHECK(GetExecutionContext());
-  const SecurityOrigin* expected_security_origin =
-      GetExecutionContext()->GetSecurityOrigin();
-  for (blink::Document* document : blink::LiveDocumentSet()) {
-    if (!document->GetExecutionContext() ||
-        !document->GetExecutionContext()->GetSecurityOrigin()->IsSameOriginWith(
-            expected_security_origin)) {
-      return false;
-    }
-  }
-  return true;
-}
 
 CustomElementRegistry* Document::EffectiveGlobalCustomElementRegistry() const {
   DCHECK(RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled());
@@ -10387,70 +10349,13 @@ CustomElementRegistry* Document::EffectiveGlobalCustomElementRegistry() const {
   return nullptr;
 }
 
-const HeapHashSet<Member<const Element>>& Document::OverscrollCommandTargets() {
-  UpdateOverscrollCommandTargets();
-  return overscroll_command_targets_;
-}
 
-void Document::UpdateOverscrollCommandTargets() {
-  if (!overscroll_command_targets_dirty_) {
-    return;
-  }
-
-  if (overscroll_command_invokers_.empty() &&
-      overscroll_command_targets_.empty()) {
-    overscroll_command_targets_dirty_ = false;
-    return;
-  }
-
-  HeapHashSet<Member<const Element>> new_targets;
-  for (Element* element : overscroll_command_invokers_) {
-    if (auto* html_element = DynamicTo<HTMLElement>(element)) {
-      if (Element* target = html_element->commandForElement()) {
-        new_targets.insert(target);
-      }
-    }
-  }
-
-  // Calculate the difference and call OverscrollTargetStateChanged.
-  for (auto& entry : overscroll_command_targets_) {
-    if (!new_targets.Contains(entry)) {
-      const_cast<Element*>(entry.Get())->OverscrollTargetStateChanged();
-    }
-  }
-  for (auto& entry : new_targets) {
-    if (!overscroll_command_targets_.Contains(entry)) {
-      const_cast<Element*>(entry.Get())->OverscrollTargetStateChanged();
-    }
-  }
-
-  overscroll_command_targets_ = std::move(new_targets);
-  overscroll_command_targets_dirty_ = false;
-}
-
-// We require either the invokers list to be non-empty (so we have some invokers
-// to process) or the existing targets list to be non-empty (because we might
-// have some "old" targets that need re-processing).
-bool Document::OverscrollCommandTargetsDirty() const {
-  return overscroll_command_targets_dirty_ &&
-         (!overscroll_command_invokers_.empty() ||
-          !overscroll_command_targets_.empty());
-}
-void Document::MarkOverscrollCommandTargetsDirty() {
-  overscroll_command_targets_dirty_ = true;
-}
-void Document::AddOverscrollCommandInvoker(Element& invoker) {
-  overscroll_command_invokers_.insert(&invoker);
-}
-void Document::RemoveOverscrollCommandInvoker(Element& invoker) {
-  overscroll_command_invokers_.erase(&invoker);
-}
 
 template class CORE_TEMPLATE_EXPORT Supplement<Document>;
 
 }  // namespace blink
 
-#ifndef NDEBUG
+#if DCHECK_IS_ON()
 void ShowLiveDocumentInstances() {
   blink::WeakDocumentSet& set = blink::LiveDocumentSet();
   fprintf(stderr, "There are %u documents currently alive:\n", set.size());

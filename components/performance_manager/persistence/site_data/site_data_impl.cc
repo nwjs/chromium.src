@@ -23,8 +23,10 @@ namespace {
 //      from the current average, or some such.
 constexpr float kSampleWeightFactor = 0.5;
 
-base::TimeDelta GetTickDeltaSinceEpoch() {
-  return base::TimeTicks::Now() - base::TimeTicks::UnixEpoch();
+base::TimeDelta GetTimeDeltaSinceEpoch() {
+  static const base::TimeTicks ticks_at_unix_epoch =
+      base::TimeTicks::Now() - (base::Time::Now() - base::Time::UnixEpoch());
+  return base::TimeTicks::Now() - ticks_at_unix_epoch;
 }
 
 // Returns all the SiteDataFeatureProto elements contained in a
@@ -51,7 +53,7 @@ void SiteDataImpl::NotifySiteLoaded() {
   // time.
   if (loaded_tabs_count_ == 0) {
     site_characteristics_.set_last_loaded(
-        TimeDeltaToInternalRepresentation(GetTickDeltaSinceEpoch()));
+        TimeDeltaToInternalRepresentation(GetTimeDeltaSinceEpoch()));
 
     is_dirty_ = true;
   }
@@ -71,7 +73,7 @@ void SiteDataImpl::NotifySiteUnloaded(TabVisibility tab_visibility) {
   if (loaded_tabs_count_ > 0U)
     return;
 
-  base::TimeDelta current_unix_time = GetTickDeltaSinceEpoch();
+  base::TimeDelta current_unix_time = GetTimeDeltaSinceEpoch();
 
   // Update the |last_loaded_time_| field, as the moment this site gets unloaded
   // also corresponds to the last moment it was loaded.
@@ -142,7 +144,7 @@ void SiteDataImpl::NotifyUsesAudioInBackground() {
 void SiteDataImpl::NotifyLoadTimePerformanceMeasurement(
     base::TimeDelta load_duration,
     base::TimeDelta cpu_usage_estimate,
-    base::ByteCount private_footprint_estimate) {
+    base::ByteSize private_footprint_estimate) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   is_dirty_ = true;
 
@@ -269,7 +271,7 @@ void SiteDataImpl::ClearObservationsAndInvalidateReadOperation() {
   // instances of this site.
   if (IsLoaded()) {
     site_characteristics_.set_last_loaded(
-        TimeDeltaToInternalRepresentation(GetTickDeltaSinceEpoch()));
+        TimeDeltaToInternalRepresentation(GetTimeDeltaSinceEpoch()));
   }
 
   // This object is now in a valid state and can be written in the data store.
@@ -299,7 +301,7 @@ void SiteDataImpl::NotifyFeatureUsage(SiteDataFeatureProto* feature_proto) {
 
   feature_proto->Clear();
   feature_proto->set_use_timestamp(
-      TimeDeltaToInternalRepresentation(GetTickDeltaSinceEpoch()));
+      TimeDeltaToInternalRepresentation(GetTimeDeltaSinceEpoch()));
 }
 
 void SiteDataImpl::OnInitCallback(

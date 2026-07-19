@@ -200,8 +200,8 @@ const HostCache::EntryStaleness* FakeServiceEndpointRequest::GetStaleInfo()
   return nullptr;
 }
 
-bool FakeServiceEndpointRequest::IsStaleWhileRefresing() const {
-  return false;
+bool FakeServiceEndpointRequest::IsStaleWhileRefreshing() const {
+  return is_stale_while_refreshing_;
 }
 
 void FakeServiceEndpointRequest::ChangeRequestPriority(
@@ -249,6 +249,7 @@ std::unique_ptr<HostResolver::ResolveHostRequest>
 FakeServiceEndpointResolver::CreateRequest(
     url::SchemeHostPort host,
     NetworkAnonymizationKey network_anonymization_key,
+    handles::NetworkHandle target_network,
     NetLogWithSource net_log,
     std::optional<ResolveHostParameters> optional_parameters) {
   NOTREACHED();
@@ -258,6 +259,7 @@ std::unique_ptr<HostResolver::ResolveHostRequest>
 FakeServiceEndpointResolver::CreateRequest(
     const HostPortPair& host,
     const NetworkAnonymizationKey& network_anonymization_key,
+    handles::NetworkHandle target_network,
     const NetLogWithSource& net_log,
     const std::optional<ResolveHostParameters>& optional_parameters) {
   NOTREACHED();
@@ -267,6 +269,7 @@ std::unique_ptr<HostResolver::ServiceEndpointRequest>
 FakeServiceEndpointResolver::CreateServiceEndpointRequest(
     Host host,
     NetworkAnonymizationKey network_anonymization_key,
+    handles::NetworkHandle target_network,
     NetLogWithSource net_log,
     ResolveHostParameters parameters) {
   if (requests_.empty() && default_resolution_.has_value()) {
@@ -274,6 +277,7 @@ FakeServiceEndpointResolver::CreateServiceEndpointRequest(
         std::make_unique<FakeServiceEndpointRequest>();
     request->resolution_ = *default_resolution_;
     request->set_priority(parameters.initial_priority);
+    request->resolve_host_params_ = parameters;
     return request;
   }
 
@@ -282,6 +286,7 @@ FakeServiceEndpointResolver::CreateServiceEndpointRequest(
       std::move(requests_.front());
   requests_.pop_front();
   request->set_priority(parameters.initial_priority);
+  request->resolve_host_params_ = parameters;
   return request;
 }
 

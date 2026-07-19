@@ -13,26 +13,18 @@
 
 namespace features {
 
-// When enabled we will tell WebRTC that we want to use the
-// Windows.Graphics.Capture API based screen capturer, if it is available.
-BASE_FEATURE(kWebRtcAllowWgcScreenCapturer,
-             "AllowWgcScreenCapturer",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// When enabled we will tell WebRTC that we want to use the 0Hz mode of the
-// Windows.Graphics.Capture API based {Screen/Window} capturer, if the WGC
-// capturer is available and enabled. In this mode, only frames with new content
-// will be sent to the client leading to to 0fps for a static {Screen/Window}
-// source.
-// This flag only has an effect if kWebRtcAllowWgcScreenCapturer is enabled.
-BASE_FEATURE(kWebRtcAllowWgcScreenZeroHz,
-             "AllowWgcScreenZeroHz",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_WIN)
 // When enabled, instruct WGC to draw a border around the captured
 // window or screen.
 BASE_FEATURE(kWebRtcWgcRequireBorder, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, DesktopCapturer will provide a texture handle in DesktopFrame
+// instead of mapping texture data, if the WGC capturer is available and
+// enabled. In this mode, textures are not mapped by default to reduce memory
+// copies. Clients should process texture in the same sequence as desktop
+// capturer.
+BASE_FEATURE(kWebRtcAllowWgcUsingTexture, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
 // TODO(crbug.com/40872787): Deactivate the flag gradually before deleting it.

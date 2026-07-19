@@ -11,11 +11,11 @@ import './selected_keyword.js';
 import {TrackedElementManager} from '//resources/js/tracked_element/tracked_element_manager.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
+import type {LocationBarState} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 
 import {getCss} from './location_bar.css.js';
 import {getHtml} from './location_bar.html.js';
 import type {ReadonlyOmniboxElement} from './readonly_omnibox.js';
-import type {LocationBarState} from './toolbar_ui_api_data_model.mojom-webui.js';
 
 export interface LocationBarElement {
   $: {
@@ -46,10 +46,13 @@ export class LocationBarElement extends CrLitElement {
     omniboxViewState: {
       browserVersion: 0,
       uiVersion: 0,
+      formattedFullUrl: '',
       textPieces: [],
       inlineAutocompletion: '',
+      additionalText: '',
       selection: null,
       textIsUrl: false,
+      userInputInProgress: false,
     },
     locationBarFlags: {
       userInputInProgress: false,
@@ -73,6 +76,7 @@ export class LocationBarElement extends CrLitElement {
       permissionDashboard: null,
     },
     contentSettingImageStates: [],
+    pageActionStates: [],
   };
 
   private trackedElementManager_: TrackedElementManager;

@@ -71,7 +71,8 @@ class ContextualTasksComposeboxHandler
                    bool alt_key,
                    bool ctrl_key,
                    bool meta_key,
-                   bool shift_key) override;
+                   bool shift_key,
+                   bool is_voice_search) override;
   void DeleteContext(const base::UnguessableToken& file_token,
                      bool from_automatic_chip) override;
   void HandleFileUpload(bool is_image) override;
@@ -81,10 +82,15 @@ class ContextualTasksComposeboxHandler
   void AddTabContext(int32_t tab_id,
                      bool delay_upload,
                      AddTabContextCallback callback) override;
+  void StartPlatformVoiceRecognition() override;
 
   // We override this method to inject an existing `InputStateModel` if one is
   // provided by the ContextualTasksUI via the `take_input_model_callback_`.
   void InitializeInputStateModel() override;
+
+  // Overridden to return the eligibility value frozen at WebUI initialization
+  // to avoid mid-session layout shifts or jarring capability transitions.
+  bool IsContextualSearchTabSharingEligible() const override;
 
   void SetAimThreadRestoredTabs(
       std::vector<searchbox::mojom::TabInfoPtr> tabs) override;
@@ -102,7 +108,8 @@ class ContextualTasksComposeboxHandler
       const std::optional<contextual_search::ContextUploadErrorType>&
           error_type) override;
 
-  void CreateAndSendQueryMessage(const std::string& query);
+  void CreateAndSendQueryMessage(const std::string& query,
+                                 bool is_voice_search);
 
   void ResetInputStateModel() override;
   void UpdateStateFromUrl(const GURL& url) override;
@@ -174,7 +181,8 @@ class ContextualTasksComposeboxHandler
   void ContinueCreateAndSendQueryMessage(
       std::string query,
       std::optional<base::Uuid> original_task_id,
-      std::optional<base::UnguessableToken> overlay_token);
+      std::optional<base::UnguessableToken> overlay_token,
+      bool is_voice_search);
 
 #if !BUILDFLAG(IS_ANDROID)
   void OnVisualSelectionAdded(

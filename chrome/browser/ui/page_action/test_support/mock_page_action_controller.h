@@ -64,7 +64,7 @@ class MockPageActionController : public PageActionController {
               (actions::ActionId,
                const ui::ImageModel&,
                PageActionColorSource,
-               std::optional<int>),
+               std::optional<PageActionAnimationParams>),
               (override));
   MOCK_METHOD(void, ClearOverrideImage, (actions::ActionId), (override));
   MOCK_METHOD(void,
@@ -92,6 +92,7 @@ class MockPageActionController : public PageActionController {
               (actions::ActionId,
                std::optional<AnchoredMessageExpandableContent>),
               (override));
+  MOCK_METHOD(bool, ActionExists, (actions::ActionId), (const override));
   MOCK_METHOD(void,
               AddObserver,
               (actions::ActionId,

@@ -49,6 +49,7 @@ import org.chromium.chrome.test.transit.page.TabSwitcherActionMenuFacility;
 import org.chromium.chrome.test.transit.page.WebPageStation;
 import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.chrome.test.util.NewTabPageTestUtils;
+import org.chromium.components.omnibox.AutocompleteInput;
 import org.chromium.components.omnibox.OmniboxFocusReason;
 import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.base.DeviceFormFactor;
@@ -58,7 +59,6 @@ import org.chromium.ui.test.util.DeviceRestriction;
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @Batch(Batch.PER_CLASS)
-@DisableIf.Device(DeviceFormFactor.DESKTOP) // https://crbug.com/479863847
 public class IncognitoNtpOmniboxAutofocusManagerTest {
     /**
      * The maximum time to wait for omnibox focus and keyboard visibility. On some devices the
@@ -97,6 +97,7 @@ public class IncognitoNtpOmniboxAutofocusManagerTest {
     @Test
     @MediumTest
     @EnableFeatures(ChromeFeatureList.OMNIBOX_AUTOFOCUS_ON_INCOGNITO_NTP)
+    @DisableIf.Device(DeviceFormFactor.DESKTOP) // Fails on Desktop, see crbug.com/527817227.
     public void whenRegularNtpOpened_autofocusFails() {
         mActivityTestRule.loadUrlInNewTab(getOriginalNativeNtpUrl(), false);
 
@@ -204,7 +205,7 @@ public class IncognitoNtpOmniboxAutofocusManagerTest {
 
         // Open the Tab Switcher.
         LayoutTestUtils.startShowingAndWaitForLayout(
-                mActivityTestRule.getActivity().getLayoutManager(), LayoutType.TAB_SWITCHER, true);
+                mActivityTestRule.getActivity().getLayoutManager(), LayoutType.HUB, true);
 
         // Open a new incognito NTP.
         final Tab incognitoNtpTab =
@@ -228,7 +229,7 @@ public class IncognitoNtpOmniboxAutofocusManagerTest {
 
         // Open the Tab Switcher.
         LayoutTestUtils.startShowingAndWaitForLayout(
-                mActivityTestRule.getActivity().getLayoutManager(), LayoutType.TAB_SWITCHER, true);
+                mActivityTestRule.getActivity().getLayoutManager(), LayoutType.HUB, true);
 
         // Open first incognito NTP from Tab Switcher.
         final Tab incognitoNtpTab =
@@ -590,7 +591,8 @@ public class IncognitoNtpOmniboxAutofocusManagerTest {
                         mActivityTestRule
                                 .getActivity()
                                 .getToolbarManager()
-                                .setUrlBarFocus(true, OmniboxFocusReason.OMNIBOX_TAP);
+                                .beginFuseboxInput(
+                                        new AutocompleteInput(OmniboxFocusReason.OMNIBOX_TAP));
                     });
         }
 
@@ -668,7 +670,14 @@ public class IncognitoNtpOmniboxAutofocusManagerTest {
     private void setAccessibilityEnabled(boolean enabled) {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    IncognitoNtpOmniboxAutofocusManager.setAutofocusEnabledForTesting(!enabled);
+                    IncognitoNtpOmniboxAutofocusManager manager =
+                            mActivityTestRule
+                                    .getActivity()
+                                    .getToolbarManager()
+                                    .getIncognitoNtpOmniboxAutofocusManagerForTesting();
+                    if (manager != null) {
+                        manager.setAutofocusEnabledForTesting(!enabled);
+                    }
                 });
     }
 

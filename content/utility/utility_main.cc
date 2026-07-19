@@ -5,8 +5,10 @@
 #include <optional>
 
 #include "base/allocator/partition_alloc_support.h"
+#include "base/base_switches.h"
 #include "base/command_line.h"
 #include "base/debug/alias.h"
+#include "base/debug/debugger.h"
 #include "base/debug/leak_annotations.h"
 #include "base/functional/bind.h"
 #include "base/immediate_crash.h"
@@ -31,6 +33,7 @@
 #include "content/public/utility/content_utility_client.h"
 #include "content/utility/on_device_model/on_device_model_sandbox_init.h"
 #include "content/utility/utility_thread_impl.h"
+#include "content/utility/webnn/webnn_sandbox_init.h"
 #include "printing/buildflags/buildflags.h"
 #include "sandbox/policy/mojom/sandbox.mojom.h"
 #include "sandbox/policy/sandbox.h"
@@ -264,6 +267,10 @@ int UtilityMain(MainFunctionParams parameters) {
       parameters.command_line->GetSwitchValueASCII(switches::kUtilitySubType);
   SetUtilityThreadName(utility_sub_type);
 
+  if (parameters.command_line->HasSwitch(switches::kWaitForDebugger)) {
+    base::debug::WaitForDebugger(/*wait_seconds=*/60, /*silent=*/true);
+  }
+
   if (parameters.command_line->HasSwitch(switches::kUtilityStartupDialog)) {
     auto dialog_match = parameters.command_line->GetSwitchValueASCII(
         switches::kUtilityStartupDialog);
@@ -442,6 +449,16 @@ int UtilityMain(MainFunctionParams parameters) {
     // queried for hardware capabilities & any settings are applied to the
     // correct monitor.
     base::win::EnableHighDPISupport();
+  }
+
+  // WebNN model compilation needs to load the third-party
+  // execution-provider preload helper before LowerToken() below drops
+  // the token to USER_LOCKDOWN. See content/utility/webnn/
+  // webnn_sandbox_init.h for the preload helper and
+  // content/browser/service_host/utility_sandbox_delegate_win.cc for
+  // the broker-side sandbox policy.
+  if (sandbox_type == sandbox::mojom::Sandbox::kWebNNModelCompilation) {
+    CHECK(webnn::PreSandboxInit());
   }
 
   if (!sandbox::policy::IsUnsandboxedSandboxType(sandbox_type) &&

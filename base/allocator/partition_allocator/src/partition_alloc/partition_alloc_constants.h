@@ -51,10 +51,9 @@ enum class AllocFlags {
   kFastPathOrReturnNull = 1 << 5,  // Internal.
   // An allocation override hook should tag the allocated memory for MTE.
   kMemoryShouldBeTaggedForMte = 1 << 6,  // Internal.
-  // Only used when MEMORY_TOOL_REPLACES_ALLOCATOR is defined, we will attempt
-  // to use an aligned allocation function.
-  kAlignedAllocForMemoryTool = 1 << 7,  // Internal.
-  kMaxValue = kAlignedAllocForMemoryTool,
+  // An explicitly aligned allocation.
+  kAlignedAlloc = 1 << 7,  // Internal.
+  kMaxValue = kAlignedAlloc,
 };
 PA_DEFINE_OPERATORS_FOR_FLAGS(AllocFlags);
 
@@ -72,10 +71,11 @@ enum class FreeFlags {
   // `kWith[A-Za-z]+Hint` shows whether `FreeHint`'s member is available or not.
   kWithSizeHint = 1 << 4,       // `FreeHint::size` is available.
   kWithAlignmentHint = 1 << 5,  // `FreeHint::alignment` is available.
+  kWithTypeIdHint = 1 << 6,     // `FreeHint::type_id` is available.
   // Only used when MEMORY_TOOL_REPLACES_ALLOCATOR is defined, we will attempt
   // to use an aligned free function.
-  kAlignedFreeForMemoryTool = 1 << 6,  // Internal.
-  kIntendedLeak = 1 << 7,              // Internal.
+  kAlignedFreeForMemoryTool = 1 << 7,  // Internal.
+  kIntendedLeak = 1 << 8,              // Internal.
   kMaxValue = kIntendedLeak,
 };
 PA_DEFINE_OPERATORS_FOR_FLAGS(FreeFlags);
@@ -87,13 +87,20 @@ using internal::FreeFlags;
 namespace internal {
 
 // Size of a cache line. Not all CPUs in the world have a 64 bytes cache line
-// size, but as of 2021, most do. This is in particular the case for almost all
-// x86_64 and almost all ARM CPUs supported by Chromium. As this is used for
-// static alignment, we cannot query the CPU at runtime to determine the actual
-// alignment, so use 64 bytes everywhere. Since this is only used to avoid false
-// sharing, getting this wrong only results in lower performance, not incorrect
-// code.
-constexpr size_t kPartitionCachelineSize = 64;
+// size, but as of 2026, most do. This is in particular the case for almost all
+// x86_64. Arm64 chips used by Mac and iOS (all M Series and modern A Series)
+// have a 128 byte CacheLine (see section 5.6.5 Memory Cache of Apple Silicon
+// CPU Optimization Guide Version 4).
+//
+// As this is used for static alignment, we cannot query the CPU at runtime to
+// determine the actual alignment, so use 64 or 128 bytes everywhere. Since this
+// is only used to avoid false sharing, getting this wrong only results in lower
+// performance, not incorrect code.
+#if PA_BUILDFLAG(IS_APPLE) && PA_BUILDFLAG(PA_ARCH_CPU_ARM64)
+inline constexpr size_t kPartitionCachelineSize = 128;
+#else
+inline constexpr size_t kPartitionCachelineSize = 64;
+#endif
 
 // Underlying partition storage pages (`PartitionPage`s) are a power-of-2 size.
 // It is typical for a `PartitionPage` to be based on multiple system pages.
@@ -443,6 +450,16 @@ inline constexpr unsigned char kUninitializedByte = 0xAB;
 inline constexpr unsigned char kFreedByte = 0xCD;
 
 inline constexpr unsigned char kQuarantinedByte = 0xEF;
+
+// Each IntendedLeaked memory region: [0...slot_size) will be filled by:
+// [0     ... 8):         |EB B0 00 "typeid (32bit)" "unused(8bit)"|
+//   ...
+// [8(n-1)... 8n):        |EB B0 00 "typeid (32bit)" "unused(8bit)"|
+// [8n    ... slot_size): |EB EB ... EB| (remainder)
+// (*) n = slot_size / sizeof(uint64_t)
+inline constexpr uint64_t kIntendedLeakQuarantineMarker = 0xEBB0000000000000u;
+inline constexpr uint64_t kIntendedLeakQuarantineMask = 0xFFFFFF0000000000u;
+inline constexpr uint8_t kIntendedLeakQuarantineRemainder = 0xEB;
 
 }  // namespace internal
 

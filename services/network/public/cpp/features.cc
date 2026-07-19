@@ -230,9 +230,6 @@ BASE_FEATURE_PARAM(int,
 // Blocks local network requests without user permission to prevent exploitation
 // of vulnerable local devices.
 //
-// This feature is being built as a replacement for Private Network Access
-// (PNA), and if this is on PNA features may stop working.
-//
 // Spec: https://wicg.github.io/local-network-access/
 BASE_FEATURE(kLocalNetworkAccessChecks, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -350,6 +347,14 @@ BASE_FEATURE_PARAM(
 BASE_FEATURE(kDocumentIsolationPolicy, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kConnectionAllowlists, base::FEATURE_ENABLED_BY_DEFAULT);
+
+// TODO(crbug.com/526636731): Enable this by default when connection allowlist
+// ships.
+BASE_FEATURE_PARAM(bool,
+                   kConnectionAllowlistsEarlyHints,
+                   &kConnectionAllowlists,
+                   /*name=*/"ConnectionAllowlistsEarlyHints",
+                   /*default_value=*/false);
 
 // This feature enables the Prefetch() method on the NetworkContext, and makes
 // the PrefetchMatchingURLLoaderFactory check the match quality.
@@ -573,7 +578,7 @@ BASE_FEATURE_PARAM(size_t,
                    1'000'000);
 
 BASE_FEATURE(kCompressionDictionaryLimitEarlyMatching,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kNetworkServiceTaskScheduler, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE_PARAM(bool,
@@ -639,6 +644,9 @@ bool ShouldBindNetworkContextDirectReceiver() {
          base::FeatureList::IsEnabled(features::kNetworkContextDirectReceiver);
 }
 
+BASE_FEATURE(kCreateNetworkContextNonBlocking,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kDelayInitialDohProbeTimeout, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE_PARAM(base::TimeDelta,
@@ -649,6 +657,10 @@ BASE_FEATURE_PARAM(base::TimeDelta,
 
 BASE_FEATURE(kRestrictForbiddenSecurityHeaders,
              base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(bool,
+                   kRestrictForbiddenSecurityHeadersDump,
+                   &kRestrictForbiddenSecurityHeaders,
+                   false);
 
 BASE_FEATURE(kDeclarativePerformanceObserver,
              base::FEATURE_DISABLED_BY_DEFAULT);

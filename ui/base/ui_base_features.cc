@@ -80,7 +80,7 @@ BASE_FEATURE(kOnlyUseWindowResizeHelperOnResize,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls replacement of CATransactionCoordinator with a new implementation.
-BASE_FEATURE(kCATransactionV2, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kCATransactionV2, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Make live-resize of an NSWindow be asynchronous (so it doesn't block the
 // UI thread).
@@ -471,8 +471,6 @@ BASE_FEATURE(kTSFHonorAutocorrectOff, base::FEATURE_ENABLED_BY_DEFAULT);
 bool IsTSFHonorAutocorrectOffEnabled() {
   return base::FeatureList::IsEnabled(features::kTSFHonorAutocorrectOff);
 }
-
-BASE_FEATURE(kUseSystemDefaultAccentColors, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kStringWidthCache, base::FEATURE_ENABLED_BY_DEFAULT);
 

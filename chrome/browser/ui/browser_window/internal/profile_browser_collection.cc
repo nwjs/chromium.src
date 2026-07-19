@@ -14,8 +14,10 @@
 #include "chrome/browser/ui/android/android_profile_browser_collection_service.h"
 #include "chrome/browser/ui/android/android_profile_browser_collection_service_factory.h"
 #else
+#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_manager_service.h"
 #include "chrome/browser/ui/browser_manager_service_factory.h"
+#include "chrome/browser/ui/browser_window.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
 ProfileBrowserCollection::ProfileBrowserCollection(Profile* profile)
@@ -37,6 +39,14 @@ BrowserWindowInterface* ProfileBrowserCollection::FindTabbedBrowser(
     if (original && browser->GetProfile()->GetOriginalProfile() != original) {
       return true;
     }
+
+#if !BUILDFLAG(IS_ANDROID)
+    BrowserWindow* browser_window = BrowserWindow::FromBrowser(browser);
+    if (!browser_window || !browser_window->IsOnCurrentWorkspace()) {
+      return true;
+    }
+#endif
+
     match = browser;
     return false;  // stop iterating
   };

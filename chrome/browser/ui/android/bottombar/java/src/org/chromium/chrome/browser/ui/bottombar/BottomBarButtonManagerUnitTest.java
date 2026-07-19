@@ -43,6 +43,7 @@ import java.util.List;
 public class BottomBarButtonManagerUnitTest {
     private static final int HOME = ActionId.HOME_BUTTON;
     private static final int GLIC = ActionId.GLIC;
+    private static final int AI_MODE = ActionId.AI_MODE;
     private static final int NEW_TAB = ActionId.NEW_TAB;
     private static final int TAB_SWITCHER = ActionId.TAB_SWITCHER;
     private static final int APP_MENU = ActionId.APP_MENU;
@@ -52,7 +53,7 @@ public class BottomBarButtonManagerUnitTest {
     @Mock private PropertyModelChangeProcessor.ViewBinder<PropertyModel, View, PropertyKey> mBinder;
     @Mock private BottomBarButtonManager.Listener mListener;
     @Mock private BottomBarButtonContainer mContainerHome;
-    @Mock private BottomBarButtonContainer mContainerGlic;
+    @Mock private BottomBarButtonContainer mContainerExtra;
     @Mock private BottomBarButtonContainer mContainerNewTab;
     @Mock private BottomBarButtonContainer mContainerTabSwitcher;
     @Mock private BottomBarButtonContainer mContainerAppMenu;
@@ -98,7 +99,8 @@ public class BottomBarButtonManagerUnitTest {
         PropertyModel actionModel = new PropertyModel();
         mSupplierHome.set(actionModel);
 
-        verify(mListener).onButtonChanged(/* visibilityChanged= */ true);
+        verify(mListener).onButtonVisibilityChanged(HOME, true);
+        verify(mListener).onBottomBarStateChanged(/* visibilityChanged= */ true);
         assertTrue(
                 "Home button should be visible",
                 mBottomBarModel.get(BottomBarProperties.IS_HOME_BUTTON_VISIBLE));
@@ -179,10 +181,12 @@ public class BottomBarButtonManagerUnitTest {
 
         // Verify property change triggers listener before destroy.
         mSupplierHome.set(model1);
-        verify(mListener, times(1)).onButtonChanged(/* visibilityChanged= */ true);
+        verify(mListener, times(1)).onButtonVisibilityChanged(HOME, true);
+        verify(mListener, times(1)).onBottomBarStateChanged(/* visibilityChanged= */ true);
 
+        clearInvocations(mListener);
         model1.set(BottomBarProperties.IS_VISIBLE, true);
-        verify(mListener, times(1)).onButtonChanged(/* visibilityChanged= */ false);
+        verify(mListener, times(1)).onBottomBarStateChanged(/* visibilityChanged= */ false);
 
         mManager.destroy();
 
@@ -207,19 +211,23 @@ public class BottomBarButtonManagerUnitTest {
     }
 
     @Test
-    public void testOnModelChanged_WhenVisibilityDoesNotChange_ListenerNotifiedWithFalse() {
+    public void testOnModelChanged_WhenVisibilityDoesNotChange_ListenerNotifiedWithStateChanged() {
         mManager = initManager(HOME, HOME);
         clearInvocations(mListener);
 
         // Set initial model (null -> non-null). Visibility changes to true.
         PropertyModel model1 = new PropertyModel(BottomBarProperties.ALL_KEYS);
         mSupplierHome.set(model1);
-        verify(mListener).onButtonChanged(/* visibilityChanged= */ true);
+        verify(mListener).onButtonVisibilityChanged(HOME, true);
+        verify(mListener).onBottomBarStateChanged(/* visibilityChanged= */ true);
 
-        // Set a different model (non-null -> non-null). Button remains visible.
+        clearInvocations(mListener);
+
+        // Set a different model (non-null -> non-null). Button remains visible. Only properties
+        // change.
         PropertyModel model2 = new PropertyModel(BottomBarProperties.ALL_KEYS);
         mSupplierHome.set(model2);
-        verify(mListener).onButtonChanged(/* visibilityChanged= */ false);
+        verify(mListener).onBottomBarStateChanged(/* visibilityChanged= */ false);
 
         // Reset history to verify exactly zero new calls happen.
         clearInvocations(mListener);
@@ -295,7 +303,8 @@ public class BottomBarButtonManagerUnitTest {
             case HOME:
                 return mContainerHome;
             case GLIC:
-                return mContainerGlic;
+            case AI_MODE:
+                return mContainerExtra;
             case NEW_TAB:
                 return mContainerNewTab;
             case TAB_SWITCHER:
@@ -312,7 +321,8 @@ public class BottomBarButtonManagerUnitTest {
             case HOME:
                 return BottomBarProperties.IS_HOME_BUTTON_VISIBLE;
             case GLIC:
-                return BottomBarProperties.IS_GLIC_BUTTON_VISIBLE;
+            case AI_MODE:
+                return BottomBarProperties.IS_EXTRA_BUTTON_VISIBLE;
             case NEW_TAB:
                 return BottomBarProperties.IS_NEW_TAB_BUTTON_VISIBLE;
             case TAB_SWITCHER:

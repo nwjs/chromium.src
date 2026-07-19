@@ -8,9 +8,13 @@
 
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
 #include "components/optimization_guide/content/browser/page_content_proto_util.h"
+#include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/render_widget_host.h"
+#include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
 #include "ui/gfx/geometry/point.h"
+#include "ui/gfx/geometry/point_conversions.h"
 #include "ui/gfx/geometry/point_f.h"
 
 namespace actor {
@@ -57,36 +61,6 @@ RenderFrameHost* GetRootFrameForWidget(content::WebContents& web_contents,
   return root_frame;
 }
 
-}  // namespace
-
-RenderFrameHost* FindTargetLocalRootFrame(tabs::TabHandle tab_handle,
-                                          PageTarget target) {
-  tabs::TabInterface* tab = tab_handle.Get();
-  if (!tab) {
-    return nullptr;
-  }
-
-  content::WebContents& contents = *tab->GetContents();
-
-  if (std::holds_alternative<gfx::Point>(target)) {
-    content::RenderWidgetHost* target_rwh =
-        contents.FindWidgetAtPoint(gfx::PointF(std::get<gfx::Point>(target)));
-    if (!target_rwh) {
-      return nullptr;
-    }
-    return GetRootFrameForWidget(contents, target_rwh);
-  }
-
-  CHECK(std::holds_alternative<DomNode>(target));
-
-  content::RenderFrameHost* target_frame =
-      optimization_guide::GetRenderFrameForDocumentIdentifier(
-          *tab->GetContents(), std::get<DomNode>(target).document_identifier);
-
-  // After finding the target frame, walk up to its local root.
-  return GetLocalRoot(target_frame);
-}
-
 // Return TargetNodeInfo from hit test against last observed APC. Returns
 // std::nullopt if Target does not hit any node.
 std::optional<TargetNodeInfo> FindLastObservedNodeForActionTargetId(
@@ -113,37 +87,106 @@ std::optional<TargetNodeInfo> FindLastObservedNodeForActionTargetPoint(
     return std::nullopt;
   }
 
+  // TODO(crbug.com/426021822): FindNodeAtPoint does not handle corner cases
+  // like clip paths. Need more checks to ensure we don't drop actions
+  // unnecessarily.
   // TODO(rodneyding): Refactor FindNode* API to include optional target frame
   // document identifier to reduce search space.
   return optimization_guide::FindNodeAtPoint(*apc, target_blink_pixels);
 }
 
+}  // namespace
+
+// Return `TargetNodeInfo` from hit test against last observed APC. Returns
+// std::nullopt if Target does not hit any node.
+//
+// PageTarget coordinates are view-relative DIPs. This function handles
+// scaling to visual-viewport-relative device pixels (BlinkSpace) required by
+// APC hit testing.
 std::optional<TargetNodeInfo> FindLastObservedNodeForActionTarget(
     const AnnotatedPageContent* apc,
-    const PageTarget& target) {
+    const PageTarget& target,
+    tabs::TabInterface* tab) {
   return std::visit(
       absl::Overload{
           [&](const DomNode& node) {
             return FindLastObservedNodeForActionTargetId(apc, node);
           },
-          [&](const gfx::Point& point) {
-            return FindLastObservedNodeForActionTargetPoint(apc, point);
+          [&](const gfx::Point& point_dip) {
+            float dsf = 1.0f;
+            content::WebContents* contents = tab ? tab->GetContents() : nullptr;
+            content::RenderWidgetHostView* view =
+                contents ? contents->GetRenderWidgetHostView() : nullptr;
+            if (view) {
+              dsf = view->GetDeviceScaleFactor();
+            }
+            // APC hit testing requires visual-viewport-relative
+            // device pixels (BlinkSpace). PageTarget points are
+            // provided in DIPs.
+            return FindLastObservedNodeForActionTargetPoint(
+                apc, gfx::ScaleToRoundedPoint(point_dip, dsf));
           },
       },
       target);
+}
+
+RenderFrameHost* FindTargetLocalRootFrame(tabs::TabHandle tab_handle,
+                                          PageTarget target) {
+  tabs::TabInterface* tab = tab_handle.Get();
+  content::WebContents* contents = tab ? tab->GetContents() : nullptr;
+  if (!contents) {
+    return nullptr;
+  }
+
+  if (std::holds_alternative<gfx::Point>(target)) {
+    content::RenderWidgetHost* target_rwh =
+        contents->FindWidgetAtPoint(gfx::PointF(std::get<gfx::Point>(target)));
+    if (!target_rwh) {
+      return nullptr;
+    }
+    return GetRootFrameForWidget(*contents, target_rwh);
+  }
+
+  CHECK(std::holds_alternative<DomNode>(target));
+
+  content::RenderFrameHost* target_frame =
+      optimization_guide::GetRenderFrameForDocumentIdentifier(
+          *contents, std::get<DomNode>(target).document_identifier);
+
+  // After finding the target frame, walk up to its local root.
+  return GetLocalRoot(target_frame);
 }
 
 autofill::FieldGlobalId GetFieldIdFromPageTarget(
     const AnnotatedPageContent* last_observation,
     tabs::TabInterface* tab,
     const PageTarget& target) {
+  if (!tab) {
+    return {};
+  }
   if (std::optional<TargetNodeInfo> node_info =
-          FindLastObservedNodeForActionTarget(last_observation, target)) {
+          FindLastObservedNodeForActionTarget(last_observation, target, tab)) {
     if (content::WebContents* web_contents = tab->GetContents()) {
       if (RenderFrameHost* rfh =
               optimization_guide::GetRenderFrameForDocumentIdentifier(
                   *web_contents,
                   node_info->document_identifier.serialized_token())) {
+        // Validation check: ensure that the target frame's underlying widget
+        // matches the widget returned by hit testing at the targeted
+        // coordinate. This prevents a compromised renderer from redirecting
+        // a coordinate-targeted action to its own frame via a spoofed
+        // popup_window.
+        if (std::holds_alternative<gfx::Point>(target)) {
+          // FindWidgetAtPoint expects view-relative DIPs. PageTarget points are
+          // already in DIPs.
+          const gfx::Point& point = std::get<gfx::Point>(target);
+          content::RenderWidgetHost* actual_rwh =
+              web_contents->FindWidgetAtPoint(gfx::PointF(point));
+          if (!actual_rwh || actual_rwh != rfh->GetRenderWidgetHost()) {
+            return {};
+          }
+        }
+
         return autofill::FieldGlobalId(
             autofill::LocalFrameToken(rfh->GetFrameToken().value()),
             autofill::FieldRendererId(node_info->node->content_attributes()

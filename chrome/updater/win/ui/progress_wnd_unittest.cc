@@ -19,7 +19,9 @@
 #include "chrome/updater/util/win_util.h"
 #include "chrome/updater/win/test/test_executables.h"
 #include "chrome/updater/win/test/test_strings.h"
+#include "chrome/updater/win/ui/l10n_util.h"
 #include "chrome/updater/win/ui/message_loop.h"
+#include "chrome/updater/win/ui/resources/updater_installer_strings.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
@@ -297,6 +299,41 @@ TEST_F(ProgressWndTest, OnWaitingToDownload) {
   }
 }
 
+TEST_F(ProgressWndTest, OnDownloading) {
+  struct TestCase {
+    const std::optional<base::TimeDelta> time_remaining;
+    const bool is_canceled;
+    const unsigned int expected_string_id;
+  } cases[] = {
+      {base::Seconds(20), false, IDS_DOWNLOADING_BASE},
+      {base::Minutes(5), false, IDS_DOWNLOADING_BASE},
+      {base::Hours(2), false, IDS_DOWNLOADING_BASE},
+      {std::nullopt, false, IDS_DOWNLOADING_BASE},
+      {base::Seconds(0), false, IDS_DOWNLOADING_COMPLETED_BASE},
+      {base::Seconds(20), true, IDS_CANCELING_BASE},
+  };
+
+  MessageLoop ui_message_loop;
+  std::unique_ptr<ProgressWnd> progress_wnd =
+      MakeProgressWindow(&ui_message_loop);
+
+  for (const auto& test_case : cases) {
+    progress_wnd->is_canceled_ = test_case.is_canceled;
+    progress_wnd->OnDownloading("app-id", u"app-name", test_case.time_remaining,
+                                50);
+    EXPECT_EQ(progress_wnd->cur_state_, ProgressWnd::States::STATE_DOWNLOADING);
+    EXPECT_FALSE(
+        ::IsWindowEnabled(::GetDlgItem(progress_wnd->hwnd(), IDC_CLOSE)));
+    std::wstring state_text(kMaxStringLen, 0);
+    ::GetDlgItemTextW(progress_wnd->hwnd(), IDC_INSTALLER_STATE_TEXT,
+                      state_text.data(), kMaxStringLen);
+    EXPECT_STREQ(state_text.c_str(),
+                 GetLocalizedString(test_case.expected_string_id).c_str());
+  }
+
+  progress_wnd->DestroyWindow();
+}
+
 TEST_F(ProgressWndTest, OnPause) {
   MessageLoop ui_message_loop;
   std::unique_ptr<ProgressWnd> progress_wnd =
@@ -377,6 +414,30 @@ TEST_F(ProgressWndTest, LaunchCmdLine) {
   EXPECT_TRUE(event_holder.event.TimedWait(TestTimeouts::action_max_timeout()));
   EXPECT_TRUE(test::WaitFor(
       [] { return test::FindProcesses(kTestProcessExecutableName).empty(); }));
+}
+
+TEST_F(ProgressWndTest, FlatButtonSubclass) {
+  MessageLoop ui_message_loop;
+  std::unique_ptr<ProgressWnd> progress_wnd =
+      MakeProgressWindow(&ui_message_loop);
+
+  EXPECT_EQ(progress_wnd->btn1_.hwnd(),
+            ::GetDlgItem(progress_wnd->hwnd(), IDC_BUTTON1));
+  EXPECT_TRUE(progress_wnd->btn1_.IsWindow());
+
+  EXPECT_EQ(progress_wnd->btn2_.hwnd(),
+            ::GetDlgItem(progress_wnd->hwnd(), IDC_BUTTON2));
+  EXPECT_TRUE(progress_wnd->btn2_.IsWindow());
+
+  EXPECT_EQ(progress_wnd->close_btn_.hwnd(),
+            ::GetDlgItem(progress_wnd->hwnd(), IDC_CLOSE));
+  EXPECT_TRUE(progress_wnd->close_btn_.IsWindow());
+
+  EXPECT_EQ(progress_wnd->get_help_btn_.hwnd(),
+            ::GetDlgItem(progress_wnd->hwnd(), IDC_GET_HELP));
+  EXPECT_TRUE(progress_wnd->get_help_btn_.IsWindow());
+
+  progress_wnd->DestroyWindow();
 }
 
 }  // namespace updater::ui

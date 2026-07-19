@@ -77,6 +77,8 @@
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_features.h"
+#include "media/mojo/mojom/media_types.mojom.h"
+#include "services/network/public/mojom/web_sandbox_flags.mojom.h"
 #include "third_party/blink/public/common/features_generated.h"
 #include "third_party/blink/public/common/mediastream/media_stream_request.h"
 #include "third_party/blink/public/mojom/content_extraction/ai_page_content.mojom.h"
@@ -94,11 +96,6 @@
 #include "ui/gfx/geometry/skia_conversions.h"
 #include "url/android/gurl_android.h"
 #include "url/origin.h"
-
-#if BUILDFLAG(ENABLE_PRINTING)
-#include "components/printing/browser/print_composite_client.h"
-#endif
-
 #if BUILDFLAG(ENABLE_PAINT_PREVIEW)
 #include "components/paint_preview/browser/paint_preview_client.h"
 #endif
@@ -282,6 +279,15 @@ bool TabWebContentsDelegateAndroid::IsWebContentsCreationOverridden(
     // tab. Note, we do this even if the task isn't active (e.g. paused) so that
     // a user action on behalf of the actor has the same behavior since the
     // resumed task will still be fixed to the tab.
+
+    // However, if the opener is sandboxed and restricted from top-level
+    // navigation, we cannot force a same-tab redirection as it would violate
+    // the sandbox. Instead, we decline to override creation, allowing the
+    // browser to safely open a new popup window (since kPopups is allowed).
+    if (opener &&
+        opener->IsSandboxed(network::mojom::WebSandboxFlags::kTopNavigation)) {
+      return false;
+    }
     return true;
   }
 
@@ -578,18 +584,6 @@ void TabWebContentsDelegateAndroid::GetAIPageContent(
       }).Then(std::move(callback)));
 }
 
-#if BUILDFLAG(ENABLE_PRINTING)
-void TabWebContentsDelegateAndroid::PrintCrossProcessSubframe(
-    content::WebContents* web_contents,
-    const gfx::Rect& rect,
-    int document_cookie,
-    content::RenderFrameHost* subframe_host) const {
-  auto* client = printing::PrintCompositeClient::FromWebContents(web_contents);
-  if (client)
-    client->PrintCrossProcessSubframe(rect, document_cookie, subframe_host);
-}
-#endif
-
 #if BUILDFLAG(ENABLE_PAINT_PREVIEW)
 void TabWebContentsDelegateAndroid::CapturePaintPreviewOfSubframe(
     content::WebContents* web_contents,
@@ -857,45 +851,60 @@ bool TabWebContentsDelegateAndroid::IsImmersivePlaybackEnabled() const {
 }
 
 void TabWebContentsDelegateAndroid::RequestImmersivePlaybackConfirmation(
-    base::OnceCallback<
-        void(blink::mojom::ImmersivePlaybackConfirmationResultPtr)> callback) {
+    const content::ImmersiveOptions& default_options,
+    base::OnceCallback<void(content::ImmersivePlaybackConfirmationResult)>
+        callback) {
   JNIEnv* env = base::android::AttachCurrentThread();
   ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);
   if (obj.is_null()) {
-    auto result = blink::mojom::ImmersivePlaybackConfirmationResult::New();
-    result->status = blink::mojom::ImmersivePlaybackConfirmationStatus::kFailed;
+    content::ImmersivePlaybackConfirmationResult result;
+    result.status = content::ImmersivePlaybackConfirmationStatus::kFailed;
     std::move(callback).Run(std::move(result));
     return;
   }
 
   auto wrapped_callback = base::BindOnce(
-      [](base::OnceCallback<void(
-             blink::mojom::ImmersivePlaybackConfirmationResultPtr)> callback,
+      [](const content::ImmersiveOptions& default_options,
+         base::OnceCallback<void(content::ImmersivePlaybackConfirmationResult)>
+             callback,
          int packed_result) {
-        auto result_ptr =
-            blink::mojom::ImmersivePlaybackConfirmationResult::New();
+        content::ImmersivePlaybackConfirmationResult result;
 
-        result_ptr->status =
-            static_cast<blink::mojom::ImmersivePlaybackConfirmationStatus>(
+        result.status =
+            static_cast<content::ImmersivePlaybackConfirmationStatus>(
                 packed_result & 0xF);
 
-        if (result_ptr->status ==
-            blink::mojom::ImmersivePlaybackConfirmationStatus::kConfirmed) {
-          result_ptr->options = blink::mojom::ImmersiveOptions::New();
-          result_ptr->options->stereo_mode =
-              static_cast<blink::mojom::ImmersiveStereoMode>(
-                  (packed_result >> 4) & 0xF);
-          result_ptr->options->projection_type =
-              static_cast<blink::mojom::ImmersiveProjectionType>(
+        if (result.status ==
+            content::ImmersivePlaybackConfirmationStatus::kConfirmed) {
+          content::ImmersiveOptions options;
+          options.stereo_mode = static_cast<content::ImmersiveStereoMode>(
+              (packed_result >> 4) & 0xF);
+          options.projection_type =
+              static_cast<content::ImmersiveProjectionType>(
                   (packed_result >> 8) & 0xF);
+
+          // When the backend provides a non-default spatial format, the
+          // confirmation flow skips the format selection dialog and returns
+          // those exact options. Therefore, any confirmed option matching a
+          // non-default spatial format is marked as recommended.
+          options.is_recommended =
+              (options.stereo_mode == default_options.stereo_mode &&
+               options.projection_type == default_options.projection_type &&
+               (default_options.stereo_mode !=
+                    content::ImmersiveStereoMode::kMono ||
+                default_options.projection_type !=
+                    content::ImmersiveProjectionType::kQuad));
+          result.options = options;
         }
 
-        std::move(callback).Run(std::move(result_ptr));
+        std::move(callback).Run(std::move(result));
       },
-      std::move(callback));
+      default_options, std::move(callback));
 
   Java_TabWebContentsDelegateAndroidImpl_requestImmersivePlaybackConfirmation(
-      env, obj, base::android::ToJniCallback(env, std::move(wrapped_callback)));
+      env, obj, static_cast<int>(default_options.stereo_mode),
+      static_cast<int>(default_options.projection_type),
+      base::android::ToJniCallback(env, std::move(wrapped_callback)));
 }
 
 }  // namespace android

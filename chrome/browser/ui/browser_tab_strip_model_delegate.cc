@@ -66,39 +66,6 @@ BrowserTabStripModelDelegate::BrowserTabStripModelDelegate(Browser* browser)
 
 BrowserTabStripModelDelegate::~BrowserTabStripModelDelegate() = default;
 
-bool BrowserTabStripModelDelegate::IsTabGlicPinned(tabs::TabHandle tab_handle) {
-  auto* service =
-      glic::GlicKeyedServiceFactory::GetGlicKeyedService(browser_->profile());
-
-  return service->active_instance_sharing_manager().IsTabPinned(tab_handle);
-}
-
-bool BrowserTabStripModelDelegate::GlicPinTabs(
-    base::span<const tabs::TabHandle> tab_handles) {
-  auto* service =
-      glic::GlicKeyedServiceFactory::GetGlicKeyedService(browser_->profile());
-
-  return service->active_instance_sharing_manager().PinTabs(tab_handles);
-}
-
-bool BrowserTabStripModelDelegate::GlicUnpinTabs(
-    base::span<const tabs::TabHandle> tab_handles) {
-  auto* service =
-      glic::GlicKeyedServiceFactory::GetGlicKeyedService(browser_->profile());
-
-  return service->active_instance_sharing_manager().UnpinTabs(tab_handles);
-}
-
-void BrowserTabStripModelDelegate::OpenGlicWindowFromSharedTab() {
-  auto* service =
-      glic::GlicKeyedServiceFactory::GetGlicKeyedService(browser_->profile());
-
-  if (!service->instance_coordinator().IsAnyPanelShowing()) {
-    service->ToggleUI(/*bwi=*/nullptr, /*prevent_close=*/true,
-                      glic::mojom::InvocationSource::kSharedTab);
-  }
-}
-
 void BrowserTabStripModelDelegate::GlicUnpinTabsFromAllConversations(
     base::span<const tabs::TabHandle> tab_handles) {
   auto* service =
@@ -174,7 +141,7 @@ bool BrowserTabStripModelDelegate::CanDuplicateContentsAt(int index) {
 }
 
 bool BrowserTabStripModelDelegate::IsTabStripEditable() {
-  return browser_->window()->IsTabStripEditable();
+  return BrowserWindow::FromBrowser(browser_)->IsTabStripEditable();
 }
 
 content::WebContents* BrowserTabStripModelDelegate::DuplicateContentsAt(
@@ -434,7 +401,7 @@ void BrowserTabStripModelDelegate::OnRemovingAllTabsFromGroups(
 // BrowserTabStripModelDelegate, private:
 
 void BrowserTabStripModelDelegate::CloseFrame() {
-  browser_->window()->Close();
+  browser_->GetWindow()->Close();
 }
 
 bool BrowserTabStripModelDelegate::BrowserSupportsHistoricalEntries() {

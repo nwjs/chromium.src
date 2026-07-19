@@ -6,9 +6,14 @@ package org.chromium.chrome.browser.media.immersive_playback;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -34,13 +39,13 @@ import org.robolectric.shadows.ShadowLooper;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.blink.mojom.ImmersiveProjectionType;
-import org.chromium.blink.mojom.ImmersiveStereoMode;
 import org.chromium.chrome.browser.media.immersive_playback.components.ImmersiveVideoControlAutoHideManager;
 import org.chromium.chrome.browser.media.immersive_playback.components.ImmersiveVideoControlCoordinator;
 import org.chromium.chrome.browser.media.immersive_playback.components.ImmersiveVideoControlView;
 import org.chromium.chrome.browser.media.immersive_playback.components.ImmersiveVideoPlayerCoordinator;
 import org.chromium.components.thinwebview.CompositorView;
+import org.chromium.content_public.browser.ImmersiveProjectionType;
+import org.chromium.content_public.browser.ImmersiveStereoMode;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.xr.scenecore.XrCurvedSurfaceEntityHolder;
 import org.chromium.ui.xr.scenecore.XrInteractableComponent;
@@ -53,6 +58,7 @@ import org.chromium.ui.xr.scenecore.XrSurfaceEntityStereoMode;
 import org.chromium.ui.xr.scenecore.XrSurfaceEntityView;
 
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 /** Tests for {@link ImmersiveVideoPlaybackCoordinator}. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -164,16 +170,16 @@ public class ImmersiveVideoPlaybackCoordinatorTest {
         verify(mSurfaceEntityHolder).setSurfacePixelDimensions(width, height);
     }
 
-    /** Tests that updateVideoLayout updates shape and stereo mode. */
+    /** Tests that onFormatSelected updates shape and stereo mode. */
     @Test
     @UiThreadTest
-    public void testUpdateVideoLayout() {
+    public void testVideoLayoutUpdates() {
         clearInvocations(mSurfaceMovableComponent);
         clearInvocations(mControlPanelMovableComponent);
         clearInvocations(mSurfaceEntityHolder);
 
         // Switch to HEMISPHERE and SIDE_BY_SIDE.
-        mCoordinator.updateVideoLayout(
+        mCoordinator.onFormatSelected(
                 ImmersiveStereoMode.SIDE_BY_SIDE, ImmersiveProjectionType.HEMISPHERE);
         ShadowLooper.idleMainLooper();
 
@@ -188,7 +194,7 @@ public class ImmersiveVideoPlaybackCoordinatorTest {
         clearInvocations(mSurfaceEntityHolder);
 
         // Switch to SPHERE and TOP_BOTTOM.
-        mCoordinator.updateVideoLayout(
+        mCoordinator.onFormatSelected(
                 ImmersiveStereoMode.TOP_BOTTOM, ImmersiveProjectionType.SPHERE);
         ShadowLooper.idleMainLooper();
 
@@ -202,7 +208,7 @@ public class ImmersiveVideoPlaybackCoordinatorTest {
         clearInvocations(mSurfaceEntityHolder);
 
         // Switch to QUAD and MONO (default state).
-        mCoordinator.updateVideoLayout(ImmersiveStereoMode.MONO, ImmersiveProjectionType.QUAD);
+        mCoordinator.onFormatSelected(ImmersiveStereoMode.MONO, ImmersiveProjectionType.QUAD);
         ShadowLooper.idleMainLooper();
 
         verify(mSurfaceEntityHolder).setSurfaceShape(XrSurfaceEntityShape.QUAD);
@@ -307,6 +313,81 @@ public class ImmersiveVideoPlaybackCoordinatorTest {
 
         verify(mControlPanelHolder).setEntityEnabled(false);
         assertFalse(panel.isFormatButtonSelectedForTesting());
+    }
+
+    /**
+     * Tests that all components in the hierarchy are disposed strictly bottom-up (children before
+     * parents).
+     */
+    @Test
+    @UiThreadTest
+    public void testDisposalHierarchyOrder() {
+        XrPanelEntityHolder formatPanelHolder = mock(XrPanelEntityHolder.class);
+        when(formatPanelHolder.getEntitySize()).thenReturn(new SizeF(1f, 1f));
+        when(mXrSceneCoreSessionManager.createPanelEntity(any(), any()))
+                .thenReturn(formatPanelHolder);
+
+        mCoordinator.onFormatClicked();
+
+        Consumer<XrPanelEntityHolder> markAsDisposed =
+                holder ->
+                        doThrow(new IllegalStateException("Entity is already disposed"))
+                                .when(holder)
+                                .setEntityEnabled(anyBoolean());
+
+        // 1. Disposing Player surface entity disposes its children (Control Panel and Format
+        // Panel).
+        doAnswer(
+                        invocation -> {
+                            markAsDisposed.accept(mControlPanelHolder);
+                            markAsDisposed.accept(formatPanelHolder);
+                            return null;
+                        })
+                .when(mSurfaceEntityHolder)
+                .dispose();
+
+        // 2. Disposing Control Panel entity disposes its child (Format Panel).
+        doAnswer(
+                        invocation -> {
+                            markAsDisposed.accept(formatPanelHolder);
+                            return null;
+                        })
+                .when(mControlPanelHolder)
+                .dispose();
+
+        mCoordinator.dispose();
+        verify(formatPanelHolder).dispose();
+        verify(mControlPanelHolder).dispose();
+        verify(mSurfaceEntityHolder).dispose();
+    }
+
+    /** Tests that recommended options are only populated when provided by native. */
+    @Test
+    @UiThreadTest
+    public void testRecommendedOptionOnlyProvidedByNative() {
+        var formatCoordinator = mCoordinator.getFormatCoordinatorForTesting();
+
+        // 1. User selects a format via UI.
+        mCoordinator.onFormatSelected(
+                ImmersiveStereoMode.SIDE_BY_SIDE, ImmersiveProjectionType.HEMISPHERE);
+        assertNull(formatCoordinator.getRecommendedStereoModeForTesting());
+        assertNull(formatCoordinator.getRecommendedProjectionTypeForTesting());
+
+        // 2. Native side sets immersive video options with isRecommended = false.
+        mCoordinator.setImmersiveVideoOptions(
+                ImmersiveStereoMode.TOP_BOTTOM, ImmersiveProjectionType.SPHERE, false);
+        assertNull(formatCoordinator.getRecommendedStereoModeForTesting());
+        assertNull(formatCoordinator.getRecommendedProjectionTypeForTesting());
+
+        // 3. Native side sets immersive video options with isRecommended = true.
+        mCoordinator.setImmersiveVideoOptions(
+                ImmersiveStereoMode.TOP_BOTTOM, ImmersiveProjectionType.SPHERE, true);
+        assertEquals(
+                ImmersiveStereoMode.TOP_BOTTOM,
+                (int) formatCoordinator.getRecommendedStereoModeForTesting());
+        assertEquals(
+                ImmersiveProjectionType.SPHERE,
+                (int) formatCoordinator.getRecommendedProjectionTypeForTesting());
     }
 
     /** Test subclass that allows injecting mocked dependencies by overriding protected methods. */

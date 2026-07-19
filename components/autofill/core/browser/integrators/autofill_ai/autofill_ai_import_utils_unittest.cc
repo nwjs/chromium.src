@@ -156,6 +156,7 @@ class AutofillAiImportUtilsTest : public testing::Test {
             autofill_client().GetSyncService(),
             webdata_helper_.autofill_webdata_service(),
             /*history_service=*/nullptr,
+            /*pcontext_manager=*/nullptr,
             /*strike_database=*/nullptr,
             /*variation_country_code=*/GeoIpCountryCode("US")));
     autofill_client().SetUpPrefsAndIdentityForAutofillAi();
@@ -400,6 +401,33 @@ TEST_F(AutofillAiImportUtilsTest, DoNotImportNationalIdCardInIndia) {
       ElementsAre(Property(&EntityInstance::type,
                            EntityType(EntityTypeName::kNationalIdCard))));
   autofill_client().SetVariationConfigCountryCode(GeoIpCountryCode("IN"));
+  EXPECT_THAT(GetPossibleEntitiesFromSubmittedForm(fields, autofill_client()),
+              IsEmpty());
+}
+
+// Tests that entities are not offered for import when blocked by enterprise
+// policy.
+TEST_F(AutofillAiImportUtilsTest, EnterprisePolicyBlocked) {
+  std::vector<std::unique_ptr<AutofillField>> fields;
+  fields.push_back(
+      CreateInput(FormControlType::kInputText, NATIONAL_ID_CARD_NUMBER, "123"));
+  EXPECT_THAT(GetPossibleEntitiesFromSubmittedForm(fields, autofill_client()),
+              Not(IsEmpty()));
+
+  autofill_client().SetAutofillTypeBlockedByPolicy(
+      AutofillClient::AutofillPolicyDataCategory::kIdentityDocs, true);
+  EXPECT_THAT(GetPossibleEntitiesFromSubmittedForm(fields, autofill_client()),
+              IsEmpty());
+}
+
+// Tests that read-only entity is not offered for import.
+TEST_F(AutofillAiImportUtilsTest, DoNotImportReadOnlyEntities) {
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillAiWalletFlightReservation};
+
+  std::vector<std::unique_ptr<AutofillField>> fields;
+  fields.push_back(CreateInput(FormControlType::kInputText,
+                               FLIGHT_RESERVATION_FLIGHT_NUMBER, "LH123"));
   EXPECT_THAT(GetPossibleEntitiesFromSubmittedForm(fields, autofill_client()),
               IsEmpty());
 }

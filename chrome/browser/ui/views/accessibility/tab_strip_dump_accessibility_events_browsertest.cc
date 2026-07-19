@@ -78,8 +78,9 @@ IN_PROC_BROWSER_TEST_P(TabStripDumpAccessibilityEventsTest,
   ASSERT_EQ(root->GetClassName(), "BrowserRootView");
 }
 
+// TODO(crbug.com/468203351): disabled due to consistent failures.
 IN_PROC_BROWSER_TEST_P(TabStripDumpAccessibilityEventsTest,
-                       WindowActivationFiresSelectionForJaws) {
+                       DISABLED_WindowActivationFiresSelectionForJaws) {
   ui::AXPlatform::GetInstance().NotifyAssistiveTechChanged(
       ui::AssistiveTech::kJaws);
 
@@ -101,8 +102,9 @@ IN_PROC_BROWSER_TEST_P(TabStripDumpAccessibilityEventsTest,
   WaitForBrowserSerialization();
 }
 
+// TODO(crbug.com/468203351): disabled due to consistent failures.
 IN_PROC_BROWSER_TEST_P(TabStripDumpAccessibilityEventsTest,
-                       WindowActivationNoSelectionWithoutJaws) {
+                       DISABLED_WindowActivationNoSelectionWithoutJaws) {
   SKIP_IF_VIEWS_AX_DISABLED();
 
   ui::AXPlatform::GetInstance().NotifyAssistiveTechChanged(
@@ -118,12 +120,20 @@ IN_PROC_BROWSER_TEST_P(TabStripDumpAccessibilityEventsTest,
   WaitForBrowserSerialization();
 }
 
+// TODO(crbug.com/468203351): Re-enable when no longer flaky on Windows.
+#if BUILDFLAG(IS_WIN)
+#define MAYBE_WindowActivationFiresSelectionOnNewTab \
+  DISABLED_WindowActivationFiresSelectionOnNewTab
+#else
+#define MAYBE_WindowActivationFiresSelectionOnNewTab \
+  WindowActivationFiresSelectionOnNewTab
+#endif
 IN_PROC_BROWSER_TEST_P(TabStripDumpAccessibilityEventsTest,
-                       WindowActivationFiresSelectionOnNewTab) {
+                       MAYBE_WindowActivationFiresSelectionOnNewTab) {
   ui::AXPlatform::GetInstance().NotifyAssistiveTechChanged(
       ui::AssistiveTech::kJaws);
 
-  chrome::NewTab(browser());
+  chrome::NewTab(browser(), NewTabTypes::kNoUserAction);
   WaitForBrowserSerialization();
 
   widget()->Activate();

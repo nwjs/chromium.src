@@ -46,6 +46,11 @@ CC_BASE_EXPORT extern const base::FeatureParam<int> kReclaimDelayInSeconds;
 // that it doesn't wait for resource releases that will never come.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kTileOOMFreezeMitigation);
 
+// When enabled, CompositeForTest unconditionally stops deferring commits before
+// running the main frame. Disable in tests that need to observe paint holding
+// state through BeginFrame.
+CC_BASE_EXPORT BASE_DECLARE_FEATURE(kStopDeferringCommitsInCompositeForTest);
+
 // When a LayerTreeHostImpl is not visible, clear its transferable resources
 // that haven't been imported into viz.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kClearCanvasResourcesInBackground);
@@ -162,6 +167,26 @@ CC_BASE_EXPORT BASE_DECLARE_FEATURE(kResolveLargeImageDecodes);
 // initialized to 0 instead of now.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kInitImageDecodeLastUseTime);
 
+// When enabled, throttles the framerate after a certain number of no-damage
+// frames in a row.
+CC_BASE_EXPORT BASE_DECLARE_FEATURE(kThrottleRepeatedNoDamageFrames);
+// Number of frames after which we start throttling.
+CC_BASE_EXPORT extern const base::FeatureParam<int>
+    kThrottleRepeatedNoDamageFramesThreshold1;
+// Number of frames beyond |Threshhold1| after which we increase throttling.
+CC_BASE_EXPORT extern const base::FeatureParam<int>
+    kThrottleRepeatedNoDamageFramesThreshold2;
+// Factor by which we throttle after |Threshold1| frames have passed. E.g. a
+// value of 2 would throttle the framerate to 1/2.
+CC_BASE_EXPORT extern const base::FeatureParam<int>
+    kThrottleRepeatedNoDamageFramesIntervalFactor1;
+// Factor by which we increase the throttling after |Threshold1 + Threshold2|
+// frames have passed. Compounds on the throttling from |Factor1|. E.g. with
+// |Factor1 = 2| and |Factor2 = 3|, we would throttle to 1/6 the original
+// (unthrottled) framerate.
+CC_BASE_EXPORT extern const base::FeatureParam<int>
+    kThrottleRepeatedNoDamageFramesIntervalFactor2;
+
 // On devices with a high refresh rate, whether to throttle main (not impl)
 // frame production to 60Hz.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kThrottleMainFrameTo60Hz);
@@ -169,6 +194,9 @@ CC_BASE_EXPORT BASE_DECLARE_FEATURE(kThrottleMainFrameTo60Hz);
 #if BUILDFLAG(IS_ANDROID)
 // Same as above, for WebView.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kThrottleMainFrameTo60HzWebView);
+
+// Same as above, for Desktop Android.
+CC_BASE_EXPORT BASE_DECLARE_FEATURE(kThrottleMainFrameTo60HzDesktopAndroid);
 #endif
 
 // When enabled, clients can request a high framerate, which disables
@@ -190,22 +218,7 @@ CC_BASE_EXPORT void SetIsEligibleForThrottleMainFrameTo60Hz(bool is_eligible);
 // capture.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kViewTransitionCaptureAndDisplay);
 
-// Allow the main thread to throttle the main frame rate.
-// Note that the composited animations will not be affected.
-// Typically the throttle is triggered with the render-blocking API <link
-// rel="expect" blocking="full-frame-rate"/>.
-CC_BASE_EXPORT BASE_DECLARE_FEATURE(kRenderThrottleFrameRate);
-// The throttled frame rate when the main thread requests a throttle.
-CC_BASE_EXPORT extern const base::FeatureParam<int>
-    kRenderThrottledFrameIntervalHz;
 
-// When enabled, internal begin frame source will be used in cc to reduce IPC
-// between cc and viz when there were many "did not produce frame" recently,
-// and SetAutoNeedsBeginFrame will be called on CompositorFrameSink.
-CC_BASE_EXPORT BASE_DECLARE_FEATURE(
-    kInternalBeginFrameSourceOnManyDidNotProduceFrame);
-CC_BASE_EXPORT extern const base::FeatureParam<int>
-    kNumDidNotProduceFrameBeforeInternalBeginFrameSource;
 
 // When enabled, the LayerTreeHost will expect to use layer lists instead of
 // layer trees by default; the caller can explicitly opt into enabled or

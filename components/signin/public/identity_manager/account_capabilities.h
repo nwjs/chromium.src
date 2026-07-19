@@ -55,6 +55,10 @@ class AccountCapabilities {
   const base::flat_map<std::string, bool>& ConvertToAccountCapabilitiesIOS();
 #endif
 
+  // Resets the cached list of supported account capability names.
+  // Useful for testing scenarios where feature flags change between tests.
+  static void ResetSupportedAccountCapabilityNamesForTesting();
+
   // clang-format off
   // keep-sorted start newline_separated=yes sticky_prefixes=#if,BUILDFLAG group_prefixes=#endif,can,has,is,must
   // clang-format on
@@ -176,6 +180,9 @@ class AccountCapabilities {
   signin::Tribool must_skip_apple_age_range_in_chrome() const;
 #endif
 
+  // Whether the account may fill and save Wallet private passes in Autofill.
+  signin::Tribool supports_wallet_private_passes_in_autofill() const;
+
   // keep-sorted end
 
   // Whether at least one of the capabilities is not
@@ -193,25 +200,44 @@ class AccountCapabilities {
   bool operator==(const AccountCapabilities& other) const;
 
  private:
+  // Methods to override a specific capability. Passing std::nullopt clears the
+  // override.
+  void SetCapabilityOverride(std::string_view name,
+                             std::optional<signin::Tribool> value);
+
   // Returns the list of account capability service names supported in Chrome.
   static base::span<const std::string_view>
   GetSupportedAccountCapabilityNames();
+
+  // Returns a friendly display name for the given capability API name.
+  static std::string GetCapabilityDisplayName(std::string_view name);
+
+  // Returns the effective capability state using the service name.
+  signin::Tribool GetCapabilityByName(std::string_view name) const;
+
+  // Returns the capability state using the service name, without checking
+  // overrides.
+  signin::Tribool GetFetchedCapabilityByName(std::string_view name) const;
+
+  const base::flat_map<std::string, signin::Tribool>& GetCapabilityOverrides()
+      const;
 
   // Internal version of GetSupportedAccountCapabilityNames that calculates the
   // list on each call, rather than returning a cached value.
   static std::vector<std::string_view>
   GetSupportedAccountCapabilityNamesInternal();
 
-  // Returns the capability state using the service name.
-  signin::Tribool GetCapabilityByName(std::string_view name) const;
-
   friend std::optional<AccountCapabilities>
   signin::AccountCapabilitiesFromServerResponse(
       const base::DictValue& account_capabilities);
   friend base::DictValue signin::SerializeAccountCapabilities(
       const AccountCapabilities& account_capabilities);
+  friend base::DictValue signin::SerializeAccountCapabilityOverrides(
+      const AccountCapabilities& account_capabilities);
   friend AccountCapabilities signin::DeserializeAccountCapabilities(
-      const base::DictValue& dict);
+      const base::DictValue& capabilities_dict,
+      const base::DictValue& overrides_dict);
+  friend class AboutSigninInternals;
   friend class AccountCapabilitiesFetcherGaia;
 #if BUILDFLAG(IS_IOS)
   friend base::span<const std::string_view>
@@ -220,6 +246,7 @@ class AccountCapabilities {
 #endif
   FRIEND_TEST_ALL_PREFIXES(AccountCapabilitiesTest,
                            GetSupportedAccountCapabilityNames);
+  FRIEND_TEST_ALL_PREFIXES(AccountCapabilitiesTest, CapabilityOverrides);
   FRIEND_TEST_ALL_PREFIXES(AccountCapabilitiesTest,
                            GetSupportedAccountCapabilityNames_FlagDisabled);
   FRIEND_TEST_ALL_PREFIXES(AccountCapabilitiesTest,
@@ -229,9 +256,11 @@ class AccountCapabilities {
   FRIEND_TEST_ALL_PREFIXES(AccountCapabilitiesTest,
                            ConversionWithJNI_FlagGuardDisabled_CppToJava);
   friend class AccountCapabilitiesTestMutator;
+  friend class AccountTrackerService;
   friend class supervised_user::FamilyLinkUserCapabilitiesObserver;
 
   base::flat_map<std::string, bool> capabilities_map_;
+  base::flat_map<std::string, signin::Tribool> capabilities_overrides_;
 };
 
 #endif  // COMPONENTS_SIGNIN_PUBLIC_IDENTITY_MANAGER_ACCOUNT_CAPABILITIES_H_

@@ -23,15 +23,54 @@ export function getHtml(this: OmniboxComposeboxElement) {
         .energyEffectAnimationEnabled="${false}"
         .isZeroState="${false}"
         exportparts="composebox-background">
+      ${this.showFileCarousel && this.shouldShowVoiceSearchAnimation() &&
+          this.voiceSearchCoherenceEnabled ? html`
+        <div id="voiceCarouselContainer"
+            slot="carousel"
+            part="carousel-container">
+          <div id="voiceCarouselContainerInner"
+              class="carousel-container-inner">
+            <cr-composebox-file-carousel
+              id="voiceSearchCarousel"
+              .files="${this.getFilteredCarouselFiles()}"
+              enable-scrolling
+              @delete-file="${this.onDeleteFile}">
+            </cr-composebox-file-carousel>
+          </div>
+        </div>
+      ` : ''}
+      ${this.shouldShowVoiceSearchAnimation() &&
+            this.voiceSearchCoherenceEnabled && this.inToolMode ? html`
+              <div class="context-menu-container voice-context-menu-container"
+                    id="voiceToolChipsContainer"
+                    slot="tool-chip"
+                    part="tool-chips-container">
+                  <cr-composebox-tool-chip
+                    exportparts="tool-chip-label"
+                    .inputState="${this.inputState}"
+                    .isCanvasQuerySubmitted="
+                        ${this.isCanvasQuerySubmitted}"
+                    @tool-click="${this.onToolClick}"
+                    part="tool-chip">
+                  </cr-composebox-tool-chip>
+                </div>
+      ` : ''}
     </search-animated-glow>
-    <ntp-error-scrim id="errorScrim" part="error-scrim"
-        ?compact-mode="${this.searchboxLayoutMode === 'Compact' &&
-                         this.files.size === 0}"
-        .errorMessage="${this.errorMessage}"
-        @dismiss-error-scrim="${this.onDismissErrorScrim}">
-    </ntp-error-scrim>
+    ${this.errorMessage ?
+      html`<ntp-error-scrim id="errorScrim" part="error-scrim"
+          ?compact-mode="${this.searchboxLayoutMode === 'Compact' &&
+                          this.files.size === 0}"
+          .errorMessage="${this.errorMessage}"
+          @dismiss-error-scrim="${this.onDismissErrorScrim}">
+      </ntp-error-scrim>`
+    : ''}
     <div id="composebox" part="composebox" ?inert="${!!this.errorMessage}"
-      @keydown="${this.onKeydown}">
+        @keydown="${this.onKeydown}"
+        @dragenter="${this.dragAndDropHandler_.handleDragEnter}"
+        @dragover="${this.dragAndDropHandler_.handleDragOver}"
+        @dragleave="${this.dragAndDropHandler_.handleDragLeave}"
+        @drop="${this.dragAndDropHandler_.handleDrop}"
+        @paste="${this.onPaste}">
       <div id="inputContainer" part="input-container">
         <cr-composebox-input id="composeboxInput"
             exportparts="text-container, icon-container, mirror, input, smart-compose, cancel, action-icon, cancel-icon"
@@ -39,13 +78,15 @@ export function getHtml(this: OmniboxComposeboxElement) {
             .showDropdown="${this.showDropdown}"
             .inputPlaceholder="${this.inputPlaceholder}"
             .input="${this.input}"
+            .smartComposeEnabled="${this.smartComposeEnabled}"
             .smartComposeInlineHint="${this.smartComposeInlineHint}"
             .submitEnabled="${this.submitEnabled}"
             .entrypointName="${this.entrypointName}"
             .cancelButtonTitle="${this.computeCancelButtonTitle()}"
             @input-input="${this.onInputInput}"
             @input-focusin="${this.onInputFocusin}"
-            @cancel-click="${this.onCancelClick}">
+            @cancel-click="${this.onCancelClick}"
+            @clear-smart-compose="${this.onClearSmartCompose}">
         </cr-composebox-input>
         <div id="context" part="context-entrypoint">
           <div id="carouselContainer" part="carousel-container">
@@ -94,6 +135,8 @@ export function getHtml(this: OmniboxComposeboxElement) {
                     .applyContextButtonBackground="${this.applyContextButtonBackground}"
                     .isOblongShape="${this.isOblongShape}"
                     ?upload-button-disabled="${this.uploadButtonDisabled}"
+                    .sharedTabs="${this.getSharedTabs()}"
+                    .restoredTabs="${this.aimThreadRestoredTabs}"
                     ?show-context-menu-description="${this.showContextMenuDescription}">
                 </cr-composebox-contextual-entrypoint-button>
               ` : ''}
@@ -145,6 +188,14 @@ export function getHtml(this: OmniboxComposeboxElement) {
           exportparts="voice-close-button, voice-details-link, voice-stop-button, voice-submit-button">
       </cr-composebox-voice-search>
     ` : ''}
+    ${this.shouldShowSuggestionActivityLink() ? html`
+      <div id="suggestionActivity">
+        <localized-link
+          .localizedString="${this.i18nAdvanced('suggestionActivityLink')}"
+          @link-clicked="${this.onLinkClicked}">
+        </localized-link>
+      </div>
+    `: ''}
 <!--_html_template_end_-->`;
   // clang-format on
 }

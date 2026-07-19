@@ -3,6 +3,8 @@
 // found in the LICENSE file.
 
 export enum UmaName {
+  HEADING_TO_PARAGRAPH_RATIO =
+      'Accessibility.ReadAnything.DistilledPageStructure.HeadingToParagraphRatio',
   HIGHLIGHT_GRANULARITY =
       'Accessibility.ReadAnything.ReadAloud.HighlightGranularity',
   LANGUAGE = 'Accessibility.ReadAnything.ReadAloud.Language',
@@ -12,6 +14,9 @@ export enum UmaName {
       'Accessibility.ReadAnything.DistilledPageStructure.NumberParagraphs',
   SPEECH_ERROR = 'Accessibility.ReadAnything.SpeechError',
   SPEECH_PLAYBACK = 'Accessibility.ReadAnything.SpeechPlaybackSession',
+  PDF_HEADING_TO_PARAGRAPH_RATIO =
+      'Accessibility.ReadAnything.Pdf.HeadingToParagraphRatio',
+  PDF_NUMBER_PARAGRAPHS = 'Accessibility.ReadAnything.Pdf.NumberParagraphs',
   SPEECH_SETTINGS_CHANGE =
       'Accessibility.ReadAnything.ReadAloud.SettingsChange',
   TEXT_SETTINGS_CHANGE = 'Accessibility.ReadAnything.SettingsChange',
@@ -21,6 +26,8 @@ export enum UmaName {
       'Accessibility.ReadAnything.DistilledPageStructure.TopTwoHeadersCount',
   TOP_TWO_HEADERS_HAVE_MINIMUM_TWO_ITEMS =
       'Accessibility.ReadAnything.DistilledPageStructure.TopTwoHeadersHaveMinimumTwoItems',
+  TOP_TWO_HEADING_RATIO =
+      'Accessibility.ReadAnything.DistilledPageStructure.TopTwoHeadingRatio',
   UNIQUE_HEADER_TAGS =
       'Accessibility.ReadAnything.DistilledPageStructure.UniqueHeaderTags',
   VOICE = 'Accessibility.ReadAnything.ReadAloud.Voice',

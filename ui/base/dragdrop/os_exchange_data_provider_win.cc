@@ -526,6 +526,56 @@ void OSExchangeDataProviderWin::SetVirtualFileContentsForTesting(
   }
 }
 
+void OSExchangeDataProviderWin::SetVirtualFileContentsWithDirectoriesForTesting(
+    const std::vector<std::pair<base::FilePath, base::span<const uint8_t>>>&
+        filenames_and_contents,
+    const std::vector<size_t>& directory_indices,
+    DWORD tymed) {
+  size_t num_files = filenames_and_contents.size();
+  if (!num_files) {
+    return;
+  }
+
+  const size_t total_bytes_fgd = sizeof(FILEGROUPDESCRIPTORW) +
+                                 (sizeof(FILEDESCRIPTORW) * (num_files - 1));
+
+  HANDLE hdata = ::GlobalAlloc(GPTR, total_bytes_fgd);
+  if (!hdata) {
+    return;
+  }
+
+  base::win::ScopedHGlobal<FILEGROUPDESCRIPTORW*> locked_mem(hdata);
+
+  FILEGROUPDESCRIPTORW* descriptor = locked_mem.data();
+  descriptor->cItems = base::checked_cast<UINT>(num_files);
+
+  STGMEDIUM storage = {
+      .tymed = TYMED_HGLOBAL, .hGlobal = hdata, .pUnkForRelease = nullptr};
+  data_->contents_.push_back(DataObjectImpl::StoredDataInfo::TakeStorageMedium(
+      ClipboardFormatType::FileDescriptorType().ToFormatEtc(), storage));
+
+  for (size_t i = 0; i < num_files; i++) {
+    descriptor->fgd[i].dwFlags |= static_cast<DWORD>(FD_UNICODE);
+    std::wstring file_name = filenames_and_contents[i].first.value();
+    wcsncpy_s(descriptor->fgd[i].cFileName, MAX_PATH, file_name.c_str(),
+              std::min(file_name.size(), static_cast<size_t>(MAX_PATH - 1u)));
+
+    if (std::find(directory_indices.begin(), directory_indices.end(), i) !=
+        directory_indices.end()) {
+      // A directory entry carries the directory attribute and no content
+      // stream, just as a real ZIP folder advertises it.
+      descriptor->fgd[i].dwFlags |= static_cast<DWORD>(FD_ATTRIBUTES);
+      descriptor->fgd[i].dwFileAttributes |=
+          static_cast<DWORD>(FILE_ATTRIBUTE_DIRECTORY);
+      continue;
+    }
+
+    SetVirtualFileContentAtIndexForTesting(filenames_and_contents[i].second,
+                                           tymed,
+                                           static_cast<LONG>(i));  // IN-TEST
+  }
+}
+
 void OSExchangeDataProviderWin::SetVirtualFileContentAtIndexForTesting(
     base::span<const uint8_t> data_buffer,
     DWORD tymed,

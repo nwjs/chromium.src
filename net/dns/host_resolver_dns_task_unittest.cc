@@ -39,6 +39,8 @@
 #include "url/scheme_host_port.h"
 
 #if BUILDFLAG(IS_ANDROID)
+#include <android/multinetwork.h>
+
 #include "net/dns/dns_platform_attempt_factory_android.h"
 #include "net/dns/mock_dns_platform_android_attempt_delegate.h"
 #endif
@@ -64,7 +66,11 @@ class MockAddressSorter : public AddressSorter {
 
   MOCK_METHOD(void,
               Sort,
-              (const std::vector<IPEndPoint>& endpoints, CallbackType callback),
+              (const std::vector<IPEndPoint>& endpoints,
+               const NetworkAnonymizationKey& anonymization_key,
+
+               handles::NetworkHandle target_network,
+               CallbackType callback),
               (const, override));
 };
 
@@ -200,12 +206,105 @@ TEST_F(HostResolverDnsTaskTest, PlatformAttemptSuccessIsParsedCorrectly) {
         HostResolver::Host(url::SchemeHostPort(GURL("http://www.google.com"))),
         NetworkAnonymizationKey(), types, resolve_context_.get(),
         DnsTransactionFactory::AttemptMode::kPlatform,
-        SecureDnsMode::kAutomatic, &mock_dns_task_delegate_, NetLogWithSource(),
-        &tick_clock,
+        SecureDnsMode::kAutomatic, handles::kInvalidNetworkHandle,
+        &mock_dns_task_delegate_, NetLogWithSource(), &tick_clock,
         /*fallback_available=*/false, HostResolver::HttpsSvcbOptions());
     EXPECT_EQ(task->num_additional_transactions_needed(), 1);
     task->StartNextTransaction();
     // Quit when OnDnsTaskComplete is called.
+    run_loop.Run();
+    EXPECT_EQ(task->num_additional_transactions_needed(), 0);
+  } else {
+    GTEST_SKIP_("Skip test on Android version below 29.");
+  }
+}
+
+TEST_F(HostResolverDnsTaskTest, PlatformAttemptPropagatesTargetNetwork) {
+  if (__builtin_available(android 29, *)) {
+    constexpr handles::NetworkHandle kTargetNetwork = 123;
+    base::ScopedFD fd =
+        MockAndroidDnsPlatformAttemptDelegate::CreateFdWithUnreadData();
+    EXPECT_CALL(mock_dns_platform_android_attempt_delegate_,
+                Query(net_handle_t{kTargetNetwork}, StrEq("www.google.com"),
+                      dns_protocol::kTypeA))
+        .WillOnce(Return(fd.get()));
+    EXPECT_CALL(mock_dns_platform_android_attempt_delegate_,
+                Result(fd.get(), _, _))
+        .WillOnce([&](int, int* rcode, base::span<uint8_t> answer) {
+          std::ranges::copy(kSuccessfulDnsResponseA, answer.begin());
+          return kSuccessfulDnsResponseA.size();
+        });
+
+    base::RunLoop run_loop;
+    EXPECT_CALL(
+        mock_dns_task_delegate_,
+        OnDnsTaskComplete(
+            _, /*allow_fallback=*/true, _,
+            /*attempt_mode=*/DnsTransactionFactory::AttemptMode::kPlatform))
+        .WillOnce([&](base::TimeTicks start_time, bool allow_fallback,
+                      HostResolverDnsTask::Results results,
+                      DnsTransactionFactory::AttemptMode attempt_mode) {
+          run_loop.Quit();
+        });
+
+    base::DefaultTickClock tick_clock;
+    DnsQueryTypeSet types = {DnsQueryType::A};
+    auto task = std::make_unique<HostResolverDnsTask>(
+        dns_client_.get(),
+        HostResolver::Host(url::SchemeHostPort(GURL("http://www.google.com"))),
+        NetworkAnonymizationKey(), types, resolve_context_.get(),
+        DnsTransactionFactory::AttemptMode::kPlatform,
+        SecureDnsMode::kAutomatic, kTargetNetwork, &mock_dns_task_delegate_,
+        NetLogWithSource(), &tick_clock,
+        /*fallback_available=*/false, HostResolver::HttpsSvcbOptions());
+    EXPECT_EQ(task->num_additional_transactions_needed(), 1);
+    task->StartNextTransaction();
+    run_loop.Run();
+    EXPECT_EQ(task->num_additional_transactions_needed(), 0);
+  } else {
+    GTEST_SKIP_("Skip test on Android version below 29.");
+  }
+}
+TEST_F(HostResolverDnsTaskTest,
+       PlatformAttemptCorrectlyTranslatedDefaultNetworkHandle) {
+  if (__builtin_available(android 29, *)) {
+    base::ScopedFD fd =
+        MockAndroidDnsPlatformAttemptDelegate::CreateFdWithUnreadData();
+    EXPECT_CALL(mock_dns_platform_android_attempt_delegate_,
+                Query(NETWORK_UNSPECIFIED, StrEq("www.google.com"),
+                      dns_protocol::kTypeA))
+        .WillOnce(Return(fd.get()));
+    EXPECT_CALL(mock_dns_platform_android_attempt_delegate_,
+                Result(fd.get(), _, _))
+        .WillOnce([&](int, int* rcode, base::span<uint8_t> answer) {
+          std::ranges::copy(kSuccessfulDnsResponseA, answer.begin());
+          return kSuccessfulDnsResponseA.size();
+        });
+
+    base::RunLoop run_loop;
+    EXPECT_CALL(
+        mock_dns_task_delegate_,
+        OnDnsTaskComplete(
+            _, /*allow_fallback=*/true, _,
+            /*attempt_mode=*/DnsTransactionFactory::AttemptMode::kPlatform))
+        .WillOnce([&](base::TimeTicks start_time, bool allow_fallback,
+                      HostResolverDnsTask::Results results,
+                      DnsTransactionFactory::AttemptMode attempt_mode) {
+          run_loop.Quit();
+        });
+
+    base::DefaultTickClock tick_clock;
+    DnsQueryTypeSet types = {DnsQueryType::A};
+    auto task = std::make_unique<HostResolverDnsTask>(
+        dns_client_.get(),
+        HostResolver::Host(url::SchemeHostPort(GURL("http://www.google.com"))),
+        NetworkAnonymizationKey(), types, resolve_context_.get(),
+        DnsTransactionFactory::AttemptMode::kPlatform,
+        SecureDnsMode::kAutomatic, handles::kInvalidNetworkHandle,
+        &mock_dns_task_delegate_, NetLogWithSource(), &tick_clock,
+        /*fallback_available=*/false, HostResolver::HttpsSvcbOptions());
+    EXPECT_EQ(task->num_additional_transactions_needed(), 1);
+    task->StartNextTransaction();
     run_loop.Run();
     EXPECT_EQ(task->num_additional_transactions_needed(), 0);
   } else {
@@ -256,8 +355,8 @@ TEST_F(HostResolverDnsTaskTest, PlatformAttemptCorruptResponseFailsParsing) {
         HostResolver::Host(url::SchemeHostPort(GURL("http://www.google.com"))),
         NetworkAnonymizationKey(), types, resolve_context_.get(),
         DnsTransactionFactory::AttemptMode::kPlatform,
-        SecureDnsMode::kAutomatic, &mock_dns_task_delegate_, NetLogWithSource(),
-        &tick_clock,
+        SecureDnsMode::kAutomatic, handles::kInvalidNetworkHandle,
+        &mock_dns_task_delegate_, NetLogWithSource(), &tick_clock,
         /*fallback_available=*/false, HostResolver::HttpsSvcbOptions());
     EXPECT_EQ(task->num_additional_transactions_needed(), 1);
     task->StartNextTransaction();
@@ -272,17 +371,18 @@ TEST_F(HostResolverDnsTaskTest, PlatformAttemptCorruptResponseFailsParsing) {
 TEST_F(HostResolverDnsTaskTest,
        PlatformAttemptMultipleQueriesResultsAreSorted) {
   if (__builtin_available(android 29, *)) {
+    constexpr int64_t kTargetNetwork = 123;
     base::ScopedFD fd_a =
         MockAndroidDnsPlatformAttemptDelegate::CreateFdWithUnreadData();
     base::ScopedFD fd_aaaa =
         MockAndroidDnsPlatformAttemptDelegate::CreateFdWithUnreadData();
 
     EXPECT_CALL(mock_dns_platform_android_attempt_delegate_,
-                Query(NETWORK_UNSPECIFIED, StrEq("www.google.com"),
+                Query(net_handle_t{kTargetNetwork}, StrEq("www.google.com"),
                       dns_protocol::kTypeA))
         .WillOnce(Return(fd_a.get()));
     EXPECT_CALL(mock_dns_platform_android_attempt_delegate_,
-                Query(NETWORK_UNSPECIFIED, StrEq("www.google.com"),
+                Query(net_handle_t{kTargetNetwork}, StrEq("www.google.com"),
                       dns_protocol::kTypeAAAA))
         .WillOnce(Return(fd_aaaa.get()));
 
@@ -330,8 +430,10 @@ TEST_F(HostResolverDnsTaskTest,
     // need to ensure that HostResolverDnsTask does end up calling relying on
     // it.
     auto prefer_ipv6_address_sorter = std::make_unique<MockAddressSorter>();
-    EXPECT_CALL(*prefer_ipv6_address_sorter, Sort(_, _))
+    EXPECT_CALL(*prefer_ipv6_address_sorter, Sort(_, _, kTargetNetwork, _))
         .WillOnce([](const std::vector<IPEndPoint>& endpoints,
+                     const NetworkAnonymizationKey& anonymization_key,
+                     handles::NetworkHandle target_network,
                      AddressSorter::CallbackType callback) {
           EXPECT_THAT(endpoints,
                       UnorderedElementsAre(
@@ -362,8 +464,8 @@ TEST_F(HostResolverDnsTaskTest,
         HostResolver::Host(url::SchemeHostPort(GURL("http://www.google.com"))),
         NetworkAnonymizationKey(), types, resolve_context_.get(),
         DnsTransactionFactory::AttemptMode::kPlatform,
-        SecureDnsMode::kAutomatic, &mock_dns_task_delegate_, NetLogWithSource(),
-        &tick_clock,
+        SecureDnsMode::kAutomatic, handles::NetworkHandle{kTargetNetwork},
+        &mock_dns_task_delegate_, NetLogWithSource(), &tick_clock,
         /*fallback_available=*/false, HostResolver::HttpsSvcbOptions());
     EXPECT_EQ(task->num_additional_transactions_needed(), 2);
     task->StartNextTransaction();
@@ -403,7 +505,11 @@ class DelayingAddressSorter : public AddressSorter {
 
   // AddressSorter:
   void Sort(const std::vector<IPEndPoint>& endpoints,
+            const NetworkAnonymizationKey& anonymization_key,
+            handles::NetworkHandle target_network,
             CallbackType callback) const override {
+    // This is used only for testing in scenarios that do not involve multiple
+    // networks. With that in mind, it's safe to ignore `target_network`.
     in_progress_.emplace_back(endpoints, std::move(callback));
 
     if (on_sort_called_) {
@@ -465,8 +571,8 @@ TEST_F(HostResolverDnsTaskTest, HandlesIndividualTransactionSort) {
       HostResolver::Host(url::SchemeHostPort("http", "foo.test", 80)),
       NetworkAnonymizationKey(), {DnsQueryType::A, DnsQueryType::AAAA},
       resolve_context_.get(), DnsTransactionFactory::AttemptMode::kClassic,
-      SecureDnsMode::kAutomatic, &mock_dns_task_delegate_, NetLogWithSource(),
-      &clock,
+      SecureDnsMode::kAutomatic, handles::kInvalidNetworkHandle,
+      &mock_dns_task_delegate_, NetLogWithSource(), &clock,
       /*fallback_available=*/false, HostResolver::HttpsSvcbOptions());
   ASSERT_EQ(task.num_additional_transactions_needed(), 2);
 
@@ -533,8 +639,8 @@ TEST_F(HostResolverDnsTaskTest, CanCancelTransactionDuringSort) {
       HostResolver::Host(url::SchemeHostPort("http", "foo.test", 80)),
       NetworkAnonymizationKey(), {DnsQueryType::A, DnsQueryType::AAAA},
       resolve_context_.get(), DnsTransactionFactory::AttemptMode::kClassic,
-      SecureDnsMode::kAutomatic, &mock_dns_task_delegate_, NetLogWithSource(),
-      &clock,
+      SecureDnsMode::kAutomatic, handles::kInvalidNetworkHandle,
+      &mock_dns_task_delegate_, NetLogWithSource(), &clock,
       /*fallback_available=*/false, HostResolver::HttpsSvcbOptions());
   ASSERT_EQ(task.num_additional_transactions_needed(), 2);
 

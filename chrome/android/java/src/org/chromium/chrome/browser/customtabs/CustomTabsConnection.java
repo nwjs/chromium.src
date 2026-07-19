@@ -410,14 +410,26 @@ public class CustomTabsConnection {
             postMessageHandler = new PostMessageHandler(serviceConnection);
             engagementSignalsHandler = new EngagementSignalsHandler(customTabSession);
         }
-        return mClientManager.newSession(
-                session,
-                Binder.getCallingUid(),
-                Binder.getCallingPid(),
-                onDisconnect,
-                postMessageHandler,
-                serviceConnection,
-                engagementSignalsHandler);
+        boolean success =
+                mClientManager.newSession(
+                        session,
+                        Binder.getCallingUid(),
+                        Binder.getCallingPid(),
+                        onDisconnect,
+                        postMessageHandler,
+                        serviceConnection,
+                        engagementSignalsHandler);
+        if (success) {
+            String packageName = getClientPackageNameForSession(session);
+            Log.i(
+                    TAG,
+                    "New Custom Tab session created by package: "
+                            + packageName
+                            + " (UID: "
+                            + Binder.getCallingUid()
+                            + ")");
+        }
+        return success;
     }
 
     /**
@@ -802,8 +814,7 @@ public class CustomTabsConnection {
     public @Nullable Bundle extraCommand(String commandName, @Nullable Bundle args) {
         if (commandName.equals(IS_AUTH_TAB_SUPPORTED)) {
             var bundle = new Bundle();
-            boolean supported = ChromeFeatureList.sCctAuthTab.isEnabled();
-            bundle.putBoolean(AUTH_TAB_SUPPORTED_KEY, supported);
+            bundle.putBoolean(AUTH_TAB_SUPPORTED_KEY, true);
             return bundle;
         }
         return null;
@@ -1380,6 +1391,16 @@ public class CustomTabsConnection {
     /** See {@link ClientManager#getClientPackageNameForSession(SessionHolder)} */
     public @Nullable String getClientPackageNameForSession(@Nullable SessionHolder<?> session) {
         return mClientManager.getClientPackageNameForSession(session);
+    }
+
+    /** See {@link ClientManager#getClientUidForSession(SessionHolder)} */
+    public int getClientUidForSession(@Nullable SessionHolder<?> session) {
+        return mClientManager.getClientUidForSession(session);
+    }
+
+    /** See {@link ClientManager#getClientPidForSession(SessionHolder)} */
+    public int getClientPidForSession(@Nullable SessionHolder<?> session) {
+        return mClientManager.getClientPidForSession(session);
     }
 
     /**

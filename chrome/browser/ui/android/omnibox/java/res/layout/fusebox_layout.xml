@@ -26,7 +26,8 @@ found in the LICENSE file.
         app:layout_constraintTop_toTopOf="parent"/>
 
     <org.chromium.ui.widget.ChromeImageView
-        android:id="@+id/location_bar_attachments_add"
+        android:id="@+id/fusebox_plus_button"
+        android:foreground="@drawable/plus_button_focus_ring"
         android:layout_width="@dimen/fusebox_button_size"
         android:layout_height="@dimen/fusebox_button_size"
         android:visibility="gone"
@@ -55,7 +56,7 @@ found in the LICENSE file.
         android:singleLine="true"
         android:text="@string/ai_mode_entrypoint_label"
         android:textAlignment="viewStart"
-        app:layout_constraintStart_toEndOf="@id/location_bar_attachments_add"
+        app:layout_constraintStart_toEndOf="@id/fusebox_plus_button"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintTop_toBottomOf="@id/url_bar"
         app:buttonColor="@color/interactable_chip_bg_color"
@@ -73,6 +74,7 @@ found in the LICENSE file.
         android:focusable="true"
         android:scaleType="centerInside"
         android:background="@drawable/oval_baseline_primary_50"
+        android:foreground="@drawable/circle_button_focus_ring"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toStartOf="@id/margin_spacer"
         app:layout_constraintTop_toBottomOf="@id/url_bar"/>
@@ -95,6 +97,7 @@ found in the LICENSE file.
         app:layout_constraintTop_toTopOf="parent"
         app:buttonBorderStyle="solid"
         app:verticalInset="6dp"
-        app:rippleCornerRadius="36dp"/>
+        app:rippleCornerRadius="36dp"
+        android:foreground="@drawable/activation_chip_focus_ring"/>
 
 </merge>

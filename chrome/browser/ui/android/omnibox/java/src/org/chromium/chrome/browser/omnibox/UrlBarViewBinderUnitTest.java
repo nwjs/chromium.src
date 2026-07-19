@@ -27,29 +27,24 @@ import androidx.constraintlayout.widget.ConstraintLayout.LayoutParams;
 import androidx.test.filters.SmallTest;
 
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnit;
-import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
 
-import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.chrome.browser.omnibox.UrlBar.ScrollType;
+import org.chromium.chrome.browser.omnibox.UrlBarProperties.UrlBarTextState;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.components.omnibox.OmniboxFeatureList;
+import org.chromium.components.omnibox.TextSelection;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 
 /** Unit tests for {@link UrlBarViewBinder}. */
 @RunWith(BaseRobolectricTestRunner.class)
 public class UrlBarViewBinderUnitTest {
-    @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
-    @Mock Callback<Boolean> mFocusChangeCallback;
-
     private Activity mActivity;
     PropertyModel mModel;
     UrlBarMediator mMediator;
@@ -68,7 +63,6 @@ public class UrlBarViewBinderUnitTest {
                 new UrlBarMediator(
                         ContextUtils.getApplicationContext(),
                         mModel,
-                        mFocusChangeCallback,
                         /* textChangeListener= */ null,
                         /* richTextChangeListener= */ null,
                         /* keyDownListener= */ null);
@@ -171,5 +165,29 @@ public class UrlBarViewBinderUnitTest {
         Runnable mockCallback = mock(Runnable.class);
         mModel.set(UrlBarProperties.MANAGE_SEARCH_ENGINES_CALLBACK, mockCallback);
         assertEquals(mockCallback, mUrlBar.getManageSearchEnginesCallbackForTesting());
+    }
+
+    @Test
+    @SmallTest
+    public void testTextState_reverseSelection() {
+        UrlBar mockView = mock(UrlBar.class);
+        android.text.Editable editable = mock(android.text.Editable.class);
+        doReturn(10).when(editable).length();
+        doReturn(editable).when(mockView).getText();
+        doReturn(true).when(mockView).hasFocus();
+
+        UrlBarTextState state =
+                new UrlBarTextState(
+                        "1234567890",
+                        "1234567890",
+                        ScrollType.NO_SCROLL,
+                        0,
+                        new TextSelection(10, 0),
+                        false);
+
+        mModel.set(UrlBarProperties.TEXT_STATE, state);
+        UrlBarViewBinder.bind(mModel, mockView, UrlBarProperties.TEXT_STATE);
+
+        verify(mockView).setSelection(10, 0);
     }
 }

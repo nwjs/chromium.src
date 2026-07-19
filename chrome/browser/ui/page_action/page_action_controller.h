@@ -18,6 +18,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
+#include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "base/types/pass_key.h"
 #include "chrome/browser/ui/page_action/page_action_metrics_recorder_interface.h"
@@ -27,10 +28,13 @@
 #include "components/tabs/public/tab_interface.h"
 #include "ui/actions/action_id.h"
 #include "ui/base/models/image_model.h"
+#include "ui/gfx/animation/tween.h"
 
 namespace actions {
 class ActionItem;
 }
+
+class BrowserWindowInterface;
 
 namespace base {
 class CallbackListSubscription;
@@ -72,6 +76,16 @@ enum class PageActionPriorityCategory {
   kMaxValue = kUserInteraction,
 };
 
+struct PageActionAnimationParams {
+  int resource_id;
+  float start_offset = 0.0f;
+  float end_offset = 1.0f;
+  gfx::Tween::Type tween = gfx::Tween::LINEAR;
+  base::TimeDelta duration = base::Milliseconds(300);
+
+  bool operator==(const PageActionAnimationParams&) const = default;
+};
+
 // Indicates possible anchored message action icons (right side of anchored
 // message).
 enum class AnchoredMessageActionIconType {
@@ -95,6 +109,13 @@ struct AnchoredMessageExpandableItem {
 struct AnchoredMessageExpandableContent {
   std::optional<std::u16string> heading;
   std::vector<AnchoredMessageExpandableItem> items;
+  // If set, overrides the default tooltip on the expand button.
+  std::optional<std::u16string> expand_button_tooltip;
+  // If set, overrides the default tooltip on the expand button when the drawer
+  // is expanded.
+  std::optional<std::u16string> collapse_button_tooltip;
+  // If set, overrides the default accessible name on the expand button.
+  std::optional<std::u16string> expand_button_accessible_name;
 
   bool operator==(const AnchoredMessageExpandableContent&) const = default;
 };
@@ -232,17 +253,18 @@ class PageActionController {
   // provide a custom image to use for the page action for a specific context
   // (tab). The source of the icon's color can be controlled with
   // `color_source`, which defaults to using foreground color. Optionally, also
-  // plays an lottie animation specified by `animation_resource_id`
+  // plays an lottie animation specified by `animation_parameters`
   // when setting the new override image.
   virtual void OverrideImage(actions::ActionId action_id,
                              const ui::ImageModel& override_image) = 0;
   virtual void OverrideImage(actions::ActionId action_id,
                              const ui::ImageModel& override_image,
                              PageActionColorSource color_source) = 0;
-  virtual void OverrideImage(actions::ActionId action_id,
-                             const ui::ImageModel& override_image,
-                             PageActionColorSource color_source,
-                             std::optional<int> animation_resource_id) = 0;
+  virtual void OverrideImage(
+      actions::ActionId action_id,
+      const ui::ImageModel& override_image,
+      PageActionColorSource color_source,
+      std::optional<PageActionAnimationParams> animation_parameters) = 0;
 
   virtual void ClearOverrideImage(actions::ActionId action_id) = 0;
 
@@ -284,6 +306,9 @@ class PageActionController {
   // that manages the activity counter. The action is considered active as
   // long as at least one ScopedPageActionActivity object exists for it.
   virtual ScopedPageActionActivity AddActivity(actions::ActionId action_id) = 0;
+
+  // Checks if the action with the given ID exists.
+  virtual bool ActionExists(actions::ActionId action_id) const = 0;
 
   // Adds an observer for the page action's underlying `PageActionModel`.
   virtual void AddObserver(
@@ -362,10 +387,11 @@ class PageActionControllerImpl : public PageActionController,
   void OverrideImage(actions::ActionId action_id,
                      const ui::ImageModel& override_image,
                      PageActionColorSource color_source) override;
-  void OverrideImage(actions::ActionId action_id,
-                     const ui::ImageModel& override_image,
-                     PageActionColorSource color_source,
-                     std::optional<int> animation_resource_id) override;
+  void OverrideImage(
+      actions::ActionId action_id,
+      const ui::ImageModel& override_image,
+      PageActionColorSource color_source,
+      std::optional<PageActionAnimationParams> animation_parameters) override;
   void ClearOverrideImage(actions::ActionId action_id) override;
   void OverrideTooltip(actions::ActionId action_id,
                        const std::u16string& override_tooltip) override;
@@ -385,6 +411,7 @@ class PageActionControllerImpl : public PageActionController,
       std::optional<AnchoredMessageExpandableContent> expandable_content)
       override;
   ScopedPageActionActivity AddActivity(actions::ActionId action_id) override;
+  bool ActionExists(actions::ActionId action_id) const override;
   void AddObserver(
       actions::ActionId action_id,
       base::ScopedObservation<PageActionModelInterface,
@@ -492,6 +519,16 @@ class PageActionControllerImpl : public PageActionController,
 
   base::WeakPtrFactory<PageActionControllerImpl> weak_factory_{this};
 };
+
+// Returns page action IDs that are present in the browser window's root action
+// item.
+std::vector<actions::ActionId> GetActivePageActionIds(
+    BrowserWindowInterface& bwi);
+
+// Returns page actions that are present in the browser window's root action
+// item.
+std::vector<actions::ActionItem*> GetActivePageActionItems(
+    BrowserWindowInterface& bwi);
 
 }  // namespace page_actions
 

@@ -100,11 +100,16 @@ enum class Channel;
 }
 
 namespace accessibility_annotator {
-class AccessibilityQueryService;
+class AtMemoryQueryService;
 }
 
 namespace personal_context {
 enum class PersonalContextEnablementState;
+class PersonalContextEnablementService;
+}
+
+namespace subscription_eligibility {
+class SubscriptionEligibilityService;
 }
 
 namespace metrics {
@@ -150,6 +155,7 @@ enum class SuggestionHidingReason;
 enum class SuggestionType;
 class SingleFieldFillRouter;
 class ValuablesDataManager;
+class PersonalContextAccessManager;
 class VotesUploader;
 class PasswordManagerAutofillHelperDelegate;
 class WalletPassAccessManager;
@@ -174,6 +180,22 @@ using PlusAddressCallback = base::OnceCallback<void(const std::string&)>;
 // with" (e.g. for the tab the BrowserAutofillManager is attached to).
 class AutofillClient {
  public:
+  // Categories of Autofill data that can be blocked or allowed on specific GURL
+  // patterns by enterprise policies.
+  enum class AutofillPolicyDataCategory {
+    // Address, name, email, phone, and profile configuration details.
+    kContactInfo,
+    // Credit cards, virtual cards, bank accounts, and IBANs.
+    kPayments,
+    // Autofill AI identity document details (e.g. passports, driver's licenses,
+    // national IDs).
+    kIdentityDocs,
+    // Autofill AI travel/booking details (e.g. flights, vehicles).
+    kTravel,
+    // Autofill AI shopping details (e.g. orders, shipments).
+    kShopping,
+  };
+
   // Represents the user's possible decisions or outcomes in response to a
   // prompt related to address saving, updating, or migrating.
   // These values are persisted to logs. Entries should not be renumbered and
@@ -411,6 +433,13 @@ class AutofillClient {
   // Autocomplete and merchant promo codes.
   virtual SingleFieldFillRouter& GetSingleFieldFillRouter() = 0;
 
+  // Returns true if Autofill suggestions should include the Personal Context
+  // notice.
+  virtual bool ShouldShowPersonalContextAutofillNotice() const;
+
+  // Marks the Personal Context notice as acknowledged.
+  virtual void MarkPersonalContextInAutofillNoticeAsAcknowledged();
+
   // Gets the AutocompleteHistoryManager instance associated with the client.
   virtual AutocompleteHistoryManager* GetAutocompleteHistoryManager() = 0;
 
@@ -428,6 +457,11 @@ class AutofillClient {
   // Returns `nullptr` if, at the time of the AutofillClient's construction, the
   // Autofill AI feature is unsupported.
   virtual AutofillAiManager* GetAutofillAiManager();
+
+  // Returns the `PersonalContextAccessManager` instance associated with the
+  // client. Returns `nullptr` if `kAutofillAmbientAutofill` is not enabled.
+  virtual PersonalContextAccessManager* GetPersonalContextAccessManager();
+  const PersonalContextAccessManager* GetPersonalContextAccessManager() const;
 
   // Returns the per-profile `AutofillAiModelCache`. Returns `nullptr` if the
   // `kAutofillAiServerModel` is not enabled.
@@ -452,14 +486,20 @@ class AutofillClient {
 
   virtual IdentityCredentialDelegate* GetIdentityCredentialDelegate();
 
-  // Returns the `AccessibilityQueryService` associated with the profile of
+  // Returns the `AtMemoryQueryService` associated with the profile of
   // the window of this tab.
-  virtual accessibility_annotator::AccessibilityQueryService*
-  GetAccessibilityQueryService();
+  virtual accessibility_annotator::AtMemoryQueryService*
+  GetAtMemoryQueryService();
 
   // Returns the enablement state of the Accessibility Annotator.
+  // TODO(crbug.com/524193567) Delete this method once all the invocations are
+  // replaced by the calls to the central enablement util.
   virtual personal_context::PersonalContextEnablementState
   GetPersonalContextEnablementState() const;
+
+  // Returns the Personal Context Enablement Service. May return nullptr.
+  virtual personal_context::PersonalContextEnablementService*
+  GetPersonalContextEnablementService() const;
 
   // Returns the `PasswordManagerDelegate` responsible to provide
   // password suggestions for the given `field_id`.
@@ -534,6 +574,10 @@ class AutofillClient {
   // Returns the profile type of the session.
   virtual profile_metrics::BrowserProfileType GetProfileType() const;
 
+  // Returns the subscription eligibility service for the user.
+  virtual const subscription_eligibility::SubscriptionEligibilityService*
+  GetSubscriptionEligibilityService() const;
+
   // Causes the Autofill settings UI to be shown.
   virtual void ShowAutofillSettings(SuggestionType suggestion_type) = 0;
 
@@ -574,6 +618,9 @@ class AutofillClient {
 
   // Opens Gemini in the sidebar with the given prompt pre-filled.
   virtual void OpenGeminiInSidebar(const std::u16string& prompt);
+
+  // Returns true if the Glic sidebar is enabled and can be opened.
+  virtual bool IsGlicEnabled() const;
 
   // Update the data list values shown by the Autofill suggestions, if visible.
   virtual void UpdateAutofillDataListValues(
@@ -653,6 +700,12 @@ class AutofillClient {
   // Whether the Autocomplete feature of Autofill should be enabled.
   virtual bool IsAutocompleteEnabled() const = 0;
 
+  // Returns true if the specified Autofill type is blocked by enterprise policy
+  // on GURL.
+  virtual bool IsAutofillTypeBlockedByPolicy(
+      const GURL& url,
+      AutofillPolicyDataCategory category) const;
+
   // Returns whether password management is enabled as per the user preferences.
   virtual bool IsPasswordManagerEnabled() const = 0;
 
@@ -687,7 +740,9 @@ class AutofillClient {
 #if BUILDFLAG(IS_ANDROID)
   // Shows the @memory bottom sheet. Triggered by keyboard accessory controller.
   virtual void ShowAtMemoryBottomSheet(
-      base::span<const Suggestion> suggestions);
+      base::span<const Suggestion> suggestions,
+      base::WeakPtr<AutofillSuggestionDelegate> delegate);
+  virtual void HideAtMemoryBottomSheet() {}
 
   // The AutofillSnackbarController is used to show a snackbar notification
   // on Android.
@@ -786,6 +841,9 @@ class AutofillClient {
 
   // Notifies the user that operation to fetch data from Wallet failed.
   virtual void ShowAutofillAiFetchFromWalletFailureNotification();
+
+  // Notifies the user that prefetching Autofill AI entities failed.
+  virtual void ShowAutofillAiPreFetchFailureNotification();
 
   virtual void ShowEmailVerifiedToast(const GURL& issuer);
 

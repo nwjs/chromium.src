@@ -18,6 +18,8 @@ class RenderProcessHost;
 class WebContents;
 }  // namespace content
 
+class Profile;
+
 namespace glic {
 
 BASE_DECLARE_FEATURE(kGlicGuestUrlMultiInstanceParam);
@@ -69,6 +71,14 @@ void CreateGlicWebUiData(content::WebContents* webui_contents);
 
 // Returns Glic form factor mapping for the given device form factor.
 mojom::FormFactor GetGlicFormFactor(ui::DeviceFormFactor form_factor);
+
+// Returns the Glic Platform.
+mojom::Platform GetGlicPlatform();
+
+// Populates the WebClientInitialState fields that do not depend on the
+// page handler.
+void PopulateGlobalClientInitialState(mojom::WebClientInitialState* state,
+                                      Profile* profile);
 }  // namespace glic
 
 #endif  // CHROME_BROWSER_GLIC_HOST_GUEST_UTIL_H_

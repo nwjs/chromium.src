@@ -386,7 +386,6 @@ class CONTENT_EXPORT ServiceWorkerProviderContext
       controller_connector_;
 
   bool sent_execution_ready_ = false;
-
   base::WeakPtrFactory<ServiceWorkerProviderContext> weak_ptr_factory_{this};
 };
 

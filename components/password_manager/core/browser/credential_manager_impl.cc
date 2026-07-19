@@ -45,23 +45,14 @@ void RunGetCallback(GetCallback callback, const CredentialInfo& info) {
   std::move(callback).Run(CredentialManagerError::SUCCESS, info);
 }
 
-void OnReauthComplete(
-    base::OnceCallback<void(const CredentialInfo&)> send_cred_callback,
-    CredentialInfo info,
-    bool auth_succeeded) {
-  if (!auth_succeeded) {
-    std::move(send_cred_callback).Run(CredentialInfo());
-    return;
-  }
-  std::move(send_cred_callback).Run(info);
-}
-
 }  // namespace
 
 CredentialManagerImpl::CredentialManagerImpl(PasswordManagerClient* client)
     : client_(client), leak_delegate_(client) {}
 
-CredentialManagerImpl::~CredentialManagerImpl() = default;
+CredentialManagerImpl::~CredentialManagerImpl() {
+  CancelBiometricReauthIfOngoing();
+}
 
 void CredentialManagerImpl::Store(const CredentialInfo& credential,
                                   StoreCallback callback) {
@@ -75,7 +66,7 @@ void CredentialManagerImpl::Store(const CredentialInfo& credential,
   std::move(callback).Run();
 
   if (credential.type == CredentialType::CREDENTIAL_TYPE_EMPTY ||
-      !client_->IsSavingAndFillingEnabled(origin.GetURL())) {
+      !client_->IsSavingAndFillingEnabled(origin)) {
     return;
   }
 
@@ -139,7 +130,7 @@ void CredentialManagerImpl::PreventSilentAccess(
   std::move(callback).Run();
 
   PasswordStoreInterface* store = GetProfilePasswordStore();
-  if (!store || !client_->IsSavingAndFillingEnabled(GetOrigin().GetURL())) {
+  if (!store || !client_->IsSavingAndFillingEnabled(GetOrigin())) {
     return;
   }
 
@@ -183,7 +174,7 @@ void CredentialManagerImpl::Get(CredentialMediationRequirement mediation,
 
   // Return an empty credential if the current page has TLS errors, or if the
   // page is being prerendered.
-  if (!client_->IsFillingEnabled(GetOrigin().GetURL())) {
+  if (!client_->IsFillingEnabled(GetOrigin())) {
     std::move(callback).Run(CredentialManagerError::SUCCESS, CredentialInfo());
     LogCredentialManagerGetResult(
         metrics_util::CredentialManagerGetResult::kNone, mediation);
@@ -212,6 +203,7 @@ void CredentialManagerImpl::Get(CredentialMediationRequirement mediation,
 }
 
 void CredentialManagerImpl::ResetAfterDisconnecting() {
+  CancelBiometricReauthIfOngoing();
   pending_request_.reset();
 }
 
@@ -263,35 +255,27 @@ void CredentialManagerImpl::SendPasswordForm(
     metrics_util::LogCredentialManagerGetResult(
         metrics_util::CredentialManagerGetResult::kAccountChooser, mediation);
 
-    if (client_->GetPasswordFeatureManager()
-            ->IsBiometricAuthenticationBeforeFillingEnabled()) {
-      auto authenticator = client_->GetDeviceAuthenticator();
-      if (authenticator) {
-        std::u16string message;
+    std::unique_ptr<device_reauth::DeviceAuthenticator> authenticator =
+        client_->GetDeviceAuthenticator();
+    if (authenticator &&
+        client_->IsReauthBeforeFillingRequired(authenticator.get())) {
+      authenticator_ = std::move(authenticator);
+      std::u16string message;
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
-        const std::u16string origin =
-            base::UTF8ToUTF16(password_manager::GetShownOrigin(
-                client_->GetLastCommittedOrigin()));
-        message = l10n_util::GetStringFUTF16(
-            IDS_PASSWORD_MANAGER_FILLING_REAUTH, origin);
+      const std::u16string origin = base::UTF8ToUTF16(
+          password_manager::GetShownOrigin(client_->GetLastCommittedOrigin()));
+      message = l10n_util::GetStringFUTF16(IDS_PASSWORD_MANAGER_FILLING_REAUTH,
+                                           origin);
 #endif
-        auto send_cred_callback = base::BindOnce(
-            &CredentialManagerImpl::SendCredential,
-            weak_ptr_factory_.GetWeakPtr(), std::move(send_callback));
+      auto on_reauth_completed = base::BindOnce(
+          &CredentialManagerImpl::OnReauthCompleted,
+          weak_ptr_factory_.GetWeakPtr(), std::move(send_callback), info);
 
-        auto* authenticator_ptr = authenticator.get();
-        base::OnceClosure cleanup =
-            base::DoNothingWithBoundArgs(std::move(authenticator));
-
-        authenticator_ptr->AuthenticateWithMessage(
-            message,
-            metrics_util::TimeCallbackMediumTimes(
-                base::BindOnce(&OnReauthComplete, std::move(send_cred_callback),
-                               info)
-                    .Then(std::move(cleanup)),
-                "PasswordManager.PasswordFilling.AuthenticationTime2"));
-        return;
-      }
+      authenticator_->AuthenticateWithMessage(
+          message, metrics_util::TimeCallbackMediumTimes(
+                       std::move(on_reauth_completed),
+                       "PasswordManager.PasswordFilling.AuthenticationTime2"));
+      return;
     }
   } else {
     base::RecordAction(
@@ -314,6 +298,26 @@ PasswordStoreInterface* CredentialManagerImpl::GetAccountPasswordStore() {
   return client_ ? client_->GetAccountPasswordStore() : nullptr;
 }
 
+void CredentialManagerImpl::CancelBiometricReauthIfOngoing() {
+  if (!authenticator_) {
+    return;
+  }
+  authenticator_->Cancel();
+  authenticator_.reset();
+}
+
+void CredentialManagerImpl::OnReauthCompleted(
+    SendCredentialCallback send_callback,
+    CredentialInfo info,
+    bool auth_succeeded) {
+  authenticator_.reset();
+  if (!auth_succeeded) {
+    SendCredential(std::move(send_callback), CredentialInfo());
+    return;
+  }
+  SendCredential(std::move(send_callback), info);
+}
+
 void CredentialManagerImpl::DoneRequiringUserMediation() {
   DCHECK(pending_require_user_mediation_);
   pending_require_user_mediation_.reset();
@@ -322,7 +326,7 @@ void CredentialManagerImpl::DoneRequiringUserMediation() {
 void CredentialManagerImpl::OnProvisionalSaveComplete() {
   DCHECK(form_manager_);
   const PasswordForm& form = form_manager_->GetPendingCredentials();
-  DCHECK(client_->IsSavingAndFillingEnabled(form.url));
+  DCHECK(client_->IsSavingAndFillingEnabled(GetOrigin(), form.url));
   last_submitted_form_ = std::nullopt;
 
   if (form.federation_origin.IsValid()) {

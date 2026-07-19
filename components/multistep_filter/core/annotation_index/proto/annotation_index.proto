@@ -29,10 +29,11 @@ message ExtractionSource {
 }
 
 // Response containing attributes extracted from the provided source.
+// Note: The domain field has been removed. The domain should now be derived
+// from the source URL provided in the request.
 message ExtractTaskAttributesResponse {
-  // The normalized domain identifier (eTLD+1) associated with the extraction
-  // (e.g., "travel-example.com").
-  string domain = 1;
+  reserved 1;
+  reserved "domain";
 
   // The universal task task type derived from the source (e.g.,
   // "SEARCH_FLIGHTS").
@@ -107,6 +108,19 @@ message TaskExecutionStrategy {
 
   // The execution strategy the client should use to actuate the task.
   TaskExecution execution = 3;
+
+  // UI strings to display to the user.
+  SuggestionMessage suggestion_message = 4;
+}
+
+// UI strings to display to the user for the suggestion.
+message SuggestionMessage {
+  // The short cue string to display in the Omnibox (e.g., "Find Stays?").
+  string short_text = 1;
+
+  // The detailed cue string to display (e.g., "Find Stays? New York • Dec 11-14
+  // • 2 adults").
+  string detailed_text = 2;
 }
 
 // Response containing all valid strategies generated from the request

@@ -31,6 +31,7 @@
 <translation id="1828808367831369073"><ph name="TABS_COUNT_ONE" /> välilehti lisätty ryhmään</translation>
 <translation id="1844381456014878100">Kun välilehti on ollut ei-aktiivinen 7 päivää</translation>
 <translation id="1869137256605757565">{TABS_COUNT,plural, =1{<ph name="TABS_COUNT_ONE" /> välilehti}other{<ph name="TABS_COUNT_MANY" /> välilehteä}}</translation>
+<translation id="1894429470045525403">{TAB_COUNT,plural, =1{Lisää välilehti lukulistalle}other{Lisää välilehdet lukulistalle}}</translation>
 <translation id="1909810060368225529">Huom. Tähän jaettuun välilehtiryhmään tehdyt muutokset näkyvät kaikille. Kaikki voivat tehdä muutoksia jaettuihin välilehtiryhmiin</translation>
 <translation id="1925363809167540686">{TAB_COUNT,plural, =1{Kiinnitä välilehti}other{Kiinnitä välilehdet}}</translation>
 <translation id="1982637982196732906">Siirrä ei-aktiivisten osioon</translation>
@@ -76,6 +77,8 @@
 <translation id="3052964831964880138"><ph name="PRICE_DROP" />:n hinnanalennus / <ph name="PRODUCT_NAME" /></translation>
 <translation id="3078350928901129212">Välilehtiryhmän (<ph name="COLOR_NAME" />) värikuvake</translation>
 <translation id="311432875115153175">Välilehtiryhmälista suljettu</translation>
+<translation id="3152596030350326139">Näytä välilehdet vaakasuunnassa</translation>
+<translation id="31806439105337256">Näytä välilehdet pystysuunnassa</translation>
 <translation id="3194464645767632461">arvio</translation>
 <translation id="3269930881809501915">{TABS_COUNT,plural, =1{Lisää ryhmään <ph name="TABS_COUNT_ONE" /> välilehti}other{Lisää ryhmään <ph name="TABS_COUNT_MANY" /> välilehteä}}</translation>
 <translation id="3328308545011660196">Ehdotus: <ph name="NUMBER_OF_TABS" /> välilehteä vaikuttaa liittyvän toisiinsa. Lisätäänkö ne ryhmäksi?</translation>
@@ -180,7 +183,6 @@
 <translation id="7129458170538955174">"Tietoja tästä kaupasta" avattu puolen näytön kokoisena</translation>
 <translation id="7204204600596740190">Monivalintatila</translation>
 <translation id="7211038039686180558">Välilehtiryhmät tallennetaan ja päivittyvät automaattisesti kaikilla sisäänkirjautuneilla laitteilla</translation>
-<translation id="731648547091221002"><ph name="COLOR_NAME" />, valittu</translation>
 <translation id="7326879924029668159">Katso palautuskäytäntö ja muita</translation>
 <translation id="7352298686197644113">Katso, minkä avoimilta välilehdiltäsi löytyvän tuotteen voit saada edullisempaan hintaan</translation>
 <translation id="7369451074646620503">Välilehtiryhmä "<ph name="TAB_GROUP_NAME" />" ei enää saatavilla</translation>
@@ -206,7 +208,6 @@
 <translation id="7854360405711302755">{REVIEWS,plural, =1{ Arvio: <ph name="CURRENT_RATING" />/<ph name="RATING_BASELINE" />, <ph name="REVIEWS_COUNT_ONE" /> arvostelu}other{Arvio: <ph name="CURRENT_RATING" />/<ph name="RATING_BASELINE" />, <ph name="REVIEWS_COUNT_MANY" /> arvostelua}}</translation>
 <translation id="7885132941432959125">Siirrä välilehti oikealle</translation>
 <translation id="7887334752153342268">Monista</translation>
-<translation id="7939917283308035850"><ph name="COLOR_NAME" />, ei valittu</translation>
 <translation id="7961015016161918242">Ei koskaan</translation>
 <translation id="7966321538264951561">Ohita ehdotukset.</translation>
 <translation id="796696298310625748">{WINDOW_COUNT,plural, =1{Siirrä välilehti uuteen ikkunaan}other{Siirrä välilehdet toiseen ikkunaan}}</translation>

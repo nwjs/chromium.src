@@ -19,6 +19,8 @@
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/security_principal.h"
+#include "content/public/browser/site_instance.h"
 #include "content/public/browser/speech_recognition_audio_forwarder_config.h"
 #include "content/public/browser/speech_recognition_manager_delegate.h"
 #include "content/public/browser/speech_recognition_session_config.h"
@@ -134,6 +136,26 @@ void SpeechRecognitionDispatcherHost::StartRequestOnUI(
   WebContentsImpl* web_contents =
       static_cast<WebContentsImpl*>(WebContents::FromRenderFrameHost(rfh));
 
+#if BUILDFLAG(IS_ANDROID)
+  // On Android, background speech recognition is not permitted. (Desktop
+  // intentionally allows background recognition).
+  // This matches the Blink-side check in
+  // SpeechRecognition::PageVisibilityChanged() in
+  // third_party/blink/renderer/modules/speech/speech_recognition.cc.
+  if (!web_contents ||
+      web_contents->GetPageVisibilityState() != PageVisibilityState::kVisible) {
+    if (params->client) {
+      mojo::Remote<media::mojom::SpeechRecognitionSessionClient> client(
+          std::move(params->client));
+      client->ErrorOccurred(media::mojom::SpeechRecognitionError::New(
+          media::mojom::SpeechRecognitionErrorCode::kNotAllowed,
+          media::mojom::SpeechAudioErrorDetails::kNone));
+    }
+    // Implicitly dropping params->session_receiver closes the Mojo pipe.
+    return;
+  }
+#endif
+
   // Disable BackForwardCache when using the SpeechRecognition feature, because
   // currently we do not handle speech recognition after placing the page in
   // BackForwardCache.
@@ -168,12 +190,13 @@ void SpeechRecognitionDispatcherHost::StartRequestOnUI(
   }
 
   content::BrowserContext* browser_context = web_contents->GetBrowserContext();
-  StoragePartition* storage_partition =
-      browser_context->GetStoragePartition(web_contents->GetSiteInstance());
+  content::RenderFrameHost* main_frame = rfh->GetMainFrame();
+  StoragePartition* storage_partition = main_frame->GetStoragePartition();
 
   bool is_valid_storage_context =
-      storage_partition == browser_context->GetDefaultStoragePartition() ||
-      !rfh->GetLastCommittedURL().SchemeIsHTTPOrHTTPS();
+      !main_frame->GetSiteInstance()->GetSecurityPrincipal().IsGuest() &&
+      (storage_partition == browser_context->GetDefaultStoragePartition() ||
+       !main_frame->GetLastCommittedURL().SchemeIsHTTPOrHTTPS());
   bool is_policy_enabled = rfh->IsFeatureEnabled(
       network::mojom::PermissionsPolicyFeature::kOnDeviceSpeechRecognition);
 

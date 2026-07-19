@@ -5,12 +5,15 @@
 #ifndef COMPONENTS_SEND_TAB_TO_SELF_SEND_TAB_TO_SELF_BRIDGE_H_
 #define COMPONENTS_SEND_TAB_TO_SELF_SEND_TAB_TO_SELF_BRIDGE_H_
 
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/containers/flat_map.h"
+#include "base/containers/span.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
@@ -49,6 +52,9 @@ class SendTabToSelfBridge : public syncer::DataTypeSyncBridge,
                             public SendTabToSelfModel,
                             public history::HistoryServiceObserver {
  public:
+  using SendTabToSelfEntries =
+      std::map<std::string, std::unique_ptr<SendTabToSelfEntry>, std::less<>>;
+
   // The caller should ensure that all raw pointers are not null and will
   // outlive this object. This is not guaranteed by this class.
   SendTabToSelfBridge(
@@ -92,22 +98,28 @@ class SendTabToSelfBridge : public syncer::DataTypeSyncBridge,
   // SendTabToSelfModel overrides.
   std::vector<std::string> GetAllGuids() const override;
   const SendTabToSelfEntry* GetEntryByGUID(
-      const std::string& guid) const override;
+      std::string_view guid) const override;
   std::vector<const SendTabToSelfEntry*>
   GetUnopenedEntriesTargetedToLocalDevice() const override;
+  std::vector<const SendTabToSelfEntry*> GetOpenedEntriesTargetedToLocalDevice()
+      const override;
   const SendTabToSelfEntry* SendEntry(
       const GURL& url,
       const std::string& title,
       const std::string& target_device_cache_guid,
       const PageContext& context,
       NavigationHistory navigation_history,
-      base::OnceCallback<void(SendTabToSelfResult)> commit_confirmation)
-      override;
-  void DismissEntry(const std::string& guid) override;
-  void MarkEntryOpened(const std::string& guid) override;
+      base::OnceCallback<void(SendTabToSelfResult)> commit_confirmation,
+      ShareEntryPoint entry_point) override;
+  void DismissEntry(std::string_view guid) override;
+  void MarkEntryOpened(std::string_view guid) override;
+  void MarkEntryActivated(std::string_view guid,
+                          ShareActivatedEntryPoint entry_point) override;
   bool IsReady() override;
   bool HasValidTargetDevice() override;
   std::vector<TargetDeviceInfo> GetTargetDeviceInfoSortedList() override;
+  std::optional<TargetDeviceInfo> GetTargetDeviceInfo(
+      std::string_view cache_guid) override;
 
   // history::HistoryServiceObserver:
   void OnHistoryDeletions(history::HistoryService* history_service,
@@ -119,24 +131,20 @@ class SendTabToSelfBridge : public syncer::DataTypeSyncBridge,
   void SetLocalDeviceNameForTest(const std::string& local_device_name);
 
  private:
-  using SendTabToSelfEntries =
-      std::map<std::string, std::unique_ptr<SendTabToSelfEntry>>;
-
   // Notify all observers of any added |new_entries| when they are added the the
   // model via sync.
   void NotifyRemoteSendTabToSelfEntryAdded(
-      const std::vector<const SendTabToSelfEntry*>& new_entries);
+      base::span<const SendTabToSelfEntry* const> new_entries);
 
   // Notify all observers when the entries with |guids| have been removed from
   // the model via sync or via history deletion.
   void NotifyRemoteSendTabToSelfEntryDeleted(
-      const std::vector<std::string>& guids);
+      base::span<const std::string> guids);
 
   // Notify all observers when any new or existing |opened_entries| have been
   // marked as opened in the model via sync.
   void NotifyRemoteSendTabToSelfEntryOpened(
-      const std::vector<const SendTabToSelfEntry*>& opened_entries);
-
+      base::span<const SendTabToSelfEntry* const> opened_entries);
 
   // Methods used as callbacks given to DataTypeStore.
   void OnStoreCreated(const std::optional<syncer::ModelError>& error,
@@ -152,12 +160,15 @@ class SendTabToSelfBridge : public syncer::DataTypeSyncBridge,
 
   // Returns a specific entry for editing. Returns null if the entry does not
   // exist.
-  SendTabToSelfEntry* GetMutableEntryByGUID(const std::string& guid) const;
+  SendTabToSelfEntry* GetMutableEntryByGUID(std::string_view guid) const;
 
   bool IsTargetedToLocalDevice(const SendTabToSelfEntry& entry) const;
 
-  // Returns the name of the local device.
-  std::string GetLocalFullName() const;
+  // Returns the DeviceInfo for the local device, or nullptr if not available.
+  const syncer::DeviceInfo* GetLocalDeviceInfo() const;
+
+  // Returns the fallback full name of the local device.
+  std::string GetLocalFallbackFullName() const;
 
   // Returns true if the device should be included in the target list.
   bool ShouldIncludeDevice(const syncer::DeviceInfo& device) const;
@@ -167,7 +178,7 @@ class SendTabToSelfBridge : public syncer::DataTypeSyncBridge,
 
   // Remove entry with |guid| from entries, but doesn't call Commit on provided
   // |batch|. This allows multiple for deletions without duplicate batch calls.
-  void DeleteEntryWithBatch(const std::string& guid,
+  void DeleteEntryWithBatch(std::string_view guid,
                             syncer::DataTypeStore::WriteBatch* batch);
 
   // Delete all of the entries that match the URLs provided.
@@ -175,10 +186,15 @@ class SendTabToSelfBridge : public syncer::DataTypeSyncBridge,
 
   void DeleteAllEntries();
 
-  void EraseEntryInBatch(const std::string& guid,
+  void EraseEntryInBatch(std::string_view guid,
                          syncer::DataTypeStore::WriteBatch* batch);
 
+  void MarkEntryActivatedImpl(std::string_view guid,
+                              ShareActivatedEntryPoint entry_point,
+                              base::Time activated_time);
 
+  // Helper to commit a local mutation of an entry to the store and processor.
+  void CommitLocalEntryMutation(const SendTabToSelfEntry& entry);
 
   // |entries_| is keyed by GUIDs.
   SendTabToSelfEntries entries_;
@@ -190,7 +206,15 @@ class SendTabToSelfBridge : public syncer::DataTypeSyncBridge,
   // the bridge receives the respective entries, they will be marked opened
   // using the stored timestamp. Entries are in-memory only and will be lost
   // on browser restart.
-  base::flat_map<std::string, base::Time> unknown_opened_entries_;
+  base::flat_map<std::string, base::Time, std::less<>> unknown_opened_entries_;
+  // Stores guids of entries that have been activated from a layer other than
+  // SendTabToSelfModel, along with the time and entry point when the activation
+  // was requested. Entries are in-memory only and will be lost on browser
+  // restart.
+  base::flat_map<std::string,
+                 std::pair<base::Time, ShareActivatedEntryPoint>,
+                 std::less<>>
+      unknown_activated_entries_;
 
   // |clock_| isn't owned.
   const raw_ptr<const base::Clock> clock_;

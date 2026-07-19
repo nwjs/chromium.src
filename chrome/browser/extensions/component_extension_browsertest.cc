@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/auto_reset.h"
+#include "base/command_line.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
@@ -9,11 +11,14 @@
 #include "chrome/browser/profiles/profile.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
+#include "content/public/test/test_launcher.h"
+#include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/process_manager.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension_features.h"
+#include "extensions/common/switches.h"
 #include "extensions/test/extension_test_message_listener.h"
 #include "extensions/test/result_catcher.h"
 #include "extensions/test/test_extension_dir.h"
@@ -40,7 +45,7 @@ IN_PROC_BROWSER_TEST_F(ComponentExtensionBrowserTest, MojoJS) {
 }
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-const ExtensionId kExtensionId = "iegclhlplifhodhkoafiokenjoapiobj";
+constexpr char kExtensionId[] = "iegclhlplifhodhkoafiokenjoapiobj";
 constexpr char kExtensionKey[] =
     "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAjzv7dI7Ygyh67VHE1DdidudpYf8P"
     "Ffv8iucWvzO+3xpF/Dm5xNo7aQhPNiEaNfHwJQ7lsp4gc+C+4bbaVewBFspTruoSJhZc5uEf"
@@ -62,7 +67,10 @@ constexpr char kChromeResourcesTestExtensionKey[] =
 class ComponentExtensionServiceWorkerUpdateBrowserTest
     : public ComponentExtensionBrowserTest {
  public:
-  void WriteExtension(TestExtensionDir* dir, int version) {
+  // Writes a component extension with version `version` whose service worker
+  // identifies itself as `worker_version`. The two are separate so tests can
+  // change the worker code without changing the extension version.
+  void WriteExtension(TestExtensionDir* dir, int version, int worker_version) {
     constexpr char kManifestTemplate[] =
         R"({
          "name": "Component SW Update Test",
@@ -77,8 +85,9 @@ class ComponentExtensionServiceWorkerUpdateBrowserTest
     constexpr char kBackgroundScriptTemplate[] =
         R"(self.version = %d;
        chrome.test.sendMessage(`v${self.version} ready`);)";
-    dir->WriteFile(FILE_PATH_LITERAL("sw.js"),
-                   base::StringPrintf(kBackgroundScriptTemplate, version));
+    dir->WriteFile(
+        FILE_PATH_LITERAL("sw.js"),
+        base::StringPrintf(kBackgroundScriptTemplate, worker_version));
   }
 
   int GetWorkerVersion(const ExtensionId& id) {
@@ -99,7 +108,7 @@ class ComponentExtensionServiceWorkerUpdateBrowserTest
 // PRE_ test: Installs V1 of the component extension. Verifies it runs.
 IN_PROC_BROWSER_TEST_F(ComponentExtensionServiceWorkerUpdateBrowserTest,
                        PRE_Update) {
-  WriteExtension(&test_dir_v1_, 1);
+  WriteExtension(&test_dir_v1_, /*version=*/1, /*worker_version=*/1);
 
   // Load V1 of the component extension.
   ExtensionTestMessageListener v1_ready("v1 ready");
@@ -122,7 +131,7 @@ IN_PROC_BROWSER_TEST_F(ComponentExtensionServiceWorkerUpdateBrowserTest,
                        Update) {
   ASSERT_FALSE(
       extension_registry()->enabled_extensions().GetByID(kExtensionId));
-  WriteExtension(&test_dir_v2_, 2);
+  WriteExtension(&test_dir_v2_, /*version=*/2, /*worker_version=*/2);
 
   // Load V2 of the component extension.
   ExtensionTestMessageListener v2_ready("v2 ready");
@@ -137,6 +146,113 @@ IN_PROC_BROWSER_TEST_F(ComponentExtensionServiceWorkerUpdateBrowserTest,
 
   // Check service worker version.
   EXPECT_EQ("2", extension_v2->version().GetString());
+  EXPECT_EQ(2, GetWorkerVersion(id));
+}
+
+// PRE_ test: Installs the component extension. Verifies it runs.
+IN_PROC_BROWSER_TEST_F(ComponentExtensionServiceWorkerUpdateBrowserTest,
+                       PRE_UpdateWithoutVersionChange) {
+  WriteExtension(&test_dir_v1_, /*version=*/1, /*worker_version=*/1);
+
+  ExtensionTestMessageListener v1_ready("v1 ready");
+  const Extension* extension =
+      LoadExtension(test_dir_v1_.UnpackedPath(), {.load_as_component = true});
+  ASSERT_TRUE(extension);
+
+  const ExtensionId id = extension->id();
+  ASSERT_EQ(kExtensionId, id);
+  ASSERT_TRUE(v1_ready.WaitUntilSatisfied());
+
+  EXPECT_EQ("1", extension->version().GetString());
+  EXPECT_EQ(1, GetWorkerVersion(id));
+}
+
+// Main test: Installs new worker code without changing the extension version,
+// as happens when a browser update ships changes to a component extension
+// without a version bump. Verifies the new worker code runs.
+// Regression test for crbug.com/521490632.
+IN_PROC_BROWSER_TEST_F(ComponentExtensionServiceWorkerUpdateBrowserTest,
+                       UpdateWithoutVersionChange) {
+  ASSERT_FALSE(
+      extension_registry()->enabled_extensions().GetByID(kExtensionId));
+
+  // Pretend the browser version changed since the PRE_ test ran.
+  base::AutoReset<const char*> browser_version_override =
+      ExtensionRegistrar::OverrideBrowserVersionForTesting("1.0.0.0");
+
+  // Same extension version as in the PRE_ test, new worker code.
+  WriteExtension(&test_dir_v2_, /*version=*/1, /*worker_version=*/2);
+
+  ExtensionTestMessageListener v2_ready("v2 ready");
+  const Extension* extension =
+      LoadExtension(test_dir_v2_.UnpackedPath(), {.load_as_component = true});
+  ASSERT_TRUE(extension);
+
+  const ExtensionId id = extension->id();
+  EXPECT_EQ(kExtensionId, id);
+  ASSERT_TRUE(v2_ready.WaitUntilSatisfied());
+
+  EXPECT_EQ("1", extension->version().GetString());
+  EXPECT_EQ(2, GetWorkerVersion(id));
+}
+
+class ComponentExtensionServiceWorkerRefreshSwitchBrowserTest
+    : public ComponentExtensionServiceWorkerUpdateBrowserTest {
+ public:
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    ComponentExtensionServiceWorkerUpdateBrowserTest::SetUpCommandLine(
+        command_line);
+    // The PRE_ test installs the worker without the switch; only the main
+    // test runs with it.
+    if (!content::IsPreTest()) {
+      command_line->AppendSwitch(
+          switches::kRefreshComponentExtensionServiceWorkers);
+    }
+  }
+};
+
+// PRE_ test: Installs the component extension. Verifies it runs.
+IN_PROC_BROWSER_TEST_F(ComponentExtensionServiceWorkerRefreshSwitchBrowserTest,
+                       PRE_RefreshSwitch) {
+  WriteExtension(&test_dir_v1_, /*version=*/1, /*worker_version=*/1);
+
+  ExtensionTestMessageListener v1_ready("v1 ready");
+  const Extension* extension =
+      LoadExtension(test_dir_v1_.UnpackedPath(), {.load_as_component = true});
+  ASSERT_TRUE(extension);
+
+  const ExtensionId id = extension->id();
+  ASSERT_EQ(kExtensionId, id);
+  ASSERT_TRUE(v1_ready.WaitUntilSatisfied());
+
+  EXPECT_EQ("1", extension->version().GetString());
+  EXPECT_EQ(1, GetWorkerVersion(id));
+}
+
+// Main test: Installs new worker code with the extension version and the
+// browser version both unchanged, as happens when a developer rebuilds a
+// locally modified component extension. Verifies that
+// "--refresh-component-extension-service-workers" picks up the new worker code.
+IN_PROC_BROWSER_TEST_F(ComponentExtensionServiceWorkerRefreshSwitchBrowserTest,
+                       RefreshSwitch) {
+  ASSERT_FALSE(
+      extension_registry()->enabled_extensions().GetByID(kExtensionId));
+
+  // Same extension version as in the PRE_ test, new worker code. The browser
+  // version is deliberately not overridden, so only the switch can trigger
+  // the worker refresh.
+  WriteExtension(&test_dir_v2_, /*version=*/1, /*worker_version=*/2);
+
+  ExtensionTestMessageListener v2_ready("v2 ready");
+  const Extension* extension =
+      LoadExtension(test_dir_v2_.UnpackedPath(), {.load_as_component = true});
+  ASSERT_TRUE(extension);
+
+  const ExtensionId id = extension->id();
+  EXPECT_EQ(kExtensionId, id);
+  ASSERT_TRUE(v2_ready.WaitUntilSatisfied());
+
+  EXPECT_EQ("1", extension->version().GetString());
   EXPECT_EQ(2, GetWorkerVersion(id));
 }
 

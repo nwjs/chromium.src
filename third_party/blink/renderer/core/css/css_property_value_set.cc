@@ -83,14 +83,7 @@ unsigned CSSPropertyValueSet::ComputeHash() const {
     AddIntToHash(hash, property.Value().Hash());
   }
 
-  static_assert((HashTraits<unsigned>::EmptyValue() ^ 0x80000000) !=
-                    HashTraits<unsigned>::DeletedValue(),
-                "We assume below that flipping the top bit will not turn "
-                "EmptyValue into DeletedValue or vice versa");
-  if (hash == HashTraits<unsigned>::EmptyValue() ||
-      hash == HashTraits<unsigned>::DeletedValue()) {
-    hash ^= 0x80000000;
-  }
+  hash = EnsureValidHash(hash);
 
   return hash;
 }
@@ -126,7 +119,8 @@ ImmutableCSSPropertyValueSet::ImmutableCSSPropertyValueSet(
     // through Create(), we guarantee that the arrays will have storage where we
     // expect.
     UNSAFE_BUFFERS(base::span<CSSPropertyValue> array(
-        const_cast<CSSPropertyValue*>(ArrayBase()), array_size));
+        base::unchecked, const_cast<CSSPropertyValue*>(ArrayBase()),
+        array_size));
     bool has_all = false;
     for (unsigned i = 0; i < array_size; ++i) {
       new (&array[i]) CSSPropertyValue(properties[i]);
@@ -835,20 +829,6 @@ void MutableCSSPropertyValueSet::RemoveEquivalentProperties(
   for (unsigned i = 0; i < size; ++i) {
     const CSSPropertyValue& property = PropertyAt(i);
     if (style->PropertyMatches(property.PropertyID(), property.Value())) {
-      properties_to_remove.push_back(property.PropertyID());
-    }
-  }
-  // FIXME: This should use mass removal.
-  for (CSSPropertyID id : properties_to_remove) {
-    RemoveProperty(id);
-  }
-}
-
-void MutableCSSPropertyValueSet::RemoveEquivalentProperties(
-    const CSSStyleDeclaration* style) {
-  Vector<CSSPropertyID> properties_to_remove;
-  for (const CSSPropertyValue& property : property_vector_) {
-    if (style->CssPropertyMatches(property.PropertyID(), property.Value())) {
       properties_to_remove.push_back(property.PropertyID());
     }
   }

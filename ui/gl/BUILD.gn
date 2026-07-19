@@ -57,6 +57,33 @@ source_set("gl_headers") {
   public_deps = [ "//third_party/angle:includes" ]
 }
 
+use_angle_stubs =
+    use_static_angle && (is_linux || is_chromeos || is_win || is_mac)
+
+# Generate stubs for EGL and GLESv2 libraries when linking ANGLE statically.
+# Some bot infrastructure expects these files to exist even in static builds.
+# TODO(crbug.com/514229803): Remove this stub generation once static linking
+# has definitively stuck (at which point the use_static_angle flag itself will
+# also be removed) and the bots no longer expect these files.
+if (use_angle_stubs) {
+  # Define dummy libraries to satisfy symbol uploader and official build infra.
+  shared_library("dummy_libEGL") {
+    output_name = "libEGL"
+    sources = [ "dummy_stub.cc" ]
+  }
+  shared_library("dummy_libGLESv2") {
+    output_name = "libGLESv2"
+    sources = [ "dummy_stub.cc" ]
+  }
+
+  group("generate_angle_stubs") {
+    public_deps = [
+      ":dummy_libEGL",
+      ":dummy_libGLESv2",
+    ]
+  }
+}
+
 component("gl") {
   output_name = "gl_wrapper"  # Avoid colliding with OS X"s libGL.dylib.
 
@@ -188,6 +215,13 @@ component("gl") {
   ]
 
   data_deps = []
+
+  if (use_angle_stubs) {
+    # Added via data_deps so that the dummy libraries are generated for build
+    # infrastructure but not linked into dependent targets.
+    data_deps += [ ":generate_angle_stubs" ]
+  }
+
   if (enable_swiftshader) {
     data_deps += [
       "//third_party/swiftshader/src/Vulkan:icd_file",
@@ -246,12 +280,15 @@ component("gl") {
     sources += [
       "child_window_win.cc",
       "child_window_win.h",
+      "dc_commit_error.h",
       "dc_layer_overlay_image.cc",
       "dc_layer_overlay_image.h",
       "dc_layer_overlay_params.cc",
       "dc_layer_overlay_params.h",
       "dc_layer_tree.cc",
       "dc_layer_tree.h",
+      "dc_surface_solid_color_pool.cc",
+      "dc_surface_solid_color_pool.h",
       "dcomp_presenter.cc",
       "dcomp_presenter.h",
       "dcomp_surface_proxy.h",
@@ -270,6 +307,8 @@ component("gl") {
       "hdr_metadata_helper_win.cc",
       "hdr_metadata_helper_win.h",
       "os_compositor_tree_base.h",
+      "solid_color_pool_base.cc",
+      "solid_color_pool_base.h",
       "swap_chain_presenter.cc",
       "swap_chain_presenter.h",
       "vsync_provider_win.cc",
@@ -354,6 +393,7 @@ component("gl") {
         "//third_party/swiftshader/src/Vulkan:swiftshader_libvulkan",
       ]
     }
+    data_deps += [ "//third_party/vulkan-loader/src:libvulkan" ]
 
     defines += [ "GL_SILENCE_DEPRECATION" ]
   }
@@ -445,6 +485,12 @@ if (is_mac) {
       ]
     }
   }
+
+  copy("vulkan_loader_library_copy") {
+    sources = [ "$root_out_dir/libvulkan.dylib" ]
+    outputs = [ "$root_out_dir/vulkan_intermediates/{{source_file_part}}" ]
+    deps = [ "//third_party/vulkan-loader/src:libvulkan" ]
+  }
 }
 
 static_library("gl_unittest_utils") {
@@ -463,6 +509,13 @@ static_library("gl_unittest_utils") {
     "gpu_timing_fake.cc",
     "gpu_timing_fake.h",
   ]
+
+  if (is_win) {
+    sources += [
+      "dcomp_mocks.cc",
+      "dcomp_mocks.h",
+    ]
+  }
 
   deps = [
     ":gl",
@@ -557,6 +610,7 @@ test("gl_unittests") {
       "gl_fence_win_unittest.cc",
       "hdr_metadata_helper_win_unittest.cc",
       "os_compositor_tree_base_unittest.cc",
+      "solid_color_pool_base_unittest.cc",
     ]
   }
 

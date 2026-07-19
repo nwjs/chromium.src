@@ -327,9 +327,11 @@ class PdfViewWebPlugin::PdfInkModuleClientImpl : public PdfInkModuleClient {
   void DrawText(int page_index,
                 InkTextId id,
                 base::span<const InkTextInfo> text_info,
+                float ascent,
                 double pdf_zoom,
                 const InkTextBoxAttributes& attributes) override {
-    plugin_->engine_->DrawText(page_index, id, text_info, pdf_zoom, attributes);
+    plugin_->engine_->DrawText(page_index, id, text_info, ascent, pdf_zoom,
+                               attributes);
   }
 
   void ExtendSelectionByPoint(const gfx::PointF& point) override {
@@ -391,10 +393,8 @@ class PdfViewWebPlugin::PdfInkModuleClientImpl : public PdfInkModuleClient {
     return plugin_->engine_->IsSelectableTextOrLinkArea(point);
   }
 
-  DocumentInkTextBoxesMap LoadTextAnnotationsFromPdf(
-      GenerateTextIdCallback generate_text_id_callback) override {
-    return plugin_->engine_->LoadTextAnnotationsFromPdf(
-        std::move(generate_text_id_callback));
+  DocumentInkTextBoxesMap LoadTextAnnotationsFromPdf() override {
+    return plugin_->engine_->LoadTextAnnotationsFromPdf();
   }
 
   DocumentV2InkPathShapesMap LoadV2InkPathsFromPdf() override {
@@ -480,7 +480,7 @@ class PdfViewWebPlugin::PdfInkModuleClientImpl : public PdfInkModuleClient {
     plugin_->engine_->UpdateStrokeActive(page_index, id, active);
   }
 
-  void UpdateTextActiveAndInvalidate(InkTextId id, bool active) override {
+  void UpdateTextActiveAndInvalidate(TextId id, bool active) override {
     plugin_->engine_->UpdateTextActiveAndInvalidate(id, active);
   }
 
@@ -1770,6 +1770,10 @@ void PdfViewWebPlugin::GetMostVisiblePageIndex(
     return;
   }
   std::move(callback).Run(page_index);
+}
+
+void PdfViewWebPlugin::HasMeaningfulText(HasMeaningfulTextCallback callback) {
+  std::move(callback).Run(engine_ && engine_->HasMeaningfulText());
 }
 
 void PdfViewWebPlugin::GetPageText(int32_t page_index,
@@ -3191,13 +3195,6 @@ void PdfViewWebPlugin::SendThumbnail(base::DictValue reply,
   reply.Set("width", thumbnail.image_size().width());
   reply.Set("height", thumbnail.image_size().height());
   client_->PostMessage(std::move(reply));
-
-#if BUILDFLAG(ENABLE_PDF_INK2)
-  if (ink_module_) {
-    ink_module_->GenerateAndSendInkThumbnail(page_index,
-                                             thumbnail.image_size());
-  }
-#endif
 }
 
 #if BUILDFLAG(ENABLE_PDF_INK2)

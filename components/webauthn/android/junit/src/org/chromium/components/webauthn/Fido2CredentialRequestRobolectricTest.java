@@ -8,6 +8,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.notNull;
@@ -96,6 +97,7 @@ public class Fido2CredentialRequestRobolectricTest {
     private static final String TEST_CHANNEL_EXTRA = "stable";
     private static final Boolean TEST_INCOGNITO_EXTRA = true;
     private static final String TEST_CLIENT_DATA_JSON = "{ClientDataJSON}";
+    private static final int UNHANDLED_ERROR = -1;
 
     private Fido2CredentialRequest mRequest;
     private PublicKeyCredentialCreationOptions mCreationOptions;
@@ -114,6 +116,7 @@ public class Fido2CredentialRequestRobolectricTest {
     @Mock WebauthnModeProvider mModeProviderMock;
     @Mock AuthenticationContextProvider mAuthenticationContextProviderMock;
     @Mock GmsCoreGetCredentialsHelper mGmsCoreGetCredentialsHelperMock;
+    private WebauthnRequestCallback mRequestCallbackForTesting;
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -201,8 +204,55 @@ public class Fido2CredentialRequestRobolectricTest {
                 /* overrideAndroidVersion= */ Build.VERSION_CODES.UPSIDE_DOWN_CAKE,
                 /* overrideForcesGpm= */ true);
         mRequest.overrideBrowserBridgeForTesting(mBrowserBridgeMock);
+        Mockito.when(mBrowserBridgeMock.isInitialized()).thenReturn(true);
         mRequest.setCredManHelperForTesting(mCredManHelperMock);
         mRequest.setBarrierForTesting(mBarrierMock);
+        doAnswer(
+                        invocation -> {
+                            if (mRequestCallbackForTesting != null) {
+                                int status = AuthenticatorStatus.NOT_ALLOWED_ERROR;
+                                if (mRequestCallbackForTesting.getCallbackType()
+                                        == WebauthnRequestCallback.CallbackType.GET_CREDENTIAL) {
+                                    mRequestCallbackForTesting.onComplete(
+                                            WebauthnRequestResponse.forFailedGetCredential(
+                                                    status, new RequestMetrics.Builder().build()));
+                                } else if (mRequestCallbackForTesting.getCallbackType()
+                                        == WebauthnRequestCallback.CallbackType.MAKE_CREDENTIAL) {
+                                    mRequestCallbackForTesting.onComplete(
+                                            WebauthnRequestResponse.forFailedMakeCredential(
+                                                    status, new RequestMetrics.Builder().build()));
+                                } else {
+                                    mRequestCallbackForTesting.onComplete(
+                                            WebauthnRequestResponse.forReport(status));
+                                }
+                            }
+                            return null;
+                        })
+                .when(mBarrierMock)
+                .onFido2ApiCancelled();
+        doAnswer(
+                        invocation -> {
+                            if (mRequestCallbackForTesting != null) {
+                                int status = invocation.getArgument(0);
+                                if (mRequestCallbackForTesting.getCallbackType()
+                                        == WebauthnRequestCallback.CallbackType.GET_CREDENTIAL) {
+                                    mRequestCallbackForTesting.onComplete(
+                                            WebauthnRequestResponse.forFailedGetCredential(
+                                                    status, new RequestMetrics.Builder().build()));
+                                } else if (mRequestCallbackForTesting.getCallbackType()
+                                        == WebauthnRequestCallback.CallbackType.MAKE_CREDENTIAL) {
+                                    mRequestCallbackForTesting.onComplete(
+                                            WebauthnRequestResponse.forFailedMakeCredential(
+                                                    status, new RequestMetrics.Builder().build()));
+                                } else {
+                                    mRequestCallbackForTesting.onComplete(
+                                            WebauthnRequestResponse.forReport(status));
+                                }
+                            }
+                            return null;
+                        })
+                .when(mBarrierMock)
+                .onFido2ApiCancelled(anyInt());
         GmsCoreUtils.setGmsCoreVersionForTesting(2024000000);
     }
 
@@ -274,6 +324,175 @@ public class Fido2CredentialRequestRobolectricTest {
                         any(),
                         /* clientDataJson= */ eq(null),
                         /* clientDataHash= */ eq(null));
+    }
+
+    @Test
+    @SmallTest
+    public void testConvertError() {
+        final String prefix = "[12345] ";
+        // Pass null for cases where the error message is not used by the mapping logic,
+        // or to verify the null-safety of our error message guards.
+
+        assertThat(Fido2CredentialRequest.convertError(new Pair<>(Fido2Api.SECURITY_ERR, null)))
+                .isEqualTo(AuthenticatorStatus.INVALID_DOMAIN);
+
+        assertThat(Fido2CredentialRequest.convertError(new Pair<>(Fido2Api.TIMEOUT_ERR, null)))
+                .isEqualTo(AuthenticatorStatus.NOT_ALLOWED_ERROR);
+
+        assertThat(Fido2CredentialRequest.convertError(new Pair<>(Fido2Api.ENCODING_ERR, null)))
+                .isEqualTo(AuthenticatorStatus.UNKNOWN_ERROR);
+
+        assertThat(
+                        Fido2CredentialRequest.convertError(
+                                new Pair<>(
+                                        Fido2Api.NOT_ALLOWED_ERR,
+                                        prefix
+                                                + Fido2CredentialRequest
+                                                        .NON_EMPTY_ALLOWLIST_ERROR_MSG)))
+                .isEqualTo(AuthenticatorStatus.EMPTY_ALLOW_CREDENTIALS);
+
+        assertThat(
+                        Fido2CredentialRequest.convertError(
+                                new Pair<>(
+                                        Fido2Api.NOT_ALLOWED_ERR,
+                                        prefix
+                                                + Fido2CredentialRequest
+                                                        .NON_VALID_ALLOWED_CREDENTIALS_ERROR_MSG)))
+                .isEqualTo(AuthenticatorStatus.EMPTY_ALLOW_CREDENTIALS);
+
+        assertThat(
+                        Fido2CredentialRequest.convertError(
+                                new Pair<>(
+                                        Fido2Api.NOT_ALLOWED_ERR,
+                                        prefix + Fido2CredentialRequest.CANCELLED_ERROR_MSG)))
+                .isEqualTo(AuthenticatorStatus.NOT_ALLOWED_ERROR);
+
+        assertThat(Fido2CredentialRequest.convertError(new Pair<>(Fido2Api.NOT_ALLOWED_ERR, null)))
+                .isEqualTo(AuthenticatorStatus.NOT_ALLOWED_ERROR);
+
+        assertThat(Fido2CredentialRequest.convertError(new Pair<>(Fido2Api.DATA_ERR, null)))
+                .isEqualTo(AuthenticatorStatus.ANDROID_NOT_SUPPORTED_ERROR);
+
+        assertThat(
+                        Fido2CredentialRequest.convertError(
+                                new Pair<>(Fido2Api.NOT_SUPPORTED_ERR, null)))
+                .isEqualTo(AuthenticatorStatus.ANDROID_NOT_SUPPORTED_ERROR);
+
+        assertThat(
+                        Fido2CredentialRequest.convertError(
+                                new Pair<>(
+                                        Fido2Api.CONSTRAINT_ERR,
+                                        prefix + Fido2CredentialRequest.NO_SCREENLOCK_ERROR_MSG)))
+                .isEqualTo(AuthenticatorStatus.USER_VERIFICATION_UNSUPPORTED);
+
+        assertThat(Fido2CredentialRequest.convertError(new Pair<>(Fido2Api.CONSTRAINT_ERR, null)))
+                .isEqualTo(AuthenticatorStatus.UNKNOWN_ERROR);
+
+        assertThat(
+                        Fido2CredentialRequest.convertError(
+                                new Pair<>(
+                                        Fido2Api.INVALID_STATE_ERR,
+                                        prefix
+                                                + Fido2CredentialRequest
+                                                        .CREDENTIAL_EXISTS_ERROR_MSG)))
+                .isEqualTo(AuthenticatorStatus.CREDENTIAL_EXCLUDED);
+
+        assertThat(
+                        Fido2CredentialRequest.convertError(
+                                new Pair<>(Fido2Api.INVALID_STATE_ERR, null)))
+                .isEqualTo(AuthenticatorStatus.UNKNOWN_ERROR);
+
+        assertThat(
+                        Fido2CredentialRequest.convertError(
+                                new Pair<>(
+                                        Fido2Api.UNKNOWN_ERR,
+                                        prefix + Fido2CredentialRequest.LOW_LEVEL_ERROR_MSG)))
+                .isEqualTo(AuthenticatorStatus.NOT_ALLOWED_ERROR);
+
+        assertThat(Fido2CredentialRequest.convertError(new Pair<>(Fido2Api.UNKNOWN_ERR, null)))
+                .isEqualTo(AuthenticatorStatus.UNKNOWN_ERROR);
+
+        assertThat(Fido2CredentialRequest.convertError(new Pair<>(UNHANDLED_ERROR, null)))
+                .isEqualTo(AuthenticatorStatus.UNKNOWN_ERROR);
+    }
+
+    @Test
+    @SmallTest
+    public void testMakeCredentialOutcomeCodeFromFidoError() {
+        final String prefix = "[12345] ";
+        // Pass null for cases where the error message is not used by the mapping logic,
+        // or to verify the null-safety of our error message guards.
+
+        assertThat(
+                        mRequest.makeCredentialOutcomeCodeFromFidoError(
+                                new Pair<>(Fido2Api.SECURITY_ERR, null)))
+                .isEqualTo(MakeCredentialOutcome.SECURITY_ERROR);
+
+        assertThat(
+                        mRequest.makeCredentialOutcomeCodeFromFidoError(
+                                new Pair<>(Fido2Api.TIMEOUT_ERR, null)))
+                .isEqualTo(MakeCredentialOutcome.UI_TIMEOUT);
+
+        assertThat(
+                        mRequest.makeCredentialOutcomeCodeFromFidoError(
+                                new Pair<>(
+                                        Fido2Api.NOT_ALLOWED_ERR,
+                                        prefix
+                                                + Fido2CredentialRequest
+                                                        .NON_EMPTY_ALLOWLIST_ERROR_MSG)))
+                .isEqualTo(MakeCredentialOutcome.RK_NOT_SUPPORTED);
+
+        assertThat(
+                        mRequest.makeCredentialOutcomeCodeFromFidoError(
+                                new Pair<>(
+                                        Fido2Api.NOT_ALLOWED_ERR,
+                                        prefix
+                                                + Fido2CredentialRequest
+                                                        .NON_VALID_ALLOWED_CREDENTIALS_ERROR_MSG)))
+                .isEqualTo(MakeCredentialOutcome.RK_NOT_SUPPORTED);
+
+        assertThat(
+                        mRequest.makeCredentialOutcomeCodeFromFidoError(
+                                new Pair<>(
+                                        Fido2Api.NOT_ALLOWED_ERR,
+                                        prefix + Fido2CredentialRequest.CANCELLED_ERROR_MSG)))
+                .isEqualTo(MakeCredentialOutcome.USER_CANCELLATION);
+
+        assertThat(
+                        mRequest.makeCredentialOutcomeCodeFromFidoError(
+                                new Pair<>(Fido2Api.NOT_ALLOWED_ERR, null)))
+                .isEqualTo(MakeCredentialOutcome.PLATFORM_NOT_ALLOWED);
+
+        assertThat(
+                        mRequest.makeCredentialOutcomeCodeFromFidoError(
+                                new Pair<>(
+                                        Fido2Api.CONSTRAINT_ERR,
+                                        prefix + Fido2CredentialRequest.NO_SCREENLOCK_ERROR_MSG)))
+                .isEqualTo(MakeCredentialOutcome.UV_NOT_SUPPORTED);
+
+        assertThat(
+                        mRequest.makeCredentialOutcomeCodeFromFidoError(
+                                new Pair<>(Fido2Api.CONSTRAINT_ERR, null)))
+                .isEqualTo(MakeCredentialOutcome.OTHER_FAILURE);
+
+        assertThat(
+                        mRequest.makeCredentialOutcomeCodeFromFidoError(
+                                new Pair<>(
+                                        Fido2Api.INVALID_STATE_ERR,
+                                        prefix
+                                                + Fido2CredentialRequest
+                                                        .CREDENTIAL_EXISTS_ERROR_MSG)))
+                .isEqualTo(MakeCredentialOutcome.CREDENTIAL_EXCLUDED);
+
+        assertThat(
+                        mRequest.makeCredentialOutcomeCodeFromFidoError(
+                                new Pair<>(Fido2Api.INVALID_STATE_ERR, null)))
+                .isEqualTo(MakeCredentialOutcome.OTHER_FAILURE);
+
+        assertThat(
+                        mRequest.makeCredentialOutcomeCodeFromFidoError(
+                                new Pair<>(Fido2Api.UNKNOWN_ERR, null)))
+                .isEqualTo(MakeCredentialOutcome.OTHER_FAILURE);
     }
 
     @Test
@@ -824,6 +1043,7 @@ public class Fido2CredentialRequestRobolectricTest {
 
         CredManSupportProvider.setupForTesting(Build.VERSION_CODES.UPSIDE_DOWN_CAKE, true);
 
+        setUpGetCredentialCallback();
         mRequest.handleGetCredentialRequest(mRequestOptions, mOrigin, mOrigin, /* payment= */ null);
 
         ArgumentCaptor<GetCredentialOptions> optionsCaptor =
@@ -833,6 +1053,81 @@ public class Fido2CredentialRequestRobolectricTest {
                         optionsCaptor.capture(), any(), any(), any(), any(), any(), anyBoolean());
 
         assertThat(optionsCaptor.getValue().password).isFalse();
+    }
+
+    @Test
+    @SmallTest
+    public void testGetAssertionOutcomeCodeFromFidoError() {
+        final String prefix = "[12345] ";
+        // Pass null for cases where the error message is not used by the mapping logic,
+        // or to verify the null-safety of our error message guards.
+
+        assertThat(
+                        mRequest.getAssertionOutcomeCodeFromFidoError(
+                                new Pair<>(Fido2Api.SECURITY_ERR, null)))
+                .isEqualTo(GetAssertionOutcome.SECURITY_ERROR);
+
+        assertThat(
+                        mRequest.getAssertionOutcomeCodeFromFidoError(
+                                new Pair<>(Fido2Api.TIMEOUT_ERR, null)))
+                .isEqualTo(GetAssertionOutcome.UI_TIMEOUT);
+
+        assertThat(
+                        mRequest.getAssertionOutcomeCodeFromFidoError(
+                                new Pair<>(
+                                        Fido2Api.NOT_ALLOWED_ERR,
+                                        prefix
+                                                + Fido2CredentialRequest
+                                                        .NON_EMPTY_ALLOWLIST_ERROR_MSG)))
+                .isEqualTo(GetAssertionOutcome.RK_NOT_SUPPORTED);
+
+        assertThat(
+                        mRequest.getAssertionOutcomeCodeFromFidoError(
+                                new Pair<>(
+                                        Fido2Api.NOT_ALLOWED_ERR,
+                                        prefix
+                                                + Fido2CredentialRequest
+                                                        .NON_VALID_ALLOWED_CREDENTIALS_ERROR_MSG)))
+                .isEqualTo(GetAssertionOutcome.RK_NOT_SUPPORTED);
+
+        assertThat(
+                        mRequest.getAssertionOutcomeCodeFromFidoError(
+                                new Pair<>(
+                                        Fido2Api.NOT_ALLOWED_ERR,
+                                        prefix + Fido2CredentialRequest.CANCELLED_ERROR_MSG)))
+                .isEqualTo(GetAssertionOutcome.USER_CANCELLATION);
+
+        assertThat(
+                        mRequest.getAssertionOutcomeCodeFromFidoError(
+                                new Pair<>(Fido2Api.NOT_ALLOWED_ERR, null)))
+                .isEqualTo(GetAssertionOutcome.PLATFORM_NOT_ALLOWED);
+
+        assertThat(
+                        mRequest.getAssertionOutcomeCodeFromFidoError(
+                                new Pair<>(
+                                        Fido2Api.CONSTRAINT_ERR,
+                                        prefix + Fido2CredentialRequest.NO_SCREENLOCK_ERROR_MSG)))
+                .isEqualTo(GetAssertionOutcome.UV_NOT_SUPPORTED);
+
+        assertThat(
+                        mRequest.getAssertionOutcomeCodeFromFidoError(
+                                new Pair<>(Fido2Api.CONSTRAINT_ERR, null)))
+                .isEqualTo(GetAssertionOutcome.OTHER_FAILURE);
+
+        assertThat(
+                        mRequest.getAssertionOutcomeCodeFromFidoError(
+                                new Pair<>(
+                                        Fido2Api.UNKNOWN_ERR,
+                                        prefix + Fido2CredentialRequest.LOW_LEVEL_ERROR_MSG)))
+                .isEqualTo(GetAssertionOutcome.CREDENTIAL_NOT_RECOGNIZED);
+
+        assertThat(
+                        mRequest.getAssertionOutcomeCodeFromFidoError(
+                                new Pair<>(Fido2Api.UNKNOWN_ERR, null)))
+                .isEqualTo(GetAssertionOutcome.OTHER_FAILURE);
+
+        assertThat(mRequest.getAssertionOutcomeCodeFromFidoError(new Pair<>(UNHANDLED_ERROR, null)))
+                .isEqualTo(GetAssertionOutcome.OTHER_FAILURE);
     }
 
     @Test
@@ -902,6 +1197,7 @@ public class Fido2CredentialRequestRobolectricTest {
                             }
                         },
                         result -> mCallback.onRequestOutcome(result.getMakeCredentialOutcome()));
+        mRequestCallbackForTesting = callback;
         Mockito.when(mAuthenticationContextProviderMock.getRequestCallback()).thenReturn(callback);
     }
 
@@ -921,6 +1217,7 @@ public class Fido2CredentialRequestRobolectricTest {
                             }
                         },
                         (result) -> mCallback.onRequestOutcome(result.getGetAssertionOutcome()));
+        mRequestCallbackForTesting = callback;
         Mockito.when(mAuthenticationContextProviderMock.getRequestCallback()).thenReturn(callback);
     }
 
@@ -928,6 +1225,7 @@ public class Fido2CredentialRequestRobolectricTest {
         WebauthnRequestCallback callback =
                 WebauthnRequestCallback.forReport(
                         (status, unused) -> mCallback.onReportOutcome(status));
+        mRequestCallbackForTesting = callback;
         Mockito.when(mAuthenticationContextProviderMock.getRequestCallback()).thenReturn(callback);
     }
 

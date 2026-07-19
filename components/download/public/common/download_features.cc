@@ -4,6 +4,7 @@
 
 #include "components/download/public/common/download_features.h"
 
+#include "build/android_buildflags.h"
 #include "build/build_config.h"
 
 namespace download {
@@ -38,6 +39,8 @@ BASE_FEATURE(kShowBlockedSensitiveDownload, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kShowDownloadScanningState, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kDownloadsCompactListView, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kRemapGenericMimeType, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 BASE_FEATURE(kDownloadNotificationServiceUnifiedAPI,
@@ -77,8 +80,16 @@ BASE_FEATURE(kEnableSavePackageForOffTheRecord,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kOpenDownloadInFilesAppIfNoHandlerFound,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_DESKTOP_ANDROID)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif  // BUILDFLAG(IS_DESKTOP_ANDROID)
+);
 #endif  // BUILDFLAG(IS_ANDROID)
+
+BASE_FEATURE(kDeferredDownloadHistoryLoading,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 }  // namespace features
 
 }  // namespace download

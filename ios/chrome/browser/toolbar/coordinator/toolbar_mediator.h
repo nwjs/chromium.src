@@ -28,8 +28,8 @@ class WebStateList;
 class TabBasedIPHBrowserAgent;
 
 class AuthenticationService;
-@protocol BWGCommands;
 class GeminiBrowserAgent;
+@protocol GeminiCommands;
 class GeminiService;
 
 // Mediator for the toolbar.
@@ -47,9 +47,6 @@ class GeminiService;
 // Delegate that handles the toolbars height.
 @property(nonatomic, weak) id<ToolbarHeightDelegate> toolbarHeightDelegate;
 
-// Whether the toolbar is being shown in incognito or not.
-@property(nonatomic, assign, getter=isIncognito) BOOL incognito;
-
 // Commands handler for fullscreen.
 @property(nonatomic, weak) id<FullscreenCommands> fullscreenCommands;
 
@@ -57,7 +54,7 @@ class GeminiService;
 @property(nonatomic, weak) id<SettingsCommands> settingsHandler;
 
 // Dispatcher for Gemini commands.
-@property(nonatomic, weak) id<BWGCommands> geminiHandler;
+@property(nonatomic, weak) id<GeminiCommands> geminiHandler;
 
 // Base view controller for presenting UI sheets.
 @property(nonatomic, weak) UIViewController* baseViewController;
@@ -66,17 +63,17 @@ class GeminiService;
 @property(nonatomic, weak) id<SceneCommands> sceneHandler;
 
 // Initializer.
-- (instancetype)initWithWebStateList:(WebStateList*)webStateList
-                       actionFactory:(BrowserActionFactory*)actionFactory
-                         prefService:(PrefService*)prefService
-                fullscreenController:(FullscreenController*)fullscreenController
-                         topPosition:(BOOL)topPosition
-        defaultBrowserBannerAppAgent:
-            (DefaultBrowserBannerPromoAppAgent*)defaultBrowserBannerAppAgent
-               authenticationService:
-                   (AuthenticationService*)authenticationService
-                       geminiService:(GeminiService*)geminiService
-                  geminiBrowserAgent:(GeminiBrowserAgent*)geminiBrowserAgent
+- (instancetype)initWithIncognito:(BOOL)incognito
+                     webStateList:(WebStateList*)webStateList
+                    actionFactory:(BrowserActionFactory*)actionFactory
+                      prefService:(PrefService*)prefService
+             fullscreenController:(FullscreenController*)fullscreenController
+                      topPosition:(BOOL)topPosition
+     defaultBrowserBannerAppAgent:
+         (DefaultBrowserBannerPromoAppAgent*)defaultBrowserBannerAppAgent
+            authenticationService:(AuthenticationService*)authenticationService
+                    geminiService:(GeminiService*)geminiService
+               geminiBrowserAgent:(GeminiBrowserAgent*)geminiBrowserAgent
     NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)init NS_UNAVAILABLE;

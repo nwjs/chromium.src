@@ -22,6 +22,7 @@ source_set("page_action") {
     "page_action_icon_view.h",
     "page_action_icon_view_observer.h",
     "page_action_view.h",
+    "page_action_view_interface.h",
     "page_action_view_params.h",
     "zoom_view.h",
   ]
@@ -41,7 +42,7 @@ source_set("page_action") {
     "//components/metrics/structured:structured_events",
     "//components/prefs",
     "//components/saved_tab_groups/public",
-    "//components/tabs",
+    "//components/tabs:impl",
     "//components/user_education/common",
     "//components/zoom",
     "//content/public/browser",
@@ -89,6 +90,7 @@ source_set("impl") {
     "//chrome/browser/ui/views/interaction",
     "//chrome/browser/ui/views/location_bar",
     "//chrome/browser/ui/views/location_bar/cookie_controls",
+    "//chrome/browser/ui/views/sharing_hub",
     "//chrome/browser/ui/views/toolbar",
     "//chrome/browser/ui/web_applications",
     "//chrome/browser/user_education",
@@ -114,6 +116,26 @@ source_set("impl") {
   configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
+source_set("page_action_test_support") {
+  testonly = true
+
+  sources = [
+    "test_support/page_action_test_support.cc",
+    "test_support/page_action_test_support.h",
+  ]
+
+  public_deps = [
+    ":page_action",
+    "//ui/actions:actions_headers",
+  ]
+
+  deps = [
+    "//base",
+    "//chrome/browser/ui:ui_features",
+    "//chrome/browser/ui/page_action",
+  ]
+}
+
 source_set("test_support") {
   testonly = true
 
@@ -124,6 +146,7 @@ source_set("test_support") {
 
   public_deps = [
     ":page_action",
+    ":page_action_test_support",
     "//chrome/browser/ui/page_action:test_support",
   ]
 
@@ -172,6 +195,7 @@ source_set("interactive_ui_tests") {
   deps = [
     ":page_action",
     "//chrome/browser/ui",
+    "//chrome/browser/ui:browser_actions",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/views/toolbar",
     "//chrome/test:test_support",

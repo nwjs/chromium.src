@@ -5,10 +5,13 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_page_handler.h"
 
 #include "base/check_deref.h"
+#include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/uuid.h"
+#include "build/build_config.h"
+#include "build/buildflag.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/contextual_tasks/ai_mode_context_library_converter.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks.mojom-shared.h"
@@ -23,12 +26,18 @@
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/ui/actions/chrome_action_id.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
+#include "chrome/browser/ui/user_education/browser_user_education_interface.h"
+#endif
+#include "base/task/single_thread_task_runner.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/common/pref_names.h"
-#include "chrome/grit/branded_strings.h"
-#include "chrome/grit/generated_resources.h"
 #include "components/application_locale_storage/application_locale_storage.h"
 #include "components/contextual_search/contextual_search_metrics_recorder.h"
 #include "components/contextual_tasks/public/context_decoration_params.h"
@@ -36,6 +45,8 @@
 #include "components/contextual_tasks/public/contextual_task_context.h"
 #include "components/contextual_tasks/public/features.h"
 #include "components/contextual_tasks/public/prefs.h"
+#include "components/contextual_tasks/public/query_contextualizer.h"
+#include "components/feature_engagement/public/feature_constants.h"
 #include "components/lens/lens_url_utils.h"
 #include "components/omnibox/browser/searchbox.mojom.h"
 #include "components/omnibox/common/composebox_features.h"
@@ -43,6 +54,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/sessions/core/session_id.h"
 #include "components/tabs/public/tab_interface.h"
+#include "content/public/browser/browser_context.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "google_apis/gaia/gaia_constants.h"
@@ -99,6 +111,7 @@ PopulateContextualResources(contextual_tasks::ContextualTaskContext* context) {
         tab_context->title = title;
         tab_context->url = url;
         tab_context->tab_id = attachment.GetTabSessionId().id();
+        tab_context->has_chrome_tab_data = attachment.HasChromeTabData();
         context_items.push_back(contextual_tasks::mojom::ContextInfo::NewTab(
             std::move(tab_context)));
         break;
@@ -138,6 +151,8 @@ contextual_tasks::mojom::IconType IconTypeToMojom(lens::AimIconType icon_id) {
       return contextual_tasks::mojom::IconType::kInvertedFormatQuoteFilled;
     case lens::AimIconType::ICON_TYPE_IMAGE:
       return contextual_tasks::mojom::IconType::kImage;
+    case lens::AimIconType::ICON_TYPE_FOLLOW_UP:
+      return contextual_tasks::mojom::IconType::kFollowUp;
     case lens::AimIconType::ICON_TYPE_DRIVE_PDF:
       return contextual_tasks::mojom::IconType::kDrivePdf;
     default:
@@ -239,15 +254,16 @@ ContextualTasksPageHandler::ContextualTasksPageHandler(
   CHECK(contextual_tasks_service_);
   contextual_tasks_service_observation_.Observe(contextual_tasks_service_);
 
+#if !BUILDFLAG(IS_ANDROID)
   if (contextual_tasks::IsContextualTasksPinButtonInToolbarEnabled()) {
     Profile* profile = web_ui_controller_->GetProfile();
-    pref_change_registrar_.Init(profile->GetPrefs());
-    pref_change_registrar_.Add(
-        prefs::kPinContextualTaskButton,
-        base::BindRepeating(&ContextualTasksPageHandler::OnPrefChanged,
-                            base::Unretained(this)));
-    OnPrefChanged();
+    if (auto* model = PinnedToolbarActionsModel::Get(profile)) {
+      pinned_toolbar_actions_model_observation_.Observe(model);
+      bool is_pinned = model->Contains(kActionSidePanelShowContextualTasks);
+      OnPinStateChanged(is_pinned);
+    }
   }
+#endif
 }
 
 ContextualTasksPageHandler::~ContextualTasksPageHandler() = default;
@@ -275,7 +291,9 @@ void ContextualTasksPageHandler::GetUrlForTask(const base::Uuid& uuid,
                       ->GetOrCreateContextualSessionHandle()) {
             std::string query = lens::ExtractTextQueryParameterValue(url);
             if (!query.empty()) {
-              session_handle->set_previous_query(query);
+              contextual_tasks::ThreadTurn turn;
+              turn.query = query;
+              session_handle->AddThreadTurn(turn);
             }
           }
         }
@@ -367,7 +385,7 @@ void ContextualTasksPageHandler::ShowThreadHistory() {
 
 void ContextualTasksPageHandler::IsShownInTab(IsShownInTabCallback callback) {
   if (contextual_tasks::IsContextualTasksPinButtonInToolbarEnabled()) {
-    OnPrefChanged();
+    OnActionsChanged();
   }
   std::move(callback).Run(web_ui_controller_->IsShownInTab());
 }
@@ -502,7 +520,13 @@ void ContextualTasksPageHandler::OnWebviewMessage(
       ui_service_->OnThreadLinkClicked(
           target_url, web_ui_controller_->GetTaskId().value_or(base::Uuid()),
           tab ? tab->GetWeakPtr() : nullptr,
-          browser ? browser->GetWeakPtr() : nullptr);
+          browser ? browser->GetWeakPtr() : nullptr,
+          /*initiator_origin=*/
+          web_ui_controller_->GetInnerWebContents()
+              ? web_ui_controller_->GetInnerWebContents()
+                    ->GetPrimaryMainFrame()
+                    ->GetLastCommittedOrigin()
+              : url::Origin());
     }
   }
 }
@@ -535,12 +559,25 @@ void ContextualTasksPageHandler::GetCommonSearchParams(
 }
 
 void ContextualTasksPageHandler::OnboardingTooltipDismissed() {
-  PrefService* prefs = web_ui_controller_->GetProfile()->GetPrefs();
+  Profile* profile = web_ui_controller_->GetProfile();
+  PrefService* prefs = profile->GetPrefs();
   int count = prefs->GetInteger(
       contextual_tasks::kContextualTasksOnboardingTooltipDismissedCount);
   prefs->SetInteger(
       contextual_tasks::kContextualTasksOnboardingTooltipDismissedCount,
       count + 1);
+
+#if !BUILDFLAG(IS_ANDROID)
+  // Notify feature engagement that onboarding was dismissed.
+  feature_engagement::Tracker* tracker =
+      feature_engagement::TrackerFactory::GetForBrowserContext(profile);
+  if (tracker) {
+    tracker->NotifyEvent("contextual_tasks_onboarding_dismissed");
+  }
+
+  prefs->SetInteger(
+      contextual_tasks::kContextualTasksSessionCountPostOnboarding, 0);
+#endif  // !BUILDFLAG(IS_ANDROID)
 }
 
 void ContextualTasksPageHandler::ReopenTabs() {
@@ -650,7 +687,9 @@ void ContextualTasksPageHandler::OnReceivedUpdatedThreadContextLibrary(
 
   // Populate restored tabs in the composebox.
   if (contextual_tasks_service_ &&
-      base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox)) {
+      base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox) &&
+      web_ui_controller_->is_history_thread_loading()) {
+    web_ui_controller_->set_is_history_thread_loading(false);
     contextual_tasks_service_->GetContextForTask(
         *task_id, {},
         std::make_unique<contextual_tasks::ContextDecorationParams>(),
@@ -664,7 +703,7 @@ void ContextualTasksPageHandler::OnReceivedUpdatedThreadContextLibrary(
 
                 std::vector<searchbox::mojom::TabInfoPtr> tabs;
                 for (const auto& item : context_items) {
-                  if (item->is_tab()) {
+                  if (item->is_tab() && item->get_tab()->has_chrome_tab_data) {
                     auto tab_info = searchbox::mojom::TabInfo::New();
                     tab_info->url = item->get_tab()->url;
                     tab_info->title = item->get_tab()->title;
@@ -754,8 +793,12 @@ void ContextualTasksPageHandler::PinSidePanel() {
   if (!contextual_tasks::IsContextualTasksPinButtonInToolbarEnabled()) {
     return;
   }
-  web_ui_controller_->GetProfile()->GetPrefs()->SetBoolean(
-      prefs::kPinContextualTaskButton, true);
+#if !BUILDFLAG(IS_ANDROID)
+  Profile* profile = web_ui_controller_->GetProfile();
+  if (auto* model = PinnedToolbarActionsModel::Get(profile)) {
+    model->UpdatePinnedState(kActionSidePanelShowContextualTasks, true);
+  }
+#endif
 }
 
 void ContextualTasksPageHandler::OnContextMenuOpened() {
@@ -835,17 +878,79 @@ void ContextualTasksPageHandler::UnpinSidePanel() {
   if (!contextual_tasks::IsContextualTasksPinButtonInToolbarEnabled()) {
     return;
   }
-  web_ui_controller_->GetProfile()->GetPrefs()->SetBoolean(
-      prefs::kPinContextualTaskButton, false);
+#if !BUILDFLAG(IS_ANDROID)
+  Profile* profile = web_ui_controller_->GetProfile();
+  if (auto* model = PinnedToolbarActionsModel::Get(profile)) {
+    model->UpdatePinnedState(kActionSidePanelShowContextualTasks, false);
+  }
+#endif
 }
 
 void ContextualTasksPageHandler::OnPinStateChanged(bool is_pinned) {
   web_ui_controller_->GetPageRemote()->OnSidePanelPinStateChanged(is_pinned);
 }
 
-void ContextualTasksPageHandler::OnPrefChanged() {
-  OnPinStateChanged(
+void ContextualTasksPageHandler::OnActionsChanged() {
+  bool effective_pin_state =
       contextual_tasks::IsContextualTasksPinButtonInToolbarEnabled() &&
-      web_ui_controller_->GetProfile()->GetPrefs()->GetBoolean(
-          prefs::kPinContextualTaskButton));
+      contextual_tasks::GetEffectivePinState(
+          web_ui_controller_ ? web_ui_controller_->GetProfile() : nullptr);
+  OnPinStateChanged(effective_pin_state);
+}
+
+void ContextualTasksPageHandler::MaybeTriggerPinningPromo() {
+#if BUILDFLAG(IS_ANDROID)
+  return;
+#else
+  if (!web_ui_controller_) {
+    return;
+  }
+
+  if (!panel_controller_ ||
+      !panel_controller_->IsPanelOpenForContextualTask()) {
+    return;
+  }
+
+  Profile* profile = web_ui_controller_->GetProfile();
+  if (!profile) {
+    return;
+  }
+
+  if (!contextual_tasks::IsContextualTasksPinButtonInToolbarEnabled() ||
+      base::FeatureList::IsEnabled(
+          contextual_tasks::kContextualTasksHideMenuOnAiPage)) {
+    return;
+  }
+
+  // 1. Verify we are still in AI Mode.
+  bool is_ai_page = ui_service_ && ui_service_->IsAiUrl(
+                                       web_ui_controller_->GetInnerFrameUrl());
+  if (!is_ai_page) {
+    return;
+  }
+
+  // 2. Verify the button is not already pinned.
+  bool is_pinned = contextual_tasks::GetEffectivePinState(profile);
+  if (is_pinned) {
+    return;
+  }
+
+  // 3. Verify we have reached the session count threshold after onboarding
+  // tooltip was dismissed.
+  int post_onboarding_sessions = profile->GetPrefs()->GetInteger(
+      contextual_tasks::kContextualTasksSessionCountPostOnboarding);
+  if (post_onboarding_sessions <
+      contextual_tasks::GetContextualTasksNumSessionsBeforeRequestPinPromo()) {
+    return;
+  }
+
+  // 4. Attempt to show the IPH!
+  BrowserWindowInterface* browser_window = web_ui_controller_->GetBrowser();
+  if (!browser_window) {
+    return;
+  }
+  BrowserUserEducationInterface::From(browser_window)
+      ->MaybeShowFeaturePromo(
+              feature_engagement::kIPHSidePanelContextualTasksPinnableFeature);
+#endif
 }

@@ -6,6 +6,7 @@
 
 #import <Foundation/Foundation.h>
 
+#import "base/feature_list.h"
 #import "base/memory/ptr_util.h"
 #import "base/metrics/histogram_macros.h"
 #import "base/strings/sys_string_conversions.h"
@@ -51,13 +52,17 @@ IOSSendTabToSelfInfoBarDelegate::~IOSSendTabToSelfInfoBarDelegate() {
               object:nil];
 }
 
+const std::string& IOSSendTabToSelfInfoBarDelegate::GetGUID() const {
+  return guid_;
+}
+
 IOSSendTabToSelfInfoBarDelegate::IOSSendTabToSelfInfoBarDelegate(
     const SendTabToSelfEntry* entry,
     SendTabToSelfModel* model,
     id<SceneCommands> scene_handler)
-    : entry_(entry),
-      model_(model),
+    : model_(model),
       scene_handler_(scene_handler),
+      guid_(entry->GetGUID()),
       weak_ptr_factory_(this) {
   DCHECK(entry);
   DCHECK(model);
@@ -114,23 +119,45 @@ void IOSSendTabToSelfInfoBarDelegate::InfoBarDismissed() {
   Cancel();
 }
 
+std::u16string IOSSendTabToSelfInfoBarDelegate::GetTitleText() const {
+  if (base::FeatureList::IsEnabled(send_tab_to_self::kSendTabToSelfAutoOpen)) {
+    return l10n_util::GetStringUTF16(
+        IDS_SEND_TAB_TO_SELF_INFOBAR_AUTO_OPEN_TITLE);
+  }
+  return std::u16string();
+}
+
 std::u16string IOSSendTabToSelfInfoBarDelegate::GetMessageText() const {
+  if (base::FeatureList::IsEnabled(send_tab_to_self::kSendTabToSelfAutoOpen)) {
+    const SendTabToSelfEntry* entry = model_->GetEntryByGUID(guid_);
+    return entry ? l10n_util::GetStringFUTF16(
+                       IDS_SEND_TAB_TO_SELF_INFOBAR_AUTO_OPEN_SUBTITLE,
+                       base::UTF8ToUTF16(entry->GetDeviceName()))
+                 : std::u16string();
+  }
   return l10n_util::GetStringUTF16(IDS_SEND_TAB_TO_SELF_INFOBAR_MESSAGE);
 }
 
 bool IOSSendTabToSelfInfoBarDelegate::Accept() {
   send_tab_to_self::RecordNotificationOpened();
-  model_->MarkEntryOpened(entry_->GetGUID());
-
-  [scene_handler_
-      openURLInNewTab:send_tab_to_self::CreateOpenNewTabCommand(entry_)];
+  const SendTabToSelfEntry* entry = model_->GetEntryByGUID(guid_);
+  if (entry) {
+    model_->MarkEntryOpened(guid_);
+    if (base::FeatureList::IsEnabled(
+            send_tab_to_self::kSendTabToSelfAutoOpen)) {
+      [scene_handler_ displayTabGridInMode:TabGridOpeningMode::kRegular];
+    } else {
+      [scene_handler_
+          openURLInNewTab:send_tab_to_self::CreateOpenNewTabCommand(entry)];
+    }
+  }
 
   SendConclusionNotification();
   return true;
 }
 
 bool IOSSendTabToSelfInfoBarDelegate::Cancel() {
-  model_->DismissEntry(entry_->GetGUID());
+  model_->DismissEntry(guid_);
   SendConclusionNotification();
   return true;
 }

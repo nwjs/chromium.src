@@ -4,10 +4,10 @@
 
 import {AnnotationMode, PluginController, PluginControllerEventType, UserAction} from 'chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/pdf_viewer_wrapper.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
-import {isVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
+import {eventToPromise, isVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 import {getNewTestBeforeUnloadProxy} from './test_before_unload_proxy.js';
-import {createTextBox, setupMockMetricsPrivate, setupTestMockPluginForInk} from './test_util.js';
+import {createTextBox, getRequiredElement, getTextBox, setupMockMetricsPrivate, setupTestMockPluginForInk} from './test_util.js';
 
 const viewer = document.body.querySelector('pdf-viewer')!;
 const viewerToolbar = viewer.$.toolbar;
@@ -206,12 +206,12 @@ chrome.test.runTests([
 
     // Annotation mode off. Textbox is not in the DOM.
     await setAnnotationMode(AnnotationMode.OFF);
-    let textbox = viewer.shadowRoot.querySelector('ink-text-box');
+    let textbox = getTextBox(viewer);
     chrome.test.assertFalse(!!textbox);
 
     // Text annotation mode. Textbox is in the DOM but isn't visible.
     await setAnnotationMode(AnnotationMode.TEXT);
-    textbox = viewer.shadowRoot.querySelector('ink-text-box');
+    textbox = getTextBox(viewer);
     chrome.test.assertTrue(!!textbox);
     chrome.test.assertFalse(isVisible(textbox));
 
@@ -226,13 +226,13 @@ chrome.test.runTests([
 
     // Switching to a different annotation mode removes the box from the DOM.
     await setAnnotationMode(AnnotationMode.DRAW);
-    textbox = viewer.shadowRoot.querySelector('ink-text-box');
+    textbox = getTextBox(viewer);
     chrome.test.assertFalse(!!textbox);
 
     // Text annotation mode. Switching back to text puts the box back in the
     // DOM, but does not immediately make it visible.
     await setAnnotationMode(AnnotationMode.TEXT);
-    textbox = viewer.shadowRoot.querySelector('ink-text-box');
+    textbox = getTextBox(viewer);
     chrome.test.assertTrue(!!textbox);
     chrome.test.assertFalse(isVisible(textbox));
 
@@ -253,7 +253,7 @@ chrome.test.runTests([
     // Create a textbox.
     createTextBox();
     await microtasksFinished();
-    const textbox = viewer.shadowRoot.querySelector('ink-text-box')!;
+    const textbox = getTextBox(viewer);
     chrome.test.assertTrue(!!textbox);
     chrome.test.assertTrue(isVisible(textbox));
 
@@ -266,7 +266,7 @@ chrome.test.runTests([
     await setAnnotationMode(AnnotationMode.DRAW);
 
     // Verify textbox is removed and committed.
-    chrome.test.assertFalse(!!viewer.shadowRoot.querySelector('ink-text-box'));
+    chrome.test.assertFalse(!!getTextBox(viewer));
     const finishMessage = mockPlugin.findMessage('finishTextAnnotation');
     chrome.test.assertNe(undefined, finishMessage);
     chrome.test.succeed();
@@ -285,7 +285,7 @@ chrome.test.runTests([
     // Create a textbox.
     createTextBox();
     await microtasksFinished();
-    const textbox = viewer.shadowRoot.querySelector('ink-text-box')!;
+    const textbox = getTextBox(viewer)!;
 
     // Edit the textbox.
     textbox.$.textbox.value = 'World';
@@ -296,7 +296,7 @@ chrome.test.runTests([
     await setAnnotationMode(AnnotationMode.OFF);
 
     // Verify textbox is removed and committed.
-    chrome.test.assertFalse(!!viewer.shadowRoot.querySelector('ink-text-box'));
+    chrome.test.assertFalse(!!getTextBox(viewer));
     const finishMessage = mockPlugin.findMessage('finishTextAnnotation');
     chrome.test.assertNe(undefined, finishMessage);
     chrome.test.succeed();
@@ -320,7 +320,7 @@ chrome.test.runTests([
     // Create a textbox.
     createTextBox();
     await microtasksFinished();
-    const textbox = viewer.shadowRoot.querySelector('ink-text-box')!;
+    const textbox = getTextBox(viewer)!;
 
     // Edit the textbox.
     textbox.$.textbox.value = 'Print me';
@@ -364,7 +364,7 @@ chrome.test.runTests([
     // Create a textbox.
     createTextBox();
     await microtasksFinished();
-    const textbox = viewer.shadowRoot.querySelector('ink-text-box')!;
+    const textbox = getTextBox(viewer)!;
 
     // Edit the textbox.
     textbox.$.textbox.value = 'Print me script';
@@ -385,6 +385,50 @@ chrome.test.runTests([
     chrome.test.assertNe(-1, setTextIndex);
     chrome.test.assertNe(-1, printIndex);
     chrome.test.assertTrue(setTextIndex < printIndex);
+
+    chrome.test.succeed();
+  },
+
+  async function testFocusAfterCommit() {
+    mockPlugin.clearMessages();
+    await enableTextAnnotations(true);
+    await setAnnotationMode(AnnotationMode.TEXT);
+
+    createTextBox();
+    await microtasksFinished();
+    const textbox = getTextBox(viewer);
+    chrome.test.assertTrue(!!textbox);
+    chrome.test.assertTrue(isVisible(textbox));
+
+    // Edit the textbox.
+    const textarea = textbox.$.textbox;
+    textarea.value = 'Focus test';
+    textarea.dispatchEvent(new CustomEvent('input'));
+    await microtasksFinished();
+
+    // Press Escape to focus the outer box.
+    const escapePromise =
+        eventToPromise('ink-text-box-focused-for-test', textbox);
+    textarea.dispatchEvent(new KeyboardEvent(
+        'keydown', {key: 'Escape', bubbles: true, composed: true}));
+    await escapePromise;
+
+    // Verify textbox has focus.
+    const annotations = getRequiredElement(viewer, 'ink-text-annotations');
+    chrome.test.assertEq(textbox, annotations.shadowRoot.activeElement);
+
+    // Press Escape again to commit.
+    document.dispatchEvent(new KeyboardEvent(
+        'keydown', {key: 'Escape', bubbles: true, composed: true}));
+    await microtasksFinished();
+
+    // Verify textbox is committed, hidden, and no longer has focus.
+    chrome.test.assertFalse(isVisible(textbox));
+    chrome.test.assertNe(textbox, annotations.shadowRoot.activeElement);
+
+    // Verify that the PDF content embed now has focus.
+    const embed = getRequiredElement(viewer, 'embed');
+    chrome.test.assertEq(embed, viewer.shadowRoot.activeElement);
 
     chrome.test.succeed();
   },

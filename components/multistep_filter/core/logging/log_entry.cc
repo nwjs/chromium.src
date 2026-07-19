@@ -42,12 +42,14 @@ constexpr std::string_view LogEventTypeToString(LogEventType type) {
       return "SuggestionSuppressed";
     case LogEventType::kSuggestionCleared:
       return "SuggestionCleared";
-    case LogEventType::kUiShown:
-      return "UiShown";
-    case LogEventType::kUiAccepted:
-      return "UiAccepted";
-    case LogEventType::kUiDismissed:
-      return "UiDismissed";
+    case LogEventType::kSuggestionShown:
+      return "SuggestionShown";
+    case LogEventType::kSuggestionAccepted:
+      return "SuggestionAccepted";
+    case LogEventType::kSuggestionDismissed:
+      return "SuggestionDismissed";
+    case LogEventType::kSuggestionIgnored:
+      return "SuggestionIgnored";
     case LogEventType::kServerRequestFailed:
       return "ServerRequestFailed";
     case LogEventType::kServerResponseMalformed:
@@ -60,19 +62,17 @@ constexpr std::string_view LogEventTypeToString(LogEventType type) {
 
 LogEntry::LogEntry(int64_t navigation_id,
                    LogEventType type,
-                   std::string_view source_etld_plus_1)
-    : navigation_id(navigation_id),
-      event_type(type),
-      source_etld_plus_1(source_etld_plus_1) {}
+                   std::string_view host)
+    : navigation_id(navigation_id), event_type(type), host(host) {}
 
 LogEntry::LogEntry(base::Time time,
                    int64_t navigation_id,
                    LogEventType type,
-                   std::string_view source_etld_plus_1)
+                   std::string_view host)
     : timestamp(time),
       navigation_id(navigation_id),
       event_type(type),
-      source_etld_plus_1(source_etld_plus_1) {}
+      host(host) {}
 
 LogEntry::LogEntry(LogEntry&& other) noexcept = default;
 
@@ -81,7 +81,7 @@ LogEntry& LogEntry::operator=(LogEntry&& other) noexcept = default;
 LogEntry::~LogEntry() = default;
 
 LogEntry LogEntry::Clone() const {
-  LogEntry clone(timestamp, navigation_id, event_type, source_etld_plus_1);
+  LogEntry clone(timestamp, navigation_id, event_type, host);
   clone.details = details.Clone();
   return clone;
 }
@@ -91,7 +91,7 @@ base::Value LogEntry::ToValue() const {
   dict.Set("timestamp", timestamp.InSecondsFSinceUnixEpoch());
   dict.Set("navigation_id", base::NumberToString(navigation_id));
   dict.Set("event_type", LogEventTypeToString(event_type));
-  dict.Set("source_etld_plus_1", source_etld_plus_1);
+  dict.Set("host", host);
   dict.Set("details", details.Clone());
   return base::Value(std::move(dict));
 }

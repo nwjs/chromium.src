@@ -33,6 +33,7 @@
 #include "components/password_manager/core/browser/undo_password_change_controller.h"
 #include "components/password_manager/core/common/password_manager_constants.h"
 #include "components/signin/public/base/consent_level.h"
+#include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/strings/grit/components_strings.h"
@@ -239,7 +240,8 @@ Suggestion::PasswordSuggestionDetails PasswordAndMetadataToSuggestionDetails(
     const PasswordAndMetadata& credential) {
   return Suggestion::PasswordSuggestionDetails(
       credential.username_value, credential.password_value,
-      credential.backup_password_value.value());
+      credential.backup_password_value.value(), credential.realm,
+      credential.is_grouped_affiliation);
 }
 class MockPasswordManagerClient : public StubPasswordManagerClient {
  public:
@@ -252,6 +254,7 @@ class MockPasswordManagerClient : public StubPasswordManagerClient {
               (PasswordManagerDriver*),
               (override));
   MOCK_METHOD(const GURL&, GetLastCommittedURL, (), (const, override));
+  MOCK_METHOD(bool, IsChromeSigninPage, (), (const, override));
 
   const MockPasswordFeatureManager* GetPasswordFeatureManager() const override {
     return &feature_manager_;
@@ -289,6 +292,7 @@ class PasswordSuggestionGeneratorTest : public testing::Test {
         .WillByDefault(Return(&credentials_delegate()));
     ON_CALL(client_, GetLastCommittedURL)
         .WillByDefault(ReturnRef(kExternalURL));
+    ON_CALL(client_, IsChromeSigninPage).WillByDefault(Return(false));
   }
 
   const gfx::Image& favicon() const { return favicon_; }
@@ -1154,6 +1158,74 @@ TEST_F(PasswordSuggestionGeneratorTest,
                           EqualsManagePasswordsSuggestion()));
 }
 
+// Test that the webauthn sign in with another device suggestion is positioned
+// correctly in the manual fallback dropdown, i.e. below a separator and above
+// the manage passwords entry.
+TEST_F(PasswordSuggestionGeneratorTest,
+       WebAuthnSuggestionPositionInManualFallback) {
+  base::test::ScopedFeatureList feature_list{
+      features::kWebAuthnUsePasskeyFromAnotherDeviceInManualFallback};
+  const std::vector<PasskeyCredential> kEmptyPasskeyVector;
+  ON_CALL(credentials_delegate(), GetPasskeys)
+      .WillByDefault(Return(base::ok(&kEmptyPasskeyVector)));
+  ON_CALL(credentials_delegate(), IsSecurityKeyOrHybridFlowAvailable)
+      .WillByDefault(Return(true));
+
+  std::vector<Suggestion> suggestions = GenerateSuggestedPasswordsSection(
+      {password_form()}, IsTriggeredOnPasswordForm(true));
+
+  EXPECT_THAT(
+      suggestions,
+      ElementsAre(
+          EqualsManualFallbackSuggestion(
+              SuggestionType::kPasswordEntry, u"google.com",
+              u"username@example.com", Suggestion::Icon::kGlobe,
+              /*is_acceptable=*/true,
+              Suggestion::FaviconDetails(
+                  /*domain_url=*/GURL("https://google.com")),
+              Suggestion::PasswordSuggestionDetails(
+                  u"username@example.com", u"password", "https://google.com/",
+                  u"google.com",
+                  /*is_cross_domain=*/false)),
+          EqualsSuggestion(SuggestionType::kSeparator),
+          EqualsSuggestion(SuggestionType::kWebauthnSignInWithAnotherDevice,
+                           l10n_util::GetStringUTF16(
+                               IDS_PASSWORD_MANAGER_USE_PASSKEY_OTHER_DEVICE),
+                           Suggestion::Icon::kDevice),
+          EqualsManagePasswordsSuggestion()));
+}
+
+// Test that the webauthn sign in with another device suggestion is not added
+// if the corresponding feature is disabled.
+TEST_F(PasswordSuggestionGeneratorTest,
+       WebAuthnSuggestionPositionInManualFallback_FeatureDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      features::kWebAuthnUsePasskeyFromAnotherDeviceInManualFallback);
+  const std::vector<PasskeyCredential> kEmptyPasskeyVector;
+  ON_CALL(credentials_delegate(), GetPasskeys)
+      .WillByDefault(Return(base::ok(&kEmptyPasskeyVector)));
+  ON_CALL(credentials_delegate(), IsSecurityKeyOrHybridFlowAvailable)
+      .WillByDefault(Return(true));
+
+  std::vector<Suggestion> suggestions = GenerateSuggestedPasswordsSection(
+      {password_form()}, IsTriggeredOnPasswordForm(true));
+
+  EXPECT_THAT(suggestions,
+              ElementsAre(EqualsManualFallbackSuggestion(
+                              SuggestionType::kPasswordEntry, u"google.com",
+                              u"username@example.com", Suggestion::Icon::kGlobe,
+                              /*is_acceptable=*/true,
+                              Suggestion::FaviconDetails(
+                                  /*domain_url=*/GURL("https://google.com")),
+                              Suggestion::PasswordSuggestionDetails(
+                                  u"username@example.com", u"password",
+                                  "https://google.com/", u"google.com",
+                                  /*is_cross_domain=*/false)),
+                          EqualsSuggestion(SuggestionType::kSeparator),
+                          EqualsManagePasswordsSuggestion()));
+}
+
 TEST_F(PasswordSuggestionGeneratorTest,
        ManualFallback_SuggestedPasswords_ChildSuggestionContent) {
   std::vector<Suggestion> suggestions = GenerateSuggestedPasswordsSection(
@@ -1165,7 +1237,11 @@ TEST_F(PasswordSuggestionGeneratorTest,
       suggestions[0].children,
       ElementsAre(
           EqualsSuggestion(SuggestionType::kPasswordFieldByFieldFilling,
-                           u"username@example.com"),
+                           u"username@example.com", Suggestion::Icon::kNoIcon,
+                           Suggestion::PasswordSuggestionDetails(
+                               u"username@example.com", u"password",
+                               "https://google.com/", u"google.com",
+                               /*is_cross_domain=*/false)),
           EqualsSuggestion(
               SuggestionType::kFillPassword,
               l10n_util::GetStringUTF16(
@@ -1194,7 +1270,11 @@ TEST_F(PasswordSuggestionGeneratorTest,
       suggestions[0].children,
       ElementsAre(
           EqualsSuggestion(SuggestionType::kPasswordFieldByFieldFilling,
-                           u"username@example.com"),
+                           u"username@example.com", Suggestion::Icon::kNoIcon,
+                           Suggestion::PasswordSuggestionDetails(
+                               u"username@example.com", u"password",
+                               "https://google.com/", u"google.com",
+                               /*is_cross_domain=*/true)),
           EqualsSuggestion(
               SuggestionType::kFillPassword,
               l10n_util::GetStringUTF16(
@@ -1262,6 +1342,85 @@ TEST_F(PasswordSuggestionGeneratorTest,
               l10n_util::GetStringUTF16(
                   IDS_PASSWORD_MANAGER_MANUAL_FALLBACK_VIEW_DETAILS_ENTRY),
               Suggestion::Icon::kKey)));
+}
+
+TEST_F(PasswordSuggestionGeneratorTest,
+       ManualFallback_BothSections_GroupedCredentials) {
+  PasswordForm form_1 =
+      CreateEntry("first@google.com", "first", GURL("https://google.com/"),
+                  PasswordForm::MatchType::kExact);
+
+  PasswordForm form_2 =
+      CreateEntry("second@google.com", "second", GURL("https://microsoft.com/"),
+                  PasswordForm::MatchType::kGrouped);
+
+  std::vector<Suggestion> suggestions = GenerateBothSections(
+      {form_1, form_2},
+      {CredentialUIEntry({form_1}), CredentialUIEntry({form_2})},
+      IsTriggeredOnPasswordForm(true));
+
+  // Expected suggestions are:
+  // 0. Suggested passwords section title.
+  // 1. Suggestion for google.com.
+  // 2. Suggestion for microsoft.com.
+  // 3. All passwords section title.
+  // 4. Suggestion for google.com.
+  // 5. Suggestion for microsoft.com.
+  // 6. Footer section separator.
+  // 7. "Manage passwords" suggestion.
+  EXPECT_THAT(
+      suggestions,
+      ElementsAre(
+          EqualsSuggestion(
+              SuggestionType::kTitle,
+              l10n_util::GetStringUTF16(
+                  IDS_PASSWORD_MANAGER_MANUAL_FALLBACK_SUGGESTED_PASSWORDS_SECTION_TITLE)),
+          EqualsManualFallbackSuggestion(
+              SuggestionType::kPasswordEntry, u"google.com",
+              u"first@google.com", Suggestion::Icon::kGlobe,
+              /*is_acceptable=*/true,
+              Suggestion::FaviconDetails(
+                  /*domain_url=*/GURL("https://google.com/")),
+              Suggestion::PasswordSuggestionDetails(
+                  u"first@google.com", u"first", "https://google.com/",
+                  u"google.com",
+                  /*is_cross_domain=*/false)),
+          EqualsManualFallbackSuggestion(
+              SuggestionType::kPasswordEntry, u"microsoft.com",
+              u"second@google.com", Suggestion::Icon::kGlobe,
+              /*is_acceptable=*/true,
+              Suggestion::FaviconDetails(
+                  /*domain_url=*/GURL("https://microsoft.com/")),
+              Suggestion::PasswordSuggestionDetails(
+                  u"second@google.com", u"second", "https://microsoft.com/",
+                  u"microsoft.com",
+                  /*is_cross_domain=*/true)),
+          EqualsSuggestion(
+              SuggestionType::kTitle,
+              l10n_util::GetStringUTF16(
+                  IDS_PASSWORD_MANAGER_MANUAL_FALLBACK_ALL_PASSWORDS_SECTION_TITLE)),
+          EqualsManualFallbackSuggestion(
+              SuggestionType::kPasswordEntry, u"google.com",
+              u"first@google.com", Suggestion::Icon::kGlobe,
+              /*is_acceptable=*/true,
+              Suggestion::FaviconDetails(
+                  /*domain_url=*/GURL("https://google.com/")),
+              Suggestion::PasswordSuggestionDetails(
+                  u"first@google.com", u"first", "https://google.com/",
+                  u"google.com",
+                  /*is_cross_domain=*/false)),
+          EqualsManualFallbackSuggestion(
+              SuggestionType::kPasswordEntry, u"microsoft.com",
+              u"second@google.com", Suggestion::Icon::kGlobe,
+              /*is_acceptable=*/true,
+              Suggestion::FaviconDetails(
+                  /*domain_url=*/GURL("https://microsoft.com/")),
+              Suggestion::PasswordSuggestionDetails(
+                  u"second@google.com", u"second", "https://microsoft.com/",
+                  u"microsoft.com",
+                  /*is_cross_domain=*/true)),
+          EqualsSuggestion(SuggestionType::kSeparator),
+          EqualsManagePasswordsSuggestion()));
 }
 
 TEST_F(PasswordSuggestionGeneratorTest,
@@ -1788,6 +1947,64 @@ TEST_F(PasswordSuggestionGeneratorTest,
 #endif  // BUILDFLAG(IS_IOS)
                   Suggestion::Icon::kDevice));
 }
+
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+TEST_F(PasswordSuggestionGeneratorTest,
+       GetWebauthnSignInWithAnotherDeviceSuggestion_QrEnabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      switches::kMagiChromePasskeySignIn, {{"flow_type", "autofill"}});
+
+  const std::string kTestQrString = "test_qr_string";
+  ON_CALL(credentials_delegate(), GetCableQrString)
+      .WillByDefault(Return(kTestQrString));
+  EXPECT_CALL(client(), IsChromeSigninPage).WillOnce(Return(true));
+
+  std::optional<Suggestion> suggestion =
+      generator().GetWebauthnSignInWithAnotherDeviceSuggestion();
+  ASSERT_TRUE(suggestion.has_value());
+  EXPECT_THAT(*suggestion,
+              EqualsSuggestion(SuggestionType::kWebauthnPasskeyQrCode,
+                               l10n_util::GetStringUTF16(
+                                   IDS_PASSWORD_MANAGER_PASSKEY_QR_CODE_TITLE),
+                               Suggestion::Icon::kNoIcon,
+                               autofill::Suggestion::Guid(kTestQrString)));
+  EXPECT_EQ(suggestion->filtration_policy,
+            autofill::Suggestion::FiltrationPolicy::kStatic);
+}
+
+TEST_F(PasswordSuggestionGeneratorTest,
+       GetWebauthnSignInWithAnotherDeviceSuggestion_QrEnabled_NotChromeSigninPage) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      switches::kMagiChromePasskeySignIn, {{"flow_type", "autofill"}});
+
+  const std::string kTestQrString = "test_qr_string";
+  ON_CALL(credentials_delegate(), GetCableQrString)
+      .WillByDefault(Return(kTestQrString));
+  ON_CALL(credentials_delegate(), IsSecurityKeyOrHybridFlowAvailable)
+      .WillByDefault(Return(true));
+  const std::vector<PasskeyCredential> passkeys;
+  ON_CALL(credentials_delegate(), GetPasskeys)
+      .WillByDefault(Return(base::ok(&passkeys)));
+  EXPECT_CALL(client(), IsChromeSigninPage).WillOnce(Return(false));
+
+  std::optional<Suggestion> suggestion =
+      generator().GetWebauthnSignInWithAnotherDeviceSuggestion();
+  ASSERT_TRUE(suggestion.has_value());
+  EXPECT_THAT(
+      *suggestion,
+      EqualsSuggestion(
+          SuggestionType::kWebauthnSignInWithAnotherDevice,
+#if BUILDFLAG(IS_IOS)
+          l10n_util::GetStringUTF16(IDS_PASSWORD_MANAGER_USE_PASSKEY),
+#else
+          l10n_util::GetStringUTF16(
+              IDS_PASSWORD_MANAGER_USE_PASSKEY_OTHER_DEVICE),
+#endif  // BUILDFLAG(IS_IOS)
+          Suggestion::Icon::kDevice));
+}
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 TEST_F(PasswordSuggestionGeneratorTest,
        GetWebauthnSignInWithAnotherDeviceSuggestionWithListedPasskeys) {

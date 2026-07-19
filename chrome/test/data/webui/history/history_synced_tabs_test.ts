@@ -3,17 +3,18 @@
 // found in the LICENSE file.
 
 import type {ForeignSession, HistorySyncedDeviceCardElement, HistorySyncedDeviceManagerElement} from 'chrome://history/history.js';
-import {BrowserServiceImpl, HistorySignInState, SyncState} from 'chrome://history/history.js';
+import {BrowserProxyImpl, foreignSessionBrowserProxyFactory, HistorySignInState, SyncState} from 'chrome://history/history.js';
+import {webUIListenerCallback} from 'chrome://resources/js/cr.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {assertEquals, assertFalse, assertNotEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
-import {webUIListenerCallback} from 'chrome://resources/js/cr.js';
 
 // <if expr="not is_chromeos">
-import { isChildVisible } from 'chrome://webui-test/test_util.js';
+import {isChildVisible} from 'chrome://webui-test/test_util.js';
 // </if>
 
-import {TestBrowserService} from './test_browser_service.js';
+import {FakeForeignSessionPageHandler} from './fake_foreign_session_page_handler.js';
+import {TestHistoryBrowserProxy} from './test_browser_proxy.js';
 import {createSession, createWindow} from './test_util.js';
 
 function getCards(manager: HistorySyncedDeviceManagerElement):
@@ -35,7 +36,8 @@ function assertNoSyncedTabsMessageShown(
 
 suite('<history-synced-device-manager>', function() {
   let element: HistorySyncedDeviceManagerElement;
-  let testService: TestBrowserService;
+  let testProxy: TestHistoryBrowserProxy;
+  let foreignSessionProxy: FakeForeignSessionPageHandler;
 
   function setForeignSessions(sessions: ForeignSession[]) {
     element.sessionList = sessions;
@@ -44,9 +46,13 @@ suite('<history-synced-device-manager>', function() {
   setup(function() {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     window.history.replaceState({}, '', '/');
-    testService = new TestBrowserService();
-    BrowserServiceImpl.setInstance(testService);
-    testService.setInitialIdentityState({
+    testProxy = new TestHistoryBrowserProxy();
+    BrowserProxyImpl.setInstance(testProxy);
+    foreignSessionProxy = new FakeForeignSessionPageHandler();
+    const {instance} =
+        foreignSessionBrowserProxyFactory.createForTest(foreignSessionProxy);
+    foreignSessionBrowserProxyFactory.setInstance(instance);
+    testProxy.setInitialIdentityState({
       signIn: HistorySignInState.SIGNED_IN,
       tabsSync: SyncState.TURNED_ON,
       historySync: SyncState.TURNED_OFF,
@@ -199,7 +205,7 @@ suite('<history-synced-device-manager>', function() {
 
     element.shadowRoot.querySelector<HTMLElement>('#menuDeleteButton')!.click();
     const deletedSessionTag =
-        await testService.whenCalled('deleteForeignSession');
+        await foreignSessionProxy.whenCalled('deleteForeignSession');
     assertEquals('Nexus 5', deletedSessionTag);
 
     // Simulate deleting the first device.
@@ -238,13 +244,14 @@ suite('<history-synced-device-manager>', function() {
     const cards = getCards(element);
     const anchor = cards[0]!.shadowRoot.querySelector('a')!;
     anchor.click();
-    const args = await testService.whenCalled('openForeignSessionTab');
-    assertEquals('Chromebook', args.sessionTag, 'sessionTag is correct');
-    assertEquals(456, args.tabId, 'tabId is correct');
-    assertFalse(args.e.altKey, 'altKey is defined');
-    assertFalse(args.e.ctrlKey, 'ctrlKey is defined');
-    assertFalse(args.e.metaKey, 'metaKey is defined');
-    assertFalse(args.e.shiftKey, 'shiftKey is defined');
+    const [sessionTag, tabId, modifiers] =
+        await foreignSessionProxy.whenCalled('openForeignSessionTab');
+    assertEquals('Chromebook', sessionTag, 'sessionTag is correct');
+    assertEquals(456, tabId, 'tabId is correct');
+    assertFalse(modifiers.altKey, 'altKey is defined');
+    assertFalse(modifiers.ctrlKey, 'ctrlKey is defined');
+    assertFalse(modifiers.metaKey, 'metaKey is defined');
+    assertFalse(modifiers.shiftKey, 'shiftKey is defined');
   });
 
   test('middle-click synced tab', async () => {
@@ -262,10 +269,11 @@ suite('<history-synced-device-manager>', function() {
       composed: true,
     }));
 
-    const args = await testService.whenCalled('openForeignSessionTab');
-    assertEquals('Chromebook', args.sessionTag, 'sessionTag is correct');
-    assertEquals(456, args.tabId, 'tabId is correct');
-    assertEquals(1, args.e.button, 'button is 1');
+    const [sessionTag, tabId, modifiers] =
+        await foreignSessionProxy.whenCalled('openForeignSessionTab');
+    assertEquals('Chromebook', sessionTag, 'sessionTag is correct');
+    assertEquals(456, tabId, 'tabId is correct');
+    assertTrue(modifiers.middleButton, 'middleButton is true');
   });
 
   test('show actions menu', async () => {
@@ -402,14 +410,19 @@ suite('<history-synced-device-manager>', function() {
 // history-sync-optin elements is not shown for ChromeOS.
 suite('<history-sync-optin>', function() {
   let element: HistorySyncedDeviceManagerElement;
-  let testService: TestBrowserService;
+  let testProxy: TestHistoryBrowserProxy;
+  let foreignSessionProxy: FakeForeignSessionPageHandler;
 
   setup(function() {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     window.history.replaceState({}, '', '/');
-    testService = new TestBrowserService();
-    BrowserServiceImpl.setInstance(testService);
-    testService.setInitialIdentityState({
+    testProxy = new TestHistoryBrowserProxy();
+    BrowserProxyImpl.setInstance(testProxy);
+    foreignSessionProxy = new FakeForeignSessionPageHandler();
+    const {instance} =
+        foreignSessionBrowserProxyFactory.createForTest(foreignSessionProxy);
+    foreignSessionBrowserProxyFactory.setInstance(instance);
+    testProxy.setInitialIdentityState({
       signIn: HistorySignInState.WEB_ONLY_SIGNED_IN,
       tabsSync: SyncState.TURNED_OFF,
       historySync: SyncState.TURNED_OFF,
@@ -534,7 +547,7 @@ suite('<history-sync-optin>', function() {
   });
 
   test('initializes account info', async () => {
-    await testService.handler.whenCalled('requestAccountInfo');
+    await testProxy.handler.whenCalled('requestAccountInfo');
     await microtasksFinished();
 
     assertEquals(
@@ -552,7 +565,7 @@ suite('<history-sync-optin>', function() {
   });
 
   test('updates account info', async () => {
-    await testService.handler.whenCalled('requestAccountInfo');
+    await testProxy.handler.whenCalled('requestAccountInfo');
     await microtasksFinished();
 
     const newAccountInfo = {
@@ -561,7 +574,7 @@ suite('<history-sync-optin>', function() {
       accountImageSrc: 'http://image.com/img2.png',
     };
 
-    testService.pageRemote.sendAccountInfo(newAccountInfo);
+    testProxy.pageRemote.sendAccountInfo(newAccountInfo);
     await microtasksFinished();
 
     assertEquals(
@@ -579,8 +592,8 @@ suite('<history-sync-optin>', function() {
   });
 
   test('calls turnOnHistorySync when button is clicked', async () => {
-      // For the sake of diversity, using other signin state in this test,
-      // different from WEB_ONLY_SIGN_IN
+    // For the sake of diversity, using other signin state in this test,
+    // different from WEB_ONLY_SIGN_IN
     webUIListenerCallback('history-identity-state-changed', {
       signIn: HistorySignInState.SIGNED_IN,
       tabsSync: SyncState.TURNED_OFF,
@@ -591,7 +604,7 @@ suite('<history-sync-optin>', function() {
     assertTrue(!!button);
     button.click();
 
-    await testService.handler.whenCalled('turnOnHistorySync');
+    await testProxy.handler.whenCalled('turnOnHistorySync');
   });
 
   test('check recorded metrics in pending signin', async () => {
@@ -602,7 +615,7 @@ suite('<history-sync-optin>', function() {
       historySync: SyncState.TURNED_OFF,
     });
     await microtasksFinished();
-    assertEquals(1, testService.getCallCount('recordSigninPendingOffered'));
+    assertEquals(1, testProxy.getCallCount('recordSigninPendingOffered'));
 
     // Firing a sign in pending state again does not record again.
     webUIListenerCallback('history-identity-state-changed', {
@@ -611,7 +624,7 @@ suite('<history-sync-optin>', function() {
       historySync: SyncState.TURNED_OFF,
     });
     await microtasksFinished();
-    assertEquals(1, testService.getCallCount('recordSigninPendingOffered'));
+    assertEquals(1, testProxy.getCallCount('recordSigninPendingOffered'));
 
     // Signing in and then getting into sign in pending state again records the
     // histogram again.
@@ -628,7 +641,7 @@ suite('<history-sync-optin>', function() {
     });
     await microtasksFinished();
 
-    assertEquals(2, testService.getCallCount('recordSigninPendingOffered'));
+    assertEquals(2, testProxy.getCallCount('recordSigninPendingOffered'));
   });
 });
 // </if>

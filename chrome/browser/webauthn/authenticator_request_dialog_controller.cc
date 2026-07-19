@@ -80,7 +80,6 @@
 #include "device/fido/fido_discovery_factory.h"
 #include "device/fido/fido_request_handler_base.h"
 #include "device/fido/pin.h"
-#include "device/fido/public/cable_discovery_data.h"
 #include "device/fido/public/features.h"
 #include "device/fido/public/fido_constants.h"
 #include "device/fido/public/fido_transport_protocol.h"
@@ -624,8 +623,15 @@ void AuthenticatorRequestDialogController::CancelAuthenticatorRequest() {
     return;
   }
 
+  // SetCurrentStep(Step::kClosed) can synchronously destroy the hosting
+  // WebContents and therefore `this`. See crbug.com/522566295.
+  base::WeakPtr<AuthenticatorRequestDialogController> weak_this =
+      weak_factory_.GetWeakPtr();
   if (is_request_complete()) {
     SetCurrentStep(Step::kClosed);
+  }
+  if (!weak_this) {
+    return;
   }
 
   for (auto& observer : model_->observers) {
@@ -781,7 +787,8 @@ void AuthenticatorRequestDialogController::StartFlow(
 }
 
 void AuthenticatorRequestDialogController::TransitionToModalWebAuthnRequest() {
-  DCHECK_EQ(model_->step(), Step::kPasskeyAutofill);
+  FIDO_LOG(EVENT) << "TransitionToModalWebAuthnRequest from step: "
+                  << model_->step();
 
   // Dispatch requests to any plugged in authenticators.
   for (auto& authenticator : ephemeral_state_.saved_authenticators_) {
@@ -1051,6 +1058,14 @@ void AuthenticatorRequestDialogController::
 
 void AuthenticatorRequestDialogController::OnCableEvent(
     device::cablev2::Event event) {
+  // Ignore background hybrid connection events if we are still showing the
+  // Autofill suggestion popup (conditional UI). We do not want to trigger any
+  // modal WebAuthn UI transitions in the background before the user selects an
+  // option.
+  if (model_->step() == Step::kPasskeyAutofill ||
+      model_->step() == Step::kNotStarted) {
+    return;
+  }
   switch (event) {
     case device::cablev2::Event::kPhoneConnected:
     case device::cablev2::Event::kBLEAdvertReceived:

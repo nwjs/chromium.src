@@ -5,7 +5,6 @@
 import("//chrome/common/features.gni")
 import("//crypto/features.gni")
 import("//ui/webui/resources/tools/build_webui.gni")
-import("./settings.gni")
 
 assert(!is_android, "Android does not use these settings")
 
@@ -55,7 +54,6 @@ build_webui("build") {
   web_component_files = [
     "a11y_page/a11y_page.ts",
     "a11y_page/a11y_page_index.ts",
-    "about_page/about_page.ts",
     "ai_page/ai_info_card.ts",
     "ai_page/ai_logging_info_bullet.ts",
     "ai_page/ai_mode_search_page.ts",
@@ -86,9 +84,10 @@ build_webui("build") {
     "autofill_page/pay_over_time_issuer_list_entry.ts",
     "autofill_page/payments_list.ts",
     "autofill_page/payments_section.ts",
+    "autofill_page/suggestions_from_gemini_subpage.ts",
     "autofill_page/virtual_card_unenroll_dialog.ts",
     "autofill_page/walletable_pass_detection_toggle.ts",
-    "clear_browsing_data_dialog/clear_browsing_data_dialog_v2.ts",
+    "clear_browsing_data_dialog/clear_browsing_data_dialog.ts",
     "clear_browsing_data_dialog/clear_browsing_data_time_picker.ts",
     "clear_browsing_data_dialog/history_deletion_dialog.ts",
     "clear_browsing_data_dialog/other_google_data_dialog.ts",
@@ -166,9 +165,6 @@ build_webui("build") {
     "privacy_sandbox/privacy_sandbox_manage_topics_subpage.ts",
     "privacy_sandbox/privacy_sandbox_page.ts",
     "privacy_sandbox/privacy_sandbox_topics_subpage.ts",
-    "reset_page/reset_page.ts",
-    "reset_page/reset_profile_banner.ts",
-    "reset_page/reset_profile_dialog.ts",
     "safety_hub/extensions_module.ts",
     "safety_hub/notification_permissions_module.ts",
     "safety_hub/safety_hub_card.ts",
@@ -225,6 +221,7 @@ build_webui("build") {
     "site_settings/hid_devices_page.ts",
     "site_settings/idle_detection_page.ts",
     "site_settings/images_page.ts",
+    "site_settings/inline_cue_menu_page.ts",
     "site_settings/insecure_content_page.ts",
     "site_settings/javascript_page.ts",
     "site_settings/keyboard_lock_page.ts",
@@ -325,6 +322,8 @@ build_webui("build") {
   ts_files = [
     "a11y_page/a11y_browser_proxy.ts",
     "about_page/about_page_browser_proxy.ts",
+    "about_page/about_page.html.ts",
+    "about_page/about_page.ts",
     "ai_page/ai_learn_more_url_util.ts",
     "ai_page/constants.ts",
     "appearance_page/appearance_browser_proxy.ts",
@@ -360,7 +359,14 @@ build_webui("build") {
     "privacy_page/security/security_keys_browser_proxy.ts",
     "privacy_sandbox/privacy_sandbox_browser_proxy.ts",
     "relaunch_mixin.ts",
+    "relaunch_mixin_lit.ts",
     "reset_page/reset_browser_proxy.ts",
+    "reset_page/reset_page.html.ts",
+    "reset_page/reset_page.ts",
+    "reset_page/reset_profile_banner.html.ts",
+    "reset_page/reset_profile_banner.ts",
+    "reset_page/reset_profile_dialog.html.ts",
+    "reset_page/reset_profile_dialog.ts",
     "route.ts",
     "router.ts",
     "safety_hub/safety_hub_browser_proxy.ts",
@@ -422,13 +428,17 @@ build_webui("build") {
   css_files = [
     "settings_columned_section.css",
     "settings_shared.css",
+    "settings_shared_lit.css",
     "settings_vars.css",
 
     # subfolder files
+    "about_page/about_page.css",
     "autofill_page/passwords_shared.css",
     "autofill_page/screen_reader_only.css",
     "autofill_page/your_saved_info_shared.css",
     "privacy_page/privacy_guide/privacy_guide_fragment_shared.css",
+    "reset_page/reset_profile_banner.css",
+    "reset_page/reset_profile_dialog.css",
     "search_page/search_engine_entry.css",
     "site_settings/clear_storage_dialog_shared.css",
     "site_settings/site_settings_shared.css",

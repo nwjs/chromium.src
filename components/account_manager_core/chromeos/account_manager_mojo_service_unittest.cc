@@ -245,12 +245,10 @@ class AccountManagerMojoServiceTest : public ::testing::Test {
 
   void CallAccountUpsertionFinished(
       const account_manager::AccountUpsertionResult& result) {
-    account_manager_mojo_service_->OnAccountUpsertionFinished(result);
+    account_manager_mojo_service_
+        ->CreateInlineLoginAccountUpsertionFinishedCallback()
+        .Run(result);
     GetFakeAccountManagerUI()->CloseDialog();
-  }
-
-  void ShowManageAccountsSettings() {
-    account_manager_mojo_service_->ShowManageAccountsSettings();
   }
 
   mojom::AccessTokenResultPtr FetchAccessToken(
@@ -290,10 +288,6 @@ class AccountManagerMojoServiceTest : public ::testing::Test {
     account_manager_mojo_service_->ReportAuthError(
         std::move(account_key_ptr),
         account_manager::ToMojoGoogleServiceAuthError(error));
-  }
-
-  void NotifySigninDialogClosed() {
-    account_manager_mojo_service_->NotifySigninDialogClosed();
   }
 
   int GetNumObservers() const {
@@ -370,25 +364,6 @@ TEST_F(AccountManagerMojoServiceTest,
   EXPECT_EQ(1, observer.GetNumOnAccountRemovedCalls());
   EXPECT_EQ(kTestAccountKey, observer.GetLastRemovedAccount().key);
   EXPECT_EQ(kFakeEmail, observer.GetLastRemovedAccount().raw_email);
-}
-
-TEST_F(AccountManagerMojoServiceTest, GetAccounts) {
-  ASSERT_TRUE(InitializeAccountManager());
-  {
-    std::vector<mojom::AccountPtr> accounts;
-    account_manager_async_waiter()->GetAccounts(&accounts);
-    EXPECT_TRUE(accounts.empty());
-  }
-
-  const account_manager::AccountKey kTestAccountKey =
-      account_manager::AccountKey::FromGaiaId(kFakeGaiaId);
-  account_manager()->UpsertAccount(kTestAccountKey, kFakeEmail, kFakeToken);
-  std::vector<mojom::AccountPtr> accounts;
-  account_manager_async_waiter()->GetAccounts(&accounts);
-  EXPECT_EQ(1UL, accounts.size());
-  EXPECT_EQ(kFakeEmail, accounts[0]->raw_email);
-  EXPECT_EQ(kFakeGaiaId.ToString(), accounts[0]->key->id);
-  EXPECT_EQ(mojom::AccountType::kGaia, accounts[0]->key->account_type);
 }
 
 TEST_F(AccountManagerMojoServiceTest,
@@ -655,14 +630,6 @@ TEST_F(AccountManagerMojoServiceTest, ShowReauthAccountDialogOpensTheDialog) {
   EXPECT_EQ(
       1,
       GetFakeAccountManagerUI()->show_account_reauthentication_dialog_calls());
-}
-
-TEST_F(AccountManagerMojoServiceTest, ShowManageAccountSettingsTest) {
-  EXPECT_EQ(0,
-            GetFakeAccountManagerUI()->show_manage_accounts_settings_calls());
-  ShowManageAccountsSettings();
-  EXPECT_EQ(1,
-            GetFakeAccountManagerUI()->show_manage_accounts_settings_calls());
 }
 
 TEST_F(AccountManagerMojoServiceTest,

@@ -486,6 +486,16 @@ _BANNED_IOS_OBJC_FUNCTIONS = (
             'ios/web_view',
         ),
     ),
+    BanRule(
+        r'/\bUIDevice\b(.*?)\buserInterfaceIdiom\b',
+        ('UIDevice.currentDevice.userInterfaceIdiom should not be used.',
+         'Use GetDeviceFormFactor() instead.'),
+        True,
+        excluded_paths=(
+            r'^ui/base/device_form_factor_ios\.mm$',
+            r'^ios/third_party/',
+        ),
+    ),
 )
 
 _BANNED_IOS_EGTEST_FUNCTIONS: Sequence[BanRule] = (BanRule(
@@ -496,6 +506,21 @@ _BANNED_IOS_EGTEST_FUNCTIONS: Sequence[BanRule] = (BanRule(
 ), )
 
 _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
+    BanRule(
+        r'/\b(TimeTicks::UnixEpoch|SetSharedUnixEpoch)\b',
+        (
+            'base::TimeTicks::UnixEpoch() and base::TimeTicks::SetSharedUnixEpoch()',
+            'are deprecated and being removed (crbug.com/355423207). TimeTicks can',
+            'be suspended while a process is suspended, so it has no stable relation',
+            'to wall-clock time. Use base::Time instead.',
+        ),
+        True,
+        excluded_paths=(
+            r'base/time/time\.(h|cc)',
+            r'base/allocator/partition_allocator/.*/time/time\.(h|cc)',
+            _THIRD_PARTY_EXCEPT_BLINK,
+        ),
+    ),
     BanRule(
         '%#0',
         (
@@ -981,7 +1006,16 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
 
             # Needed to implement Dawn wire interfaces.
             r'gpu/command_buffer/client/dawn_client_memory_transfer_service\.cc',
+            r'gpu/command_buffer/client/dawn_client_memory_transfer_service\.h',
             r'gpu/command_buffer/service/dawn_service_memory_transfer_service\.cc',
+            r'gpu/command_buffer/service/dawn_service_memory_transfer_service\.h',
+
+            # Needed to implement and use Dawn caching interfaces.
+            r'gpu/command_buffer/service/dawn_caching_interface\.cc',
+            r'gpu/command_buffer/service/dawn_caching_interface\.h',
+            r'gpu/command_buffer/service/dawn_context_provider\.cc',
+            r'gpu/command_buffer/service/gpu_persistent_cache\.cc',
+            r'gpu/command_buffer/service/gpu_persistent_cache\.h',
 
             # Clang tools do not depend on //base. Some are even emitting
             # std::span rewrite for non chromium projects.
@@ -1852,23 +1886,28 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
         ),
     ),
     BanRule(
-        r'/\bperfetto::Track::Global',
-        ('Creating new global tracks is discouraged and should be reserved ',
-        'for high level, user visible state. Consider using scoped tracks ',
-        'instead, see ',
-        'https://chromium.googlesource.com/chromium/src.git/+/main/docs/trace_events.md#named-tracks',
+        r'/\bperfetto::Track(\(|\{|::(Global|FromPointer|ThreadScoped)\b)',
+        (
+            'Creating tracks directly with perfetto::Track is discouraged. ',
+            'Using unnamed tracks or tracks based on raw pointers (like ',
+            'Track::FromPointer) risks track name collisions, name aliasing ',
+            '(when addresses are reused), or missing names in the trace due ',
+            'to descriptor loss. Consider using NamedTrack instead to ensure ',
+            'the track has a stable, explicit name, or a named subclass like ',
+            'CounterTrack. ',
+            'See https://chromium.googlesource.com/chromium/src.git/+/main/docs/trace_events.md#named-tracks',
         ),
         False,
-        (
-            r'^base/trace_event/.*',
-            r'^base/tracing/.*',
-        ),
+        (),
     ),
     BanRule(
-        r'/\bperfetto::Track::FromPointer',
-        ('Creating tracks from pointer is discouraged because it risks aliasing when the address ',
-         'is reused. Consider using NamedTrack instead, see ',
-        'https://chromium.googlesource.com/chromium/src.git/+/main/docs/trace_events.md#named-tracks',
+        r'/\bperfetto::DynamicString\b',
+        (
+            'Using perfetto::DynamicString is discouraged because they are ',
+            'stripped/erased in field traces for privacy reasons, resulting ',
+            'in unnamed tracks or events. Prefer perfetto::StaticString if ',
+            'possible. ',
+            'See https://chromium.googlesource.com/chromium/src.git/+/main/docs/trace_events.md#static-strings',
         ),
         False,
         (),
@@ -2296,13 +2335,6 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
         treat_as_error=False,
     ),
     BanRule(
-        pattern='IS_CHROMEOS_ASH',
-        explanation=
-        ('IS_CHROMEOS_ASH is deprecated. Please use the equivalent IS_CHROMEOS '
-         'instead (Lacros is gone).', ),
-        treat_as_error=False,
-    ),
-    BanRule(
         pattern=(r'namespace {'),
         explanation=
         ('Anonymous namespaces are disallowed in C++ header files. See '
@@ -2482,7 +2514,7 @@ _BANNED_GN_PATTERNS: Sequence[BanRule] = (BanRule(
     ),
     treat_as_error=False,
     surface_as_gerrit_lint=True,
-    excluded_paths=(r'^ui/webui/resources/', ),
+    excluded_paths=(r'^ui/webui/resources/', r'^chrome/test/data/webui/'),
 ), )
 
 _IPC_ENUM_TRAITS_DEPRECATED = (
@@ -2581,7 +2613,6 @@ _GENERIC_PYDEPS_FILES = [
     'build/android/gyp/trace_event_bytecode_rewriter.pydeps',
     'build/android/gyp/tracereferences.pydeps',
     'build/android/gyp/turbine.pydeps',
-    'build/android/gyp/unused_resources.pydeps',
     'build/android/gyp/write_build_config.pydeps',
     'build/android/gyp/write_native_libraries_java.pydeps',
     'build/android/gyp/zip.pydeps',
@@ -2631,6 +2662,7 @@ _GENERIC_PYDEPS_FILES = [
     'tools/flags/generate_expired_list.pydeps',
     'tools/grit/grit_info.pydeps',
     'tools/grit/grit.pydeps',
+    'tools/grit/preprocess_if_expr.pydeps',
     "tools/metrics/histograms/generate_allowlist_from_histograms_file.pydeps",
     'tools/perf/process_perf_results.pydeps',
     'tools/pgo/generate_profile.pydeps',
@@ -2828,7 +2860,7 @@ def CheckNoProductionCodeUsingTestOnlyFunctionsJava(input_api, output_api):
     # exclusion_re misses the closing ''''} when it wraps to the next line, support an on demand
     # multi-line check as a last step.
     multi_line_exclusion_re = input_api.re.compile(
-            r'(%s)[^;]+\{' % name_pattern, input_api.re.DOTALL)
+        r'(%s)[^;]+\{' % name_pattern, input_api.re.DOTALL)
 
     problems = []
     sources = lambda x: input_api.FilterSourceFile(
@@ -2855,7 +2887,8 @@ def CheckNoProductionCodeUsingTestOnlyFunctionsJava(input_api, output_api):
 
                 if cached_file_lines is None:
                     cached_file_lines = input_api.ReadFile(f).splitlines()
-                full_text_from_line = '\n'.join(cached_file_lines[line_number - 1:])
+                full_text_from_line = '\n'.join(cached_file_lines[line_number -
+                                                                  1:])
                 match = multi_line_exclusion_re.search(full_text_from_line)
                 if not match or match.start() >= len(line):
                     problems.append('%s:%d\n    %s' %
@@ -8263,17 +8296,15 @@ def CheckBaseFeatureParamMacro(input_api, output_api):
     # &opts); The 4th arg is a string literal (discouraged form).
     enum_param_6_args_re = input_api.re.compile(
         r'\bBASE_FEATURE_ENUM_PARAM\(' + arg + r',\s*(\w+)\s*,' + arg + r','
-        r'\s*' + quote_str + r'\s*,' + arg
-        + r',(?:[^;"]|' + quote_str + r')*?\);',
-        input_api.re.MULTILINE | input_api.re.DOTALL)
+        r'\s*' + quote_str + r'\s*,' + arg + r',(?:[^;"]|' + quote_str +
+        r')*?\);', input_api.re.MULTILINE | input_api.re.DOTALL)
 
     # 5-arg BASE_FEATURE_ENUM_PARAM(type, kVar, &feature, default, &opts);
     # The 4th arg is NOT a string literal.
     enum_param_5_args_re = input_api.re.compile(
         r'\bBASE_FEATURE_ENUM_PARAM\(' + arg + r',\s*(\w+)\s*,' + arg + r','
-        r'\s*(?!' + quote_str + r'\s*,)' + arg
-        + r',(?:[^;"]|' + quote_str + r')*?\);',
-        input_api.re.MULTILINE | input_api.re.DOTALL)
+        r'\s*(?!' + quote_str + r'\s*,)' + arg + r',(?:[^;"]|' + quote_str +
+        r')*?\);', input_api.re.MULTILINE | input_api.re.DOTALL)
 
     warnings = []
 

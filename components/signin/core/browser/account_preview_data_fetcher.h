@@ -7,7 +7,9 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
+#include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
@@ -35,6 +37,19 @@ class IdentityManager;
 // The fetching starts on construction.
 class AccountPreviewDataFetcher {
  public:
+  // LINT.IfChange(AccountPreviewDataFetchState)
+  enum class FetchState {
+    kRequested = 0,
+    kEntityPreviewHasResult = 1,
+    kEntityPreviewEmptyResult = 2,
+    kStatisticsHasResult = 3,
+    kStatisticsEmptyResult = 4,
+    kCompletedWithResults = 5,
+    kCompletedWithoutResults = 6,
+    kMaxValue = kCompletedWithoutResults,
+  };
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/signin/enums.xml:AccountPreviewDataFetchState)
+
   using FetchCompleteCallback =
       base::OnceCallback<void(const GaiaId&,
                               std::optional<AccountPreviewData>)>;
@@ -53,7 +68,7 @@ class AccountPreviewDataFetcher {
   void StartNetworkRequests(const std::string& access_token);
   void OnStatsFetchCompleted(std::optional<std::string> response_body);
   void OnPreviewsFetchCompleted(std::optional<std::string> response_body);
-  void OnFetchCompleted();
+  void OnFetchCompleted(std::vector<bool> results);
 
   const GaiaId gaia_id_;
   const raw_ptr<IdentityManager> identity_manager_;
@@ -65,10 +80,10 @@ class AccountPreviewDataFetcher {
   std::unique_ptr<network::SimpleURLLoader> stats_url_loader_;
   std::unique_ptr<network::SimpleURLLoader> previews_url_loader_;
 
-  // Starts as empty but valid structure, may be invalidated if the response
-  // format of any of the API calls is unexpected.
+  // Starts as empty but valid structure, may be invalidated if all the
+  // responses from the API calls are malformed or failed.
   std::optional<AccountPreviewData> fetched_data_ = AccountPreviewData();
-  base::RepeatingClosure barrier_closure_;
+  base::RepeatingCallback<void(bool)> barrier_callback_;
 
   base::WeakPtrFactory<AccountPreviewDataFetcher> weak_ptr_factory_{this};
 };

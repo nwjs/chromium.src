@@ -7,6 +7,7 @@
 #include <string>
 #include <string_view>
 
+#include "base/logging.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "net/base/net_errors.h"
@@ -192,8 +193,18 @@ void URLLoaderThrottle::WillStartRequest(network::ResourceRequest* request,
     return;
   }
 
-  for (const auto& rule : rules_->data->rules)
+  GURL current_url = request->url;
+  for (const auto& rule : rules_->data->rules) {
     ApplyRule(request, rule);
+    if (request->url != current_url) {
+      if (!IsRequestAllowed(request, rules_->data)) {
+        delegate_->CancelWithError(net::ERR_ABORTED,
+                                   "Resource load blocked by embedder policy.");
+        return;
+      }
+      current_url = request->url;
+    }
+  }
 
   if (!added_headers_.empty()) {
     original_origin_ = url::Origin::Create(request->url);
@@ -213,6 +224,11 @@ void URLLoaderThrottle::WillRedirectRequest(
 
   if (!url::Origin::Create(redirect_info->new_url)
            .IsSameOriginWith(original_origin_)) {
+    LOG(WARNING) << "Http headers [" << base::JoinString(added_headers_, ", ")
+                 << "] will be removed due to cross origin redirection "
+                    "from "
+                 << original_origin_ << " to "
+                 << url::Origin::Create(redirect_info->new_url);
     headers_update_params->removed_headers.insert(
         headers_update_params->removed_headers.end(),
         std::make_move_iterator(added_headers_.begin()),

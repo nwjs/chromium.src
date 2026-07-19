@@ -12,8 +12,23 @@
 // intended for manual debugging and testing purposes.
 namespace personal_context::features::debug {
 
+// Overrides the base URL of the Context Memory Service returned by
+// `GetContextMemoryServiceBaseUrl`.
+inline constexpr char kContextMemoryServiceBaseUrlSwitch[] =
+    "context-memory-service-base-url";
+
+// Overrides the base URL of the Context Memory Service returned by
+// `GetContextMemoryServiceBaseUrl`.
+BASE_DECLARE_FEATURE_PARAM(std::string, kContextMemoryServiceBaseUrlParam);
+
 BASE_DECLARE_FEATURE(kPersonalContextForceEnablementState);
 BASE_DECLARE_FEATURE_PARAM(int, kPersonalContextForceEnablementStateParam);
+
+// When enabled, `AtMemoryQueryService` will always return local suggestions
+// for the configured `MemoryDataType` (obtained via `AutofillDataProvider`)
+// regardless of the query.
+BASE_DECLARE_FEATURE(kMockPersonalContextResult);
+BASE_DECLARE_FEATURE_PARAM(int, kMockPersonalContextResultTypeParam);
 
 }  // namespace personal_context::features::debug
 

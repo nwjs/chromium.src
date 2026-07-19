@@ -12,7 +12,6 @@
 #include "components/autofill/core/browser/filling/filling_product.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/suggestions/suggestion_hiding_reason.h"
-#include "components/autofill/core/browser/ui/suggestion_button_action.h"
 #include "components/autofill/core/browser/ui/tabbed_pane_enums.h"
 
 namespace password_manager {
@@ -37,6 +36,9 @@ class AutofillSuggestionDelegate {
     // Defines whether the suggestion appeared on a search result list (i.e.
     // the search input is not empty).
     bool from_search_result = false;
+
+    friend bool operator==(const SuggestionMetadata& lhs,
+                           const SuggestionMetadata& rhs) = default;
   };
 
   virtual ~AutofillSuggestionDelegate() = default;
@@ -73,13 +75,6 @@ class AutofillSuggestionDelegate {
   // Informs the delegate that a `suggestion` has been chosen.
   virtual void DidAcceptSuggestion(const Suggestion& suggestion,
                                    const SuggestionMetadata& metadata) = 0;
-
-  // Informs the delegate that the user chose to perform the `button_action`
-  // associated with `suggestion`. Actions are currently implemented only on
-  // Desktop.
-  virtual void DidPerformButtonActionForSuggestion(
-      const Suggestion& suggestion,
-      const SuggestionButtonAction& button_action) = 0;
 
   // Informs the delegate to delete the described suggestion. Returns true if
   // something was deleted, or false if deletion is not allowed.

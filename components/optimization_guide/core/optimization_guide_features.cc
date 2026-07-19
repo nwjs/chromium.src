@@ -24,7 +24,6 @@
 #include "components/optimization_guide/core/feature_registry/mqls_feature_registry.h"
 #include "components/optimization_guide/core/model_execution/feature_keys.h"
 #include "components/optimization_guide/core/model_execution/on_device_features.h"
-#include "components/optimization_guide/core/optimization_guide_constants.h"
 #include "components/optimization_guide/core/optimization_guide_enums.h"
 #include "components/optimization_guide/core/optimization_guide_switches.h"
 #include "components/optimization_guide/proto/common_types.pb.h"
@@ -201,6 +200,15 @@ const base::FeatureParam<base::TimeDelta>
         &kGetAIPageContentMainFrameTimeoutEnabled, "timeout",
         base::Seconds(30)};
 
+// Controls whether to enforce a timeout for GetImageBytes. If enabled, defaults
+// to 10 seconds.
+BASE_FEATURE(kGetAIPageContentGetImageBytesTimeoutEnabled,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+const base::FeatureParam<base::TimeDelta>
+    kGetAIPageContentGetImageBytesTimeoutParam{
+        &kGetAIPageContentGetImageBytesTimeoutEnabled, "timeout",
+        base::Seconds(10)};
+
 // The default value here is a bit of a guess.
 // TODO(crbug.com/40163041): This should be tuned once metrics are available.
 base::TimeDelta PageTextExtractionOutstandingRequestsGracePeriod() {
@@ -239,6 +247,8 @@ GURL GetOptimizationGuideServiceGetModelsURL() {
         switches::kOptimizationGuideServiceGetModelsURL));
   }
 
+  static const char kOptimizationGuideServiceGetModelsDefaultURL[] =
+      "https://optimizationguide-pa.googleapis.com/v1:GetModels";
   GURL get_models_url(kOptimizationGuideServiceGetModelsDefaultURL);
   CHECK(get_models_url.SchemeIs(url::kHttpsScheme));
   return get_models_url;
@@ -552,12 +562,6 @@ bool ShouldUseTextSafetyClassifierModel() {
   return base::FeatureList::IsEnabled(kTextSafetyClassifier);
 }
 
-bool ShouldUseGeneralizedSafetyModel() {
-  static const base::FeatureParam<bool> kUseGeneralizedSafetyModel{
-      &kTextSafetyClassifier, "use_generalized_safety_model", true};
-  return kUseGeneralizedSafetyModel.Get();
-}
-
 double GetOnDeviceModelLanguageDetectionMinimumReliability() {
   static const base::FeatureParam<double>
       kOnDeviceModelLanguageDetectionMinimumReliability{
@@ -588,7 +592,7 @@ bool GetOnDeviceModelRetractRepeats() {
 int GetOnDeviceModelDefaultTopK() {
   static const base::FeatureParam<int> kTopK{
       &optimization_guide::features::kOptimizationGuideOnDeviceModel,
-      "on_device_model_topk", 3};
+      "on_device_model_topk", 64};
   return kTopK.Get();
 }
 
@@ -601,7 +605,7 @@ int GetOnDeviceModelMaxTopK() {
 
 double GetOnDeviceModelDefaultTemperature() {
   static const base::FeatureParam<double> kTemperature{
-      &kOptimizationGuideOnDeviceModel, "on_device_model_temperature", 0.8};
+      &kOptimizationGuideOnDeviceModel, "on_device_model_temperature", 1.0};
   return kTemperature.Get();
 }
 
@@ -640,6 +644,13 @@ std::optional<base::TimeDelta> GetMainFrameGetAIPageContentTimeout() {
     return std::nullopt;
   }
   return kGetAIPageContentMainFrameTimeoutParam.Get();
+}
+std::optional<base::TimeDelta> GetAIPageContentGetImageBytesTimeout() {
+  if (!base::FeatureList::IsEnabled(
+          kGetAIPageContentGetImageBytesTimeoutEnabled)) {
+    return std::nullopt;
+  }
+  return kGetAIPageContentGetImageBytesTimeoutParam.Get();
 }
 
 }  // namespace optimization_guide::features

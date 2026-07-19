@@ -36,6 +36,7 @@
 #include "base/time/time.h"
 #include "base/time/time_delta_from_string.h"
 #include "build/build_config.h"
+#include "cc/base/features.h"
 #include "components/content_settings/core/common/content_settings_pattern.h"
 #include "components/input/features.h"
 #include "components/input/input_constants.h"
@@ -219,11 +220,9 @@ viz::command_buffer_metrics::ContextType ToVizContextType(
 //------------------------------------------------------------------------------
 
 RendererBlinkPlatformImpl::RendererBlinkPlatformImpl(
-    blink::scheduler::WebThreadScheduler* main_thread_scheduler)
-    : BlinkPlatformImpl(RenderThreadImpl::current()
-                            ? RenderThreadImpl::current()->GetIOTaskRunner()
-                            : nullptr),
-      sudden_termination_disables_(0),
+    blink::scheduler::WebThreadScheduler* main_thread_scheduler,
+    scoped_refptr<base::SingleThreadTaskRunner> io_thread_task_runner)
+    : BlinkPlatformImpl(std::move(io_thread_task_runner)),
       is_locked_to_site_(false),
       main_thread_scheduler_(main_thread_scheduler),
       next_frame_sink_id_(uint32_t{std::numeric_limits<int32_t>::max()} + 1) {
@@ -517,6 +516,12 @@ bool RendererBlinkPlatformImpl::IsElasticOverscrollEnabledOnRoot() {
 bool RendererBlinkPlatformImpl::IsElasticOverscrollSupported() {
   RenderThreadImpl* thread = RenderThreadImpl::current();
   return thread ? thread->IsElasticOverscrollSupported() : false;
+}
+
+bool RendererBlinkPlatformImpl::IsElasticOverscrollEnabledForSubscroll() {
+  return base::FeatureList::IsEnabled(
+             ::features::kOverscrollEffectOnNonRootScrollers) &&
+         IsElasticOverscrollSupported();
 }
 
 bool RendererBlinkPlatformImpl::IsScrollAnimatorEnabled() {

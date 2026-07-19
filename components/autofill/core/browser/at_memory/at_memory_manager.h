@@ -21,6 +21,7 @@
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/common/aliases.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
+#include "components/autofill/core/common/unique_ids.h"
 
 namespace accessibility_annotator {
 struct MemorySearchResults;
@@ -29,12 +30,10 @@ struct MemorySearchResults;
 namespace autofill {
 
 class BrowserAutofillManager;
-class FormData;
-class FormFieldData;
 
-// Manager for the accessibility annotator search feature. It handles queries
-// to the AccessibilityQueryService and manages session-based metrics.
-// Owned by `BrowserAutofillManager`, its lifetime is tied to it.
+// Manager for the AtMemory feature. It handles queries to the
+// `AtMemoryQueryService` and manages session-based metrics. Owned by
+// `BrowserAutofillManager`, its lifetime is tied to it.
 class AtMemoryManager {
  public:
   using UpdateSuggestionsCallback =
@@ -68,8 +67,8 @@ class AtMemoryManager {
 
   // Fills or previews the selected search result.
   void FillOrPreviewSearchResult(mojom::ActionPersistence action_persistence,
-                                 const FormData& form,
-                                 const FormFieldData& field,
+                                 const FormGlobalId& form_id,
+                                 const FieldGlobalId& field_id,
                                  const Suggestion& suggestion);
 
   // Returns true if a search is currently in progress.
@@ -80,17 +79,13 @@ class AtMemoryManager {
       std::vector<Suggestion>& suggestions) const;
 
  private:
-  // Executes the search query. `full_search` is true if the search was
-  // explicitly submitted by the user, and false for incremental search.
-  void ExecuteQuery(const std::u16string& filter, bool full_search);
+  // Executes the search query.
+  void ExecuteQuery(const std::u16string& filter);
 
   // Callback handler for the search query. `query` is the original search
-  // string. `full_search` is true if the search was explicitly submitted by
-  // the user (e.g. pressing Enter), and false if it was an incremental search
-  // as the user types. `result` contains the search results.
+  // string. `result` contains the search results.
   void OnSearchResultsReceived(
       const std::u16string& query,
-      bool full_search,
       accessibility_annotator::MemorySearchResults result);
 
   // Creates a suggestion to display when the query is not supported.
@@ -110,31 +105,31 @@ class AtMemoryManager {
 
   // Fills the unmasked IBAN value after fetching it.
   void FillIban(const Suggestion::AtMemoryPayload::Identifier& identifier,
-                const FormData& form,
-                const FormFieldData& field,
+                const FormGlobalId& form_id,
+                const FieldGlobalId& field_id,
                 const Suggestion& suggestion,
                 std::unique_ptr<AtMemoryFunnelMetrics> metrics);
 
   // Fills the unmasked credit card value after fetching it.
   void FillCreditCard(const Suggestion::AtMemoryPayload::Identifier& identifier,
-                      const FormData& form,
-                      const FormFieldData& field,
+                      const FormGlobalId& form_id,
+                      const FieldGlobalId& field_id,
                       const Suggestion& suggestion,
                       std::unique_ptr<AtMemoryFunnelMetrics> metrics);
 
   // Fills the unmasked AutofillAI value after fetching it.
   void FillSensitiveAutofillAiData(
       const EntityInstance::EntityId& entity_id,
-      const FormData& form,
-      const FormFieldData& field,
+      const FormGlobalId& form_id,
+      const FieldGlobalId& field_id,
       const Suggestion& suggestion,
       const AtMemoryDataType& data_type,
       std::unique_ptr<AtMemoryFunnelMetrics> metrics);
 
   // Callback handler when the unmasked AutofillAI entity has been fetched.
   void OnAutofillAiFetched(
-      const FormData& form,
-      const FormFieldData& field,
+      const FormGlobalId& form_id,
+      const FieldGlobalId& field_id,
       const Suggestion& suggestion,
       const AtMemoryDataType& data_type,
       std::unique_ptr<AtMemoryFunnelMetrics> metrics,
@@ -155,9 +150,6 @@ class AtMemoryManager {
   bool is_context_secure_ = false;
   // Flag indicating that a search query is in progress.
   bool is_searching_ = false;
-  // Flag to distinguish if the ongoing query is a full search (explicit submit)
-  // or an incremental one (as-you-type).
-  bool is_full_search_running_ = false;
 
   // Factory for search queries, used to identify currently active query and
   // discard the old ones.

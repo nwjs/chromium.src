@@ -41,6 +41,9 @@ bool IsProtectedUrl(std::string url) {
 
 void UpdatePageContext(GeminiPageContext* gemini_page_context) {}
 
+void UpdateActivePageContext(GeminiPageContext* gemini_page_context,
+                             NSArray<GeminiPageContext*>* shared_tabs) {}
+
 NSArray<GeminiSettingsMetadata*>* GetEligibleSettings(
     AuthenticationService* auth_service) {
   return nil;
@@ -86,6 +89,11 @@ void SetLiveCaptionsNumberOfLines(int number_of_lines) {}
 
 int GetLiveCaptionsNumberOfLines() {
   return 0;
+}
+
+UIViewController* GetFloatyViewControllerWithConfiguration(
+    GeminiConfiguration* gemini_configuration) {
+  return nil;
 }
 
 }  // namespace ios::provider

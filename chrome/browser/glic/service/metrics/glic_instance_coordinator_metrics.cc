@@ -6,19 +6,15 @@
 
 #include <algorithm>
 
-#include "base/check.h"
 #include "base/containers/flat_set.h"
 #include "base/feature_list.h"
-#include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/metrics/user_metrics.h"
 #include "base/strings/strcat.h"
 #include "chrome/browser/glic/glic_metrics.h"
-#include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/host/host.h"
 #include "chrome/browser/glic/public/glic_instance.h"
+#include "chrome/browser/glic/service/glic_instance_impl.h"
 #include "chrome/common/chrome_features.h"
-#include "components/prefs/pref_service.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
 
@@ -34,17 +30,8 @@ const base::FeatureParam<base::TimeDelta> kMemoryMetricsPeriod{
 }  // namespace
 
 GlicInstanceCoordinatorMetrics::GlicInstanceCoordinatorMetrics(
-    DataProvider* data_provider,
-    PrefService* pref_service)
-    : data_provider_(data_provider) {
-  CHECK(pref_service);
-  is_pinned_ = pref_service->GetBoolean(prefs::kGlicPinnedToTabstrip);
-  pref_registrar_.Init(pref_service);
-  pref_registrar_.Add(
-      prefs::kGlicPinnedToTabstrip,
-      base::BindRepeating(&GlicInstanceCoordinatorMetrics::OnPinningPrefChanged,
-                          base::Unretained(this)));
-}
+    DataProvider* data_provider)
+    : data_provider_(data_provider) {}
 
 GlicInstanceCoordinatorMetrics::~GlicInstanceCoordinatorMetrics() {
   EndConcurrentVisibility();
@@ -95,6 +82,12 @@ void GlicInstanceCoordinatorMetrics::RecordSwitchConversationTarget(
   }
   base::UmaHistogramEnumeration("Glic.Interaction.SwitchConversationTarget",
                                 target);
+}
+
+void GlicInstanceCoordinatorMetrics::RecordActivateTabCandidateTabCount(
+    size_t count) {
+  base::UmaHistogramCounts100(
+      "Glic.ActivateTabWithConversation.CandidateTabCount", count);
 }
 
 void GlicInstanceCoordinatorMetrics::OnMemoryPressure(
@@ -210,19 +203,34 @@ GlicInstanceCoordinatorMetrics::GetMostRecentlyActiveConversationId(
   return std::nullopt;
 }
 
-void GlicInstanceCoordinatorMetrics::OnPinningPrefChanged() {
-  bool is_pinned =
-      pref_registrar_.prefs()->GetBoolean(prefs::kGlicPinnedToTabstrip);
-  if (is_pinned == is_pinned_) {
-    // No change, early exit.
-    return;
+void GlicInstanceCoordinatorMetrics::RecordCountOnCreation() {
+  size_t count = data_provider_->GetInstances().size();
+  base::UmaHistogramExactLinear("Glic.Instances.Count.OnCreation", count, 10);
+}
+
+void GlicInstanceCoordinatorMetrics::RecordCountAwakeOnContentsCreated() {
+  size_t unhibernated_count = 0;
+  for (GlicInstanceImpl* instance : data_provider_->GetInstances()) {
+    if (!instance->IsHibernated()) {
+      unhibernated_count++;
+    }
   }
-  is_pinned_ = is_pinned;
-  if (is_pinned_) {
-    base::RecordAction(base::UserMetricsAction("Glic.Pinned"));
-  } else {
-    base::RecordAction(base::UserMetricsAction("Glic.Unpinned"));
+  // The current instance is about to become unhibernated by this container
+  // creation.
+  unhibernated_count++;
+  base::UmaHistogramExactLinear("Glic.Instances.CountAwake.OnContentsCreated",
+                                unhibernated_count, 10);
+}
+
+void GlicInstanceCoordinatorMetrics::RecordCountActuatingOnTaskCreation() {
+  size_t actuating_count = 0;
+  for (GlicInstanceImpl* instance : data_provider_->GetInstances()) {
+    if (instance->IsActuating()) {
+      actuating_count++;
+    }
   }
+  base::UmaHistogramExactLinear("Glic.Instances.CountActuating.OnTaskCreation",
+                                actuating_count, 10);
 }
 
 }  // namespace glic

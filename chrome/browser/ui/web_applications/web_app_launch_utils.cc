@@ -252,7 +252,7 @@ bool IsNavigationCapturingReimplExperimentEnabled(
     return false;
   }
   // Enabling the generic flag turns it on for all navigations.
-  if (apps::features::IsNavigationCapturingReimplEnabled()) {
+  if (base::FeatureList::IsEnabled(features::kPwaNavigationCapturing)) {
     if (!features::kForcedOffCapturingAppsOnFirstNavigation.Get().empty() &&
         controlling_app_id.has_value()) {
       std::vector<std::string> forced_capturing_off_app_ids = base::SplitString(
@@ -483,26 +483,27 @@ bool MaybeHandleIntentPickerFocusExistingOrNavigateExisting(
   FocusAppContainer(existing_app_host->browser, existing_app_host->tab_index);
 
   webapps::LaunchParams launch_params;
-  launch_params.app_id = app_id;
-  launch_params.target_url = launch_url;
+  launch_params.set_app_id(app_id);
+  launch_params.set_target_url(launch_url);
   if (!time_reparent_started.is_null()) {
-    launch_params.time_navigation_started_for_enqueue = time_reparent_started;
+    launch_params.set_time_navigation_started_for_enqueue(
+        time_reparent_started);
   }
 
   if (client_mode == LaunchHandler::ClientMode::kNavigateExisting) {
     NavigateParams nav_params(
         existing_app_host->browser->GetBrowserForMigrationOnly(), launch_url,
         ui::PageTransition::PAGE_TRANSITION_LINK);
-    nav_params.launch_params = std::move(launch_params);
+    nav_params.web_app_navigation_data.emplace();
+    nav_params.web_app_navigation_data->SetLaunchParams(
+        std::move(launch_params));
     Navigate(&nav_params);
   } else {
     WebAppLaunchNavigationHandleUserData::DispatchLaunchParams(
-        preexisting_web_contents, std::move(launch_params));
+        preexisting_web_contents, std::move(launch_params),
+        apps::LaunchContainer::kLaunchContainerWindow,
+        apps::LaunchSource::kFromOmnibox);
   }
-
-  RecordLaunchMetrics(app_id, apps::LaunchContainer::kLaunchContainerWindow,
-                      apps::LaunchSource::kFromOmnibox, launch_url,
-                      preexisting_web_contents);
   return true;
 }
 
@@ -640,10 +641,9 @@ BrowserWindowInterface* ReparentWebContentsIntoAppBrowser(
       ReparentWebContentsIntoAppBrowser(contents, browser, app_id,
                                         as_pinned_home_tab);
 
-  UpdateLaunchStats(contents, app_id, launch_url);
-  RecordLaunchMetrics(app_id, apps::LaunchContainer::kLaunchContainerWindow,
-                      apps::LaunchSource::kFromReparenting, launch_url,
-                      contents);
+  UpdateLaunchMetricsAndStats(
+      app_id, apps::LaunchContainer::kLaunchContainerWindow,
+      apps::LaunchSource::kFromReparenting, launch_url, contents);
 
   std::move(completion_callback).Run(contents);
   return reparented_browser;
@@ -702,14 +702,11 @@ void MaybeAddPinnedHomeTab(BrowserWindowInterface* browser,
 void MaybeShowNavigationCaptureIph(webapps::AppId app_id,
                                    Profile* profile,
                                    Browser* browser) {
-  // Prevent ChromeOS from reaching this function in tests.
-#if !BUILDFLAG(IS_CHROMEOS)
   web_app::WebAppProvider* provider =
       web_app::WebAppProvider::GetForWebApps(profile);
   CHECK(provider);
   provider->ui_manager().MaybeShowIPHPromoForAppsLaunchedViaLinkCapturing(
       browser, profile, app_id);
-#endif
 }
 
 Browser::CreateParams CreateParamsForApp(const webapps::AppId& app_id,
@@ -745,11 +742,13 @@ Browser* CreateWebAppWindowMaybeWithHomeTab(
 }
 
 content::WebContents* NavigateWebAppUsingParams(NavigateParams& nav_params) {
-  nav_params.pwa_navigation_capturing_force_off = true;
-  if (nav_params.browser->GetBrowserForMigrationOnly()->app_controller() &&
-      nav_params.browser->GetBrowserForMigrationOnly()
-          ->app_controller()
-          ->IsUrlInHomeTabScope(nav_params.url)) {
+  if (!nav_params.web_app_navigation_data) {
+    nav_params.web_app_navigation_data.emplace();
+  }
+  nav_params.web_app_navigation_data->SetNavigationCapturingForceOff(true);
+  auto* const app_controller =
+      web_app::AppBrowserController::From(nav_params.browser);
+  if (app_controller && app_controller->IsUrlInHomeTabScope(nav_params.url)) {
     // Navigations to the home tab URL in tabbed apps should happen in the home
     // tab.
     nav_params.browser->GetBrowserForMigrationOnly()
@@ -874,37 +873,12 @@ void RecordAppTabLaunchMetric(Profile* profile,
   RecordDiyOrCraftedAppLaunch(*web_app);
 }
 
-void RecordLaunchMetrics(const webapps::AppId& app_id,
-                         apps::LaunchContainer container,
-                         apps::LaunchSource launch_source,
-                         const GURL& launch_url,
-                         content::WebContents* web_contents) {
-  Profile* profile =
-      Profile::FromBrowserContext(web_contents->GetBrowserContext());
-
-#if BUILDFLAG(IS_CHROMEOS)
-  // System web apps have different launch paths compared with web apps, and
-  // those paths aren't configurable. So their launch metrics shouldn't be
-  // reported to avoid skewing web app metrics.
-  DCHECK(!ash::GetSystemWebAppTypeForAppId(profile, app_id))
-      << "System web apps shouldn't be included in web app launch metrics";
-#endif  // BUILDFLAG(IS_CHROMEOS)
-
-  if (container == apps::LaunchContainer::kLaunchContainerWindow) {
-    RecordAppWindowLaunchMetric(profile, app_id, launch_source);
-  }
-  if (container == apps::LaunchContainer::kLaunchContainerTab) {
-    RecordAppTabLaunchMetric(profile, app_id, launch_source);
-  }
-
-  base::UmaHistogramEnumeration("WebApp.LaunchSource", launch_source);
-  base::UmaHistogramEnumeration("WebApp.LaunchContainer", container);
-}
-
-void UpdateLaunchStats(content::WebContents* web_contents,
-                       const webapps::AppId& app_id,
-                       const GURL& launch_url) {
-  CHECK(web_contents != nullptr);
+void UpdateLaunchMetricsAndStats(const webapps::AppId& app_id,
+                                 apps::LaunchContainer container,
+                                 apps::LaunchSource launch_source,
+                                 const GURL& launch_url,
+                                 content::WebContents* web_contents) {
+  CHECK(web_contents);
   Profile* profile =
       Profile::FromBrowserContext(web_contents->GetBrowserContext());
 
@@ -923,6 +897,16 @@ void UpdateLaunchStats(content::WebContents* web_contents,
   // app launch will provide an engagement boost to the origin.
   site_engagement::SiteEngagementService::Get(profile)
       ->SetLastShortcutLaunchTime(web_contents, app_id, launch_url);
+
+  if (container == apps::LaunchContainer::kLaunchContainerWindow) {
+    RecordAppWindowLaunchMetric(profile, app_id, launch_source);
+  }
+  if (container == apps::LaunchContainer::kLaunchContainerTab) {
+    RecordAppTabLaunchMetric(profile, app_id, launch_source);
+  }
+
+  base::UmaHistogramEnumeration("WebApp.LaunchSource", launch_source);
+  base::UmaHistogramEnumeration("WebApp.LaunchContainer", container);
 }
 
 void LaunchWebApp(apps::AppLaunchParams params,

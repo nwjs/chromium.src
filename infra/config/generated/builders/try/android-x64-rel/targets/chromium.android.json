@@ -31,7 +31,6 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
-        "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
             "cores": "8",
@@ -2805,7 +2804,6 @@
           "--recover-devices"
         ],
         "description": "Run with android_36_google_apis_x64",
-        "experiment_percentage": 100,
         "merge": {
           "args": [
             "--bucket",
@@ -4135,7 +4133,6 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
-        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {
@@ -4195,7 +4192,6 @@
           "enable": true,
           "has_native_resultdb_integration": true
         },
-        "retry_only_failed_tests": true,
         "swarming": {
           "cipd_packages": [
             {

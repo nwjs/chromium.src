@@ -88,20 +88,6 @@ BASE_FEATURE(kFlexOrgManagementDisclosure,
 #else
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_CHROMEOS)
-
-// Enables the Incoming Call Notifications scenario. When created by an
-// installed origin, an incoming call notification should have increased
-// priority, colored buttons, a ringtone, and a default "close" button.
-// Otherwise, if the origin is not installed, it should behave like the default
-// notifications, but with the added "Close" button. See
-// https://github.com/MicrosoftEdge/MSEdgeExplainers/blob/main/Notifications/notifications_actions_customization.md
-BASE_FEATURE(kIncomingCallNotifications,
-#if BUILDFLAG(IS_WIN)
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_WIN)
-
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 BASE_FEATURE(kInitialExternalExtensions, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
@@ -142,7 +128,7 @@ BASE_FEATURE(kInstallPlatformExperienceHelperWin,
 #endif  // BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 // Enables app-menu item for reporting an unsafe site to Google.
-BASE_FEATURE(kReportUnsafeSite, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kReportUnsafeSite, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When this feature is enabled, the network service will restart unsandboxed if
 // a previous attempt to launch it sandboxed failed.
@@ -200,6 +186,10 @@ BASE_FEATURE(kWebUsbDeviceDetection, base::FEATURE_ENABLED_BY_DEFAULT);
 // sandbox/win/src/security_level.h. Only available on Windows 10 RS1 (1607,
 // Build 14393) onwards.
 BASE_FEATURE(kBrowserDynamicCodeDisabled, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, the browser will run with isolation enabled on the next
+// restart.
+BASE_FEATURE(kIsolatedProcess, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // The Chrome DLL can be pre-read with ::PrefetchVirtualMemory() from the
 // browser or a child process. Pre-reading is supposed to bring the whole DLL in

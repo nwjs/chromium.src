@@ -355,6 +355,10 @@ class IPAddressSpaceOverridesTest : public testing::Test {
   void SetUp() override {
     network::IPAddressSpaceOverrides::GetInstance().ResetForTesting();
   }
+
+  void TearDown() override {
+    network::IPAddressSpaceOverrides::GetInstance().ResetForTesting();
+  }
 };
 
 // Verifies that overrides can be present and empty, in which case it is
@@ -926,15 +930,6 @@ TEST_F(IPAddressSpaceOverridesTest, CalculateResourceAddressSpaceOverride) {
       IPAddressSpace::kLocal,
       CalculateResourceAddressSpace(GURL("http://foo.test"),
                                     IPEndPoint(IPAddress(8, 8, 8, 8), 8888)));
-}
-
-TEST(IPAddressSpaceTest, ParsePrivateIpFromURL) {
-  EXPECT_EQ(std::nullopt, ParsePrivateIpFromUrl(GURL("http://foo.test")));
-  EXPECT_EQ(std::nullopt, ParsePrivateIpFromUrl(GURL("http://8.8.8.8")));
-  EXPECT_EQ(IPAddress(192, 168, 1, 10),
-            ParsePrivateIpFromUrl(GURL("http://192.168.1.10")));
-  EXPECT_EQ(IPAddress(10, 168, 1, 10),
-            ParsePrivateIpFromUrl(GURL("http://10.168.1.10")));
 }
 
 TEST_F(IPAddressSpaceOverridesTest, GetAddressSpaceFromUrl) {

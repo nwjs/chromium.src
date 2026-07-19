@@ -8,9 +8,27 @@ namespace bindings_unittests::mojom {
 
 PlusSevenMathService::PlusSevenMathService(
     mojo::PendingReceiver<MathService> receiver)
-    : receiver_(this, std::move(receiver)) {}
+    : receiver_(std::in_place_type<mojo::Receiver<MathService>>,
+                this,
+                std::move(receiver)) {}
+
+PlusSevenMathService::PlusSevenMathService(
+    mojo::PendingAssociatedReceiver<MathService> receiver)
+    : receiver_(std::in_place_type<mojo::AssociatedReceiver<MathService>>,
+                this,
+                std::move(receiver)) {}
 
 PlusSevenMathService::~PlusSevenMathService() = default;
+
+void PlusSevenMathService::set_disconnect_handler(base::OnceClosure handler) {
+  if (std::holds_alternative<mojo::Receiver<MathService>>(receiver_)) {
+    std::get<mojo::Receiver<MathService>>(receiver_).set_disconnect_handler(
+        std::move(handler));
+  } else {
+    std::get<mojo::AssociatedReceiver<MathService>>(receiver_)
+        .set_disconnect_handler(std::move(handler));
+  }
+}
 
 void PlusSevenMathService::Add(uint32_t a, uint32_t b, AddCallback callback) {
   std::move(callback).Run(a + b + 7);

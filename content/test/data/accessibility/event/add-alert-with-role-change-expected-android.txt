@@ -1,2 +1,3 @@
-TYPE_WINDOW_STATE_CHANGED - [contentTypes=PANE_APPEARED] text=[]
-TYPE_WINDOW_CONTENT_CHANGED class_name=android.view.View - [contentTypes=SUBTREE] [This is an alert]
+=== END INITIAL PAGE LOAD ===
+TYPE_WINDOW_STATE_CHANGED [contentTypes=PANE_APPEARED] text=[] on [This is an alert] class_name=android.view.View
+TYPE_WINDOW_CONTENT_CHANGED class_name=android.view.View [contentTypes=SUBTREE] on [This is an alert] class_name=android.view.View

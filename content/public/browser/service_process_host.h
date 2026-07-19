@@ -15,6 +15,7 @@
 #include "base/functional/callback.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list_types.h"
+#include "base/process/process.h"
 #include "base/process/process_handle.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/service_process_info.h"
@@ -131,6 +132,9 @@ class CONTENT_EXPORT ServiceProcessHost {
     // by passing a `pending_receiver<viz.mojom.Gpu>` to the service via mojo.
     Options& WithGpuClient(base::PassKey<ServiceProcessHostGpuClient> passkey);
 
+    // Specifies the process priority of the launched service process.
+    Options& WithPriority(base::Process::Priority priority);
+
     // Passes the contents of this Options object to a newly returned Options
     // value. This must be called when moving a built Options object into a call
     // to |Launch()|.
@@ -146,6 +150,7 @@ class CONTENT_EXPORT ServiceProcessHost {
     std::vector<base::FilePath> preload_libraries;
 #endif  // BUILDFLAG(IS_WIN)
     std::optional<bool> allow_gpu_client;
+    std::optional<base::Process::Priority> priority;
   };
 
   // An interface which can be implemented and used with
@@ -199,6 +204,20 @@ class CONTENT_EXPORT ServiceProcessHost {
     Launch(remote.BindNewPipeAndPassReceiver(), std::move(options),
            content::GetServiceSandboxType<Interface>());
     return remote;
+  }
+
+  // Launches a service process and binds to the given ObservedServiceRemote,
+  // automatically wiring the observer hub. The caller only needs to register
+  // observers on the ObservedServiceRemote before calling this.
+  //
+  // Must be called from the UI thread.
+  template <typename ObservedRemote,
+            typename = typename ObservedRemote::InterfaceType>
+  static void Launch(ObservedRemote& observed, Options options = {}) {
+    using Interface = typename ObservedRemote::InterfaceType;
+    options.WithObserver(observed.AsWeakObserver());
+    Launch(observed.remote().BindNewPipeAndPassReceiver(), std::move(options),
+           GetServiceSandboxType<Interface>());
   }
 
   // Yields information about currently active service processes. Must be called

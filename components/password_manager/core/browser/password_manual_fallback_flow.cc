@@ -11,15 +11,18 @@
 #include "base/check.h"
 #include "base/check_deref.h"
 #include "base/containers/to_vector.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
+#include "components/autofill/core/browser/integrators/password_manager/password_manager_delegate.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/suggestions/suggestion_hiding_reason.h"
 #include "components/autofill/core/browser/ui/popup_open_enums.h"
 #include "components/autofill/core/common/aliases.h"
+#include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/form_fetcher_impl.h"
 #include "components/password_manager/core/browser/form_parsing/form_data_parser.h"
 #include "components/password_manager/core/browser/manage_passwords_referrer.h"
@@ -134,6 +137,7 @@ bool PasswordManualFallbackFlow::SupportsSuggestionType(
     case autofill::SuggestionType::kFillPassword:
     case autofill::SuggestionType::kViewPasswordDetails:
     case autofill::SuggestionType::kAllSavedPasswordsEntry:
+    case autofill::SuggestionType::kWebauthnSignInWithAnotherDevice:
       return true;
     default:
       return false;
@@ -217,23 +221,47 @@ void PasswordManualFallbackFlow::DidSelectSuggestion(
   }
   switch (suggestion.type) {
     case autofill::SuggestionType::kPasswordEntry: {
+      const auto entry_payload =
+          suggestion.GetPayload<Suggestion::PasswordSuggestionDetails>();
+      if (base::FeatureList::IsEnabled(
+              password_manager::features::
+                  kFallbackNoPreviewForCrossDomainCredentials) &&
+          entry_payload.is_cross_domain) {
+        // Do not preview cross-domain credentials to avoid leaking sensitive
+        // data without a consent.
+        return;
+      }
       const PasswordForm* form = password_form_cache_->GetPasswordForm(
           password_manager_driver_, field_id_);
       if (!form) {
         return;
       }
-      const auto payload =
-          suggestion.GetPayload<Suggestion::PasswordSuggestionDetails>();
       password_manager_driver_->PreviewSuggestionById(
           form->username_element_renderer_id,
           form->password_element_renderer_id,
           GetUsernameFromLabel(suggestion.labels[0][0].value),
-          std::u16string(payload.password.length(), '*'));
+          std::u16string(entry_payload.password.length(), '*'));
       break;
     }
-    case autofill::SuggestionType::kPasswordFieldByFieldFilling:
+    case autofill::SuggestionType::kPasswordFieldByFieldFilling: {
+      if (base::FeatureList::IsEnabled(
+              password_manager::features::
+                  kFallbackNoPreviewForCrossDomainCredentials) &&
+          suggestion.GetPayload<Suggestion::PasswordSuggestionDetails>()
+              .is_cross_domain) {
+        // Do not preview cross-domain credentials to avoid leaking sensitive
+        // data without a consent.
+        return;
+      }
       password_manager_driver_->PreviewField(field_id_,
                                              suggestion.main_text.value);
+      break;
+    }
+    case autofill::SuggestionType::kWebauthnSignInWithAnotherDevice:
+      if (auto* password_manager_delegate =
+              password_manager_driver_->GetPasswordManagerDelegate()) {
+        password_manager_delegate->SelectSuggestion(suggestion);
+      }
       break;
     case autofill::SuggestionType::kFillPassword:
     case autofill::SuggestionType::kViewPasswordDetails:
@@ -335,6 +363,12 @@ void PasswordManualFallbackFlow::DidAcceptSuggestion(
           metrics_util::PasswordDropdownSelectedOption::kShowAll,
           password_client_->IsOffTheRecord());
       break;
+    case autofill::SuggestionType::kWebauthnSignInWithAnotherDevice:
+      if (auto* password_manager_delegate =
+              password_manager_driver_->GetPasswordManagerDelegate()) {
+        password_manager_delegate->AcceptSuggestion(suggestion, metadata);
+      }
+      break;
     default:
       // Other suggestion types are not supported.
       NOTREACHED();
@@ -342,13 +376,6 @@ void PasswordManualFallbackFlow::DidAcceptSuggestion(
   autofill_client_->HideSuggestions(
       autofill::SuggestionHidingReason::kAcceptSuggestion,
       GetMainFillingProduct());
-}
-
-void PasswordManualFallbackFlow::DidPerformButtonActionForSuggestion(
-    const Suggestion&,
-    const autofill::SuggestionButtonAction&) {
-  // Button actions do currently not exist for password entries.
-  NOTREACHED();
 }
 
 bool PasswordManualFallbackFlow::RemoveSuggestion(

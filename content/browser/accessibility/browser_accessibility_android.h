@@ -82,6 +82,10 @@ class CONTENT_EXPORT BrowserAccessibilityAndroid
   bool IsVisibleToUser() const;
   bool ShouldUsePaneTitle() const;
 
+  const std::string& GetMathTag() const;
+  const std::string& GetMathIntent() const;
+  const std::string& GetMathArg() const;
+
   // This returns true for all nodes that we should navigate to.
   // Nodes that have a generic role, no accessible name, and aren't
   // focusable or clickable aren't interesting.
@@ -120,8 +124,6 @@ class CONTENT_EXPORT BrowserAccessibilityAndroid
   const char* GetClassName() const;
   bool IsChildOfLeaf() const override;
   bool IsLeaf() const override;
-  bool IsLeafConsideringChildren() const;
-  bool HasFocusableChild() const;
 
   std::u16string GetBrailleLabel() const;
   std::u16string GetBrailleRoleDescription() const;
@@ -341,6 +343,14 @@ class CONTENT_EXPORT BrowserAccessibilityAndroid
   static size_t CommonEndLengths(const std::u16string& a,
                                  const std::u16string& b);
 
+  // Computes whether there is an Android-specific reason that the node is a
+  // leaf. The computed value is cached in GetLeafMap() and is used in the
+  // IsLeaf() computation.
+  bool ComputeIsLeaf() const;
+
+  bool IsLeafConsideringChildren() const;
+  bool HasFocusableChild() const;
+
   bool HasOnlyTextChildren() const;
   bool HasOnlyTextAndImageChildren() const;
   bool HasListMarkerChild() const;
@@ -380,6 +390,9 @@ class CONTENT_EXPORT BrowserAccessibilityAndroid
 
   // Get image description string.
   std::u16string GetImageAnnotationText() const;
+
+  // Get canvas description string.
+  std::u16string GetCanvasAnnotationText() const;
 
   std::u16string old_value_;
   std::u16string new_value_;

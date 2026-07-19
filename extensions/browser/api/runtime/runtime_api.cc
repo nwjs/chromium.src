@@ -17,6 +17,7 @@
 #include "base/functional/bind.h"
 #include "base/lazy_instance.h"
 #include "base/location.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
 #include "base/one_shot_event.h"
 #include "base/strings/string_number_conversions.h"
@@ -50,6 +51,7 @@
 #include "extensions/common/manifest_handlers/background_info.h"
 #include "extensions/common/manifest_handlers/shared_module_info.h"
 #include "extensions/common/mojom/view_type.mojom.h"
+#include "net/base/url_util.h"
 #include "storage/browser/file_system/isolated_context.h"
 #include "url/gurl.h"
 
@@ -275,8 +277,45 @@ RuntimeAPI::RuntimeAPI(content::BrowserContext* context)
 
 RuntimeAPI::~RuntimeAPI() = default;
 
+// TODO(crbug.com/510816360): Remove this enum around M155, once we've gathered
+// enough data to analyze usage.
+enum class ExtensionRuntimeUninstallURLHost {
+  kHTTPS,
+  kHTTPLocal,
+  kHTTPRemote,
+  kMaxValue = kHTTPRemote,
+};
+
+// TODO(crbug.com/510816360): Remove this histogram around M155, once we've
+// gathered enough data to analyze usage.
+void RecordUninstallURLHistogram(content::BrowserContext* context,
+                                 const ExtensionId& extension_id) {
+  // The following 5 lines were copied from OnExtensionUninstalled().
+  // We do not need to record histogram if stored value will be ignored
+  // anyway.
+  GURL uninstall_url(
+      GetUninstallURL(ExtensionPrefs::Get(context), extension_id));
+  if (!uninstall_url.SchemeIsHTTPOrHTTPS()) {
+    return;
+  }
+
+  const ExtensionRuntimeUninstallURLHost host =
+      uninstall_url.SchemeIs(url::kHttpsScheme)
+          ? ExtensionRuntimeUninstallURLHost::kHTTPS
+          : (net::IsLocalhost(uninstall_url)
+                 ? ExtensionRuntimeUninstallURLHost::kHTTPLocal
+                 : ExtensionRuntimeUninstallURLHost::kHTTPRemote);
+  base::UmaHistogramEnumeration("Extensions.RuntimeUninstallURL.Host", host);
+}
+
 void RuntimeAPI::OnExtensionLoaded(content::BrowserContext* browser_context,
                                    const Extension* extension) {
+  // Record histogram during session start to count every extension only once
+  // instead of counting every call to runtime.setUninstallURL().
+  // TODO(crbug.com/510816360): Remove this histogram around M155, once we've
+  // gathered enough data to analyze usage.
+  RecordUninstallURLHistogram(browser_context, extension->id());
+
   bool nw_skip = (extension->id() == nw::GetMainExtensionId() && !first_run::IsChromeFirstRun());
   if (!dispatch_chrome_updated_event_) {
     return;
@@ -284,9 +323,10 @@ void RuntimeAPI::OnExtensionLoaded(content::BrowserContext* browser_context,
 
   // Dispatch the onInstalled event with reason "chrome_update".
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE, base::BindOnce(&RuntimeEventRouter::DispatchOnInstalledEvent,
-                                static_cast<void*>(browser_context_),
-                                extension->id(), base::Version(), true, nw_skip));
+      FROM_HERE,
+      base::BindOnce(&RuntimeEventRouter::DispatchOnInstalledEvent,
+                     base::UnsafeDangling(static_cast<void*>(browser_context_)),
+                     extension->id(), base::Version(), true, nw_skip));
 }
 
 void RuntimeAPI::OnExtensionUninstalled(
@@ -486,15 +526,15 @@ void RuntimeEventRouter::DispatchOnStartupEvent(
 
 // static
 void RuntimeEventRouter::DispatchOnInstalledEvent(
-    void* context_id,
+    MayBeDangling<void> context_id,
     const ExtensionId& extension_id,
     const base::Version& old_version,
     bool chrome_updated, bool nw_skip) {
-  if (!ExtensionsBrowserClient::Get()->IsValidContext(context_id)) {
+  if (!ExtensionsBrowserClient::Get()->IsValidContext(context_id.get())) {
     return;
   }
   content::BrowserContext* context =
-      reinterpret_cast<content::BrowserContext*>(context_id);
+      reinterpret_cast<content::BrowserContext*>(context_id.get());
   ExtensionSystem* system = ExtensionSystem::Get(context);
   if (!system) {
     return;
@@ -647,9 +687,10 @@ void RuntimeAPI::OnExtensionInstalledAndLoaded(
     const base::Version& previous_version) {
   bool nw_skip = (extension->id() == nw::GetMainExtensionId() && !first_run::IsChromeFirstRun());
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE, base::BindOnce(&RuntimeEventRouter::DispatchOnInstalledEvent,
-                                static_cast<void*>(browser_context_),
-                                extension->id(), previous_version, false, nw_skip));
+      FROM_HERE,
+      base::BindOnce(&RuntimeEventRouter::DispatchOnInstalledEvent,
+                     base::UnsafeDangling(static_cast<void*>(browser_context_)),
+                     extension->id(), previous_version, false, nw_skip));
 }
 
 ExtensionFunction::ResponseAction RuntimeGetBackgroundPageFunction::Run() {

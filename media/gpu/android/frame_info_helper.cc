@@ -7,6 +7,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/metrics/histogram_macros.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/threading/sequence_bound.h"
@@ -18,6 +19,20 @@
 #include "media/gpu/android/codec_output_buffer_renderer.h"
 
 namespace media {
+namespace {
+
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum class CodedSizeGuessStatus {
+  kNoneCorrect = 0,
+  kGuessCorrect = 1,
+  kMediaFormatCorrect = 2,
+  kBothCorrect = 3,
+  kDidntGuessAndMediaFormatCorrect = 4,
+  kDidntGuessAndMediaFormatNotCorrect = 5,
+  kMaxValue = kDidntGuessAndMediaFormatNotCorrect
+};
+}  // namespace
 
 FrameInfoHelper::FrameInfo::FrameInfo() = default;
 FrameInfoHelper::FrameInfo::~FrameInfo() = default;
@@ -106,7 +121,7 @@ class FrameInfoHelperImpl : public FrameInfoHelper,
         gfx::Size coded_size;
         gfx::Rect visible_rect;
         if (texture_owner->GetCodedSizeAndVisibleRect(
-                buffer_renderer->size(), &coded_size, &visible_rect)) {
+                buffer_renderer->visible_size(), &coded_size, &visible_rect)) {
           info.emplace();
           info->coded_size = coded_size;
           info->visible_rect = visible_rect;
@@ -220,8 +235,8 @@ class FrameInfoHelperImpl : public FrameInfoHelper,
     FrameInfo info;
     info.coded_size = CanGuessCodedSize(buffer_renderer)
                           ? buffer_renderer.GuessCodedSize()
-                          : buffer_renderer.size();
-    info.visible_rect = gfx::Rect(buffer_renderer.size());
+                          : buffer_renderer.visible_size();
+    info.visible_rect = gfx::Rect(buffer_renderer.visible_size());
     return info;
   }
 
@@ -233,8 +248,44 @@ class FrameInfoHelperImpl : public FrameInfoHelper,
                << actual_coded_size.ToString();
   }
 
+  CodedSizeGuessStatus GetCodedSizeGuessStatus(
+      gfx::Size coded_size,
+      gfx::Size media_format_output_size,
+      std::optional<gfx::Size> guessed_coded_size) {
+    if (guessed_coded_size) {
+      const bool guess_correct = guessed_coded_size == coded_size;
+      const bool media_format_correct = media_format_output_size == coded_size;
+
+      if (guess_correct && media_format_correct) {
+        return CodedSizeGuessStatus::kBothCorrect;
+      } else if (guess_correct) {
+        return CodedSizeGuessStatus::kGuessCorrect;
+      } else if (media_format_correct) {
+        return CodedSizeGuessStatus::kMediaFormatCorrect;
+      } else {
+        return CodedSizeGuessStatus::kNoneCorrect;
+      }
+    } else {
+      if (media_format_output_size == coded_size) {
+        return CodedSizeGuessStatus::kDidntGuessAndMediaFormatCorrect;
+      } else {
+        return CodedSizeGuessStatus::kDidntGuessAndMediaFormatNotCorrect;
+      }
+    }
+  }
+
+  void ReportCodedSizeGuessStatus(gfx::Size coded_size,
+                                  gfx::Size media_format_output_size,
+                                  std::optional<gfx::Size> guessed_coded_size) {
+    base::UmaHistogramEnumeration(
+        "Media.CodedSizeGuessing",
+        GetCodedSizeGuessStatus(coded_size, media_format_output_size,
+                                guessed_coded_size));
+  }
+
   void OnRealFrameInfoAvailable(gfx::Size visible_size,
                                 gfx::Size guessed_coded_size,
+                                gfx::Size media_format_output_size,
                                 std::optional<gfx::Size> coded_size,
                                 std::optional<gfx::Rect> visible_rect) {
     DVLOG(1) << __func__
@@ -246,6 +297,9 @@ class FrameInfoHelperImpl : public FrameInfoHelper,
     waiting_for_real_frame_info_ = false;
 
     if (coded_size && visible_rect) {
+      ReportCodedSizeGuessStatus(coded_size.value(), media_format_output_size,
+                                 guessed_coded_size);
+
       if (guessed_coded_size != *coded_size) {
         DisableCodedSizeGuessing(guessed_coded_size, frame_info_->coded_size);
       }
@@ -267,6 +321,7 @@ class FrameInfoHelperImpl : public FrameInfoHelper,
   }
 
   void OnFrameInfoReady(
+      gfx::Size media_format_output_size,
       std::unique_ptr<CodecOutputBufferRenderer> buffer_renderer,
       std::optional<FrameInfo> frame_info) {
     DCHECK(buffer_renderer);
@@ -277,7 +332,7 @@ class FrameInfoHelperImpl : public FrameInfoHelper,
     if (frame_info) {
       const bool is_first_frame = !frame_info_;
 
-      visible_size_ = buffer_renderer->size();
+      visible_size_ = buffer_renderer->visible_size();
       frame_info_ = *frame_info;
 
       // We always render the first frame, so we compare the real coded size
@@ -288,12 +343,19 @@ class FrameInfoHelperImpl : public FrameInfoHelper,
         const bool guessed_coded_size_correctly =
             frame_info_->coded_size == guessed_coded_size;
 
+        ReportCodedSizeGuessStatus(frame_info_->coded_size,
+                                   media_format_output_size,
+                                   guessed_coded_size);
+
         base::UmaHistogramBoolean(
             "Media.FrameInfo.GuessedInitialCodedSizeSuccess",
             guessed_coded_size_correctly);
         if (!guessed_coded_size_correctly) {
           DisableCodedSizeGuessing(guessed_coded_size, frame_info_->coded_size);
         }
+      } else {
+        ReportCodedSizeGuessStatus(frame_info_->coded_size,
+                                   media_format_output_size, std::nullopt);
       }
 
       std::move(request.callback).Run(std::move(buffer_renderer), *frame_info_);
@@ -327,7 +389,7 @@ class FrameInfoHelperImpl : public FrameInfoHelper,
         // information so that any glitches caused by a wrong guess are limited
         // to a single visible frame.
         break;
-      } else if (visible_size_ == request.buffer_renderer->size()) {
+      } else if (visible_size_ == request.buffer_renderer->visible_size()) {
         // We have cached the results of last frame info request with the same
         // size. We assume that coded_size doesn't change if the visible_size
         // stays the same.
@@ -345,17 +407,18 @@ class FrameInfoHelperImpl : public FrameInfoHelper,
         request.buffer_renderer->set_frame_info_callback(
             base::BindPostTaskToCurrentDefault(base::BindOnce(
                 &FrameInfoHelperImpl::OnRealFrameInfoAvailable,
-                weak_factory_.GetWeakPtr(), request.buffer_renderer->size(),
-                info.coded_size)));
+                weak_factory_.GetWeakPtr(),
+                request.buffer_renderer->visible_size(), info.coded_size,
+                request.buffer_renderer->media_format_output_size())));
 
         std::move(request.callback)
             .Run(std::move(request.buffer_renderer), info);
       } else {
         // We have texture_owner and we don't have cached value, so we need to
         // hop to GPU thread and render the frame to get proper size.
-        auto cb = base::BindPostTaskToCurrentDefault(
-            base::BindOnce(&FrameInfoHelperImpl::OnFrameInfoReady,
-                           weak_factory_.GetWeakPtr()));
+        auto cb = base::BindPostTaskToCurrentDefault(base::BindOnce(
+            &FrameInfoHelperImpl::OnFrameInfoReady, weak_factory_.GetWeakPtr(),
+            request.buffer_renderer->media_format_output_size()));
 
         on_gpu_.AsyncCall(&OnGpu::GetFrameInfo)
             .WithArgs(std::move(request.buffer_renderer), std::move(cb));

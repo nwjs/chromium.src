@@ -15,10 +15,10 @@
 #include "base/types/expected_macros.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/web_applications/callback_utils.h"
-#include "chrome/browser/web_applications/isolated_web_apps/commands/isolated_web_app_install_command_helper.h"
 #include "chrome/browser/web_applications/isolated_web_apps/install/non_installed_bundle_inspection_context.h"
 #include "chrome/browser/web_applications/isolated_web_apps/jobs/prepare_install_info_job.h"
 #include "chrome/browser/web_applications/isolated_web_apps/runtime_data/chrome_iwa_runtime_data_provider.h"
+#include "chrome/browser/web_applications/isolated_web_apps/trust_and_signature_verifier.h"
 #include "chrome/browser/web_applications/model/dialog_image_info.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
@@ -27,12 +27,11 @@
 #include "components/webapps/browser/web_contents/web_app_url_loader.h"
 #include "components/webapps/isolated_web_apps/types/source.h"
 #include "components/webapps/isolated_web_apps/types/storage_location.h"
-#include "content/public/browser/web_contents.h"
 
 namespace web_app {
 namespace {
 
-using WebAppInstalInfoCallback =
+using WebAppInstallInfoCallback =
     base::OnceCallback<void(base::expected<WebAppInstallInfo, std::string>)>;
 
 class WebAppInstallInfoFetcher {
@@ -44,14 +43,9 @@ class WebAppInstallInfoFetcher {
       : profile_(*profile),
         provider_(*provider),
         source_(source),
-        helper_(std::make_unique<IsolatedWebAppInstallCommandHelper>(
-            url_info,
-            provider->web_contents_manager().CreateDataRetriever())),
-        web_contents_(
-            IsolatedWebAppInstallCommandHelper::CreateIsolatedWebAppWebContents(
-                *profile)) {}
+        url_info_(url_info) {}
 
-  void FetchAndReply(WebAppInstalInfoCallback callback) {
+  void FetchAndReply(WebAppInstallInfoCallback callback) {
     callback_ = std::move(callback);
 
     RunChainedWeakCallbacks(
@@ -70,8 +64,9 @@ class WebAppInstallInfoFetcher {
   }
 
   void CheckTrustAndSignatures(base::OnceClosure next_step_callback) {
-    helper_->CheckTrustAndSignatures(
-        source_, IwaMetadataReadingOperation{}, &*profile_,
+    web_app::CheckTrustAndSignatures(
+        url_info_.web_bundle_id(), source_, IwaMetadataReadingOperation{},
+        &*profile_,
         base::BindOnce(&WebAppInstallInfoFetcher::OnTrustAndSignaturesChecked,
                        weak_factory_.GetWeakPtr(),
                        std::move(next_step_callback)));
@@ -89,7 +84,8 @@ class WebAppInstallInfoFetcher {
           next_step_callback) {
     prepare_install_info_job_ = PrepareInstallInfoJob::CreateAndStart(
         *profile_, source_, IwaMetadataReadingOperation{},
-        /*expected_version=*/std::nullopt, *web_contents_, *helper_,
+        /*expected_version=*/std::nullopt, url_info_,
+        provider_->web_contents_manager().CreateDataRetriever(),
         provider_->web_contents_manager().CreateUrlLoader(),
         std::move(next_step_callback));
   }
@@ -110,10 +106,8 @@ class WebAppInstallInfoFetcher {
   const raw_ref<WebAppProvider> provider_;
 
   IwaSourceBundleWithMode source_;
-  WebAppInstalInfoCallback callback_;
-
-  std::unique_ptr<IsolatedWebAppInstallCommandHelper> helper_;
-  std::unique_ptr<content::WebContents> web_contents_;
+  IsolatedWebAppUrlInfo url_info_;
+  WebAppInstallInfoCallback callback_;
 
   std::unique_ptr<PrepareInstallInfoJob> prepare_install_info_job_;
 
@@ -142,7 +136,7 @@ void SignedWebBundleMetadata::Create(
                 -> SignedWebBundleMetadata {
               const ChromeIwaRuntimeDataProvider::UserInstallAllowlistItemData*
                   user_install_data =
-                      web_app::ChromeIwaRuntimeDataProvider::GetInstance()
+                      ChromeIwaRuntimeDataProvider::GetInstance()
                           .GetUserInstallAllowlistData(
                               url_info.web_bundle_id().id());
               return SignedWebBundleMetadata(

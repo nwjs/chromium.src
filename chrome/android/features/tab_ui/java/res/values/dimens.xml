@@ -99,11 +99,6 @@ found in the LICENSE file.
     <dimen name="inactive_tab_hover_card_x_offset">16dp</dimen>
 
     <!-- Dimens for TabGroupParity features -->
-    <dimen name="color_picker_color_item_size">24dp</dimen>
-    <dimen name="color_picker_color_item_horizontal_padding">8dp</dimen>
-    <dimen name="color_picker_color_item_vertical_padding">12dp</dimen>
-    <dimen name="color_picker_inner_layer_inset">5dp</dimen>
-    <dimen name="color_picker_selection_layer_inset">2dp</dimen>
     <dimen name="tab_group_color_icon_stroke">2dp</dimen>
     <dimen name="tab_group_color_icon_item_size">18dp</dimen>
     <dimen name="tab_group_nested_menu_color_icon_size">12dp</dimen>
@@ -204,19 +199,41 @@ found in the LICENSE file.
 
     <!-- Dimens for vertical tabs -->
     <dimen name="vertical_tabs_rail_horizontal_margin">12dp</dimen>
+    <dimen name="vertical_tabs_scrollbar_margin_end">-9dp</dimen>
+    <dimen name="vertical_tabs_scrollbar_padding_end">9dp</dimen>
+    <dimen name="vertical_tabs_scrollbar_width">3dp</dimen>
+    <dimen name="vertical_tabs_scrollbar_radius">100dp</dimen>
     <dimen name="vertical_tab_item_icon_size">16dp</dimen>
+    <dimen name="vertical_tab_item_loading_spinner_thickness">2dp</dimen>
     <dimen name="vertical_tab_item_padding_horizontal">8dp</dimen>
     <dimen name="vertical_tab_item_padding_vertical">6dp</dimen>
     <dimen name="vertical_tab_item_title_margin_end">4dp</dimen>
     <dimen name="vertical_tab_item_favicon_margin_end">8dp</dimen>
     <dimen name="vertical_tab_item_media_indicator_margin_end">12dp</dimen>
+    <dimen name="vertical_tab_item_ai_indicator_margin_vertical">2dp</dimen>
+    <dimen name="vertical_tab_item_actuation_icon_size">20dp</dimen>
     <dimen name="vertical_tab_item_corner_radius">8dp</dimen>
     <dimen name="vertical_tab_item_margin_bottom">4dp</dimen>
-    <!-- TODO(crbug.com/509226293): Dimen value will be updated after adding the vertical spine -->
-    <dimen name="vertical_tab_child_nesting_margin">24dp</dimen>
+    <dimen name="vertical_tab_child_nesting_margin">8dp</dimen>
+    <dimen name="vertical_tab_spine_width">2dp</dimen>
+    <dimen name="vertical_tab_spine_radius">4dp</dimen>
 
     <!-- Dimens for vertical pinned tabs -->
     <!-- TODO(crbug.com/509226293): A11y requires touch target to be a minimum of 48dp. -->
     <dimen name="vertical_tab_pinned_item_width">42dp</dimen>
     <dimen name="vertical_tab_pinned_item_height">32dp</dimen>
+
+    <!-- New Tab button dimens.-->
+    <dimen name="vertical_tabs_new_tab_button_height">40dp</dimen>
+    <dimen name="vertical_tabs_new_tab_button_margin_top">8dp</dimen>
+    <dimen name="vertical_tabs_new_tab_button_margin_bottom">12dp</dimen>
+    <dimen name="vertical_tabs_new_tab_button_corner_radius">8dp</dimen>
+
+    <!-- Vertical Tabs Header dimens. -->
+    <dimen name="vertical_tabs_button_corner_radius_small">2dp</dimen>
+    <dimen name="vertical_tabs_header_margin_vertical">4dp</dimen>
+    <dimen name="vertical_tabs_header_padding_vertical">8dp</dimen>
+    <dimen name="vertical_tabs_header_button_size">32dp</dimen>
+    <dimen name="vertical_tabs_header_button_padding">4dp</dimen>
+    <dimen name="vertical_tabs_header_button_gap">2dp</dimen>
 </resources>

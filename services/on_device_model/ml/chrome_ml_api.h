@@ -15,7 +15,10 @@
 #include "third_party/dawn/include/dawn/dawn_proc_table.h"
 #include "third_party/dawn/include/dawn/webgpu.h"
 
-// This header defines the public interface to the ChromeML shared library.
+// This header defines the public interface to the ChromeML shared library. The
+// interface is exposed via a C API to encapsulate the C++ types used in its
+// implementation. ABI compatibility is not a goal of the API, nor is it used
+// for that purpose.
 //
 // Lifetime: All pointer fields in output structs (e.g., ChromeMLGenerateOutput,
 // ChromeMLToolCall) are non-owning and valid only for the duration of the
@@ -48,8 +51,6 @@ using ChromeMLModel = uintptr_t;
 using ChromeMLSession = uintptr_t;
 // Opaque handle to an object that allows canceling operations.
 using ChromeMLCancel = uintptr_t;
-// Opaque handle to an instance of a ChromeMLTS model.
-using ChromeMLTSModel = uintptr_t;
 // Opaque handle to an instance of a ChromeML ASR stream.
 using ChromeMLASRStream = uintptr_t;
 // Opaque handle to a constraint object.
@@ -104,16 +105,6 @@ struct ChromeMLModelDescriptor {
   float temperature;
   int top_k;
 
-  // Speculative decoding
-  int num_draft_tokens;
-
-  // Packed TS data.
-  const void* ts_data;
-  size_t ts_size;
-  const void* ts_spm_data;
-  size_t ts_spm_size;
-  size_t ts_dimension;
-
   const uint32_t* adaptation_ranks;
   size_t adaptation_ranks_size;
 
@@ -121,6 +112,7 @@ struct ChromeMLModelDescriptor {
   bool enable_host_mapped_pointer;
   bool use_low_power;
   bool allow_fp16;
+  bool enable_speculative_decoding;
 
   ml::ModelPerformanceHint performance_hint;
 };
@@ -138,9 +130,6 @@ struct ChromeMLAdaptationDescriptor {
   // Parameters which control the output sampling.
   uint32_t top_k;
   float temperature;
-
-  // Whether or not the mode will use speculative decoding.
-  bool enable_speculative_decoding;
 
   // Whether this model will handle InputPieces containing images.
   bool enable_image_input;
@@ -189,11 +178,6 @@ struct ChromeMLGenerateOutput {
 };
 using ChromeMLExecutionOutput = ChromeMLGenerateOutput;
 
-struct ChromeMLTSModelDescriptor {
-  ChromeMLByteSpan model;
-  ChromeMLByteSpan sp_model;
-  size_t dimensions;
-};
 
 // Status value indicating the result of ad hoc safety classification.
 enum class ChromeMLSafetyResult {
@@ -409,34 +393,6 @@ using ChromeMLGetTokenizerParamsFn =
 // Precision used by the gpu delegate during inference.
 enum class GpuDelegatePrecision { kFp16, kFp32 };
 
-struct ChromeMLTSAPI {
-  // Construct a text safety model.
-  // Destroy the returned object by passing it to DestroyModel.
-  ChromeMLTSModel (*CreateModel)(const ChromeMLTSModelDescriptor* descriptor);
-
-  // Destroy a text safety model.
-  void (*DestroyModel)(ChromeMLTSModel model);
-
-  // Performs ad hoc safety classification on a chunk of text using the
-  // classifier defined by `model`.
-  //
-  // On input, `scores` must point to an output buffer to receive the safety
-  // class scores, and `num_scores` must point to the capacity of that buffer in
-  // number of elements.
-  //
-  // On success this returns kOk on and `*num_scores` is set to the actual
-  // number of score values written into the output buffer. This number is
-  // guaranteed to be no larger than the input value of `*num_scores`.
-  //
-  // If this fails with kInsufficientStorage, no `scores` are populated and
-  // `*num_scores` is set to the correct number scores the caller should expect.
-  //
-  // If `model` does not define a safety classifier, this returns kNoClassifier.
-  ChromeMLSafetyResult (*ClassifyTextSafety)(ChromeMLTSModel model,
-                                             const char* text,
-                                             float* scores,
-                                             size_t* num_scores);
-};
 
 struct ChromeMLASRStreamOutputTranscript {
   const char* transcript;
@@ -470,8 +426,14 @@ struct ChromeMLASRAPI {
 // Table of C API functions defined within the library.
 struct ChromeMLAPI {
   // Initializes the Dawn proc table. This must be called before any other
-  // functions.
+  // functions. If there is a mismatch in the version of the Dawn proc table,
+  // this function will crash. Please use TryInitDawnProcs below instead.
   void (*InitDawnProcs)(const DawnProcTable& procs);
+
+  // Tries to initialize the Dawn proc table, returning false if there is a
+  // mismatch in the proc table versions. This must be called before any other
+  // functions.
+  bool (*TryInitDawnProcs)(const DawnProcTable& procs);
 
   // Sets functions which can be used to log metrics from within the library.
   void (*SetMetricsFns)(const ChromeMLMetricsFns* fns);
@@ -479,26 +441,6 @@ struct ChromeMLAPI {
   // Sets an error handling function for fatal errors in the GPU. See also
   // SetFatalErrorNonGpuFn.
   void (*SetFatalErrorFn)(ChromeMLFatalErrorFn error_fn);
-
-  // Performs ad hoc safety classification on a chunk of text using the
-  // classifier defined by `model`.
-  //
-  // On input, `scores` must point to an output buffer to receive the safety
-  // class scores, and `num_scores` must point to the capacity of that buffer in
-  // number of elements.
-  //
-  // On success this returns kOk on and `*num_scores` is set to the actual
-  // number of score values written into the output buffer. This number is
-  // guaranteed to be no larger than the input value of `*num_scores`.
-  //
-  // If this fails with kInsufficientStorage, no `scores` are populated and
-  // `*num_scores` is set to the correct number scores the caller should expect.
-  //
-  // If `model` does not define a safety classifier, this returns kNoClassifier.
-  ChromeMLSafetyResult (*ClassifyTextSafety)(ChromeMLModel model,
-                                             const char* text,
-                                             float* scores,
-                                             size_t* num_scores);
 
   // Destroys a model that was created by SessionCreateModel().
   void (*DestroyModel)(ChromeMLModel model);
@@ -614,7 +556,6 @@ struct ChromeMLAPI {
   // Destroys the TFLite delegate created by `CreateDelegate()` call.
   void (*DestroyGpuDelegate)(TfLiteDelegate* delegate);
 
-  ChromeMLTSAPI ts_api;
   ChromeMLASRAPI asr_api;
 };
 

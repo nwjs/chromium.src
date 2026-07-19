@@ -5,11 +5,13 @@
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_coordinator.h"
 
 #import "base/apple/foundation_util.h"
+#import "base/feature_list.h"
 #import "base/notreached.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/pref_registry/pref_registry_syncable.h"
 #import "components/prefs/pref_service.h"
 #import "components/signin/public/base/signin_metrics.h"
+#import "components/signin/public/base/signin_switches.h"
 #import "ios/chrome/browser/authentication/add_account_signin/coordinator/add_account_signin_coordinator.h"
 #import "ios/chrome/browser/authentication/consistency_promo_signin/coordinator/consistency_promo_signin_coordinator.h"
 #import "ios/chrome/browser/authentication/trusted_vault_reauthentication/coordinator/trusted_vault_reauthentication_coordinator.h"
@@ -23,6 +25,7 @@
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_history_sync/signin_and_history_sync_coordinator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_in_progress.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_screen_provider.h"
+#import "ios/chrome/browser/metrics/model/activity_reporter.h"
 #import "ios/chrome/browser/shared/coordinator/chrome_coordinator/animated_coordinator.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
@@ -41,6 +44,7 @@ using signin_metrics::PromoAction;
 
 @implementation SigninCoordinator {
   std::unique_ptr<SigninInProgress> _signinInProgress;
+  ActivityReporter* _activityReporter;
 }
 
 - (instancetype)initWithBaseViewController:(UIViewController*)viewController
@@ -50,6 +54,8 @@ using signin_metrics::PromoAction;
                                    (signin_metrics::AccessPoint)accessPoint {
   self = [super initWithBaseViewController:viewController browser:browser];
   if (self) {
+    _activityReporter =
+        [[ActivityReporter alloc] initWithDomain:ActivityReportDomainSignin];
     CHECK(browser);
     CHECK_EQ(browser->type(), Browser::Type::kRegular,
              base::NotFatalUntil::M145);
@@ -106,6 +112,8 @@ using signin_metrics::PromoAction;
                                                          command.contextStyle
                                                       accessPoint:
                                                           command.accessPoint
+                                             confirmChangeProfile:
+                                                 command.confirmChangeProfile
                                              prepareChangeProfile:
                                                  command.prepareChangeProfile
                                              continuationProvider:provider];
@@ -152,6 +160,18 @@ using signin_metrics::PromoAction;
                                            accessPoint:command.accessPoint
                                            promoAction:command.promoAction
                                           showSnackbar:command.showSnackbar];
+      break;
+    }
+    case AuthenticationOperation::kDeepLinkSignin: {
+      signinCoordinator = [SigninCoordinator
+          deeplinkSigninCoordinatorWithBaseViewController:baseViewController
+                                                  browser:browser
+                                     selectedAccountEmail:
+                                         command.targetAccountEmail
+                        changeProfileContinuationProvider:
+                            command.changeProfileContinuationProvider
+                                       externalEntryPoint:
+                                           command.externalEntryPoint];
       break;
     }
   }
@@ -292,6 +312,9 @@ using signin_metrics::PromoAction;
                                                 accessPoint:
                                                     (signin_metrics::
                                                          AccessPoint)accessPoint
+                                       confirmChangeProfile:
+                                           (SigninChangeProfileConfirmationBlock)
+                                               confirmChangeProfile
                                        prepareChangeProfile:
                                            (ProceduralBlock)prepareChangeProfile
                                        continuationProvider:
@@ -302,6 +325,7 @@ using signin_metrics::PromoAction;
                                 browser:browser
                            contextStyle:contextStyle
                             accessPoint:accessPoint
+                   confirmChangeProfile:confirmChangeProfile
                    prepareChangeProfile:prepareChangeProfile
                    continuationProvider:continuationProvider];
 }
@@ -360,24 +384,18 @@ using signin_metrics::PromoAction;
                                             browser:(Browser*)browser
                                selectedAccountEmail:
                                    (NSString*)selectedAccountEmail
-                                     screenProvider:
-                                         (ScreenProvider*)screenProvider
-                                       contextStyle:
-                                           (SigninContextStyle)contextStyle
-                                        accessPoint:
-                                            (signin_metrics::AccessPoint)
-                                                accessPoint
                   changeProfileContinuationProvider:
                       (const ChangeProfileContinuationProvider&)
-                          changeProfileContinuationProvider {
+                          changeProfileContinuationProvider
+                                 externalEntryPoint:(signin::ExternalEntryPoint)
+                                                        externalEntryPoint {
+  CHECK(base::FeatureList::IsEnabled(switches::kCrossDeviceSignin));
   return [[DeeplinkSigninCoordinator alloc]
              initWithBaseViewController:viewController
                                 browser:browser
                    selectedAccountEmail:selectedAccountEmail
-                         screenProvider:screenProvider
-                           contextStyle:contextStyle
-                            accessPoint:accessPoint
-      changeProfileContinuationProvider:changeProfileContinuationProvider];
+      changeProfileContinuationProvider:changeProfileContinuationProvider
+                     externalEntryPoint:externalEntryPoint];
 }
 
 #pragma mark - SigninCoordinator
@@ -386,6 +404,7 @@ using signin_metrics::PromoAction;
   // `signinCompletion` needs to be set by the owner to know when the sign-in
   // is finished.
   CHECK(self.signinCompletion, base::NotFatalUntil::M151);
+  [_activityReporter reportActive];
 }
 
 #pragma mark - AnimatedCoordinator
@@ -393,6 +412,7 @@ using signin_metrics::PromoAction;
 - (void)stopAnimated:(BOOL)animated {
   _signinInProgress.reset();
   [super stopAnimated:animated];
+  [_activityReporter reportInactive];
 }
 
 #pragma mark - Protected

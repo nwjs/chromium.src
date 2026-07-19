@@ -276,7 +276,7 @@ public class MostVisitedMediatorUnitTest {
         int expectedTileViewIntervalPadding =
                 mResources.getDimensionPixelSize(R.dimen.tile_view_padding_interval_tablet);
         mResources.getConfiguration().orientation = Configuration.ORIENTATION_PORTRAIT;
-        createMediator(/* isTablet= */ true);
+        createMediator(/* isLff= */ true);
         mMediator.onTileDataChanged();
         Assert.assertEquals(
                 "The horizontal edge padding passed to the model is wrong",
@@ -288,7 +288,7 @@ public class MostVisitedMediatorUnitTest {
                 (int) mModel.get(HORIZONTAL_INTERVAL_PADDINGS));
 
         mResources.getConfiguration().orientation = Configuration.ORIENTATION_LANDSCAPE;
-        createMediator(/* isTablet= */ true);
+        createMediator(/* isLff= */ true);
         mMediator.onTileDataChanged();
         Assert.assertEquals(
                 "The horizontal edge padding passed to the model is wrong",
@@ -304,7 +304,7 @@ public class MostVisitedMediatorUnitTest {
     @SuppressWarnings("DirectInvocationOnMock")
     public void testUpdateTilesView_Phone() {
         mResources.getConfiguration().orientation = Configuration.ORIENTATION_PORTRAIT;
-        createMediator(/* isTablet= */ false);
+        createMediator(/* isLff= */ false);
         mMediator.onTileDataChanged();
         // tile_view_padding_edge_portrait
         Assert.assertEquals(
@@ -313,7 +313,7 @@ public class MostVisitedMediatorUnitTest {
                 (int) mModel.get(HORIZONTAL_EDGE_PADDINGS));
 
         mResources.getConfiguration().orientation = Configuration.ORIENTATION_LANDSCAPE;
-        createMediator(/* isTablet= */ false);
+        createMediator(/* isLff= */ false);
         mMediator.onTileDataChanged();
         Assert.assertEquals(
                 "The horizontal edge padding passed to the model is wrong",
@@ -383,45 +383,70 @@ public class MostVisitedMediatorUnitTest {
     }
 
     @Test
-    public void testUpdateMvtOnTablet() {
-        createMediator(/* isTablet= */ true);
+    public void testUpdateMvtWidth_Tablet() {
+        createMediator(/* isLff= */ true);
         int totalWidth = 1000;
         ViewGroup.MarginLayoutParams marginLayoutParams =
                 new ViewGroup.MarginLayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         when(mMvTilesContainerLayout.getLayoutParams()).thenReturn(marginLayoutParams);
-        when(mMvTilesLayout.contentFitsOnTablet(totalWidth)).thenReturn(true);
+        when(mMvTilesLayout.contentFitsOnLff(totalWidth)).thenReturn(true);
 
-        // Test case of regular tablets.
+        // Test case of regular LFF devices.
         UiConfig.DisplayStyle displayStyleWide =
                 new DisplayStyle(HorizontalDisplayStyle.WIDE, VerticalDisplayStyle.REGULAR);
         when(mUiConfig.getCurrentDisplayStyle()).thenReturn(displayStyleWide);
-        assertFalse(
-                NtpCustomizationUtils.isInNarrowWindowOnTablet(/* isTablet= */ true, mUiConfig));
+        assertFalse(NtpCustomizationUtils.isInNarrowWindowOnLff(/* isLff= */ true, mUiConfig));
 
         int lateralMargin = mResources.getDimensionPixelSize(R.dimen.mvt_container_lateral_margin);
-        mMediator.updateMvtOnTablet(totalWidth);
+        mMediator.updateMvtWidth(totalWidth);
         verifyLayoutParams(marginLayoutParams, LayoutParams.WRAP_CONTENT, lateralMargin);
 
-        // Test case of narrow window on tablets.
+        // Test case of narrow window on LFF devices.
+        when(mMvTilesLayout.contentFitsOnLff(totalWidth)).thenReturn(false);
         UiConfig.DisplayStyle displayStyleRegular =
                 new DisplayStyle(HorizontalDisplayStyle.REGULAR, VerticalDisplayStyle.REGULAR);
         when(mUiConfig.getCurrentDisplayStyle()).thenReturn(displayStyleRegular);
-        assertTrue(NtpCustomizationUtils.isInNarrowWindowOnTablet(true, mUiConfig));
+        assertTrue(NtpCustomizationUtils.isInNarrowWindowOnLff(true, mUiConfig));
 
         int lateralMarginNarrowWindowTablet =
                 mResources.getDimensionPixelSize(
                         R.dimen.ntp_search_box_lateral_margin_narrow_window_tablet);
-        mMediator.updateMvtOnTablet(totalWidth);
-        verifyLayoutParams(
-                marginLayoutParams, LayoutParams.WRAP_CONTENT, lateralMarginNarrowWindowTablet);
+        mMediator.updateMvtWidth(totalWidth);
+        verifyLayoutParams(marginLayoutParams, totalWidth, lateralMarginNarrowWindowTablet);
+    }
+
+    @Test
+    public void testUpdateMvtWidth_Phone() {
+        createMediator(/* isLff= */ false);
+        int totalWidth = 1000;
+        ViewGroup.MarginLayoutParams marginLayoutParams =
+                new ViewGroup.MarginLayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        when(mMvTilesContainerLayout.getLayoutParams()).thenReturn(marginLayoutParams);
+
+        // On phones, the display style shouldn't trigger narrow window LFF logic.
+        UiConfig.DisplayStyle displayStyleRegular =
+                new DisplayStyle(HorizontalDisplayStyle.REGULAR, VerticalDisplayStyle.REGULAR);
+        when(mUiConfig.getCurrentDisplayStyle()).thenReturn(displayStyleRegular);
+        assertFalse(NtpCustomizationUtils.isInNarrowWindowOnLff(/* isLff= */ false, mUiConfig));
+
+        int lateralMargin = mResources.getDimensionPixelSize(R.dimen.mvt_container_lateral_margin);
+
+        // When width is provided, it should be applied directly.
+        mMediator.updateMvtWidth(totalWidth);
+        verifyLayoutParams(marginLayoutParams, totalWidth, lateralMargin);
+
+        // When width is null, it should fall back to MATCH_PARENT.
+        mMediator.updateMvtWidth(null);
+        verifyLayoutParams(marginLayoutParams, LayoutParams.MATCH_PARENT, lateralMargin);
     }
 
     private void createMediator() {
-        createMediator(/* isTablet= */ false);
+        createMediator(/* isLff= */ false);
     }
 
-    private void createMediator(boolean isTablet) {
+    private void createMediator(boolean isLff) {
         mMvTilesLayout = Mockito.mock(MostVisitedTilesLayout.class);
         when(mMvTilesContainerLayout.findViewById(R.id.mv_tiles_layout)).thenReturn(mMvTilesLayout);
 
@@ -438,7 +463,7 @@ public class MostVisitedMediatorUnitTest {
                         mMvTilesContainerLayout,
                         mTileRenderer,
                         mModel,
-                        isTablet,
+                        isLff,
                         mSnapshotTileGridChangedRunnable,
                         mTileCountChangedRunnable);
         mMediator.initWithNative(

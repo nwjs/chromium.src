@@ -63,8 +63,8 @@ import {SubmitButtonIconType} from '//resources/cr_components/composebox/compose
         .energyEffectAnimationEnabled="${this.energyEffectAnimationEnabled_}"
         ?multi-line-enabled="${this.multiLineEnabled_}">
     </ntp-searchbox>
+    <div id="dialogAnchor"></div>
     ${this.showComposebox_ ? html`
-      <div id="dialogAnchor"></div>
       <dialog id="composeboxDialog">
         ${this.useNtpComposeboxFork_ ? html`
           <ntp-composebox id="composebox"
@@ -74,10 +74,18 @@ import {SubmitButtonIconType} from '//resources/cr_components/composebox/compose
               .state="${this.composeboxState_}"
               .usePecApi="${this.usePecApi_}"
               .showVoiceSearch="${true}"
-              @close-composebox="${this.onCloseComposebox_}">
+              .smartTabSharingVisible="${this.smartTabSharingVisible_}"
+              @close-composebox="${this.onCloseComposebox_}"
+              @voice-search-action="${this.onComposeVoiceSearchAction_}"
+              .submitButtonIconType="${SubmitButtonIconType.FORWARD}"
+              .clearAllInputsWhenSubmittingQuery="${true}"
+              .closeOnEscape="${false}"
+              .energyEffectEnabled="${this.energyEffectEnabled_}"
+              .energyEffectAnimationEnabled="${this.energyEffectAnimationEnabled_}">
           </ntp-composebox>
         ` : html`
           <cr-composebox id="composebox"
+              entrypoint-name="Realbox"
               ?ntp-realbox-next-enabled="${this.ntpRealboxNextEnabled_}"
               ?searchbox-next-enabled="${this.ntpRealboxNextEnabled_}"
               .submitButtonIconType="${this.ntpRealboxNextEnabled_ ? SubmitButtonIconType.FORWARD : SubmitButtonIconType.UPWARD}"
@@ -91,6 +99,7 @@ import {SubmitButtonIconType} from '//resources/cr_components/composebox/compose
               .energyEffectEnabled="${this.energyEffectEnabled_}"
               .energyEffectAnimationEnabled="${this.energyEffectAnimationEnabled_}"
               .usePecApi="${this.usePecApi_}"
+              .smartTabSharingVisible="${this.smartTabSharingVisible_}"
               @voice-search-action="${this.onComposeVoiceSearchAction_}"
               searchbox-layout-mode="${this.ntpRealboxNextEnabled_ ? 'Compact' : ''}">
           </cr-composebox>
@@ -107,9 +116,8 @@ import {SubmitButtonIconType} from '//resources/cr_components/composebox/compose
       </ntp-lens-upload-dialog>
     ` : ''}
   </div>
-  ${this.lazyRender_
-    && this.ntpNextFeaturesEnabled_
-    && (!this.ntpNextDisablementEnabled_ || this.isActionChipsVisible_) ? html`
+  ${this.lazyRender_ && this.ntpNextFeaturesEnabled_
+  && this.isActionChipsVisible_ ? html`
     <ntp-action-chips
         ?show-background="${this.showActionChipsBackground_()}"
         @action-chip-click="${this.onActionChipClick_}"
@@ -184,17 +192,19 @@ import {SubmitButtonIconType} from '//resources/cr_components/composebox/compose
           ${this.backgroundImageAttribution2_}
         </div>
       </a>
-      <ntp-customize-buttons id="customizeButtons"
-          ?modules-shown-to-user="${this.modulesShownToUser}"
-          ?show-background-image="${this.showBackgroundImage_}"
-          ?show-customize="${this.showCustomize_}"
-          ?show-customize-chrome-text="${this.showCustomizeChromeText_}"
-          ?show-wallpaper-search="${this.showWallpaperSearch_}"
-          ?show-wallpaper-search-button="${this.showWallpaperSearchButton_}"
-          ?wallpaper-search-button-animation-enabled="${this.wallpaperSearchButtonAnimationEnabled_}"
-          @customize-click="${this.onCustomizeClick_}"
-          @wallpaper-search-click="${this.onWallpaperSearchClick_}" show-shadow>
-      </ntp-customize-buttons>
+      ${!this.isAndroid_ ? html`
+        <ntp-customize-buttons id="customizeButtons"
+            ?modules-shown-to-user="${this.modulesShownToUser}"
+            ?show-background-image="${this.showBackgroundImage_}"
+            ?show-customize="${this.showCustomize_}"
+            ?show-customize-chrome-text="${this.showCustomizeChromeText_}"
+            ?show-wallpaper-search="${this.showWallpaperSearch_}"
+            ?show-wallpaper-search-button="${this.showWallpaperSearchButton_}"
+            ?wallpaper-search-button-animation-enabled="${this.wallpaperSearchButtonAnimationEnabled_}"
+            @customize-click="${this.onCustomizeClick_}"
+            @wallpaper-search-click="${this.onWallpaperSearchClick_}" show-shadow>
+        </ntp-customize-buttons>
+      ` : ''}
     ` : ''}
     ${this.showThemeAttribution_() ? html`
       <div id="themeAttribution">
@@ -205,7 +215,47 @@ import {SubmitButtonIconType} from '//resources/cr_components/composebox/compose
   ` : ''}
   <div id="contentBottomSpacer"></div>
 </div>
-${this.showVoiceSearchOverlay_ ? html`
+${this.voiceSearchCoherenceAnySearchboxExperimentEnabled_ &&
+    this.showVoiceSearchOverlay_ ? html`
+  <dialog id="voiceSearchDialog" tabindex="-1" autofocus
+      @close="${this.onVoiceSearchOverlayClose}"
+      @click="${this.onVoiceSearchDialogClick_}">
+    <div id="voiceSearchCardContainer">
+      ${!this.hasVoiceSearchError &&
+          !this.voiceSearchCoherenceSearchboxWithLiveTranscriptionEnabled_ ? html`
+        <search-animated-glow id="voiceSearchGlow"
+            .coloredTicTacVoiceAnimationEnabled="${true}"
+            .isListening="${this.voiceSearchListening_}"
+            .requiresVoice="${true}"
+            .transcript="${this.voiceSearchTranscript_}"
+            .receivedSpeech="${this.voiceSearchReceivedSpeech_}">
+        </search-animated-glow>
+      ` : ''}
+      <!-- Pass metricSource synchronously to avoid microtask race in unit tests. -->
+      <cr-composebox-voice-search id="voiceSearch"
+          in-voice-search-mode
+          @voice-search-cancel="${this.onVoiceSearchCancel_}"
+          @voice-search-final-result="${this.onVoiceSearchFinalResult_}"
+          @voice-search-error="${this.onVoiceSearchError}"
+          @transcript-update="${this.onVoiceSearchTranscriptUpdate_}"
+          @speech-received="${this.onVoiceSearchSpeechReceived_}"
+          @recording-stopped="${this.onVoiceSearchRecordingStopped_}"
+          .hasErrorTimer="${true}"
+          .pageCallbackRouter="${this.searchboxCallbackRouter_}"
+          .autosubmitEnabled="${false}"
+          .dynamicTimeoutEnabled="${true}"
+          .queryLengthLimit="${this.voiceQueryLengthLimit_}"
+          .idleTimeout="${this.voiceIdleTimeoutMs_}"
+          .liveTranscriptEnabled="${
+            this.voiceSearchCoherenceSearchboxWithLiveTranscriptionEnabled_}"
+          .submitStopButtonsEnabled="${true}"
+          .metricSource="${'NTP_REALBOX'}">
+      </cr-composebox-voice-search>
+    </div>
+  </dialog>
+` : ''}
+${this.showVoiceSearchOverlay_ &&
+    !this.voiceSearchCoherenceAnySearchboxExperimentEnabled_ ? html`
   <ntp-voice-search-overlay @close="${this.onVoiceSearchOverlayClose}">
   </ntp-voice-search-overlay>
 ` : ''}

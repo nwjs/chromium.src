@@ -1088,6 +1088,17 @@ RenderFrameHost* ChildFrameAt(const ToRenderFrameHost& adapter, size_t index);
 // OriginAgentCluster header.
 bool HasOriginKeyedProcess(RenderFrameHost* frame);
 
+// Returns true when both frames' SiteInstances carry the same unique-instance
+// embedder isolation (equal per-instance id). Two frames that share a unique
+// instance are guaranteed to share a process.
+bool HaveEmbedderIsolationWithSameUniqueInstance(RenderFrameHost* a,
+                                                 RenderFrameHost* b);
+
+// Returns true if `frame`'s process is locked to a unique-instance
+// `EmbedderIsolationInfo` (one per-document isolated instance; today's
+// sole producer is the MIME handler stream manager).
+bool HasUniqueInstanceIsolation(RenderFrameHost* frame);
+
 // Returns the frames visited by |RenderFrameHost::ForEachRenderFrameHost| in
 // the same order.
 std::vector<RenderFrameHost*> CollectAllRenderFrameHosts(
@@ -1351,7 +1362,7 @@ class RenderProcessHostWatcher : public RenderProcessHostObserver {
 
  private:
   // Register the event and clean up.
-  void OnEvent();
+  void OnEvent(bool success);
 
   // Overridden RenderProcessHost::LifecycleObserver methods.
   void RenderProcessReady(RenderProcessHost* host) override;
@@ -1361,12 +1372,13 @@ class RenderProcessHostWatcher : public RenderProcessHostObserver {
 
   base::ScopedObservation<RenderProcessHost, RenderProcessHostObserver>
       observation_{this};
-  WatchType type_;
+  const WatchType type_;
   bool did_exit_normally_;
 
   std::unique_ptr<ScopedAllowRendererCrashes> allow_renderer_crashes_;
 
   WaiterHelper waiter_helper_;
+  bool success_ = false;
 };
 
 // Implementation helper for:

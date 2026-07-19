@@ -46,6 +46,8 @@ class WebUILocationBar : public LocationBar,
   // WebUIReadOnlyOmnibox::UpdatePropagator:
   void PropagateOmniboxUpdate(
       toolbar_ui_api::mojom::OmniboxViewStatePtr update) override;
+  void PropagateFocusRequest(
+      toolbar_ui_api::mojom::FocusRequestTarget target) override;
 
   // Called from WebUIToolbarWebView:
   void OnThemeChanged();
@@ -81,6 +83,7 @@ class WebUILocationBar : public LocationBar,
   bool IsDrawn() const override;
   bool IsFullscreen() const override;
   bool IsEditingOrEmpty() const override;
+  bool IsMouseHovered() const override;
   void InvalidateLayout() override;
   gfx::Rect Bounds() const override;
   gfx::Rect BoundsInScreen() const override;
@@ -107,6 +110,8 @@ class WebUILocationBar : public LocationBar,
   void OnLhsChipDrag(toolbar_ui_api::mojom::LhsChipIdentifier identifier,
                      ui::mojom::DragEventSource source);
 
+  void AnnounceAlert(const std::u16string& announcement);
+
   WebUIContentSettingImageControl& content_setting_image_control() {
     return content_setting_image_control_;
   }
@@ -130,6 +135,7 @@ class WebUILocationBar : public LocationBar,
 
  private:
   friend class WebUILocationBarTest;
+  friend class WebUIPermissionChipTest;
 
   // Determines whether the location icon should be overridden while a chip is
   // being displayed.
@@ -188,6 +194,10 @@ class WebUILocationBar : public LocationBar,
 
   base::TimeTicks last_page_info_bubble_close_time_;
   bool suppress_lhs_chip_clicked_ = false;
+
+  std::optional<std::u16string> last_search_keyword_;
+  std::optional<bool> last_is_keyword_selected_;
+  toolbar_ui_api::IconHandle keyword_icon_;
 
   base::WeakPtrFactory<WebUILocationBar> weak_ptr_factory_{this};
 };

@@ -60,7 +60,7 @@ void BrowserViewAsh::UpdateWindowRoundedCorners(
       0, 0, window_radii.lower_right(),
       vertical_tabstrip ? 0 : window_radii.lower_left());
 
-  if (multi_contents_view()->background_radii() != multi_contents_radii) {
+  if (multi_contents_view()->GetBackgroundRadii() != multi_contents_radii) {
     multi_contents_view()->SetBackgroundRadii(multi_contents_radii);
   }
 

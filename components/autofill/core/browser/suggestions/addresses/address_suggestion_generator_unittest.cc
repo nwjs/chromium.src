@@ -1172,9 +1172,6 @@ TEST_F(
 
 // Tests that Home/Work suggestions are correctly generated.
 TEST_F(AddressSuggestionGeneratorTest, TestAddressSuggestion_HomeAndWork) {
-  base::test::ScopedFeatureList features(
-      features::kAutofillEnableSupportForHomeAndWork);
-
   AutofillProfile profile_default = test::GetFullProfile();
   AutofillProfile profile_home = test::GetFullProfile();
   AutofillProfile profile_work = test::GetFullProfile();
@@ -1218,9 +1215,6 @@ TEST_F(AddressSuggestionGeneratorTest, TestAddressSuggestion_HomeAndWork) {
 // Tests that AccountNameEmail has IPH feature.
 TEST_F(AddressSuggestionGeneratorTest,
        TestAddressSuggestion_AccountNameEmailIph) {
-  base::test::ScopedFeatureList features(
-      features::kAutofillEnableSupportForNameAndEmail);
-
   AutofillProfile profile_account_name_email = test::GetFullProfile();
   profile_account_name_email.SetRawInfo(EMAIL_ADDRESS, u"hoa@gmail.com");
 
@@ -1247,34 +1241,6 @@ TEST_F(AddressSuggestionGeneratorTest,
       {profile_account_name_email}, {NAME_FIRST, NAME_LAST},
       SuggestionType::kAddressEntry, EMAIL_ADDRESS, triggering_field_email);
   EXPECT_THAT(suggestions, ElementsAre(HasIphFeature(kIphFeature)));
-}
-
-// Tests that Home/Work icons are not used if the H&W feature is disabled.
-TEST_F(AddressSuggestionGeneratorTest,
-       TestAddressSuggestion_HomeAndWorkIcons_FeatureDisabled) {
-  base::test::ScopedFeatureList features;
-  features.InitAndDisableFeature(
-      features::kAutofillEnableSupportForHomeAndWork);
-
-  AutofillProfile profile_default = test::GetFullProfile();
-  AutofillProfile profile_home = test::GetFullProfile();
-  AutofillProfile profile_work = test::GetFullProfile();
-
-  test_api(profile_home)
-      .set_record_type(AutofillProfile::RecordType::kAccountHome);
-  test_api(profile_work)
-      .set_record_type(AutofillProfile::RecordType::kAccountWork);
-
-  FormFieldData triggering_field_name;
-  triggering_field_name.set_label(u"Name");
-
-  std::vector<Suggestion> suggestions = CreateSuggestionsFromProfilesForTest(
-      {profile_default, profile_home, profile_work}, {NAME_FIRST, NAME_LAST},
-      SuggestionType::kAddressEntry, NAME_FIRST, triggering_field_name);
-
-  // Default icons are expected.
-  EXPECT_THAT(suggestions, Each(AllOf(HasIcon(Suggestion::Icon::kAccount),
-                                      HasNoIphFeature())));
 }
 
 #if !BUILDFLAG(IS_IOS)
@@ -1356,8 +1322,6 @@ class AddressLabelSuggestionGeneratorTest
 // as the main text.
 TEST_F(AddressLabelSuggestionGeneratorTest,
        CreateSuggestionsFromProfiles_AlternativeNameFieldMainText) {
-  base::test::ScopedFeatureList features{
-      features::kAutofillSupportPhoneticNameForJP};
   AutofillProfile profile(AddressCountryCode("JP"));
   test::SetProfileInfo(&profile, test::SetProfileInfoOptionsBuilder()
                                      .with_first_name("firstName")
@@ -1395,8 +1359,6 @@ TEST_F(AddressLabelSuggestionGeneratorTest,
 TEST_F(
     AddressLabelSuggestionGeneratorTest,
     CreateSuggestionsFromProfiles_TransliteratesHiraganaToKatakana_WhenLabelInKatakana) {
-  base::test::ScopedFeatureList features{
-      features::kAutofillSupportPhoneticNameForJP};
   AutofillProfile profile(AddressCountryCode("JP"));
   test::SetProfileInfo(&profile, test::SetProfileInfoOptionsBuilder()
                                      .with_first_name("firstName")
@@ -1435,8 +1397,6 @@ TEST_F(
 TEST_F(
     AddressLabelSuggestionGeneratorTest,
     CreateSuggestionsFromProfiles_DoesNotTransliterateHiraganaToKatakana_WhenLabelInHiragana) {
-  base::test::ScopedFeatureList features{
-      features::kAutofillSupportPhoneticNameForJP};
   AutofillProfile profile(AddressCountryCode("JP"));
   test::SetProfileInfo(&profile, test::SetProfileInfoOptionsBuilder()
                                      .with_first_name("firstName")
@@ -1839,6 +1799,30 @@ TEST_F(AddressSuggestionGeneratorTest, AlreadyAutofilledNoLabels) {
           EqualsSuggestion(SuggestionType::kSeparator),
           EqualsSuggestion(SuggestionType::kUndoOrClear),
           EqualsManageAddressesSuggestion()));
+}
+
+// Tests that address suggestions are not generated when contact info is blocked
+// by the AutofillSettings policy.
+TEST_F(AddressSuggestionGeneratorTest, AutofillSettingsBlocked) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kAutofillEnableAutofillSettingsEnterprisePolicy);
+
+  AutofillProfile p1 = test::GetFullProfile();
+  address_data().AddProfile(p1);
+
+  autofill_client()->SetAutofillTypeBlockedByPolicy(
+      AutofillClient::AutofillPolicyDataCategory::kContactInfo, true);
+
+  FormFieldData triggering_field;
+  std::vector<Suggestion> suggestions =
+      GetSuggestionsForProfiles(triggering_field, NAME_FIRST);
+  EXPECT_TRUE(suggestions.empty());
+
+  // Verify that turning off the policy restores suggestions.
+  autofill_client()->SetAutofillTypeBlockedByPolicy(
+      AutofillClient::AutofillPolicyDataCategory::kContactInfo, false);
+  EXPECT_FALSE(GetSuggestionsForProfiles(triggering_field, NAME_FIRST).empty());
 }
 
 }  // namespace

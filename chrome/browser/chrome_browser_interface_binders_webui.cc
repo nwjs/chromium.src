@@ -18,6 +18,8 @@
 #include "chrome/browser/ui/webui/chrome_finds_internals/chrome_finds_internals_ui.h"
 #include "chrome/browser/ui/webui/chrome_urls/chrome_urls_ui.h"
 #include "chrome/browser/ui/webui/connectors_internals/connectors_internals_ui.h"
+#include "chrome/browser/ui/webui/context_hub/context_hub.mojom.h"
+#include "chrome/browser/ui/webui/context_hub/context_hub_ui.h"
 #include "chrome/browser/ui/webui/data_sharing_internals/data_sharing_internals_ui.h"
 #include "chrome/browser/ui/webui/engagement/site_engagement_ui.h"
 #include "chrome/browser/ui/webui/location_internals/location_internals.mojom.h"
@@ -29,7 +31,6 @@
 #include "chrome/browser/ui/webui/personal_context_internals/personal_context_internals.mojom.h"
 #include "chrome/browser/ui/webui/personal_context_internals/personal_context_internals_ui.h"
 #include "chrome/browser/ui/webui/policy/policy_ui.h"
-#include "chrome/browser/ui/webui/privacy_sandbox/privacy_sandbox_internals_ui.h"
 #include "chrome/browser/ui/webui/segmentation_internals/segmentation_internals_ui.h"
 #include "chrome/browser/ui/webui/subresource_filter/subresource_filter_internals_ui.h"
 #include "chrome/browser/ui/webui/usb_internals/usb_internals.mojom.h"
@@ -72,17 +73,24 @@
 #endif
 
 #if BUILDFLAG(ENABLE_WEBUI_NTP)
+#include "chrome/browser/new_tab_page/modules/file_suggestion/drive_suggestion.mojom.h"
+#include "chrome/browser/new_tab_page/modules/v2/calendar/google_calendar.mojom.h"
+#include "chrome/browser/new_tab_page/modules/v2/most_relevant_tab_resumption/most_relevant_tab_resumption.mojom.h"
+#include "chrome/browser/new_tab_page/new_tab_page_util.h"
 #include "chrome/browser/ui/webui/new_tab_page/action_chips/action_chips.mojom.h"
 #include "chrome/browser/ui/webui/new_tab_page/new_tab_page_ui.h"
 #include "components/search/ntp_features.h"
-#include "ui/webui/color_change_listener/color_change_handler.h"
-#include "ui/webui/resources/cr_components/color_change_listener/color_change_listener.mojom.h"
 #include "ui/webui/resources/cr_components/help_bubble/help_bubble.mojom.h"
 #endif  // BUILDFLAG(ENABLE_WEBUI_NTP)
 
 #if BUILDFLAG(ENABLE_WEBUI_CONTEXTUAL_TASKS_COMPOSEBOX)
 #include "ui/webui/resources/cr_components/composebox/composebox.mojom.h"
 #endif
+
+#if !BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_DESKTOP_ANDROID)
+#include "ui/webui/color_change_listener/color_change_handler.h"
+#include "ui/webui/resources/cr_components/color_change_listener/color_change_listener.mojom.h"
+#endif  // !BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_DESKTOP_ANDROID)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_DESKTOP_ANDROID)
@@ -101,7 +109,7 @@ namespace chrome::internal {
 using content::RegisterWebUIControllerInterfaceBinder;
 
 namespace {
-#if BUILDFLAG(ENABLE_WEBUI_NTP)
+#if !BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_DESKTOP_ANDROID)
 void BindColorChangeListener(
     content::RenderFrameHost* frame_host,
     mojo::PendingReceiver<color_change_listener::mojom::PageHandler>
@@ -110,7 +118,7 @@ void BindColorChangeListener(
       ui::ColorChangeHandler::GetOrCreateForCurrentDocument(frame_host);
   color_change_handler->Bind(std::move(pending_receiver));
 }
-#endif  // !BUILDFLAG(ENABLE_WEBUI_NTP)
+#endif  // !BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_DESKTOP_ANDROID)
 
 void BindTrackedElementHandler(
     content::RenderFrameHost* frame_host,
@@ -231,10 +239,6 @@ void PopulateChromeWebUIFrameBindersPartsAllPlatforms(
                                          LocationInternalsUI>(map);
 
   RegisterWebUIControllerInterfaceBinder<
-      privacy_sandbox_internals::mojom::PageHandler,
-      privacy_sandbox_internals::PrivacySandboxInternalsUI>(map);
-
-  RegisterWebUIControllerInterfaceBinder<
       actor_internals::mojom::PageHandlerFactory, ActorInternalsUI>(map);
 
   if (base::FeatureList::IsEnabled(
@@ -246,11 +250,18 @@ void PopulateChromeWebUIFrameBindersPartsAllPlatforms(
   if (base::FeatureList::IsEnabled(contextual_tasks::kContextualTasks)) {
     RegisterWebUIControllerInterfaceBinder<
         contextual_tasks::mojom::PageHandlerFactory, ContextualTasksUI>(map);
+    RegisterWebUIControllerInterfaceBinder<
+        contextual_tasks_internals::mojom::
+            ContextualTasksInternalsPageHandlerFactory,
+        ContextualTasksUI>(map);
   }
 
   RegisterWebUIControllerInterfaceBinder<
       subresource_filter::mojom::SubresourceFilterInternalsHandler,
       subresource_filter::SubresourceFilterInternalsUI>(map);
+
+  RegisterWebUIControllerInterfaceBinder<
+      browser::context_hub::mojom::PageHandlerFactory, ContextHubUI>(map);
 
   RegisterWebUIControllerInterfaceBinder<
       browser::personal_context_internals::mojom::PageHandlerFactory,
@@ -268,10 +279,29 @@ void PopulateChromeWebUIFrameBindersPartsAllPlatforms(
     content::RegisterWebUIControllerInterfaceBinder<
         action_chips::mojom::ActionChipsHandlerFactory, NewTabPageUI>(map);
   }
+  if (base::FeatureList::IsEnabled(
+          ntp_features::kNtpMostRelevantTabResumptionModule)) {
+    content::RegisterWebUIControllerInterfaceBinder<
+        ntp::most_relevant_tab_resumption::mojom::PageHandler, NewTabPageUI>(
+        map);
+  }
+  if (IsDriveModuleEnabled()) {
+    content::RegisterWebUIControllerInterfaceBinder<
+        file_suggestion::mojom::DriveSuggestionHandler, NewTabPageUI>(map);
+  }
+  if (base::FeatureList::IsEnabled(ntp_features::kNtpCalendarModule)) {
+    content::RegisterWebUIControllerInterfaceBinder<
+        ntp::calendar::mojom::GoogleCalendarPageHandler, NewTabPageUI>(map);
+  }
+#endif  // BUILDFLAG(ENABLE_WEBUI_NTP)
+
+#if !BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_DESKTOP_ANDROID)
   map->Add<color_change_listener::mojom::PageHandler>(
       base::BindRepeating(&BindColorChangeListener));
+#endif  // !BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_DESKTOP_ANDROID)
+
 // TODO(b/502297163): Implement for Android.
-#if BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(ENABLE_WEBUI_NTP) && BUILDFLAG(IS_ANDROID)
   // A variant of these exist in
   // chrome_browser_interface_binders_webui_parts_desktop.cc:
   // that enables them for more pages.
@@ -279,8 +309,7 @@ void PopulateChromeWebUIFrameBindersPartsAllPlatforms(
       searchbox::mojom::PageHandlerFactory, NewTabPageUI>(map);
   content::RegisterWebUIControllerInterfaceBinder<
       help_bubble::mojom::HelpBubbleHandlerFactory, NewTabPageUI>(map);
-#endif  // BUILDFLAG(IS_ANDROID)
-#endif  // BUILDFLAG(ENABLE_WEBUI_NTP)
+#endif  // BUILDFLAG(ENABLE_WEBUI_NTP) && BUILDFLAG(IS_ANDROID)
 
 // For the case that's !IS_ANDROID, PageHandlerFactory is registered in
 // chrome_browser_interface_binders_webui_parts_desktop.cc.
@@ -340,6 +369,8 @@ void PopulateChromeWebUIFrameBinders(
     BUILDFLAG(IS_CHROMEOS)
   RegisterWebUIControllerInterfaceBinder<skills::mojom::PageHandlerFactory,
                                          skills::SkillsUI>(map);
+  RegisterWebUIControllerInterfaceBinder<skills::mojom::SkillsPageHandler,
+                                         skills::SkillsUI>(map);
 #endif
 
   // When possible, please one one of the Parts functions above and avoid making
@@ -358,10 +389,10 @@ void PopulateTrustedChromeWebUIFrameInterfaceBrokers(
   PopulateChromeWebUIFrameInterfaceBrokersTrustedPartsDesktop(registry);
 #endif  // !BUILDFLAG(IS_ANDROID)
 
-#if BUILDFLAG(ENABLE_WEBUI_NTP)
+#if !BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_DESKTOP_ANDROID)
   registry.AddGlobal<color_change_listener::mojom::PageHandler>(
       base::BindRepeating(&BindColorChangeListener));
-#endif
+#endif  // !BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_DESKTOP_ANDROID)
 
   registry.AddGlobal<tracked_element::mojom::TrackedElementHandler>(
       base::BindRepeating(&BindTrackedElementHandler));
@@ -382,10 +413,10 @@ void PopulateUntrustedChromeWebUIFrameInterfaceBrokers(
   PopulateChromeWebUIFrameInterfaceBrokersUntrustedPartsDesktop(registry);
 #endif  // !BUILDFLAG(IS_ANDROID)
 
-#if BUILDFLAG(ENABLE_WEBUI_NTP)
+#if !BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_DESKTOP_ANDROID)
   registry.AddGlobal<color_change_listener::mojom::PageHandler>(
       base::BindRepeating(&BindColorChangeListener));
-#endif
+#endif  // !BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_DESKTOP_ANDROID)
 
   registry.AddGlobal<tracked_element::mojom::TrackedElementHandler>(
       base::BindRepeating(&BindTrackedElementHandler));

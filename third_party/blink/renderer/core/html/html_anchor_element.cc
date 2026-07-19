@@ -40,6 +40,7 @@
 #include "third_party/blink/renderer/core/ad_tracker/ad_tracker.h"
 #include "third_party/blink/renderer/core/css/scroll_target_group_scope.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
+#include "third_party/blink/renderer/core/dom/id_target_observer.h"
 #include "third_party/blink/renderer/core/dom/layout_tree_builder_traversal.h"
 #include "third_party/blink/renderer/core/dom/scroll_marker_group_data.h"
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
@@ -190,13 +191,14 @@ static void AppendServerMapMousePosition(StringBuilder& url, Event* event) {
 
 void HTMLAnchorElementBase::DefaultEventHandler(Event& event) {
   if (IsLink()) {
-    if (IsFocused() && IsEnterKeyKeydownEvent(event) && IsLiveLink()) {
+    if (IsFocused() && KeyboardEvent::IsEnterKeyKeydownEvent(event) &&
+        IsLiveLink()) {
       event.SetDefaultHandled();
       DispatchSimulatedClick(&event);
       return;
     }
 
-    if (IsLinkClick(event) && IsLiveLink()) {
+    if (AnchorElementUtils::IsLinkClick(event) && IsLiveLink()) {
       // IsLinkClick validates that |event| is a MouseEvent.
       HandleClick(To<MouseEvent>(event));
       return;
@@ -416,25 +418,8 @@ void HTMLAnchorElementBase::NavigateToHyperlink(
                                          GetExecutionContext(), target,
                                          link_relations_);
 
-  if (completed_url.ProtocolIs("blob")) {
-    auto blob_url_site =
-        BlinkSchemefulSite(SecurityOrigin::Create(completed_url));
-    BlinkSchemefulSite top_level_site =
-        window->GetStorageKey().GetTopLevelSite();
-    if (top_level_site != blob_url_site) {
-      if (base::FeatureList::IsEnabled(
-              features::kEnforceNoopenerOnBlobURLNavigation) &&
-          !base::CommandLine::ForCurrentProcess()->HasSwitch(
-              blink::switches::kDisableBlobUrlPartitioning)) {
-        frame_request.SetNoOpener();
-      }
-      UseCounter::Count(GetDocument(),
-                        WebFeature::kCrossTopLevelSiteBlobURLNavigation);
-      AuditsIssue::ReportPartitioningBlobURLIssue(
-          window, completed_url.GetString(),
-          mojom::blink::PartitioningBlobURLInfo::kEnforceNoopenerForNavigation);
-    }
-  }
+  AnchorElementUtils::EnforceBlobUrlNoopenerIfNeeded(frame_request,
+                                                     completed_url, *window);
 
   frame_request.SetTriggeringEventInfo(
       is_trusted ? mojom::blink::TriggeringEventInfo::kFromTrustedEvent
@@ -594,23 +579,6 @@ void HTMLAnchorElementBase::HandleClick(MouseEvent& event) {
   }
 }
 
-bool IsEnterKeyKeydownEvent(Event& event) {
-  auto* keyboard_event = DynamicTo<KeyboardEvent>(event);
-  return event.type() == event_type_names::kKeydown && keyboard_event &&
-         keyboard_event->key() == keywords::kCapitalEnter &&
-         !keyboard_event->repeat();
-}
-
-bool IsLinkClick(Event& event) {
-  auto* mouse_event = DynamicTo<MouseEvent>(event);
-  if ((event.type() != event_type_names::kClick &&
-       event.type() != event_type_names::kAuxclick) ||
-      !mouse_event) {
-    return false;
-  }
-  return mouse_event->IsLinkClickButton();
-}
-
 bool HTMLAnchorElementBase::WillRespondToMouseClickEvents() {
   return IsLink() || HTMLElement::WillRespondToMouseClickEvents();
 }
@@ -668,66 +636,115 @@ void HTMLAnchorElementBase::Trace(Visitor* visitor) const {
   HTMLElement::Trace(visitor);
 }
 
+class ScrollTargetObserver : public IdTargetObserver {
+ public:
+  ScrollTargetObserver(IdTargetObserverRegistry& registry,
+                       const AtomicString& id,
+                       HTMLAnchorElement* anchor)
+      : IdTargetObserver(registry, id), anchor_(anchor) {}
+
+  const AtomicString& Id() const { return IdTargetObserver::Id(); }
+
+  void IdTargetChanged() override {
+    if (anchor_) {
+      anchor_->UpdateScrollTargetGroupMembership();
+    }
+  }
+
+  void Trace(Visitor* visitor) const override {
+    visitor->Trace(anchor_);
+    IdTargetObserver::Trace(visitor);
+  }
+
+ private:
+  WeakMember<HTMLAnchorElement> anchor_;
+};
+
 HTMLAnchorElement::HTMLAnchorElement(Document& document)
     : HTMLAnchorElementBase(html_names::kATag, document) {}
 
 void HTMLAnchorElement::AttachLayoutTree(AttachContext& context) {
   HTMLAnchorElementBase::AttachLayoutTree(context);
-  // Only add to scope tree if there's a non-root enclosing scope.
-  // This avoids performance overhead on pages without scroll-target-group.
-  // When a scroll-target-group scope is created later, it will collect
-  // descendant anchors from the DOM.
-  ScrollTargetGroupScopeTree* tree =
-      GetDocument().GetStyleEngine().GetScrollTargetGroupScopeTree();
-  if (!tree) {
-    return;
-  }
-  // Only add anchors with a valid scroll target to the scroll target group.
-  if (!ScrollTargetElement()) {
-    return;
-  }
-  ScrollTargetGroupScope* scope =
-      tree->FindOrCreateEnclosingScopeForElement(*this);
-  // Only attach if there's a real scope (not root scope).
-  if (scope && scope->GetScopeRoot()) {
-    scope->AttachItem(*this);
-    tree->UpdateOutermostDirtyScope(scope);
-  }
+  UpdateScrollTargetGroupMembership();
 }
 
 void HTMLAnchorElement::DetachLayoutTree(bool performing_reattach) {
-  if (ScrollMarkerGroupData* data = GetScrollTargetGroupContainerData()) {
-    data->RemoveFromFocusGroup(*this);
-  }
+  ClearScrollTargetGroupMembership();
   HTMLAnchorElementBase::DetachLayoutTree(performing_reattach);
 }
 
 void HTMLAnchorElement::UpdateScrollTargetGroupMembership() {
+  ScrollTargetGroupScopeTree* tree =
+      GetDocument().GetStyleEngine().GetScrollTargetGroupScopeTree();
+  if (!tree) {
+    ClearScrollTargetGroupMembership();
+    return;
+  }
+
+  ScrollTargetGroupScope* scope =
+      tree->FindOrCreateEnclosingScopeForElement(*this);
+  if (!scope || !scope->GetScopeRoot()) {
+    ClearScrollTargetGroupMembership();
+    return;
+  }
+
+  if (!GetLayoutObject()) {
+    ClearScrollTargetGroupMembership();
+    return;
+  }
+
   // Remove from current focus group (if any).
   if (ScrollMarkerGroupData* data = GetScrollTargetGroupContainerData()) {
     data->RemoveFromFocusGroup(*this);
   }
 
-  ScrollTargetGroupScopeTree* tree =
-      GetDocument().GetStyleEngine().GetScrollTargetGroupScopeTree();
-  if (!tree) {
+  cached_scroll_target_ = ResolveScrollTargetElement();
+
+  const KURL& url = Url();
+  if (!url.HasFragmentIdentifier()) {
+    ClearScrollTargetGroupMembership();
     return;
+  }
+
+  String fragment = url.FragmentIdentifier().ToString();
+  AtomicString target_id(fragment);
+
+  // Ensure observer exists for target_id.
+  if (!scroll_target_observer_ || scroll_target_observer_->Id() != target_id) {
+    if (scroll_target_observer_) {
+      scroll_target_observer_->Unregister();
+    }
+    scroll_target_observer_ = MakeGarbageCollected<ScrollTargetObserver>(
+        GetTreeScope().EnsureIdTargetObserverRegistry(), target_id, this);
   }
 
   // If anchor has a valid scroll target, re-attach to the appropriate scope.
-  if (!ScrollTargetElement()) {
+  if (!cached_scroll_target_) {
     return;
   }
 
-  ScrollTargetGroupScope* scope =
-      tree->FindOrCreateEnclosingScopeForElement(*this);
-  if (scope && scope->GetScopeRoot()) {
-    scope->AttachItem(*this);
-    tree->UpdateOutermostDirtyScope(scope);
-  }
+  scope->AttachItem(*this);
+  tree->UpdateOutermostDirtyScope(scope);
 }
 
-Element* HTMLAnchorElement::ScrollTargetElement() const {
+void HTMLAnchorElement::ClearScrollTargetGroupMembership() {
+  if (ScrollMarkerGroupData* data = GetScrollTargetGroupContainerData()) {
+    data->RemoveFromFocusGroup(*this);
+  }
+  if (scroll_target_observer_) {
+    scroll_target_observer_->Unregister();
+    scroll_target_observer_ = nullptr;
+  }
+  cached_scroll_target_ = nullptr;
+}
+
+void HTMLAnchorElement::Trace(Visitor* visitor) const {
+  visitor->Trace(scroll_target_observer_);
+  visitor->Trace(cached_scroll_target_);
+  HTMLAnchorElementBase::Trace(visitor);
+}
+
+Element* HTMLAnchorElement::ResolveScrollTargetElement() const {
   const KURL& url = Url();
   if (!url.HasFragmentIdentifier()) {
     return nullptr;

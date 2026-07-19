@@ -78,6 +78,23 @@ class SigninPrefs {
   ChromeSigninUserChoice GetChromeSigninInterceptionUserChoice(
       const GaiaId& gaia_id) const;
 
+  // Sets the stable account ID for the given account.
+  void SetAccountMetricsId(const GaiaId& gaia_id, int id);
+  // Returns the stable account ID for the given account, or std::nullopt if not
+  // set.
+  std::optional<int> GetAccountMetricsId(const GaiaId& gaia_id) const;
+
+  // Sets that the account is capped for metrics ID allocation.
+  // Being capped means no new IDs will be allocated because the limit of 100
+  // accounts has been reached.
+  void SetAccountMetricsIdCapped(const GaiaId& gaia_id);
+  bool IsAccountMetricsIdCapped(const GaiaId& gaia_id) const;
+
+  // Gets the next unassigned account metrics ID.
+  int GetNextAccountMetricsUnassignedId() const;
+  // Sets the next unassigned account metrics ID.
+  void SetNextAccountMetricsUnassignedId(int id);
+
   // Last signout time.
   void SetChromeLastSignoutTime(const GaiaId& gaia_id,
                                 base::Time last_signout_time);
@@ -182,6 +199,13 @@ class SigninPrefs {
   base::DictValue& GetOrCreateAvatarButtonPromoCountDictionary(
       const GaiaId& gaia_id);
 
+  // Returns a dictionary of the cross-device promo preferences for `gaia_id`,
+  // if the dictionary didn't exist it will create it.
+  // The returned dictionary will not notify observers for underlying pref
+  // changes. If this will be required later on, consider returning a
+  // `ScopedDictPrefUpdate` instead.
+  base::DictValue& GetOrCreateCrossDevicePromoPrefs(const GaiaId& gaia_id);
+
   // Updates the dismiss count of the promo and last time it was dismissed.
   void IncrementBookmarkBatchUploadPromoDismissCountWithLastTime(
       const GaiaId& gaia_id);
@@ -218,6 +242,11 @@ class SigninPrefs {
   // Gets any specified `pref` of type int for the given `gaia_id`.
   // Returns 0 if the corresponding `pref` doesn't exist for `gaia_id`.
   int GetIntPrefForAccount(const GaiaId& gaia_id, std::string_view pref) const;
+
+  // Sets any specified `pref` of type int for the given `gaia_id` to `value`.
+  void SetIntPrefForAccount(const GaiaId& gaia_id,
+                            std::string_view pref,
+                            int value);
 
   // Sets any specified `pref` of type bool for the given `gaia_id` to
   // `enabled`.

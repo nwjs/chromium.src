@@ -11,6 +11,7 @@
 #include "base/containers/span.h"
 #include "base/functional/callback.h"
 #include "base/memory/weak_ptr.h"
+#include "chrome/browser/touch_to_fill/autofill/android/touch_to_fill_controller_base.h"
 #include "chrome/browser/touch_to_fill/autofill/android/touch_to_fill_payment_method_view_controller.h"
 
 namespace autofill {
@@ -25,14 +26,15 @@ class ContentAutofillClient;
 class Iban;
 class LoyaltyCard;
 struct Suggestion;
-class TouchToFillDelegate;
+class TouchToFillPaymentMethodDelegate;
 class TouchToFillPaymentMethodView;
 
 // Controller of the bottom sheet surface for filling credit card, IBAN or
 // loyalty card data on Android. It is responsible for showing the view and
 // handling user interactions.
 class TouchToFillPaymentMethodController
-    : public TouchToFillPaymentMethodViewController {
+    : public TouchToFillControllerBase,
+      public TouchToFillPaymentMethodViewController {
  public:
   ~TouchToFillPaymentMethodController() override = default;
 
@@ -45,15 +47,16 @@ class TouchToFillPaymentMethodController
   // shown.
   virtual bool ShowPaymentMethods(
       std::unique_ptr<TouchToFillPaymentMethodView> view,
-      base::WeakPtr<TouchToFillDelegate> delegate,
+      base::WeakPtr<TouchToFillPaymentMethodDelegate> delegate,
       base::span<const Suggestion> suggestions) = 0;
 
   // Shows the Touch To Fill `view`. `delegate` will provide the fillable IBANs
   // and be notified of the user's decision. Returns whether the surface was
   // successfully shown.
-  virtual bool ShowIbans(std::unique_ptr<TouchToFillPaymentMethodView> view,
-                         base::WeakPtr<TouchToFillDelegate> delegate,
-                         base::span<const Iban> ibans_to_suggest) = 0;
+  virtual bool ShowIbans(
+      std::unique_ptr<TouchToFillPaymentMethodView> view,
+      base::WeakPtr<TouchToFillPaymentMethodDelegate> delegate,
+      base::span<const Iban> ibans_to_suggest) = 0;
 
   // Shows the Touch To Fill `view`. `delegate` will provide the fillable
   // affiliated loyalty cards and be notified of the user's decision.
@@ -62,7 +65,7 @@ class TouchToFillPaymentMethodController
   // successfully shown.
   virtual bool ShowAffiliatedLoyaltyCards(
       std::unique_ptr<TouchToFillPaymentMethodView> view,
-      base::WeakPtr<TouchToFillDelegate> delegate,
+      base::WeakPtr<TouchToFillPaymentMethodDelegate> delegate,
       base::span<const LoyaltyCard> affiliated_loyalty_cards,
       base::span<const LoyaltyCard> all_loyalty_cards,
       bool first_time_usage) = 0;
@@ -71,7 +74,7 @@ class TouchToFillPaymentMethodController
   // fillable loyalty cards and be notified of the user's decision.
   virtual bool ShowAllLoyaltyCards(
       std::unique_ptr<TouchToFillPaymentMethodView> view,
-      base::WeakPtr<TouchToFillDelegate> delegate,
+      base::WeakPtr<TouchToFillPaymentMethodDelegate> delegate,
       base::span<const LoyaltyCard> all_loyalty_cards) = 0;
 
   // If the user is on the credit card suggestion screen and amount extraction
@@ -134,9 +137,6 @@ class TouchToFillPaymentMethodController
   virtual bool ShowBnplIssuerTos(payments::BnplTosModel bnpl_tos_model,
                                  base::OnceClosure accept_callback,
                                  base::OnceClosure cancel_callback) = 0;
-
-  // Hides the surface if it is currently shown.
-  virtual void Hide() = 0;
 
   // Sets the surface visibility to `visible`.
   virtual void SetVisible(bool visible) = 0;

@@ -295,11 +295,13 @@ class CORE_EXPORT LineBreaker {
   void SetCurrentStyleForce(const ComputedStyle&);
 
   bool IsPreviousItemOfType(InlineItem::InlineItemType);
+  bool IsNextNonBidiControlItemOpenTag() const;
   void MoveToNextOf(const InlineItem&);
   void MoveToNextOf(const InlineItemResult&);
   bool IsAtEnd() const { return current_.item_index >= end_item_index_; }
 
   void ComputeBaseDirection();
+  LayoutUnit ComputeFloatOffset() const;
   void RecalcClonedBoxDecorations();
 
   LayoutUnit AvailableWidth() const { return available_width_; }

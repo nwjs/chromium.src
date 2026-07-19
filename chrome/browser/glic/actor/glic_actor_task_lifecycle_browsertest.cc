@@ -2,9 +2,26 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/glic/actor/glic_actor_functional_browsertest.h"
+#include "base/base64.h"
+#include "base/test/test_future.h"
+#include "chrome/browser/actor/actor_test_util.h"
+#include "chrome/browser/glic/actor/new_glic_actor_functional_browsertest.h"
+#include "chrome/browser/glic/public/glic_side_panel_coordinator.h"
+#include "chrome/browser/glic/public/service/glic_instance_coordinator.h"
+#include "chrome/browser/glic/service/glic_instance_impl.h"
 #include "components/actor/public/mojom/actor_types.mojom.h"
+#include "components/page_content_annotations/content/page_context_fetcher.h"
+#include "components/performance_manager/public/features.h"
+#include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/render_process_host.h"
+#include "content/public/browser/render_widget_host.h"
 #include "content/public/test/browser_test.h"
+#include "content/public/test/browser_test_utils.h"
+#include "third_party/blink/public/common/features.h"
+
+#if BUILDFLAG(IS_ANDROID)
+#include "content/public/browser/android/child_process_importance.h"
+#endif
 
 namespace mojo {
 
@@ -49,10 +66,10 @@ struct TypeConverter<base::Value, glic::mojom::GetTabContextOptions> {
 namespace glic::actor {
 namespace {
 
+using ::actor::ActorTask;
+using ::actor::TaskId;
 using ::base::test::TestFuture;
-using ::base::test::ValueIs;
-using ::glic::test::ErrorHasSubstr;
-using ::optimization_guide::proto::Actions;
+using optimization_guide::proto::Actions;
 
 // Helper class to observe journal entries and wait for a specific condition.
 class JournalObserver : public ::actor::AggregatedJournal::Observer {
@@ -103,191 +120,205 @@ bool JournalEntryHasError(const ::actor::mojom::JournalEntry& entry,
 class GlicActorTaskLifecycleFunctionalBrowserTest
     : public GlicActorFunctionalBrowserTestBase {
  public:
-  GlicActorTaskLifecycleFunctionalBrowserTest() = default;
+  GlicActorTaskLifecycleFunctionalBrowserTest()
+      : GlicActorFunctionalBrowserTestBase(
+            "./glic_actor_task_lifecycle_browsertest.js") {
+    scoped_feature_list_.InitWithFeaturesAndParameters(
+        /*enabled_features=*/
+        {
+            {blink::features::kAIPageContentTrackedElementsIframe, {}},
+            {page_content_annotations::kGlicTabScreenshotExperiment,
+             {{"screenshot_timeout_ms", "30s"}}},
+            {performance_manager::features::kGlicActuationPriorityVoter, {}},
+        },
+        /*disabled_features=*/{});
+  }
   ~GlicActorTaskLifecycleFunctionalBrowserTest() override = default;
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+class GlicActorTaskLifecycleGmailOtpEnabledBrowserTest
+    : public GlicActorTaskLifecycleFunctionalBrowserTest {
+ public:
+  GlicActorTaskLifecycleGmailOtpEnabledBrowserTest() {
+    scoped_feature_list_.InitAndEnableFeature(
+        features::kGlicActorAutofillOneTimePassword);
+  }
+  ~GlicActorTaskLifecycleGmailOtpEnabledBrowserTest() override = default;
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
-                       PauseAndResumeCreatedTask) {
-  ASSERT_OK_AND_ASSIGN(TaskId task_id, CreateTask());
-  EXPECT_NE(task_id, TaskId());
-
+                       testPauseAndResumeCreatedTask) {
   TestFuture<ActorTask::State> task_completion_state;
-  base::CallbackListSubscription completion_subscription =
+  base::CallbackListSubscription completion_subscription;
+
+  ExecuteJsTest();
+
+  TaskId task_id = ExtractTaskIdFromStepData();
+  completion_subscription =
       CreateTaskCompletionSubscription(task_id, task_completion_state);
 
-  PauseActorTask(task_id, glic::mojom::ActorTaskPauseReason::kPausedByUser,
-                 active_tab()->GetHandle());
-  // Wait for the task to pause.
-  WaitForTaskState(task_id, ActorTask::State::kPausedByUser);
+  ContinueJsTest();
 
-  const GURL target_url =
-      embedded_test_server()->GetURL("/actor/blank.html?target");
-  Actions action = ::actor::MakeNavigate(active_tab()->GetHandle(),
-                                         target_url.spec(), task_id);
+  EXPECT_EQ(ActorTask::State::kFinished, task_completion_state.Get())
+      << "Task " << task_id << " did not reach kFinished state.";
+}
 
-  // Performing an action on a paused task should fail.
-  EXPECT_THAT(
-      PerformActions(action),
-      ValueIs(HasResultCode(::actor::mojom::ActionResultCode::kTaskPaused)));
-  EXPECT_NE(target_url, web_contents()->GetURL());
+// TODO(b/484011242): Fix flakiness and re-enable this test on Android.
+#if BUILDFLAG(IS_ANDROID)
+#define MAYBE_testPauseAndResumeCreatedTaskWithIframe \
+  DISABLED_testPauseAndResumeCreatedTaskWithIframe
+#else
+#define MAYBE_testPauseAndResumeCreatedTaskWithIframe \
+  testPauseAndResumeCreatedTaskWithIframe
+#endif
+IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
+                       MAYBE_testPauseAndResumeCreatedTaskWithIframe) {
+  ASSERT_TRUE(content::NavigateToURL(
+      active_tab()->GetContents(),
+      embedded_test_server()->GetURL("/actor/simple_iframe.html")));
 
-  EXPECT_THAT(
-      ResumeActorTask(task_id,
-                      glic::mojom::GetTabContextOptions().To<base::Value>()),
-      ValueIs(::actor::mojom::ActionResultCode::kOk));
-  EXPECT_EQ(ActorTask::State::kReflecting, GetActorTaskState(task_id));
+  content::RenderFrameHost* main_frame =
+      active_tab()->GetContents()->GetPrimaryMainFrame();
 
-  // Performing the action again should succeed.
-  EXPECT_THAT(PerformActions(action),
-              ValueIs(HasResultCode(::actor::mojom::ActionResultCode::kOk)));
-  EXPECT_EQ(target_url, web_contents()->GetURL());
+  // Wait for main frame layout/render.
+  {
+    base::test::TestFuture<bool> future;
+    main_frame->GetRenderWidgetHost()->InsertVisualStateCallback(
+        future.GetCallback());
+    ASSERT_TRUE(future.Wait()) << "Timeout waiting for syncing with renderer";
+  }
 
-  StopActorTask(task_id, glic::mojom::ActorTaskStopReason::kTaskComplete);
+  // Wait for child frame layout/render.
+  {
+    content::RenderFrameHost* child_frame =
+        content::ChildFrameAt(main_frame, 0);
+    ASSERT_TRUE(child_frame);
+
+    base::test::TestFuture<bool> future;
+    child_frame->GetRenderWidgetHost()->InsertVisualStateCallback(
+        future.GetCallback());
+    ASSERT_TRUE(future.Wait())
+        << "Timeout waiting for syncing with subframe renderer";
+  }
+
+  content::WaitForCopyableViewInWebContents(active_tab()->GetContents());
+
+  TestFuture<ActorTask::State> task_completion_state;
+  base::CallbackListSubscription completion_subscription;
+
+  ExecuteJsTest();
+
+  TaskId task_id = ExtractTaskIdFromStepData();
+  completion_subscription =
+      CreateTaskCompletionSubscription(task_id, task_completion_state);
+
+  ContinueJsTest();
+
   EXPECT_EQ(ActorTask::State::kFinished, task_completion_state.Get())
       << "Task " << task_id << " did not reach kFinished state.";
 }
 
 IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
-                       PauseAndResumeInvalidTask) {
-  TaskId invalid_task_id = TaskId(12345);
-  ASSERT_EQ(actor_keyed_service()->GetTask(invalid_task_id), nullptr);
-
+                       testPauseAndResumeInvalidTask) {
   JournalObserver observer(&actor_keyed_service()->GetJournal());
+
+  ExecuteJsTest();
+
   // Pausing an invalid task should be a no-op and log an error.
-  PauseActorTask(invalid_task_id,
-                 glic::mojom::ActorTaskPauseReason::kPausedByUser,
-                 active_tab()->GetHandle());
   observer.WaitUntil(
       base::BindRepeating([](const ::actor::mojom::JournalEntry& entry) {
         return entry.event == "Failed to pause task" &&
                JournalEntryHasError(entry, "No such task");
       }));
 
-  EXPECT_THAT(
-      ResumeActorTask(invalid_task_id,
-                      glic::mojom::GetTabContextOptions().To<base::Value>()),
-      ErrorHasSubstr("resumeActorTask failed: No such task"));
+  ContinueJsTest();
 }
 
 IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
-                       PauseAndResumeInactiveTask) {
-  ASSERT_OK_AND_ASSIGN(TaskId task_id, CreateTask());
-  EXPECT_NE(task_id, TaskId());
-
+                       testPauseAndResumeInactiveTask) {
   TestFuture<ActorTask::State> task_completion_state;
-  base::CallbackListSubscription completion_subscription =
+  base::CallbackListSubscription completion_subscription;
+
+  ExecuteJsTest();
+
+  TaskId task_id = ExtractTaskIdFromStepData();
+  completion_subscription =
       CreateTaskCompletionSubscription(task_id, task_completion_state);
 
-  StopActorTask(task_id, glic::mojom::ActorTaskStopReason::kTaskComplete);
   EXPECT_EQ(ActorTask::State::kFinished, task_completion_state.Get())
       << "Task " << task_id << " did not reach kFinished state.";
 
   JournalObserver observer(&actor_keyed_service()->GetJournal());
+
+  ContinueJsTest();
+
   // Pausing an inactive task should be a no-op and log an error.
-  PauseActorTask(task_id, glic::mojom::ActorTaskPauseReason::kPausedByUser,
-                 active_tab()->GetHandle());
   observer.WaitUntil(
       base::BindRepeating([](const ::actor::mojom::JournalEntry& entry) {
         return entry.event == "Failed to pause task" &&
                JournalEntryHasError(entry, "No such task");
       }));
 
-  // Resuming a completed task should fail as it doesn't exist anymore.
-  EXPECT_THAT(
-      ResumeActorTask(task_id,
-                      glic::mojom::GetTabContextOptions().To<base::Value>()),
-      ErrorHasSubstr("resumeActorTask failed: No such task"));
+  ContinueJsTest();
 }
 
 IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
-                       PauseActiveTask) {
-  ASSERT_OK_AND_ASSIGN(TaskId task_id, CreateTask());
-  EXPECT_NE(task_id, TaskId());
-
+                       testPauseActiveTask) {
   TestFuture<ActorTask::State> task_completion_state;
-  base::CallbackListSubscription subscription =
+  base::CallbackListSubscription subscription;
+
+  ExecuteJsTest();
+
+  TaskId task_id = ExtractTaskIdFromStepData();
+  subscription =
       CreateTaskCompletionSubscription(task_id, task_completion_state);
 
-  // Use a long wait to ensure we can pause before it completes.
-  Actions wait_action =
-      ::actor::MakeWait(kLongWaitTime, active_tab()->GetHandle(), task_id);
+  ContinueJsTest();
 
-  std::unique_ptr<AsyncActionWaiter> action_waiter =
-      PerformActionsAsync(wait_action);
-  PauseActorTask(task_id, glic::mojom::ActorTaskPauseReason::kPausedByUser,
-                 active_tab()->GetHandle());
-
-  // Verify the WaitAction was ended and the task was paused.
-  EXPECT_THAT(
-      action_waiter->Wait(),
-      ValueIs(HasResultCode(::actor::mojom::ActionResultCode::kTaskPaused)));
-  WaitForTaskState(task_id, ActorTask::State::kPausedByUser);
-
-  EXPECT_THAT(
-      ResumeActorTask(task_id,
-                      glic::mojom::GetTabContextOptions().To<base::Value>()),
-      ValueIs(::actor::mojom::ActionResultCode::kOk));
-  EXPECT_EQ(ActorTask::State::kReflecting, GetActorTaskState(task_id));
-
-  // Verify new Actions can be performed after the task is resumed.
-  const GURL target_url =
-      embedded_test_server()->GetURL("/actor/blank.html?target");
-  Actions nav_action = ::actor::MakeNavigate(active_tab()->GetHandle(),
-                                             target_url.spec(), task_id);
-
-  EXPECT_THAT(PerformActions(nav_action),
-              base::test::ValueIs(
-                  HasResultCode(::actor::mojom::ActionResultCode::kOk)));
-  EXPECT_EQ(target_url, web_contents()->GetURL());
-
-  StopActorTask(task_id, glic::mojom::ActorTaskStopReason::kTaskComplete);
   EXPECT_EQ(ActorTask::State::kFinished, task_completion_state.Get());
 }
 
 IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
-                       StopActiveTaskWithModelError) {
-  ASSERT_OK_AND_ASSIGN(TaskId task_id, CreateTask());
-  EXPECT_NE(task_id, TaskId());
-
+                       testStopActiveTaskWithModelError) {
   TestFuture<ActorTask::State> task_completion_state;
-  base::CallbackListSubscription subscription =
+  base::CallbackListSubscription subscription;
+
+  ExecuteJsTest();
+
+  TaskId task_id = ExtractTaskIdFromStepData();
+  subscription =
       CreateTaskCompletionSubscription(task_id, task_completion_state);
 
-  Actions wait_action =
-      ::actor::MakeWait(kLongWaitTime, active_tab()->GetHandle(), task_id);
-  std::unique_ptr<AsyncActionWaiter> action_waiter =
-      PerformActionsAsync(wait_action);
-
-  // Wait for the task to start acting before stopping.
-  WaitForTaskState(task_id, ActorTask::State::kActing);
-
-  // Verify the action is ended with the appropriate code after task is stopped.
-  StopActorTask(task_id, glic::mojom::ActorTaskStopReason::kModelError);
-  EXPECT_THAT(
-      action_waiter->Wait(),
-      ValueIs(HasResultCode(::actor::mojom::ActionResultCode::kTaskWentAway)));
+  ContinueJsTest();
 
   EXPECT_EQ(ActorTask::State::kFailed, task_completion_state.Get())
       << "Task " << task_id << " did not reach kFailed state.";
 }
 
 IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
-                       InterruptAndUninterruptInvalidTask) {
+                       testInterruptAndUninterruptInvalidTask) {
   JournalObserver observer(&actor_keyed_service()->GetJournal());
   TaskId invalid_task_id = TaskId(12345);
   ASSERT_EQ(actor_keyed_service()->GetTask(invalid_task_id), nullptr);
 
+  ExecuteJsTest();
+
   // Interrupting an invalid task should be a no-op and log an error.
-  InterruptActorTask(invalid_task_id);
   observer.WaitUntil(
       base::BindRepeating([](const ::actor::mojom::JournalEntry& entry) {
         return entry.event == "Failed to interrupt task" &&
                JournalEntryHasError(entry, "No such task");
       }));
 
+  ContinueJsTest();
+
   // Uninterrupting an invalid task should be a no-op and log an error.
-  UninterruptActorTask(invalid_task_id);
   observer.WaitUntil(
       base::BindRepeating([](const ::actor::mojom::JournalEntry& entry) {
         return entry.event == "Failed to uninterrupt task" &&
@@ -296,128 +327,56 @@ IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
-                       InterruptAndUninterruptTaskWithCompletedActions) {
-  ASSERT_OK_AND_ASSIGN(TaskId task_id, CreateTask());
-  EXPECT_NE(task_id, TaskId());
-
+                       testInterruptAndUninterruptTaskWithCompletedActions) {
   TestFuture<ActorTask::State> task_completion_state;
-  base::CallbackListSubscription subscription =
+  base::CallbackListSubscription subscription;
+
+  ExecuteJsTest();
+
+  TaskId task_id = ExtractTaskIdFromStepData();
+  subscription =
       CreateTaskCompletionSubscription(task_id, task_completion_state);
 
-  const GURL target_url =
-      embedded_test_server()->GetURL("/actor/blank.html?target");
-  Actions action = ::actor::MakeNavigate(active_tab()->GetHandle(),
-                                         target_url.spec(), task_id);
+  ContinueJsTest();
 
-  EXPECT_THAT(PerformActions(action),
-              ValueIs(HasResultCode(::actor::mojom::ActionResultCode::kOk)));
-  EXPECT_EQ(target_url, web_contents()->GetURL());
-
-  InterruptActorTask(task_id);
-  WaitForTaskState(task_id, ActorTask::State::kWaitingOnUser);
-
-  // Ensure uninterrupting a task with no pending actions sets the state
-  // to kReflecting
-  UninterruptActorTask(task_id);
-  WaitForTaskState(task_id, ActorTask::State::kReflecting);
-
-  StopActorTask(task_id, glic::mojom::ActorTaskStopReason::kTaskComplete);
   EXPECT_EQ(ActorTask::State::kFinished, task_completion_state.Get());
 }
 
 IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
-                       InterruptAndUninterruptActiveTaskAndPerformActions) {
-  ASSERT_OK_AND_ASSIGN(TaskId task_id, CreateTask());
-  EXPECT_NE(task_id, TaskId());
-
+                       testInterruptAndUninterruptActiveTaskAndPerformActions) {
   TestFuture<ActorTask::State> task_completion_state;
-  base::CallbackListSubscription subscription =
+  base::CallbackListSubscription subscription;
+
+  ExecuteJsTest();
+
+  TaskId task_id = ExtractTaskIdFromStepData();
+  subscription =
       CreateTaskCompletionSubscription(task_id, task_completion_state);
 
-  // Use a long wait to ensure we can interrupt before it completes.
-  Actions wait_action =
-      ::actor::MakeWait(kLongWaitTime, active_tab()->GetHandle(), task_id);
-  std::unique_ptr<AsyncActionWaiter> action_waiter =
-      PerformActionsAsync(wait_action);
+  ContinueJsTest();
 
-  // Wait for the task to start acting before interrupting.
-  WaitForTaskState(task_id, ActorTask::State::kActing);
-
-  InterruptActorTask(task_id);
-  WaitForTaskState(task_id, ActorTask::State::kWaitingOnUser);
-
-  // Ensure uninterrupting a task with previously pending actions sets the state
-  // to kActing
-  UninterruptActorTask(task_id);
-  WaitForTaskState(task_id, ActorTask::State::kActing);
-
-  // Since the ongoing long wait action must be completed before sending another
-  // async action, we need to use the CancelActions API to cancel all the
-  // ongoing actions on the task.
-  EXPECT_THAT(CancelActions(task_id),
-              base::test::ValueIs(glic::mojom::CancelActionsResult::kSuccess));
-  EXPECT_THAT(action_waiter->Wait(),
-              ValueIs(HasResultCode(
-                  ::actor::mojom::ActionResultCode::kActionsCancelled)));
-
-  // Ensure the task can still perform actions after being uninterrupted.
-  const GURL target_url =
-      embedded_test_server()->GetURL("/actor/blank.html?target");
-  Actions nav_action = ::actor::MakeNavigate(active_tab()->GetHandle(),
-                                             target_url.spec(), task_id);
-  EXPECT_THAT(PerformActions(nav_action),
-              base::test::ValueIs(
-                  HasResultCode(::actor::mojom::ActionResultCode::kOk)));
-  EXPECT_EQ(target_url, web_contents()->GetURL());
-
-  StopActorTask(task_id, glic::mojom::ActorTaskStopReason::kTaskComplete);
   EXPECT_EQ(ActorTask::State::kFinished, task_completion_state.Get());
 }
 
 IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
-                       InterruptWithReasons) {
-  ASSERT_OK_AND_ASSIGN(TaskId task_id, CreateTask());
-  EXPECT_NE(task_id, TaskId());
-
+                       testInterruptWithReasons) {
   TestFuture<ActorTask::State> task_completion_state;
-  base::CallbackListSubscription subscription =
+  base::CallbackListSubscription subscription;
+
+  ExecuteJsTest();
+
+  TaskId task_id = ExtractTaskIdFromStepData();
+  subscription =
       CreateTaskCompletionSubscription(task_id, task_completion_state);
 
-  // Use a long wait to ensure we can interrupt before it completes.
-  Actions wait_action =
-      ::actor::MakeWait(kLongWaitTime, active_tab()->GetHandle(), task_id);
-  std::unique_ptr<AsyncActionWaiter> action_waiter =
-      PerformActionsAsync(wait_action);
+  ContinueJsTest();
 
-  // Wait for the task to start acting before interrupting.
-  WaitForTaskState(task_id, ActorTask::State::kActing);
-
-  // Test interrupting with NO reason.
-  InterruptActorTask(task_id);
-  WaitForTaskState(task_id, ActorTask::State::kWaitingOnUser);
-  UninterruptActorTask(task_id);
-  WaitForTaskState(task_id, ActorTask::State::kActing);
-
-  // Test interrupting with a specific reason.
-  InterruptActorTask(task_id,
-                     mojom::ActorTaskInterruptReason::kWaitingUserInput);
-  WaitForTaskState(task_id, ActorTask::State::kWaitingOnUser);
-  UninterruptActorTask(task_id);
-  WaitForTaskState(task_id, ActorTask::State::kActing);
-
-  // Test interrupting with another specific reason.
-  InterruptActorTask(task_id,
-                     mojom::ActorTaskInterruptReason::kWaitingUserConfirmation);
-  WaitForTaskState(task_id, ActorTask::State::kWaitingOnUser);
-  UninterruptActorTask(task_id);
-  WaitForTaskState(task_id, ActorTask::State::kActing);
-
-  StopActorTask(task_id, glic::mojom::ActorTaskStopReason::kTaskComplete);
+  EXPECT_EQ(ActorTask::State::kFinished, task_completion_state.Get());
 }
 
 IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
-                       ActuatingChangedCallback) {
-  GlicInstanceImpl* instance = GetGlicInstanceImpl();
+                       testActuatingChangedCallback) {
+  GlicInstanceImpl* instance = GetInstanceImpl();
   ASSERT_TRUE(instance);
   GlicActorTaskManager* task_manager = instance->GetActorTaskManager();
   ASSERT_TRUE(task_manager);
@@ -435,14 +394,313 @@ IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
             }
           }));
 
-  // Create a task and verify callback receives true.
-  ASSERT_OK_AND_ASSIGN(TaskId task_id, CreateTask());
-  EXPECT_NE(task_id, TaskId());
+  ExecuteJsTest();
+
+  // After the task is created, verify the callback receives true.
   EXPECT_TRUE(actuating_true_future.Get());
 
-  // Stop the task and verify callback receives false.
-  StopActorTask(task_id, glic::mojom::ActorTaskStopReason::kTaskComplete);
+  ContinueJsTest();
+
+  // After the task is stopped, verify the callback receives false.
   EXPECT_FALSE(actuating_false_future.Get());
+}
+
+IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
+                       testActivateTabWithConversationUsesActorState) {
+  GlicInstanceImpl* instance = GetInstanceImpl();
+  ASSERT_TRUE(instance);
+
+  // Register a conversation ID for the instance if not present.
+  std::optional<std::string> conv_id_opt = instance->conversation_id();
+  std::string conv_id = conv_id_opt.value_or("test_conversation_id");
+  if (!conv_id_opt.has_value()) {
+    auto info = mojom::ConversationInfo::New();
+    info->conversation_id = conv_id;
+    instance->RegisterConversation(std::move(info), base::DoNothing());
+  }
+
+  // Execute JS test to create the task.
+  ExecuteJsTest();
+
+  tabs::TabInterface* first_tab = active_tab();
+  ASSERT_TRUE(first_tab);
+
+  // Open a second tab so we can test focusing.
+  tabs::TabInterface* second_tab = CreateAndActivateTab(GURL("about:blank"));
+  ASSERT_TRUE(second_tab);
+  ASSERT_NE(second_tab, first_tab);
+  EXPECT_EQ(active_tab(), second_tab);
+
+  // Make the task act on the FIRST tab.
+  ContinueJsTest({.instance = instance});
+
+  // Now the first tab should be in LastActedTabs.
+
+  // Call ActivateTabWithConversation.
+  auto activate_result = coordinator().ActivateTabWithConversation(conv_id);
+
+  EXPECT_EQ(GlicInstanceCoordinator::ActivateTabResult::kSuccess,
+            activate_result);
+
+  // Verify that the FIRST tab is now active (since it was the last acted tab).
+  EXPECT_EQ(active_tab(), first_tab);
+}
+
+IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleGmailOtpEnabledBrowserTest,
+                       testGmailOtpOptInDialog) {
+  GlicInstanceImpl* instance = GetInstanceImpl();
+  ASSERT_TRUE(instance);
+
+  ASSERT_OK_AND_ASSIGN(TaskId task_id, CreateActorTask(instance));
+  EXPECT_NE(task_id, TaskId());
+
+  // Execute JS test, which sets up the subscriber and calls advanceToNextStep()
+  ExecuteJsTest();
+
+  GlicActorTaskManager* task_manager = instance->GetActorTaskManager();
+  ASSERT_TRUE(task_manager);
+
+  // Get the GlicActorClientSession (which implements ActorTaskDelegate)
+  ::actor::ActorTaskDelegate* delegate =
+      task_manager->GetClientSessionForTesting();
+  ASSERT_TRUE(delegate);
+
+  base::test::TestFuture<::actor::webui::mojom::GmailOtpOptInResultPtr>
+      response_future;
+  delegate->RequestToShowGmailOtpOptInDialog(task_id,
+                                             response_future.GetCallback());
+
+  // Continue JS test, which awaits the dialog request promise and completes it.
+  ContinueJsTest();
+
+  // Verify the callback in C++ receives the correct approved response
+  ::actor::webui::mojom::GmailOtpOptInResultPtr response =
+      response_future.Take();
+  ASSERT_TRUE(response->is_permission_granted());
+  EXPECT_TRUE(response->get_permission_granted());
+
+  task_manager->GetClientSessionForTesting()->StopActorTask(
+      task_id.value(), glic::mojom::ActorTaskStopReason::kTaskComplete);
+}
+
+IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleGmailOtpEnabledBrowserTest,
+                       testGmailOtpOptInDialogNoSubscriber) {
+  GlicInstanceImpl* instance = GetInstanceImpl();
+  ASSERT_TRUE(instance);
+
+  ASSERT_OK_AND_ASSIGN(TaskId task_id, CreateActorTask(instance));
+  EXPECT_NE(task_id, TaskId());
+
+  // Execute JS test (does nothing and calls advanceToNextStep())
+  ExecuteJsTest();
+
+  GlicActorTaskManager* task_manager = instance->GetActorTaskManager();
+  ASSERT_TRUE(task_manager);
+
+  // Get the GlicActorClientSession
+  ::actor::ActorTaskDelegate* delegate =
+      task_manager->GetClientSessionForTesting();
+  ASSERT_TRUE(delegate);
+
+  base::test::TestFuture<::actor::webui::mojom::GmailOtpOptInResultPtr>
+      response_future;
+  delegate->RequestToShowGmailOtpOptInDialog(task_id,
+                                             response_future.GetCallback());
+
+  // Verify that the callback resolves with the correct error reason (no
+  // subscriber)
+  ::actor::webui::mojom::GmailOtpOptInResultPtr response =
+      response_future.Take();
+  ASSERT_TRUE(response->is_error_reason());
+  EXPECT_EQ(::actor::webui::mojom::GmailOtpOptInErrorReason::
+                kRequestPromiseNoSubscriber,
+            response->get_error_reason());
+
+  // Continue JS test to finish the JS runner thread cleanly.
+  ContinueJsTest();
+
+  task_manager->GetClientSessionForTesting()->StopActorTask(
+      task_id.value(), glic::mojom::ActorTaskStopReason::kTaskComplete);
+}
+
+IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
+                       testGmailOtpOptInDialogFeatureDisabled) {
+  GlicInstanceImpl* instance = GetInstanceImpl();
+  ASSERT_TRUE(instance);
+
+  ASSERT_OK_AND_ASSIGN(TaskId task_id, CreateActorTask(instance));
+  EXPECT_NE(task_id, TaskId());
+
+  // Execute JS test (asserts selectGmailOtpOptInRequestHandler is undefined)
+  ExecuteJsTest();
+
+  GlicActorTaskManager* task_manager = instance->GetActorTaskManager();
+  ASSERT_TRUE(task_manager);
+
+  // Get the GlicActorClientSession
+  ::actor::ActorTaskDelegate* delegate =
+      task_manager->GetClientSessionForTesting();
+  ASSERT_TRUE(delegate);
+
+  base::test::TestFuture<::actor::webui::mojom::GmailOtpOptInResultPtr>
+      response_future;
+  delegate->RequestToShowGmailOtpOptInDialog(task_id,
+                                             response_future.GetCallback());
+
+  // Verify that the callback resolves with the correct error reason (no
+  // subscriber)
+  ::actor::webui::mojom::GmailOtpOptInResultPtr response =
+      response_future.Take();
+  ASSERT_TRUE(response->is_error_reason());
+  EXPECT_EQ(::actor::webui::mojom::GmailOtpOptInErrorReason::
+                kRequestPromiseNoSubscriber,
+            response->get_error_reason());
+
+  // Continue JS test to finish the JS runner thread cleanly.
+  ContinueJsTest();
+
+  task_manager->GetClientSessionForTesting()->StopActorTask(
+      task_id.value(), glic::mojom::ActorTaskStopReason::kTaskComplete);
+}
+
+#if !BUILDFLAG(IS_ANDROID)
+[[nodiscard]] TestResult<void> RunUntilPriorityIs(
+    content::RenderProcessHost* rph,
+    base::Process::Priority priority) {
+  return RunUntilEqual([&]() { return rph->GetPriority(); }, priority);
+}
+#else
+[[nodiscard]] TestResult<void> RunUntilImportanceIs(
+    content::RenderProcessHost* rph,
+    content::ChildProcessImportance importance) {
+  return RunUntilEqual([&]() { return rph->GetEffectiveImportance(); },
+                       importance);
+}
+
+bool IsProtectRecentlyVisibleTabEnabled() {
+  return base::android::device_info::is_desktop() ||
+         base::FeatureList::IsEnabled(
+             chrome::android::kProtectRecentlyVisibleTab);
+}
+#endif  // !BUILDFLAG(IS_ANDROID)
+
+// TODO(crbug.com/528462037): Flaky on Android.
+#if BUILDFLAG(IS_ANDROID)
+#define MAYBE_testActuatingPriorityChange DISABLED_testActuatingPriorityChange
+#else
+#define MAYBE_testActuatingPriorityChange testActuatingPriorityChange
+#endif
+IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
+                       MAYBE_testActuatingPriorityChange) {
+  GlicInstanceImpl* instance = GetInstanceImpl();
+  ASSERT_TRUE(instance);
+  ASSERT_OK(WaitForGlicClient(instance));
+  GlicSidePanelCoordinator* coordinator =
+      GlicSidePanelCoordinator::GetForTab(active_tab());
+  bool supports_peek = coordinator && coordinator->SupportsPeek();
+
+  content::WebContents* webui_contents = instance->host().webui_contents();
+  ASSERT_TRUE(webui_contents);
+  content::RenderProcessHost* webui_rph =
+      webui_contents->GetPrimaryMainFrame()->GetProcess();
+  content::WebContents* guest_contents = instance->host().web_client_contents();
+  EXPECT_TRUE(guest_contents);
+  content::RenderProcessHost* guest_rph =
+      guest_contents->GetPrimaryMainFrame()->GetProcess();
+
+  // Close glic to ensure the priority is reduced.
+  PreventDeletionOnClose(instance);
+  ToggleGlicForActiveTab();
+  EXPECT_OK(WaitForGlicClose());
+  EXPECT_OK(
+      WaitForWebUiContentsVisibility(instance, content::Visibility::HIDDEN));
+  EXPECT_EQ(guest_contents->GetVisibility(), content::Visibility::HIDDEN);
+
+#if !BUILDFLAG(IS_ANDROID)
+  EXPECT_OK(
+      RunUntilPriorityIs(webui_rph, base::Process::Priority::kBestEffort));
+  EXPECT_OK(
+      RunUntilPriorityIs(guest_rph, base::Process::Priority::kBestEffort));
+#else
+
+  // When the feature is enabled, recently visible pages are protected.
+  content::ChildProcessImportance expected_importance_when_hidden =
+      IsProtectRecentlyVisibleTabEnabled()
+          ? content::ChildProcessImportance::NOT_PERCEPTIBLE
+          : content::ChildProcessImportance::NORMAL;
+
+  EXPECT_OK(RunUntilImportanceIs(webui_rph, expected_importance_when_hidden));
+  // TODO(crbug.com/525435394): Ensure the guest process is not protected.
+  EXPECT_OK(RunUntilImportanceIs(
+      guest_rph, content::ChildProcessImportance::NOT_PERCEPTIBLE));
+#endif
+  ExecuteJsTest();
+
+  // Task is now created and actuating. The process priority should be boosted.
+  EXPECT_TRUE(instance->IsActuating());
+
+  // On platforms that do not support peek mode, the side panel re-opens when
+  // a tab is added to the actuation. Close it again to test priority boosting
+  // when hidden.
+  if (!supports_peek) {
+    ToggleGlicForActiveTab();
+    EXPECT_OK(WaitForGlicClose());
+    EXPECT_OK(
+        WaitForWebUiContentsVisibility(instance, content::Visibility::HIDDEN));
+    EXPECT_EQ(guest_contents->GetVisibility(), content::Visibility::HIDDEN);
+  } else {
+    EXPECT_EQ(webui_contents->GetVisibility(), content::Visibility::HIDDEN);
+    EXPECT_EQ(guest_contents->GetVisibility(), content::Visibility::HIDDEN);
+  }
+
+#if !BUILDFLAG(IS_ANDROID)
+  EXPECT_OK(
+      RunUntilPriorityIs(webui_rph, base::Process::Priority::kUserBlocking));
+  EXPECT_OK(
+      RunUntilPriorityIs(guest_rph, base::Process::Priority::kUserBlocking));
+#else
+  EXPECT_OK(RunUntilImportanceIs(webui_rph,
+                                 content::ChildProcessImportance::IMPORTANT));
+  EXPECT_OK(RunUntilImportanceIs(guest_rph,
+                                 content::ChildProcessImportance::IMPORTANT));
+#endif
+
+  // Open a second tab to make the initial tab hidden. The priority of glic
+  // renderers should lower, but not drop to best effort.
+  auto* first_tab = active_tab();
+  auto* second_tab = CreateAndActivateTab(GURL("about:blank"));
+  ASSERT_TRUE(second_tab);
+  ASSERT_NE(second_tab, first_tab);
+  EXPECT_EQ(active_tab(), second_tab);
+
+#if !BUILDFLAG(IS_ANDROID)
+  EXPECT_OK(
+      RunUntilPriorityIs(webui_rph, base::Process::Priority::kUserVisible));
+  EXPECT_OK(
+      RunUntilPriorityIs(guest_rph, base::Process::Priority::kUserVisible));
+#else
+  EXPECT_OK(RunUntilImportanceIs(webui_rph,
+                                 content::ChildProcessImportance::MODERATE));
+  EXPECT_OK(RunUntilImportanceIs(guest_rph,
+                                 content::ChildProcessImportance::MODERATE));
+#endif
+
+  // Finish/stop the task.
+  ContinueJsTest();
+  EXPECT_FALSE(instance->IsActuating());
+
+  // Now Glic is not actuating, so the priority should drop.
+#if !BUILDFLAG(IS_ANDROID)
+  EXPECT_OK(
+      RunUntilPriorityIs(webui_rph, base::Process::Priority::kBestEffort));
+  EXPECT_OK(
+      RunUntilPriorityIs(guest_rph, base::Process::Priority::kBestEffort));
+#else
+  EXPECT_OK(RunUntilImportanceIs(webui_rph, expected_importance_when_hidden));
+  // TODO(crbug.com/525435394): Ensure the guest process is not protected.
+  EXPECT_OK(RunUntilImportanceIs(
+      guest_rph, content::ChildProcessImportance::NOT_PERCEPTIBLE));
+#endif
 }
 
 }  // namespace

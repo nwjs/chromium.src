@@ -279,7 +279,6 @@ public class EdgeToEdgeControllerTest {
                         mWindowInsetsListenerCaptor.capture(),
                         eq(InsetConsumerSource.EDGE_TO_EDGE_CONTROLLER_IMPL));
 
-        EdgeToEdgeUtils.setObservedTappableNavigationBarForTesting(false);
         mEdgeToEdgeControllerImpl =
                 new EdgeToEdgeControllerImpl(
                         mActivity,
@@ -599,8 +598,8 @@ public class EdgeToEdgeControllerTest {
     public void testSwitchLayout() {
         Mockito.clearInvocations(mEdgeToEdgeManager);
 
-        doReturn(LayoutType.TAB_SWITCHER).when(mLayoutManager).getActiveLayoutType();
-        mEdgeToEdgeControllerImpl.onStartedShowing(LayoutType.TAB_SWITCHER);
+        doReturn(LayoutType.HUB).when(mLayoutManager).getActiveLayoutType();
+        mEdgeToEdgeControllerImpl.onStartedShowing(LayoutType.HUB);
         assertToEdgeExpectations();
 
         doReturn(LayoutType.BROWSING).when(mLayoutManager).getActiveLayoutType();
@@ -1001,7 +1000,7 @@ public class EdgeToEdgeControllerTest {
         mockPadAdjuster.checkInsets(BOTTOM_INSET);
 
         // Case 1: Tab Switcher active, Bottom Controls visible. Skip browser control check.
-        when(mLayoutManager.getActiveLayoutType()).thenReturn(LayoutType.TAB_SWITCHER);
+        when(mLayoutManager.getActiveLayoutType()).thenReturn(LayoutType.HUB);
         mEdgeToEdgeControllerImpl.onBottomControlsHeightChanged(browserControlsHeight, unused);
         mockPadAdjuster.checkInsets(BOTTOM_INSET);
 
@@ -1349,8 +1348,7 @@ public class EdgeToEdgeControllerTest {
     }
 
     @Test
-    @DisableFeatures(ChromeFeatureList.EDGE_TO_EDGE_MONITOR_CONFIGURATIONS)
-    public void hasSeenTappableNavigationBarInsets_disabled() {
+    public void hasSeenTappableNavigationBarInsets() {
         EdgeToEdgeUtils.setHas3ButtonNavBarForTesting(null);
         Window window = mockWindowWithRootInsets(SYSTEM_BARS_WITH_TAPPABLE_NAVBAR);
         assertTrue(
@@ -1360,21 +1358,6 @@ public class EdgeToEdgeControllerTest {
         window = mockWindowWithRootInsets(SYSTEM_BARS_WINDOW_INSETS);
         assertFalse(
                 "Insets should be considered not has tappable nav bar.",
-                EdgeToEdgeUtils.hasTappableNavigationBar(window));
-    }
-
-    @Test
-    @EnableFeatures(ChromeFeatureList.EDGE_TO_EDGE_MONITOR_CONFIGURATIONS)
-    public void hasSeenTappableNavigationBarInsets() {
-        EdgeToEdgeUtils.setHas3ButtonNavBarForTesting(null);
-        Window window = mockWindowWithRootInsets(SYSTEM_BARS_WITH_TAPPABLE_NAVBAR);
-        assertTrue(
-                "Insets should be considered has tappable nav bar.",
-                EdgeToEdgeUtils.hasTappableNavigationBar(window));
-
-        window = mockWindowWithRootInsets(SYSTEM_BARS_WINDOW_INSETS);
-        assertTrue(
-                "Has tappable nav bar is seen, so check should be true.",
                 EdgeToEdgeUtils.hasTappableNavigationBar(window));
     }
 

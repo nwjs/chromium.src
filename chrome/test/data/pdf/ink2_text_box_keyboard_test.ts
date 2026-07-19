@@ -2,18 +2,20 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {MIN_TEXTBOX_SIZE_PX} from 'chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/pdf_viewer_wrapper.js';
+import 'chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/pdf_viewer_wrapper.js';
+
+import type {InkTextBoxElement, Viewport} from 'chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/pdf_viewer_wrapper.js';
+import {isMac} from 'chrome://resources/js/platform.js';
 import {keyDownOn} from 'chrome://webui-test/keyboard_mock_interactions.js';
 import {eventToPromise, isVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
-import {assertPositionAndSize, dragHandleWithKeyboard, getTestAnnotation, initializeBox, setupTextBoxTest, verifyFinishTextAnnotationMessage} from './ink2_text_box_test_utils.js';
+import {assertPositionAndSize, dragHandleWithKeyboard, getTestAnnotation, initializeBox, reactivateBox, setupTextBoxTest, verifyFinishTextAnnotationMessage} from './ink2_text_box_test_utils.js';
 import {getRequiredElement} from './test_util.js';
 
-const {manager, mockPlugin, textbox, viewport} = setupTextBoxTest();
-
-async function setUpExistingAnnotation() {
+async function setUpExistingAnnotation(
+    textbox: InkTextBoxElement, viewport: Viewport) {
   // Initialize and commit a new annotation to make it "existing".
-  initializeBox(manager, 100, 100, 55, 10);
+  initializeBox(100, 100, 55, 10);
   await microtasksFinished();
   const testAnnotation =
       getTestAnnotation({locationX: 0, locationY: 7, height: 100, width: 100});
@@ -24,10 +26,9 @@ async function setUpExistingAnnotation() {
   await microtasksFinished();
   chrome.test.assertTrue(textbox.hidden);
 
-  // Re-initialize the box as an existing annotation by simulating a click on
-  // it.
-  const clicked = manager.initializeTextAnnotation({x: 105, y: 60});
-  chrome.test.assertTrue(clicked, 'Failed to click existing annotation');
+  // Re-initialize the box as an existing annotation by setting properties
+  // directly.
+  reactivateBox(textbox, viewport, testAnnotation);
   await microtasksFinished();
   chrome.test.assertFalse(textbox.hidden);
   chrome.test.assertTrue(isVisible(textbox));
@@ -38,85 +39,101 @@ async function setUpExistingAnnotation() {
 
 chrome.test.runTests([
   async function testResizeWithKeyboard() {
+    const {textbox} = await setupTextBoxTest();
     // Initialize to a 100x200 box at 400, 300.
-    initializeBox(manager, 100, 200, 400, 300);
+    initializeBox(100, 200, 400, 300);
     await microtasksFinished();
     chrome.test.assertFalse(textbox.hidden);
     chrome.test.assertTrue(isVisible(textbox));
     assertPositionAndSize(textbox, '124px', '220px', '383px', '285px');
 
-    // 5px up and left.
-    const topLeft = getRequiredElement(textbox, '.handle.top.left');
-    await dragHandleWithKeyboard(topLeft, 'ArrowUp', 5);
-    await dragHandleWithKeyboard(topLeft, 'ArrowLeft', 5);
-    assertPositionAndSize(textbox, '129px', '225px', '378px', '280px');
+    const modifiers: Parameters<typeof keyDownOn>[2] =
+        isMac ? ['meta', 'ctrl'] : ['ctrl', 'alt'];
 
-    // Top handle 3px up and left. Left arrow is ignored on this handle.
-    const top = getRequiredElement(textbox, '.handle.top.center');
-    await dragHandleWithKeyboard(top, 'ArrowUp', 3);
-    await dragHandleWithKeyboard(top, 'ArrowLeft', 3);
-    assertPositionAndSize(textbox, '129px', '228px', '378px', '277px');
+    // Resize larger horizontally: Ctrl + Alt + b (+10px)
+    keyDownOn(textbox, 0, modifiers, 'b');
+    await microtasksFinished();
+    assertPositionAndSize(textbox, '134px', '220px', '383px', '285px');
 
-    // Top right handle 4px down and right -> makes box shorter and wider.
-    // Use focusout event to finish right arrow drag to ensure it works.
-    const topRight = getRequiredElement(textbox, '.handle.top.right');
-    await dragHandleWithKeyboard(topRight, 'ArrowDown', 4);
-    await dragHandleWithKeyboard(topRight, 'ArrowRight', 4, true);
-    assertPositionAndSize(textbox, '133px', '224px', '378px', '281px');
+    // Resize smaller horizontally: Ctrl + Alt + w (-10px)
+    keyDownOn(textbox, 0, modifiers, 'w');
+    await microtasksFinished();
+    assertPositionAndSize(textbox, '124px', '220px', '383px', '285px');
 
-    // Drag the left handle right and up. Upward motion is ignored. Left motion
-    // makes the box 2px narrower.
-    const left = getRequiredElement(textbox, '.handle.left.center');
-    await dragHandleWithKeyboard(left, 'ArrowUp', 2);
-    await dragHandleWithKeyboard(left, 'ArrowRight', 2);
-    assertPositionAndSize(textbox, '131px', '224px', '380px', '281px');
+    // Resize larger vertically: Ctrl + Alt + i (+10px)
+    keyDownOn(textbox, 0, modifiers, 'i');
+    await microtasksFinished();
+    assertPositionAndSize(textbox, '124px', '230px', '383px', '285px');
 
-    // Drag the right handle right and down. Downward motion is ignored. Right
-    // motion makes the box 3px wider.
-    const right = getRequiredElement(textbox, '.handle.right.center');
-    await dragHandleWithKeyboard(right, 'ArrowDown', 3);
-    await dragHandleWithKeyboard(right, 'ArrowRight', 3);
-    assertPositionAndSize(textbox, '134px', '224px', '380px', '281px');
+    // Resize smaller vertically: Ctrl + Alt + 9 (-10px)
+    keyDownOn(textbox, 0, modifiers, '9');
+    await microtasksFinished();
+    assertPositionAndSize(textbox, '124px', '220px', '383px', '285px');
 
-    // Drag the bottom left handle down and left to make the box 10px bigger
-    // in both dimensions.
-    const bottomLeft = getRequiredElement(textbox, '.handle.bottom.left');
-    await dragHandleWithKeyboard(bottomLeft, 'ArrowDown', 10);
-    await dragHandleWithKeyboard(bottomLeft, 'ArrowLeft', 10);
-    assertPositionAndSize(textbox, '144px', '234px', '370px', '281px');
+    // Proportional resize larger: Ctrl + Alt + k (x1.1)
+    // 100x200 -> 110x220 (styled 134x240)
+    keyDownOn(textbox, 0, modifiers, 'k');
+    await microtasksFinished();
+    assertPositionAndSize(textbox, '134px', '240px', '383px', '285px');
 
-    // Drag the bottom handle down and left to make the box 5px taller.
-    // Motion left is ignored.
-    const bottom = getRequiredElement(textbox, '.handle.bottom.center');
-    await dragHandleWithKeyboard(bottom, 'ArrowDown', 5);
-    await dragHandleWithKeyboard(bottom, 'ArrowLeft', 5);
-    assertPositionAndSize(textbox, '144px', '239px', '370px', '281px');
+    // Proportional resize smaller: Ctrl + Alt + j (x0.9)
+    // 110x220 -> 99x198 (styled 123x218)
+    keyDownOn(textbox, 0, modifiers, 'j');
+    await microtasksFinished();
+    assertPositionAndSize(textbox, '123px', '218px', '383px', '285px');
 
-    // Drag the bottom right handle down and right to make the box 2px bigger
-    // in both dimensions.
-    const bottomRight = getRequiredElement(textbox, '.handle.bottom.right');
-    await dragHandleWithKeyboard(bottomRight, 'ArrowDown', 2);
-    await dragHandleWithKeyboard(bottomRight, 'ArrowRight', 2);
-    assertPositionAndSize(textbox, '146px', '241px', '370px', '281px');
+    // Shrink to minimum size and ensure it clamps.
+    for (let i = 0; i < 20; i++) {
+      keyDownOn(textbox, 0, modifiers, 'j');
+      await microtasksFinished();
+    }
+    // Clamps when width hits MIN_TEXTBOX_SIZE_PX (24) -> styled 48x66 (drifted
+    // from 1:2 due to rounding)
+    assertPositionAndSize(textbox, '48px', '66px', '383px', '285px');
 
-    // Drag the bottom right handle up and left to try to make the box too
-    // small. Make sure it clamps at the same minimum size, anchored on the top
-    // left corner.
-    await dragHandleWithKeyboard(bottomRight, 'ArrowUp', 100);
-    await dragHandleWithKeyboard(bottomRight, 'ArrowLeft', 100);
-    const clampedWidth = textbox.$.textbox.clientWidth;
-    const clampedHeight = textbox.$.textbox.clientHeight;
-    chrome.test.assertTrue(clampedHeight >= textbox.$.textbox.scrollHeight);
-    chrome.test.assertEq(MIN_TEXTBOX_SIZE_PX + 10, clampedWidth);
-    assertPositionAndSize(
-        textbox, '48px', `${clampedHeight + 14}px`, '370px', '281px');
+    // Expand horizontally until it hits the right page boundary (max width 610
+    // -> styled 634).
+    for (let i = 0; i < 70; i++) {
+      keyDownOn(textbox, 0, modifiers, 'b');
+      await microtasksFinished();
+    }
+    assertPositionAndSize(textbox, '634px', '66px', '383px', '285px');
+
+    // Expand vertically until it hits the bottom page boundary (max height 703
+    // -> styled 723).
+    for (let i = 0; i < 80; i++) {
+      keyDownOn(textbox, 0, modifiers, 'i');
+      await microtasksFinished();
+    }
+    assertPositionAndSize(textbox, '634px', '723px', '383px', '285px');
+
+    // Try to scale larger when already at max size. It should not grow.
+    keyDownOn(textbox, 0, modifiers, 'k');
+    await microtasksFinished();
+    assertPositionAndSize(textbox, '634px', '723px', '383px', '285px');
+
+    // Reset the box to 300x400 at 400, 300 to test proportional resize
+    // clamping.
+    initializeBox(300, 400, 400, 300);
+    await microtasksFinished();
+    assertPositionAndSize(textbox, '324px', '420px', '383px', '285px');
+
+    // Scale larger repeatedly. Height should hit the limit (703) first,
+    // and width should clamp at 527 (styled 551px) to preserve 3:4 aspect
+    // ratio.
+    for (let i = 0; i < 10; i++) {
+      keyDownOn(textbox, 0, modifiers, 'k');
+      await microtasksFinished();
+    }
+    assertPositionAndSize(textbox, '551px', '723px', '383px', '285px');
 
     chrome.test.succeed();
   },
 
   async function testMoveWithKeyboard() {
+    const {textbox} = await setupTextBoxTest();
     // Initialize to a 100x100 box at 400, 300.
-    initializeBox(manager, 100, 100, 400, 300);
+    initializeBox(100, 100, 400, 300);
     await microtasksFinished();
     assertPositionAndSize(textbox, '124px', '120px', '383px', '285px');
     await dragHandleWithKeyboard(textbox, 'ArrowUp', 5);
@@ -138,11 +155,12 @@ chrome.test.runTests([
   },
 
   async function testEscape() {
+    const {mockPlugin, textbox, viewport} = await setupTextBoxTest();
     viewport.setZoom(1.0);
 
     // Initialize to a 100x100 box at 55, 10. Place the box in the top corner
     // of the page, so that the viewport won't scroll when it is focused.
-    initializeBox(manager, 100, 100, 55, 10);
+    initializeBox(100, 100, 55, 10);
     // Wait for focus to happen so that we can correctly test focus changes
     // later.
     await eventToPromise('textbox-focused-for-test', textbox);
@@ -177,17 +195,18 @@ chrome.test.runTests([
     await microtasksFinished();
     chrome.test.assertTrue(textbox.hidden);
     chrome.test.assertFalse(isVisible(textbox));
-    verifyFinishTextAnnotationMessage(mockPlugin, testAnnotation, true, 1.0);
+    verifyFinishTextAnnotationMessage(mockPlugin, testAnnotation, true);
 
     chrome.test.succeed();
   },
 
   async function testEscapeWhileDragging() {
+    const {mockPlugin, textbox, viewport} = await setupTextBoxTest();
     viewport.setZoom(1.0);
 
     // If the user is dragging, escape commits the annotation at the start
     // location and hides the box.
-    initializeBox(manager, 100, 100, 55, 10);
+    initializeBox(100, 100, 55, 10);
     await microtasksFinished();
     chrome.test.assertTrue(isVisible(textbox));
     mockPlugin.clearMessages();
@@ -208,16 +227,17 @@ chrome.test.runTests([
     chrome.test.assertTrue(textbox.hidden);
     chrome.test.assertFalse(isVisible(textbox));
     // Message is identical to before because 'pointerup' was never fired.
-    verifyFinishTextAnnotationMessage(mockPlugin, testAnnotation, true, 1.0);
+    verifyFinishTextAnnotationMessage(mockPlugin, testAnnotation, true);
 
     chrome.test.succeed();
   },
 
   async function testEscapeWithoutModifications() {
+    const {mockPlugin, textbox} = await setupTextBoxTest();
     // Escape without any modification hides the box but doesn't send a message.
     // This should also work when the Escape key is on some other element in the
     // document, and not on the textbox itself.
-    initializeBox(manager, 100, 100, 55, 10);
+    initializeBox(100, 100, 55, 10);
     await microtasksFinished();
     chrome.test.assertTrue(isVisible(textbox));
     mockPlugin.clearMessages();
@@ -232,10 +252,8 @@ chrome.test.runTests([
   },
 
   async function testDeleteWithBackspaceKey() {
-    viewport.setZoom(1.0);
-    manager.clearAnnotationsForTesting();
-    manager.resetStackForTesting();
-    const testAnnotation = await setUpExistingAnnotation();
+    const {mockPlugin, textbox, viewport} = await setupTextBoxTest();
+    const testAnnotation = await setUpExistingAnnotation(textbox, viewport);
 
     mockPlugin.clearMessages();
     keyDownOn(textbox, 0, [], 'Backspace');
@@ -244,16 +262,14 @@ chrome.test.runTests([
     chrome.test.assertFalse(isVisible(textbox));
 
     testAnnotation.text = '';
-    verifyFinishTextAnnotationMessage(mockPlugin, testAnnotation, true, 1.0);
+    verifyFinishTextAnnotationMessage(mockPlugin, testAnnotation, true);
 
     chrome.test.succeed();
   },
 
   async function testDeleteWithDeleteKey() {
-    viewport.setZoom(1.0);
-    manager.clearAnnotationsForTesting();
-    manager.resetStackForTesting();
-    const testAnnotation = await setUpExistingAnnotation();
+    const {mockPlugin, textbox, viewport} = await setupTextBoxTest();
+    const testAnnotation = await setUpExistingAnnotation(textbox, viewport);
 
     mockPlugin.clearMessages();
     keyDownOn(textbox, 0, [], 'Delete');
@@ -262,8 +278,56 @@ chrome.test.runTests([
     chrome.test.assertFalse(isVisible(textbox));
 
     testAnnotation.text = '';
-    verifyFinishTextAnnotationMessage(mockPlugin, testAnnotation, true, 1.0);
+    verifyFinishTextAnnotationMessage(mockPlugin, testAnnotation, true);
 
+    chrome.test.succeed();
+  },
+
+  async function testArrowKeysPropagation() {
+    const {textbox} = await setupTextBoxTest();
+
+    // Initialize to a 100x100 box at 400, 300.
+    initializeBox(100, 100, 400, 300);
+    await microtasksFinished();
+
+    let keydownEvents: KeyboardEvent[] = [];
+    const listener = (e: KeyboardEvent) => {
+      keydownEvents.push(e);
+    };
+    window.addEventListener('keydown', listener);
+
+    // Case 1: Focused on the outer textbox (moving).
+    // Arrow keys should not propagate.
+    for (const key of ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']) {
+      keydownEvents = [];
+      keyDownOn(textbox, 0, [], key);
+      await microtasksFinished();
+      chrome.test.assertEq(
+          0, keydownEvents.length,
+          `Key ${key} on textbox should not propagate`);
+    }
+
+    // Case 2: After Esc (committed and inactive).
+    // Arrow keys should propagate.
+    keyDownOn(textbox.$.textbox, 0, [], 'Escape');
+    await microtasksFinished();
+    // Escape on the outer box commits it.
+    keyDownOn(textbox, 0, [], 'Escape');
+    await microtasksFinished();
+    chrome.test.assertTrue(textbox.hidden);
+    chrome.test.assertFalse(isVisible(textbox));
+
+    // Now send arrows to document.body. They should propagate to window.
+    for (const key of ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']) {
+      keydownEvents = [];
+      keyDownOn(document.body, 0, [], key);
+      await microtasksFinished();
+      chrome.test.assertEq(
+          1, keydownEvents.length, `Key ${key} after commit should propagate`);
+      chrome.test.assertEq(key, keydownEvents[0]!.key);
+    }
+
+    window.removeEventListener('keydown', listener);
     chrome.test.succeed();
   },
 ]);

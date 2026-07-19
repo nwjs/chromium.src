@@ -16,6 +16,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "base/scoped_observation.h"
+#include "base/time/time.h"
 #include "build/build_config.h"
 #include "chrome/browser/glic/common/glic_tab_observer.h"
 #include "chrome/browser/glic/common/instance_independent_hotkey_manager.h"
@@ -30,6 +31,7 @@
 #include "chrome/browser/glic/public/service/glic_instance_coordinator.h"
 #include "chrome/browser/glic/service/glic_instance_impl.h"
 #include "chrome/browser/glic/service/glic_invoke_handler.h"
+#include "chrome/browser/glic/service/glic_onboarding_tracker.h"
 #include "chrome/browser/glic/service/metrics/glic_instance_coordinator_metrics.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -101,6 +103,8 @@ class GlicInstanceCoordinatorImpl
       size_t limit) override;
   void ContextAccessIndicatorChanged(GlicInstanceImpl& instance,
                                      bool enabled) override;
+  void OnInvoked() override;
+  void OnUserInputSubmitted() override;
   std::unique_ptr<WebUIContentsContainer> CreateWebUIContentsContainer()
       override;
 
@@ -113,6 +117,8 @@ class GlicInstanceCoordinatorImpl
 
   bool IsAnyPanelShowing() const override;
   bool IsConversationPresent(const std::string& conversation_id) const override;
+  GlicInstanceCoordinator::ActivateTabResult ActivateTabWithConversation(
+      const std::string& conversation_id) override;
   // GlicInstanceCoordinator implementation
   GlicInstance* GetInstanceForTab(const tabs::TabInterface* tab) const override;
   GlicInstance* GetInstanceWithGlicWebContents(
@@ -120,7 +126,8 @@ class GlicInstanceCoordinatorImpl
   // Sorts instances by recency and returns the instance id and
   // conversation title of each conversation.
   std::vector<ConversationInfo> GetRecentlyActiveInstances(
-      size_t limit) override;
+      size_t limit,
+      base::TimeDelta max_time_since_active) override;
 
   bool IsTabPinnedToAnyInstance(
       const tabs::TabHandle& tab_handle) const override;
@@ -182,7 +189,7 @@ class GlicInstanceCoordinatorImpl
   AddActiveInstanceChangedCallbackAndNotifyImmediately(
       ActiveInstanceChangedCallback callback) override;
   GlicInstance* GetActiveInstance() override;
-  GlicSharingManager& active_instance_sharing_manager() override;
+  GlicSharingManagerInternal& active_instance_sharing_manager() override;
 
   // Returns a pointer to an instance with a Floaty embedder or nullptr.
   GlicInstanceImpl* GetInstanceWithFloaty() const;
@@ -191,12 +198,17 @@ class GlicInstanceCoordinatorImpl
   void SetWarmingEnabledForTesting(bool warming_enabled);
   GlicWebContentsWarmingPool& GetWebContentsWarmingPoolForTesting();
   std::string DescribeForTesting();
-  std::vector<GlicInstanceImpl*> GetInstancesForTesting();
+  std::vector<GlicInstanceImpl*> GetInstances() override;
   GlicInstanceCoordinatorMetrics& GetMetricsForTesting() { return metrics_; }
+  InstanceIndependentHotkeyManager* GetHotkeyManagerForTesting() {
+    return hotkey_manager_.get();
+  }
 
   // Testing support. These methods should not be added to the public interface.
   GlicInstanceImpl* GetInstanceImplFor(const InstanceId& id) const;
   GlicInstanceImpl* GetInstanceImplForTab(const tabs::TabInterface* tab) const;
+
+  void RemoveInstance(InstanceId id) override;
 
  private:
   void RemoveAllInstances();
@@ -222,10 +234,14 @@ class GlicInstanceCoordinatorImpl
   void CreateWarmedInstance();
 
   // Helper method to get a list of recently active instances sorted by time.
-  std::vector<GlicInstanceImpl*> GetSortedRecentInstances(size_t limit) const;
+  std::vector<GlicInstanceImpl*> GetSortedRecentInstances(
+      size_t limit,
+      base::TimeDelta max_time_since_active) const;
 
   // GlicInstanceCoordinatorMetrics::DataProvider implementation
   std::vector<InstanceWebContents> GetAllUnhibernatedWebContents() override;
+
+  void OnInstanceActuatingChanged(bool actuating);
 
   void ShowInstanceForTabs(GlicInstanceImpl* instance,
                            const std::vector<tabs::TabInterface*>& tabs,
@@ -240,8 +256,6 @@ class GlicInstanceCoordinatorImpl
 
   void OnMemoryPressure(base::MemoryPressureLevel level) override;
   void ApplyMaxAwakeInstancesLimit();
-
-  void RemoveInstance(GlicInstanceImpl* instance) override;
 
   void NotifyActiveInstanceChanged();
   void ComputeContentAccessIndicator();
@@ -272,6 +286,8 @@ class GlicInstanceCoordinatorImpl
 
   uint32_t next_instance_index_ = 0;
   std::map<InstanceId, std::unique_ptr<GlicInstanceImpl>> instances_;
+  base::flat_map<InstanceId, base::CallbackListSubscription>
+      actuating_changed_subscriptions_;
 
   base::flat_map<GlicInstance*, std::unique_ptr<GlicInvokeHandler>>
       invoke_handlers_;
@@ -286,6 +302,8 @@ class GlicInstanceCoordinatorImpl
       memory_pressure_listener_registration_;
 
   bool warming_enabled_ = true;
+
+  std::unique_ptr<GlicOnboardingTracker> onboarding_tracker_;
 
   GlicInstanceCoordinatorMetrics metrics_;
 

@@ -7,9 +7,9 @@ import '//resources/cr_elements/cr_tabs/cr_tabs.js';
 
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 
-import {ActuationEligibility, ActuationTarget, FreOverride, InvocationSource} from '../glic.mojom-webui.js';
+import {ActuationEligibility, ActuationTarget, FormFactor, FreOverride, InvocationSource, Platform} from '../glic.mojom-webui.js';
 import {FeatureMode} from '../glic_enums.mojom-webui.js';
-import {InternalsPageHandlerFactory, InternalsPageHandlerRemote} from '../glic_internals.mojom-webui.js';
+import {FreCompletionWaitMode, InternalsPageHandlerFactory, InternalsPageHandlerRemote} from '../glic_internals.mojom-webui.js';
 import type {InternalsDataPayload, TriggerInvokeFromInternalsOptions} from '../glic_internals.mojom-webui.js';
 
 import {getCss} from './glic_internals_app.css.js';
@@ -47,8 +47,11 @@ export class GlicInternalsAppElement extends CrLitElement {
       actuationTargetEnumValues_: {type: Array},
       invokeShowPanel_: {type: Boolean},
       invokePayloadUniversalCartMetadata_: {type: String},
+      invokeFreCompletionWaitMode_: {type: Number},
+      freCompletionWaitModeEnumValues_: {type: Array},
 
       selectedTabIndex_: {type: Number},
+      invokeNewConversation_: {type: Boolean},
       tabNames_: {type: Array},
       featureModeEnumValues_: {type: Array},
     };
@@ -71,6 +74,9 @@ export class GlicInternalsAppElement extends CrLitElement {
       ActuationTarget.kAgentDecides;
   protected accessor invokeShowPanel_: boolean = true;
   protected accessor invokePayloadUniversalCartMetadata_: string = '';
+  protected accessor invokeFreCompletionWaitMode_: FreCompletionWaitMode =
+      FreCompletionWaitMode.kDefault;
+  protected accessor invokeNewConversation_: boolean = false;
 
   protected accessor selectedTabIndex_: number = 0;
   protected accessor tabNames_: string[] = ['General', 'Debug Controls'];
@@ -82,6 +88,11 @@ export class GlicInternalsAppElement extends CrLitElement {
   protected accessor actuationTargetEnumValues_:
       Array<{name: string, value: number}> =
           Object.entries(ActuationTarget)
+              .filter(([key]) => isNaN(Number(key)))
+              .map(([name, value]) => ({name, value: value as number}));
+  protected accessor freCompletionWaitModeEnumValues_:
+      Array<{name: string, value: number}> =
+          Object.entries(FreCompletionWaitMode)
               .filter(([key]) => isNaN(Number(key)))
               .map(([name, value]) => ({name, value: value as number}));
 
@@ -277,6 +288,10 @@ export class GlicInternalsAppElement extends CrLitElement {
     this.invokeWaitForPanelOpen_ = (e.target as HTMLInputElement).checked;
   }
 
+  protected onInvokeNewConversationChange_(e: Event) {
+    this.invokeNewConversation_ = (e.target as HTMLInputElement).checked;
+  }
+
   protected onPayloadUniversalCartMetadataInput_(e: Event) {
     this.invokePayloadUniversalCartMetadata_ =
         (e.target as HTMLInputElement).value;
@@ -305,11 +320,11 @@ export class GlicInternalsAppElement extends CrLitElement {
   protected onInvokeShowPanelChange_(e: Event) {
     this.invokeShowPanel_ = (e.target as HTMLInputElement).checked;
   }
+  protected onInvokeFreCompletionWaitModeChange_(e: Event) {
+    this.invokeFreCompletionWaitMode_ =
+        Number((e.target as HTMLSelectElement).value);
+  }
   protected onTriggerInvokeClick_() {
-    this.invokeLogs_ =
-        [`[${new Date().toLocaleTimeString()}] TRIGGERING INVOKE...`];
-    console.info(this.invokeLogs_[0]);
-
     const surface = this.invokeSurfaceType_ === 'newTab' ?
         {newTab: {openInForeground: this.invokeOpenInForeground_}} :
         {defaultSurface: {}};
@@ -332,7 +347,8 @@ export class GlicInternalsAppElement extends CrLitElement {
       invocationSource: this.invokeInvocationSource_,
       prompts: this.invokePrompt_ ? [this.invokePrompt_] : [],
       additionalContext: null,
-      conversation: {defaultConversation: {}},
+      conversation: this.invokeNewConversation_ ? {newConversation: {}} :
+                                                  {defaultConversation: {}},
       featureMode: this.invokeFeatureMode_,
       disableZss: false,
       zssConfig: this.invokeZssOverride_ ?
@@ -344,11 +360,81 @@ export class GlicInternalsAppElement extends CrLitElement {
       autoSubmit: this.invokeAutoSubmit_,
       freOverride: this.invokeFreOverride_,
       waitForPanelOpen: this.invokeWaitForPanelOpen_,
+      freCompletionWaitMode: this.invokeFreCompletionWaitMode_,
       surface: surface,
       actuationTarget: this.invokeActuationTarget_,
       showPanel: this.invokeAutoSubmit_ ? this.invokeShowPanel_ : null,
       payload: payload,
     };
+
+    const invocationSourceMap =
+        InvocationSource as unknown as Record<number, string>;
+    const featureModeMap = FeatureMode as unknown as Record<number, string>;
+    const freOverrideMap = FreOverride as unknown as Record<number, string>;
+    const freCompletionWaitModeMap =
+        FreCompletionWaitMode as unknown as Record<number, string>;
+    const actuationTargetMap =
+        ActuationTarget as unknown as Record<number, string>;
+
+    const optionsString = JSON.stringify(options, (key, value) => {
+      if (value === null || value === undefined) {
+        return undefined;
+      }
+      if (Array.isArray(value) && value.length === 0) {
+        return undefined;
+      }
+      if (key === 'conversation') {
+        if (value.defaultConversation &&
+            Object.keys(value.defaultConversation).length === 0) {
+          return undefined;
+        }
+      }
+      if (key === 'surface') {
+        if (value.defaultSurface &&
+            Object.keys(value.defaultSurface).length === 0) {
+          return undefined;
+        }
+      }
+      if (key === 'freOverride' && value === FreOverride.kUnspecified) {
+        return undefined;
+      }
+      if (key === 'featureMode' && value === FeatureMode.kUnspecified) {
+        return undefined;
+      }
+      if (key === 'actuationTarget' &&
+          value === ActuationTarget.kAgentDecides) {
+        return undefined;
+      }
+      if (key === 'disableZss' && value === false) {
+        return undefined;
+      }
+      if (key === 'waitForPanelOpen' && value === false) {
+        return undefined;
+      }
+
+      if (key === 'invocationSource') {
+        return `${value} (${invocationSourceMap[value as number]})`;
+      }
+      if (key === 'featureMode') {
+        return `${value} (${featureModeMap[value as number]})`;
+      }
+      if (key === 'freOverride') {
+        return `${value} (${freOverrideMap[value as number]})`;
+      }
+      if (key === 'freCompletionWaitMode') {
+        return `${value} (${freCompletionWaitModeMap[value as number]})`;
+      }
+      if (key === 'actuationTarget') {
+        return `${value} (${actuationTargetMap[value as number]})`;
+      }
+      return value;
+    }, 2);
+
+    this.invokeLogs_ = [
+      `[${new Date().toLocaleTimeString()}] TRIGGERING INVOKE with options:\n${
+          optionsString}`,
+    ];
+    console.info(this.invokeLogs_[0]);
 
     this.pageHandler_.triggerInvokeFromInternalsAction(options).then(
         ({success, errorMessage}: {success: boolean, errorMessage: string}) => {
@@ -358,6 +444,114 @@ export class GlicInternalsAppElement extends CrLitElement {
           this.invokeLogs_ = [...this.invokeLogs_, logEntry];
           console.info(logEntry);
         });
+  }
+
+  protected getPlatformString_(platform: Platform): string {
+    switch (platform) {
+      case Platform.kMacOS:
+        return 'macOS';
+      case Platform.kWindows:
+        return 'Windows';
+      case Platform.kLinux:
+        return 'Linux';
+      case Platform.kChromeOS:
+        return 'ChromeOS';
+      case Platform.kAndroid:
+        return 'Android';
+      default:
+        return 'Unknown';
+    }
+  }
+
+  protected getFormFactorString_(formFactor: FormFactor): string {
+    switch (formFactor) {
+      case FormFactor.kDesktop:
+        return 'Desktop';
+      case FormFactor.kPhone:
+        return 'Phone';
+      case FormFactor.kTablet:
+        return 'Tablet';
+      default:
+        return 'Unknown';
+    }
+  }
+
+  protected getDebugSettingsData_():
+      Array<{label: string, value: string|boolean}> {
+    if (!this.data_ || !this.data_.debugInfo) {
+      return [];
+    }
+
+    const debugInfo = this.data_.debugInfo;
+    const settings: Array<{label: string, value: string | boolean}> = [
+      {
+        label: 'GlicActor Feature Flag',
+        value: debugInfo.glicActorFeatureEnabled,
+      },
+      {
+        label: 'GlicRollout Feature Flag',
+        value: debugInfo.glicRolloutFeatureEnabled,
+      },
+      {
+        label: 'GlicTieredRollout Feature Flag',
+        value: debugInfo.glicTieredRolloutFeatureEnabled,
+      },
+      {
+        label: 'GlicTieredRolloutV2 Feature Flag',
+        value: debugInfo.glicTieredRolloutV2FeatureEnabled,
+      },
+      {
+        label: 'Platform',
+        value: this.getPlatformString_(debugInfo.platform),
+      },
+      {
+        label: 'Form Factor',
+        value: this.getFormFactorString_(debugInfo.formFactor),
+      },
+      {
+        label: 'OS Hotkey',
+        value: debugInfo.hotkey || 'None',
+      },
+      {
+        label: 'Locale',
+        value: debugInfo.locale || 'None',
+      },
+      {
+        label: 'Permanent Country Code',
+        value: debugInfo.permanentCountryCode || 'None',
+      },
+      {
+        label: 'Session Country Code',
+        value: debugInfo.sessionCountryCode || 'None',
+      },
+      {
+        label: 'System Requirement Met',
+        value: debugInfo.systemRequirementMet,
+      },
+      {
+        label: 'OS Version Supported',
+        value: debugInfo.osVersionSupported,
+      },
+      {
+        label: 'Anchor Entrypoint Override Active',
+        value: debugInfo.anchorEntrypointOverrideActive,
+      },
+      {
+        label: 'Primary Account Needs Signed In',
+        value: debugInfo.primaryAccountNeedsSignedIn,
+      },
+    ];
+
+    if (debugInfo.booleanSettings) {
+      for (const [key, val] of Object.entries(debugInfo.booleanSettings)) {
+        settings.push({
+          label: key,
+          value: val,
+        });
+      }
+    }
+
+    return settings;
   }
 
   protected onSelectedTabIndexSelectedChanged_(

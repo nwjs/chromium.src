@@ -1201,14 +1201,6 @@ BASE_FEATURE(kLocalAuthenticationWithPin, base::FEATURE_ENABLED_BY_DEFAULT);
 // to feedback reports.
 BASE_FEATURE(kLinkCrossDeviceInternals, base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Supports the feature to hide sensitive content in notifications on the lock
-// screen. This option is effective when |kLockScreenNotification| is enabled.
-BASE_FEATURE(kLockScreenHideSensitiveNotificationsSupport,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables notifications on the lock screen.
-BASE_FEATURE(kLockScreenNotifications, base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Feature to allow MAC address randomization to be enabled for WiFi networks.
 BASE_FEATURE(kMacAddressRandomization, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -1674,10 +1666,6 @@ BASE_FEATURE(kSessionManagerLongKillTimeout, base::FEATURE_DISABLED_BY_DEFAULT);
 // file session_manager_service.cc.
 BASE_FEATURE(kSessionManagerLivenessCheck, base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Whether theme changes should be animated for the Settings app.
-BASE_FEATURE(kSettingsAppThemeChangeAnimation,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Whether we should track auto-hide preferences separately between clamshell
 // and tablet.
 BASE_FEATURE(kShelfAutoHideSeparation, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1829,7 +1817,7 @@ BASE_FEATURE(kUseDHCPCD10, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, the new `TokenHandleStoreImpl` will be used instead of
 // `TokenHandleUtil`.
-BASE_FEATURE(kUseTokenHandleStore, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kUseTokenHandleStore, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Use the AnnotatedAccountId for mapping between User and BrowserContext
 // (a.k.a. browser's Profile).
@@ -1855,10 +1843,6 @@ BASE_FEATURE(kWebAuthNAuthDialogMerge, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kUseMessagesStagingUrl, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLiveCaptionUserMicrophone, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Remap search+click to right click instead of the legacy alt+click on
-// ChromeOS.
-BASE_FEATURE(kUseSearchClickForRightClick, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Use the Stork production SM-DS server when fetching pending eSIM profiles.
 BASE_FEATURE(kUseStorkSmdsServerAddress, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1944,15 +1928,6 @@ BASE_FEATURE(kWakeOnWifiAllowed, base::FEATURE_DISABLED_BY_DEFAULT);
 // Enable "daily" refresh wallpaper to refresh every ten seconds for testing.
 BASE_FEATURE(kWallpaperFastRefresh, base::FEATURE_DISABLED_BY_DEFAULT);
 
-// kWelcomeExperienceTestUnsupportedDevices enables the new device Welcome
-// Experience to be tested on external devices that are not officially
-// supported. When enabled, users will be able to initiate and complete
-// the enhanced Welcome Experience flow using these unsupported external
-// devices. This flag is intended for testing purposes and should be disabled
-// disabled in production environments.
-BASE_FEATURE(kWelcomeExperienceTestUnsupportedDevices,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enables the Welcome Tour that walks new users through ChromeOS System UI.
 BASE_FEATURE(kWelcomeTour, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -2024,6 +1999,14 @@ BASE_FEATURE(kDeviceActiveClientChurnObservationCheckMembership,
 // Enables or disables attaching first active week and last powerwash week to
 // the churn observation check in ping.
 BASE_FEATURE(kDeviceActiveClientChurnObservationNewDeviceMetadata,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables or disables persisting device config (networks, EULA acceptance...)
+// over a powerwash that happens as part of a device move to a new domain
+BASE_FEATURE(kDeviceMoveConfigSave, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables the DeviceWeeklyScheduledSuspend policy for Managed Guest Sessions.
+BASE_FEATURE(kDeviceWeeklyScheduledSuspendMgs,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables peripheral customization to be split per device.
@@ -2182,6 +2165,10 @@ BASE_FEATURE(kHappinessTrackingLauncherAppsNeeding,
 
 // Enables the Happiness Tracking System for the Office integration.
 BASE_FEATURE(kHappinessTrackingOffice, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables the Happiness Tracking System for the slow and laggy survery.
+BASE_FEATURE(kHappinessTrackingSystemSlowAndLaggyDeepDive,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables new UX for files policy restrictions on ChromeOS.
 BASE_FEATURE(kNewFilesPolicyUX, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -2485,6 +2472,10 @@ bool IsDemoModeSignInFileCleanupEnabled() {
 
 bool IsDeskTemplateSyncEnabled() {
   return base::FeatureList::IsEnabled(kDeskTemplateSync);
+}
+
+bool IsDeviceMoveConfigSaveEnabled() {
+  return base::FeatureList::IsEnabled(kDeviceMoveConfigSave);
 }
 
 bool IsDisplayPerformanceModeEnabled() {
@@ -2832,21 +2823,12 @@ bool IsLobsterEnabledForManagedUsers() {
   return base::FeatureList::IsEnabled(kLobsterForManagedUsers);
 }
 
-bool IsLockScreenHideSensitiveNotificationsSupported() {
-  return base::FeatureList::IsEnabled(
-      kLockScreenHideSensitiveNotificationsSupport);
-}
-
 bool AreGameDashboardUtilitiesEnabled() {
   return base::FeatureList::IsEnabled(kGameDashboardUtilities);
 }
 
 bool IsAppLaunchShortcutEnabled() {
   return base::FeatureList::IsEnabled(kAppLaunchShortcut);
-}
-
-bool IsLockScreenNotificationsEnabled() {
-  return base::FeatureList::IsEnabled(kLockScreenNotifications);
 }
 
 bool IsProductivityLauncherImageSearchEnabled() {
@@ -3139,10 +3121,6 @@ bool IsSeparateWebAppShortcutBadgeIconEnabled() {
   return base::FeatureList::IsEnabled(kSeparateWebAppShortcutBadgeIcon);
 }
 
-bool IsSettingsAppThemeChangeAnimationEnabled() {
-  return base::FeatureList::IsEnabled(kSettingsAppThemeChangeAnimation);
-}
-
 bool IsShimlessRMAOsUpdateEnabled() {
   return base::FeatureList::IsEnabled(kShimlessRMAOsUpdate);
 }
@@ -3299,11 +3277,6 @@ bool IsVcWebApiEnabled() {
 
 bool IsWallpaperFastRefreshEnabled() {
   return base::FeatureList::IsEnabled(kWallpaperFastRefresh);
-}
-
-bool IsWelcomeExperienceTestUnsupportedDevicesEnabled() {
-  return IsPeripheralCustomizationEnabled() &&
-         base::FeatureList::IsEnabled(kWelcomeExperienceTestUnsupportedDevices);
 }
 
 bool IsWelcomeTourChromeVoxSupported() {

@@ -10,6 +10,7 @@
 #if BUILDFLAG(IOS_USE_BRANDED_ASSETS)
 NSString* const kGeminiFullSymbol = @"gemini_full";
 NSString* const kGeminiBrandedLogoSymbol = @"gemini_logo";
+NSString* const kGeminiLiveLogoSymbol = @"gemini_live";
 NSString* const kGoogleDriveSymbol = @"google_drive";
 NSString* const kGoogleFullSymbol = @"google_full";
 NSString* const kGoogleIconSymbol = @"google_icon";
@@ -84,8 +85,9 @@ NSString* const kPlusCircleFillSymbol = @"plus_circle_fill";
 NSString* const kPDFFillSymbol = @"pdf_fill";
 NSString* const kLineThreeSparkSymbol = @"line_three_spark";
 NSString* const kDocumentBadgeSpark = @"document_badge_spark";
+NSString* const kBagSparkSymbol = @"bag_spark";
+NSString* const kTruckBoxSparkSymbol = @"truck_box_spark";
 NSString* const kDeepSearchSymbol = @"deep_search";
-NSString* const kGeminiLiveLogoSymbol = @"gemini_live";
 
 // Use custom symbol for camera because the default video icon in iOS should
 // always represent “Apple Facetime”.
@@ -153,6 +155,9 @@ NSString* const kAirplaneUpRightSymbol = @"airplane.up.right";
 NSString* const kSuitcaseSymbol = @"suitcase";
 NSString* const kCarSymbol = @"car";
 NSString* const kCreditCardSymbol = @"creditcard";
+NSString* const kWalletBifoldSymbol = @"wallet.bifold";
+NSString* const kBagSymbol = @"bag";
+NSString* const kTruckBoxSymbol = @"truck.box";
 NSString* const kMicrophoneFillSymbol = @"mic.fill";
 NSString* const kMicrophoneSymbol = @"mic";
 NSString* const kMagnifyingglassSymbol = @"magnifyingglass";

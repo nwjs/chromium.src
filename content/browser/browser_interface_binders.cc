@@ -30,10 +30,10 @@
 #include "content/browser/browser_context_impl.h"
 #include "content/browser/browser_main_loop.h"
 #include "content/browser/browsing_topics/browsing_topics_document_host.h"
-#include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/contacts/contacts_manager_impl.h"
 #include "content/browser/content_index/content_index_service_impl.h"
 #include "content/browser/cookie_store/cookie_store_manager.h"
+#include "content/browser/declarative_performance_observer/declarative_performance_observer.h"
 #include "content/browser/device_posture/device_posture_provider_impl.h"
 #include "content/browser/eye_dropper_chooser_impl.h"
 #include "content/browser/handwriting/handwriting_recognition_service_factory.h"
@@ -65,6 +65,7 @@
 #include "content/browser/renderer_host/media/video_capture_host.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/browser/renderer_host/render_process_host_impl.h"
+#include "content/browser/security/cpsp/child_process_security_policy_impl.h"
 #include "content/browser/service_worker/service_worker_context_core.h"
 #include "content/browser/service_worker/service_worker_host.h"
 #include "content/browser/shared_storage/shared_storage_worklet_host.h"
@@ -198,6 +199,7 @@
 #include "third_party/blink/public/mojom/speculation_rules/speculation_rules.mojom.h"
 #include "third_party/blink/public/mojom/speech/speech_synthesis.mojom.h"
 #include "third_party/blink/public/mojom/storage_access/storage_access_handle.mojom.h"
+#include "third_party/blink/public/mojom/timing/declarative_performance_observer.mojom.h"
 #include "third_party/blink/public/mojom/usb/web_usb_service.mojom.h"
 #include "third_party/blink/public/mojom/wake_lock/wake_lock.mojom.h"
 #include "third_party/blink/public/mojom/web_install/web_install.mojom.h"
@@ -302,6 +304,15 @@ void BindTextDetection(
 void BindWebNNContextProviderForRenderFrame(
     RenderFrameHost* host,
     mojo::PendingReceiver<webnn::mojom::WebNNContextProvider> receiver) {
+  if (!host->IsFeatureEnabled(
+          network::mojom::PermissionsPolicyFeature::kWebNN)) {
+    bad_message::ReceivedBadMessage(
+        host->GetProcess(),
+        bad_message::BadMessageReason::
+            BIBI_BIND_WEBNN_CONTEXT_PROVIDER_BLOCKED_BY_PERMISSIONS_POLICY);
+    return;
+  }
+
   auto* process_host = static_cast<RenderProcessHostImpl*>(host->GetProcess());
   const bool is_incognito = host->GetBrowserContext()->IsOffTheRecord();
 #if BUILDFLAG(IS_MAC)
@@ -316,9 +327,34 @@ void BindWebNNContextProviderForRenderFrame(
 }
 
 template <typename WorkerHost>
+bool IsWebNNPermissionsPolicyBlocked(WorkerHost* host) {
+  if constexpr (std::is_same_v<WorkerHost, DedicatedWorkerHost>) {
+    auto* ancestor_render_frame_host =
+        RenderFrameHostImpl::FromID(host->GetAncestorRenderFrameHostId());
+    return !ancestor_render_frame_host ||
+           !ancestor_render_frame_host->IsFeatureEnabled(
+               network::mojom::PermissionsPolicyFeature::kWebNN);
+  } else {
+    // Shared workers and service workers don't have a single parent document
+    // to inherit permissions policy from. Disable WebNN until the
+    // permissions policy specification defines behavior for these contexts.
+    // See https://github.com/w3c/webappsec-permissions-policy/issues/207.
+    return true;
+  }
+}
+
+template <typename WorkerHost>
 void BindWebNNContextProviderForWorker(
     WorkerHost* host,
     mojo::PendingReceiver<webnn::mojom::WebNNContextProvider> receiver) {
+  if (IsWebNNPermissionsPolicyBlocked(host)) {
+    bad_message::ReceivedBadMessage(
+        host->GetProcessHost(),
+        bad_message::BadMessageReason::
+            BIBI_BIND_WEBNN_CONTEXT_PROVIDER_BLOCKED_BY_PERMISSIONS_POLICY);
+    return;
+  }
+
   auto* process_host =
       static_cast<RenderProcessHostImpl*>(host->GetProcessHost());
   const bool is_incognito = process_host->GetBrowserContext()->IsOffTheRecord();
@@ -336,6 +372,15 @@ void BindWebNNContextProviderForWorker(
 void BindWebNNWeightsFileCreatorForRenderFrame(
     RenderFrameHost* host,
     mojo::PendingReceiver<webnn::mojom::WebNNWeightsFileCreator> receiver) {
+  if (!host->IsFeatureEnabled(
+          network::mojom::PermissionsPolicyFeature::kWebNN)) {
+    bad_message::ReceivedBadMessage(
+        host->GetProcess(),
+        bad_message::BadMessageReason::
+            BIBI_BIND_WEBNN_WEIGHTS_FILE_CREATOR_BLOCKED_BY_PERMISSIONS_POLICY);
+    return;
+  }
+
   const bool is_incognito = host->GetBrowserContext()->IsOffTheRecord();
   webnn::WeightsFileCreatorImpl::Create(std::move(receiver), is_incognito);
 }
@@ -344,6 +389,14 @@ template <typename WorkerHost>
 void BindWebNNWeightsFileCreatorForWorker(
     WorkerHost* host,
     mojo::PendingReceiver<webnn::mojom::WebNNWeightsFileCreator> receiver) {
+  if (IsWebNNPermissionsPolicyBlocked(host)) {
+    bad_message::ReceivedBadMessage(
+        host->GetProcessHost(),
+        bad_message::BadMessageReason::
+            BIBI_BIND_WEBNN_WEIGHTS_FILE_CREATOR_BLOCKED_BY_PERMISSIONS_POLICY);
+    return;
+  }
+
   const bool is_incognito =
       host->GetProcessHost()->GetBrowserContext()->IsOffTheRecord();
   webnn::WeightsFileCreatorImpl::Create(std::move(receiver), is_incognito);
@@ -837,6 +890,8 @@ void PopulateBinderMapWithContext(
     map->Add<blink::mojom::BrowsingTopicsDocumentService>(
         &BrowsingTopicsDocumentHost::CreateMojoService);
   }
+  map->Add<blink::mojom::DeclarativePerformanceObserverHost>(
+      base::BindRepeating(&DeclarativePerformanceObserver::Bind));
 #if !BUILDFLAG(IS_ANDROID)
   map->Add<blink::mojom::DirectSocketsService>(
       &DirectSocketsServiceImpl::CreateForFrame);
@@ -905,19 +960,8 @@ void PopulateBinderMapWithContext(
         &BindRenderFrameHostImpl<&RenderFrameHostImpl::GetFontAccessManager>);
   }
 
-  map->Add<device::mojom::GamepadHapticsManager>(base::BindRepeating(
-      [](RenderFrameHost* host,
-         mojo::PendingReceiver<device::mojom::GamepadHapticsManager> receiver) {
-        if (!host->IsFeatureEnabled(
-                network::mojom::PermissionsPolicyFeature::kGamepad)) {
-          bad_message::ReceivedBadMessage(
-              host->GetProcess(),
-              bad_message::BadMessageReason::
-                  BIBI_BIND_GAMEPAD_HAPTICS_MANAGER_BLOCKED_BY_PERMISSIONS_POLICY);
-          return;
-        }
-        device::GamepadHapticsManager::Create(host, std::move(receiver));
-      }));
+  map->Add<device::mojom::GamepadHapticsManager>(
+      &device::GamepadHapticsManager::Create);
 
   map->Add<blink::mojom::GeolocationService>(
       &BindRenderFrameHostImpl<&RenderFrameHostImpl::GetGeolocationService>);
@@ -925,9 +969,26 @@ void PopulateBinderMapWithContext(
   map->Add<blink::mojom::IdleManager>(
       &BindRenderFrameHostImpl<&RenderFrameHostImpl::BindIdleManager>);
 
+#if BUILDFLAG(IS_P2P_ENABLED) || BUILDFLAG(ENABLE_MDNS)
+  // TODO(447954811): Remove the fenced frames check if we end up supporting
+  // Connection Allowlist for fenced frames.
+  bool should_ban_p2p_for_connection_allowlist =
+      host->HasPolicyContainerHost() &&
+      host->policy_container_host()
+          ->connection_allowlists()
+          .enforced.has_value() &&
+      host->policy_container_host()
+              ->connection_allowlists()
+              .enforced->webrtc_behavior ==
+          network::ConnectionAllowlist::WebRtcBehavior::kBlock &&
+      !host->IsNestedWithinFencedFrame();
+# endif  // BUILDFLAG(IS_P2P_ENABLED) || BUILDFLAG(ENABLE_MDNS)
+
 #if BUILDFLAG(ENABLE_MDNS)
-  map->Add<network::mojom::MdnsResponder>(
+  if (!should_ban_p2p_for_connection_allowlist) {
+    map->Add<network::mojom::MdnsResponder>(
       &BindRenderFrameHostImpl<&RenderFrameHostImpl::CreateMdnsResponder>);
+  }
 #endif  // BUILDFLAG(ENABLE_MDNS)
 
   // BrowserMainLoop::GetInstance() may be null on unit tests.
@@ -952,15 +1013,6 @@ void PopulateBinderMapWithContext(
           blink::features::kFencedFramesLocalUnpartitionedDataAccess) &&
       host->IsNestedWithinFencedFrame();
 
-  bool should_ban_p2p_for_connection_allowlist =
-      host->HasPolicyContainerHost() &&
-      host->policy_container_host()
-          ->connection_allowlists()
-          .enforced.has_value() &&
-      host->policy_container_host()
-              ->connection_allowlists()
-              .enforced->webrtc_behavior ==
-          network::ConnectionAllowlist::WebRtcBehavior::kBlock;
   if (!should_ban_p2p_for_fenced_frames &&
       !should_ban_p2p_for_connection_allowlist) {
     map->Add<network::mojom::P2PSocketManager>(&BindSocketManager);
@@ -1023,19 +1075,7 @@ void PopulateBinderMapWithContext(
       base::ThreadPool::CreateSequencedTaskRunner(
           {base::MayBlock(), base::TaskPriority::USER_VISIBLE}));
 
-  map->Add<device::mojom::GamepadMonitor>(base::BindRepeating(
-      [](RenderFrameHost* host,
-         mojo::PendingReceiver<device::mojom::GamepadMonitor> receiver) {
-        if (!host->IsFeatureEnabled(
-                network::mojom::PermissionsPolicyFeature::kGamepad)) {
-          bad_message::ReceivedBadMessage(
-              host->GetProcess(),
-              bad_message::BadMessageReason::
-                  BIBI_BIND_GAMEPAD_MONITOR_BLOCKED_BY_PERMISSIONS_POLICY);
-          return;
-        }
-        device::GamepadMonitor::Create(host, std::move(receiver));
-      }));
+  map->Add<device::mojom::GamepadMonitor>(&device::GamepadMonitor::Create);
 
   map->Add<blink::mojom::WebSensorProvider>(
       &BindRenderFrameHostImpl<&RenderFrameHostImpl::GetSensorProvider>);
@@ -1355,6 +1395,9 @@ void PopulateBinderMapWithContext(
   map->Add<blink::mojom::FederatedAuthRequest>(
       &BindRenderFrameHostImpl<
           &RenderFrameHostImpl::BindFederatedAuthRequestReceiver>);
+  map->Add<blink::mojom::FederatedRequestService>(
+      &BindRenderFrameHostImpl<
+          &RenderFrameHostImpl::BindFederatedRequestServiceReceiver>);
   map->Add<payments::mojom::SecurePaymentConfirmationService>(
       &BindRenderFrameHostImpl<
           &RenderFrameHostImpl::CreateSecurePaymentConfirmationService>);

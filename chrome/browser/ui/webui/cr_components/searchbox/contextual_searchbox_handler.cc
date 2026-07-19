@@ -37,12 +37,20 @@
 #include "chrome/browser/feature_engagement/non_iph_promo.h"
 #include "chrome/browser/feature_engagement/tracker_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/tab_list/tab_list_interface_observer.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/contextual_search/desktop_query_contextualizer_delegate.h"
 #include "chrome/browser/ui/contextual_search/tab_contextualization_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
+#include "chrome/browser/ui/omnibox/omnibox_next_features.h"
+
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/ui/omnibox/omnibox_everywhere_service.h"
+#include "chrome/browser/ui/omnibox/omnibox_everywhere_service_factory.h"
+#endif
+#include "chrome/browser/ui/webui/cr_components/searchbox/contextual_searchbox_tab_favicon_helper.h"
 #include "chrome/browser/ui/webui/cr_components/searchbox/searchbox_utils.h"
 #include "chrome/browser/ui/webui/new_tab_page/composebox/variations/composebox_fieldtrial.h"
 #include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_web_contents_helper.h"
@@ -82,13 +90,17 @@
 #include "ui/base/window_open_disposition_utils.h"
 
 #if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/lens/lens_overlay_entry_point_controller.h"
 #include "chrome/browser/ui/lens/lens_search_controller.h"
 #include "chrome/browser/ui/lens/lens_search_feature_flag_utils.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/drive_picker_host/drive_picker_host_controller.h"
 #include "chrome/browser/ui/views/drive_picker_host/drive_picker_sanitizer.h"
+#include "chrome/browser/ui/webui/drive_picker_host/drive_disclaimer_controller.h"
 #include "chrome/browser/ui/webui/drive_picker_host/drive_picker_host_request.h"
+#include "components/contextual_search/footprints/public/fpop_service.h"
+#include "content/public/browser/storage_partition.h"
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 namespace {
@@ -181,7 +193,7 @@ ContextualOmniboxClient::GetLensOverlaySuggestInputs() const {
 }
 
 int ContextualSearchboxHandler::GetContextMenuMaxTabSuggestions() {
-  omnibox::InputState input_state = GetInputState();
+  omnibox::InputState input_state = GetValidInputState();
   if (auto it = input_state.max_inputs_by_type.find(
           omnibox::InputType::INPUT_TYPE_BROWSER_TAB);
       it != input_state.max_inputs_by_type.end()) {
@@ -191,6 +203,11 @@ int ContextualSearchboxHandler::GetContextMenuMaxTabSuggestions() {
 }
 
 void ContextualSearchboxHandler::GetRecentTabs(GetRecentTabsCallback callback) {
+  if (!IsContextualSearchTabSharingEligible()) {
+    std::move(callback).Run({});
+    return;
+  }
+
   auto* browser_window_interface =
       webui::GetBrowserWindowInterface(web_contents_);
   if (!browser_window_interface) {
@@ -297,6 +314,11 @@ void ContextualSearchboxHandler::GetRecentTabs(GetRecentTabsCallback callback) {
 
 void ContextualSearchboxHandler::GetTabPreview(int32_t tab_id,
                                                GetTabPreviewCallback callback) {
+  if (!IsContextualSearchTabSharingEligible()) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+
   const tabs::TabHandle handle = tabs::TabHandle(tab_id);
   tabs::TabInterface* const tab = handle.Get();
   if (!tab) {
@@ -338,6 +360,12 @@ ContextualSearchboxHandler::CreateTabPreviewEncodingOptions(
                                     .max_width = max_width_pixels};
 }
 
+void ContextualSearchboxHandler::WaitForTabFaviconLoad(
+    int32_t tab_id,
+    WaitForTabFaviconLoadCallback callback) {
+  tab_favicon_helper_->WaitForTabFaviconLoad(tab_id, std::move(callback));
+}
+
 ContextualSearchboxHandler::ContextualSearchboxHandler(
     mojo::PendingReceiver<searchbox::mojom::PageHandler>
         pending_searchbox_handler,
@@ -353,6 +381,7 @@ ContextualSearchboxHandler::ContextualSearchboxHandler(
                        std::move(controller)),
       get_session_callback_(std::move(get_session_callback)) {
   InitializeInputStateModel();
+  tab_favicon_helper_ = std::make_unique<ContextualSearchboxTabFaviconHelper>();
 
   auto* browser_window_interface =
       webui::GetBrowserWindowInterface(web_contents_);
@@ -452,6 +481,15 @@ ContextualSearchboxHandler::~ContextualSearchboxHandler() {
   if (context_controller_) {
     context_controller_->RemoveObserver(this);
   }
+
+  // The `drive_upload_click_callback_` might be non-null if the handler is
+  // destroyed (e.g. due to the user closing the window/tab) while the drive
+  // picker UI is open. The callback must be run with a default response to
+  // satisfy Mojo's response callback validation before destruction.
+  if (!drive_upload_click_callback_.is_null()) {
+    std::move(drive_upload_click_callback_)
+        .Run(searchbox::mojom::DriveUploadResponse::New());
+  }
   // Ensure any selected tabs are cleared when shutting down.
   if (base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox)) {
     if (auto* active_task_context_provider = GetActiveTaskContextProvider()) {
@@ -492,17 +530,39 @@ omnibox::InputState ContextualSearchboxHandler::GetInputState() const {
   return omnibox::InputState();
 }
 
+// Returns the current input state. Unlike `GetInputState() const`, this method
+// ensures the underlying `InputStateModel` is cleanly re-initialized if its
+// weak pointer gets invalidated (e.g. when the window completes startup on Mac
+// and updates its active WebContents context).
+omnibox::InputState ContextualSearchboxHandler::GetValidInputState() {
+  if (!input_state_model_) {
+    InitializeInputStateModel();
+  }
+  if (input_state_model_) {
+    return input_state_model_->GetInputState();
+  }
+  return omnibox::InputState();
+}
+
 std::string ContextualSearchboxHandler::GetPreviousQuery() {
   auto* contextual_session_handle = GetContextualSessionHandle();
-  return contextual_session_handle ? contextual_session_handle->previous_query()
-                                   : std::string();
+  return contextual_session_handle &&
+                 !contextual_session_handle->previous_turns().empty()
+             ? contextual_session_handle->previous_turns().back().query
+             : std::string();
 }
 
 bool ContextualSearchboxHandler::IsSmartTabSharingActive() const {
+  if (!IsContextualSearchTabSharingEligible()) {
+    return false;
+  }
   if (smart_tab_sharing_active_for_thread_.has_value()) {
     return *smart_tab_sharing_active_for_thread_;
   }
-  if (profile_) {
+  if (profile_ &&
+      base::FeatureList::IsEnabled(
+          contextual_tasks::
+              kContextualTasksContextSmartTabSharingDefaultOnAvailability)) {
     return profile_->GetPrefs()->GetBoolean(
         contextual_tasks::kContextualTasksShareOpenTabsEveryThread);
   }
@@ -635,7 +695,7 @@ void ContextualSearchboxHandler::AddFileContextFromBrowser(
 
   omnibox::InputType input_type = GetInputType(mime_type, image_mime_types);
 
-  omnibox::InputState input_state = GetInputState();
+  omnibox::InputState input_state = GetValidInputState();
 
   if (input_state.active_tool == omnibox::TOOL_MODE_DEEP_SEARCH) {
     std::move(callback).Run(
@@ -781,6 +841,12 @@ void ContextualSearchboxHandler::ContinueAddTabContext(
 void ContextualSearchboxHandler::AddTabContext(int32_t tab_id,
                                                bool delay_upload,
                                                AddTabContextCallback callback) {
+  if (!IsContextualSearchTabSharingEligible()) {
+    std::move(callback).Run(base::unexpected(
+        contextual_search::ContextUploadErrorType::kBrowserProcessingError));
+    return;
+  }
+
   if (!contextual_search::ContextualSearchService::IsContextSharingEnabled(
           profile_->GetPrefs())) {
     std::move(callback).Run(base::unexpected(
@@ -827,7 +893,7 @@ void ContextualSearchboxHandler::OnSelection(
   bool count_limit_hit = false;
   bool size_limit_hit = false;
   const size_t max_total_inputs =
-      static_cast<size_t>(GetInputState().max_total_inputs);
+      static_cast<size_t>(GetValidInputState().max_total_inputs);
   if (max_total_inputs == 0) {
     std::move(drive_upload_click_callback_).Run(std::move(response));
     CleanupDrivePicker();
@@ -920,6 +986,7 @@ void ContextualSearchboxHandler::CleanupDrivePicker() {
 #if !BUILDFLAG(IS_ANDROID)
   drive_picker_result_handler_receiver_.reset();
   drive_picker_controller_.reset();
+  drive_disclaimer_controller_.reset();
 #endif
 }
 
@@ -934,24 +1001,34 @@ void ContextualSearchboxHandler::OnDriveUploadClicked(
       profile_->GetPrefs()));
 
   if (!drive_upload_click_callback_.is_null()) {
+    std::move(callback).Run(searchbox::mojom::DriveUploadResponse::New());
     return;
   }
-  drive_upload_click_callback_ = std::move(callback);
 
   if (drive_picker_result_handler_receiver_.is_bound()) {
+    std::move(callback).Run(searchbox::mojom::DriveUploadResponse::New());
     return;
   }
 
   auto* browser_window_interface =
       webui::GetBrowserWindowInterface(web_contents_);
   if (!browser_window_interface) {
+    std::move(callback).Run(searchbox::mojom::DriveUploadResponse::New());
     return;
   }
+
+  drive_upload_click_callback_ = std::move(callback);
 
   if (!drive_picker_controller_) {
     drive_picker_controller_ =
         std::make_unique<DrivePickerHostController>(browser_window_interface);
   }
+  // Binds the controller's close callback to OnCancel to ensure that if the
+  // user closes the widget (e.g. by pressing Escape), the entire session
+  // is cleanly reset and all C++ and WebUI state is torn down.
+  drive_picker_controller_->set_on_close_callback(
+      base::BindOnce(&ContextualSearchboxHandler::OnCancel,
+                     weak_ptr_factory_.GetWeakPtr()));
 
   drive_picker_result_handler_receiver_.reset();
 
@@ -1079,10 +1156,36 @@ void ContextualSearchboxHandler::InitializeInputStateModel() {
     input_state_model_->SetPrefService(profile_->GetPrefs());
   }
 
+  if (!IsContextualSearchTabSharingEligible()) {
+    input_state_model_->SetPermanentlyDisabledInputTypes(
+        {omnibox::InputType::INPUT_TYPE_BROWSER_TAB});
+  }
+
   input_state_subscription_ = input_state_model_->subscribe(
       base::BindRepeating(&ContextualSearchboxHandler::OnInputStateChanged,
                           weak_ptr_factory_.GetWeakPtr()));
   input_state_model_->Initialize();
+
+#if !BUILDFLAG(IS_ANDROID)
+  if (base::FeatureList::IsEnabled(
+          omnibox::kComposeboxDriveContextMenuOption)) {
+    if (auto* controller = GetDriveDisclaimerController()) {
+      controller->CheckDisclaimerStatusAsync(
+          base::BindOnce(&ContextualSearchboxHandler::OnDriveDisclaimerChecked,
+                         weak_ptr_factory_.GetWeakPtr()));
+    } else {
+      OnDriveDisclaimerChecked(drive_picker::DriveDisclaimerController::
+                                   DisclaimerStatus::kRestricted);
+    }
+  }
+#endif
+}
+
+bool ContextualSearchboxHandler::IsContextualSearchTabSharingEligible() const {
+  // The default implementation returns true. Inheritors (such as the side
+  // panel composebox) can override this to enforce custom or dynamic
+  // eligibility.
+  return true;
 }
 
 void ContextualSearchboxHandler::RecordTabAddedMetric(
@@ -1152,6 +1255,20 @@ void ContextualSearchboxHandler::RecordTabAddedMetric(
 
   metrics_recorder->RecordTabAddedMetrics(has_duplicate_title, recency_ranking,
                                           is_tab_suggestion_chip);
+
+  if (is_tab_suggestion_chip) {
+    metrics_recorder->RecordAttachmentButtonUsed(
+        contextual_search::ContextualSearchAttachmentButtonType::kSuggestedTab);
+  } else {
+    tabs::TabInterface* active_tab = tab_list->GetActiveTab();
+    if (active_tab == tab) {
+      metrics_recorder->RecordAttachmentButtonUsed(
+          contextual_search::ContextualSearchAttachmentButtonType::kCurrentTab);
+    } else {
+      metrics_recorder->RecordAttachmentButtonUsed(
+          contextual_search::ContextualSearchAttachmentButtonType::kRecentTab);
+    }
+  }
 #endif  // !BUILDFLAG(IS_ANDROID)
 }
 
@@ -1331,16 +1448,50 @@ void ContextualSearchboxHandler::SetSmartComposeStats(
   }
 }
 
-void ContextualSearchboxHandler::ShouldShowDriveDisclaimer(
-    ShouldShowDriveDisclaimerCallback callback) {
+void ContextualSearchboxHandler::GetDriveDisclaimerStatus(
+    GetDriveDisclaimerStatusCallback callback) {
   if (!base::FeatureList::IsEnabled(
           omnibox::kComposeboxDriveContextMenuOption)) {
-    std::move(callback).Run(false);
+    std::move(callback).Run(
+        searchbox::mojom::DriveDisclaimerStatus::kRestricted);
     return;
   }
-  bool accepted = profile_->GetPrefs()->GetBoolean(
-      contextual_search::kDriveDisclaimerAccepted);
-  std::move(callback).Run(!accepted);
+#if BUILDFLAG(IS_ANDROID)
+  std::move(callback).Run(searchbox::mojom::DriveDisclaimerStatus::kRestricted);
+#else
+  auto* controller = GetDriveDisclaimerController();
+  if (!controller) {
+    std::move(callback).Run(
+        searchbox::mojom::DriveDisclaimerStatus::kRestricted);
+    return;
+  }
+  controller->CheckDisclaimerStatusAsync(base::BindOnce(
+      [](GetDriveDisclaimerStatusCallback callback,
+         drive_picker::DriveDisclaimerController::DisclaimerStatus status) {
+        DVLOG(1) << "ContextualSearchboxHandler::GetDriveDisclaimerStatus "
+                    "callback: disclaimer status is "
+                 << drive_picker::DriveDisclaimerController::
+                        DisclaimerStatusToString(status);
+        switch (status) {
+          case drive_picker::DriveDisclaimerController::DisclaimerStatus::
+              kAccepted:
+            std::move(callback).Run(
+                searchbox::mojom::DriveDisclaimerStatus::kAccepted);
+            break;
+          case drive_picker::DriveDisclaimerController::DisclaimerStatus::
+              kNotAccepted:
+            std::move(callback).Run(
+                searchbox::mojom::DriveDisclaimerStatus::kNotAccepted);
+            break;
+          case drive_picker::DriveDisclaimerController::DisclaimerStatus::
+              kRestricted:
+            std::move(callback).Run(
+                searchbox::mojom::DriveDisclaimerStatus::kRestricted);
+            break;
+        }
+      },
+      std::move(callback)));
+#endif
 }
 
 void ContextualSearchboxHandler::OnDriveDisclaimerAccepted() {
@@ -1352,12 +1503,22 @@ void ContextualSearchboxHandler::QueryAutocomplete(
     const std::u16string& input,
     bool prevent_inline_autocomplete,
     uint32_t cursor_position) {
+  QueryAutocompleteWithSuggestInventory(
+      input, prevent_inline_autocomplete, cursor_position,
+      omnibox::SuggestInventory::SUGGEST_INVENTORY_DEFAULT);
+}
+
+void ContextualSearchboxHandler::QueryAutocompleteWithSuggestInventory(
+    const std::u16string& input,
+    bool prevent_inline_autocomplete,
+    uint32_t cursor_position,
+    omnibox::SuggestInventory suggest_inventory) {
   if (contextual_tasks_context_service_) {
     contextual_tasks_context_service_->OnTypedQuery();
   }
 
-  SearchboxHandler::QueryAutocomplete(input, prevent_inline_autocomplete,
-                                      cursor_position);
+  SearchboxHandler::QueryAutocompleteWithSuggestInventory(
+      input, prevent_inline_autocomplete, cursor_position, suggest_inventory);
 }
 
 void ContextualSearchboxHandler::OnContextUploadStatusChanged(
@@ -1380,7 +1541,8 @@ void ContextualSearchboxHandler::SubmitQuery(const std::string& query_text,
                                              bool alt_key,
                                              bool ctrl_key,
                                              bool meta_key,
-                                             bool shift_key) {
+                                             bool shift_key,
+                                             bool is_voice_search) {
   const WindowOpenDisposition disposition = ui::DispositionFromClick(
       /*middle_button=*/mouse_button == 1, alt_key, ctrl_key, meta_key,
       shift_key);
@@ -1392,12 +1554,15 @@ void ContextualSearchboxHandler::SubmitQuery(const std::string& query_text,
               /*is_prefetch=*/false));
 
   ContextualizeQueryAndOpenUrl(query_text, disposition, aim_entry_point,
-                               /*additional_params=*/{});
+                               /*additional_params=*/{}, is_voice_search);
 }
 
 void ContextualSearchboxHandler::MaybeTriggerSmartTabSharingPromo(
     const std::string& query,
     content::WebContents* web_contents_for_window) {
+  if (!IsContextualSearchTabSharingEligible()) {
+    return;
+  }
   if (!contextual_tasks_context_service_) {
     return;
   }
@@ -1410,6 +1575,15 @@ void ContextualSearchboxHandler::MaybeTriggerSmartTabSharingPromo(
         explicit_urls.push_back(*(file_info->tab_url));
       }
     }
+  }
+
+  contextual_tasks::ConversationThread conversation_thread;
+  conversation_thread.query = query;
+  if (auto* contextual_session_handle = GetContextualSessionHandle()) {
+    conversation_thread.previous_turns =
+        contextual_session_handle->previous_turns();
+    conversation_thread.shared_tab_titles =
+        contextual_session_handle->GetSubmittedContextTabTitles();
   }
 
   const bool is_eligible_for_promo =
@@ -1427,8 +1601,8 @@ void ContextualSearchboxHandler::MaybeTriggerSmartTabSharingPromo(
     }
     tab_selection_options.min_model_score = static_cast<float>(
         contextual_tasks::GetSmartTabSharingPromoScoreThreshold());
-    contextual_tasks_context_service_->GetRelevantTabsForQuery(
-        tab_selection_options, query, explicit_urls,
+    contextual_tasks_context_service_->GetRelevantTabsForConversationThread(
+        tab_selection_options, conversation_thread, explicit_urls,
         base::BindOnce(
             &ContextualSearchboxHandler::OnRelevantTabsReceivedToMaybeShowPromo,
             weak_ptr_factory_.GetWeakPtr()));
@@ -1442,8 +1616,9 @@ void ContextualSearchboxHandler::MaybeTriggerSmartTabSharingPromo(
       tab_selection_options.browser_window_interface =
           browser_window_interface->GetWeakPtr();
     }
-    contextual_tasks_context_service_->GetRelevantTabsForQuery(
-        tab_selection_options, query, explicit_urls, base::DoNothing());
+    contextual_tasks_context_service_->GetRelevantTabsForConversationThread(
+        tab_selection_options, conversation_thread, explicit_urls,
+        base::DoNothing());
   }
 }
 
@@ -1451,33 +1626,34 @@ void ContextualSearchboxHandler::ContextualizeQueryAndOpenUrl(
     const std::string& query_text,
     WindowOpenDisposition disposition,
     omnibox::ChromeAimEntryPoint aim_entry_point,
-    std::map<std::string, std::string> additional_params) {
+    std::map<std::string, std::string> additional_params,
+    bool is_voice_search) {
   MaybeTriggerSmartTabSharingPromo(query_text, web_contents_);
 
   if (query_contextualizer_) {
-    query_contextualizer_->Contextualize(
-        GetTaskId(), query_text, /*tabs_to_recontextualize=*/{},
-        /*tabs_to_force_contextualize=*/{},
-        /*on_ineligible_callback=*/base::DoNothing(),
-        /*on_processed_callback=*/base::DoNothing(),
-        base::BindOnce(
-            [](ContextualSearchboxHandler* self, const std::string& query,
-               WindowOpenDisposition disp,
-               omnibox::ChromeAimEntryPoint entry_point,
-               std::map<std::string, std::string> params,
-               base::WeakPtr<contextual_search::ContextualSearchSessionHandle>
-                   handle) {
-              self->ComputeAndOpenQueryUrl(query, disp, entry_point,
-                                           std::move(params));
-            },
-            base::Unretained(this), query_text, disposition, aim_entry_point,
-            std::move(additional_params)),
-        /*enable_smart_tab_selection=*/IsSmartTabSharingActive());
+    contextual_tasks::QueryContextualizer::ContextualizeParams params;
+    params.task_id = GetTaskId();
+    params.query_text = query_text;
+    params.on_ineligible_callback = base::DoNothing();
+    params.on_processed_callback = base::DoNothing();
+    params.complete_callback = base::BindOnce(
+        [](ContextualSearchboxHandler* self, const std::string& query,
+           WindowOpenDisposition disp, omnibox::ChromeAimEntryPoint entry_point,
+           std::map<std::string, std::string> params, bool voice,
+           base::WeakPtr<contextual_search::ContextualSearchSessionHandle>
+               handle) {
+          self->ComputeAndOpenQueryUrl(query, disp, entry_point,
+                                       std::move(params), voice);
+        },
+        base::Unretained(this), query_text, disposition, aim_entry_point,
+        std::move(additional_params), is_voice_search);
+    params.enable_smart_tab_selection = IsSmartTabSharingActive();
+    query_contextualizer_->Contextualize(std::move(params));
     return;
   }
 
   ComputeAndOpenQueryUrl(query_text, disposition, aim_entry_point,
-                         std::move(additional_params));
+                         std::move(additional_params), is_voice_search);
 }
 
 void ContextualSearchboxHandler::OnRelevantTabsReceivedToMaybeShowPromo(
@@ -1502,9 +1678,9 @@ void ContextualSearchboxHandler::ComputeAndOpenQueryUrl(
     const std::string& query_text,
     WindowOpenDisposition disposition,
     omnibox::ChromeAimEntryPoint aim_entry_point,
-    std::map<std::string, std::string> additional_params) {
+    std::map<std::string, std::string> additional_params,
+    bool is_voice_search) {
   auto* contextual_session_handle = GetContextualSessionHandle();
-  std::vector<const contextual_search::FileInfo*> file_info_list;
   if (contextual_session_handle) {
     // Upload the cached tab context if it exists.
     UploadSnapshotTabContextIfPresent();
@@ -1527,9 +1703,8 @@ void ContextualSearchboxHandler::ComputeAndOpenQueryUrl(
     search_url_request_info->query_text = query_text;
     search_url_request_info->additional_params = additional_params;
     search_url_request_info->aim_entry_point = aim_entry_point;
+    search_url_request_info->is_voice_search = is_voice_search;
 
-    file_info_list =
-        contextual_session_handle->GetController()->GetFileInfoList();
     // Do not keep tabs in composebox's 'future context to use' since this searchbox handler
     // will be destroyed when this query is submitted and AIM/cobrowsing opens via
     // `CreateSearchUrl`. Tabs are passed to cobrowse composebox through web contents instead.
@@ -1611,6 +1786,25 @@ void ContextualSearchboxHandler::OpenUrl(
     return;
   }
 
+#if !BUILDFLAG(IS_ANDROID)
+  // When the everywhere Omnibox is enabled, check to see if the current web
+  // contents is the everywhere omnibox popup -- if so redirect the open to
+  // the everywhere service.
+  // TODO(crbug.com/526405104): This should probably be moved to the client and
+  // be based on the page classification. The service's impl should also
+  // correctly pass on context like done below.
+  if (base::FeatureList::IsEnabled(omnibox::kOmniboxEverywhere)) {
+    if (web_contents_->GetVisibleURL().host() ==
+        chrome::kChromeUIOmniboxEverywhereHost) {
+      if (auto* service =
+              OmniboxEverywhereServiceFactory::GetForProfile(profile_)) {
+        service->OpenUrl(url, disposition);
+        return;
+      }
+    }
+  }
+#endif
+
   auto* contextual_session_handle = GetContextualSessionHandle();
 
   auto* contextual_session_service =
@@ -1621,6 +1815,8 @@ void ContextualSearchboxHandler::OpenUrl(
           contextual_session_handle->invocation_source());
   new_contextual_session_handle->set_submitted_context_tokens(
       contextual_session_handle->GetSubmittedContextTokens());
+  new_contextual_session_handle->set_submitted_tabs(
+      contextual_session_handle->submitted_tabs());
 
   // TODO(crbug.com/470404040): Determine what to do with the return
   // value of this call, or move this call to a different location.
@@ -1717,7 +1913,7 @@ void ContextualSearchboxHandler::OpenUrl(
   contextual_session_handle->ClearSubmittedContextTokens();
 }
 
-std::optional<base::Uuid> ContextualSearchboxHandler::GetTaskId() {
+std::optional<base::Uuid> ContextualSearchboxHandler::GetTaskId() const {
   if (!web_contents_) {
     return std::nullopt;
   }
@@ -1735,3 +1931,50 @@ ContextualSearchboxHandler::GetActiveTaskContextProvider() {
                    browser_window_interface)
              : nullptr;
 }
+
+#if !BUILDFLAG(IS_ANDROID)
+void ContextualSearchboxHandler::OnDriveDisclaimerChecked(
+    drive_picker::DriveDisclaimerController::DisclaimerStatus status) {
+  DVLOG(1) << "ContextualSearchboxHandler::OnDriveDisclaimerChecked: status is "
+           << drive_picker::DriveDisclaimerController::DisclaimerStatusToString(
+                  status);
+  if (!input_state_model_) {
+    return;
+  }
+
+  contextual_search::DriveConsentState consent_state =
+      contextual_search::DriveConsentState::kNotReady;
+  switch (status) {
+    case drive_picker::DriveDisclaimerController::DisclaimerStatus::kAccepted:
+      consent_state = contextual_search::DriveConsentState::kConsent;
+      break;
+    case drive_picker::DriveDisclaimerController::DisclaimerStatus::
+        kNotAccepted:
+      consent_state = contextual_search::DriveConsentState::kNotConsent;
+      break;
+    case drive_picker::DriveDisclaimerController::DisclaimerStatus::kRestricted:
+      consent_state = contextual_search::DriveConsentState::kRestricted;
+      break;
+  }
+
+  input_state_model_->SetDriveConsentState(consent_state);
+}
+
+drive_picker::DriveDisclaimerController*
+ContextualSearchboxHandler::GetDriveDisclaimerController() {
+  if (!drive_disclaimer_controller_) {
+    auto* identity_manager = IdentityManagerFactory::GetForProfile(profile_);
+    if (!identity_manager) {
+      return nullptr;
+    }
+    auto url_loader_factory = profile_->GetDefaultStoragePartition()
+                                  ->GetURLLoaderFactoryForBrowserProcess();
+    auto fpop_service = contextual_search::FpopService::Create(
+        identity_manager, std::move(url_loader_factory));
+    drive_disclaimer_controller_ =
+        std::make_unique<drive_picker::DriveDisclaimerController>(
+            std::move(fpop_service));
+  }
+  return drive_disclaimer_controller_.get();
+}
+#endif

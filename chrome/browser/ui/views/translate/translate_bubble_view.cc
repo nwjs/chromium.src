@@ -240,6 +240,14 @@ void TranslateBubbleView::Init() {
 }
 
 views::View* TranslateBubbleView::GetInitiallyFocusedView() {
+  // Focus the selected tab of the tabbed pane (source / target language tabs)
+  // initially when visible. Focus should not fall back to default focus
+  // traversal because it may set focus to the "Choose target language" button.
+  if (tabbed_pane_ && tabbed_pane_->GetVisible() &&
+      tabbed_pane_->GetSelectedTabIndex() !=
+          views::TabbedPaneTabStrip::kNoSelectedTab) {
+    return tabbed_pane_->GetTabAt(tabbed_pane_->GetSelectedTabIndex());
+  }
   return GetCurrentView()->GetNextFocusableView();
 }
 
@@ -688,6 +696,8 @@ std::unique_ptr<views::View> TranslateBubbleView::CreateView() {
             ui::kColorIcon, 16)));
     choose_language_button->SetProperty(views::kElementIdentifierKey,
                                         kChangeTargetLanguage);
+    choose_language_button->SetProperty(views::kMarginsKey,
+                                        gfx::Insets::TLBR(7, 0, 0, 0));
     view->AddChildView(std::move(choose_language_button));
   }
 
@@ -925,10 +935,15 @@ std::unique_ptr<views::View> TranslateBubbleView::CreateViewAdvancedTarget() {
   advanced_done_button_target_ = advanced_done_button.get();
   advanced_done_button_target_->SetProperty(views::kElementIdentifierKey,
                                             kTargetLanguageDoneButton);
+  // Use a different header title depending on whether the searchable target
+  // language UI is enabled.
+  int title_id =
+      base::FeatureList::IsEnabled(translate::kTranslateLanguageSearchUI)
+          ? IDS_TRANSLATE_HEADER
+          : IDS_TRANSLATE_BUBBLE_ADVANCED_TARGET;
   std::unique_ptr<views::Label> target_language_title_label =
-      std::make_unique<views::Label>(
-          l10n_util::GetStringUTF16(IDS_TRANSLATE_BUBBLE_ADVANCED_TARGET),
-          views::style::CONTEXT_DIALOG_TITLE);
+      std::make_unique<views::Label>(l10n_util::GetStringUTF16(title_id),
+                                     views::style::CONTEXT_DIALOG_TITLE);
 
   return CreateViewAdvanced(std::move(child_view),
                             std::move(target_language_title_label),
@@ -1131,6 +1146,16 @@ void TranslateBubbleView::SwitchView(
   }
 
   UpdateChildVisibilities();
+
+  // When the bubble menu transitions to the target language search view,
+  // request focus on the search bar instead of keeping it on the previous
+  // focused element.
+  if (view_state == TranslateBubbleModel::VIEW_STATE_TARGET_LANGUAGE &&
+      base::FeatureList::IsEnabled(translate::kTranslateLanguageSearchUI)) {
+    if (translate_language_search_view_) {
+      translate_language_search_view_->RequestFocus();
+    }
+  }
 
   if (view_state == TranslateBubbleModel::VIEW_STATE_AFTER_TRANSLATE) {
     AnnounceTextToScreenReader(l10n_util::GetStringFUTF16(

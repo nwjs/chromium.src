@@ -16,42 +16,40 @@
 #include "base/strings/string_util.h"
 #include "cc/paint/paint_flags.h"
 #include "cc/paint/paint_record.h"
-#include "cc/paint/paint_shader.h"
 #include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/tabs/tab_style.h"
-#include "chrome/browser/ui/tabs/tab_types.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_frame_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/themed_background.h"
 #include "chrome/browser/ui/views/tabs/tab.h"
 #include "chrome/browser/ui/views/tabs/tab/glow_hover_controller.h"
-#include "chrome/browser/ui/views/tabs/tab/tab_close_button.h"
 #include "chrome/browser/ui/views/tabs/tab_group_underline.h"
 #include "chrome/browser/ui/views/tabs/tab_slot_controller.h"
-#include "chrome/browser/ui/views/tabs/tab_slot_view.h"
 #include "chrome/grit/theme_resources.h"
-#include "components/tab_groups/tab_group_visual_data.h"
 #include "third_party/skia/include/core/SkPath.h"
 #include "third_party/skia/include/core/SkPathBuilder.h"
 #include "third_party/skia/include/core/SkRRect.h"
-#include "third_party/skia/include/core/SkScalar.h"
 #include "third_party/skia/include/pathops/SkPathOps.h"
 #include "ui/base/theme_provider.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/gfx/animation/tween.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/favicon_size.h"
-#include "ui/gfx/font_list.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/skia_conversions.h"
 #include "ui/gfx/scoped_canvas.h"
-#include "ui/views/controls/focus_ring.h"
 #include "ui/views/widget/widget.h"
 
 namespace {
+// The alpha to use when painting a background for a non active tab
+// in the glass frame. Note that we do not paint a background
+// for inactive tabs unless they are hovered.
+static constexpr float kGlassTabBackgroundAlpha = 0.5f;
+
 class TabStyleViewsImpl : public TabStyleViews {
  public:
   explicit TabStyleViewsImpl(Tab* tab);
@@ -75,30 +73,30 @@ class TabStyleViewsImpl : public TabStyleViews {
   void ShowHover(TabStyle::ShowHoverStyle style) override;
   void HideHover(TabStyle::HideHoverStyle style) override;
 
-  // Returns the color for the separator.
-  virtual SkColor GetTabSeparatorColor() const;
-
-  // Painting helper functions:
-  virtual SkColor GetCurrentTabBackgroundColor(
-      TabStyle::TabSelectionState selection_state,
-      bool hovered) const;
-
-  // Returns the thickness of the stroke drawn around the top and sides of the
-  // tab. Only active tabs may have a stroke, and not in all cases. If there
-  // is no stroke, returns 0. If `should_paint_as_active` is true, the tab is
-  // treated as an active tab regardless of its true current state.
-  virtual int GetStrokeThickness(bool should_paint_as_active) const;
-
-  virtual bool ShouldPaintTabBackgroundColor(
-      TabStyle::TabSelectionState selection_state,
-      bool has_custom_background) const;
-
   // Returns the progress (0 to 1) of the hover animation.
   double GetHoverAnimationValue() const override;
 
   GlowHoverController* GetHoverControllerForTesting() override {
     return hover_controller_.get();
   }
+
+ private:
+  // Returns the color for the separator.
+  SkColor GetTabSeparatorColor() const;
+
+  // Painting helper functions:
+  SkColor GetCurrentTabBackgroundColor(
+      TabStyle::TabSelectionState selection_state,
+      bool hovered) const;
+
+  // Returns the thickness of the stroke drawn around the top and sides of the
+  // tab. Only active tabs may have a stroke, and not in all cases. If there
+  // is no stroke, returns 0.
+  int GetStrokeThickness() const;
+
+  bool ShouldPaintTabBackgroundColor(
+      TabStyle::TabSelectionState selection_state,
+      bool has_custom_background) const;
 
   // Scales `bounds` by scale and aligns so that adjacent tabs meet up exactly
   // during painting.
@@ -112,7 +110,7 @@ class TabStyleViewsImpl : public TabStyleViews {
   // Returns a single separator's opacity based on whether it is the
   // logically `leading` separator. `for_layout` has the same meaning as in
   // GetSeparatorOpacities().
-  virtual float GetSeparatorOpacity(bool for_layout, bool leading) const;
+  float GetSeparatorOpacity(bool for_layout, bool leading) const;
 
   // Helper that returns an interpolated opacity if the tab or its neighbor
   // `other_tab` is mid-hover-animation. Used in almost all cases when a
@@ -123,7 +121,6 @@ class TabStyleViewsImpl : public TabStyleViews {
 
   TabStyle::TabSelectionState GetSelectionState() const;
 
- private:
   // Gets the bounds for the leading and trailing separators for a tab.
   TabStyle::SeparatorBounds GetSeparatorBounds(float scale) const;
 
@@ -142,30 +139,19 @@ class TabStyleViewsImpl : public TabStyleViews {
   // be the same as GetHoverAnimationValue.
   float GetHoverOpacity() const;
 
-  // In some platforms, the window caption buttons and tab search may not be on
-  // the left side of the tabstrip. The leading edge should be modified for
-  // those cases.
-  bool ShouldCompactLeadingEdge(TabStyle::PathType path_type) const;
-
   // Painting helper functions:
   void PaintTabBackground(gfx::Canvas* canvas,
-                          TabStyle::TabSelectionState selection_state,
                           bool hovered,
-                          std::optional<int> fill_id,
-                          int y_inset) const;
+                          std::optional<int> fill_id) const;
   void PaintTabBackgroundWithImages(
       gfx::Canvas* canvas,
       std::optional<int> active_tab_fill_id,
       std::optional<int> inactive_tab_fill_id) const;
   void PaintTabBackgroundFill(gfx::Canvas* canvas,
-                              TabStyle::TabSelectionState selection_state,
                               bool hovered,
-                              std::optional<int> fill_id,
-                              int y_inset) const;
-  virtual void PaintBackgroundHover(gfx::Canvas* canvas, float scale) const;
-  void PaintBackgroundStroke(gfx::Canvas* canvas,
-                             TabStyle::TabSelectionState selection_state,
-                             SkColor stroke_color) const;
+                              std::optional<int> fill_id) const;
+  void PaintBackgroundHover(gfx::Canvas* canvas, float scale) const;
+  void PaintBackgroundStroke(gfx::Canvas* canvas, SkColor stroke_color) const;
   void PaintSeparators(gfx::Canvas* canvas) const;
 
   // Returns true if the tab is the leftmost in a set of split tabs. In RTL,
@@ -201,9 +187,7 @@ SkPath TabStyleViewsImpl::GetPath(TabStyle::PathType path_type,
                                   float scale,
                                   const TabPathFlags& flags) const {
   CHECK(tab());
-  const int stroke_thickness = GetStrokeThickness(flags.force_active);
-
-  const TabStyle::TabSelectionState state = GetSelectionState();
+  const int stroke_thickness = GetStrokeThickness();
 
   // We'll do the entire path calculation in aligned pixels.
   // TODO(dfried): determine if we actually want to use `stroke_thickness` as
@@ -222,10 +206,7 @@ SkPath TabStyleViewsImpl::GetPath(TabStyle::PathType path_type,
                                   scale;
 
   // Selected, hover, and inactive tab fills are a detached squarcle tab.
-  if ((path_type == TabStyle::PathType::kFill &&
-       state != TabStyle::TabSelectionState::kActive) ||
-      path_type == TabStyle::PathType::kHighlight ||
-      path_type == TabStyle::PathType::kInteriorClip ||
+  if (path_type == TabStyle::PathType::kHighlight ||
       path_type == TabStyle::PathType::kHitTest) {
     float top_left_corner_radius = content_corner_radius;
     float top_right_corner_radius = content_corner_radius;
@@ -233,11 +214,8 @@ SkPath TabStyleViewsImpl::GetPath(TabStyle::PathType path_type,
     float bottom_right_corner_radius = content_corner_radius;
     float tab_height = GetLayoutConstant(LayoutConstant::kTabHeight) * scale;
 
-    // The tab displays favicon animations that can emerge from the toolbar. The
-    // interior clip needs to extend the entire height of the toolbar to support
-    // this. Detached tab shapes do not need to respect this.
-    if (path_type != TabStyle::PathType::kInteriorClip &&
-        path_type != TabStyle::PathType::kHitTest) {
+    // The hit test extends the full height to make it easier to select tabs.
+    if (path_type != TabStyle::PathType::kHitTest) {
       tab_height -= GetLayoutConstant(LayoutConstant::kTabStripPadding) * scale;
       tab_height -=
           GetLayoutConstant(LayoutConstant::kTabstripToolbarOverlap) * scale;
@@ -349,7 +327,7 @@ SkPath TabStyleViewsImpl::GetPath(TabStyle::PathType path_type,
 
   // Path-specific adjustments:
   const float stroke_adjustment = stroke_thickness * scale;
-  if (path_type == TabStyle::PathType::kFill ||
+  if (path_type == TabStyle::PathType::kActiveTab ||
       path_type == TabStyle::PathType::kBorder) {
     if (!IsRightSplitTab(tab())) {
       tab_left += 0.5f * stroke_adjustment;
@@ -362,16 +340,8 @@ SkPath TabStyleViewsImpl::GetPath(TabStyle::PathType path_type,
     tab_bottom -= 0.5f * stroke_adjustment;
     extension_corner_radius -= 0.5f * stroke_adjustment;
   }
-  const bool compact_left_to_bottom = ShouldCompactLeadingEdge(path_type);
 
   float left_extension_corner_radius = extension_corner_radius;
-  if (compact_left_to_bottom) {
-    left_extension_corner_radius =
-        (tab_style()->GetBottomCornerRadius() -
-         GetLayoutConstant(LayoutConstant::kToolbarCornerRadius)) *
-        scale;
-  }
-
   if (IsLeftSplitTab(tab())) {
     top_right_corner_radius = 0;
     // Assign half of the tab overlap to each of the split tabs.
@@ -510,8 +480,7 @@ void TabStyleViewsImpl::PaintTab(gfx::Canvas* canvas) const {
     PaintTabBackgroundWithImages(canvas, active_tab_fill_id,
                                  inactive_tab_fill_id);
   } else {
-    PaintTabBackground(canvas, GetSelectionState(), IsHoverAnimationActive(),
-                       std::nullopt, 0);
+    PaintTabBackground(canvas, IsHoverAnimationActive(), std::nullopt);
   }
 }
 
@@ -523,24 +492,21 @@ void TabStyleViewsImpl::PaintTabBackgroundWithImages(
   // we must paint them with the previous method of layering the active and
   // inactive images with two paint calls.
 
-  const int active_tab_y_inset = GetStrokeThickness(true);
   const TabStyle::TabSelectionState current_state = GetSelectionState();
 
   if (current_state == TabStyle::TabSelectionState::kActive) {
-    PaintTabBackground(canvas, TabStyle::TabSelectionState::kActive,
-                       /*hovered=*/false, active_tab_fill_id,
-                       active_tab_y_inset);
+    PaintTabBackground(canvas,
+                       /*hovered=*/false, active_tab_fill_id);
   } else {
-    PaintTabBackground(canvas, TabStyle::TabSelectionState::kInactive,
-                       /*hovered=*/false, inactive_tab_fill_id, 0);
+    PaintTabBackground(canvas,
+                       /*hovered=*/false, inactive_tab_fill_id);
 
     const float opacity = GetCurrentActiveOpacity();
     if (opacity > 0) {
       canvas->SaveLayerAlpha(base::ClampRound<uint8_t>(opacity * 0xff),
                              tab_->GetLocalBounds());
-      PaintTabBackground(canvas, TabStyle::TabSelectionState::kActive,
-                         /*hovered=*/false, active_tab_fill_id,
-                         active_tab_y_inset);
+      PaintTabBackground(canvas,
+                         /*hovered=*/false, active_tab_fill_id);
       canvas->Restore();
     }
   }
@@ -609,7 +575,7 @@ bool TabStyleViewsImpl::IsApparentlyActive() const {
   if (selection_state == TabStyle::TabSelectionState::kActive) {
     return true;
   }
-  if (!features::IsGlassFrameEnabled() && IsHovering()) {
+  if (IsHovering()) {
     return GetHoverOpacity() > 0.5f;
   }
   return selection_state == TabStyle::TabSelectionState::kSelected;
@@ -664,7 +630,7 @@ TabStyle::SeparatorBounds TabStyleViewsImpl::GetSeparatorBounds(
       original_bounds.height() -
           GetLayoutConstant(LayoutConstant::kTabstripToolbarOverlap));
   const gfx::RectF aligned_bounds =
-      ScaleAndAlignBounds(visible_bounds, scale, GetStrokeThickness(false));
+      ScaleAndAlignBounds(visible_bounds, scale, GetStrokeThickness());
   const int corner_radius = tab_style()->GetBottomCornerRadius() * scale;
   gfx::SizeF separator_size(tab_style()->GetSeparatorSize());
   separator_size.Scale(scale);
@@ -844,13 +810,13 @@ float TabStyleViewsImpl::GetHoverOpacity() const {
   return tab_->controller()->GetHoverOpacityForTab(t * t);
 }
 
-int TabStyleViewsImpl::GetStrokeThickness(bool should_paint_as_active) const {
+int TabStyleViewsImpl::GetStrokeThickness() const {
   std::optional<tab_groups::TabGroupId> group = tab_->group();
   if (group.has_value() && tab_->IsActive()) {
     return TabGroupUnderline::kStrokeThickness;
   }
 
-  if (tab_->IsActive() || should_paint_as_active) {
+  if (tab_->IsActive()) {
     return tab_->controller()->GetStrokeThickness();
   }
 
@@ -860,20 +826,22 @@ int TabStyleViewsImpl::GetStrokeThickness(bool should_paint_as_active) const {
 bool TabStyleViewsImpl::ShouldPaintTabBackgroundColor(
     TabStyle::TabSelectionState selection_state,
     bool has_custom_background) const {
-  if (features::IsGlassFrameEnabled()) {
-    return selection_state == TabStyle::TabSelectionState::kActive ||
-           GetHoverAnimationValue() > 0.0;
-  }
-
-  // In the active case, always paint the tab background. The fill image may be
-  // transparent.
-  if (selection_state == TabStyle::TabSelectionState::kActive) {
+  // In the active and selected cases, always paint the tab background. The fill
+  // image may be transparent.
+  if (selection_state == TabStyle::TabSelectionState::kActive ||
+      selection_state == TabStyle::TabSelectionState::kSelected) {
     return true;
   }
 
   // In the inactive case, the fill image is guaranteed to be opaque, so it's
   // not necessary to paint the background when there is one.
   if (has_custom_background) {
+    return false;
+  }
+
+  // In glass frame we will not show a background for inactive tabs.
+  // But we will have a hover effect.
+  if (features::IsGlassFrameEnabled()) {
     return false;
   }
 
@@ -900,15 +868,6 @@ SkColor TabStyleViewsImpl::GetCurrentTabBackgroundColor(
       tab()->GetWidget() ? tab()->GetWidget()->ShouldPaintAsActive() : true;
   const ui::ColorProvider* color_provider = tab()->GetColorProvider();
 
-  if (features::IsGlassFrameEnabled() &&
-      selection_state != TabStyle::TabSelectionState::kActive) {
-    const SkColor color = tab_style()->GetTabBackgroundColor(
-        selection_state, true, frame_active, color_provider);
-    return color_utils::AlphaBlend(
-        color, SK_ColorTRANSPARENT,
-        static_cast<float>(GetHoverAnimationValue()));
-  }
-
   return tab_style()->GetCurrentTabBackgroundColor(
       selection_state, hovered, GetHoverAnimationValue(), frame_active,
       color_provider);
@@ -926,25 +885,12 @@ TabStyle::TabSelectionState TabStyleViewsImpl::GetSelectionState() const {
   return TabStyle::TabSelectionState::kInactive;
 }
 
-bool TabStyleViewsImpl::ShouldCompactLeadingEdge(
-    TabStyle::PathType path_type) const {
-  // If the tab is the first in the list
-  return tab_->controller()->tab_at(0) == tab_ &&
-         tab_->controller()->ShouldCompactLeadingEdge();
-}
-
-void TabStyleViewsImpl::PaintTabBackground(
-    gfx::Canvas* canvas,
-    TabStyle::TabSelectionState selection_state,
-    bool hovered,
-    std::optional<int> fill_id,
-    int y_inset) const {
-  // `y_inset` is only set when `fill_id` is being used.
-  DCHECK(!y_inset || fill_id.has_value());
-
+void TabStyleViewsImpl::PaintTabBackground(gfx::Canvas* canvas,
+                                           bool hovered,
+                                           std::optional<int> fill_id) const {
   std::optional<SkColor> group_color = tab_->GetGroupColor();
 
-  PaintTabBackgroundFill(canvas, selection_state, hovered, fill_id, y_inset);
+  PaintTabBackgroundFill(canvas, hovered, fill_id);
 
   const auto* widget = tab_->GetWidget();
   DCHECK(widget);
@@ -952,21 +898,20 @@ void TabStyleViewsImpl::PaintTabBackground(
       tab_->GetWidget()->ShouldPaintAsActive() ? kColorTabStrokeFrameActive
                                                : kColorTabStrokeFrameInactive);
 
-  PaintBackgroundStroke(canvas, selection_state,
-                        group_color.value_or(tab_stroke_color));
+  PaintBackgroundStroke(canvas, group_color.value_or(tab_stroke_color));
   PaintSeparators(canvas);
 }
 
 void TabStyleViewsImpl::PaintTabBackgroundFill(
     gfx::Canvas* canvas,
-    TabStyle::TabSelectionState selection_state,
     bool hovered,
-    std::optional<int> fill_id,
-    int y_inset) const {
+    std::optional<int> fill_id) const {
+  const TabStyle::TabSelectionState selection_state = GetSelectionState();
   const SkPath fill_path =
-      GetPath(TabStyle::PathType::kFill, canvas->image_scale(),
-              {.force_active =
-                   selection_state == TabStyle::TabSelectionState::kActive});
+      GetPath(selection_state == TabStyle::TabSelectionState::kActive
+                  ? TabStyle::PathType::kActiveTab
+                  : TabStyle::PathType::kHighlight,
+              canvas->image_scale(), {});
   gfx::ScopedCanvas scoped_canvas(canvas);
   const float scale = canvas->UndoDeviceScaleFactor();
 
@@ -975,14 +920,20 @@ void TabStyleViewsImpl::PaintTabBackgroundFill(
   if (ShouldPaintTabBackgroundColor(selection_state, fill_id.has_value())) {
     cc::PaintFlags flags;
     flags.setAntiAlias(true);
-    flags.setColor(GetCurrentTabBackgroundColor(selection_state, hovered));
+
+    SkColor color = GetCurrentTabBackgroundColor(selection_state, hovered);
+    if (features::IsGlassFrameEnabled() &&
+        selection_state == TabStyle::TabSelectionState::kSelected) {
+      color =
+          SkColorSetA(color, static_cast<int>(255 * kGlassTabBackgroundAlpha));
+    }
+
+    flags.setColor(color);
     canvas->DrawRect(gfx::ScaleToEnclosingRect(tab_->GetLocalBounds(), scale),
                      flags);
   }
 
-  if (fill_id.has_value() &&
-      (!features::IsGlassFrameEnabled() ||
-       selection_state == TabStyle::TabSelectionState::kActive)) {
+  if (fill_id.has_value()) {
     gfx::ScopedCanvas scale_scoper(canvas);
     canvas->sk_canvas()->scale(scale, scale);
     gfx::ImageSkia* image =
@@ -993,8 +944,7 @@ void TabStyleViewsImpl::PaintTabBackgroundFill(
         image);
   }
 
-  if (hovered &&
-      (!features::IsGlassFrameEnabled() || GetHoverAnimationValue() > 0.0)) {
+  if (hovered) {
     PaintBackgroundHover(canvas, scale);
   }
 }
@@ -1002,12 +952,20 @@ void TabStyleViewsImpl::PaintTabBackgroundFill(
 void TabStyleViewsImpl::PaintBackgroundHover(gfx::Canvas* canvas,
                                              float scale) const {
   const SkPath fill_path =
-      GetPath(TabStyle::PathType::kHighlight, canvas->image_scale(),
-              {.force_active = true});
+      GetPath(TabStyle::PathType::kHighlight, canvas->image_scale(), {});
   canvas->ClipPath(fill_path, true);
 
-  const SkColor hover_color =
+  SkColor hover_color =
       GetCurrentTabBackgroundColor(GetSelectionState(), /*hovered=*/true);
+
+  if (features::IsGlassFrameEnabled() &&
+      GetSelectionState() != TabStyle::TabSelectionState::kActive) {
+    hover_color = SkColorSetA(
+        hover_color, static_cast<uint8_t>(SkColorGetA(hover_color) *
+                                          gfx::Tween::FloatValueBetween(
+                                              GetHoverAnimationValue(), 0.0f,
+                                              kGlassTabBackgroundAlpha)));
+  }
 
   cc::PaintFlags flags;
   flags.setAntiAlias(true);
@@ -1016,20 +974,16 @@ void TabStyleViewsImpl::PaintBackgroundHover(gfx::Canvas* canvas,
                    flags);
 }
 
-void TabStyleViewsImpl::PaintBackgroundStroke(
-    gfx::Canvas* canvas,
-    TabStyle::TabSelectionState selection_state,
-    SkColor stroke_color) const {
-  const bool is_active =
-      selection_state == TabStyle::TabSelectionState::kActive;
-  const int stroke_thickness = GetStrokeThickness(is_active);
+void TabStyleViewsImpl::PaintBackgroundStroke(gfx::Canvas* canvas,
+                                              SkColor stroke_color) const {
+  const int stroke_thickness = GetStrokeThickness();
   if (!stroke_thickness) {
     return;
   }
 
   SkPath outer_path =
       GetPath(TabStyle::PathType::kBorder, canvas->image_scale(),
-              {.force_active = is_active, .should_paint_extension = false});
+              {.should_paint_extension = false});
   gfx::ScopedCanvas scoped_canvas(canvas);
   float scale = canvas->UndoDeviceScaleFactor();
   cc::PaintFlags flags;

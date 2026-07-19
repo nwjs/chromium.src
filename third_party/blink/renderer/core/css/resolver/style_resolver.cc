@@ -1071,6 +1071,20 @@ bool IsInMediaUAShadow(const Element& element) {
   return outer_root->host().IsMediaElement();
 }
 
+void SetZoomedInitialBorderAndOutlineWidths(ComputedStyleBuilder& builder,
+                                            float zoom) {
+  builder.SetBorderTopWidth(StyleBuilderConverter::ClampLineWidth(
+      ComputedStyleInitialValues::InitialBorderTopWidth() * zoom));
+  builder.SetBorderRightWidth(StyleBuilderConverter::ClampLineWidth(
+      ComputedStyleInitialValues::InitialBorderRightWidth() * zoom));
+  builder.SetBorderBottomWidth(StyleBuilderConverter::ClampLineWidth(
+      ComputedStyleInitialValues::InitialBorderBottomWidth() * zoom));
+  builder.SetBorderLeftWidth(StyleBuilderConverter::ClampLineWidth(
+      ComputedStyleInitialValues::InitialBorderLeftWidth() * zoom));
+  builder.SetOutlineWidth(StyleBuilderConverter::ClampLineWidth(
+      ComputedStyleInitialValues::InitialOutlineWidth() * zoom));
+}
+
 }  // namespace
 
 template <typename Functor>
@@ -1393,6 +1407,11 @@ const ComputedStyle* StyleResolver::ResolveStyle(
                                   styles_animated, 1);
     StyleAdjuster::AdjustComputedStyle(
         state, IsForPseudoElement(*element, style_request) ? nullptr : element);
+    StyleAdjuster::RunUncacheableStyleAdjustment(
+        state.StyleBuilder(), *element,
+        IsForPseudoElement(*element, style_request) ? state.GetPseudoElement()
+                                                    : element,
+        state.GetStyledElement());
   }
 
   ApplyAnchorData(state);
@@ -1445,7 +1464,7 @@ const ComputedStyle* StyleResolver::ResolveStyle(
   GetDocument().AddViewportUnitFlags(state.StyleBuilder().ViewportUnitFlags());
 
   if (state.StyleBuilder().HasRootFontRelativeUnits()) {
-    GetDocument().GetStyleEngine().SetUsesRootFontRelativeUnits(true);
+    GetDocument().GetStyleEngine().SetUsesRootRelativeUnits(true);
   }
 
   if (state.StyleBuilder().HasGlyphRelativeUnits()) {
@@ -2017,6 +2036,11 @@ void StyleResolver::ApplyBaseStyle(
 
     StyleAdjuster::AdjustComputedStyle(
         state, IsForPseudoElement(*element, style_request) ? nullptr : element);
+    StyleAdjuster::RunUncacheableStyleAdjustment(
+        state.StyleBuilder(), *element,
+        IsForPseudoElement(*element, style_request) ? state.GetPseudoElement()
+                                                    : element,
+        state.GetStyledElement());
 
     // Normally done by StyleResolver::MaybeAddToMatchedPropertiesCache(),
     // when applying the cascade. Note that this is probably redundant
@@ -2349,17 +2373,7 @@ float StyleResolver::InitialZoom() const {
 
 const ComputedStyle* StyleResolver::CreateInitialStyle() const {
   ComputedStyleBuilder builder(*ComputedStyle::GetInitialStyleSingleton());
-  float initial_zoom = InitialZoom();
-  builder.SetBorderTopWidth(StyleBuilderConverter::ClampLineWidth(
-      ComputedStyleInitialValues::InitialBorderTopWidth() * initial_zoom));
-  builder.SetBorderRightWidth(StyleBuilderConverter::ClampLineWidth(
-      ComputedStyleInitialValues::InitialBorderRightWidth() * initial_zoom));
-  builder.SetBorderBottomWidth(StyleBuilderConverter::ClampLineWidth(
-      ComputedStyleInitialValues::InitialBorderBottomWidth() * initial_zoom));
-  builder.SetBorderLeftWidth(StyleBuilderConverter::ClampLineWidth(
-      ComputedStyleInitialValues::InitialBorderLeftWidth() * initial_zoom));
-  builder.SetOutlineWidth(StyleBuilderConverter::ClampLineWidth(
-      ComputedStyleInitialValues::InitialOutlineWidth() * initial_zoom));
+  SetZoomedInitialBorderAndOutlineWidths(builder, InitialZoom());
   return builder.TakeStyle();
 }
 
@@ -2838,6 +2852,16 @@ StyleResolver::CacheSuccess StyleResolver::ApplyMatchedCache(
     // properties on top of it.
     InitStyle(element, style_request, InitialStyle(), state.ParentStyle(),
               state.OriginatingElementStyle(), state);
+
+    // Initial border/outline widths come from `InitialStyle()` zoomed by
+    // `InitialZoom()`. Re-zoom them for an inherited effective zoom (e.g. from
+    // an ancestor's CSS zoom). Highlights clone the parent style instead, and
+    // the element's own zoom is handled later in the cascade.
+    if (!state.IsForHighlight() &&
+        state.ParentStyle()->EffectiveZoom() != InitialZoom()) {
+      SetZoomedInitialBorderAndOutlineWidths(
+          state.StyleBuilder(), state.ParentStyle()->EffectiveZoom());
+    }
 
     ExpandInheritedVisitedProperties(state);
 

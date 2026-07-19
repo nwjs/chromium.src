@@ -14,10 +14,11 @@ import type {CrIconElement} from 'chrome://resources/cr_elements/cr_icon/cr_icon
 import type {CrIconButtonElement} from 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {fakeMetricsPrivate} from 'chrome://webui-test/metrics_test_support.js';
 import {eventToPromise, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 import {TestContextualTasksBrowserProxy} from './test_contextual_tasks_browser_proxy.js';
-import {assertHTMLElement} from './test_utils.js';
+import {assertHTMLElement} from './contextual_tasks_test_utils.js';
 
 suite('TopToolbarTest', () => {
   let topToolbar: TopToolbarElement;
@@ -27,9 +28,11 @@ suite('TopToolbarTest', () => {
     proxy = new TestContextualTasksBrowserProxy(
         'chrome://webui-test/contextual_tasks/test.html');
     BrowserProxyImpl.setInstance(proxy);
+    loadTimeData.overrideValues({contextManagementInComposeboxEnabled: false});
   });
 
-  suite('Expand button enabled', () => {
+  (loadTimeData.getBoolean('isSmallDeviceFormFactor') ? suite.skip : suite)(
+      'Expand button enabled', () => {
     setup(() => {
       document.body.innerHTML = window.trustedTypes!.emptyHTML;
 
@@ -94,6 +97,23 @@ suite('TopToolbarTest', () => {
       assertFalse(historyButton.hidden);
     });
 
+    test('history button visibility with eligibility and signin', async () => {
+      const historyButton = topToolbar.$.threadHistoryButton;
+      assertTrue(!!historyButton);
+
+      topToolbar.isAiPage = true;
+
+      // Case 1: Signed In -> Visible
+      topToolbar.isUserSignedIn = true;
+      await microtasksFinished();
+      assertFalse(historyButton.hidden);
+
+      // Case 2: Signed Out -> Hidden
+      topToolbar.isUserSignedIn = false;
+      await microtasksFinished();
+      assertTrue(historyButton.hidden);
+    });
+
     test('handles close button click', async () => {
       const closeButton = topToolbar.$.closeButton;
       assertTrue(!!closeButton);
@@ -116,6 +136,7 @@ suite('TopToolbarTest', () => {
         tab: {
           title: 'Tab 1',
           url: 'https://example.com',
+          hasChromeTabData: false,
           tabId: 1,
         },
       }];
@@ -131,6 +152,7 @@ suite('TopToolbarTest', () => {
       const tab = {
         title: 'Tab 1',
         url: 'https://example.com',
+        hasChromeTabData: false,
         tabId: 1,
       };
       topToolbar.contextInfos = [{tab: tab}];
@@ -267,6 +289,7 @@ suite('TopToolbarTest', () => {
           tab: {
             title: 'Tab 1',
             url: 'https://example.com/1',
+            hasChromeTabData: false,
             tabId: 1,
           },
         },
@@ -274,6 +297,7 @@ suite('TopToolbarTest', () => {
           tab: {
             title: 'Tab 2',
             url: 'https://example.com/2',
+            hasChromeTabData: false,
             tabId: 2,
           },
         },
@@ -281,6 +305,7 @@ suite('TopToolbarTest', () => {
           tab: {
             title: 'Tab 3',
             url: 'https://example.com/3',
+            hasChromeTabData: false,
             tabId: 3,
           },
         },
@@ -304,6 +329,7 @@ suite('TopToolbarTest', () => {
           tab: {
             title: 'Tab 1',
             url: 'https://example.com/1',
+            hasChromeTabData: false,
             tabId: 1,
           },
         },
@@ -311,6 +337,7 @@ suite('TopToolbarTest', () => {
           tab: {
             title: 'Tab 2',
             url: 'https://example.com/2',
+            hasChromeTabData: false,
             tabId: 2,
           },
         },
@@ -318,6 +345,7 @@ suite('TopToolbarTest', () => {
           tab: {
             title: 'Tab 3',
             url: 'https://example.com/3',
+            hasChromeTabData: false,
             tabId: 3,
           },
         },
@@ -325,6 +353,7 @@ suite('TopToolbarTest', () => {
           tab: {
             title: 'Tab 4',
             url: 'https://example.com/4',
+            hasChromeTabData: false,
             tabId: 4,
           },
         },
@@ -355,12 +384,21 @@ suite('TopToolbarTest', () => {
     });
 
     test('handles pin button click', async () => {
+      const moreButton =
+          topToolbar.shadowRoot.querySelector<CrIconButtonElement>(
+              '#overflowMenuButton');
+      assertTrue(!!moreButton);
+      moreButton.click();
+      await microtasksFinished();
+
+      const menu = topToolbar.$.overflowMenu.get();
       const pinButton =
-          topToolbar.shadowRoot.querySelector<HTMLElement>('#pinButton');
+          menu.shadowRoot.querySelector<HTMLElement>('#pinButton');
       assertTrue(!!pinButton);
 
       // Initially unpinned.
-      assertEquals(pinButton.title, 'Pin side panel');
+      assertEquals(
+          pinButton.innerText.trim(), loadTimeData.getString('pinTooltip'));
 
       pinButton.click();
       await proxy.handler.whenCalled('pinSidePanel');
@@ -371,12 +409,21 @@ suite('TopToolbarTest', () => {
       proxy.callbackRouterRemote.onSidePanelPinStateChanged(true);
       await microtasksFinished();
 
+      const moreButton =
+          topToolbar.shadowRoot.querySelector<CrIconButtonElement>(
+              '#overflowMenuButton');
+      assertTrue(!!moreButton);
+      moreButton.click();
+      await microtasksFinished();
+
+      const menu = topToolbar.$.overflowMenu.get();
       const pinButton =
-          topToolbar.shadowRoot.querySelector<HTMLElement>('#pinButton');
+          menu.shadowRoot.querySelector<HTMLElement>('#pinButton');
       assertTrue(!!pinButton);
 
       // Now pinned.
-      assertEquals(pinButton.title, 'Unpin side panel');
+      assertEquals(
+          pinButton.innerText.trim(), loadTimeData.getString('unpinTooltip'));
 
       pinButton.click();
       await proxy.handler.whenCalled('unpinSidePanel');
@@ -391,13 +438,16 @@ suite('TopToolbarTest', () => {
         expandButtonEnabled: false,
         hideMenuOnAiPageEnabled: false,
         isAiPage: true,
+        enablePinButton: false,
       });
 
       topToolbar = document.createElement('top-toolbar');
       document.body.appendChild(topToolbar);
     });
 
-    test('handles more menu interactions', async () => {
+    const isPhone = loadTimeData.getBoolean('isSmallDeviceFormFactor');
+    (isPhone ? test.skip : test)('handles more menu interactions', async () => {
+      const metrics = fakeMetricsPrivate();
       const moreButton =
           topToolbar.shadowRoot.querySelector<CrIconButtonElement>(
               '#overflowMenuButton');
@@ -410,6 +460,14 @@ suite('TopToolbarTest', () => {
 
       const buttons = menu.shadowRoot.querySelectorAll('button');
       assertEquals(3, buttons.length);
+
+      assertEquals(
+          2,
+          metrics.count('ContextualTasks.WebUI.UserAction.OpenOverflowMenu'));
+      assertEquals(
+          1,
+          metrics.count(
+              'ContextualTasks.WebUI.UserAction.OpenOverflowMenu', true));
     });
 
     test('menu button visibility independent of ai page state', async () => {
@@ -428,7 +486,8 @@ suite('TopToolbarTest', () => {
       assertFalse(moreButton.hidden);
     });
 
-    test('handles open in new tab click in menu', async () => {
+    (isPhone ? test.skip :
+               test)('handles open in new tab click in menu', async () => {
       topToolbar.enableOpenInNewTabButton = true;
       await microtasksFinished();
 
@@ -485,9 +544,41 @@ suite('TopToolbarTest', () => {
       helpButton.click();
       await proxy.handler.whenCalled('openFeedbackUi');
     });
+
+    test('calls maybeTriggerPinningPromo when AI page is shown', async () => {
+      topToolbar.isAiPage = false;
+      await microtasksFinished();
+      proxy.handler.reset();
+
+      topToolbar.isAiPage = true;
+      await microtasksFinished();
+
+      // <if expr="is_android">
+      assertEquals(0, proxy.handler.getCallCount('maybeTriggerPinningPromo'));
+      // </if>
+      // <if expr="not is_android">
+      await proxy.handler.whenCalled('maybeTriggerPinningPromo');
+      // </if>
+    });
+
+    test(
+        'does not call maybeTriggerPinningPromo when onboarding tooltip is showing',
+        async () => {
+          topToolbar.isAiPage = false;
+          topToolbar.onboardingTooltipShowing = true;
+          await microtasksFinished();
+          proxy.handler.reset();
+
+          topToolbar.isAiPage = true;
+          await microtasksFinished();
+
+          assertEquals(
+              0, proxy.handler.getCallCount('maybeTriggerPinningPromo'));
+        });
   });
 
-  suite('Menu for lens flows only', () => {
+  (loadTimeData.getBoolean('isSmallDeviceFormFactor') ? suite.skip : suite)(
+      'Menu for lens flows only', () => {
     setup(() => {
       document.body.innerHTML = window.trustedTypes!.emptyHTML;
 
@@ -538,6 +629,7 @@ suite('TopToolbarTest', () => {
         tab: {
           title: 'Tab 1',
           url: 'https://example.com/1',
+          hasChromeTabData: false,
           tabId: 1,
         },
       },
@@ -557,6 +649,7 @@ suite('TopToolbarTest', () => {
         tab: {
           title: 'Tab 2',
           url: 'https://example.com/2',
+          hasChromeTabData: false,
           tabId: 2,
         },
       },
@@ -669,5 +762,30 @@ suite('TopToolbarTest', () => {
     const newThreadButton = topToolbar.$.newThreadButton;
     assertTrue(!!newThreadButton);
     assertTrue(newThreadButton.hidden);
+  });
+
+  test('highlights overflow menu button when menu is open', async () => {
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    topToolbar = document.createElement('top-toolbar');
+    document.body.appendChild(topToolbar);
+    await microtasksFinished();
+
+    const overflowMenuButton =
+        topToolbar.shadowRoot.querySelector<HTMLElement>('#overflowMenuButton');
+    assertTrue(!!overflowMenuButton);
+    assertFalse(overflowMenuButton.classList.contains('active'));
+
+    // Open overflow menu
+    overflowMenuButton.click();
+    await microtasksFinished();
+
+    assertTrue(overflowMenuButton.classList.contains('active'));
+
+    // Close overflow menu
+    const menu = topToolbar.$.overflowMenu.get();
+    menu.close();
+    await microtasksFinished();
+
+    assertFalse(overflowMenuButton.classList.contains('active'));
   });
 });

@@ -29,7 +29,6 @@ class TabSearchButton;
 class TabStripComboButton;
 class TabStrip;
 class TabStripScrollContainer;
-class TabSearchPositionMetricsLogger;
 class TabStripControlButton;
 
 // Container for the tabstrip and the other views sharing space with it -
@@ -38,17 +37,6 @@ class HorizontalTabStripRegionView final : public TabStripRegionView {
   METADATA_HEADER(HorizontalTabStripRegionView, TabStripRegionView)
 
  public:
-  // These values are persisted to logs. Entries should not be renumbered and
-  // numeric values should never be reused.
-  //
-  // LINT.IfChange(TabSearchPositionEnum)
-  enum class TabSearchPositionEnum {
-    kLeading = 0,
-    kTrailing = 1,
-    kMaxValue = kTrailing,
-  };
-  // LINT.ThenChange(//tools/metrics/histograms/metadata/tab/enums.xml:TabSearchPosition)
-
   explicit HorizontalTabStripRegionView(BrowserView* browser_view);
   HorizontalTabStripRegionView(const HorizontalTabStripRegionView&) = delete;
   HorizontalTabStripRegionView& operator=(const HorizontalTabStripRegionView&) =
@@ -80,7 +68,7 @@ class HorizontalTabStripRegionView final : public TabStripRegionView {
   void ChildPreferredSizeChanged(views::View* child) override;
   views::View* GetDefaultFocusableChild() override;
 
-  Profile* profile() { return profile_; }
+  Profile* profile();
 
   TabStrip* tab_strip() { return tab_strip_; }
 
@@ -125,17 +113,13 @@ class HorizontalTabStripRegionView final : public TabStripRegionView {
       ExpandOnHoverLockType lock_type) override;
 
   bool HasLeadingButtons() const;
-  void LogTabSearchPositionForTesting();
 
  private:
-  // Updates the border padding for `new_tab_button_` and
-  // `tab_search_button_`, if present.  This should be called whenever any
-  // input of the computation of the border's sizing changes.
+  // Updates the border padding for `new_tab_button_`.  This should be called
+  // whenever any input of the computation of the border's sizing changes.
   void UpdateButtonBorders();
 
-  // Updates the left and right margins for the tab strip. This should be
-  // called whenever `tab_search_button_` changes size, if
-  // `render_tab_search_before_tab_strip_` is true.
+  // Updates the left and right margins for the tab strip.
   void UpdateTabStripMargin();
 
   // Gets called on `Layout` and adjusts the x-axis position of the `view` based
@@ -144,7 +128,7 @@ class HorizontalTabStripRegionView final : public TabStripRegionView {
 
   bool tab_strip_set_ = false;
 
-  raw_ptr<Profile> profile_ = nullptr;
+  raw_ptr<BrowserView> browser_view_ = nullptr;
   raw_ptr<TabStripActionContainer> tab_strip_action_container_ = nullptr;
   raw_ptr<views::View> tab_strip_container_ = nullptr;
   raw_ptr<views::View> reserved_grab_handle_space_ = nullptr;
@@ -152,16 +136,7 @@ class HorizontalTabStripRegionView final : public TabStripRegionView {
   raw_ptr<TabStripScrollContainer> tab_strip_scroll_container_ = nullptr;
   raw_ptr<TabStripComboButton> combo_button_ = nullptr;
   raw_ptr<views::Button> new_tab_button_ = nullptr;
-  raw_ptr<TabSearchButton> tab_search_button_ = nullptr;
   raw_ptr<TabStripControlButton> unfocus_button_ = nullptr;
-
-  // On some platforms for Chrome Refresh, the TabSearchButton should be
-  // laid out before the TabStrip. Storing this configuration prevents
-  // rechecking the child order on every layout.
-  const bool render_tab_search_before_tab_strip_;
-
-  std::unique_ptr<TabSearchPositionMetricsLogger>
-      tab_search_position_metrics_logger_;
 
   std::unique_ptr<views::ActionViewController> action_view_controller_;
 

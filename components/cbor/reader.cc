@@ -278,8 +278,11 @@ std::optional<Value> Reader::DecodeToSimpleValueOrFloat(
       case 27: {
         double result = base::bit_cast<double>(header.value);
         float result_32 = result;
-        if (result == result_32) {
-          // This could have been encoded as a 32 bit float.
+        if (!std::isfinite(result) || result == result_32) {
+          // This could have been encoded as a 16 or 32 bit float.
+          // Note that we use `isfinite()` here to handle NaN since infinity
+          // and NaN can both be encoded in 16 bits but NaN doesn't compare
+          // with equality.
           error_code_ = DecoderError::NON_MINIMAL_CBOR_ENCODING;
           return std::nullopt;
         }
@@ -400,8 +403,7 @@ std::optional<Value> Reader::ReadMapContent(
       return std::nullopt;
     }
 
-    if (!config.allow_and_canonicalize_out_of_order_keys &&
-        std::next(it) != cbor_map.end()) {
+    if (std::next(it) != cbor_map.end()) {
       error_code_ = DecoderError::OUT_OF_ORDER_KEY;
       return std::nullopt;
     }

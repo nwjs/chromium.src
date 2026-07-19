@@ -28,6 +28,12 @@ class EntityType;
 - (void)setWritableEntityTypes:
     (const std::vector<autofill::EntityType>&)writableEntityTypes;
 
+// Sets the toggle state for "save and fill identity docs", its enabled and
+// managed states.
+- (void)setIdentityDocsToggleState:(BOOL)on
+                           enabled:(BOOL)enabled
+                           managed:(BOOL)managed;
+
 @end
 
 #endif  // IOS_CHROME_BROWSER_SETTINGS_AUTOFILL_AUTOFILL_AND_PASSWORDS_UI_IDENTITY_DOCS_CONSUMER_H_

@@ -17,6 +17,7 @@
 #include "components/payments/core/payment_details_validation.h"
 #include "components/payments/core/payments_validators.h"
 #include "third_party/blink/public/mojom/payments/payment_request.mojom.h"
+#include "url/origin.h"
 
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "components/payments/content/android/jni_headers/PaymentValidator_jni.h"
@@ -50,19 +51,20 @@ static bool JNI_PaymentValidator_ValidatePaymentValidationErrorsAndroid(
       errors, &unused_error_message);
 }
 
-static bool
+static jint
 JNI_PaymentValidator_ValidateSecurePaymentConfirmationRequestAndroid(
     JNIEnv* env,
-    const base::android::JavaRef<jobject>& buffer) {
+    const base::android::JavaRef<jobject>& buffer,
+    const url::Origin& initiator_origin) {
   mojom::SecurePaymentConfirmationRequestPtr request;
   auto span = base::android::JavaByteBufferToSpan(env, buffer);
   if (!mojom::SecurePaymentConfirmationRequest::Deserialize(
           span.data(), span.size(), &request)) {
-    return false;
+    return static_cast<jint>(
+        SecurePaymentConfirmationRequestValidationError::kInternalError);
   }
-  std::string unused_error_message;
-  return IsValidSecurePaymentConfirmationRequest(request,
-                                                 &unused_error_message);
+  return static_cast<jint>(
+      IsValidSecurePaymentConfirmationRequest(request, initiator_origin));
 }
 
 }  // namespace payments

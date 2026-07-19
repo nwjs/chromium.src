@@ -12,6 +12,7 @@ import "services/network/public/mojom/integrity_policy.mojom";
 import "services/network/public/mojom/document_isolation_policy.mojom";
 import "services/network/public/mojom/link_header.mojom";
 import "services/network/public/mojom/no_vary_search.mojom";
+import "services/network/public/mojom/origin_or_wildcard_header_value.mojom";
 import "services/network/public/mojom/supports_loading_mode.mojom";
 import "services/network/public/mojom/timing_allow_origin.mojom";
 import "services/network/public/mojom/declarative_performance_observer.mojom";
@@ -34,11 +35,17 @@ struct ParsedHeaders {
   array<ContentSecurityPolicy> content_security_policy;
 
   // The parsed value of the Allow-CSP-From response header.
-  AllowCSPFromHeaderValue? allow_csp_from;
+  OriginOrWildcardHeaderValue? allow_csp_from;
 
   // The parsed representation of `Connection-Allowlist` and
  // `Connection-Allowlist-Report-Only` headers.
   ConnectionAllowlists connection_allowlists;
+
+  // The parsed value of the `Allow-Connection-Allowlist-From` response header,
+  // used for Connection-Allowlist embedded enforcement. Reuses
+  // `OriginOrWildcardHeaderValue` as it shares the `*` / origin grammar with
+  // `Allow-CSP-From`.
+  OriginOrWildcardHeaderValue? allow_connection_allowlist_from;
 
   // The parsed representation of Cross-Origin-Embedder-Policy and
   // Cross-Origin-Embedder-Policy-Report-Only headers.

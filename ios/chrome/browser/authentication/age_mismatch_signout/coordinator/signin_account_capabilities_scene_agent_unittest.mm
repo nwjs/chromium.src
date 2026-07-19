@@ -46,6 +46,7 @@
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/chrome/browser/signin/model/identity_test_environment_browser_state_adaptor.h"
 #import "ios/chrome/browser/signin/model/system_identity.h"
+#import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
 #import "ios/chrome/test/testing_application_context.h"
 #import "ios/web/public/test/web_task_environment.h"
@@ -73,6 +74,8 @@ class SigninAccountCapabilitiesSceneAgentTest : public PlatformTest {
         AuthenticationServiceFactory::GetInstance(),
         AuthenticationServiceFactory::GetFactoryWithDelegate(
             std::make_unique<FakeAuthenticationServiceDelegate>()));
+    builder.AddTestingFactory(SyncServiceFactory::GetInstance(),
+                              SyncServiceFactory::GetDefaultFactory());
     builder.AddTestingFactory(
         IdentityManagerFactory::GetInstance(),
         base::BindRepeating(IdentityTestEnvironmentBrowserStateAdaptor::
@@ -155,10 +158,10 @@ class SigninAccountCapabilitiesSceneAgentTest : public PlatformTest {
         account_manager_service,
         base::BindRepeating(^(const CoreAccountId& account_id,
                               const AccountCapabilities& capabilities) {
-          AccountInfo updated_account = account;
-          updated_account.capabilities = capabilities;
+          AccountInfo::Builder builder(account);
+          builder.UpdateAccountCapabilitiesWith(capabilities);
           signin::UpdateAccountInfoForAccount(identity_manager,
-                                              updated_account);
+                                              builder.Build());
         }),
         base::BindOnce([](base::RunLoop* run_loop,
                           const CoreAccountId&) { run_loop->Quit(); },
@@ -225,7 +228,6 @@ TEST_F(SigninAccountCapabilitiesSceneAgentTest, TestWantsToSignIn) {
   EXPECT_OCMOCK_VERIFY(coordinator_mock);
 }
 
-
 // Tests that the agent signs out the account if the `CanSignInToChrome`
 // capability is explicitly set to false.
 TEST_F(SigninAccountCapabilitiesSceneAgentTest,
@@ -242,6 +244,46 @@ TEST_F(SigninAccountCapabilitiesSceneAgentTest,
       fake_system_identity_manager_->GetPendingCapabilitiesMutator(identity);
   mutator->set_can_sign_in_to_chrome(false);
   FetchCapabilities(identity);
+
+  base::HistogramTester* histogram_tester_ptr = &histogram_tester;
+  EXPECT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
+      base::test::ios::kWaitForActionTimeout, true, ^bool {
+        return histogram_tester_ptr->GetBucketCount(
+                   "Signin.SignoutProfile",
+                   signin_metrics::ProfileSignout::
+                       kSignoutFromCanSignInToChromeCapability) == 1;
+      }));
+
+  AuthenticationService* authentication_service =
+      AuthenticationServiceFactory::GetForProfile(profile_.get());
+  EXPECT_FALSE(authentication_service->HasPrimaryIdentity());
+
+  // Wait for the sign-out completion block to finish.
+  base::RunLoop run_loop;
+  task_environment_.GetMainThreadTaskRunner()->PostTask(FROM_HERE,
+                                                        run_loop.QuitClosure());
+  run_loop.Run();
+}
+
+// Tests that the agent signs out the account if the `CanSignInToChrome`
+// capability is already false when the primary account is set.
+TEST_F(SigninAccountCapabilitiesSceneAgentTest,
+       TestSignoutOnPrimaryAccountChangedWithCapabilityFalse) {
+  base::HistogramTester histogram_tester;
+
+  FakeSystemIdentity* identity = [FakeSystemIdentity fakeIdentity1];
+  AddIdentity(identity);
+
+  // Set capability to false before setting as primary.
+  AccountCapabilitiesTestMutator* mutator =
+      fake_system_identity_manager_->GetPendingCapabilitiesMutator(identity);
+  mutator->set_can_sign_in_to_chrome(false);
+  FetchCapabilities(identity);
+
+  scene_state_.activationLevel = SceneActivationLevelForegroundActive;
+
+  // Setting primary account should trigger onPrimaryAccountChanged.
+  SetPrimaryIdentity(identity);
 
   base::HistogramTester* histogram_tester_ptr = &histogram_tester;
   EXPECT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(

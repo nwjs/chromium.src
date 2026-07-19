@@ -22,6 +22,7 @@
 #include "chrome/browser/sync/send_tab_to_self_sync_service_factory.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
+#include "chrome/browser/ui/send_tab_to_self/send_tab_to_self_activation_tracker.h"
 #include "chrome/browser/ui/toasts/api/toast_id.h"
 #include "chrome/browser/ui/toasts/toast_controller.h"
 #include "components/send_tab_to_self/features.h"
@@ -107,7 +108,9 @@ const gfx::VectorIcon& GetSharingDeviceIcon(
 
 base::WeakPtr<content::WebContents> OpenEntryInNewForegroundTab(
     Profile* profile,
-    const SendTabToSelfEntry& entry) {
+    const SendTabToSelfEntry& entry,
+    ShareActivatedEntryPoint entry_point) {
+  RecordActivatedEntryPoint(entry_point);
   return OpenEntryInNewTabWithDisposition(
       profile, entry, WindowOpenDisposition::NEW_FOREGROUND_TAB);
 }
@@ -115,8 +118,13 @@ base::WeakPtr<content::WebContents> OpenEntryInNewForegroundTab(
 base::WeakPtr<content::WebContents> OpenEntryInNewBackgroundTab(
     Profile* profile,
     const SendTabToSelfEntry& entry) {
-  return OpenEntryInNewTabWithDisposition(
-      profile, entry, WindowOpenDisposition::NEW_BACKGROUND_TAB);
+  base::WeakPtr<content::WebContents> web_contents =
+      OpenEntryInNewTabWithDisposition(
+          profile, entry, WindowOpenDisposition::NEW_BACKGROUND_TAB);
+  if (web_contents) {
+    SendTabToSelfActivationTracker::CreateForWebContents(web_contents.get());
+  }
+  return web_contents;
 }
 
 void ShowTabSentSuccessToast(content::WebContents* web_contents,

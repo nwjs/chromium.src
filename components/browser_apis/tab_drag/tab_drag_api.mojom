@@ -15,14 +15,29 @@ interface TabDragService {
   // Initiates a global drag session for specified node ids.
   StartDrag(array<NodeId> node_ids, gfx.mojom.Point start_point)
       => result<mojo_base.mojom.Empty, mojo_base.mojom.Error>;
+
+  // Registers the drop target for this service's window. The registration is
+  // active as long as `registration` pipe is kept open by the caller.
+  // This should be called by the client UI that wants to receive coordinated
+  // drag updates.
+  RegisterDropTarget(
+      pending_associated_remote<DropTarget> target,
+      pending_associated_receiver<DropTargetRegistration> registration)
+      => result<mojo_base.mojom.Empty, mojo_base.mojom.Error>;
+};
+
+// Interface representing a registered drop target. Dropping this connection
+// will unregister the target.
+interface DropTargetRegistration {
+  // Pushes the current bounds of the drop target relative to the viewport.
+  // Called by the client on startup (after registration) and whenever bounds
+  // change.
+  OnBoundsChanged(gfx.mojom.Rect bounds);
 };
 
 // Interface implemented by the client UI to receive coordinated drag updates
 // globally.
 interface DropTarget {
-  // Retrieves the element's client bounds relative to the viewport bounds.
-  GetBounds() => result<gfx.mojom.Rect, mojo_base.mojom.Error>;
-
   // Called when the dragged nodes crosses boundaries and enters this target
   // bounds. Initiates the tracking sequence; clients will subsequently receive
   // `OnDrag` updates.

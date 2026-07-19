@@ -111,8 +111,6 @@
 namespace gpu {
 namespace gles2 {
 
-BASE_FEATURE(kGLES2CopySIToTextureAlwaysTexAndBind,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 namespace {
 
@@ -140,18 +138,6 @@ bool ValidFormatForDirectUploading(GLenum format, uint32_t type) {
 }
 #endif
 
-void BindAndTexImage2D(gpu::gles2::GLES2Interface* gl,
-                       unsigned int target,
-                       unsigned int texture,
-                       unsigned int internal_format,
-                       unsigned int format,
-                       unsigned int type,
-                       int level,
-                       const gfx::Size& size) {
-  gl->BindTexture(target, texture);
-  gl->TexImage2D(target, level, internal_format, size.width(), size.height(), 0,
-                 format, type, nullptr);
-}
 
 void CopyRectToBuffer(base::span<const uint8_t> pixels,
                       uint32_t height,
@@ -482,7 +468,8 @@ bool GLES2Implementation::CanCopySharedImageDirectlyToGLTexture(
              dst_internal_format, dst_type, dst_level, dst_alpha_type);
 }
 
-gpu::SyncToken GLES2Implementation::CopySharedImageToGLTextureViaTextureCopy(
+CopySharedImageSyncCallback
+GLES2Implementation::CopySharedImageToGLTextureViaTextureCopy(
     const gfx::Rect& src_rect,
     ClientSharedImage* source_shared_image,
     const gpu::SyncToken& source_sync_token,
@@ -506,38 +493,28 @@ gpu::SyncToken GLES2Implementation::CopySharedImageToGLTextureViaTextureCopy(
       source_shared_image->alpha_type() == kPremul_SkAlphaType;
 
   const bool do_flip_y = source_shared_image->surface_origin() != dst_origin;
-  if (base::FeatureList::IsEnabled(kGLES2CopySIToTextureAlwaysTexAndBind) ||
-      src_rect != gfx::Rect(source_shared_image->size())) {
-    // Must reallocate the destination texture and copy only a sub-portion.
-
-    // There should always be enough data in the source texture to
-    // cover this copy.
-    GPU_CLIENT_DCHECK(src_rect.width() <= source_shared_image->size().width());
-    GPU_CLIENT_DCHECK(src_rect.height() <=
-                      source_shared_image->size().height());
-
-    BindAndTexImage2D(this, dst_target, dst_texture, dst_internal_format,
-                      dst_format, dst_type, dst_level, src_rect.size());
-    // TODO(crbug.com/378688985): `src_rect` is always in top-left
-    // coordinate space, but CopySubTextureCHROMIUM requires it to be in texture
-    // space, so this is incorrect if `source_shared_image` origin is bottom
-    // left.
-    CopySubTextureCHROMIUM(
-        scoped_si_access->texture_id(), 0, dst_target, dst_texture, dst_level,
-        0, 0, src_rect.x(), src_rect.y(), src_rect.width(), src_rect.height(),
-        do_flip_y, do_premultiply_alpha, do_unpremultiply_alpha);
-
-  } else {
-    CopyTextureCHROMIUM(scoped_si_access->texture_id(), 0, dst_target,
-                        dst_texture, dst_level, dst_internal_format, dst_type,
-                        do_flip_y, do_premultiply_alpha,
-                        do_unpremultiply_alpha);
-  }
-  return gpu::SharedImageTexture::ScopedAccess::EndAccess(
-      std::move(scoped_si_access));
+  // There should always be enough data in the source texture to
+  // cover this copy.
+  GPU_CLIENT_DCHECK(src_rect.width() <= source_shared_image->size().width());
+  GPU_CLIENT_DCHECK(src_rect.height() <= source_shared_image->size().height());
+  // TODO(crbug.com/378688985): `src_rect` is always in top-left
+  // coordinate space, but CopySubTextureCHROMIUM requires it to be in texture
+  // space, so this is incorrect if `source_shared_image` origin is bottom
+  // left.
+  CopySubTextureCHROMIUM(
+      scoped_si_access->texture_id(), 0, dst_target, dst_texture, dst_level, 0,
+      0, src_rect.x(), src_rect.y(), src_rect.width(), src_rect.height(),
+      do_flip_y, do_premultiply_alpha, do_unpremultiply_alpha);
+  return base::BindOnce(
+      [](std::unique_ptr<SharedImageTexture::ScopedAccess> si_access,
+         std::unique_ptr<SharedImageTexture> si_texture) {
+        return gpu::SharedImageTexture::ScopedAccess::EndAccess(
+            std::move(si_access));
+      },
+      std::move(scoped_si_access), std::move(si_texture));
 }
 
-std::unique_ptr<gpu::RasterScopedAccess>
+CopySharedImageSyncCallback
 GLES2Implementation::CopySharedImageDirectlyToGLTexture(
     const gfx::Rect& src_rect,
     ClientSharedImage* source_shared_image,
@@ -551,9 +528,9 @@ GLES2Implementation::CopySharedImageDirectlyToGLTexture(
     int32_t dst_level,
     SkAlphaType dst_alpha_type,
     GrSurfaceOrigin dst_origin) {
-  std::unique_ptr<gpu::RasterScopedAccess> destination_access;
+  CopySharedImageSyncCallback sync_callback;
   if (CanCopySharedImageToGLTextureViaTextureCopy(source_shared_image)) {
-    CopySharedImageToGLTextureViaTextureCopy(
+    sync_callback = CopySharedImageToGLTextureViaTextureCopy(
         src_rect, source_shared_image, source_sync_token, dst_target,
         dst_texture, dst_internal_format, dst_format, dst_type, dst_level,
         dst_alpha_type, dst_origin);
@@ -571,21 +548,22 @@ GLES2Implementation::CopySharedImageDirectlyToGLTexture(
     // upload to work for Graphite *without* depending on being able to create a
     // Ganesh/GL context.
 
-    // Trigger resource allocation for dst texture to back SkSurface.
-    BindAndTexImage2D(this, dst_target, dst_texture, dst_internal_format,
-                      dst_format, dst_type,
-                      /*level=*/0, src_rect.size());
-
-    destination_access = source_shared_image->BeginGLAccessForCopySharedImage(
-        this, source_sync_token, /*readonly=*/true);
+    std::unique_ptr<gpu::RasterScopedAccess> destination_access =
+        source_shared_image->BeginGLAccessForCopySharedImage(
+            this, source_sync_token, /*readonly=*/true);
 
     const bool is_dst_origin_top_left = dst_origin == kTopLeft_GrSurfaceOrigin;
     CopySharedImageToTextureINTERNAL(
         dst_texture, dst_target, dst_internal_format, dst_type, src_rect.x(),
         src_rect.y(), src_rect.width(), src_rect.height(),
         is_dst_origin_top_left, source_shared_image->mailbox().name);
+    sync_callback = base::BindOnce(
+        [](std::unique_ptr<gpu::RasterScopedAccess> ri_access) {
+          return gpu::RasterScopedAccess::EndAccess(std::move(ri_access));
+        },
+        std::move(destination_access));
   }
-  return destination_access;
+  return sync_callback;
 }
 
 void GLES2Implementation::SendErrorMessage(std::string message, int32_t id) {

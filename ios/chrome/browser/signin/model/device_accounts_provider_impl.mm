@@ -5,10 +5,12 @@
 #import "ios/chrome/browser/signin/model/device_accounts_provider_impl.h"
 
 #import "base/check.h"
+#import "base/feature_list.h"
 #import "base/notreached.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/task/sequenced_task_runner.h"
 #import "base/types/pass_key.h"
+#import "components/signin/public/base/signin_switches.h"
 #import "components/signin/public/identity_manager/account_info.h"
 #import "components/signin/public/identity_manager/signin_constants.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
@@ -48,11 +50,9 @@ GoogleServiceAuthError GoogleServiceAuthErrorFromError(
         static_cast<SystemIdentityManagerErrorCode>(error.code);
     switch (error_code) {
       case SystemIdentityManagerErrorCode::kNoAuthenticatedIdentity:
-        return GoogleServiceAuthError(
-            GoogleServiceAuthError::State::ACCOUNT_NOT_FOUND);
+        return GoogleServiceAuthError::CreateAccountNotFound();
       case SystemIdentityManagerErrorCode::kClientIDMismatch:
-        return GoogleServiceAuthError(
-            GoogleServiceAuthError::State::ACCOUNT_NOT_FOUND);
+        return GoogleServiceAuthError::CreateAccountNotFound();
       case SystemIdentityManagerErrorCode::kInvalidTokenIdentity:
         return GoogleServiceAuthError::FromInvalidGaiaCredentialsReason(
             GoogleServiceAuthError::InvalidGaiaCredentialsReason::
@@ -68,13 +68,11 @@ GoogleServiceAuthError GoogleServiceAuthErrorFromError(
           GoogleServiceAuthError::InvalidGaiaCredentialsReason::
               CREDENTIALS_REJECTED_BY_SERVER);
     case ios::provider::SigninErrorCategory::kAuthorizationForbiddenError:
-      return GoogleServiceAuthError(
-          GoogleServiceAuthError::SERVICE_UNAVAILABLE);
+      return GoogleServiceAuthError::FromServiceUnavailable("");
     case ios::provider::SigninErrorCategory::kNetworkError:
       return GoogleServiceAuthError::FromConnectionError(net::ERR_FAILED);
     case ios::provider::SigninErrorCategory::kUserCancellationError:
-      return GoogleServiceAuthError(
-          GoogleServiceAuthError::State::REQUEST_CANCELED);
+      return GoogleServiceAuthError::CreateRequestCanceled();
   }
 
   NOTREACHED() << "Unexpected error: "
@@ -98,6 +96,20 @@ AccessTokenResult AccessTokenResultFrom(
     };
     return base::ok(std::move(info));
   }
+}
+
+// Converts the access token result from `SystemIdentityManager` to
+// `DeviceAccountsProvider`.
+AccessTokenResult ConvertAccessTokenResult(
+    base::expected<SystemIdentityManager::AccessTokenInfo,
+                   GoogleServiceAuthError> result) {
+  if (!result.has_value()) {
+    return base::unexpected(std::move(result).error());
+  }
+  return DeviceAccountsProvider::AccessTokenInfo{
+      .token = std::move(result->token),
+      .expiration_time = std::move(result->expiration_time),
+  };
 }
 
 DeviceAccountsProvider::DeviceAccountInfo ConvertSystemIdentityToAccountInfo(
@@ -180,10 +192,17 @@ void DeviceAccountsProviderImpl::GetAccessToken(
     return;
   }
 
-  GetApplicationContext()->GetSystemIdentityManager()->GetAccessToken(
-      identity, client_id, scopes,
-      base::BindOnce(&AccessTokenResultFrom, identity)
-          .Then(std::move(callback)));
+  if (base::FeatureList::IsEnabled(
+          switches::kHandleMdmErrorsForDasherAccounts)) {
+    GetApplicationContext()->GetSystemIdentityManager()->GetAccessToken(
+        identity, client_id, scopes,
+        base::BindOnce(&ConvertAccessTokenResult).Then(std::move(callback)));
+  } else {
+    GetApplicationContext()->GetSystemIdentityManager()->GetAccessToken(
+        identity, client_id, scopes,
+        base::BindOnce(&AccessTokenResultFrom, identity)
+            .Then(std::move(callback)));
+  }
 }
 
 std::vector<DeviceAccountsProvider::DeviceAccountInfo>

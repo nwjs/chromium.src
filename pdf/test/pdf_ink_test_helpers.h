@@ -86,22 +86,52 @@ MATCHER_P6(InkAffineTransformEq,
          Matches(FloatEq(expected_f))(arg.F());
 }
 
-MATCHER_P9(InkTextBoxAttributesEq,
-           rect,
-           color,
-           css_font_size,
-           typeface,
-           alignment,
-           orientation,
-           is_bold,
-           is_italic,
-           text,
-           "matches InkTextBoxAttributes") {
+MATCHER_P10(InkTextBoxAttributesEq,
+            rect,
+            color,
+            css_font_size,
+            typeface,
+            alignment,
+            orientation,
+            viewport_orientation,
+            is_bold,
+            is_italic,
+            text,
+            testing::PrintToString(InkTextBoxAttributes(rect,
+                                                        color,
+                                                        css_font_size,
+                                                        typeface,
+                                                        alignment,
+                                                        orientation,
+                                                        viewport_orientation,
+                                                        /*is_bold=*/is_bold,
+                                                        /*is_italic=*/is_italic,
+                                                        text))) {
   return arg.rect == rect && arg.color == color &&
          arg.css_font_size == css_font_size && arg.typeface == typeface &&
          arg.alignment == alignment && arg.orientation == orientation &&
+         arg.viewport_orientation == viewport_orientation &&
          arg.is_bold == is_bold && arg.is_italic == is_italic &&
          arg.text == text;
+}
+
+bool InkTextInfoEquals(const InkTextInfo& lhs, const InkTextInfo& rhs);
+
+MATCHER_P6(InkTextInfoWithTextEq,
+           font_id,
+           glyphs,
+           glyph_positions,
+           location,
+           is_horizontal,
+           text,
+           testing::PrintToString(InkTextInfo(font_id,
+                                              glyphs,
+                                              glyph_positions,
+                                              location,
+                                              is_horizontal,
+                                              text))) {
+  return InkTextInfoEquals(arg, InkTextInfo(font_id, glyphs, glyph_positions,
+                                            location, is_horizontal, text));
 }
 
 MATCHER_P5(InkTextInfoEq,
@@ -114,13 +144,14 @@ MATCHER_P5(InkTextInfoEq,
                                               glyphs,
                                               glyph_positions,
                                               location,
-                                              is_horizontal))) {
-  return arg.font_id == font_id && arg.glyphs == glyphs &&
-         arg.glyph_positions == glyph_positions && arg.location == location &&
-         arg.is_horizontal == is_horizontal;
+                                              is_horizontal,
+                                              u""))) {
+  return InkTextInfoEquals(arg, InkTextInfo(font_id, glyphs, glyph_positions,
+                                            location, is_horizontal, u""));
 }
 
 void PrintTo(const InkTextInfo& info, std::ostream* os);
+void PrintTo(const InkTextBoxAttributes& info, std::ostream* os);
 
 // Generate the path for test files specific to Ink.
 base::FilePath GetInkTestDataFilePath(base::FilePath::StringViewType filename);

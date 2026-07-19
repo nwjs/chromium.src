@@ -359,6 +359,7 @@ All changes to this list should go through Blink's feature review process: http:
     row-rule-visibility-items
     row-rule-width
     ruby-align
+    ruby-overhang
     ruby-position
     rule-overlap
     rx

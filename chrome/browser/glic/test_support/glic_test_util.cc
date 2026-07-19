@@ -6,6 +6,7 @@
 
 #include "base/strings/strcat.h"
 #include "base/task/current_thread.h"
+#include "build/android_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/browser/glic/common/local_hotkey_manager.h"
 #include "chrome/browser/glic/glic_pref_names.h"
@@ -28,7 +29,9 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/base_window.h"
 
-#if !BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/ui/side_panel/android/android_side_panel_enabled_fn.h"
+#else
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #endif
 
@@ -176,7 +179,7 @@ GlicInstance* GetOnlyGlicInstance(Profile* profile) {
   }
   auto& coordinator = static_cast<GlicInstanceCoordinatorImpl&>(
       service->instance_coordinator());
-  auto instances = coordinator.GetInstancesForTesting();
+  auto instances = coordinator.GetInstances();
   CHECK_LT(instances.size(), 2u);
   return instances.empty() ? nullptr : instances[0];
 }
@@ -204,7 +207,7 @@ GlicInstance* GetInstanceById(Profile* profile, InstanceId id) {
   }
   auto& coordinator = static_cast<GlicInstanceCoordinatorImpl&>(
       service->instance_coordinator());
-  for (GlicInstanceImpl* instance : coordinator.GetInstancesForTesting()) {
+  for (GlicInstanceImpl* instance : coordinator.GetInstances()) {
     if (instance->id() == id) {
       return instance;
     }
@@ -212,24 +215,25 @@ GlicInstance* GetInstanceById(Profile* profile, InstanceId id) {
   return nullptr;
 }
 
-void ForceSigninAndGlicCapability(Profile* profile) {
+void ForceSigninAndGlicCapability(Profile* profile,
+                                  std::string_view hosted_domain) {
   SetFRECompletion(profile, prefs::FreStatus::kCompleted);
-  SigninWithPrimaryAccount(profile);
+  SigninWithPrimaryAccount(profile, hosted_domain);
   SetGlicCapability(profile, true);
 }
 
-void SigninWithPrimaryAccount(Profile* profile) {
+void SigninWithPrimaryAccount(Profile* profile,
+                              std::string_view hosted_domain) {
   // Sign-in and enable account capability.
   auto* const identity_manager = IdentityManagerFactory::GetForProfile(profile);
-  auto account_info = signin::MakePrimaryAccountAvailable(
-      identity_manager, "glic-test@example.com", signin::ConsentLevel::kSignin);
-  ASSERT_FALSE(account_info.IsEmpty());
-
-  account_info = AccountInfo::Builder(account_info)
-                     .SetFullName("Glic Testing")
-                     .SetGivenName("Glic")
-                     .Build();
-  signin::UpdateAccountInfoForAccount(identity_manager, account_info);
+  AccountInfo::Builder builder(signin::MakePrimaryAccountAvailable(
+      identity_manager, "glic-test@example.com",
+      signin::ConsentLevel::kSignin));
+  builder.SetFullName("Glic Testing").SetGivenName("Glic");
+  if (!hosted_domain.empty()) {
+    builder.SetHostedDomain(hosted_domain);
+  }
+  signin::UpdateAccountInfoForAccount(identity_manager, builder.Build());
 }
 
 void SetGlicCapability(Profile* profile, bool enabled) {
@@ -239,7 +243,7 @@ void SetGlicCapability(Profile* profile, bool enabled) {
           identity_manager->GetPrimaryAccountId(signin::ConsentLevel::kSignin));
   ASSERT_FALSE(primary_account.IsEmpty());
 
-  AccountCapabilitiesTestMutator mutator(&primary_account.capabilities);
+  AccountCapabilitiesTestMutator mutator(&primary_account);
   SetGlicCapability(mutator, enabled);
 
   signin::UpdateAccountInfoForAccount(identity_manager, primary_account);
@@ -251,6 +255,31 @@ void SetGlicCapability(AccountCapabilitiesTestMutator& mutator, bool enabled) {
     mutator.set_can_use_gemini_in_chrome(enabled);
   }
   mutator.set_can_use_model_execution_features(enabled);
+}
+
+ScopedGlicCapability::ScopedGlicCapability(Profile* profile, bool enabled)
+    : profile_(profile) {
+  auto* const identity_manager = IdentityManagerFactory::GetForProfile(profile);
+  AccountInfo primary_account =
+      identity_manager->FindExtendedAccountInfoByAccountId(
+          identity_manager->GetPrimaryAccountId(signin::ConsentLevel::kSignin));
+
+  if (base::FeatureList::IsEnabled(
+          switches::kGlicEligibilitySeparateAccountCapability)) {
+    original_enabled_ =
+        primary_account.GetAccountCapabilities().can_use_gemini_in_chrome() ==
+        signin::Tribool::kTrue;
+  } else {
+    original_enabled_ =
+        primary_account.GetAccountCapabilities()
+            .can_use_model_execution_features() == signin::Tribool::kTrue;
+  }
+
+  SetGlicCapability(profile_, enabled);
+}
+
+ScopedGlicCapability::~ScopedGlicCapability() {
+  SetGlicCapability(profile_, original_enabled_);
 }
 
 void SetFRECompletion(Profile* profile, prefs::FreStatus fre_status) {
@@ -332,6 +361,25 @@ void GlicClientConnectionObserver::Notify(bool is_connected) {
 
 void GlicClientConnectionObserver::Clear() {
   waiter_.Clear();
+}
+
+bool IsSidePanelEnabled() {
+#if defined(TOOLKIT_VIEWS)
+  return true;
+#elif BUILDFLAG(IS_DESKTOP_ANDROID)
+  // Note:
+  //
+  // (1) GLiC tests only enable `kEnableAndroidSidePanel` on desktop Android.
+  // See the constructor of `GlicBrowserTestMixin`.
+  //
+  // (2) The side panel flag is a cached flag in Java, so we need to call into
+  // Java to check the flag value. This is the same as
+  // `SidePanelAndroidBrowserTestBase` so please see the detailed explanations
+  // there.
+  return AndroidSidePanelEnabledFn::IsEnabled();
+#else
+  return false;
+#endif
 }
 
 }  // namespace glic

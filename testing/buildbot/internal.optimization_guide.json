@@ -10,6 +10,8 @@
           "--performance-hint=ON_DEVICE_MODEL_PERFORMANCE_HINT_CPU",
           "--expectations-file=AIExpectations_CPU",
           "--release",
+          "--timeout-multiplier=5",
+          "--child-processes=1",
           "--driver-name",
           "Google Chrome",
           "--write-run-histories-to=${ISOLATED_OUTDIR}/run_histories.json"
@@ -34,7 +36,8 @@
             "os": "Mac-15|Mac-26",
             "pool": "chrome.tests"
           },
-          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com"
+          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 4
         },
         "test": "chrome_ai_wpt_tests",
         "test_id_prefix": "ninja://components/optimization_guide/internal/testing:chrome_ai_wpt_tests/"
@@ -46,6 +49,8 @@
           "--performance-hint=ON_DEVICE_MODEL_PERFORMANCE_HINT_FASTEST_INFERENCE",
           "--expectations-file=AIExpectations_GPU",
           "--release",
+          "--timeout-multiplier=5",
+          "--child-processes=1",
           "--driver-name",
           "Google Chrome",
           "--write-run-histories-to=${ISOLATED_OUTDIR}/run_histories.json"
@@ -70,7 +75,8 @@
             "os": "Mac-15|Mac-26",
             "pool": "chrome.tests"
           },
-          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com"
+          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 4
         },
         "test": "chrome_ai_wpt_tests",
         "test_id_prefix": "ninja://components/optimization_guide/internal/testing:chrome_ai_wpt_tests/"
@@ -82,6 +88,8 @@
           "--performance-hint=ON_DEVICE_MODEL_PERFORMANCE_HINT_CPU",
           "--expectations-file=AIExpectations_LiteRTCPU",
           "--release",
+          "--timeout-multiplier=5",
+          "--child-processes=1",
           "--driver-name",
           "Google Chrome",
           "--write-run-histories-to=${ISOLATED_OUTDIR}/run_histories.json"
@@ -106,7 +114,8 @@
             "os": "Mac-15|Mac-26",
             "pool": "chrome.tests"
           },
-          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com"
+          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 4
         },
         "test": "chrome_ai_wpt_tests",
         "test_id_prefix": "ninja://components/optimization_guide/internal/testing:chrome_ai_wpt_tests/"
@@ -118,6 +127,8 @@
           "--performance-hint=ON_DEVICE_MODEL_PERFORMANCE_HINT_FASTEST_INFERENCE",
           "--expectations-file=AIExpectations_LiteRTGPU",
           "--release",
+          "--timeout-multiplier=5",
+          "--child-processes=1",
           "--driver-name",
           "Google Chrome",
           "--write-run-histories-to=${ISOLATED_OUTDIR}/run_histories.json"
@@ -142,7 +153,8 @@
             "os": "Mac-15|Mac-26",
             "pool": "chrome.tests"
           },
-          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com"
+          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 4
         },
         "test": "chrome_ai_wpt_tests",
         "test_id_prefix": "ninja://components/optimization_guide/internal/testing:chrome_ai_wpt_tests/"
@@ -158,6 +170,8 @@
           "--performance-hint=ON_DEVICE_MODEL_PERFORMANCE_HINT_CPU",
           "--expectations-file=AIExpectations_CPU",
           "--release",
+          "--timeout-multiplier=5",
+          "--child-processes=1",
           "--driver-name",
           "Google Chrome",
           "--write-run-histories-to=${ISOLATED_OUTDIR}/run_histories.json"
@@ -182,7 +196,8 @@
             "os": "Mac-15|Mac-26",
             "pool": "chrome.tests"
           },
-          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com"
+          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 8
         },
         "test": "chrome_ai_wpt_tests",
         "test_id_prefix": "ninja://components/optimization_guide/internal/testing:chrome_ai_wpt_tests/"
@@ -194,6 +209,8 @@
           "--performance-hint=ON_DEVICE_MODEL_PERFORMANCE_HINT_FASTEST_INFERENCE",
           "--expectations-file=AIExpectations_GPU",
           "--release",
+          "--timeout-multiplier=5",
+          "--child-processes=1",
           "--driver-name",
           "Google Chrome",
           "--write-run-histories-to=${ISOLATED_OUTDIR}/run_histories.json"
@@ -218,7 +235,8 @@
             "os": "Mac-15|Mac-26",
             "pool": "chrome.tests"
           },
-          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com"
+          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 8
         },
         "test": "chrome_ai_wpt_tests",
         "test_id_prefix": "ninja://components/optimization_guide/internal/testing:chrome_ai_wpt_tests/"
@@ -230,6 +248,8 @@
           "--performance-hint=ON_DEVICE_MODEL_PERFORMANCE_HINT_CPU",
           "--expectations-file=AIExpectations_LiteRTCPU",
           "--release",
+          "--timeout-multiplier=5",
+          "--child-processes=1",
           "--driver-name",
           "Google Chrome",
           "--write-run-histories-to=${ISOLATED_OUTDIR}/run_histories.json"
@@ -254,7 +274,8 @@
             "os": "Mac-15|Mac-26",
             "pool": "chrome.tests"
           },
-          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com"
+          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 8
         },
         "test": "chrome_ai_wpt_tests",
         "test_id_prefix": "ninja://components/optimization_guide/internal/testing:chrome_ai_wpt_tests/"
@@ -266,6 +287,8 @@
           "--performance-hint=ON_DEVICE_MODEL_PERFORMANCE_HINT_FASTEST_INFERENCE",
           "--expectations-file=AIExpectations_LiteRTGPU",
           "--release",
+          "--timeout-multiplier=5",
+          "--child-processes=1",
           "--driver-name",
           "Google Chrome",
           "--write-run-histories-to=${ISOLATED_OUTDIR}/run_histories.json"
@@ -290,7 +313,8 @@
             "os": "Mac-15|Mac-26",
             "pool": "chrome.tests"
           },
-          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com"
+          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 8
         },
         "test": "chrome_ai_wpt_tests",
         "test_id_prefix": "ninja://components/optimization_guide/internal/testing:chrome_ai_wpt_tests/"
@@ -1336,7 +1360,7 @@
           "${ISOLATED_OUTDIR}",
           "--xctest",
           "--xcode-build-version",
-          "17a400"
+          "17f42"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
@@ -1361,7 +1385,7 @@
           },
           "named_caches": [
             {
-              "name": "xcode_ios_17a400",
+              "name": "xcode_ios_17f42",
               "path": "Xcode.app"
             }
           ],
@@ -1377,7 +1401,7 @@
           "${ISOLATED_OUTDIR}",
           "--xctest",
           "--xcode-build-version",
-          "17a400"
+          "17f42"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
@@ -1402,7 +1426,7 @@
           },
           "named_caches": [
             {
-              "name": "xcode_ios_17a400",
+              "name": "xcode_ios_17f42",
               "path": "Xcode.app"
             }
           ],
@@ -1428,7 +1452,7 @@
           "${ISOLATED_OUTDIR}",
           "--xctest",
           "--xcode-build-version",
-          "17a400"
+          "17f42"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
@@ -1455,7 +1479,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a400",
+              "name": "xcode_ios_17f42",
               "path": "Xcode.app"
             }
           ],
@@ -1476,7 +1500,7 @@
           "${ISOLATED_OUTDIR}",
           "--xctest",
           "--xcode-build-version",
-          "17a400"
+          "17f42"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
@@ -1503,7 +1527,7 @@
               "path": "Runtime-ios-18.2"
             },
             {
-              "name": "xcode_ios_17a400",
+              "name": "xcode_ios_17f42",
               "path": "Xcode.app"
             }
           ],

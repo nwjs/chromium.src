@@ -62,9 +62,7 @@ std::u16string GetAlternativeNameForInput(
     const std::u16string& value,
     const AddressCountryCode& country_code,
     const FormFieldData& field_data) {
-  if (country_code != AddressCountryCode("JP") ||
-      !base::FeatureList::IsEnabled(
-          features::kAutofillSupportPhoneticNameForJP)) {
+  if (country_code != AddressCountryCode("JP")) {
     return value;
   }
   bool requires_conversion = data_util::HasKatakanaCharacter(field_data.label());
@@ -229,7 +227,10 @@ FillingValueAndType GetFillingValueAndTypeForProfile(
     AddressNormalizer* address_normalizer,
     std::string* failure_to_fill) {
   const FieldType field_type = autofill_type.GetAddressType();
-  CHECK_NE(field_type, UNKNOWN_TYPE);
+  if (field_type == UNKNOWN_TYPE) {
+    return {};
+  }
+
   FillingValueAndType filling_value_and_type(
       GetValueForProfileForInput(profile, app_locale, autofill_type, field_data,
                                  failure_to_fill),

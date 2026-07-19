@@ -44,6 +44,9 @@ export interface TextAnnotation {
   // Not used by frontend code.
   mojoTextInfo: ArrayBuffer;
   pageIndex: number;
+  // Zoom level at TextAnnotation creation time. Stored for use by the backend
+  // on every update. Not used by frontend code.
+  pdfZoom: number;
   text: string;
   textAttributes: TextAttributes;
   // Location of the text box relative to the top left corner of the page
@@ -54,6 +57,9 @@ export interface TextAnnotation {
   // Orientation of the text in the box relative to the PDF page, in number of
   // clockwise rotations from 0 to 3.
   textOrientation: number;
+  // Orientation of the viewport when the annotation was committed, in number of
+  // clockwise rotations from 0 to 3.
+  viewportOrientation: number;
 }
 
 export interface TextAnnotationMessageData extends TextAnnotation {
@@ -61,7 +67,6 @@ export interface TextAnnotationMessageData extends TextAnnotation {
   // Serialized SkTypeface font data that the backend needs. Only contains
   // fonts that the backend has never seen before.
   newTypefaces: Typeface[];
-  pdfZoom: number;
   source: TextAnnotationSource;
 }
 

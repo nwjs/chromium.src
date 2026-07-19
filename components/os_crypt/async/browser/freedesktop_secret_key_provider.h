@@ -89,7 +89,6 @@ class FreedesktopSecretKeyProvider : public KeyProvider {
   // KeyProvider:
   void GetKey(KeyCallback callback) override;
   bool UseForEncryption() override;
-  bool IsCompatibleWithOsCryptSync() override;
 
  private:
   FRIEND_TEST_ALL_PREFIXES(FreedesktopSecretKeyProviderTest, BasicHappyPath);
@@ -98,6 +97,8 @@ class FreedesktopSecretKeyProvider : public KeyProvider {
   FRIEND_TEST_ALL_PREFIXES(FreedesktopSecretKeyProviderTest, KWallet);
   FRIEND_TEST_ALL_PREFIXES(FreedesktopSecretKeyProviderTest,
                            KWalletCreateFolderAndPassword);
+  FRIEND_TEST_ALL_PREFIXES(FreedesktopSecretKeyProviderTest,
+                           SearchItemsWithItemUnlockPrompt);
   friend class FreedesktopSecretKeyProviderCompatTest;
 
   template <typename T>
@@ -109,7 +110,6 @@ class FreedesktopSecretKeyProvider : public KeyProvider {
       "org.freedesktop.Secret.Service";
   static constexpr char kSecretCollectionInterface[] =
       "org.freedesktop.Secret.Collection";
-  static constexpr char kSecretItemInterface[] = "org.freedesktop.Secret.Item";
   static constexpr char kSecretSessionInterface[] =
       "org.freedesktop.Secret.Session";
   static constexpr char kSecretPromptInterface[] =
@@ -117,7 +117,7 @@ class FreedesktopSecretKeyProvider : public KeyProvider {
 
   static constexpr char kMethodReadAlias[] = "ReadAlias";
   static constexpr char kMethodCreateCollection[] = "CreateCollection";
-  static constexpr char kMethodGetSecret[] = "GetSecret";
+  static constexpr char kMethodGetSecrets[] = "GetSecrets";
   static constexpr char kMethodOpenSession[] = "OpenSession";
   static constexpr char kMethodCreateItem[] = "CreateItem";
   static constexpr char kMethodUnlock[] = "Unlock";
@@ -191,9 +191,14 @@ class FreedesktopSecretKeyProvider : public KeyProvider {
       base::expected<dbus::ObjectPath, ErrorDetail> create_collection_reply);
   void OnUnlock(base::expected<std::vector<dbus::ObjectPath>, ErrorDetail>
                     unlocked_collection);
+  void OnUnlockItems(const dbus::ObjectPath& item_path,
+                     base::expected<std::vector<dbus::ObjectPath>, ErrorDetail>
+                         unlocked_items);
   void OnOpenSession(dbus_utils::CallMethodResultSig<"vo"> session_reply);
   void OnSearchItems(dbus_utils::CallMethodResultSig<"ao"> results);
-  void OnGetSecret(dbus_utils::CallMethodResultSig<"(oayays)"> secret_reply);
+  void OnGetSecrets(
+      dbus::ObjectPath expected_item_path,
+      dbus_utils::CallMethodResultSig<"a{o(oayays)}"> secrets_reply);
 
   // KWallet password storage
   void InitializeKWallet(const char* kwallet_service, const char* kwallet_path);

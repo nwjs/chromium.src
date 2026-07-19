@@ -5,11 +5,14 @@
 #include "chrome/browser/ui/webui_browser/webui_browser_ui.h"
 
 #include "base/notimplemented.h"
+#include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/contextual_search/contextual_search_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/bookmarks/bookmark_bar_controller.h"
+#include "chrome/browser/ui/bookmarks/bookmarks_service_feature.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/interaction/browser_elements.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/side_panel/side_panel_entry_id.h"
@@ -31,6 +34,8 @@
 #include "chrome/grit/tab_strip_api_resources_map.h"
 #include "chrome/grit/webui_browser_resources.h"
 #include "chrome/grit/webui_browser_resources_map.h"
+#include "chrome/grit/webui_toolbar_shared_resources.h"
+#include "chrome/grit/webui_toolbar_shared_resources_map.h"
 #include "components/contextual_search/contextual_search_service.h"
 #include "components/contextual_search/contextual_search_session_handle.h"
 #include "components/favicon_base/favicon_url_parser.h"
@@ -107,6 +112,7 @@ WebUIBrowserUI::WebUIBrowserUI(content::WebUI* web_ui)
   webui::SetupWebUIDataSource(source, kWebuiBrowserResources,
                               IDR_WEBUI_BROWSER_WEBUI_BROWSER_HTML);
   source->AddResourcePaths(kTabStripApiResources);
+  source->AddResourcePaths(kWebuiToolbarSharedResources);
 
   static constexpr webui::LocalizedString kStrings[] = {
       // Localized strings (alphabetical order).
@@ -199,6 +205,21 @@ void WebUIBrowserUI::CreatePageHandler(
 }
 
 void WebUIBrowserUI::BindInterface(
+    mojo::PendingReceiver<bookmarks_api::mojom::BookmarksService> receiver) {
+  WebUIBrowserWindow* window =
+      WebUIBrowserWindow::FromWebShellWebContents(web_ui()->GetWebContents());
+  if (window) {
+    BrowserWindowInterface* browser_window = window->browser();
+    if (browser_window) {
+      auto* feature = browser_window->GetFeatures().bookmarks_service_feature();
+      if (feature) {
+        feature->Accept(std::move(receiver));
+      }
+    }
+  }
+}
+
+void WebUIBrowserUI::BindInterface(
     mojo::PendingReceiver<guest_contents::mojom::GuestContentsHost> receiver) {
   guest_contents::GuestContentsHostImpl::Create(web_ui()->GetWebContents(),
                                                 std::move(receiver));
@@ -226,7 +247,8 @@ void WebUIBrowserUI::BindInterface(
   auto* tab_drag_service_feature =
       browser_->browser_window_features()->tab_drag_service_feature();
   CHECK(tab_drag_service_feature) << "Browser missing TabDragService";
-  tab_drag_service_feature->AcceptDragService(std::move(receiver));
+  tab_drag_service_feature->AcceptDragService(
+      std::move(receiver), web_ui()->GetWebContents()->GetNativeView());
 }
 
 void WebUIBrowserUI::BindInterface(
@@ -249,6 +271,8 @@ void WebUIBrowserUI::CreatePageHandler(
   auto* render_frame_host = web_ui()->GetRenderFrameHost();
   WebUIBrowserPageHandler::CreateForRenderFrameHost(*render_frame_host,
                                                     std::move(receiver), this);
+  page_->OnPaintAsActiveChanged(
+      browser_window()->widget()->ShouldPaintAsActive());
 }
 
 void WebUIBrowserUI::CreatePageHandler(

@@ -5,6 +5,7 @@
 #include "base/trace_event/malloc_dump_provider.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <unordered_map>
 
@@ -40,6 +41,7 @@
 #endif
 
 #if PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
+#include "base/memory/advanced_memory_safety_checks.h"
 #include "base/no_destructor.h"
 #include "partition_alloc/shim/allocator_shim_default_dispatch_to_partition_alloc.h"
 #endif
@@ -61,34 +63,51 @@ BASE_FEATURE(kMallocDumpProviderPopulateDiscardableBytes,
 #endif  // PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
 
 #if BUILDFLAG(IS_WIN)
-// A structure containing some information about a given heap.
-struct WinHeapInfo {
-  size_t committed_size;
-  size_t uncommitted_size;
-  size_t allocated_size;
-  size_t block_count;
-};
-
-// NOTE: crbug.com/665516
-// Unfortunately, there is no safe way to collect information from secondary
-// heaps due to limitations and racy nature of this piece of WinAPI.
-void WinHeapMemoryDumpImpl(WinHeapInfo* crt_heap_info) {
-  // Iterate through whichever heap our CRT is using.
-  HANDLE crt_heap = reinterpret_cast<HANDLE>(_get_heap_handle());
-  ::HeapLock(crt_heap);
+internal::WinHeapInfo WinHeapInfoFromHandle(HANDLE heap_handle) {
+  internal::WinHeapInfo info;
+  ::HeapLock(heap_handle);
   PROCESS_HEAP_ENTRY heap_entry;
   heap_entry.lpData = nullptr;
-  // Walk over all the entries in the main heap.
-  while (::HeapWalk(crt_heap, &heap_entry) != FALSE) {
+
+  // HeapWalk emits a PROCESS_HEAP_REGION header before the blocks inside
+  // that region; large VirtualAlloc-backed allocations have no header and
+  // appear as orphan busy entries. See:
+  // https://learn.microsoft.com/en-us/windows/win32/api/minwinbase/ns-minwinbase-process_heap_entry
+  uintptr_t last_region_start = 0;
+  uintptr_t last_region_end = 0;
+
+  while (::HeapWalk(heap_handle, &heap_entry) != FALSE) {
+    const uintptr_t entry_addr = reinterpret_cast<uintptr_t>(heap_entry.lpData);
     if ((heap_entry.wFlags & PROCESS_HEAP_ENTRY_BUSY) != 0) {
-      crt_heap_info->allocated_size += heap_entry.cbData;
-      crt_heap_info->block_count++;
+      info.allocated_size += heap_entry.cbData;
+      info.block_count++;
+      if (entry_addr < last_region_start || entry_addr >= last_region_end) {
+        // Large allocations are returned by HeapWalk as orphan busy entries
+        // outside any PROCESS_HEAP_REGION. They are always committed since
+        // HeapAlloc never returns uncommitted memory.
+        info.committed_size +=
+            static_cast<size_t>(heap_entry.cbData) + heap_entry.cbOverhead;
+      }
     } else if ((heap_entry.wFlags & PROCESS_HEAP_REGION) != 0) {
-      crt_heap_info->committed_size += heap_entry.Region.dwCommittedSize;
-      crt_heap_info->uncommitted_size += heap_entry.Region.dwUnCommittedSize;
+      // dwCommittedSize / dwUnCommittedSize are documented as optional and
+      // reported as zero when unavailable. When their sum does not match
+      // cbData, fall back to treating the full reserved range as committed
+      // so the dump does not under-report.
+      if (heap_entry.Region.dwCommittedSize +
+              heap_entry.Region.dwUnCommittedSize ==
+          heap_entry.cbData) {
+        info.committed_size += heap_entry.Region.dwCommittedSize;
+        info.uncommitted_size += heap_entry.Region.dwUnCommittedSize;
+      } else {
+        info.committed_size += heap_entry.cbData;
+      }
+      last_region_start = entry_addr;
+      last_region_end = entry_addr + heap_entry.cbData;
     }
   }
-  CHECK(::HeapUnlock(crt_heap) == TRUE);
+  CHECK(::HeapUnlock(heap_handle) == TRUE);
+
+  return info;
 }
 
 void ReportWinHeapStats(MemoryDumpLevelOfDetail level_of_detail,
@@ -99,8 +118,12 @@ void ReportWinHeapStats(MemoryDumpLevelOfDetail level_of_detail,
                         size_t* allocated_objects_count) {
   // This is too expensive on Windows, crbug.com/780735.
   if (level_of_detail == MemoryDumpLevelOfDetail::kDetailed) {
-    WinHeapInfo main_heap_info = {};
-    WinHeapMemoryDumpImpl(&main_heap_info);
+    // NOTE: crbug.com/665516. Unfortunately, there is no safe way to collect
+    // information from secondary heaps due to limitations and racy nature of
+    // this piece of WinAPI. Walk only whichever heap our CRT is using.
+    auto main_heap_info =
+        WinHeapInfoFromHandle(reinterpret_cast<HANDLE>(_get_heap_handle()));
+
     *total_virtual_size +=
         main_heap_info.committed_size + main_heap_info.uncommitted_size;
     // Resident size is approximated with committed heap size. Note that it is
@@ -151,6 +174,13 @@ void ReportPartitionAllocStats(ProcessMemoryDump* pmd,
                                   populate_discardable_bytes,
                                   &partition_stats_dumper);
   }
+
+  // Obtain information from an allocator for leaked security object.
+  auto* leaked_security_object_allocator =
+      base::internal::LeakedSecurityObjectAllocator();
+  leaked_security_object_allocator->DumpStats("leaked", is_light_dump,
+                                              populate_discardable_bytes,
+                                              &partition_stats_dumper);
 
   *total_virtual_size += partition_stats_dumper.total_resident_bytes();
   *resident_size += partition_stats_dumper.total_resident_bytes();
@@ -312,6 +342,17 @@ void ReportExtremeLightweightDetectorQuarantineStats(
 
 }  // namespace
 
+#if BUILDFLAG(IS_WIN)
+namespace internal {
+
+WinHeapInfo WinHeapInfo::FromHandleForTesting(void* heap) {
+  HANDLE heap_handle = static_cast<HANDLE>(heap);
+  return WinHeapInfoFromHandle(heap_handle);
+}
+
+}  // namespace internal
+#endif  // BUILDFLAG(IS_WIN)
+
 // static
 const char MallocDumpProvider::kAllocatedObjects[] = "malloc/allocated_objects";
 
@@ -448,6 +489,9 @@ bool MallocDumpProvider::OnMemoryDump(const MemoryDumpArgs& args,
   ExtremeLUDStats elud_stats_for_large_objects;
 #if PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
   partitions_dump = pmd->CreateAllocatorDump("malloc/partitions");
+  partitions_dump->AddScalar("allocated_objects_size",
+                             MemoryAllocatorDump::kUnitsBytes,
+                             pa_only_allocated_objects_size);
   pmd->AddOwnershipEdge(inner_dump->guid(), partitions_dump->guid());
 
   auto& extreme_lud_get_stats_callback = GetExtremeLUDGetStatsCallback();
@@ -702,6 +746,10 @@ void MemoryDumpPartitionStatsDumper::PartitionDumpTotals(
         quarantine_dump_total,
         memory_stats->scheduler_loop_quarantine_stats_total);
   }
+
+  allocator_dump->AddScalar("intended_leak_size",
+                            MemoryAllocatorDump::kUnitsBytes,
+                            memory_stats->total_intended_leak_bytes);
 }
 
 void MemoryDumpPartitionStatsDumper::PartitionsDumpBucketStats(

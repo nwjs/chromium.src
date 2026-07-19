@@ -11,7 +11,6 @@
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/task_manager/task_manager_metrics_recorder.h"
 #include "chrome/browser/ui/task_manager/task_manager_table_model.h"
-#include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/task_manager_search_bar_view.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/models/table_model.h"
@@ -19,19 +18,17 @@
 #include "ui/base/mojom/menu_source_type.mojom-forward.h"
 #include "ui/menus/simple_menu_model.h"
 #include "ui/views/context_menu_controller.h"
-#include "ui/views/controls/button/md_text_button.h"
-#include "ui/views/controls/menu/menu_runner.h"
-#include "ui/views/controls/separator.h"
-#include "ui/views/controls/tabbed_pane/tabbed_pane.h"
 #include "ui/views/controls/tabbed_pane/tabbed_pane_listener.h"
 #include "ui/views/controls/table/table_grouper.h"
 #include "ui/views/controls/table/table_view_observer.h"
-#include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/window/dialog_delegate.h"
 
 class Browser;
+class ChromeLayoutProvider;
 
 namespace views {
+class MenuRunner;
+class TabbedPaneTabStrip;
 class TableView;
 class View;
 }  // namespace views
@@ -122,26 +119,9 @@ class TaskManagerView : public TableViewDelegate,
   static TaskManagerView* GetInstanceForTests();
 
  private:
-  // Used for the TaskManagerDesktopRefresh.
-  // Determines how the UI for the TaskManager is rendered. Each boolean
-  // controls a specific deviation from the original TaskManager UI.
-  // TODO(crbug.com/364926055): Remove after feature is enabled by default.
-  struct TableConfigs {
-    bool table_has_border;
-    bool header_style;
-    bool table_refresh;
-    bool scroll_view_rounded;
-    bool layout_refresh;
-    bool dialog_button_disabled;
-    bool sort_on_cpu_by_default;
-  };
-
   friend class TaskManagerViewTest;
 
   explicit TaskManagerView(StartAction start_action = StartAction::kOther);
-
-  // Returns flags that describe how the TaskManagerView should be rendered.
-  static TableConfigs GetTableConfigs();
 
   // Creates the header for the view.
   void CreateHeader(const ChromeLayoutProvider* provider);
@@ -162,9 +142,7 @@ class TaskManagerView : public TableViewDelegate,
   std::unique_ptr<views::View> CreateSearchBar(
       const ChromeLayoutProvider* provider);
   std::unique_ptr<views::ScrollView> CreateProcessView(
-      std::unique_ptr<views::TableView> tab_table,
-      bool table_has_border,
-      bool layout_refresh);
+      std::unique_ptr<views::TableView> tab_table);
 
   // Creates the child controls (header, table, etc).
   void Init();
@@ -200,14 +178,7 @@ class TaskManagerView : public TableViewDelegate,
   std::unique_ptr<ui::SimpleMenuModel> menu_model_;
   std::unique_ptr<views::MenuRunner> menu_runner_;
 
-  // We need to own the text of the menu, the Windows API does not copy it.
-  std::u16string always_on_top_menu_text_;
-
-  raw_ptr<views::TableView, DanglingUntriaged> tab_table_;
-  raw_ptr<views::View, DanglingUntriaged> tab_table_parent_;
-
-  // Specifications on how to layout the table.
-  TableConfigs table_config_;
+  raw_ptr<views::TableView> tab_table_ = nullptr;
 
   // all possible columns, not necessarily visible.
   std::vector<ui::TableColumn> columns_;
@@ -218,10 +189,6 @@ class TaskManagerView : public TableViewDelegate,
 
   // Search keyword the user input.
   std::u16string search_terms_;
-
-  // This button is not the same as the dialog button. It is only non-null if
-  // task manager refresh is enabled.
-  raw_ptr<views::MdTextButton> end_process_btn_;
 
   // The first time this instance of the task manager was initialized.
   const base::TimeTicks start_time_ = base::TimeTicks::Now();

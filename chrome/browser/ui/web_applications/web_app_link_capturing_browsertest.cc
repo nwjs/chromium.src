@@ -20,7 +20,6 @@
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/apps/intent_helper/preferred_apps_test_util.h"
 #include "chrome/browser/apps/link_capturing/link_capturing_feature_test_support.h"
-#include "chrome/browser/apps/link_capturing/link_capturing_navigation_throttle.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
@@ -83,17 +82,9 @@ class WebAppLinkCapturingBrowserTest
   }
   ~WebAppLinkCapturingBrowserTest() override = default;
 
-  bool ShouldLinksWithExistingFrameTargetsCapture() const {
-    return apps::test::ShouldLinksWithExistingFrameTargetsCapture(GetParam());
-  }
-
   bool LinkCapturingEnabledByDefault() const {
-#if BUILDFLAG(IS_CHROMEOS)
-    return false;
-#else
     const apps::test::LinkCapturingFeatureVersion& version = GetParam();
     return version == apps::test::LinkCapturingFeatureVersion::kV2DefaultOn;
-#endif
   }
 
   void SetUpOnMainThread() override {
@@ -259,8 +250,10 @@ IN_PROC_BROWSER_TEST_P(WebAppLinkCapturingBrowserTest,
             launch_handler->parsed_client_mode());
   EXPECT_TRUE(launch_handler->client_mode_valid_and_specified());
 
-  ASSERT_EQ(apps::test::EnableLinkCapturingByUser(profile(), app_id),
-            base::ok());
+  if (!LinkCapturingEnabledByDefault()) {
+    ASSERT_EQ(apps::test::EnableLinkCapturingByUser(profile(), app_id),
+              base::ok());
+  }
 
   // Start browser at an out of scope page.
   NavigateSelf(browser(), out_of_scope_);
@@ -273,14 +266,8 @@ IN_PROC_BROWSER_TEST_P(WebAppLinkCapturingBrowserTest,
 
   // Click a link in the browser in to scope.
   NavigateSelf(browser(), in_scope_2);
-  if (ShouldLinksWithExistingFrameTargetsCapture()) {
-    // Ensure that no additional tabs get opened in the browser.
-    ExpectTabs(browser(), {out_of_scope_});
-    ExpectTabs(app_browser, {in_scope_2});
-  } else {
-    ExpectTabs(browser(), {in_scope_2});
-    ExpectTabs(app_browser, {in_scope_1});
-  }
+  ExpectTabs(browser(), {in_scope_2});
+  ExpectTabs(app_browser, {in_scope_1});
 }
 
 IN_PROC_BROWSER_TEST_P(WebAppLinkCapturingBrowserTest,
@@ -293,8 +280,10 @@ IN_PROC_BROWSER_TEST_P(WebAppLinkCapturingBrowserTest,
             launch_handler->parsed_client_mode());
   EXPECT_TRUE(launch_handler->client_mode_valid_and_specified());
 
-  ASSERT_EQ(apps::test::EnableLinkCapturingByUser(profile(), app_id),
-            base::ok());
+  if (!LinkCapturingEnabledByDefault()) {
+    ASSERT_EQ(apps::test::EnableLinkCapturingByUser(profile(), app_id),
+              base::ok());
+  }
 
   // Start browser at an out of scope page.
   NavigateSelf(browser(), out_of_scope_);
@@ -321,8 +310,10 @@ IN_PROC_BROWSER_TEST_P(WebAppLinkCapturingBrowserTest,
             launch_handler->parsed_client_mode());
   EXPECT_TRUE(launch_handler->client_mode_valid_and_specified());
 
-  ASSERT_EQ(apps::test::EnableLinkCapturingByUser(profile(), app_id),
-            base::ok());
+  if (!LinkCapturingEnabledByDefault()) {
+    ASSERT_EQ(apps::test::EnableLinkCapturingByUser(profile(), app_id),
+              base::ok());
+  }
 
   // Start browser at an out of scope page.
   NavigateSelf(browser(), out_of_scope_);
@@ -344,67 +335,6 @@ IN_PROC_BROWSER_TEST_P(WebAppLinkCapturingBrowserTest,
   ExpectTabs(other_app_browser, {in_scope_1});
 }
 
-// TODO(crbug.com/447228160): Re-enable this test
-#if BUILDFLAG(IS_CHROMEOS)
-#define MAYBE_AboutBlankNavigationCleanUp DISABLED_AboutBlankNavigationCleanUp
-#else
-#define MAYBE_AboutBlankNavigationCleanUp AboutBlankNavigationCleanUp
-#endif
-// Link captures from about:blank cleans up the about:blank page.
-IN_PROC_BROWSER_TEST_P(WebAppLinkCapturingBrowserTest,
-                       MAYBE_AboutBlankNavigationCleanUp) {
-  if (!ShouldLinksWithExistingFrameTargetsCapture()) {
-    GTEST_SKIP();
-  }
-  const auto [app_id, in_scope_1, _, scope] =
-      InstallTestApp("/web_apps/basic.html");
-  ASSERT_EQ(apps::test::EnableLinkCapturingByUser(profile(), app_id),
-            base::ok());
-
-  ExpectTabs(browser(), {about_blank_});
-  BrowserDestroyedObserver browser_destroyed_observer(browser());
-
-  // Navigate an about:blank page.
-  BrowserCreatedObserver browser_created_observer;
-  NavigateSelf(browser(), in_scope_1);
-  Browser* app_browser = browser_created_observer.Wait();
-  EXPECT_TRUE(AppBrowserController::IsForWebApp(app_browser, app_id));
-  ExpectTabs(app_browser, {in_scope_1});
-
-  // Old about:blank page cleaned up.
-  browser_destroyed_observer.Wait();
-}
-
-// JavaScript initiated link captures from about:blank cleans up the about:blank
-// page.
-IN_PROC_BROWSER_TEST_P(WebAppLinkCapturingBrowserTest,
-                       JavascriptAboutBlankNavigationCleanUp) {
-  if (!ShouldLinksWithExistingFrameTargetsCapture()) {
-    GTEST_SKIP();
-  }
-  const auto [app_id, in_scope_1, _, scope] =
-      InstallTestApp("/web_apps/basic.html");
-  ASSERT_EQ(apps::test::EnableLinkCapturingByUser(profile(), app_id),
-            base::ok());
-
-  ExpectTabs(browser(), {about_blank_});
-  BrowserDestroyedObserver browser_destroyed_observer(browser());
-  content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
-  content::WebContentsDestroyedWatcher watcher(web_contents);
-
-  // Navigate an about:blank page using JavaScript.
-  BrowserCreatedObserver browser_created_observer;
-  ASSERT_TRUE(content::ExecJs(
-      web_contents,
-      base::StringPrintf("location = '%s';", in_scope_1.spec().c_str())));
-  Browser* app_browser = browser_created_observer.Wait();
-  ExpectTabs(app_browser, {in_scope_1});
-
-  // Old about:blank page cleaned up.
-  browser_destroyed_observer.Wait();
-  watcher.Wait();
-}
 
 IN_PROC_BROWSER_TEST_P(WebAppLinkCapturingBrowserTest,
                        DifferentPortConsideredDifferent) {
@@ -420,8 +350,10 @@ IN_PROC_BROWSER_TEST_P(WebAppLinkCapturingBrowserTest,
 
   const auto [app_id, url1, url2, scope] =
       InstallTestApp("/web_apps/basic.html");
-  ASSERT_EQ(apps::test::EnableLinkCapturingByUser(profile(), app_id),
-            base::ok());
+  if (!LinkCapturingEnabledByDefault()) {
+    ASSERT_EQ(apps::test::EnableLinkCapturingByUser(profile(), app_id),
+              base::ok());
+  }
 
   ExpectTabs(browser(), {about_blank_});
   GURL url = other_server.GetURL("/web_apps/basic.html");
@@ -434,8 +366,10 @@ IN_PROC_BROWSER_TEST_P(WebAppLinkCapturingBrowserTest,
                        HandleClickFromSandboxedIframe) {
   const auto [app_id, in_scope_1, _, scope] =
       InstallTestApp("/web_apps/basic.html");
-  ASSERT_EQ(apps::test::EnableLinkCapturingByUser(profile(), app_id),
-            base::ok());
+  if (!LinkCapturingEnabledByDefault()) {
+    ASSERT_EQ(apps::test::EnableLinkCapturingByUser(profile(), app_id),
+              base::ok());
+  }
 
   // Create a sandboxed iframe, which contains a link to the installed app,
   // covering the full viewport of the iframe.
@@ -487,10 +421,22 @@ IN_PROC_BROWSER_TEST_P(WebAppLinkCapturingBrowserTest,
 
 IN_PROC_BROWSER_TEST_P(WebAppLinkCapturingBrowserTest,
                        ParentAppWithChildLinks) {
-  // Note: The order matters so the nested app navigation for installation
-  // doesn't get captured by the parent app.
-  webapps::AppId nested_app_id = InstallNestedApp();
+#if BUILDFLAG(IS_CHROMEOS)
+  // TODO(b/521860617): Under kV2DefaultOn, the nested app captures the
+  // navigation instead of the parent app because both are default-on.
+  // Skip this test on ChromeOS until the preferred app selection discrepancy
+  // is resolved.
+  if (LinkCapturingEnabledByDefault()) {
+    GTEST_SKIP() << "Skipping due to overlapping scope link capturing "
+                    "discrepancy on ChromeOS under kV2DefaultOn";
+  }
+#endif
+
+  // Install the parent app first, then the nested app. This ensures that the
+  // nested app's default link capturing preference is not overridden by the
+  // parent app's installation.
   webapps::AppId parent_app_id = InstallParentApp();
+  webapps::AppId nested_app_id = InstallNestedApp();
 
   if (!LinkCapturingEnabledByDefault()) {
     ASSERT_EQ(apps::test::EnableLinkCapturingByUser(profile(), parent_app_id),
@@ -513,8 +459,8 @@ IN_PROC_BROWSER_TEST_P(WebAppLinkCapturingBrowserTest,
 #else
   if (LinkCapturingEnabledByDefault()) {
     // If link capturing is on by default, then the nested app will also be
-    // capturing links in it's scope (and thus the nested url will launch a
-    // nested app browser. the nested app browser.
+    // capturing links in its scope (and thus the nested url will launch a
+    // nested app browser).
     Browser* app_browser = browser_created_observer.Wait();
     EXPECT_TRUE(AppBrowserController::IsForWebApp(app_browser, nested_app_id));
     EXPECT_NE(browser(), app_browser);
@@ -526,13 +472,21 @@ IN_PROC_BROWSER_TEST_P(WebAppLinkCapturingBrowserTest,
 #endif
 }
 
-// https://crbug.com/40279851: ChromeOS currently capturing nested app links
-// into the parent app, treating them as overlapping apps. Other platforms split
-// the URL space and fully respect the child app's user setting. Thus, on
-// non-CrOS platforms both apps can capture links.
-#if !BUILDFLAG(IS_CHROMEOS)
+// Since overlapping scopes support is enabled on ChromeOS, parent and child
+// apps can both capture links at the same time. This should also work when
+// link capturing is default on.
 IN_PROC_BROWSER_TEST_P(WebAppLinkCapturingBrowserTest,
                        ParentAppAndChildAppCapture) {
+#if BUILDFLAG(IS_CHROMEOS)
+  // TODO(b/521860617): Under kV2DefaultOff, overlapping scopes support on
+  // ChromeOS has a discrepancy. Skip this test under kV2DefaultOff until
+  // resolved.
+  if (!LinkCapturingEnabledByDefault()) {
+    GTEST_SKIP() << "Skipping due to overlapping scope discrepancy on ChromeOS "
+                    "under kV2DefaultOff";
+  }
+#endif
+
   // Note: The order matters so the nested app navigation for installation
   // doesn't get captured by the parent app.
   webapps::AppId nested_app_id = InstallNestedApp();
@@ -571,7 +525,6 @@ IN_PROC_BROWSER_TEST_P(WebAppLinkCapturingBrowserTest,
   ExpectTabs(nested_browser, {GetNestedAppUrl()});
   ExpectTabs(parent_browser, {GetParentAppUrl()});
 }
-#endif  // !BUILDFLAG(IS_CHROMEOS)
 
 // Tests that link capturing works while inside a web app window.
 // TODO(crbug.com/330148482): Flaky on Linux Debug bots.
@@ -606,16 +559,8 @@ IN_PROC_BROWSER_TEST_P(WebAppLinkCapturingBrowserTest,
         GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
             navigated_observer.web_contents());
 
-    if (ShouldLinksWithExistingFrameTargetsCapture()) {
-      // Self links should be captured into a new app.
-      EXPECT_TRUE(
-          AppBrowserController::IsForWebApp(navigated_browser, nested_app_id));
-    } else {
-      // Since we are navigating in the parent, the web contents should stay the
-      // same (and thus stay in the parent app).
-      EXPECT_TRUE(
-          AppBrowserController::IsForWebApp(navigated_browser, parent_app_id));
-    }
+    EXPECT_TRUE(
+        AppBrowserController::IsForWebApp(navigated_browser, parent_app_id));
   }
 
   // Clicking a link from target="_blank" should link capture in v1 and v2.
@@ -657,8 +602,10 @@ IN_PROC_BROWSER_TEST_P(WebAppLinkCapturingBrowserTest,
   const auto [app_id, in_scope_1, _, scope] =
       InstallTestApp("/web_apps/basic.html");
 
-  ASSERT_EQ(apps::test::EnableLinkCapturingByUser(profile(), app_id),
-            base::ok());
+  if (!LinkCapturingEnabledByDefault()) {
+    ASSERT_EQ(apps::test::EnableLinkCapturingByUser(profile(), app_id),
+              base::ok());
+  }
 
   content::WebContents* test_app = OpenApplication(app_id);
 
@@ -677,8 +624,10 @@ IN_PROC_BROWSER_TEST_P(WebAppLinkCapturingBrowserTest,
   const auto [app_id, in_scope, _, scope] =
       InstallTestApp("/web_apps/basic.html");
 
-  ASSERT_EQ(apps::test::EnableLinkCapturingByUser(profile(), app_id),
-            base::ok());
+  if (!LinkCapturingEnabledByDefault()) {
+    ASSERT_EQ(apps::test::EnableLinkCapturingByUser(profile(), app_id),
+              base::ok());
+  }
 
   // Start navigation from an out-of-scope URL on the same origin to ensure that
   // prerendering can happen.
@@ -687,15 +636,7 @@ IN_PROC_BROWSER_TEST_P(WebAppLinkCapturingBrowserTest,
   // Prerenders are cancelled for all links that use the throttle to cancel
   // navigations and launch apps. For v1, this is all links. For v2, this is
   // only if the supplemental throttle is used (CrOS only).
-  bool expect_prerender_cancel = ShouldLinksWithExistingFrameTargetsCapture();
-  PrerenderHostObserver host_observer(*prerender_web_contents(), in_scope);
-  if (expect_prerender_cancel) {
-    prerender_helper_.AddPrerenderAsync(in_scope);
-    host_observer.WaitForDestroyed();
-  } else {
-    // This will EXPECT-fail if the prerender is cancelled.
-    prerender_helper_.AddPrerender(in_scope);
-  }
+  prerender_helper_.AddPrerender(in_scope);
 
   // The out of scope URL should still be open in the main browser.
   ExpectTabs(browser(), {out_of_scope});
@@ -715,8 +656,10 @@ IN_PROC_BROWSER_TEST_P(WebAppLinkCapturingBrowserTest,
   const auto [app_id, in_scope, _, scope] =
       InstallTestApp("/web_apps/basic.html");
 
-  ASSERT_EQ(apps::test::EnableLinkCapturingByUser(profile(), app_id),
-            base::ok());
+  if (!LinkCapturingEnabledByDefault()) {
+    ASSERT_EQ(apps::test::EnableLinkCapturingByUser(profile(), app_id),
+              base::ok());
+  }
 
   // Start navigation from an out-of-scope URL on the same origin to ensure that
   // prerendering can happen.
@@ -725,28 +668,13 @@ IN_PROC_BROWSER_TEST_P(WebAppLinkCapturingBrowserTest,
   // Prerenders are cancelled for all links that use the throttle to cancel
   // navigations and launch apps. For v1, this is all links. For v2, this is
   // only if the supplemental throttle is used (CrOS only).
-  bool expect_prerender_cancel = ShouldLinksWithExistingFrameTargetsCapture();
-  PrerenderHostObserver host_observer(*prerender_web_contents(), in_scope);
-  if (expect_prerender_cancel) {
-    prerender_helper_.AddPrerenderAsync(in_scope);
-    host_observer.WaitForDestroyed();
-  } else {
-    // This will EXPECT-fail if the prerender is cancelled.
-    prerender_helper_.AddPrerender(in_scope);
-  }
+  prerender_helper_.AddPrerender(in_scope);
 
   BrowserCreatedObserver browser_created_observer;
   ClickLinkAndWait(prerender_web_contents(), in_scope, LinkTarget::SELF,
                    /*rel=*/"");
 
-  if (ShouldLinksWithExistingFrameTargetsCapture()) {
-    ExpectTabs(browser(), {out_of_scope});
-    Browser* app_browser = browser_created_observer.Wait();
-    EXPECT_TRUE(AppBrowserController::IsForWebApp(app_browser, app_id));
-    ExpectTabs(app_browser, {in_scope});
-  } else {
     ExpectTabs(browser(), {in_scope});
-  }
 }
 
 // TODO(crbug.com/394710875): Re-enable this test
@@ -760,8 +688,10 @@ IN_PROC_BROWSER_TEST_P(WebAppLinkCapturingBrowserTest,
   const auto [app_id, in_scope, _, scope] =
       InstallTestApp("/web_apps/basic.html");
 
-  ASSERT_EQ(apps::test::EnableLinkCapturingByUser(profile(), app_id),
-            base::ok());
+  if (!LinkCapturingEnabledByDefault()) {
+    ASSERT_EQ(apps::test::EnableLinkCapturingByUser(profile(), app_id),
+              base::ok());
+  }
 
   AddTab(browser(), about_blank_);
   content::WebContents* web_contents =
@@ -802,14 +732,8 @@ IN_PROC_BROWSER_TEST_P(WebAppLinkCapturingBrowserTest,
 INSTANTIATE_TEST_SUITE_P(
     ,
     WebAppLinkCapturingBrowserTest,
-#if BUILDFLAG(IS_CHROMEOS)
-    testing::Values(apps::test::LinkCapturingFeatureVersion::kV2DefaultOff,
-                    apps::test::LinkCapturingFeatureVersion::
-                        kV2DefaultOffCaptureExistingFrames),
-#else
     testing::Values(apps::test::LinkCapturingFeatureVersion::kV2DefaultOff,
                     apps::test::LinkCapturingFeatureVersion::kV2DefaultOn),
-#endif
     apps::test::LinkCapturingVersionToString);
 
 // TODO(crbug.com/376922620): Add tabbed mode support for navigation capturing.
@@ -848,8 +772,10 @@ IN_PROC_BROWSER_TEST_P(WebAppTabStripLinkCapturingBrowserTest,
     GTEST_SKIP() << "kTabbed mode not yet supported for navigation capturing.";
   }
   const auto [app_id, in_scope_1, in_scope_2, scope] = InstallTestTabbedApp();
-  ASSERT_EQ(apps::test::EnableLinkCapturingByUser(profile(), app_id),
-            base::ok());
+  if (!LinkCapturingEnabledByDefault()) {
+    ASSERT_EQ(apps::test::EnableLinkCapturingByUser(profile(), app_id),
+              base::ok());
+  }
 
   // Start browser at an out of scope page.
   NavigateSelf(browser(), out_of_scope_);
@@ -889,13 +815,8 @@ IN_PROC_BROWSER_TEST_P(WebAppTabStripLinkCapturingBrowserTest,
 INSTANTIATE_TEST_SUITE_P(
     ,
     WebAppTabStripLinkCapturingBrowserTest,
-#if BUILDFLAG(IS_CHROMEOS)
     testing::Values(apps::test::LinkCapturingFeatureVersion::kV2DefaultOff,
-                    apps::test::LinkCapturingFeatureVersion::
-                        kV2DefaultOffCaptureExistingFrames),
-#else
-    testing::Values(apps::test::LinkCapturingFeatureVersion::kV2DefaultOff),
-#endif  // BUILDFLAG(IS_CHROMEOS)
+                    apps::test::LinkCapturingFeatureVersion::kV2DefaultOn),
     apps::test::LinkCapturingVersionToString);
 #endif
 

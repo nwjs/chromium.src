@@ -197,6 +197,7 @@ class CodeSignConfig(object):
         """
         return False
 
+
     @property
     def main_executable_pinned_geometry(self):
         """An optional tuple of pinned architecture offset pairs. If set the

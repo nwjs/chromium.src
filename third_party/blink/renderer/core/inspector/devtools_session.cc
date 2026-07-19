@@ -103,7 +103,8 @@ class DevToolsSession::IOSession : public mojom::blink::DevToolsSession {
   // mojom::blink::DevToolsSession implementation.
   void DispatchProtocolCommand(int call_id,
                                const String& method,
-                               base::span<const uint8_t> message) override {
+                               base::span<const uint8_t> message,
+                               const String& fallthrough_data) override {
     TRACE_EVENT("devtools", "IOSession::DispatchProtocolCommand",
                 perfetto::Flow::ProcessScoped(call_id), "call_id", call_id);
     // Crash renderer.
@@ -118,12 +119,12 @@ class DevToolsSession::IOSession : public mojom::blink::DevToolsSession {
       inspector_task_runner_->AppendTask(CrossThreadBindOnce(
           &::blink::DevToolsSession::DispatchProtocolCommandImpl,
           MakeUnwrappingCrossThreadWeakHandle(session_), call_id, method,
-          std::move(message_copy)));
+          std::move(message_copy), fallthrough_data));
     } else {
       inspector_task_runner_->AppendTaskDontInterrupt(CrossThreadBindOnce(
           &::blink::DevToolsSession::DispatchProtocolCommandImpl,
           MakeUnwrappingCrossThreadWeakHandle(session_), call_id, method,
-          std::move(message_copy)));
+          std::move(message_copy), fallthrough_data));
     }
   }
 
@@ -133,17 +134,7 @@ class DevToolsSession::IOSession : public mojom::blink::DevToolsSession {
                             MakeUnwrappingCrossThreadWeakHandle(session_)));
   }
 
-  void AddScriptToEvaluateOnNewDocument(
-      const String& identifier,
-      mojom::blink::ScriptToEvaluateOnNewDocumentPtr script,
-      bool run_immediately,
-      AddScriptToEvaluateOnNewDocumentCallback callback) override {
-    NOTIMPLEMENTED();
-  }
 
-  void RemoveScriptToEvaluateOnNewDocument(const String& identifier) override {
-    NOTIMPLEMENTED();
-  }
 
  private:
   scoped_refptr<base::SingleThreadTaskRunner> io_task_runner_;
@@ -160,7 +151,6 @@ DevToolsSession::DevToolsSession(
         main_receiver,
     mojo::PendingReceiver<mojom::blink::DevToolsSession> io_receiver,
     mojom::blink::DevToolsSessionStatePtr reattach_session_state,
-    const String& script_to_evaluate_on_load,
     bool client_expects_binary_responses,
     bool client_is_trusted,
     const String& session_id,
@@ -173,7 +163,6 @@ DevToolsSession::DevToolsSession(
       client_is_trusted_(client_is_trusted),
       v8_session_state_(kV8StateKey),
       v8_session_state_cbor_(&v8_session_state_, /*default_value=*/{}),
-      script_to_evaluate_on_load_(script_to_evaluate_on_load),
       session_id_(session_id),
       session_waits_for_debugger_(session_waits_for_debugger),
       injected_script_manager_(
@@ -196,6 +185,9 @@ DevToolsSession::DevToolsSession(
       injected_script_manager_->AddScriptToEvaluateOnNewDocument(
           entry.key, entry.value.Clone(), false);
     }
+    script_to_evaluate_on_load_ =
+        reattach_state->browser_originating_session_state
+            ->script_to_evaluate_on_load_once;
   }
 
   bool restore =
@@ -265,19 +257,21 @@ void DevToolsSession::DetachFromV8() {
   }
 }
 
-void DevToolsSession::DispatchProtocolCommand(
-    int call_id,
-    const String& method,
-    base::span<const uint8_t> message) {
+void DevToolsSession::DispatchProtocolCommand(int call_id,
+                                              const String& method,
+                                              base::span<const uint8_t> message,
+                                              const String& fallthrough_data) {
   TRACE_EVENT("devtools", "DevToolsSession::DispatchProtocolCommand",
               perfetto::Flow::ProcessScoped(call_id), "call_id", call_id);
-  return DispatchProtocolCommandImpl(call_id, method, message);
+  return DispatchProtocolCommandImpl(call_id, method, message,
+                                     fallthrough_data);
 }
 
 void DevToolsSession::DispatchProtocolCommandImpl(
     int call_id,
     const String& method,
-    base::span<const uint8_t> data) {
+    base::span<const uint8_t> data,
+    const String& fallthrough_data) {
   DCHECK(crdtp::cbor::IsCBORMessage(
       crdtp::span<uint8_t>(data.data(), data.size())));
   TRACE_EVENT("devtools", "DevToolsSession::DispatchProtocolCommandImpl",
@@ -304,7 +298,9 @@ void DevToolsSession::DispatchProtocolCommandImpl(
     v8_session_->dispatchProtocolMessage(
         v8_inspector::StringView(data.data(), data.size()));
   } else {
-    crdtp::Dispatchable dispatchable(crdtp::SpanFrom(data), std::string_view(),
+    StringUtf8Adaptor UTF8(fallthrough_data);
+    crdtp::Dispatchable dispatchable(crdtp::SpanFrom(data),
+                                     std::string_view(UTF8.data(), UTF8.size()),
                                      /*fallthrough_callback=*/nullptr);
     // This message has already been checked by content::DevToolsSession.
     DCHECK(dispatchable.ok());
@@ -483,26 +479,6 @@ void DevToolsSession::UnpauseAndTerminate() {
   v8_session_->resume(true /* terminate on resume */);
 }
 
-void DevToolsSession::AddScriptToEvaluateOnNewDocument(
-    const String& identifier,
-    mojom::blink::ScriptToEvaluateOnNewDocumentPtr script,
-    bool run_immediately,
-    AddScriptToEvaluateOnNewDocumentCallback callback) {
-  // client_->IsPausedForNewWindow(): When opening a new popup,
-  // Page.addScriptToEvaluateOnNewDocument could be called after
-  // Runtime.enable that forces main context creation. In this case, we would
-  // not normally evaluate the script, but we should.
-  bool should_run_immediately =
-      run_immediately ||
-      (agent_->client_ && agent_->client_->IsPausedForNewWindow());
-  injected_script_manager_->AddScriptToEvaluateOnNewDocument(
-      identifier, std::move(script), should_run_immediately);
-  std::move(callback).Run();
-}
 
-void DevToolsSession::RemoveScriptToEvaluateOnNewDocument(
-    const String& identifier) {
-  injected_script_manager_->RemoveScriptToEvaluateOnNewDocument(identifier);
-}
 
 }  // namespace blink

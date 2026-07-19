@@ -23,10 +23,10 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/metrics/field_trial.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/histogram_macros_local.h"
 #include "base/numerics/safe_conversions.h"
-#include "base/pickle.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
@@ -145,7 +145,7 @@ disk_cache::BackendResult HttpCache::DefaultBackend::CreateBackend(
   disk_cache::ResetHandling reset_handling =
       hard_reset_ ? disk_cache::ResetHandling::kReset
                   : disk_cache::ResetHandling::kResetOnError;
-  LOCAL_HISTOGRAM_BOOLEAN("HttpCache.HardReset", hard_reset_);
+  UMA_HISTOGRAM_BOOLEAN("HttpCache.HardReset", hard_reset_);
 #if BUILDFLAG(IS_ANDROID)
   if (app_status_listener_getter_) {
     return disk_cache::CreateCacheBackend(
@@ -173,6 +173,10 @@ std::optional<CacheType> HttpCache::BackendFactory::GetCacheType() const {
 void HttpCache::BackendFactory::HasExistingFileToLoad(
     base::OnceCallback<void(bool)> callback) {
   std::move(callback).Run(false);
+}
+
+void HttpCache::BackendFactory::SetMaxBytes(int max_bytes) {
+  CHECK_GE(max_bytes, 0);
 }
 
 std::optional<CacheType> HttpCache::DefaultBackend::GetCacheType() const {
@@ -232,6 +236,11 @@ void HttpCache::DefaultBackend::HasExistingFileToLoad(
           },
           std::move(file_ops), path_),
       std::move(callback));
+}
+
+void HttpCache::DefaultBackend::SetMaxBytes(int max_bytes) {
+  CHECK_GE(max_bytes, 0);
+  max_bytes_ = max_bytes;
 }
 
 //-----------------------------------------------------------------------------
@@ -335,10 +344,9 @@ void HttpCache::ActiveEntry::RestartHeadersPhaseTransactions() {
     RestartHeadersTransaction();
   }
 
-  auto it = done_headers_queue_.begin();
-  while (it != done_headers_queue_.end()) {
-    Transaction* done_headers_transaction = *it;
-    it = done_headers_queue_.erase(it);
+  while (!done_headers_queue_.empty()) {
+    Transaction* done_headers_transaction = done_headers_queue_.front();
+    done_headers_queue_.erase(done_headers_queue_.begin());
     done_headers_transaction->cache_io_callback().Run(ERR_CACHE_RACE);
   }
 }
@@ -526,6 +534,7 @@ HttpCache::HttpCache(
           features::kAvoidEntryCreationForNoStoreCacheSize.Get()),
       file_operations_(std::move(file_operations)) {
   g_init_cache = true;
+
   if (base::FeatureList::IsEnabled(features::kHttpCacheNoVarySearch)) {
     size_t max_entries = features::kHttpCacheNoVarySearchCacheMaxEntries.Get();
     if (max_entries) {
@@ -606,12 +615,13 @@ HttpCache::GetBackendResult HttpCache::GetBackend(GetBackendCallback callback) {
     return {OK, disk_cache_.get()};
   }
 
+  if (!backend_factory_.get()) {
+    return {ERR_FAILED, nullptr};
+  }
+
   int rv = CreateBackend(base::BindOnce(&HttpCache::ReportGetBackendResult,
                                         GetWeakPtr(), std::move(callback)));
-  if (rv != ERR_IO_PENDING) {
-    return {rv, disk_cache_.get()};
-  }
-  return {ERR_IO_PENDING, nullptr};
+  return {rv, disk_cache_.get()};
 }
 
 void HttpCache::ReportGetBackendResult(GetBackendCallback callback,
@@ -762,19 +772,23 @@ HttpCache::SetHttpNetworkTransactionFactoryForTesting(
 }
 
 // static
-std::string HttpCache::GetResourceURLFromHttpCacheKey(const std::string& key) {
+std::string_view HttpCache::GetResourceURLFromHttpCacheKey(
+    const std::string_view key) {
   // The key format is:
   // credential_key/post_key/[isolation_key]url
 
-  std::string::size_type pos = 0;
-  pos = key.find('/', pos) + 1;  // Consume credential_key/
-  pos = key.find('/', pos) + 1;  // Consume post_key/
-
-  // It is a good idea to make this function tolerate invalid input. This can
-  // happen because of disk corruption.
-  if (pos == std::string::npos) {
-    return "";
+  size_t pos = 0;
+  // Consume credential_key/
+  pos = key.find('/', pos);
+  if (pos == std::string_view::npos) {
+    return {};
   }
+  // Consume post_key/
+  pos = key.find('/', pos + 1);
+  if (pos == std::string_view::npos) {
+    return {};
+  }
+  pos += 1;
 
   // Consume [isolation_key].
   // Search the key to see whether it begins with |kDoubleKeyPrefix|. If so,
@@ -788,9 +802,10 @@ std::string HttpCache::GetResourceURLFromHttpCacheKey(const std::string& key) {
     // the original resource url is valid, and hence will not contain the
     // unescaped whitespace of |kDoubleKeySeparator|.
     pos = key.rfind(kDoubleKeySeparator);
-    DCHECK_NE(pos, std::string::npos);
+    if (pos == std::string_view::npos) {
+      return {};
+    }
     pos += strlen(kDoubleKeySeparator);
-    DCHECK_LE(pos, key.size() - 1);
   }
   return key.substr(pos);
 }
@@ -1383,6 +1398,7 @@ void HttpCache::WritersDoneWritingToEntry(scoped_refptr<ActiveEntry> entry,
     // the truncated status of the entry.
     entry->RestartHeadersPhaseTransactions();
     entry->ReleaseWriters();
+    ProcessQueuedTransactions(std::move(entry));
     return;
   }
 
@@ -1510,7 +1526,8 @@ void HttpCache::ProcessDoneHeadersQueue(scoped_refptr<ActiveEntry> entry) {
   ParallelWritingPattern parallel_writing_pattern =
       CanTransactionJoinExistingWriters(transaction);
   if (entry->IsWritingInProgress()) {
-    if (parallel_writing_pattern != PARALLEL_WRITING_JOIN) {
+    if (parallel_writing_pattern != PARALLEL_WRITING_JOIN ||
+        !entry->writers()->CanJoin()) {
       // TODO(shivanisha): Returning from here instead of checking the next
       // transaction in the queue because the FIFO order is maintained
       // throughout, until it becomes a reader or writer. May be at this point
@@ -1920,27 +1937,99 @@ bool HttpCache::InvalidationFilter::Matches(
 }
 
 void HttpCache::AddInvalidationFilter(InvalidationFilter filter) {
+  DCHECK_LE(filter.begin_time, filter.end_time);
   invalidation_filters_.push_back(std::move(filter));
 }
 
+void HttpCache::RemoveInvalidationFilter(const InvalidationFilter& filter) {
+  auto it = std::ranges::find(invalidation_filters_, filter);
+  if (it != invalidation_filters_.end()) {
+    base::UmaHistogramEnumeration(
+        "Net.HttpCache.LogicalInvalidation.ClearContext",
+        it->was_loaded_from_disk
+            ? InvalidationFilterClearContext::kRecoveredAfterCrash
+            : InvalidationFilterClearContext::kSameSession);
+    invalidation_filters_.erase(it);
+  }
+}
+
 bool HttpCache::IsInvalidated(disk_cache::Entry* entry) {
-  if (!base::FeatureList::IsEnabled(features::kLogicalClearHttpCache) ||
-      invalidation_filters_.empty()) {
+  if (!base::FeatureList::IsEnabled(features::kLogicalClearHttpCache)) {
     return false;
   }
 
-  std::string url_str = GetResourceURLFromHttpCacheKey(entry->GetKey());
-  GURL url(url_str);
-  if (!url.is_valid()) {
+  if (invalidation_filters_.empty()) {
     return false;
   }
+
+  std::optional<GURL> parsed_url;
 
   for (const auto& filter : invalidation_filters_) {
-    if (filter.Matches(url, entry)) {
+    // Fast-path check: If the entry's LastUsed time is outside the filter's
+    // range, it cannot be invalidated by this filter. This avoids expensive
+    // GURL parsing for almost all checks!
+    if (entry->GetLastUsed() < filter.begin_time ||
+        entry->GetLastUsed() >= filter.end_time) {
+      continue;
+    }
+
+    // Lazily parse the URL from the cache key exactly once per entry check.
+    if (!parsed_url) {
+      parsed_url = GURL(GetResourceURLFromHttpCacheKey(entry->GetKey()));
+      if (!parsed_url->is_valid()) {
+        return false;
+      }
+    }
+
+    if (DoesUrlMatchFilter(filter.filter_type, filter.origins, filter.domains,
+                           *parsed_url)) {
       return true;
     }
   }
+
   return false;
+}
+
+void HttpCache::SetMaxBytes(base::ByteSize max_bytes,
+                            bool force_initialization) {
+  // The factory uses 0 as a special default value, so we need to avoid that.
+  // It also only takes an int, as that's what CreateCacheBackend takes.
+  // For consistency, we'll apply the same range restriction regardless of
+  // whether the backend still needs to be created.
+  max_bytes = std::clamp(max_bytes, base::ByteSize(1),
+                         base::ByteSize(std::numeric_limits<int>::max()));
+
+  if (backend_factory_.get()) {
+    backend_factory_->SetMaxBytes(base::checked_cast<int>(max_bytes.InBytes()));
+  }
+  bool backend_started_or_starting = disk_cache_ || building_backend_;
+  base::UmaHistogramBoolean("HttpCache.SetMaxBytes.BackendStartedOrStarting",
+                            backend_started_or_starting);
+  if (!(backend_started_or_starting || force_initialization)) {
+    return;
+  }
+  GetBackendCallback get_backend_callback = base::BindOnce(
+      [](base::ByteSize max_bytes, GetBackendResult result) {
+        if (result.first == net::OK) {
+          result.second->SetMaxBytes(max_bytes);
+        } else {
+          LOG(WARNING) << "Failed to get HttpCache backend for max size update";
+        }
+      },
+      max_bytes);
+  GetBackendResult result = GetBackend(std::move(get_backend_callback));
+  if (result.first == net::ERR_IO_PENDING) {
+    // This code assumes that there won't be a second call to SetMaxBytes that
+    // arrives after the backend becomes synchronously available, but before the
+    // callback in the first call is run. If that did happen, the values may be
+    // applied in the wrong order.
+    return;
+  }
+  if (result.first == net::OK) {
+    result.second->SetMaxBytes(max_bytes);
+  } else {
+    LOG(WARNING) << "Failed to get HttpCache backend for max size update";
+  }
 }
 
 }  // namespace net

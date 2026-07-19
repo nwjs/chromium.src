@@ -6,6 +6,7 @@
 #import "ios/web/js_messaging/script_message_value_util.h"
 #import "ios/web/js_messaging/web_view_js_utils.h"
 #import "ios/web/public/js_messaging/script_message_dict_value.h"
+#import "ios/web/public/js_messaging/script_message_list_value.h"
 #import "ios/web/public/js_messaging/script_message_value.h"
 
 namespace {
@@ -49,11 +50,11 @@ bool ScriptMessageDictValue::contains(std::string_view key) const {
   return [data_ objectForKey:base::SysUTF8ToNSString(key)] != nil;
 }
 
-std::unique_ptr<ScriptMessageValue> ScriptMessageDictValue::Find(
+std::optional<ScriptMessageValue> ScriptMessageDictValue::Find(
     std::string_view key) {
   id element = [data_ objectForKey:base::SysUTF8ToNSString(key)];
   if (element == nil) {
-    return nullptr;
+    return std::nullopt;
   }
 
   return CreateScriptMessageValue(element);
@@ -94,13 +95,22 @@ std::optional<std::string> ScriptMessageDictValue::FindString(
   return base::SysNSStringToUTF8(element);
 }
 
-std::unique_ptr<ScriptMessageDictValue> ScriptMessageDictValue::FindDict(
+std::optional<ScriptMessageDictValue> ScriptMessageDictValue::FindDict(
     std::string_view key) const {
   id element = GetDictElementAndMatchType(data_, key, CFDictionaryGetTypeID());
   if (!element) {
-    return nullptr;
+    return std::nullopt;
   }
-  return std::make_unique<ScriptMessageDictValue>((NSDictionary*)element);
+  return ScriptMessageDictValue((NSDictionary*)element);
+}
+
+std::optional<ScriptMessageListValue> ScriptMessageDictValue::FindList(
+    std::string_view key) const {
+  id element = GetDictElementAndMatchType(data_, key, CFArrayGetTypeID());
+  if (!element) {
+    return std::nullopt;
+  }
+  return ScriptMessageListValue((NSArray*)element);
 }
 
 }  // namespace web

@@ -5,16 +5,20 @@
 package org.chromium.chrome.browser.tasks.tab_management.vertical_tabs;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import static org.chromium.chrome.browser.tasks.tab_management.vertical_tabs.VerticalTabsSideUiCoordinator.VIEW_WIDTH_DP;
 
 import android.app.Activity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
+import androidx.annotation.Px;
 import androidx.test.filters.SmallTest;
 
 import org.junit.After;
@@ -27,8 +31,12 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
 
+import org.chromium.base.supplier.ObservableSuppliers;
+import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.AnchorSide;
+import org.chromium.ui.base.ViewUtils;
 
 /** Unit tests for {@link VerticalTabsSideUiCoordinator}. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -36,15 +44,24 @@ public class VerticalTabsSideUiCoordinatorUnitTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private VerticalTabListCoordinator mMockTabListCoordinator;
+    @Mock private SideUiCoordinator mMockSideUiCoordinator;
 
     private VerticalTabsSideUiCoordinator mCoordinator;
+    private Activity mActivity;
+    private final SettableNonNullObservableSupplier<Boolean> mIsVerticalTabsActiveSupplier =
+            ObservableSuppliers.createNonNull(false);
 
     @Before
     public void setUp() {
-        Activity activity = Robolectric.buildActivity(Activity.class).setup().get();
-        View mockView = new View(activity);
+        mActivity = Robolectric.buildActivity(Activity.class).setup().get();
+        View mockView = new View(mActivity);
         when(mMockTabListCoordinator.getView()).thenReturn(mockView);
-        mCoordinator = new VerticalTabsSideUiCoordinator(activity, mMockTabListCoordinator);
+        mCoordinator =
+                new VerticalTabsSideUiCoordinator(
+                        mActivity,
+                        mMockSideUiCoordinator,
+                        mMockTabListCoordinator,
+                        mIsVerticalTabsActiveSupplier);
     }
 
     @After
@@ -77,8 +94,27 @@ public class VerticalTabsSideUiCoordinatorUnitTest {
 
     @Test
     @SmallTest
-    public void testDetermineContainerWidth() {
-        assertEquals(200, mCoordinator.determineContainerWidth(200, 500, 800));
+    public void testDetermineShowableWidth() {
+        @Px int viewWidth = ViewUtils.dpToPx(mActivity, VIEW_WIDTH_DP);
+
+        assertEquals(
+                0,
+                mCoordinator.determineShowableWidth(
+                        /* availableWidth= */ viewWidth - 1, /* windowWidth= */ viewWidth + 100));
+        assertEquals(
+                viewWidth,
+                mCoordinator.determineShowableWidth(
+                        /* availableWidth= */ viewWidth, /* windowWidth= */ viewWidth + 100));
+    }
+
+    @Test
+    @SmallTest
+    public void testHasContentToShow() {
+        mCoordinator.setVisible(true);
+        assertTrue(mCoordinator.hasContentToShow());
+
+        mCoordinator.setVisible(false);
+        assertFalse(mCoordinator.hasContentToShow());
     }
 
     @Test
@@ -88,5 +124,15 @@ public class VerticalTabsSideUiCoordinatorUnitTest {
         ViewGroup.LayoutParams layoutParams = mCoordinator.getView().getLayoutParams();
         assertNotNull(layoutParams);
         assertEquals(150, layoutParams.width);
+    }
+
+    @Test
+    @SmallTest
+    public void testOnContainerResized() {
+        mCoordinator.onContainerResized(100);
+        assertTrue(mIsVerticalTabsActiveSupplier.get());
+
+        mCoordinator.onContainerResized(0);
+        assertTrue(!mIsVerticalTabsActiveSupplier.get());
     }
 }

@@ -9,11 +9,11 @@
 #include "base/check.h"
 #include "base/functional/bind.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/search_engines/ai_mode_button_service_factory.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/layout_constants.h"
-#include "chrome/browser/ui/omnibox/ai_mode_button_config.h"
 #include "chrome/browser/ui/omnibox/ai_mode_page_action_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/search/omnibox_utils.h"
@@ -24,6 +24,8 @@
 #include "components/omnibox/browser/omnibox_pref_names.h"
 #include "components/omnibox/browser/vector_icons.h"
 #include "components/prefs/pref_service.h"
+#include "components/search_engines/ai_mode_button_config.h"
+#include "components/search_engines/ai_mode_button_service.h"
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -51,17 +53,21 @@ AiModePageActionIconView::AiModePageActionIconView(
       browser_(browser) {
   image_container_view()->SetFlipCanvasOnPaintForRTLUI(false);
 
-
   SetProperty(views::kElementIdentifierKey, kAiModePageActionIconElementId);
 
-  const auto& config = ai_mode_button_config::GetCurrentAiModeButtonConfig();
-  SetLabel(config.text);
+  if (browser_) {
+    if (auto* service =
+            AiModeButtonServiceFactory::GetForProfile(browser_->GetProfile())) {
+      if (const auto* config = service->GetCurrentConfig()) {
+        SetLabel(config->text);
+        GetViewAccessibility().SetName(config->a11y_label,
+                                       ax::mojom::NameFrom::kAttribute);
+      }
+    }
+  }
+
   SetUseTonalColorsWhenExpanded(true);
   SetBackgroundVisibility(BackgroundVisibility::kWithLabel);
-
-  // The accessible name prompts the user to ask Google AI Mode.
-  GetViewAccessibility().SetName(config.a11y_label,
-                                 ax::mojom::NameFrom::kAttribute);
 }
 
 AiModePageActionIconView::~AiModePageActionIconView() = default;

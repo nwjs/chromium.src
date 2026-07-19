@@ -47,9 +47,6 @@ fuzzer_test("color_parser_fuzzer") {
   sources = [ "color_parser_fuzzer.cc" ]
   deps = [ ":fuzzer_support" ]
   seed_corpus = "//content/test/data/fuzzer_corpus/color_parser_data/"
-
-  # Increase the memory limit, since the fuzzer exceeds it in Debug builds.
-  libfuzzer_options = [ "rss_limit_mb=4096" ]
 }
 
 fuzzer_test("origin_trial_token_fuzzer") {
@@ -63,24 +60,19 @@ fuzzer_test("origin_trial_token_fuzzer") {
 fuzzer_test("renderer_tree_fuzzer") {
   sources = [ "renderer_tree_fuzzer.cc" ]
   deps = [ ":fuzzer_support" ]
-  if (is_android) {
-    deps += [ "//third_party/icu:icu_assets" ]
-  }
 }
 
 fuzzer_test("renderer_proto_tree_fuzzer") {
   sources = [ "renderer_proto_tree_fuzzer.cc" ]
   deps = [
     ":fuzzer_support",
-    ":html_tree_proto",
+    ":html_tree_proto_fuzzable",
     "//third_party/libprotobuf-mutator",
   ]
 
   # TODO(crbug.com/505034799): Migrate to FUZZ_TEST.
   is_fuzztest_compatible = false
 
-  # Increase the memory limit, since the fuzzer exceeds it in Debug builds.
-  libfuzzer_options = [ "rss_limit_mb=4096" ]
   if (is_android) {
     deps += [
       # Provides org.chromium.ui.base.ResourceBundle.
@@ -89,9 +81,10 @@ fuzzer_test("renderer_proto_tree_fuzzer") {
   }
 }
 
-proto_library("html_tree_proto") {
+fuzzable_proto_library("html_tree_proto") {
   sources = [ "html_tree.proto" ]
   testonly = true
+  use_experimental_fuzzable_proto = true
 }
 
 fuzzer_test("signed_exchange_envelope_fuzzer") {
@@ -148,9 +141,6 @@ fuzzer_test("merkle_integrity_source_stream_fuzzer") {
     "//net:net_fuzzer_test_support",
     "//net:test_support",
   ]
-  if (is_android) {
-    deps += [ "//third_party/icu:icu_assets" ]
-  }
   dict = "//content/test/data/fuzzer_dictionaries/merkle_integrity_source_stream_fuzzer.dict"
 }
 
@@ -271,9 +261,16 @@ content_mojolpm_fuzzer_test("dom_storage_mojolpm_fuzzer") {
   proto_deps = [ "//third_party/blink/public/mojom:mojom_platform_mojolpm" ]
 
   seed_corpus_sources = [
+    "//content/test/data/fuzzer_corpus/dom_storage_mojolpm_fuzzer/delete_storage_key.textproto",
     "//content/test/data/fuzzer_corpus/dom_storage_mojolpm_fuzzer/local_storage_operations.textproto",
     "//content/test/data/fuzzer_corpus/dom_storage_mojolpm_fuzzer/multi_area_operations.textproto",
+    "//content/test/data/fuzzer_corpus/dom_storage_mojolpm_fuzzer/multiple_puts_and_get_all.textproto",
+    "//content/test/data/fuzzer_corpus/dom_storage_mojolpm_fuzzer/opaque_origin_operations.textproto",
+    "//content/test/data/fuzzer_corpus/dom_storage_mojolpm_fuzzer/purge_memory.textproto",
+    "//content/test/data/fuzzer_corpus/dom_storage_mojolpm_fuzzer/session_storage_clone.textproto",
+    "//content/test/data/fuzzer_corpus/dom_storage_mojolpm_fuzzer/session_storage_clone_internal.textproto",
     "//content/test/data/fuzzer_corpus/dom_storage_mojolpm_fuzzer/session_storage_operations.textproto",
+    "//content/test/data/fuzzer_corpus/dom_storage_mojolpm_fuzzer/storage_area_flush.textproto",
   ]
 }
 
@@ -409,9 +406,6 @@ fuzzer_test("first_party_set_parser_json_fuzzer") {
     "//testing/libfuzzer/proto:json_proto_converter",
     "//third_party/libprotobuf-mutator",
   ]
-  if (is_android) {
-    deps += [ "//third_party/icu:icu_assets" ]
-  }
 
   # TODO(crbug.com/505034799): Migrate to FUZZ_TEST.
   is_fuzztest_compatible = false
@@ -425,9 +419,6 @@ if (use_fuzzing_engine_with_lpm) {
       ":related_website_sets_proto",
       "//third_party/libprotobuf-mutator",
     ]
-    if (is_android) {
-      deps += [ "//third_party/icu:icu_assets" ]
-    }
 
     # TODO(crbug.com/505034799): Migrate to FUZZ_TEST.
     is_fuzztest_compatible = false

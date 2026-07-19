@@ -10,6 +10,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/notimplemented.h"
 #include "base/test/bind.h"
+#include "base/test/gmock_expected_support.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "base/test/test_timeouts.h"
@@ -57,7 +58,7 @@
 #include "mojo/public/cpp/test_support/fake_message_dispatch_context.h"
 #include "mojo/public/cpp/test_support/test_utils.h"
 #include "net/base/features.h"
-#include "services/data_decoder/public/cpp/test_support/in_process_data_decoder.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
 
@@ -73,6 +74,7 @@
 #include "chrome/browser/ash/app_mode/kiosk_cryptohome_remover.h"
 #include "chrome/browser/ash/app_mode/web_app/kiosk_web_app_manager.h"
 #include "chrome/browser/ash/login/users/fake_chrome_user_manager.h"
+#include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/common/chrome_switches.h"
 #include "components/user_manager/scoped_user_manager.h"
 #include "components/user_manager/test_helper.h"
@@ -102,7 +104,6 @@ constexpr char kNotAffiliatedErrorMessage[] =
 
 namespace {
 
-using Result = blink::mojom::DeviceAttributeResult;
 
 constexpr char kAnnotatedAssetId[] = "annotated_asset_id";
 constexpr char kAnnotatedLocation[] = "annotated_location";
@@ -117,45 +118,45 @@ class FakeDeviceAttributeApi : public DeviceAttributeApi {
 
   // This method forwards calls to DeviceAttributesApiImpl to the test the
   // actual error reported by the service.
-  void ReportNotAllowedError(
-      base::OnceCallback<void(blink::mojom::DeviceAttributeResultPtr)> callback)
-      override {
+  void ReportNotAllowedError(NotificationCallback callback) override {
     device_attributes_api_.ReportNotAllowedError(std::move(callback));
   }
 
   // This method forwards calls to DeviceAttributesApiImpl to the test the
   // actual error reported by the service.
-  void ReportNotAffiliatedError(
-      base::OnceCallback<void(blink::mojom::DeviceAttributeResultPtr)> callback)
-      override {
+  void ReportNotAffiliatedError(NotificationCallback callback) override {
     device_attributes_api_.ReportNotAffiliatedError(std::move(callback));
   }
 
   void GetDirectoryId(blink::mojom::DeviceAPIService::GetDirectoryIdCallback
                           callback) override {
-    std::move(callback).Run(Result::NewAttribute(kDirectoryApiId));
+    std::move(callback).Run(
+        blink::mojom::DeviceAttributeValue::New(kDirectoryApiId));
   }
 
   void GetHostname(
       blink::mojom::DeviceAPIService::GetHostnameCallback callback) override {
-    std::move(callback).Run(Result::NewAttribute(kHostname));
+    std::move(callback).Run(blink::mojom::DeviceAttributeValue::New(kHostname));
   }
 
   void GetSerialNumber(blink::mojom::DeviceAPIService::GetSerialNumberCallback
                            callback) override {
-    std::move(callback).Run(Result::NewAttribute(kSerialNumber));
+    std::move(callback).Run(
+        blink::mojom::DeviceAttributeValue::New(kSerialNumber));
   }
 
   void GetAnnotatedAssetId(
       blink::mojom::DeviceAPIService::GetAnnotatedAssetIdCallback callback)
       override {
-    std::move(callback).Run(Result::NewAttribute(kAnnotatedAssetId));
+    std::move(callback).Run(
+        blink::mojom::DeviceAttributeValue::New(kAnnotatedAssetId));
   }
 
   void GetAnnotatedLocation(
       blink::mojom::DeviceAPIService::GetAnnotatedLocationCallback callback)
       override {
-    std::move(callback).Run(Result::NewAttribute(kAnnotatedLocation));
+    std::move(callback).Run(
+        blink::mojom::DeviceAttributeValue::New(kAnnotatedLocation));
   }
 
  private:
@@ -207,26 +208,68 @@ class DeviceAPIServiceTest {
 };
 
 namespace {
+
+using ::base::test::ErrorIs;
+
+#if BUILDFLAG(IS_CHROMEOS)
+using ::base::test::ValueIs;
+using ::testing::Field;
+using ::testing::Optional;
+using ::testing::Pointee;
+
+auto DeviceAttributeIs(const std::string& expected_value) {
+  return ValueIs(Pointee(Field(&blink::mojom::DeviceAttributeValue::value,
+                               Optional(expected_value))));
+}
+#endif  // BUILDFLAG(IS_CHROMEOS)
+
 void VerifyErrorMessageResultForAllDeviceAttributesAPIs(
     blink::mojom::DeviceAPIService* service,
     const std::string& expected_error_message) {
-  base::test::TestFuture<blink::mojom::DeviceAttributeResultPtr> future;
+  base::test::TestFuture<
+      base::expected<blink::mojom::DeviceAttributeValuePtr, std::string>>
+      future;
 
   service->GetDirectoryId(future.GetCallback());
-  EXPECT_EQ(future.Take()->get_error_message(), expected_error_message);
+  EXPECT_THAT(future.Take(), ErrorIs(expected_error_message));
 
   service->GetHostname(future.GetCallback());
-  EXPECT_EQ(future.Take()->get_error_message(), expected_error_message);
+  EXPECT_THAT(future.Take(), ErrorIs(expected_error_message));
 
   service->GetSerialNumber(future.GetCallback());
-  EXPECT_EQ(future.Take()->get_error_message(), expected_error_message);
+  EXPECT_THAT(future.Take(), ErrorIs(expected_error_message));
 
   service->GetAnnotatedAssetId(future.GetCallback());
-  EXPECT_EQ(future.Take()->get_error_message(), expected_error_message);
+  EXPECT_THAT(future.Take(), ErrorIs(expected_error_message));
 
   service->GetAnnotatedLocation(future.GetCallback());
-  EXPECT_EQ(future.Take()->get_error_message(), expected_error_message);
+  EXPECT_THAT(future.Take(), ErrorIs(expected_error_message));
 }
+
+#if BUILDFLAG(IS_CHROMEOS)
+void VerifyCanAccessForAllDeviceAttributesAPIs(
+    blink::mojom::DeviceAPIService* service) {
+  base::test::TestFuture<
+      base::expected<blink::mojom::DeviceAttributeValuePtr, std::string>>
+      future;
+
+  service->GetDirectoryId(future.GetCallback());
+  EXPECT_THAT(future.Take(), DeviceAttributeIs(kDirectoryApiId));
+
+  service->GetHostname(future.GetCallback());
+  EXPECT_THAT(future.Take(), DeviceAttributeIs(kHostname));
+
+  service->GetSerialNumber(future.GetCallback());
+  EXPECT_THAT(future.Take(), DeviceAttributeIs(kSerialNumber));
+
+  service->GetAnnotatedAssetId(future.GetCallback());
+  EXPECT_THAT(future.Take(), DeviceAttributeIs(kAnnotatedAssetId));
+
+  service->GetAnnotatedLocation(future.GetCallback());
+  EXPECT_THAT(future.Take(), DeviceAttributeIs(kAnnotatedLocation));
+}
+#endif  // BUILDFLAG(IS_CHROMEOS)
+
 }  // namespace
 
 class DeviceAPIServiceWebAppTest : public DeviceAPIServiceTest,
@@ -612,22 +655,7 @@ class DeviceAPIServiceParamTest
   }
 
   void VerifyCanAccessForAllDeviceAttributesAPIs() {
-    base::test::TestFuture<blink::mojom::DeviceAttributeResultPtr> future;
-
-    remote()->get()->GetDirectoryId(future.GetCallback());
-    EXPECT_EQ(future.Take()->get_attribute(), kDirectoryApiId);
-
-    remote()->get()->GetHostname(future.GetCallback());
-    EXPECT_EQ(future.Take()->get_attribute(), kHostname);
-
-    remote()->get()->GetSerialNumber(future.GetCallback());
-    EXPECT_EQ(future.Take()->get_attribute(), kSerialNumber);
-
-    remote()->get()->GetAnnotatedAssetId(future.GetCallback());
-    EXPECT_EQ(future.Take()->get_attribute(), kAnnotatedAssetId);
-
-    remote()->get()->GetAnnotatedLocation(future.GetCallback());
-    EXPECT_EQ(future.Take()->get_attribute(), kAnnotatedLocation);
+    ::VerifyCanAccessForAllDeviceAttributesAPIs(remote()->get());
   }
 
   const std::string& GetParamOrigin() { return GetParam().first; }
@@ -722,22 +750,7 @@ class DeviceAPIServiceRegularUserIwaTest : public DeviceAPIServiceIwaTest {
   }
 
   void VerifyCanAccessForAllDeviceAttributesAPIs() {
-    base::test::TestFuture<blink::mojom::DeviceAttributeResultPtr> future;
-
-    remote()->get()->GetDirectoryId(future.GetCallback());
-    EXPECT_EQ(future.Take()->get_attribute(), kDirectoryApiId);
-
-    remote()->get()->GetHostname(future.GetCallback());
-    EXPECT_EQ(future.Take()->get_attribute(), kHostname);
-
-    remote()->get()->GetSerialNumber(future.GetCallback());
-    EXPECT_EQ(future.Take()->get_attribute(), kSerialNumber);
-
-    remote()->get()->GetAnnotatedAssetId(future.GetCallback());
-    EXPECT_EQ(future.Take()->get_attribute(), kAnnotatedAssetId);
-
-    remote()->get()->GetAnnotatedLocation(future.GetCallback());
-    EXPECT_EQ(future.Take()->get_attribute(), kAnnotatedLocation);
+    ::VerifyCanAccessForAllDeviceAttributesAPIs(remote()->get());
   }
 
  private:
@@ -1090,4 +1103,141 @@ INSTANTIATE_TEST_SUITE_P(
                        std::pair<std::string, bool>("kiosk.com", true),
                        std::pair<std::string, bool>("*://kiosk.com:*/", true),
                        std::pair<std::string, bool>("[*.]kiosk.com", true)}));
+
+class DeviceAPIServiceMultiProfileTest : public DeviceAPIServiceTest,
+                                         public web_app::IsolatedWebAppTest {
+ public:
+  DeviceAPIServiceMultiProfileTest() {
+    fake_user_manager_.Reset(std::make_unique<ash::FakeChromeUserManager>());
+    primary_account_id_ = AccountId::FromUserEmail("primary_user@gmail.com");
+    secondary_account_id_ =
+        AccountId::FromUserEmail("secondary_user@gmail.com");
+  }
+
+  void SetUp() override {
+    web_app::IsolatedWebAppTest::SetUp();
+    web_app::test::AwaitStartWebAppProviderAndSubsystems(profile());
+    profile()->SetPermissionControllerDelegate(
+        permissions::GetPermissionControllerDelegate(profile()));
+    rvh_test_enabler_ = std::make_unique<content::RenderViewHostTestEnabler>();
+    ash::ProfileHelper::SetProfileToUserForTestingEnabled(true);
+  }
+
+  void TearDown() override {
+    ash::ProfileHelper::SetProfileToUserForTestingEnabled(false);
+    rvh_test_enabler_.reset();
+    web_app::IsolatedWebAppTest::TearDown();
+  }
+
+  ash::FakeChromeUserManager* fake_user_manager() const {
+    return fake_user_manager_.Get();
+  }
+
+  void LoginPrimaryUser(bool is_affiliated) {
+    const user_manager::User* user =
+        fake_user_manager()->AddUserWithAffiliation(primary_account_id_,
+                                                    is_affiliated);
+    fake_user_manager()->UserLoggedIn(
+        user->GetAccountId(),
+        user_manager::TestHelper::GetFakeUsernameHash(user->GetAccountId()));
+  }
+
+  void LoginSecondaryUser(bool is_affiliated) {
+    const user_manager::User* user =
+        fake_user_manager()->AddUserWithAffiliation(secondary_account_id_,
+                                                    is_affiliated);
+    fake_user_manager()->UserLoggedIn(
+        user->GetAccountId(),
+        user_manager::TestHelper::GetFakeUsernameHash(user->GetAccountId()));
+  }
+
+  web_app::IsolatedWebAppUrlInfo InstallTrustedIWA(Profile* target_profile) {
+    auto manifest_builder = web_app::ManifestBuilder();
+    manifest_builder.AddPermissionsPolicy(
+        network::mojom::PermissionsPolicyFeature::kDeviceAttributes, true, {});
+    const std::unique_ptr<web_app::ScopedBundledIsolatedWebApp> bundle =
+        web_app::IsolatedWebAppBuilder(manifest_builder).BuildBundle();
+    bundle->TrustSigningKey();
+    return bundle
+        ->InstallWithSource(
+            target_profile,
+            &web_app::IsolatedWebAppInstallSource::FromExternalPolicy)
+        .value();
+  }
+
+  void SetAllowedOrigin(TestingProfile* target_profile,
+                        const std::string& origin) {
+    target_profile->GetTestingPrefService()->SetManagedPref(
+        ::prefs::kManagedDeviceAttributesAllowedForOrigins,
+        base::ListValue().Append(origin));
+  }
+
+  void VerifyErrorMessageResultForAllDeviceAttributesAPIs(
+      const std::string& expected_error_message) {
+    ::VerifyErrorMessageResultForAllDeviceAttributesAPIs(
+        remote()->get(), expected_error_message);
+  }
+
+  void VerifyCanAccessForAllDeviceAttributesAPIs() {
+    ::VerifyCanAccessForAllDeviceAttributesAPIs(remote()->get());
+  }
+
+  AccountId primary_account_id_;
+  AccountId secondary_account_id_;
+  std::unique_ptr<content::RenderViewHostTestEnabler> rvh_test_enabler_;
+  user_manager::TypedScopedUserManager<ash::FakeChromeUserManager>
+      fake_user_manager_;
+};
+
+TEST_F(DeviceAPIServiceMultiProfileTest,
+       SecondaryProfileUnaffiliatedPrimaryAffiliated) {
+  LoginPrimaryUser(/*is_affiliated=*/true);
+  LoginSecondaryUser(/*is_affiliated=*/false);
+  TestingProfile* secondary_profile =
+      profile_manager().CreateTestingProfile("secondary_user@gmail.com");
+  web_app::test::AwaitStartWebAppProviderAndSubsystems(secondary_profile);
+  secondary_profile->SetPermissionControllerDelegate(
+      permissions::GetPermissionControllerDelegate(secondary_profile));
+
+  auto url_info = InstallTrustedIWA(secondary_profile);
+  SetAllowedOrigin(secondary_profile, url_info.origin().Serialize());
+
+  std::unique_ptr<content::WebContents> secondary_user_web_contents =
+      content::WebContentsTester::CreateTestWebContents(secondary_profile,
+                                                        /*instance=*/nullptr);
+  TryCreatingService(url_info.origin().GetURL(),
+                     std::make_unique<FakeDeviceAttributeApi>(),
+                     secondary_user_web_contents.get());
+  remote()->FlushForTesting();
+  ASSERT_TRUE(remote()->is_connected());
+
+  VerifyErrorMessageResultForAllDeviceAttributesAPIs(
+      kNotAffiliatedErrorMessage);
+}
+
+TEST_F(DeviceAPIServiceMultiProfileTest,
+       SecondaryProfileAffiliatedPrimaryUnaffiliated) {
+  LoginPrimaryUser(/*is_affiliated=*/false);
+  LoginSecondaryUser(/*is_affiliated=*/true);
+  TestingProfile* secondary_profile =
+      profile_manager().CreateTestingProfile("secondary_user@gmail.com");
+  web_app::test::AwaitStartWebAppProviderAndSubsystems(secondary_profile);
+  secondary_profile->SetPermissionControllerDelegate(
+      permissions::GetPermissionControllerDelegate(secondary_profile));
+
+  auto url_info = InstallTrustedIWA(secondary_profile);
+  SetAllowedOrigin(secondary_profile, url_info.origin().Serialize());
+
+  std::unique_ptr<content::WebContents> secondary_user_web_contents =
+      content::WebContentsTester::CreateTestWebContents(secondary_profile,
+                                                        /*instance=*/nullptr);
+  TryCreatingService(url_info.origin().GetURL(),
+                     std::make_unique<FakeDeviceAttributeApi>(),
+                     secondary_user_web_contents.get());
+  remote()->FlushForTesting();
+  ASSERT_TRUE(remote()->is_connected());
+
+  VerifyCanAccessForAllDeviceAttributesAPIs();
+}
+
 #endif  // BUILDFLAG(IS_CHROMEOS)

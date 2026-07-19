@@ -46,12 +46,12 @@
 #include "third_party/blink/renderer/core/dom/container_node.h"
 #include "third_party/blink/renderer/core/dom/dom_high_res_time_stamp.h"
 #include "third_party/blink/renderer/core/dom/element_data.h"
-#include "third_party/blink/renderer/core/dom/element_rare_data_field.h"
 #include "third_party/blink/renderer/core/dom/events/simulated_click_options.h"
 #include "third_party/blink/renderer/core/dom/focusgroup_flags.h"
 #include "third_party/blink/renderer/core/dom/named_animation_trigger_map.h"
 #include "third_party/blink/renderer/core/dom/names_map.h"
 #include "third_party/blink/renderer/core/dom/node.h"
+#include "third_party/blink/renderer/core/dom/node_rare_data_field.h"
 #include "third_party/blink/renderer/core/dom/whitespace_attacher.h"
 #include "third_party/blink/renderer/core/html/parser/fragment_parser.h"
 #include "third_party/blink/renderer/core/html_names.h"
@@ -267,8 +267,6 @@ enum class CommandEventType {
   kPause,
   kPlay,
   kToggleMuted,
-  // Menu
-  kToggleMenu,
   // Scroll
   kPageUp,
   kPageDown,
@@ -433,6 +431,8 @@ class CORE_EXPORT Element : public ContainerNode {
   Element* getElementByIdIncludingDisconnected(const Element& treescope_element,
                                                const AtomicString& id) const;
 
+  FrozenArray<Element>* ariaActionsElements();
+  void setAriaActionsElements(GCedHeapVector<Member<Element>>* given_elements);
   FrozenArray<Element>* ariaControlsElements();
   void setAriaControlsElements(GCedHeapVector<Member<Element>>* given_elements);
   FrozenArray<Element>* ariaDescribedByElements();
@@ -536,7 +536,7 @@ class CORE_EXPORT Element : public ContainerNode {
 
   // NoncedElement implementation: this is only used by HTMLElement, SVGElement
   // and MathMLElement but putting the implementation here allows us to use
-  // ElementRareData to hold the data.
+  // NodeRareData to hold the data.
   const AtomicString& nonce() const;
   void setNonce(const AtomicString&);
 
@@ -1112,8 +1112,8 @@ class CORE_EXPORT Element : public ContainerNode {
 
   // Returns the Element’s ComputedStyle. If the ComputedStyle is not already
   // stored on the Element, computes the ComputedStyle and stores it on the
-  // Element’s ElementRareData.  Used for getComputedStyle when Element is
-  // display none.
+  // Element’s NodeRareData.  Used for getComputedStyle when Element is display
+  // none.
   const ComputedStyle* EnsureComputedStyle(
       PseudoId = kPseudoIdNone,
       const AtomicString& pseudo_argument = g_null_atom);
@@ -1136,7 +1136,7 @@ class CORE_EXPORT Element : public ContainerNode {
     return HasElementFlag(ElementFlags::kIsCanvasOrInCanvasSubtree);
   }
   // Called when `IsCanvasOrInCanvasSubtree()` has changed.
-  virtual void DidChangeIsCanvasOrInCanvasSubtree() {}
+  virtual void DidChangeIsCanvasOrInCanvasSubtree();
   // Like `IsCanvasOrInCanvasSubtree()`, but excludes the outermost <canvas>.
   bool IsInCanvasSubtree() const;
 
@@ -1202,7 +1202,7 @@ class CORE_EXPORT Element : public ContainerNode {
   void FocusWithinStateChanged();
   void ActiveViewTransitionStateChanged();
   void ActiveViewTransitionTypeStateChanged();
-  void OverscrollTargetStateChanged();
+
   void SetDragged(bool) override;
 
   void UpdateSelectionOnFocus(SelectionBehaviorOnFocus);
@@ -1452,7 +1452,9 @@ class CORE_EXPORT Element : public ContainerNode {
                                        ExceptionState& = ASSERT_NO_EXCEPTION);
   void SetOuterHTMLWithoutTrustedTypes(const String&,
                                        ExceptionState& = ASSERT_NO_EXCEPTION);
-  void SetOuterHTMLInternal(const String&, ExceptionState&);
+  void SetOuterHTMLInternal(const String&,
+                            const FragmentParserOptions&,
+                            ExceptionState&);
   String innerHTML() const;
   String outerHTML() const;
   void setInnerHTML(const V8UnionStringLegacyNullToEmptyStringOrTrustedHTML*,
@@ -1648,7 +1650,13 @@ class CORE_EXPORT Element : public ContainerNode {
   CustomElementDefinition* GetCustomElementDefinition() const;
 
   // Scoped Custom Elements
-  CustomElementRegistry* customElementRegistry() const;
+  //
+  // Returns the custom element registry associated with this element.
+  // See TreeScope::customElementRegistry() for the rule about when to
+  // pass `script_state` (in short: any caller that will hand the registry
+  // to script must pass it).
+  CustomElementRegistry* customElementRegistry(
+      ScriptState* script_state = nullptr) const;
   // When it comes to storing an element's custom element registry, we have an
   // optimization where if the registry to be set is the same as element's tree
   // scope's registry, we don't store it in the element itself and rely on tree
@@ -2071,6 +2079,7 @@ class CORE_EXPORT Element : public ContainerNode {
   Element* GetOverscrollContainer() const;
   void SetOverscrollContainer(Element*);
   void ClearOverscrollContainer();
+  void DetachOverscroll();
 
   // This method matches the logic of the following UA style rule, and is used
   // in the case that the overlay property is not enabled. This is separate from
@@ -2089,6 +2098,9 @@ class CORE_EXPORT Element : public ContainerNode {
   // Latch the element as a custom password field via CSS -webkit-text-security
   // heuristics.
   void SetHasBeenHeuristicCustomPasswordCSS();
+
+  void ClearSkeletonPseudo();
+  PseudoElement& EnsureSkeletonPseudo();
 
  protected:
   // Returns true if this element is a native password field or has been
@@ -2228,6 +2240,7 @@ class CORE_EXPORT Element : public ContainerNode {
   friend class AXObject;
   friend class KeyboardEventManager;
   struct AffectedByPseudoStateChange;
+  void DetachDescendantsNeedingReattachDuringSkip();
 
   ShadowRoot* GetShadowRootInternal() const;
 
@@ -2343,6 +2356,7 @@ class CORE_EXPORT Element : public ContainerNode {
 
   void UpdateColumnPseudoElements(const StyleRecalcChange,
                                   const StyleRecalcContext&);
+  void UpdateSkeleton(const StyleRecalcChange, const StyleRecalcContext&);
   PseudoElement* UpdatePseudoElement(
       PseudoId,
       const StyleRecalcChange,
@@ -2355,9 +2369,12 @@ class CORE_EXPORT Element : public ContainerNode {
   };
 
   bool ShouldUpdateBackdropPseudoElement(const StyleRecalcChange);
-
   void UpdateBackdropPseudoElement(const StyleRecalcChange,
                                    const StyleRecalcContext&);
+
+  bool ShouldUpdateOverscrollBackdropPseudoElement(const StyleRecalcChange);
+  void UpdateOverscrollBackdropPseudoElement(const StyleRecalcChange,
+                                             const StyleRecalcContext&);
 
   void UpdateFirstLetterPseudoElement(StyleUpdatePhase,
                                       const StyleRecalcContext&);
@@ -2621,6 +2638,7 @@ class CORE_EXPORT Element : public ContainerNode {
 
   void InsertAdjacentHTMLInternal(const String& where,
                                   const String& input,
+                                  const FragmentParserOptions& options,
                                   ExceptionState& exception_state);
 
   void RemoveAttrNodeList();
@@ -2706,10 +2724,10 @@ class CORE_EXPORT Element : public ContainerNode {
   // filter, except for the values of class="".
   TinyBloomFilter attribute_or_class_bloom_ = 0;
 
-  // Do not add new members to Element without a good reason; prefer to
-  // add to ElementRareData unless it is performance-critical. Element
-  // is 80 bytes on typical 64-bit platforms, and growing it can cause
-  // both memory and performance regressions if you are not careful.
+  // Do not add new members to Element without a good reason; prefer to add to
+  // NodeRareData unless it is performance-critical. Element is 80 bytes on
+  // typical 64-bit platforms, and growing it can cause both memory and
+  // performance regressions if you are not careful.
 };
 
 template <>

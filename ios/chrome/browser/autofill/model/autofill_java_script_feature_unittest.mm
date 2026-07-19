@@ -8,9 +8,11 @@
 
 #import "base/strings/sys_string_conversions.h"
 #import "base/test/ios/wait_util.h"
+#import "base/test/scoped_feature_list.h"
 #import "base/test/test_future.h"
 #import "base/test/test_timeouts.h"
 #import "components/autofill/core/common/autofill_features.h"
+#import "components/autofill/ios/common/features.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/web/model/chrome_web_client.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
@@ -175,7 +177,7 @@ TEST_F(AutofillJavaScriptFeatureTest, ExtractForms) {
         @"should_autocomplete" : @true,
         @"is_checkable" : @false,
         @"is_focusable" : @true,
-        @"is_user_edited_deprecated" : @true,
+        @"is_user_edited_deprecated" : @false,
         @"value" : @"",
         @"label" : @"First Name",
         @"renderer_id" : @"2"
@@ -193,7 +195,7 @@ TEST_F(AutofillJavaScriptFeatureTest, ExtractForms) {
         @"should_autocomplete" : @true,
         @"is_checkable" : @false,
         @"is_focusable" : @true,
-        @"is_user_edited_deprecated" : @true,
+        @"is_user_edited_deprecated" : @false,
         @"value" : @"",
         @"label" : @"Last Name",
         @"renderer_id" : @"3"
@@ -211,7 +213,7 @@ TEST_F(AutofillJavaScriptFeatureTest, ExtractForms) {
         @"should_autocomplete" : @true,
         @"is_checkable" : @false,
         @"is_focusable" : @true,
-        @"is_user_edited_deprecated" : @true,
+        @"is_user_edited_deprecated" : @false,
         @"value" : @"",
         @"label" : @"",
         @"renderer_id" : @"4"
@@ -274,7 +276,7 @@ TEST_F(AutofillJavaScriptFeatureTest, ExtractForms2) {
         @"should_autocomplete" : @true,
         @"is_checkable" : @false,
         @"is_focusable" : @true,
-        @"is_user_edited_deprecated" : @true,
+        @"is_user_edited_deprecated" : @false,
         @"value" : @"",
         @"label" : @"First Name",
         @"renderer_id" : @"2"
@@ -292,7 +294,7 @@ TEST_F(AutofillJavaScriptFeatureTest, ExtractForms2) {
         @"should_autocomplete" : @true,
         @"is_checkable" : @false,
         @"is_focusable" : @true,
-        @"is_user_edited_deprecated" : @true,
+        @"is_user_edited_deprecated" : @false,
         @"value" : @"",
         @"label" : @"Last Name",
         @"renderer_id" : @"3"
@@ -310,7 +312,7 @@ TEST_F(AutofillJavaScriptFeatureTest, ExtractForms2) {
         @"should_autocomplete" : @true,
         @"is_checkable" : @false,
         @"is_focusable" : @true,
-        @"is_user_edited_deprecated" : @true,
+        @"is_user_edited_deprecated" : @false,
         @"value" : @"",
         @"label" : @"",
         @"renderer_id" : @"4"
@@ -574,7 +576,7 @@ TEST_F(AutofillJavaScriptFeatureTest, FillFormUsingRendererIDs) {
 
   base::test::TestFuture<NSString*> future;
   feature()->FillForm(main_web_frame(), std::move(autofillData),
-                      FieldRendererId(2), future.GetCallback());
+                      future.GetCallback());
   EXPECT_TRUE(future.Wait());
   NSString* filling_result = future.Get();
   EXPECT_NSEQ(@"{\"2\":\"Cool User\",\"3\":\"coolemail@com\"}", filling_result);
@@ -622,7 +624,7 @@ TEST_F(AutofillJavaScriptFeatureTest, UndoForm) {
 
   base::test::TestFuture<NSString*> future;
   feature()->FillForm(main_web_frame(), std::move(autofillData),
-                      FieldRendererId(2), future.GetCallback());
+                      future.GetCallback());
   EXPECT_TRUE(future.Wait());
 
   // Check that the input has the autofilled attribute so that we can
@@ -655,7 +657,7 @@ TEST_F(AutofillJavaScriptFeatureTest, UndoForm) {
 
   base::test::TestFuture<NSString*> undo_future;
   feature()->FillForm(main_web_frame(), std::move(undoAutofillData),
-                      FieldRendererId(2), undo_future.GetCallback());
+                      undo_future.GetCallback());
   EXPECT_TRUE(undo_future.Wait());
 
   EXPECT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
@@ -676,6 +678,9 @@ TEST_F(AutofillJavaScriptFeatureTest, UndoForm) {
 // Tests form clearing (clearAutofilledFieldsForForm:formUniqueID:
 // fieldUniqueID:inFrame:completionHandler:) method.
 TEST_F(AutofillJavaScriptFeatureTest, ClearForm) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(kAutofillUndoIos);
+
   LoadHtml(@"<html><body><form name='testform' method='post'>"
             "<input type='text' id='firstname' name='firstname'/>"
             "<input type='email' id='email' name='email'/>"

@@ -8,7 +8,6 @@
 #include <utility>
 
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
-#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_frame_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
@@ -128,7 +127,7 @@ TabStripControlButton::TabStripControlButton(
   views::FocusRing::Get(this)->SetColorId(kColorNewTabButtonFocusRing);
 
   if (text.size() > 0) {
-    SetEnabledTextColors(foreground_frame_active_color_id_);
+    SetEnabledTextColors(GetForegroundColor());
     SetText(text);
   }
 }
@@ -319,7 +318,7 @@ void TabStripControlButton::UpdateColors() {
     return;
   }
 
-  SetEnabledTextColors(foreground_frame_active_color_id_);
+  SetEnabledTextColors(GetForegroundColor());
   UpdateBackground();
   UpdateInkDrop();
   UpdateIcon();

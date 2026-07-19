@@ -44,12 +44,15 @@
 #include "components/autofill/core/browser/form_processing/autofill_ai/determine_attribute_types.h"
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
+#include "components/autofill/core/browser/foundations/autofill_driver.h"
+#include "components/autofill/core/browser/foundations/autofill_driver_factory.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_import_utils.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_wallet_utils.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/metrics/autofill_ai_logger.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/metrics/autofill_ai_metrics.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
 #include "components/autofill/core/browser/ml_model/autofill_ai/autofill_ai_model_executor.h"
+#include "components/autofill/core/browser/network/autofill_ai/personal_context_access_manager.h"
 #include "components/autofill/core/browser/network/autofill_ai/wallet_pass_access_manager.h"
 #include "components/autofill/core/browser/permissions/autofill_ai/autofill_ai_permission_utils.h"
 #include "components/autofill/core/browser/strike_databases/autofill_ai/autofill_ai_save_strike_database_by_attribute.h"
@@ -58,6 +61,7 @@
 #include "components/autofill/core/browser/suggestions/autofill_ai/autofill_ai_suggestion_generator.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/suggestions/suggestion_generator.h"
+#include "components/autofill/core/common/autofill_debug_features.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_internals/log_message.h"
 #include "components/autofill/core/common/autofill_internals/logging_scope.h"
@@ -183,6 +187,23 @@ bool IsSaveAsynchronous(EntityType type,
          EntityInstance::WalletPassType::kPrivate;
 }
 
+void PrefetchAmbientAutofillContext(AutofillClient& client,
+                                    AutofillManager& manager) {
+  DenseSet<EntityType> relevant_types;
+  manager.ForEachCachedForm([&](const FormStructure& form) {
+    relevant_types.insert_all(GetRelevantEntityTypesForFields(form.fields()));
+  });
+  if (relevant_types.empty()) {
+    return;
+  }
+
+  if (PersonalContextAccessManager* access_manager =
+          client.GetPersonalContextAccessManager()) {
+    base::flat_set<EntityType> requested_types(std::from_range, relevant_types);
+    access_manager->PrefetchContext(requested_types);
+  }
+}
+
 }  // namespace
 
 AutofillAiManager::EntityImportPromptCandidate::EntityImportPromptCandidate(
@@ -220,15 +241,33 @@ AutofillAiManager::AutofillAiManager(
     update_strike_db_ =
         std::make_unique<AutofillAiUpdateStrikeDatabase>(strike_database);
   }
+  if (base::FeatureList::IsEnabled(features::kAutofillAmbientAutofill)) {
+    autofill_managers_observation_.Observe(
+        client, ScopedAutofillManagersObservation::InitializationPolicy::
+                    kObservePreexistingManagers);
+  }
+  if (PersonalContextAccessManager* access_manager =
+          client_->GetPersonalContextAccessManager()) {
+    personal_context_access_manager_observation_.Observe(access_manager);
+  }
 }
 
 AutofillAiManager::~AutofillAiManager() = default;
 
-void AutofillAiManager::OnSuggestionsShown(
+void AutofillAiManager::OnAutofillAiSuggestionsShown(
     const FormStructure& form,
     const AutofillField& field,
     base::span<const Suggestion> shown_suggestions,
-    ukm::SourceId ukm_source_id) {
+    ukm::SourceId ukm_source_id,
+    UpdateSuggestionsCallback update_suggestions_callback) {
+  if (update_suggestions_callback) {
+    generate_suggestions_and_update_popup_callback_ =
+        base::BindRepeating(&AutofillAiManager::GenerateAndUpdateSuggestions,
+                            GetWeakPtr(), form.global_id(), field.global_id(),
+                            std::move(update_suggestions_callback));
+  } else {
+    generate_suggestions_and_update_popup_callback_.Reset();
+  }
   if (last_logged_ukm_source_id_ != ukm_source_id &&
       !form.server_predictions_received_timestamp().is_null()) {
     base::TimeDelta duration =
@@ -316,6 +355,31 @@ void AutofillAiManager::OnEditedAutofilledField(const FormStructure& form,
                                                 const AutofillField& field,
                                                 ukm::SourceId ukm_source_id) {
   logger_.OnEditedAutofilledField(form, field, ukm_source_id);
+}
+
+void AutofillAiManager::OnAfterLoadedServerPredictions(
+    AutofillManager& manager) {
+  if (MayPerformAutofillAiAction(*client_,
+                                 AutofillAiAction::kAmbientAutofill)) {
+    PrefetchAmbientAutofillContext(*client_, manager);
+  }
+}
+
+void AutofillAiManager::OnPrefetchContextComplete(
+    const PersonalContextAccessManager& manager,
+    std::optional<base::span<const EntityInstance>> entities) {
+  if (!entities.has_value()) {
+    client_->ShowAutofillAiPreFetchFailureNotification();
+  }
+  if (!std::ranges::contains(client_->GetAutofillSuggestions(),
+                             SuggestionType::kFetchingAmbientData,
+                             &Suggestion::type)) {
+    return;
+  }
+
+  if (generate_suggestions_and_update_popup_callback_) {
+    generate_suggestions_and_update_popup_callback_.Run();
+  }
 }
 
 void AutofillAiManager::UpdateLoggerReadinessData(const FormStructure& form) {
@@ -459,8 +523,7 @@ void AutofillAiManager::HandlePromptResult(
   // is no longer eligible by the time the user clicks "Accept", we abort the
   // Wallet save.
   if (entity.record_type() == EntityInstance::RecordType::kServerWallet &&
-      !MayPerformAutofillAiAction(*client_,
-                                  autofill::AutofillAiAction::kImportToWallet,
+      !MayPerformAutofillAiAction(*client_, AutofillAiAction::kImportToWallet,
                                   entity.type())) {
     HandleIneligibleWalletFallback(prompt_type, std::move(entity));
     return;
@@ -605,7 +668,8 @@ bool AutofillAiManager::ShouldDisplayIph(const FormStructure& form,
   }
 
   return std::ranges::any_of(attributes_in_form, [](const auto& p) {
-    return AttributesMeetImportConstraints(p.first, p.second);
+    return !p.first.read_only() &&
+           AttributesMeetImportConstraints(p.first, p.second);
   });
 }
 
@@ -933,4 +997,24 @@ AutofillAiManager::GetMigratePromptCandidates(
 
   return migrate_candidates;
 }
+
+void AutofillAiManager::GenerateAndUpdateSuggestions(
+    FormGlobalId form_id,
+    FieldGlobalId field_id,
+    UpdateSuggestionsCallback callback) {
+  const FormStructure* form = nullptr;
+  for (AutofillDriver* driver :
+       client_->GetAutofillDriverFactory().GetExistingDrivers()) {
+    if ((form = driver->GetAutofillManager().FindCachedFormById(form_id))) {
+      break;
+    }
+  }
+  if (!form) {
+    return;
+  }
+  if (const AutofillField* field = form->GetFieldById(field_id)) {
+    callback.Run(GetSuggestions(*form, *field));
+  }
+}
+
 }  // namespace autofill

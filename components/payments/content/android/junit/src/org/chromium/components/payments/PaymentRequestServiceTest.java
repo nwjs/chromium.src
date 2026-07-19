@@ -40,6 +40,7 @@ import org.chromium.payments.mojom.PaymentMethodData;
 import org.chromium.payments.mojom.PaymentOptions;
 import org.chromium.payments.mojom.PaymentRequestClient;
 import org.chromium.payments.mojom.PaymentResponse;
+import org.chromium.url.GURL;
 import org.chromium.url.mojom.Url;
 
 import java.util.ArrayList;
@@ -898,7 +899,6 @@ public class PaymentRequestServiceTest implements PaymentRequestClient {
 
     @Test
     @Feature({"Payments"})
-    @EnableFeatures({PaymentFeatureList.PAYMENT_REQUEST_SUPPORT_REPORTING_APP_ERROR})
     public void testOnInstrumentDetailsError_userCancel() {
         int[] userCancelResponses = {
             org.chromium.payments.mojom.PaymentEventResponseType.PAYMENT_EVENT_REJECT,
@@ -915,7 +915,6 @@ public class PaymentRequestServiceTest implements PaymentRequestClient {
 
     @Test
     @Feature({"Payments"})
-    @EnableFeatures({PaymentFeatureList.PAYMENT_REQUEST_SUPPORT_REPORTING_APP_ERROR})
     public void testOnInstrumentDetailsError_appError() {
         int[] appErrorResponses = {
             org.chromium.payments.mojom.PaymentEventResponseType.PAYMENT_EVENT_BROWSER_ERROR,
@@ -947,7 +946,6 @@ public class PaymentRequestServiceTest implements PaymentRequestClient {
 
     @Test
     @Feature({"Payments"})
-    @EnableFeatures({PaymentFeatureList.PAYMENT_REQUEST_SUPPORT_REPORTING_APP_ERROR})
     public void testOnInstrumentDetailsError_notAllowed() {
         PaymentRequestService service = defaultBuilder().build();
         Mockito.doReturn(true).when(mBrowserPaymentRequest).hasSkippedAppSelector();
@@ -957,5 +955,82 @@ public class PaymentRequestServiceTest implements PaymentRequestClient {
                         .PAYMENT_HANDLER_INSECURE_NAVIGATION,
                 "Insecure");
         assertErrorAndReason("Insecure", PaymentErrorReason.NOT_ALLOWED_ERROR);
+    }
+
+    @Test
+    @Feature({"Payments"})
+    public void testOpenPaymentHandlerWindow_noPaymentFlow() {
+        GURL targetUrl = new GURL("https://alice.example/pay");
+        Assert.assertNull(PaymentRequestService.openPaymentHandlerWindow(targetUrl));
+    }
+
+    @Test
+    @Feature({"Payments"})
+    public void testOpenPaymentHandlerWindow_noAppInvoked() {
+        GURL targetUrl = new GURL("https://alice.example/pay");
+        PaymentRequestService service = defaultBuilder().build();
+        show(service);
+        Assert.assertNull(PaymentRequestService.openPaymentHandlerWindow(targetUrl));
+    }
+
+    @Test
+    @Feature({"Payments"})
+    public void testOpenPaymentHandlerWindow_nativeAppInvoked() {
+        GURL targetUrl = new GURL("https://alice.example/pay");
+        PaymentRequestService service = defaultBuilder().build();
+        show(service);
+
+        AndroidPaymentApp nativeApp = Mockito.mock(AndroidPaymentApp.class);
+        Mockito.doReturn(PaymentAppType.NATIVE_MOBILE_APP).when(nativeApp).getPaymentAppType();
+        Mockito.doReturn("alice.example.app").when(nativeApp).packageName();
+        service.invokePaymentApp(nativeApp, Mockito.mock(PaymentResponseHelperInterface.class));
+
+        // A request to open the payment handler window should be denied because the invoked app
+        // is not a service worker app.
+        Assert.assertNull(PaymentRequestService.openPaymentHandlerWindow(targetUrl));
+    }
+
+    @Test
+    @Feature({"Payments"})
+    public void testOpenPaymentHandlerWindow_sameOrigin() {
+        GURL targetUrl = new GURL("https://alice.example/pay");
+        PaymentRequestService service = defaultBuilder().build();
+        show(service);
+
+        PaymentApp swAppSameOrigin = Mockito.mock(PaymentApp.class);
+        Mockito.doReturn(PaymentAppType.SERVICE_WORKER_APP)
+                .when(swAppSameOrigin)
+                .getPaymentAppType();
+        Mockito.doReturn("https://alice.example/scope").when(swAppSameOrigin).getIdentifier();
+        service.invokePaymentApp(
+                swAppSameOrigin, Mockito.mock(PaymentResponseHelperInterface.class));
+
+        WebContents mockWebContents = Mockito.mock(WebContents.class);
+        Mockito.doReturn(mockWebContents)
+                .when(mBrowserPaymentRequest)
+                .openPaymentHandlerWindow(Mockito.any(), Mockito.anyLong());
+
+        Assert.assertEquals(
+                mockWebContents, PaymentRequestService.openPaymentHandlerWindow(targetUrl));
+    }
+
+    @Test
+    @Feature({"Payments"})
+    public void testOpenPaymentHandlerWindow_crossOrigin() {
+        GURL targetUrl = new GURL("https://alice.example/pay");
+        PaymentRequestService service = defaultBuilder().build();
+        show(service);
+
+        PaymentApp swAppCrossOrigin = Mockito.mock(PaymentApp.class);
+        Mockito.doReturn(PaymentAppType.SERVICE_WORKER_APP)
+                .when(swAppCrossOrigin)
+                .getPaymentAppType();
+        Mockito.doReturn("https://bob.example/scope").when(swAppCrossOrigin).getIdentifier();
+        service.invokePaymentApp(
+                swAppCrossOrigin, Mockito.mock(PaymentResponseHelperInterface.class));
+
+        // A request to open the payment handler window should be denied because the invoked app
+        // has a different origin scope than the target URL.
+        Assert.assertNull(PaymentRequestService.openPaymentHandlerWindow(targetUrl));
     }
 }

@@ -11,6 +11,8 @@
 #include "base/strings/stringprintf.h"
 #include "base/values.h"
 #include "build/build_config.h"
+#include "content/public/browser/devtools_agent_host.h"
+#include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/test/browser_test.h"
@@ -24,19 +26,23 @@ HeadlessDevTooledBrowserTest::HeadlessDevTooledBrowserTest() = default;
 HeadlessDevTooledBrowserTest::~HeadlessDevTooledBrowserTest() = default;
 
 void HeadlessDevTooledBrowserTest::RunTest() {
-  HeadlessBrowserContext::Builder builder =
-      browser()->CreateBrowserContextBuilder();
-  CustomizeHeadlessBrowserContext(builder);
-  browser_context_ = builder.Build();
+  HeadlessBrowserContext::CreateParams params;
+  CustomizeHeadlessBrowserContext(params);
+  browser_context_ = browser()->CreateBrowserContext(std::move(params));
+  ASSERT_TRUE(browser_context_);
+
   browser()->SetDefaultBrowserContext(browser_context_);
 
   browser_devtools_client_.AttachToBrowser();
 
-  HeadlessWebContents::Builder web_contents_builder =
-      browser_context_->CreateWebContentsBuilder();
-  web_contents_builder.SetEnableBeginFrameControl(GetEnableBeginFrameControl());
-  CustomizeHeadlessWebContents(web_contents_builder);
-  web_contents_ = web_contents_builder.Build();
+  // Scope `create_params` so it is destroyed before `browser_context_` is
+  // closed, preventing dangling raw_ptr detection at function exit.
+  {
+    HeadlessWebContents::CreateParams create_params(browser_context_);
+    create_params.enable_begin_frame_control = GetEnableBeginFrameControl();
+    CustomizeHeadlessWebContents(create_params);
+    web_contents_ = browser_context_->CreateWebContents(create_params);
+  }
   Observe(HeadlessWebContentsImpl::From(web_contents_)->web_contents());
 
   PreRunAsynchronousTest();
@@ -96,10 +102,10 @@ bool HeadlessDevTooledBrowserTest::GetEnableBeginFrameControl() {
 }
 
 void HeadlessDevTooledBrowserTest::CustomizeHeadlessBrowserContext(
-    HeadlessBrowserContext::Builder& builder) {}
+    HeadlessBrowserContext::CreateParams& params) {}
 
 void HeadlessDevTooledBrowserTest::CustomizeHeadlessWebContents(
-    HeadlessWebContents::Builder& builder) {}
+    HeadlessWebContents::CreateParams& params) {}
 
 // DevTooled browser tests ---------------------------------------------------
 
@@ -169,5 +175,53 @@ INSTANTIATE_TEST_SUITE_P(
 HEADLESS_DEVTOOLED_TEST_P(HeadlessAllowedVideoCodecsTest);
 
 #endif  // #if !BUILDFLAG(IS_FUCHSIA)
+
+class HeadlessCreatedTargetIsUsedProcessTest
+    : public HeadlessDevTooledBrowserTest,
+      public testing::WithParamInterface<bool> {
+ public:
+  HeadlessCreatedTargetIsUsedProcessTest() = default;
+
+  bool IsHiddenTarget() const { return GetParam(); }
+
+ private:
+  void RunDevTooledTest() override {
+    base::DictValue params;
+    params.Set("url", "");
+    params.Set("hidden", IsHiddenTarget());
+    browser_devtools_client_.SendCommand(
+        "Target.createTarget", std::move(params),
+        base::BindOnce(&HeadlessCreatedTargetIsUsedProcessTest::OnTargetCreated,
+                       base::Unretained(this)));
+  }
+
+  void OnTargetCreated(base::DictValue result) {
+    std::string target_id = DictString(result, "result.targetId");
+    ASSERT_FALSE(target_id.empty());
+
+    scoped_refptr<content::DevToolsAgentHost> agent_host =
+        content::DevToolsAgentHost::GetForId(target_id);
+    ASSERT_TRUE(agent_host);
+
+    content::WebContents* web_contents = agent_host->GetWebContents();
+    ASSERT_TRUE(web_contents);
+
+    bool is_used =
+        !web_contents->GetPrimaryMainFrame()->GetProcess()->IsUnused();
+    EXPECT_EQ(is_used, IsHiddenTarget());
+
+    FinishAsynchronousTest();
+  }
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    /* no prefix */,
+    HeadlessCreatedTargetIsUsedProcessTest,
+    testing::Bool(),
+    [](const testing::TestParamInfo<bool>& info) {
+      return info.param ? "hidden" : "normal";
+    });
+
+HEADLESS_DEVTOOLED_TEST_P(HeadlessCreatedTargetIsUsedProcessTest);
 
 }  // namespace headless

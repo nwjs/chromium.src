@@ -10,10 +10,11 @@
 #include "base/containers/queue.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/threading/sequence_bound.h"
+#include "base/timer/timer.h"
 #include "media/base/video_encoder.h"
 #include "media/cast/cast_config.h"
 #include "media/cast/cast_environment.h"
-#include "media/cast/encoding/external_video_encoder.h"
+#include "media/cast/encoding/frame_complexity_estimator.h"
 #include "media/cast/encoding/video_encoder.h"
 
 namespace media {
@@ -45,15 +46,16 @@ class MediaVideoEncoderWrapper final : public media::cast::VideoEncoder {
   bool EncodeVideoFrame(scoped_refptr<VideoFrame> video_frame,
                         base::TimeTicks reference_time,
                         FrameEncodedCallback frame_encoded_callback) final;
-  void SetBitRate(int new_bit_rate) final;
+  void SetBitRate(uint32_t new_bit_rate) final;
   void GenerateKeyFrame() final;
 
   // media::VideoEncoder callbacks.
   void OnEncodedFrame(
+      int encoder_version,
       VideoEncoderOutput output,
       std::optional<media::VideoEncoder::CodecDescription> description);
-  void OnEncoderStatus(EncoderStatus error);
-  void OnEncoderInfo(const VideoEncoderInfo& encoder_info);
+  void OnEncoderStatus(int encoder_version, EncoderStatus error);
+  void OnEncoderInfo(int encoder_version, const VideoEncoderInfo& encoder_info);
 
   // Test-only API to override the backing video encoder implementation.
   void SetEncoderForTesting(std::unique_ptr<media::VideoEncoder> encoder);
@@ -70,7 +72,7 @@ class MediaVideoEncoderWrapper final : public media::cast::VideoEncoder {
                    RtpTimeTicks rtp_timestamp,
                    base::TimeTicks reference_time,
                    base::TimeDelta frame_duration,
-                   std::optional<double> estimated_quantizer,
+                   std::optional<double> estimated_complexity,
                    FrameEncodedCallback frame_encoded_callback);
     CachedMetadata();
     // This type is move-only due to `frame_encoded_callback`.
@@ -86,22 +88,25 @@ class MediaVideoEncoderWrapper final : public media::cast::VideoEncoder {
     RtpTimeTicks rtp_timestamp;
     base::TimeTicks reference_time;
     base::TimeDelta frame_duration;
-    std::optional<double> estimated_quantizer;
+    std::optional<double> estimated_complexity;
     FrameEncodedCallback frame_encoded_callback;
   };
 
   // Once the quantizer is estimated asynchronously, this callback is invoked
   // to enqueue the frame and call the encoder.
-  void OnQuantizerEstimated(scoped_refptr<VideoFrame> video_frame,
-                            media::VideoEncoder::EncodeOptions encode_options,
-                            base::TimeTicks reference_time,
-                            FrameEncodedCallback frame_encoded_callback,
-                            int encoder_version,
-                            std::optional<double> estimated_quantizer);
+  void OnComplexityEstimated(scoped_refptr<VideoFrame> video_frame,
+                             media::VideoEncoder::EncodeOptions encode_options,
+                             base::TimeTicks reference_time,
+                             FrameEncodedCallback frame_encoded_callback,
+                             int encoder_version,
+                             std::optional<double> estimated_complexity);
 
   // Once we know the frame size on the first call to `EncodeVideoFrame`, we
   // can then construct the encoder.
   void ConstructEncoder();
+
+  // Debounced reconstruction helper.
+  void ReconstructEncoderForNewSize(const gfx::Size& new_size);
 
   // Setter method for the video encoder.
   //
@@ -114,16 +119,28 @@ class MediaVideoEncoderWrapper final : public media::cast::VideoEncoder {
   // Calculates the predicated frame duration for `frame`. Used to provide
   // metrics on encoder utilization.
   // TODO(crbug.com/282984511): this method is written, in some form, in several
-  // places, including the VPX and AV1 encoders both in media/base and in
-  // media/cast/encoding. Unify at least some of these as appropriate.
+  // places, including the VPX and AV1 encoders in media/base. Unify at least
+  // some of these as appropriate.
   base::TimeDelta GetFrameDuration(const VideoFrame& frame);
+
+  // Computes the new encoder utilization value and records it in the
+  // `ema_encoder_utilization_` member. Applies an Exponential Moving Average
+  // (EMA) to smooth out spikes caused by key frames.
+  double ComputeAndRecordUtilization(base::TimeDelta processing_time);
+
+  // Computes the frame's lossiness metric based on the actual vs target bitrate
+  // and the estimated complexity of the frame.
+  double ComputeLossiness(size_t data_size,
+                          base::TimeDelta frame_duration,
+                          double estimated_complexity) const;
 
   // Posts a task to update the encoder options, such as whether a key frame
   // is requested.
   void UpdateEncoderOptions();
-  void OnFlushDoneForOptionsUpdate(media::VideoEncoder::Options options,
+  void OnFlushDoneForOptionsUpdate(int encoder_version,
+                                   media::VideoEncoder::Options options,
                                    EncoderStatus status);
-  void OnOptionsUpdated(EncoderStatus status);
+  void OnOptionsUpdated(int encoder_version, EncoderStatus status);
 
   // We currently manage the threads used for interacting with the encoder
   // manually. Hardware encoding demands posting to the "accelerator thread"
@@ -143,7 +160,9 @@ class MediaVideoEncoderWrapper final : public media::cast::VideoEncoder {
   //
   // NOTE: the media::VideoEncoder API makes no guarantees on what order the two
   // callbacks get called in.
-  void OnFrameEncodeDone(base::TimeTicks reference_time, EncoderStatus status);
+  void OnFrameEncodeDone(int encoder_version,
+                         base::TimeTicks reference_time,
+                         EncoderStatus status);
 
   // Callback generator. Returned callbacks are intended to be called on the
   // VIDEO thread and post back to the MAIN thread.
@@ -163,6 +182,11 @@ class MediaVideoEncoderWrapper final : public media::cast::VideoEncoder {
   raw_ptr<GpuVideoAcceleratorFactories> gpu_factories_;
   const bool is_hardware_encoder_;
   const VideoCodec codec_;
+
+  // The target frame duration, used for calculating encoder utilization. This
+  // is based on the maximum frame rate that the encoder is expected to encode
+  // at, instead of the video frame metadata.
+  const base::TimeDelta target_frame_duration_;
 
   // Last recorded encoder status. Used to ensure we do not call
   // `status_change_cb_` repeatedly with the same value, since the
@@ -200,14 +224,25 @@ class MediaVideoEncoderWrapper final : public media::cast::VideoEncoder {
   base::queue<CachedMetadata> recent_metadata_;
 
   // Used to compute utilization metrics for each frame.
-  base::SequenceBound<QuantizerEstimator> quantizer_estimator_;
+  base::SequenceBound<FrameComplexityEstimator> frame_complexity_estimator_;
 
   // Pending encodes to be run when options are updated.
   std::vector<base::OnceClosure> pending_encodes_;
 
+  // Timer to debounce encoder reconstruction during active resizing.
+  base::OneShotTimer resize_debounce_timer_;
+
+  // The target size for the pending reconstruction.
+  std::optional<gfx::Size> target_resize_size_;
+
   // The version of the current encoder. Incremented every time the encoder
   // is reconstructed. Used to detect and drop race-conditioned frames.
   int encoder_version_ = 0;
+
+  // Exponential moving average of encoder utilization, used for informing the
+  // capture stack about the current state of the encoder and how well it is
+  // keeping up with the incoming frames.
+  std::optional<double> ema_encoder_utilization_;
 
   // NOTE: Weak pointers must be invalidated before all other member variables.
   base::WeakPtrFactory<MediaVideoEncoderWrapper> weak_factory_{this};

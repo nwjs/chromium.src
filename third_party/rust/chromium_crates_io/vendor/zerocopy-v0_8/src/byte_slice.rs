@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-2-Clause OR Apache-2.0 OR MIT
+//
 // Copyright 2024 The Fuchsia Authors
 //
 // Licensed under a BSD-style license <LICENSE-BSD>, Apache License, Version 2.0
@@ -365,7 +367,7 @@ mod proofs {
 
     fn any_vec() -> Vec<u8> {
         let len = kani::any();
-        kani::assume(len <= isize::MAX as usize);
+        kani::assume(len <= crate::DstLayout::MAX_SIZE);
         vec![0u8; len]
     }
 

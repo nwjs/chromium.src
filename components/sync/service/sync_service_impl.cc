@@ -951,8 +951,7 @@ SyncService::UserActionableError SyncServiceImpl::GetUserActionableError()
       data_type_manager_->GetDataTypeErrors();
   auto it = data_type_errors.find(BOOKMARKS);
   if (it != data_type_errors.end() &&
-      bookmark_sync_error_state_.IsActionableError(it->second) &&
-      base::FeatureList::IsEnabled(kSyncShowBookmarksLimitExceededError)) {
+      bookmark_sync_error_state_.IsActionableError(it->second)) {
     return UserActionableError::kBookmarksLimitExceeded;
   }
 
@@ -2331,7 +2330,6 @@ void SyncServiceImpl::RemoveClientFromServer() const {
   const std::string& access_token =
       auth_manager_->GetCredentials().access_token_info.token;
   const bool report_sync_stopped = !access_token.empty() && !birthday.empty();
-  base::UmaHistogramBoolean("Sync.SyncStoppedReported", report_sync_stopped);
   if (report_sync_stopped) {
     sync_stopped_reporter_->ReportSyncStopped(access_token, cache_guid,
                                               birthday);

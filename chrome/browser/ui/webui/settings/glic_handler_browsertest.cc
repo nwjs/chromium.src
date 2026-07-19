@@ -13,7 +13,9 @@
 #include "build/buildflag.h"
 #include "chrome/browser/background/glic/glic_launcher_configuration.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/extensions/api/settings_private/prefs_util.h"
 #include "chrome/browser/glic/glic_pref_names.h"
+#include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/test_support/glic_test_environment.h"
@@ -147,20 +149,14 @@ IN_PROC_BROWSER_TEST_F(GlicHandlerBrowserTest, UpdateShortcutSuspension) {
 }
 #endif  //  !BUILDFLAG(SUPPORTS_OZONE_WAYLAND)
 
-// TODO(crbug.com/416160303): Enable the test.
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_UpdateGlicShortcut DISABLED_UpdateGlicShortcut
-#else
-#define MAYBE_UpdateGlicShortcut UpdateGlicShortcut
-#endif
-IN_PROC_BROWSER_TEST_F(GlicHandlerBrowserTest, MAYBE_UpdateGlicShortcut) {
+IN_PROC_BROWSER_TEST_F(GlicHandlerBrowserTest, UpdateGlicShortcut) {
   const ui::Accelerator invalid_shortcut(ui::VKEY_A, ui::EF_NONE);
   glic_handler()->HandleSetGlicShortcut(
       base::ListValue()
           .Append("callback_id")
           .Append(ui::Command::AcceleratorToString(invalid_shortcut)));
   ui::Accelerator saved_hotkey =
-      glic::GlicLauncherConfiguration::GetGlobalHotkey();
+      glic::GlicLauncherConfiguration::GetToggleHotkey();
   EXPECT_EQ(ui::VKEY_UNKNOWN, saved_hotkey.key_code());
   EXPECT_EQ(ui::EF_NONE, saved_hotkey.modifiers());
 
@@ -169,7 +165,7 @@ IN_PROC_BROWSER_TEST_F(GlicHandlerBrowserTest, MAYBE_UpdateGlicShortcut) {
       base::ListValue()
           .Append("callback_id")
           .Append(ui::Command::AcceleratorToString(valid_shortcut)));
-  saved_hotkey = glic::GlicLauncherConfiguration::GetGlobalHotkey();
+  saved_hotkey = glic::GlicLauncherConfiguration::GetToggleHotkey();
   EXPECT_EQ(valid_shortcut.key_code(), saved_hotkey.key_code());
   EXPECT_EQ(valid_shortcut.modifiers(), saved_hotkey.modifiers());
 }
@@ -292,6 +288,10 @@ IN_PROC_BROWSER_TEST_F(GlicHandlerBrowserTest, GetWebActuationEnabled) {
 IN_PROC_BROWSER_TEST_F(GlicHandlerBrowserTest, SetWebActuationEnabled) {
   glic_handler()->AllowJavascriptForTesting();
 
+  glic::GlicKeyedService::Get(browser()->profile())
+      ->enabling()
+      .SetExperimentalTriggeringEnabled(true);
+
   base::ListValue args;
   args.Append(true);
   glic_handler()->HandleSetWebActuationEnabled(args);
@@ -299,6 +299,9 @@ IN_PROC_BROWSER_TEST_F(GlicHandlerBrowserTest, SetWebActuationEnabled) {
   EXPECT_TRUE(glic::GlicKeyedService::Get(browser()->profile())
                   ->enabling()
                   .GetUserEnabledActuationOnWeb());
+  EXPECT_TRUE(glic::GlicKeyedService::Get(browser()->profile())
+                  ->enabling()
+                  .GetExperimentalTriggeringEnabled());
 
   base::ListValue args2;
   args2.Append(false);
@@ -307,6 +310,9 @@ IN_PROC_BROWSER_TEST_F(GlicHandlerBrowserTest, SetWebActuationEnabled) {
   EXPECT_FALSE(glic::GlicKeyedService::Get(browser()->profile())
                    ->enabling()
                    .GetUserEnabledActuationOnWeb());
+  EXPECT_FALSE(glic::GlicKeyedService::Get(browser()->profile())
+                   ->enabling()
+                   .GetExperimentalTriggeringEnabled());
 }
 
 IN_PROC_BROWSER_TEST_F(GlicHandlerConsentBrowserTest,

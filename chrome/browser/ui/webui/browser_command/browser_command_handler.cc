@@ -137,9 +137,6 @@ void BrowserCommandHandler::CanExecuteCommand(
     case Command::kStartPasswordManagerTutorial:
       can_execute = TutorialServiceExists();
       break;
-    case Command::kOpenAutofillSettings:
-      can_execute = true;
-      break;
     case Command::kOpenAISettings:
       can_execute = true;
       break;
@@ -185,9 +182,10 @@ void BrowserCommandHandler::ExecuteCommand(Command command_id,
   std::move(callback).Run(command_executed);
 }
 
-void BrowserCommandHandler::ExecuteCommandWithDisposition(
+void BrowserCommandHandler::HandleCommandWithDisposition(
     int id,
-    WindowOpenDisposition disposition) {
+    WindowOpenDisposition disposition,
+    base::TimeTicks time_stamp) {
   const auto command = static_cast<Command>(id);
   base::UmaHistogramEnumeration(kPromoBrowserCommandHistogramName, command);
 
@@ -234,10 +232,6 @@ void BrowserCommandHandler::ExecuteCommandWithDisposition(
       break;
     case Command::kStartPasswordManagerTutorial:
       StartPasswordManagerTutorial();
-      break;
-    case Command::kOpenAutofillSettings:
-      NavigateToURL(GURL(chrome::GetSettingsUrl(chrome::kAutofillSubPage)),
-                    disposition);
       break;
     case Command::kOpenAISettings:
       OpenAISettings();

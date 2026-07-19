@@ -19,13 +19,13 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "content/browser/child_process_host_impl.h"
-#include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/file_system_access/file_system_access_error.h"
 #include "content/browser/process_lock.h"
 #include "content/browser/renderer_host/render_process_host_impl.h"
 #include "content/browser/renderer_host/render_view_host_impl.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"
 #include "content/browser/renderer_host/spare_render_process_host_manager_impl.h"
+#include "content/browser/security/cpsp/child_process_security_policy_impl.h"
 #include "content/common/renderer.mojom.h"
 #include "content/public/browser/android/child_process_importance.h"
 #include "content/public/browser/browser_context.h"
@@ -240,9 +240,17 @@ void MockRenderProcessHost::OnBoostForLoadingAdded() {}
 
 void MockRenderProcessHost::OnBoostForLoadingRemoved() {}
 
-void MockRenderProcessHost::OnImmersiveXrSessionStarted() {}
+void MockRenderProcessHost::OnImmersiveXrSessionStarted() {
+  has_immersive_xr_session_ = true;
+}
 
-void MockRenderProcessHost::OnImmersiveXrSessionStopped() {}
+void MockRenderProcessHost::OnImmersiveXrSessionStopped() {
+  has_immersive_xr_session_ = false;
+}
+
+bool MockRenderProcessHost::HasImmersiveXrSessionForTesting() const {
+  return has_immersive_xr_session_;
+}
 
 StoragePartition* MockRenderProcessHost::GetStoragePartition() {
   return browser_context_->GetStoragePartition(storage_partition_config_);
@@ -374,7 +382,6 @@ void MockRenderProcessHost::RemovePriorityClient(
   priority_clients_.erase(priority_client);
 }
 
-#if !BUILDFLAG(IS_ANDROID)
 void MockRenderProcessHost::SetPriorityOverride(
     base::Process::Priority priority) {}
 
@@ -383,7 +390,6 @@ bool MockRenderProcessHost::HasPriorityOverride() {
 }
 
 void MockRenderProcessHost::ClearPriorityOverride() {}
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_ANDROID)
 void MockRenderProcessHost::GraduateSpareToNormalRendererPriority() {}

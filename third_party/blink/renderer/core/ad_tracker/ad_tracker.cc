@@ -85,6 +85,13 @@ ApiFunctionInfo GetApiFunctionInfo(v8::Isolate* isolate,
   v8::Local<v8::Value> current_value = context->Global();
   const base::span<const char* const> property_path = GetApiPropertyPath(api);
 
+  // Prevent script execution (e.g., via author-defined getters or proxy traps)
+  // during prototype chain traversal to avoid evasion, side effects, or DOM
+  // mutation re-entrancy crashes.
+  v8::Isolate::DisallowJavascriptExecutionScope disallow_js(
+      isolate, v8::Isolate::DisallowJavascriptExecutionScope::THROW_ON_FAILURE);
+  v8::TryCatch try_catch(isolate);
+
   // Traverse the property path (e.g., global object -> `history` ->
   // `pushState`).
   for (const char* property_name : property_path) {
@@ -489,9 +496,8 @@ bool AdTracker::IsAdScriptInStackHelper(
   // patches that passively invoke an ad's intent).
   std::array<v8::StackTrace::ScriptData, 5> stack_buffer;
   size_t limit = (ignore_monkey_patch != MonkeyPatchableApi::kNone) ? 5 : 1;
-  auto stack = v8::StackTrace::CurrentScriptData(
-      isolate,
-      v8::MemorySpan<v8::StackTrace::ScriptData>(stack_buffer.data(), limit));
+  auto stack =
+      v8::StackTrace::CurrentScriptData(isolate, {stack_buffer.data(), limit});
 
   if (stack.empty()) {
     // There is nothing on the v8 stack. This means that we're in some

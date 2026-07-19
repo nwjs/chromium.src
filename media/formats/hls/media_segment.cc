@@ -35,13 +35,11 @@ MediaSegment::EncryptionData::EncryptionData(
     GURL uri,
     XKeyTagMethod method,
     XKeyTagKeyFormat format,
-    MediaSegment::EncryptionData::IVContainer iv,
-    KeyLocation location)
+    MediaSegment::EncryptionData::IVContainer iv)
     : uri_(std::move(uri)),
       method_(method),
       iv_(std::move(iv)),
-      format_(format),
-      key_location_(location) {}
+      format_(format) {}
 
 MediaSegment::EncryptionData::~EncryptionData() = default;
 
@@ -74,11 +72,22 @@ void MediaSegment::EncryptionData::ImportKey(std::string_view key_content) {
   key_ = std::vector<uint8_t>(key_content.begin(), key_content.end());
 }
 
+void MediaSegment::EncryptionData::ImportKeySecurity(
+    hls::SecurityMetadata metadata) {
+  security_metadata_ = std::move(metadata);
+}
+
+const std::optional<hls::SecurityMetadata>&
+MediaSegment::EncryptionData::GetSecurityMetadata() const {
+  return security_metadata_;
+}
+
 MediaSegment::MediaSegment(
     base::TimeDelta duration,
     types::DecimalInteger media_sequence_number,
     types::DecimalInteger discontinuity_sequence_number,
     GURL uri,
+    url::Origin manifest_origin,
     scoped_refptr<InitializationSegment> initialization_segment,
     scoped_refptr<EncryptionData> encryption_data,
     std::optional<types::ByteRange> byte_range,
@@ -91,6 +100,7 @@ MediaSegment::MediaSegment(
       media_sequence_number_(media_sequence_number),
       discontinuity_sequence_number_(discontinuity_sequence_number),
       uri_(std::move(uri)),
+      manifest_origin_(std::move(manifest_origin)),
       initialization_segment_(std::move(initialization_segment)),
       encryption_data_(std::move(encryption_data)),
       byte_range_(byte_range),

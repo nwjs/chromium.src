@@ -65,6 +65,7 @@
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/supervised_user/supervised_user_extensions_metrics_recorder.h"
 #include "extensions/browser/supervised_user_extensions_delegate.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -363,10 +364,12 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebstorePrivateApiTest, EmptyCrx) {
 }
 
 static constexpr char kTestAppId[] = "iladmdjkfniedhfhcfoefgojhgaiaccc";
+static constexpr char kTestExtensionId[] = "enfkhcelefdadlmkffamgdlgplcionje";
 
 #if !BUILDFLAG(IS_ANDROID)
 
 static constexpr char kTestAppVersion[] = "0.1";
+static constexpr char kTestExtensionVersion[] = "0.5";
 
 // Test fixture for various cases of installation for child accounts.
 class SupervisedUserExtensionWebstorePrivateApiTest
@@ -516,15 +519,15 @@ IN_PROC_BROWSER_TEST_F(SupervisedUserExtensionWebstorePrivateApiTest,
   auto delegate_reset = WebstorePrivateApi::SetDelegateForTesting(&listener);
   set_next_dialog_action(NextDialogAction::kAccept);
 
-  ASSERT_TRUE(RunInstallTest("install_child.html", "app.crx"));
+  ASSERT_TRUE(RunInstallTest("install_child.html", "extension.crx"));
   listener.Wait();
   ASSERT_TRUE(listener.received_success());
-  ASSERT_EQ(kTestAppId, listener.id());
+  ASSERT_EQ(kTestExtensionId, listener.id());
 
   scoped_refptr<const Extension> extension =
       extensions::ExtensionBuilder("test extension")
-          .SetID(kTestAppId)
-          .SetVersion(kTestAppVersion)
+          .SetID(kTestExtensionId)
+          .SetVersion(kTestExtensionVersion)
           .Build();
   EXPECT_TRUE(extensions_delegate_->IsExtensionAllowedByParent(*extension));
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
@@ -607,16 +610,16 @@ IN_PROC_BROWSER_TEST_F(SupervisedUserExtensionWebstorePrivateApiTest,
   // Expect the extension to be blocked or installed normally based on the
   // toggle that manages supervised user extensions.
   std::string page = "install_child.html";
-  ASSERT_TRUE(RunInstallTest(page, "app.crx"));
+  ASSERT_TRUE(RunInstallTest(page, "extension.crx"));
 
   listener.Wait();
   ASSERT_TRUE(listener.received_success());
-  ASSERT_EQ(kTestAppId, listener.id());
+  ASSERT_EQ(kTestExtensionId, listener.id());
 
   scoped_refptr<const Extension> extension =
       extensions::ExtensionBuilder("test extension")
-          .SetID(kTestAppId)
-          .SetVersion(kTestAppVersion)
+          .SetID(kTestExtensionId)
+          .SetVersion(kTestExtensionVersion)
           .Build();
   ASSERT_TRUE(extensions_delegate_->IsExtensionAllowedByParent(*extension));
 
@@ -650,17 +653,17 @@ IN_PROC_BROWSER_TEST_F(SupervisedUserExtensionWebstorePrivateApiTest,
   supervised_user_test_util::
       SetSupervisedUserExtensionsMayRequestPermissionsPref(profile(), false);
 
-  ASSERT_TRUE(RunInstallTest("install_child.html", "app.crx"));
+  ASSERT_TRUE(RunInstallTest("install_child.html", "extension.crx"));
   listener.Wait();
   ASSERT_TRUE(listener.received_success());
-  ASSERT_EQ(kTestAppId, listener.id());
+  ASSERT_EQ(kTestExtensionId, listener.id());
 
   EXPECT_FALSE(IsParentPermissionDialogAppeared());
 
   scoped_refptr<const Extension> extension =
       extensions::ExtensionBuilder("test extension")
-          .SetID(kTestAppId)
-          .SetVersion(kTestAppVersion)
+          .SetID(kTestExtensionId)
+          .SetVersion(kTestExtensionVersion)
           .Build();
   EXPECT_TRUE(extensions_delegate_->IsExtensionAllowedByParent(*extension));
 
@@ -765,7 +768,21 @@ class TestSupervisedUserExtensionsDelegateAndroid
   void RemoveExtensionApproval(
       const extensions::Extension& extension) override {}
   void RecordExtensionEnablementUmaMetrics(bool enabled) const override {}
-
+  bool CanSkipExtensionParentApprovals() override { return false; }
+  void RecordAskParentDialogUmaMetrics(AskParentDialogState state) override {
+    metrics_recorder_.RecordAskParentDialogUmaMetrics(
+        static_cast<
+            SupervisedUserExtensionsMetricsRecorder::AskParentDialogState>(
+            state));
+  }
+  void RecordEnablementUmaMetrics(EnablementState state) override {
+    metrics_recorder_.RecordEnablementUmaMetrics(
+        static_cast<SupervisedUserExtensionsMetricsRecorder::EnablementState>(
+            state));
+  }
+  ExtensionInstallPromptClient::Observer* GetInstallPromptObserver() override {
+    return &metrics_recorder_;
+  }
   // The sequence of dialog action to take. A total of 3 dialogs can be shown in
   // the supervised user extension installation flow:
   // 1. The Ask Parent dialog
@@ -795,6 +812,7 @@ class TestSupervisedUserExtensionsDelegateAndroid
  private:
   std::optional<DialogActions> dialog_actions_;
   std::unique_ptr<ScopedTestDialogAutoConfirm> scoped_auto_confirm_;
+  SupervisedUserExtensionsMetricsRecorder metrics_recorder_;
 };
 
 // Test fixture for installation flows for child accounts on Android.
@@ -1037,11 +1055,11 @@ IN_PROC_BROWSER_TEST_F(SupervisedUserExtensionWebstorePrivateApiTestAndroid,
   // after the parent authentication dialog. Auto-accept it.
   set_dialog_actions(
       TestSupervisedUserExtensionsDelegateAndroid::DialogActions::kFullInstall);
-  ASSERT_TRUE(RunInstallTest("install_child.html", "app.crx"));
+  ASSERT_TRUE(RunInstallTest("install_child.html", "extension.crx"));
 
   listener.Wait();
   ASSERT_TRUE(listener.received_success());
-  ASSERT_EQ(kTestAppId, listener.id());
+  ASSERT_EQ(kTestExtensionId, listener.id());
 
   // Verify that the parent approval install dialog was shown.
   EXPECT_EQ(ExtensionInstallPrompt::g_last_prompt_type_for_tests,

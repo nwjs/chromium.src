@@ -115,7 +115,6 @@ class Element;
 class Frame;
 class FrameLoader;
 class HistoryItem;
-class LocalDOMWindow;
 class LocalFrame;
 class LocalFrameClient;
 class MHTMLArchive;
@@ -447,6 +446,19 @@ class CORE_EXPORT DocumentLoader : public GarbageCollected<DocumentLoader>,
 
   HashMap<KURL, EarlyHintsPreloadEntry> GetEarlyHintsPreloadedResources();
 
+  // An origin preconnected to via an Early Hints response, for the
+  // SpeculationMeasurement API. `early_hint` is true if the preconnect came
+  // from a 103 Early Hints response, false if from a `Link: rel=preconnect`
+  // header on the final navigation response. The crossorigin attribute is
+  // converted to a CrossOriginAttributeValue when recorded on the fetcher.
+  struct Preconnect {
+    KURL url;
+    network::mojom::CrossOriginAttribute cross_origin =
+        network::mojom::CrossOriginAttribute::kUnspecified;
+    bool early_hint = false;
+  };
+  const Vector<Preconnect>& GetPreconnects() const { return preconnects_; }
+
   const std::optional<Vector<KURL>>& AdAuctionComponents() const {
     return ad_auction_components_;
   }
@@ -504,6 +516,8 @@ class CORE_EXPORT DocumentLoader : public GarbageCollected<DocumentLoader>,
   const mojom::RendererContentSettingsPtr& GetContentSettings();
 
   void ReportTotalTakenTimeToUpdateSubresourceLoadMetrics();
+
+  bool IsInCommitDataForTesting() const { return in_commit_data_; }
 
  protected:
   // Based on its MIME type, if the main document's response corresponds to an
@@ -767,6 +781,11 @@ class CORE_EXPORT DocumentLoader : public GarbageCollected<DocumentLoader>,
   // current document or was browser-initiated.
   bool last_navigation_had_trusted_initiator_ = false;
 
+  // Secure-context-root bit (see
+  // `ContentBrowserClient::IsSecureContextRoot()`), applied to the
+  // window's SecurityContext.
+  bool is_secure_context_root_ = false;
+
   // Whether this load request comes with a sticky user activation. For
   // prerendered pages, this is initially false but could be updated on
   // prerender page activation.
@@ -847,6 +866,7 @@ class CORE_EXPORT DocumentLoader : public GarbageCollected<DocumentLoader>,
       pending_code_cache_host_for_background_;
 
   HashMap<KURL, EarlyHintsPreloadEntry> early_hints_preloaded_resources_;
+  Vector<Preconnect> preconnects_;
 
   // If this is a navigation to fenced frame from an interest group auction,
   // contains URNs to the ad components returned by the winning bid. Null,

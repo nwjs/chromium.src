@@ -1,8 +1,7 @@
 Name: federated-compute
 URL: https://github.com/google-parfait/federated-compute/
 Version: N/A
-Date: 2026-05-25
-Revision: 8de5837b817f28abc54a387a9417631b905ba90a
+Revision: f5241fb459426f88af484a909927044a71306209
 Update Mechanism: Manual
 License: Apache-2.0
 License File: src/LICENSE
@@ -19,3 +18,13 @@ Local Modifications:
 
   These files wire up //components/cbor (which Chromium uses) instead of
   libcppbor.
+
+- fcp/client/cache/file_backed_resource_cache.h
+  fcp/client/secagg_runner.cc
+
+  Not used by Chromium, stubbed out.
+
+- fcp/protos/*
+  fcp/secagg/shared/secagg_messages.proto
+
+  Removed unused parts, which are incompatible with Chromium.

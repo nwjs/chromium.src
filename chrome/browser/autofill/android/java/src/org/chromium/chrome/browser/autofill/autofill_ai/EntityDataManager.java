@@ -269,14 +269,26 @@ public class EntityDataManager implements Destroyable {
                 .isWalletPublicPassStorageEnabled(mNativeEntityDataManagerAndroid);
     }
 
-    public static boolean isPersonalContextSettingVisible(Profile profile) {
+    public boolean isPersonalContextPreferenceVisible() {
         ThreadUtils.assertOnUiThread();
-        return EntityDataManagerJni.get().isPersonalContextSettingVisible(profile);
+        return EntityDataManagerJni.get()
+                .isPersonalContextPreferenceVisible(mNativeEntityDataManagerAndroid);
     }
 
-    public static String getPersonalContextSettingsUrl() {
+    public boolean isPersonalContextEnabled() {
         ThreadUtils.assertOnUiThread();
-        return EntityDataManagerJni.get().getPersonalContextSettingsUrl();
+        return EntityDataManagerJni.get().isPersonalContextEnabled(mNativeEntityDataManagerAndroid);
+    }
+
+    public void setPersonalContextEnabled(boolean enabled) {
+        ThreadUtils.assertOnUiThread();
+        EntityDataManagerJni.get()
+                .setPersonalContextEnabled(mNativeEntityDataManagerAndroid, enabled);
+    }
+
+    public static String getPersonalContextManageConnectedAppsUrl() {
+        ThreadUtils.assertOnUiThread();
+        return EntityDataManagerJni.get().getPersonalContextManageConnectedAppsUrl();
     }
 
     @NativeMethods
@@ -312,10 +324,15 @@ public class EntityDataManager implements Destroyable {
 
         boolean isWalletPublicPassStorageEnabled(long nativeEntityDataManagerAndroid);
 
-        boolean isPersonalContextSettingVisible(@JniType("Profile*") Profile profile);
+        boolean isPersonalContextPreferenceVisible(long nativeEntityDataManagerAndroid);
+
+        boolean isPersonalContextEnabled(long nativeEntityDataManagerAndroid);
+
+        void setPersonalContextEnabled(long nativeEntityDataManagerAndroid, boolean enabled);
 
         @JniType("std::string")
-        String getPersonalContextSettingsUrl();
+        String getPersonalContextManageConnectedAppsUrl();
+
 
         void removeEntityInstance(
                 long nativeEntityDataManagerAndroid, @JniType("std::string") String guid);

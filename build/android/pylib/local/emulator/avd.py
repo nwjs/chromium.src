@@ -89,6 +89,9 @@ _DEFAULT_SNAPSHOT_NAME = 'default_boot'
 # caused by click being incorrectly interpreted as longclick.
 _LONG_PRESS_TIMEOUT = '1000'
 
+# A signature file storing the raw image version.
+_RAW_IMAGE_SIGNATURE_FILE = '.raw_image_version'
+
 # The snapshot name to load/save when writable_system=True
 _SYSTEM_SNAPSHOT_NAME = 'boot_with_system'
 
@@ -183,13 +186,15 @@ def ProcessDebugTags(debug_tags_str, default_debug_tags=None):
   return sorted(tags, key=lambda t: (t.startswith('-'), t))
 
 
-def _ProcessSourceProps(source_prop_path):
+def _ProcessSourceProps(source_prop_path, image_version):
   """Process a given source.properties file.
 
   It includes:
    * Parsing the file source.properties
    * Generating necessary props for the package.xml.template file
    * Creating the package.xml file under the same directory.
+   * Creating a signature file with the given image version which will be used
+     to determine if we have processed the raw image at the given version.
 
   Returns:
     Package path as string, i.e. "system-images;<version>;<tag_id>;<abi>"
@@ -241,6 +246,12 @@ def _ProcessSourceProps(source_prop_path):
                                   'package.xml')
   with open(package_xml_path, 'w') as f:
     f.write(package_xml_content)
+
+  # Write a signature file to the same directory where "source.properties" is.
+  signature_path = os.path.join(os.path.dirname(source_prop_path),
+                                _RAW_IMAGE_SIGNATURE_FILE)
+  with open(signature_path, 'w') as f:
+    f.write(image_version)
 
   return package_path
 
@@ -508,6 +519,11 @@ class AvdConfig:
         if elements:
           self._system_image_name = elements[0].getAttribute('path')
         break
+
+    # If package.xml is not found, fall back to the "system_image_name" field
+    # in the config file.
+    if not self._system_image_name:
+      self._system_image_name = self._config.system_image_name
 
     if not self._system_image_name:
       raise AvdException('Could not generate system_image_name.')
@@ -842,16 +858,24 @@ class AvdConfig:
     is_processed = False
     dest_path = os.path.join(
         COMMON_CIPD_ROOT,
-        self.GetDestPath(self._config.raw_system_image_package),
-    )
+        self.GetDestPath(self._config.raw_system_image_package))
+    expected_version = self._config.raw_system_image_package.version
     for root, _, files in os.walk(os.path.join(dest_path, 'system-images')):
-      if 'package.xml' in files:
-        logging.info('Skip as raw system image already processed at %r', root)
-        is_processed = True
+      if _RAW_IMAGE_SIGNATURE_FILE in files:
+        with open(os.path.join(root, _RAW_IMAGE_SIGNATURE_FILE), 'r') as f:
+          actual_version = f.read().strip()
+          if actual_version == expected_version:
+            logging.info(
+                'Found processed raw system image with version %s at %r',
+                expected_version, root)
+            is_processed = True
         break
 
     if is_processed:
       return
+
+    # Otherwise run uninstall to remove existing image, and proceed next steps
+    self.UninstallRawSystemImage()
 
     # The process steps include:
     #  * Install the raw package (zip file) from CIPD and unzip to a temp dir
@@ -880,7 +904,8 @@ class AvdConfig:
             'Failed to locate source.properties after extracting the zip.')
 
       package_path = _ProcessSourceProps(
-          os.path.join(source_properties_dir, 'source.properties'))
+          os.path.join(source_properties_dir, 'source.properties'),
+          expected_version)
 
       system_image_path = os.path.join(self.emulator_sdk_root,
                                        *package_path.split(';'))
@@ -1022,15 +1047,18 @@ class AvdConfig:
         raise AvdException('Failed to uninstall CIPD packages: %s' % str(e),
                            command=ensure_cmd)
 
-    # Delete processed raw system image file
+    self.UninstallRawSystemImage()
+
+  def UninstallRawSystemImage(self):
+    """Delete processed raw system image file."""
     if self._config.HasField('raw_system_image_package'):
-      logging.info('Deleting processed raw system image.')
       target_path = os.path.join(
           COMMON_CIPD_ROOT,
           self.GetDestPath(self._config.raw_system_image_package),
           'system-images',
       )
       if os.path.exists(target_path):
+        logging.info('Deleting processed raw system image in %r', target_path)
         shutil.rmtree(target_path)
 
   def Install(self):
@@ -1376,6 +1404,8 @@ class _AvdInstance:
       }
       if 'DISPLAY' in os.environ:
         emulator_env['DISPLAY'] = os.environ.get('DISPLAY')
+      if 'XAUTHORITY' in os.environ:
+        emulator_env['XAUTHORITY'] = os.environ.get('XAUTHORITY')
       if window:
         if 'DISPLAY' not in emulator_env:
           raise AvdException('Emulator failed to start: DISPLAY not defined')
@@ -1571,7 +1601,8 @@ def _EnsureSystemSettings(device):
   # See https://crbug.com/443782461 for more details.
   if device.build_version_sdk >= version_codes.BAKLAVA:
     # On desktop, we do not want to force the soft keyboard.
-    if not device.is_desktop:
+    if (not device.is_desktop
+        and device.IsApplicationInstalled(device_utils.GBOARD_PKG)):
       logging.info('Update Gboard preferences.')
       with device.GboardPreferences() as gboard_prefs:
         # Disable the stylus.

@@ -33,6 +33,8 @@ import org.chromium.chrome.browser.omnibox.R;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxDrawableState;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.omnibox.suggestions.SuggestionCommonProperties;
+import org.chromium.chrome.browser.omnibox.suggestions.SuggestionCommonProperties.PositionalMode;
+import org.chromium.chrome.browser.omnibox.suggestions.SuggestionCommonProperties.RoundSides;
 import org.chromium.chrome.browser.omnibox.suggestions.base.BaseSuggestionViewProperties.Action;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.components.browser_ui.styles.ChromeColors;
@@ -94,6 +96,8 @@ public final class BaseSuggestionViewBinder<T extends View>
         if (BaseSuggestionViewProperties.ACTION_CHIP_LEAD_IN_SPACING == propertyKey) {
             view.setActionChipLeadInSpacing(
                     model.get(BaseSuggestionViewProperties.ACTION_CHIP_LEAD_IN_SPACING));
+        } else if (SuggestionCommonProperties.APPLY_SIDE_SPACING == propertyKey) {
+            updateMargin(model, view);
         } else if (BaseSuggestionViewProperties.ICON == propertyKey) {
             updateSuggestionIcon(model, view);
         } else if (SuggestionCommonProperties.LAYOUT_DIRECTION == propertyKey) {
@@ -103,11 +107,9 @@ public final class BaseSuggestionViewBinder<T extends View>
             updateMargin(model, view);
         } else if (SuggestionCommonProperties.COLOR_SCHEME == propertyKey) {
             updateColorScheme(model, view);
-        } else if (SuggestionCommonProperties.BG_BOTTOM_CORNER_ROUNDED == propertyKey
-                || SuggestionCommonProperties.BG_TOP_CORNER_ROUNDED == propertyKey) {
-            view.setRoundingEdges(
-                    model.get(SuggestionCommonProperties.BG_TOP_CORNER_ROUNDED),
-                    model.get(SuggestionCommonProperties.BG_BOTTOM_CORNER_ROUNDED));
+        } else if (SuggestionCommonProperties.BG_POSITIONAL_MODE == propertyKey
+                || SuggestionCommonProperties.BG_ROUND_SIDES == propertyKey) {
+            updateRounding(model, view);
         } else if (BaseSuggestionViewProperties.ACTION_BUTTONS == propertyKey) {
             bindActionButtons(model, view, model.get(BaseSuggestionViewProperties.ACTION_BUTTONS));
         } else if (BaseSuggestionViewProperties.ON_FOCUS_VIA_SELECTION == propertyKey) {
@@ -352,6 +354,21 @@ public final class BaseSuggestionViewBinder<T extends View>
         ImageViewCompat.setImageTintList(view, tint);
     }
 
+    private static void updateRounding(PropertyModel model, BaseSuggestionView<?> view) {
+        @PositionalMode
+        int positionalMode = model.get(SuggestionCommonProperties.BG_POSITIONAL_MODE);
+        @RoundSides int roundSides = model.get(SuggestionCommonProperties.BG_ROUND_SIDES);
+        boolean roundTopEdge =
+                (roundSides == RoundSides.TOP_AND_BOTTOM)
+                        && (positionalMode == PositionalMode.TOP
+                                || positionalMode == PositionalMode.SINGLE);
+        boolean roundBottomEdge =
+                (roundSides == RoundSides.TOP_AND_BOTTOM || roundSides == RoundSides.BOTTOM_ONLY)
+                        && (positionalMode == PositionalMode.BOTTOM
+                                || positionalMode == PositionalMode.SINGLE);
+        view.setRoundingEdges(roundTopEdge, roundBottomEdge);
+    }
+
     /**
      * Update the margin for the view.
      *
@@ -365,8 +382,10 @@ public final class BaseSuggestionViewBinder<T extends View>
                     new MarginLayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
         }
 
+        int sideSpacing =
+                model.get(SuggestionCommonProperties.APPLY_SIDE_SPACING) ? sSideSpacing : 0;
         if (layoutParams instanceof MarginLayoutParams) {
-            ((MarginLayoutParams) layoutParams).setMargins(sSideSpacing, 0, sSideSpacing, 0);
+            ((MarginLayoutParams) layoutParams).setMargins(sideSpacing, 0, sideSpacing, 0);
         }
         view.setLayoutParams(layoutParams);
     }

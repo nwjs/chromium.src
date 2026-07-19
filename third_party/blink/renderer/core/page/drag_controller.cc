@@ -189,7 +189,7 @@ static DocumentFragment* DocumentFragmentFromDragData(
     DragSourceType& drag_source_type,
     bool is_richly_editable_position) {
   DCHECK(drag_data);
-  drag_source_type = DragSourceType::kHTMLSource;
+  drag_source_type = DragSourceType::kHtmlSource;
 
   Document& document = context->OwnerDocument();
   if (drag_data->ContainsCompatibleContent()) {
@@ -230,12 +230,14 @@ static DocumentFragment* DocumentFragmentFromDragData(
 
 bool DragController::DragIsMove(FrameSelection& selection,
                                 DragData* drag_data) {
-  return document_under_mouse_ ==
-             (drag_initiator_ ? drag_initiator_->document() : nullptr) &&
-         selection.SelectionHasFocus() &&
-         selection.ComputeVisibleSelectionInDOMTreeDeprecated()
-             .IsContentEditable() &&
-         selection.ComputeVisibleSelectionInDOMTreeDeprecated().IsRange() &&
+  if (document_under_mouse_ !=
+          (drag_initiator_ ? drag_initiator_->document() : nullptr) ||
+      !selection.SelectionHasFocus()) {
+    return false;
+  }
+  auto visible_selection =
+      selection.ComputeVisibleSelectionInDomTreeDeprecated();
+  return visible_selection.IsContentEditable() && visible_selection.IsRange() &&
          !IsCopyKeyDown(drag_data);
 }
 
@@ -558,16 +560,15 @@ DragOperation DragController::OperationForLoad(DragData* drag_data,
 // Returns true if node at |point| is editable with populating |dragCaret| and
 // |range|, otherwise returns false.
 static bool SetSelectionToDragCaret(LocalFrame* frame,
-                                    const SelectionInDOMTree& drag_caret,
+                                    const SelectionInDomTree& drag_caret,
                                     Range*& range,
                                     const PhysicalOffset& point) {
   frame->Selection().SetSelection(drag_caret, SetSelectionOptions());
   // TODO(crbug.com/40458806): Audit the usage of `UpdateStyleAndLayout`.
   frame->GetDocument()->UpdateStyleAndLayout(DocumentUpdateReason::kEditing);
-  if (!frame->Selection().ComputeVisibleSelectionInDOMTree().IsNone()) {
-    return frame->Selection()
-        .ComputeVisibleSelectionInDOMTree()
-        .IsContentEditable();
+  auto selection = frame->Selection().ComputeVisibleSelectionInDomTree();
+  if (!selection.IsNone()) {
+    return selection.IsContentEditable();
   }
 
   const PositionWithAffinity& position = frame->PositionForPoint(point);
@@ -575,12 +576,12 @@ static bool SetSelectionToDragCaret(LocalFrame* frame,
     return false;
 
   frame->Selection().SetSelection(
-      SelectionInDOMTree::Builder().Collapse(position).Build(),
+      SelectionInDomTree::Builder().Collapse(position).Build(),
       SetSelectionOptions());
   // TODO(crbug.com/40458806): Audit the usage of `UpdateStyleAndLayout`.
   frame->GetDocument()->UpdateStyleAndLayout(DocumentUpdateReason::kEditing);
   const VisibleSelection& visible_selection =
-      frame->Selection().ComputeVisibleSelectionInDOMTree();
+      frame->Selection().ComputeVisibleSelectionInDomTree();
   range = CreateRange(visible_selection.ToNormalizedEphemeralRange());
   return !visible_selection.IsNone() && visible_selection.IsContentEditable();
 }
@@ -600,7 +601,7 @@ DispatchEventResult DragController::DispatchTextInputEventFor(
   Element* target = FindEventTargetFrom(
       *inner_frame,
       CreateVisibleSelection(
-          SelectionInDOMTree::Builder().Collapse(caret_position).Build()));
+          SelectionInDomTree::Builder().Collapse(caret_position).Build()));
   if (!target)
     return DispatchEventResult::kNotCanceled;
   return target->DispatchEvent(
@@ -667,7 +668,7 @@ bool DragController::ConcludeEditDrag(DragData* drag_data) {
     return false;
   }
   VisibleSelection drag_caret = CreateVisibleSelection(
-      SelectionInDOMTree::Builder().Collapse(caret_position).Build());
+      SelectionInDomTree::Builder().Collapse(caret_position).Build());
   page_->GetDragCaret().Clear();
   // |innerFrame| can be removed by event handler called by
   // |dispatchTextInputEventFor()|.
@@ -679,7 +680,7 @@ bool DragController::ConcludeEditDrag(DragData* drag_data) {
   Range* range = CreateRange(drag_caret.ToNormalizedEphemeralRange());
   Element* root_editable_element =
       inner_frame->Selection()
-          .ComputeVisibleSelectionInDOMTreeDeprecated()
+          .ComputeVisibleSelectionInDomTreeDeprecated()
           .RootEditableElement();
 
   // For range to be null a WebKit client must have done something bad while
@@ -699,7 +700,7 @@ bool DragController::ConcludeEditDrag(DragData* drag_data) {
       IsRichlyEditablePosition(drag_caret.Anchor());
 
   if (drag_is_move || is_richly_editable_position) {
-    DragSourceType drag_source_type = DragSourceType::kHTMLSource;
+    DragSourceType drag_source_type = DragSourceType::kHtmlSource;
     DocumentFragment* fragment = DocumentFragmentFromDragData(
         drag_data, inner_frame, range, true, drag_source_type,
         is_richly_editable_position);
@@ -725,13 +726,13 @@ bool DragController::ConcludeEditDrag(DragData* drag_data) {
               FindEventTargetFrom(
                   *inner_frame,
                   inner_frame->Selection()
-                      .ComputeVisibleSelectionInDOMTreeDeprecated()),
+                      .ComputeVisibleSelectionInDomTreeDeprecated()),
               delete_mode, drag_caret.Anchor())) {
         return false;
       }
 
       inner_frame->Selection().SetSelection(
-          SelectionInDOMTree::Builder()
+          SelectionInDomTree::Builder()
               .SetBaseAndExtent(EphemeralRange(range))
               .Build(),
           SetSelectionOptions());
@@ -998,7 +999,7 @@ static void PrepareDataTransferForImageDrag(LocalFrame* source,
     Range* range = source->GetDocument()->createRange();
     range->selectNode(node, ASSERT_NO_EXCEPTION);
     source->Selection().SetSelection(
-        SelectionInDOMTree::Builder()
+        SelectionInDomTree::Builder()
             .SetBaseAndExtent(EphemeralRange(range))
             .Build(),
         SetSelectionOptions());
@@ -1232,8 +1233,11 @@ gfx::RectF DragController::ClippedSelection(const LocalFrame& frame) {
 std::unique_ptr<DragImage> DragController::DragImageForSelection(
     LocalFrame& frame,
     float opacity) {
-  if (!frame.Selection().ComputeVisibleSelectionInDOMTreeDeprecated().IsRange())
+  if (!frame.Selection()
+           .ComputeVisibleSelectionInDomTreeDeprecated()
+           .IsRange()) {
     return nullptr;
+  }
 
   frame.View()->UpdateAllLifecyclePhasesExceptPaint(
       DocumentUpdateReason::kDragImage);
@@ -1261,21 +1265,15 @@ std::unique_ptr<DragImage> DragController::DragImageForSelection(
 namespace {
 
 void SelectEnclosingAnchorIfContentEditable(LocalFrame* frame) {
-  if (frame->Selection()
-          .ComputeVisibleSelectionInDOMTreeDeprecated()
-          .IsCaret() &&
-      frame->Selection()
-          .ComputeVisibleSelectionInDOMTreeDeprecated()
-          .IsContentEditable()) {
+  auto visible_selection =
+      frame->Selection().ComputeVisibleSelectionInDomTreeDeprecated();
+  if (visible_selection.IsCaret() && visible_selection.IsContentEditable()) {
     // A user can initiate a drag on a link without having any text
     // selected.  In this case, we should expand the selection to
     // the enclosing anchor element.
-    if (Node* anchor = EnclosingAnchorElement(
-            frame->Selection()
-                .ComputeVisibleSelectionInDOMTreeDeprecated()
-                .Anchor())) {
+    if (Node* anchor = EnclosingAnchorElement(visible_selection.Anchor())) {
       frame->Selection().SetSelection(
-          SelectionInDOMTree::Builder().SelectAllChildren(*anchor).Build(),
+          SelectionInDomTree::Builder().SelectAllChildren(*anchor).Build(),
           SetSelectionOptions());
     }
   }
@@ -1307,6 +1305,9 @@ DragOverlay DragOverlayForDataTransferImage(
   return DragOverlay{std::move(drag_image), overlay_rect};
 }
 
+// Determines the drag overlay for a dragged element. A null `drag_image` in
+// the returned overlay means the drag should proceed without a preview image
+// (e.g. when the image has no src, or is too large for a preview).
 DragOverlay DetermineDragOverlay(
     LocalFrame* frame,
     const DragState& state,
@@ -1323,9 +1324,9 @@ DragOverlay DetermineDragOverlay(
     return data_transfer_drag_overlay;
   }
 
-  // If `drag_image` is not provided, try to determine a drag-source-specific
-  // image and location.
-  const KURL& link_url = drag_origin_hit_test_result.AbsoluteLinkURL();
+  // If no Javascript-provided drag image is set, fall back to a drag-source-
+  // specific image. Helpers below may still produce a null image, that is
+  // intentional and means the drag proceeds without an overlay.
   const float device_scale_factor =
       frame->GetChromeClient().GetScreenInfo(*frame).device_scale_factor;
   std::unique_ptr<DragImage> drag_image;
@@ -1335,6 +1336,7 @@ DragOverlay DetermineDragOverlay(
     overlay_rect = DragRectForSelectionDrag(*frame);
   } else if (state.drag_type_ == kDragSourceActionImage) {
     auto* element = DynamicTo<Element>(state.drag_src_.Get());
+    CHECK(element);
     const gfx::Rect& image_rect = drag_origin_hit_test_result.ImageRect();
     // TODO(crbug.com/331670941): Remove this scaling and simply pass
     // `imageRect`to `dragImageForImage` once all platforms are migrated
@@ -1347,16 +1349,14 @@ DragOverlay DetermineDragOverlay(
     // coordinates, and they're converted in the Blink client.
     // TODO(crbug.com/331753419): Consider clipping screen coordinates to
     // use a high resolution image on high DPI screens.
-    const KURL& image_url = drag_origin_hit_test_result.AbsoluteImageURL();
-    if (!image_url.IsEmpty() && element && CanDragImage(*element)) {
-      drag_image = DragImageForImage(*element, device_scale_factor,
-                                     image_size_in_pixels);
-      overlay_rect =
-          DragRectForImage(drag_image.get(), drag_initiation_location,
-                           image_rect.origin(), image_size_in_pixels);
-    }
-  } else if (state.drag_type_ == kDragSourceActionLink && !link_url.IsEmpty()) {
-    DCHECK(frame->GetPage());
+    drag_image =
+        DragImageForImage(*element, device_scale_factor, image_size_in_pixels);
+    overlay_rect = DragRectForImage(drag_image.get(), drag_initiation_location,
+                                    image_rect.origin(), image_size_in_pixels);
+  } else if (state.drag_type_ == kDragSourceActionLink) {
+    CHECK(frame->GetPage());
+    const KURL& link_url = drag_origin_hit_test_result.AbsoluteLinkURL();
+    CHECK(!link_url.IsEmpty());
     drag_image =
         DragImageForLink(link_url, drag_origin_hit_test_result.TextContent(),
                          device_scale_factor);
@@ -1391,6 +1391,20 @@ bool DragController::StartDrag(LocalFrame* frame,
     return false;
   }
 
+  // Validate that the drag source has the data required to start a drag of
+  // their type.
+  if (state.drag_type_ == kDragSourceActionImage) {
+    const KURL& image_url = hit_test_result.AbsoluteImageURL();
+    auto* element = DynamicTo<Element>(state.drag_src_.Get());
+    if (image_url.IsEmpty() || !element || !CanDragImage(*element)) {
+      return false;
+    }
+  } else if (state.drag_type_ == kDragSourceActionLink) {
+    if (hit_test_result.AbsoluteLinkURL().IsEmpty()) {
+      return false;
+    }
+  }
+
   if (state.drag_type_ == kDragSourceActionLink) {
     SelectEnclosingAnchorIfContentEditable(frame);
   }
@@ -1400,13 +1414,6 @@ bool DragController::StartDrag(LocalFrame* frame,
   const DragOverlay image_overlay =
       DetermineDragOverlay(frame, state, hit_test_result,
                            drag_initiation_location, mouse_dragged_point);
-
-  // There could have been an error that caused the drag overlay to not be
-  // generated, such as an empty link URL for a link drag or an image drag
-  // that failed `CanDragImage()`. Exit early in these cases.
-  if (!image_overlay.drag_image && state.drag_type_ != kDragSourceActionDHTML) {
-    return false;
-  }
 
   const gfx::Point effective_drag_initiation_location =
       state.drag_type_ == kDragSourceActionLink ? mouse_dragged_point

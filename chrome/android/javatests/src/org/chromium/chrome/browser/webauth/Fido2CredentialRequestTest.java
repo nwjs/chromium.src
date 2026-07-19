@@ -47,7 +47,7 @@ import org.chromium.base.test.params.ParameterSet;
 import org.chromium.base.test.params.ParameterizedRunner;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
-import org.chromium.base.test.util.DisableLeakChecks;
+import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.blink.mojom.AttestationConveyancePreference;
 import org.chromium.blink.mojom.AuthenticatorAttachment;
@@ -122,7 +122,6 @@ import java.util.List;
 })
 @Batch(Batch.PER_CLASS)
 @Restriction(GmsCoreVersionRestriction.RESTRICTION_TYPE_VERSION_GE_19W13)
-@DisableLeakChecks("crbug.com/512492393 (AuthenticatorImpl)")
 public class Fido2CredentialRequestTest {
     private static final String TAG = "Fido2CredentialRequestTest";
 
@@ -1197,7 +1196,8 @@ public class Fido2CredentialRequestTest {
         Assert.assertEquals(Integer.valueOf(AuthenticatorStatus.SUCCESS), mCallback.getStatus());
         Fido2ApiTestHelper.validateGetAssertionResponse(mCallback.getGetAssertionResponse());
         Fido2ApiTestHelper.verifyRespondedBeforeTimeout(mStartTimeMs);
-        Assert.assertEquals(1, mMockBrowserBridge.getCleanupCalledCount());
+        CriteriaHelper.pollInstrumentationThread(
+                () -> mMockBrowserBridge.getCleanupCalledCount() == 1);
         Assert.assertEquals(mCallback.getOutcome(), Integer.valueOf(GetAssertionOutcome.SUCCESS));
     }
 
@@ -1215,7 +1215,8 @@ public class Fido2CredentialRequestTest {
                 Integer.valueOf(AuthenticatorStatus.UNKNOWN_ERROR), mCallback.getStatus());
         Assert.assertNull(mCallback.getGetAssertionResponse());
         Fido2ApiTestHelper.verifyRespondedBeforeTimeout(mStartTimeMs);
-        Assert.assertEquals(1, mMockBrowserBridge.getCleanupCalledCount());
+        CriteriaHelper.pollInstrumentationThread(
+                () -> mMockBrowserBridge.getCleanupCalledCount() == 1);
     }
 
     @Test
@@ -1280,7 +1281,8 @@ public class Fido2CredentialRequestTest {
 
         Assert.assertEquals(
                 Integer.valueOf(AuthenticatorStatus.ABORT_ERROR), mCallback.getStatus());
-        Assert.assertEquals(1, mMockBrowserBridge.getCleanupCalledCount());
+        CriteriaHelper.pollInstrumentationThread(
+                () -> mMockBrowserBridge.getCleanupCalledCount() == 1);
     }
 
     @Test
@@ -1306,7 +1308,8 @@ public class Fido2CredentialRequestTest {
         mIntentSender.invokeCallback();
         Assert.assertEquals(Integer.valueOf(AuthenticatorStatus.SUCCESS), mCallback.getStatus());
         Fido2ApiTestHelper.validateGetAssertionResponse(mCallback.getGetAssertionResponse());
-        Assert.assertEquals(1, mMockBrowserBridge.getCleanupCalledCount());
+        CriteriaHelper.pollInstrumentationThread(
+                () -> mMockBrowserBridge.getCleanupCalledCount() == 1);
     }
 
     @Test
@@ -1332,7 +1335,8 @@ public class Fido2CredentialRequestTest {
         mIntentSender.invokeCallback();
         Assert.assertEquals(
                 Integer.valueOf(AuthenticatorStatus.ABORT_ERROR), mCallback.getStatus());
-        Assert.assertEquals(1, mMockBrowserBridge.getCleanupCalledCount());
+        CriteriaHelper.pollInstrumentationThread(
+                () -> mMockBrowserBridge.getCleanupCalledCount() == 1);
     }
 
     @Test
@@ -1385,7 +1389,8 @@ public class Fido2CredentialRequestTest {
         mCallback.blockUntilCalled();
         Assert.assertEquals(Integer.valueOf(AuthenticatorStatus.SUCCESS), mCallback.getStatus());
         Fido2ApiTestHelper.validateGetAssertionResponse(mCallback.getGetAssertionResponse());
-        Assert.assertEquals(1, mMockBrowserBridge.getCleanupCalledCount());
+        CriteriaHelper.pollInstrumentationThread(
+                () -> mMockBrowserBridge.getCleanupCalledCount() == 1);
     }
 
     @Test
@@ -1407,7 +1412,8 @@ public class Fido2CredentialRequestTest {
         Assert.assertEquals(Integer.valueOf(AuthenticatorStatus.SUCCESS), mCallback.getStatus());
         Fido2ApiTestHelper.validateGetAssertionResponse(mCallback.getGetAssertionResponse());
         Fido2ApiTestHelper.verifyRespondedBeforeTimeout(mStartTimeMs);
-        Assert.assertEquals(1, mMockBrowserBridge.getCleanupCalledCount());
+        CriteriaHelper.pollInstrumentationThread(
+                () -> mMockBrowserBridge.getCleanupCalledCount() == 1);
     }
 
     @Test
@@ -1625,7 +1631,7 @@ public class Fido2CredentialRequestTest {
         byte[][] encodings = new byte[2][];
         for (int i = 0; i < encodings.length; i++) {
             Parcel parcel = Parcel.obtain();
-            parcel.writeInt(16 /* VAL_PARCELABLEARRRAY */);
+            parcel.writeInt(16); // VAL_PARCELABLEARRRAY
             if (i > 0) {
                 // include length prefix
                 final int l = TestParcelable.CLASS_NAME.length();

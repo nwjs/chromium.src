@@ -26,6 +26,7 @@ source_set("indigo") {
   public_deps = [
     "//base",
     "//chrome/browser/profiles:profile",
+    "//chrome/browser/ui/page_action",
     "//chrome/browser/ui/tabs",
     "//chrome/browser/ui/views/indigo",
     "//chrome/common:mojo_bindings",
@@ -70,8 +71,12 @@ source_set("impl") {
     "//chrome/browser/profiles:profile",
     "//chrome/browser/resources/indigo:resources",
     "//chrome/browser/signin",
+    "//chrome/browser/skills",
     "//chrome/browser/ui",
     "//chrome/browser/ui/actions:actions_headers",
+    "//chrome/browser/ui/side_panel",
+    "//chrome/browser/ui/side_panel:side_panel_views_dependent",
+    "//chrome/browser/ui/toasts",
     "//chrome/browser/ui/views/indigo:impl",
     "//chrome/browser/ui/views/page_action",
     "//chrome/common:chrome_features",
@@ -79,6 +84,7 @@ source_set("impl") {
     "//components/application_locale_storage",
     "//components/optimization_guide/core",
     "//components/signin/public/identity_manager",
+    "//components/skills/public",
     "//content/public/browser",
     "//google_apis/common",
     "//net",
@@ -122,9 +128,12 @@ source_set("unit_tests") {
     "//chrome/browser/glic/test_support",
     "//chrome/browser/indigo/onboarding",
     "//chrome/browser/optimization_guide:test_support",
+    "//chrome/browser/skills",
+    "//chrome/browser/ui/side_panel:test_support",
     "//chrome/browser/ui/views/page_action:test_support",
     "//chrome/common:chrome_features",
     "//chrome/test:test_support",
+    "//components/skills/mocks",
     "//services/network:test_support",
     "//services/network/public/cpp",
     "//testing/gmock",
@@ -135,4 +144,47 @@ source_set("unit_tests") {
   if (is_chromeos) {
     deps += [ "//chromeos/ash/components/network:test_support" ]
   }
+}
+
+source_set("browser_tests") {
+  testonly = true
+
+  # indigo_image_replacement_manager_browsertest.cc has a file-scope static of
+  # a non-trivial-destructor type, which -Wexit-time-destructors rejects.
+  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
+
+  defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+
+  sources = [
+    "indigo_browsertest.cc",
+    "indigo_image_replacement_manager_browsertest.cc",
+  ]
+
+  deps = [
+    ":impl",
+    ":indigo",
+    ":test_support",
+    "//base",
+    "//chrome/browser/indigo/onboarding",
+    "//chrome/browser/optimization_guide",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/signin",
+    "//chrome/browser/signin:test_support",
+    "//chrome/browser/ui",
+    "//chrome/browser/ui/toasts",
+    "//chrome/browser/ui/views/indigo",
+    "//chrome/browser/ui/views/page_action",
+    "//chrome/common:chrome_features",
+    "//chrome/common:mojo_bindings",
+    "//chrome/test:test_support",
+    "//chrome/test:test_support_ui",
+    "//components/prefs",
+    "//components/signin/public/identity_manager",
+    "//components/signin/public/identity_manager:test_support",
+    "//content/public/browser",
+    "//content/test:test_support",
+    "//extensions/common",
+    "//testing/gtest",
+    "//ui/display",
+  ]
 }

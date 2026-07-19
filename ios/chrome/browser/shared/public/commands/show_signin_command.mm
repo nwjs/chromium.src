@@ -18,19 +18,26 @@
 
 - (instancetype)initWithOperation:(AuthenticationOperation)operation
                              identity:(id<SystemIdentity>)identity
+                   targetAccountEmail:(NSString*)targetAccountEmail
                           accessPoint:(signin_metrics::AccessPoint)accessPoint
                           promoAction:(signin_metrics::PromoAction)promoAction
                            completion:
                                (SigninCoordinatorCompletionCallback)completion
                  prepareChangeProfile:(ProceduralBlock)prepareChangeProfile
     changeProfileContinuationProvider:
-        (const ChangeProfileContinuationProvider&)provider {
+        (const ChangeProfileContinuationProvider&)provider
+                   externalEntryPoint:
+                       (signin::ExternalEntryPoint)externalEntryPoint {
   if ((self = [super init])) {
     // Only `InstantSignin` can be opened with an identity selected.
     DCHECK(operation == AuthenticationOperation::kInstantSignin || !identity);
+    // Only `DeepLinkSignin` can be opened with a target account email.
+    DCHECK(operation == AuthenticationOperation::kDeepLinkSignin ||
+           !targetAccountEmail);
     CHECK(provider);
     _operation = operation;
     _identity = identity;
+    _targetAccountEmail = [targetAccountEmail copy];
     _accessPoint = accessPoint;
     _promoAction = promoAction;
     _completion = [completion copy];
@@ -38,6 +45,7 @@
     _fullScreenPromo = NO;
     _prepareChangeProfile = prepareChangeProfile;
     _provider = provider;
+    _externalEntryPoint = externalEntryPoint;
   }
   return self;
 }
@@ -52,11 +60,13 @@
         (const ChangeProfileContinuationProvider&)provider {
   return [self initWithOperation:operation
                                identity:identity
+                     targetAccountEmail:nil
                             accessPoint:accessPoint
                             promoAction:promoAction
                              completion:completion
                    prepareChangeProfile:nil
-      changeProfileContinuationProvider:provider];
+      changeProfileContinuationProvider:provider
+                     externalEntryPoint:signin::ExternalEntryPoint::kUnknown];
 }
 
 - (instancetype)initWithOperation:(AuthenticationOperation)operation
@@ -119,6 +129,23 @@
                                             PROMO_ACTION_NO_SIGNIN_PROMO
                              completion:nil
       changeProfileContinuationProvider:DoNothingContinuationProvider()];
+}
+
+- (instancetype)initWithOperation:(AuthenticationOperation)operation
+               targetAccountEmail:(NSString*)targetAccountEmail
+                      accessPoint:(signin_metrics::AccessPoint)accessPoint
+                      promoAction:(signin_metrics::PromoAction)promoAction
+               externalEntryPoint:
+                   (signin::ExternalEntryPoint)externalEntryPoint {
+  return [self initWithOperation:operation
+                               identity:nil
+                     targetAccountEmail:targetAccountEmail
+                            accessPoint:accessPoint
+                            promoAction:promoAction
+                             completion:nil
+                   prepareChangeProfile:nil
+      changeProfileContinuationProvider:DoNothingContinuationProvider()
+                     externalEntryPoint:externalEntryPoint];
 }
 
 - (void)addSigninCompletion:(SigninCoordinatorCompletionCallback)completion {

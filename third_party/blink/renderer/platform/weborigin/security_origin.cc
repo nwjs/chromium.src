@@ -33,8 +33,11 @@
 #include <algorithm>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 
+#include "base/feature_list.h"
+#include "net/base/schemeful_site.h"
 #include "net/base/url_util.h"
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
 #include "third_party/blink/public/common/features.h"
@@ -59,6 +62,9 @@
 namespace blink {
 
 namespace {
+
+BASE_FEATURE(kCachedSchemefulSiteInSecurityOrigin,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 const String& EnsureNonNull(const String& string) {
   if (string.IsNull())
@@ -302,6 +308,20 @@ url::Origin SecurityOrigin::ToUrlOrigin() const {
       std::move(scheme), std::move(host), port);
   CHECK(!result.opaque());
   return result;
+}
+
+const net::SchemefulSite& SecurityOrigin::GetSchemefulSite() const {
+  if (!cached_schemeful_site_) {
+    cached_schemeful_site_ =
+        std::make_unique<net::SchemefulSite>(ToUrlOrigin());
+  } else if (!base::FeatureList::IsEnabled(
+                 kCachedSchemefulSiteInSecurityOrigin)) {
+    // Recompute into the cached backing storage to maintain reference lifetime
+    // while effectively disabling the caching.
+    *cached_schemeful_site_ = net::SchemefulSite(ToUrlOrigin());
+  }
+
+  return *cached_schemeful_site_;
 }
 
 scoped_refptr<SecurityOrigin> SecurityOrigin::CreateWithNonce(
@@ -591,6 +611,28 @@ bool SecurityOrigin::IsSameOriginWith(const SecurityOrigin* other) const {
 }
 
 bool SecurityOrigin::AreSameOrigin(const KURL& a, const KURL& b) {
+  // Fast path for valid http/https URLs. These always produce tuple origins
+  // based on protocol, host, and effective port, so this matches
+  // CreateInternal() without allocating temporary SecurityOrigin objects.
+  if (a.ProtocolIsInHttpFamily() && b.ProtocolIsInHttpFamily() && a.IsValid() &&
+      b.IsValid()) {
+    bool result = false;
+    const String a_protocol = a.Protocol();
+    const String b_protocol = b.Protocol();
+    if (a_protocol == b_protocol && a.Host() == b.Host()) {
+      uint16_t a_port =
+          a.HasPort() ? a.Port() : DefaultPortForProtocol(a_protocol);
+      uint16_t b_port =
+          b.HasPort() ? b.Port() : DefaultPortForProtocol(b_protocol);
+      result = (a_port == b_port);
+    }
+    // Tripwire: the fast path must never disagree with the authoritative
+    // SecurityOrigin comparison.
+    DCHECK_EQ(result, SecurityOrigin::Create(b)->IsSameOriginWith(
+                          SecurityOrigin::Create(a).get()));
+    return result;
+  }
+
   scoped_refptr<const SecurityOrigin> origin_a = SecurityOrigin::Create(a);
   scoped_refptr<const SecurityOrigin> origin_b = SecurityOrigin::Create(b);
   return origin_b->IsSameOriginWith(origin_a.get());
@@ -727,13 +769,13 @@ String SecurityOrigin::CanonicalizeSpecialHost(const String& host,
   url::RawCanonOutputT<char> canon_output;
   if (host.Is8Bit()) {
     StringUtf8Adaptor utf8(host);
-    *success = url::CanonicalizeSpecialHost(utf8.AsStringView(),
-                                            url::Component(0, utf8.size()),
-                                            canon_output, out_host);
+    std::string_view host_view = utf8.AsStringView();
+    *success = url::CanonicalizeSpecialHost(
+        host_view, url::Component(host_view), canon_output, out_host);
   } else {
-    *success = url::CanonicalizeSpecialHost(host.View16(),
-                                            url::Component(0, host.length()),
-                                            canon_output, out_host);
+    std::u16string_view host_view = host.View16();
+    *success = url::CanonicalizeSpecialHost(
+        host_view, url::Component(host_view), canon_output, out_host);
   }
   return String::FromUtf8(canon_output.view());
 }
@@ -749,12 +791,12 @@ String SecurityOrigin::CanonicalizeHost(const String& host,
   url::RawCanonOutputT<char> canon_output;
   if (host.Is8Bit()) {
     StringUtf8Adaptor utf8(host);
-    *success = url::CanonicalizeFileHost(utf8.AsStringView(),
-                                         url::Component(0, utf8.size()),
+    std::string_view host_view = utf8.AsStringView();
+    *success = url::CanonicalizeFileHost(host_view, url::Component(host_view),
                                          canon_output, out_host);
   } else {
-    *success = url::CanonicalizeFileHost(host.View16(),
-                                         url::Component(0, host.length()),
+    std::u16string_view host_view = host.View16();
+    *success = url::CanonicalizeFileHost(host_view, url::Component(host_view),
                                          canon_output, out_host);
   }
   return String::FromUtf8(canon_output.view());

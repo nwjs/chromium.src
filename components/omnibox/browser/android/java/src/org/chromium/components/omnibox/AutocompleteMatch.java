@@ -26,6 +26,7 @@ import org.chromium.components.omnibox.RichAnswerTemplateProto.RichAnswerTemplat
 import org.chromium.components.omnibox.SuggestTemplateInfoProto.SuggestTemplateInfo;
 import org.chromium.components.omnibox.TypesProto.SuggestSubtype;
 import org.chromium.components.omnibox.action.OmniboxAction;
+import org.chromium.components.search_engines.StarterPackId;
 import org.chromium.url.GURL;
 
 import java.util.ArrayList;
@@ -73,6 +74,7 @@ public class AutocompleteMatch {
     private final int mType;
     private final Set<Integer> mSubtypes;
     private final boolean mIsSearchType;
+    private final @OmniboxSuggestionKind int mSuggestionKind;
     private final int /* SuggestTemplateInfo.IconType */ mIconType;
     private String mDisplayText;
     private final List<MatchClassification> mDisplayTextClassifications;
@@ -86,7 +88,7 @@ public class AutocompleteMatch {
     private final @Nullable String mImageDominantColor;
     private final int mTransition;
     private final boolean mIsDeletable;
-    private final int mStarterPackId;
+    private final @StarterPackId int mStarterPackId;
     private final Map<String, String> mExtraHeaders;
     private byte @Nullable [] mPostData;
     private final int mGroupId;
@@ -102,11 +104,13 @@ public class AutocompleteMatch {
     private final @Nullable String mAssociatedKeyword;
     private final boolean mIsRefineable;
     private @Nullable SuggestTemplateInfo mSuggestTemplate;
+    private final @DocumentType int mDocumentType;
 
     public AutocompleteMatch(
             int nativeType,
             Set<Integer> subtypes,
             boolean isSearchType,
+            @OmniboxSuggestionKind int suggestionKind,
             int iconType,
             int transition,
             String displayText,
@@ -120,7 +124,7 @@ public class AutocompleteMatch {
             GURL imageUrl,
             @Nullable String imageDominantColor,
             boolean isDeletable,
-            int starterPackId,
+            @StarterPackId int starterPackId,
             @Nullable String postContentType,
             byte @Nullable [] postData,
             int groupId,
@@ -133,13 +137,15 @@ public class AutocompleteMatch {
             String additionalText,
             @Nullable String tabGroupUuid,
             @Nullable String associatedKeyword,
-            byte @Nullable [] serializedSuggestTemplate) {
+            byte @Nullable [] serializedSuggestTemplate,
+            @DocumentType int documentType) {
         if (subtypes == null) {
             subtypes = Collections.emptySet();
         }
         mType = nativeType;
         mSubtypes = subtypes;
         mIsSearchType = isSearchType;
+        mSuggestionKind = suggestionKind;
         mIconType = iconType;
         mTransition = transition;
         mDisplayText = displayText;
@@ -190,6 +196,7 @@ public class AutocompleteMatch {
             }
         }
 
+        mDocumentType = documentType;
         updatePostContentType(postContentType);
     }
 
@@ -207,6 +214,7 @@ public class AutocompleteMatch {
             int nativeType,
             @JniType("std::vector<int32_t>") int[] nativeSubtypes,
             boolean isSearchType,
+            @OmniboxSuggestionKind int suggestionKind,
             int iconType,
             int transition,
             @JniType("std::u16string") String contents,
@@ -222,7 +230,7 @@ public class AutocompleteMatch {
             @JniType("GURL") GURL imageUrl,
             @JniType("std::string") String imageDominantColor,
             boolean isDeletable,
-            int starterPackId,
+            @StarterPackId int starterPackId,
             @JniType("std::string") String postContentType,
             byte[] postData,
             int groupId,
@@ -235,7 +243,8 @@ public class AutocompleteMatch {
             @JniType("std::u16string") String additionalText,
             @JniType("std::optional<std::string>") @Nullable String localTabGroupId,
             @JniType("std::u16string") String associatedKeyword,
-            byte[] serializedSuggestTemplate) {
+            byte[] serializedSuggestTemplate,
+            @JniType("AutocompleteMatch::DocumentType") @DocumentType int documentType) {
         assert contentClassificationOffsets.length == contentClassificationStyles.length;
         List<MatchClassification> contentClassifications = new ArrayList<>();
         for (int i = 0; i < contentClassificationOffsets.length; i++) {
@@ -254,6 +263,7 @@ public class AutocompleteMatch {
                         nativeType,
                         subtypes,
                         isSearchType,
+                        suggestionKind,
                         iconType,
                         transition,
                         contents,
@@ -280,7 +290,8 @@ public class AutocompleteMatch {
                         additionalText,
                         localTabGroupId,
                         TextUtils.isEmpty(associatedKeyword) ? null : associatedKeyword,
-                        serializedSuggestTemplate);
+                        serializedSuggestTemplate,
+                        documentType);
         match.updateNativeObjectRef(nativeObject);
         match.setDescription(
                 description, descriptionClassificationOffsets, descriptionClassificationStyles);
@@ -519,11 +530,11 @@ public class AutocompleteMatch {
         }
 
         AutocompleteMatch suggestion = (AutocompleteMatch) obj;
-        boolean answer_template_is_equal =
+        boolean answerTemplateIsEqual =
                 (mAnswerTemplate != null && suggestion.mAnswerTemplate != null)
                         ? mAnswerTemplate.equals(suggestion.mAnswerTemplate)
                         : mAnswerTemplate == null && suggestion.mAnswerTemplate == null;
-        boolean suggest_template_is_equal =
+        boolean suggestTemplateIsEqual =
                 (mSuggestTemplate != null && suggestion.mSuggestTemplate != null)
                         ? mSuggestTemplate.equals(suggestion.mSuggestTemplate)
                         : mSuggestTemplate == null && suggestion.mSuggestTemplate == null;
@@ -543,8 +554,8 @@ public class AutocompleteMatch {
                 && mGroupId == suggestion.mGroupId
                 && mAnswerType == suggestion.mAnswerType
                 && mAndroidTabId == suggestion.mAndroidTabId
-                && answer_template_is_equal
-                && suggest_template_is_equal
+                && answerTemplateIsEqual
+                && suggestTemplateIsEqual
                 && ObjectsCompat.equals(mTabGroupUuid, suggestion.mTabGroupUuid)
                 && ObjectsCompat.equals(mAssociatedKeyword, suggestion.mAssociatedKeyword);
     }
@@ -567,10 +578,24 @@ public class AutocompleteMatch {
     }
 
     /**
+     * @return The document type for document suggestions, or DocumentType.NONE.
+     */
+    public @DocumentType int getDocumentType() {
+        return mDocumentType;
+    }
+
+    /**
      * @return The starter pack engine id, or 0 if not a starter pack match.
      */
-    public int getStarterPackId() {
+    public @StarterPackId int getStarterPackId() {
         return mStarterPackId;
+    }
+
+    /**
+     * @return The suggestion kind for accessibility announcements.
+     */
+    public @OmniboxSuggestionKind int getSuggestionKind() {
+        return mSuggestionKind;
     }
 
     public boolean isRefineable() {
@@ -664,6 +689,7 @@ public class AutocompleteMatch {
                 input.getType(),
                 new ArraySet<>(input.getSubtypeList()),
                 input.getIsSearchType(),
+                OmniboxSuggestionKind.NAVIGATION,
                 input.getIconType(),
                 input.getTransition(),
                 input.getDisplayText(),
@@ -690,7 +716,8 @@ public class AutocompleteMatch {
                 input.getAdditionalText(),
                 /* tabGroupUuid= */ null,
                 /* associatedKeyword= */ null,
-                /* serializedSuggestTemplate= */ null);
+                /* serializedSuggestTemplate= */ null,
+                DocumentType.NONE);
     }
 
     @Override

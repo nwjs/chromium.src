@@ -36,12 +36,9 @@
 #include "base/feature_list.h"
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
-#include "base/metrics/histogram.h"
-#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/notimplemented.h"
 #include "base/numerics/checked_math.h"
-#include "base/numerics/clamped_math.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/trace_event/trace_event.h"
 #include "base/trace_event/typed_macros.h"
@@ -71,6 +68,7 @@
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_client.h"
+#include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/geometry/dom_matrix.h"
@@ -99,7 +97,6 @@
 #include "third_party/blink/renderer/core/layout/layout_replaced.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
 #include "third_party/blink/renderer/core/layout/transform_utils.h"
-#include "third_party/blink/renderer/core/loader/render_blocking_resource_manager.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/page/page_animator.h"
@@ -131,6 +128,7 @@
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
+#include "ui/accessibility/accessibility_features.h"
 #include "ui/base/resource/resource_scale_factor.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/geometry/size_conversions.h"
@@ -239,51 +237,7 @@ void ReleaseCanvasResource(scoped_refptr<CanvasResource> canvas_resource,
   CanvasResource::DropRefOnOwningThread(std::move(canvas_resource));
 }
 
-void UmaHistogramCompressionRatio(
-    std::string_view histogram_name,
-    const String& data_url,
-    const CanvasContextCreationAttributesCore& canvas_attrs,
-    const gfx::Size& image_size) {
-  constexpr int32_t kPrefixSize =
-      std::string_view("data:image/png;base64,").size();
-  base::ClampedNumeric<int32_t> size_of_data_uri = data_url.length();
-  if (size_of_data_uri <= kPrefixSize) {
-    // Don't log UMA after an encoding failure.
-    return;
-  }
 
-  // 4 base64 characters per 3 bytes.
-  base::ClampedNumeric<int32_t> encoded_bytes_count =
-      (size_of_data_uri - kPrefixSize) * 3 / 4;
-
-  // Assuming that canvas always uses RGBA (i.e. 4 channels).
-  constexpr int32_t kChannelsPerPixel = 4u;
-  int32_t bytes_per_pixel = 0u;
-  switch (canvas_attrs.pixel_format) {
-    case CanvasPixelFormat::kF16:
-      bytes_per_pixel = 2u * kChannelsPerPixel;
-      break;
-    case CanvasPixelFormat::kUint8:
-      bytes_per_pixel = 1u * kChannelsPerPixel;
-      break;
-  }
-
-  base::ClampedNumeric<int32_t> image_pixels_count = image_size.Area64();
-  base::ClampedNumeric<int32_t> image_bytes_count =
-      image_pixels_count * bytes_per_pixel;
-  base::ClampedNumeric<int32_t> encoded_bytes_per_100_image_bytes =
-      encoded_bytes_count * 100 / image_bytes_count;
-
-  // We are not just using `base::UmaHistogramPercentage` because the overhead
-  // of PNG metadata may result in `encoded_bytes_count` being more than 100% of
-  // `image_bytes_count`.  For example, a PNG encoding of an image with a single
-  // pixel will take at least 67 bytes, although below we ignore this extreme
-  // and only support buckets up to 120%.
-  base::HistogramBase* histogram = base::LinearHistogram::FactoryGet(
-      histogram_name, 1, 121, 60,
-      base::HistogramBase::kUmaTargetedHistogramFlag);
-  histogram->Add(encoded_bytes_per_100_image_bytes);
-}
 
 }  // namespace
 
@@ -414,6 +368,13 @@ void HTMLCanvasElement::ParseAttribute(
 void HTMLCanvasElement::AttributeChanged(
     const AttributeModificationParams& params) {
   HTMLElement::AttributeChanged(params);
+
+  if (params.name.LocalName().starts_with("aria-")) {
+    if (accessibility_manager_) {
+      accessibility_manager_->ReadAriaAttributes();
+    }
+  }
+
   if (RuntimeEnabledFeatures::CanvasDrawElementEnabled(GetExecutionContext()) &&
       params.name == html_names::kLayoutsubtreeAttr) {
     bool had_layoutsubtree = !params.old_value.IsNull();
@@ -421,6 +382,9 @@ void HTMLCanvasElement::AttributeChanged(
     if (had_layoutsubtree != has_layoutsubtree) {
       setLayoutSubtree(has_layoutsubtree);
       UseCounter::Count(GetDocument(), WebFeature::kHTMLInCanvas);
+      if (accessibility_manager_) {
+        accessibility_manager_->SetHasLayoutSubtree(has_layoutsubtree);
+      }
     }
   }
 }
@@ -596,6 +560,8 @@ CanvasRenderingContext* HTMLCanvasElement::GetCanvasRenderingContextInternal(
 
   context_->RecordUKMCanvasRenderingAPI();
   context_->RecordUMACanvasRenderingAPI();
+
+  // TODO(crbug.com/475512055): Remove UKM when heuristics are verified.
   context_->MaybeRecordUKMCanvasAccessibility();
 
   // Since the |context_| is created, free the transparent image,
@@ -745,8 +711,10 @@ void HTMLCanvasElement::PostFinalizeFrame(FlushReason reason) {
             context_->PaintRenderingResultsToResource(kBackBuffer, reason)) {
       const gfx::Rect src_rect(Size());
       dirty_rect_.Intersect(src_rect);
-      frame_dispatcher_->DispatchFrame(std::move(canvas_resource), dirty_rect_,
-                                       IsOpaque());
+      auto exported_resource = base::MakeRefCounted<ExportedCanvasResource>(
+          std::move(canvas_resource));
+      frame_dispatcher_->DispatchFrame(std::move(exported_resource),
+                                       dirty_rect_, IsOpaque());
       dirty_rect_ = gfx::Rect();
     }
   }
@@ -760,6 +728,10 @@ void HTMLCanvasElement::PostFinalizeFrame(FlushReason reason) {
   if (!did_notify_listeners_for_current_frame_)
     NotifyListenersCanvasChanged();
   did_notify_listeners_for_current_frame_ = false;
+
+  if (accessibility_manager_ && should_capture_rendered_text_) {
+    accessibility_manager_->UpdateAnnotation();
+  }
 
   NotifyCachesOfSwitchingFrame();
 }
@@ -898,6 +870,10 @@ void HTMLCanvasElement::OnWidthOrHeightAssigned() {
         child->SetNeedsPaintPropertyUpdate();
       }
     }
+  }
+
+  if (accessibility_manager_) {
+    accessibility_manager_->OnResize();
   }
 }
 
@@ -1201,7 +1177,12 @@ void HTMLCanvasElement::PaintInternal(GraphicsContext& context,
   // Note: Test coverage for this is assured by manual (non-automated)
   // web test printing/manual/canvas2d-vector-text.html
   // That test should be run manually against CLs that touch this code.
-  if (IsPrinting() && IsRenderingContext2D()) {
+
+  // TODO(paint-dev): We disable this code path for html-in-canvas because
+  // it's difficult to handle texture-backed PaintImage's correctly. This
+  // could be fixed, but it's unclear whether it's worth the effort to
+  // enable vector scaling of content while printing.
+  if (IsPrinting() && IsRenderingContext2D() && !layoutSubtree()) {
     RenderingContext()->FlushCanvas(FlushReason::kPrinting);
     // `FlushRecording` might be a no-op if a flush already happened before.
     // Fortunately, the last flush recording was kept by the context.
@@ -1332,12 +1313,6 @@ String HTMLCanvasElement::ToDataURLInternal(
     if (encoding_mime_type == kMimeTypePng) {
       UMA_HISTOGRAM_COUNTS_100000("Blink.Canvas.ToDataURLScaledDuration.PNG",
                                   scaled_time_int);
-      const CanvasRenderingContext* context = RenderingContext();
-      if (context) {
-        UmaHistogramCompressionRatio(
-            "Blink.Canvas.ToDataURLCompressionRatio.PNG", data_url,
-            context->CreationAttributes(), image_bitmap->Size());
-      }
     } else if (encoding_mime_type == kMimeTypeJpeg) {
       UMA_HISTOGRAM_COUNTS_100000("Blink.Canvas.ToDataURLScaledDuration.JPEG",
                                   scaled_time_int);
@@ -1496,13 +1471,8 @@ CanvasResourceDispatcher* HTMLCanvasElement::GetOrCreateResourceDispatcher() {
       context_->CreationAttributes().desynchronized) {
     frame_dispatcher_ = std::make_unique<CanvasResourceDispatcher>(
         nullptr, GetDocument().GetTaskRunner(TaskType::kInternalDefault),
-        GetPage()
-            ->GetPageScheduler()
-            ->GetAgentGroupScheduler()
-            .CompositorTaskRunner(),
         surface_layer_bridge_->GetFrameSinkId().client_id(),
-        surface_layer_bridge_->GetFrameSinkId().sink_id(),
-        CanvasResourceDispatcher::kInvalidPlaceholderCanvasId, Size());
+        surface_layer_bridge_->GetFrameSinkId().sink_id(), Size());
   }
   return frame_dispatcher_.get();
 }
@@ -1577,6 +1547,7 @@ void HTMLCanvasElement::NotifyGpuContextLost() {
 void HTMLCanvasElement::Trace(Visitor* visitor) const {
   visitor->Trace(listeners_);
   visitor->Trace(context_);
+  visitor->Trace(accessibility_manager_);
   ExecutionContextLifecycleObserver::Trace(visitor);
   PageVisibilityObserver::Trace(visitor);
   CanvasRenderingContextHost::Trace(visitor);
@@ -1631,6 +1602,7 @@ void HTMLCanvasElement::SetIsDisplayed(bool displayed) {
     // `is_displayed_`, the function is called in both places.
     context_->MaybeRecordUKMCanvasAccessibility();
   }
+
 }
 
 cc::TextureLayer* HTMLCanvasElement::GetOrCreateCcLayerForCanvas2DIfNeeded() {
@@ -1712,8 +1684,7 @@ void HTMLCanvasElement::UpdateSuspendOffscreenCanvasAnimation() {
     return;
   }
 
-  CanvasResourceDispatcher::AnimationState animation_state =
-      CanvasResourceDispatcher::AnimationState::kActive;
+  AnimationState animation_state = AnimationState::kActive;
   const bool is_hidden = GetPage()->GetVisibilityState() ==
                          mojom::blink::PageVisibilityState::kHidden;
   if (is_hidden) {
@@ -1721,11 +1692,10 @@ void HTMLCanvasElement::UpdateSuspendOffscreenCanvasAnimation() {
       const bool allow_synthetic_timing =
           RuntimeEnabledFeatures::AllowSyntheticTimingForCanvasCaptureEnabled();
       animation_state = allow_synthetic_timing
-                            ? CanvasResourceDispatcher::AnimationState::
-                                  kActiveWithSyntheticTiming
-                            : CanvasResourceDispatcher::AnimationState::kActive;
+                            ? AnimationState::kActiveWithSyntheticTiming
+                            : AnimationState::kActive;
     } else {
-      animation_state = CanvasResourceDispatcher::AnimationState::kSuspended;
+      animation_state = AnimationState::kSuspended;
     }
   }
 
@@ -1740,6 +1710,14 @@ void HTMLCanvasElement::PageVisibilityChanged() {
 }
 
 void HTMLCanvasElement::ContextDestroyed() {
+  if (accessibility_manager_) {
+    // If UMA has not been recorded yet, record it before the context is
+    // destroyed. Since this object and `accessibility_manager_` are destroyed
+    // using garbage collection, it's not safe to record UMA in the destructor
+    // since it may happen during browser shutdown and metric recording may be
+    // skipped.
+    accessibility_manager_->FlushUmaIfNeeded();
+  }
   if (context_)
     context_->Stop();
 }
@@ -1782,6 +1760,9 @@ void HTMLCanvasElement::StyleDidChange(const ComputedStyle* old_style,
   SetIsDisplayed(is_displayed);
   if (context_) {
     context_->StyleDidChange(old_style, new_style);
+  }
+  if (accessibility_manager_) {
+    accessibility_manager_->OnResize();
   }
   if (StyleChangeNeedsDidDraw(old_style, new_style))
     DidDraw();
@@ -1827,6 +1808,9 @@ void HTMLCanvasElement::ChildrenChanged(const ChildrenChange& change) {
     if (firstElementChild()) {
       UseCounter::Count(GetDocument(),
                         WebFeature::kCanvasFallbackElementContent);
+    }
+    if (accessibility_manager_) {
+      accessibility_manager_->UpdateHasFallbackElementContent();
     }
   }
 
@@ -1954,6 +1938,10 @@ void HTMLCanvasElement::SetOffscreenCanvasResource(
   OffscreenCanvasPlaceholder::SetOffscreenCanvasResource(std::move(image));
   SetSize(OffscreenCanvasFrame()->Size());
   NotifyListenersCanvasChanged();
+
+  if (accessibility_manager_ && should_capture_rendered_text_) {
+    accessibility_manager_->UpdateAnnotation();
+  }
 }
 
 bool HTMLCanvasElement::IsOpaque() const {
@@ -2066,5 +2054,98 @@ RespectImageOrientationEnum HTMLCanvasElement::RespectImageOrientation() const {
   return LayoutObject::GetImageOrientation(GetLayoutObject());
 }
 
+void HTMLCanvasElement::OnAxObjectIgnoredStateChanged(bool is_ignored) {
+  if (accessibility_manager_) {
+    accessibility_manager_->SetIsIgnored(is_ignored);
+    return;
+  }
+  // If the canvas is ignored, it doesn't need accessibility support.
+  if (is_ignored) {
+    return;
+  }
+  accessibility_manager_ = MakeGarbageCollected<HTMLCanvasAccessibilityManager>(
+      GetDocument().GetTaskRunner(TaskType::kInternalDefault), is_ignored, this,
+      HTMLCanvasAccessibilityManager::kAll);
+}
+
+// TODO(crbug.com/475512055): Remove this function once UKM collection is
+// not needed anymore.
+bool HTMLCanvasElement::GetNeedsAccessibilitySupportHeuristic() {
+  if (accessibility_manager_) {
+    accessibility_manager_->EnableUpdatingHeuristicResults();
+    return accessibility_manager_->NeedsA11ySupport();
+  }
+
+  // Estimate is_ignored when accessibility is not enabled.
+  // True "is_ignored" needs AXObjectCache, so we approximate here by
+  // checking display/visibility and lack of the aria-hidden attribute.
+  bool is_visible = IsDisplayed();
+  bool has_aria_hidden = FastHasAttribute(html_names::kAriaHiddenAttr);
+  bool is_ignored = !(is_visible && !has_aria_hidden);
+
+  auto* manager = MakeGarbageCollected<HTMLCanvasAccessibilityManager>(
+      GetDocument().GetTaskRunner(TaskType::kInternalDefault), is_ignored, this,
+      HTMLCanvasAccessibilityManager::kUpdateHeuristicResults);
+
+  // The temporary manager is a GarbageCollected object allocated via Oilpan.
+  // Since we do not retain a persistent reference to it, it will automatically
+  // be garbage-collected once it goes out of scope and this function returns.
+  return manager->NeedsA11ySupport();
+}
+
+void HTMLCanvasElement::RecordRenderedText(const String& text,
+                                           const gfx::RectF& bounds,
+                                           float font_height) {
+  EnsureAccessibilityManager();
+  if (accessibility_manager_) {
+    accessibility_manager_->RecordRenderedText(text, bounds, font_height);
+  }
+}
+
+void HTMLCanvasElement::ClearRenderedText(const gfx::RectF& rect) {
+  if (accessibility_manager_) {
+    accessibility_manager_->ClearRenderedText(rect);
+  }
+}
+
+void HTMLCanvasElement::ClearRenderedText() {
+  if (accessibility_manager_) {
+    accessibility_manager_->ClearRenderedText();
+  }
+}
+
+void HTMLCanvasElement::UpdateCaptureRenderedText(bool capture) {
+  should_capture_rendered_text_ = capture;
+}
+
+bool HTMLCanvasElement::ShouldCaptureRenderedText() {
+  EnsureAccessibilityManager();
+  return should_capture_rendered_text_;
+}
+
+String HTMLCanvasElement::CanvasAnnotation() const {
+  if (accessibility_manager_ && accessibility_manager_->NeedsA11ySupport()) {
+    return accessibility_manager_->CanvasAnnotation();
+  }
+  return String();
+}
+
+void HTMLCanvasElement::EnsureAccessibilityManager() {
+  if (accessibility_manager_) {
+    return;
+  }
+
+  // If accessibility is enabled but `accessibility_manager_` is not created yet
+  // (AXObject is not created), create `accessibility_manager_` and assume the
+  // canvas is not ignored to start capturing rendered text.
+  if (base::FeatureList::IsEnabled(::features::kAccessibilityCanvas) &&
+      GetDocument().ExistingAXObjectCache()) {
+    accessibility_manager_ =
+        MakeGarbageCollected<HTMLCanvasAccessibilityManager>(
+            GetDocument().GetTaskRunner(TaskType::kInternalDefault),
+            /*is_ignored=*/false, this,
+            HTMLCanvasAccessibilityManager::kCollectTextRuns);
+  }
+}
 
 }  // namespace blink

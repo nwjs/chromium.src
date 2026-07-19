@@ -119,7 +119,7 @@ PerformanceManagerTabHelper::PerformanceManagerTabHelper(
       web_contents->GetWeakPtr(), web_contents->GetUniqueToken(),
       web_contents->GetBrowserContext()->UniqueToken(),
       web_contents->GetVisibleURL(), initial_property_flags,
-      web_contents->GetLastActiveTimeTicks());
+      web_contents->GetLastActiveTimeTicks(), web_contents->GetTracingTrack());
 
   // If the main frame was activated during WebContentsImpl::Init, we missed the
   // RenderFrameCreated notification, so synthesize it now.
@@ -621,7 +621,8 @@ void PerformanceManagerTabHelper::WebContentsDestroyed() {
 
 void PerformanceManagerTabHelper::DidUpdateFaviconURL(
     content::RenderFrameHost* render_frame_host,
-    const std::vector<blink::mojom::FaviconURLPtr>& candidates) {
+    const std::vector<blink::mojom::FaviconURLPtr>& candidates,
+    blink::mojom::FaviconUpdateReason reason) {
   DCHECK(page_node_);
 
   // This favicon change might have been initiated by a different frame some
@@ -639,7 +640,7 @@ void PerformanceManagerTabHelper::DidUpdateFaviconURL(
       return;
     }
   }
-  page_node_->OnFaviconUpdated();
+  page_node_->OnFaviconUpdated(reason);
 }
 
 void PerformanceManagerTabHelper::MediaPictureInPictureChanged(

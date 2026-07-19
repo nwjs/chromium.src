@@ -19,6 +19,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/run_loop.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/to_string.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/icu_test_util.h"
@@ -40,6 +41,7 @@
 #include "pdf/content_restriction.h"
 #include "pdf/document_layout.h"
 #include "pdf/mojom/pdf.mojom.h"
+#include "pdf/page_orientation.h"
 #include "pdf/paint_ready_rect.h"
 #include "pdf/pdf_accessibility_data_handler.h"
 #include "pdf/pdf_features.h"
@@ -210,6 +212,18 @@ base::DictValue GenerateShowSearchifyInProgressMessage(bool show) {
       .Set("show", show);
 }
 #endif
+
+base::DictValue GenerateResetPrintPreviewModeMessage(int id,
+                                                     int page_number,
+                                                     bool grayscale,
+                                                     int page_count) {
+  return base::DictValue()
+      .Set("type", "resetPrintPreviewMode")
+      .Set("url", base::StringPrintf("chrome-untrusted://print/%d/%d/print.pdf",
+                                     id, page_number))
+      .Set("grayscale", grayscale)
+      .Set("pageCount", page_count);
+}
 
 class MockHeaderVisitor : public blink::WebHTTPHeaderVisitor {
  public:
@@ -1065,6 +1079,14 @@ TEST_F(PdfViewWebPluginTest, GetAccessibilityDocInfoWithPDFDocTagged) {
   EXPECT_TRUE(doc_info->is_tagged);
   EXPECT_FALSE(doc_info->text_accessible);
   EXPECT_FALSE(doc_info->text_copyable);
+}
+
+TEST_F(PdfViewWebPluginTest, HasMeaningfulText) {
+  EXPECT_CALL(*engine_ptr_, HasMeaningfulText).WillOnce(Return(true));
+
+  base::test::TestFuture<bool> future;
+  plugin_->HasMeaningfulText(future.GetCallback());
+  EXPECT_TRUE(future.Get());
 }
 
 TEST_F(PdfViewWebPluginTest, GetAccessibilityDocInfoWithCopyAccessibleAllowed) {
@@ -2811,12 +2833,8 @@ TEST_F(PdfViewWebPluginPrintPreviewTest, HandleResetPrintPreviewModeMessage) {
         return engine;
       });
 
-  OnMessageWithEngineUpdate(ParseMessage(R"({
-    "type": "resetPrintPreviewMode",
-    "url": "chrome-untrusted://print/0/0/print.pdf",
-    "grayscale": false,
-    "pageCount": 1,
-  })"));
+  OnMessageWithEngineUpdate(GenerateResetPrintPreviewModeMessage(
+      /*id=*/0, /*page_number=*/0, /*grayscale=*/false, /*page_count=*/1));
 }
 
 TEST_F(PdfViewWebPluginPrintPreviewTest,
@@ -2831,12 +2849,8 @@ TEST_F(PdfViewWebPluginPrintPreviewTest,
 
   // The UI ID of 1 in the URL is arbitrary.
   // The page index value of -1, AKA `kCompletePDFIndex`, is required for PDFs.
-  OnMessageWithEngineUpdate(ParseMessage(R"({
-    "type": "resetPrintPreviewMode",
-    "url": "chrome-untrusted://print/1/-1/print.pdf",
-    "grayscale": false,
-    "pageCount": 0,
-  })"));
+  OnMessageWithEngineUpdate(GenerateResetPrintPreviewModeMessage(
+      /*id=*/1, /*page_number=*/-1, /*grayscale=*/false, /*page_count=*/0));
 
   EXPECT_CALL(*client_ptr_, PostMessage).Times(AnyNumber());
   EXPECT_CALL(*client_ptr_, PostMessage(base::test::IsJson(R"({
@@ -2856,21 +2870,13 @@ TEST_F(PdfViewWebPluginPrintPreviewTest,
         return engine;
       });
 
-  OnMessageWithEngineUpdate(ParseMessage(R"({
-    "type": "resetPrintPreviewMode",
-    "url": "chrome-untrusted://print/0/0/print.pdf",
-    "grayscale": true,
-    "pageCount": 1,
-  })"));
+  OnMessageWithEngineUpdate(GenerateResetPrintPreviewModeMessage(
+      /*id=*/0, /*page_number=*/0, /*grayscale=*/true, /*page_count=*/1));
 }
 
 TEST_F(PdfViewWebPluginPrintPreviewTest, DocumentLoadComplete) {
-  OnMessageWithEngineUpdate(ParseMessage(R"({
-    "type": "resetPrintPreviewMode",
-    "url": "chrome-untrusted://print/0/0/print.pdf",
-    "grayscale": false,
-    "pageCount": 1,
-  })"));
+  OnMessageWithEngineUpdate(GenerateResetPrintPreviewModeMessage(
+      /*id=*/0, /*page_number=*/0, /*grayscale=*/false, /*page_count=*/1));
 
   EXPECT_CALL(*client_ptr_, RecordComputedAction("PDF.LoadSuccess"));
   EXPECT_CALL(*client_ptr_, PostMessage);
@@ -2897,12 +2903,8 @@ TEST_F(PdfViewWebPluginPrintPreviewTest,
        DocumentLoadProgressResetByResetPrintPreviewModeMessage) {
   plugin_->DocumentLoadProgress(2, 100);
 
-  OnMessageWithEngineUpdate(ParseMessage(R"({
-    "type": "resetPrintPreviewMode",
-    "url": "chrome-untrusted://print/123/0/print.pdf",
-    "grayscale": false,
-    "pageCount": 2,
-  })"));
+  OnMessageWithEngineUpdate(GenerateResetPrintPreviewModeMessage(
+      /*id=*/123, /*page_number=*/0, /*grayscale=*/false, /*page_count=*/2));
 
   EXPECT_CALL(*client_ptr_, PostMessage(base::test::IsJson(R"({
     "type": "loadProgress",
@@ -2913,12 +2915,8 @@ TEST_F(PdfViewWebPluginPrintPreviewTest,
 
 TEST_F(PdfViewWebPluginPrintPreviewTest,
        DocumentLoadProgressNotResetByLoadPreviewPageMessage) {
-  OnMessageWithEngineUpdate(ParseMessage(R"({
-    "type": "resetPrintPreviewMode",
-    "url": "chrome-untrusted://print/123/0/print.pdf",
-    "grayscale": false,
-    "pageCount": 2,
-  })"));
+  OnMessageWithEngineUpdate(GenerateResetPrintPreviewModeMessage(
+      /*id=*/123, /*page_number=*/0, /*grayscale=*/false, /*page_count=*/2));
 
   plugin_->DocumentLoadProgress(2, 100);
 
@@ -3202,7 +3200,7 @@ TEST_P(PdfViewWebPluginInkTest, LoadV2InkPathsForPageAndUpdateShapeActive) {
       /*active=*/false);
 }
 
-TEST_P(PdfViewWebPluginInkTest, SendThumbnailUpdatesInkThumbnail) {
+TEST_P(PdfViewWebPluginInkTest, SendThumbnail) {
   SetUpWithTrivialInkStrokes();
 
   EXPECT_CALL(*client_ptr_, PostMessage)
@@ -3210,20 +3208,6 @@ TEST_P(PdfViewWebPluginInkTest, SendThumbnailUpdatesInkThumbnail) {
         auto expected = base::test::ParseJsonDict(R"({
             "type": "getThumbnailReply",
             "messageId": "foo",
-            "width": 216,
-            "height": 108,
-        })");
-        EXPECT_THAT(dict, base::test::DictionaryHasValues(expected));
-
-        // Test `dict` contains the image data, but not the exact value.
-        const auto* blob = dict.FindBlob("imageData");
-        ASSERT_TRUE(blob);
-        EXPECT_FALSE(blob->empty());
-      })
-      .WillOnce([](const base::DictValue& dict) {
-        auto expected = base::test::ParseJsonDict(R"({
-            "type": "updateInk2Thumbnail",
-            "pageNumber": 1,
             "width": 216,
             "height": 108,
         })");
@@ -3611,8 +3595,10 @@ TEST_P(PdfViewWebPluginInkTest, DrawText) {
   static constexpr int kPageIndex = 0;
   static constexpr InkTextId kTextId(1);
   static constexpr double kZoom = 1.5;
+  static constexpr float kAscent = 5;
 
-  EXPECT_CALL(*engine_ptr_, DrawText(kPageIndex, kTextId, _, kZoom, _));
+  EXPECT_CALL(*engine_ptr_,
+              DrawText(kPageIndex, kTextId, _, kAscent, kZoom, _));
 
   const InkTextBoxAttributes text_box_attributes(
       /*rect=*/gfx::RectF(20.0f, 20.0f, 100.0f, 100.0f),
@@ -3621,18 +3607,19 @@ TEST_P(PdfViewWebPluginInkTest, DrawText) {
       /*typeface=*/TextTypeface::kSansSerif,
       /*alignment=*/TextAlignment::kLeft,
       /*orientation=*/0,
+      /*viewport_orientation=*/PageOrientation::kOriginal,
       /*is_bold=*/true,
       /*is_italic=*/false,
       /*text=*/"Hello");
   plugin_->ink_module_client_for_testing()->DrawText(
-      kPageIndex, kTextId, {}, kZoom, text_box_attributes);
+      kPageIndex, kTextId, {}, kAscent, kZoom, text_box_attributes);
 }
 
 TEST_P(PdfViewWebPluginInkTest, UpdateTextActiveAndInvalidate) {
   static constexpr InkTextId kTextId(1);
 
   EXPECT_CALL(*engine_ptr_,
-              UpdateTextActiveAndInvalidate(kTextId, /*active=*/false));
+              UpdateTextActiveAndInvalidate(TextId(kTextId), /*active=*/false));
 
   plugin_->ink_module_client_for_testing()->UpdateTextActiveAndInvalidate(
       kTextId, /*active=*/false);
@@ -3715,6 +3702,105 @@ TEST_P(PdfViewWebPluginInkTextHighlightTest, DrawInProgressTextHighlight) {
   TestInProgressDraw(
       /*expected_filename=*/FILE_PATH_LITERAL("text_highlight_stroke.png"),
       start_event, {&move_event}, end_event);
+}
+
+TEST_P(PdfViewWebPluginInkTextHighlightTest,
+       DrawInProgressTextHighlightMultipage) {
+  plugin_->set_in_paint_for_testing(true);
+
+  // Plugin size is 100x100 (kCanvasSize).
+  constexpr gfx::Rect kPluginRect(kCanvasSize);
+  UpdatePluginGeometry(/*device_scale=*/1.0f, kPluginRect);
+  SetDocumentDimensions(kCanvasSize);
+
+  // Page 0: top half, Page 1: bottom half.
+  constexpr gfx::Rect kPage0Rect(0, 0, 100, 50);
+  constexpr gfx::Rect kPage1Rect(0, 50, 100, 50);
+
+  ON_CALL(*engine_ptr_, GetPageContentsRect)
+      .WillByDefault([kPage0Rect, kPage1Rect](int page_index) {
+        if (page_index == 0) {
+          return kPage0Rect;
+        }
+        if (page_index == 1) {
+          return kPage1Rect;
+        }
+        return gfx::Rect();
+      });
+  ON_CALL(*engine_ptr_, GetPageSizeInPoints)
+      .WillByDefault(Return(gfx::SizeF(100.0f, 50.0f)));
+  ON_CALL(*engine_ptr_, GetThumbnailSize)
+      .WillByDefault(Return(gfx::Size(50, 25)));
+  ON_CALL(*engine_ptr_, IsPageVisible).WillByDefault(Return(true));
+
+  // Enter annotation mode and select the highlighter.
+  plugin_->OnMessage(
+      CreateSetAnnotationModeMessageForTesting(InkAnnotationMode::kDraw));
+  plugin_->OnMessage(CreateSetAnnotationBrushMessageForTesting(
+      "highlighter", &kLightGreenBrushParams));
+
+  // The canvas starts blank.
+  canvas_.DrawColor(SK_ColorWHITE);
+  plugin_->Paint(canvas_.sk_canvas(), kPluginRect);
+  SkBitmap blank_bitmap =
+      GenerateExpectedBitmapForPaint(kPluginRect, SK_ColorWHITE);
+  EXPECT_TRUE(cc::MatchesBitmap(canvas_.GetBitmap(), blank_bitmap,
+                                cc::ExactPixelComparator()));
+
+  constexpr gfx::PointF kStartPosition{50.0f, 25.0f};
+  constexpr gfx::PointF kEndPosition{50.0f, 75.0f};
+
+  EXPECT_CALL(*engine_ptr_, OnTextOrLinkAreaClick(kStartPosition, 1));
+  EXPECT_CALL(*engine_ptr_, ExtendSelectionByPoint(kEndPosition));
+
+  // Mock the selection rect map.
+  PdfInkModuleClient::SelectionRectMap mock_selection_rect_map{
+      {0, {PdfRect(50, 15, 100, 35)}}, {1, {PdfRect(0, 15, 50, 35)}}};
+  ON_CALL(*engine_ptr_, GetSelectionRectMap())
+      .WillByDefault(Return(mock_selection_rect_map));
+  ON_CALL(*engine_ptr_, IsSelectableTextOrLinkArea(_))
+      .WillByDefault(Return(true));
+
+  // Start to draw a stroke.  There should not be a call to apply the stroke
+  // until drawing is finished.
+  EXPECT_CALL(*engine_ptr_, ApplyStroke(_, _, _)).Times(0);
+
+  // Send mouse down on Page 0.
+  TestSendInputEvent(CreateLeftClickWebMouseEventAtPosition(kStartPosition),
+                     blink::WebInputEventResult::kHandledApplication);
+  // Send mouse move to Page 1.
+  TestSendInputEvent(CreateLeftClickWebMouseMoveEventAtPosition(kEndPosition),
+                     blink::WebInputEventResult::kHandledApplication);
+
+  // Draw the canvas for the in-progress stroke.
+  plugin_->Paint(canvas_.sk_canvas(), kPluginRect);
+  const base::FilePath stroked_image_png_file = GetInkTestDataFilePath(
+      FILE_PATH_LITERAL("text_highlight_multipage_stroke.png"));
+  EXPECT_TRUE(
+      MatchesPngFile(*canvas_.GetBitmap().asImage(), stroked_image_png_file));
+
+  // Finish the stroke.
+  testing::Mock::VerifyAndClearExpectations(engine_ptr_);
+  EXPECT_CALL(*engine_ptr_, ApplyStroke(0, InkStrokeId(0), _));
+  EXPECT_CALL(*engine_ptr_, ApplyStroke(1, InkStrokeId(1), _));
+
+  blink::WebMouseEvent end_event =
+      CreateLeftClickWebMouseUpEventAtPosition(kEndPosition);
+  TestSendInputEvent(end_event,
+                     blink::WebInputEventResult::kHandledApplication);
+
+  // Verify the snapshot.
+  plugin_->Paint(canvas_.sk_canvas(), kPluginRect);
+  EXPECT_TRUE(
+      MatchesPngFile(*canvas_.GetBitmap().asImage(), stroked_image_png_file));
+  EXPECT_TRUE(plugin_->HasInkInputsSnapshotForTesting());
+
+  plugin_->UpdateSnapshot(CreateSkiaImageForTesting(
+      plugin_->GetPluginRectForTesting().size(), SK_ColorWHITE));
+  plugin_->Paint(canvas_.sk_canvas(), kPluginRect);
+  EXPECT_TRUE(cc::MatchesBitmap(canvas_.GetBitmap(), blank_bitmap,
+                                cc::ExactPixelComparator()));
+  EXPECT_FALSE(plugin_->HasInkInputsSnapshotForTesting());
 }
 
 class PdfViewWebPluginInk2SaveTest : public PdfViewWebPluginSaveTest {
@@ -3819,12 +3905,8 @@ TEST_F(PdfViewWebPluginPrintPreviewInkMetricTest,
        LoadedWithV2InkAnnotationsDoesNotCountPrintPreview) {
   base::HistogramTester histograms;
 
-  OnMessageWithEngineUpdate(ParseMessage(R"({
-    "type": "resetPrintPreviewMode",
-    "url": "chrome-untrusted://print/0/0/print.pdf",
-    "grayscale": false,
-    "pageCount": 1,
-  })"));
+  OnMessageWithEngineUpdate(GenerateResetPrintPreviewModeMessage(
+      /*id=*/0, /*page_number=*/0, /*grayscale=*/false, /*page_count=*/1));
 
   EXPECT_CALL(*engine_ptr_, ContainsV2InkPath(_)).Times(0);
   plugin_->DocumentLoadComplete();

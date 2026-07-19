@@ -75,7 +75,7 @@ static void ParentAttributeGet(const CallbackInfo& info)
   if constexpr (std::is_same_v<CallbackInfo, v8::FunctionCallbackInfo<v8::Value>>) {
     v8_win = info.This();
   } else {
-    v8_win = info.HolderV2();
+    v8_win = info.Holder();
   }
 
   DOMWindow* blink_win = V8Window::ToWrappableUnsafe(info.GetIsolate(), v8_win);
@@ -105,7 +105,7 @@ static void TopAttributeGet(const CallbackInfo& info)
   if constexpr (std::is_same_v<CallbackInfo, v8::FunctionCallbackInfo<v8::Value>>) {
     v8_win = info.This();
   } else {
-    v8_win = info.HolderV2();
+    v8_win = info.Holder();
   }
 
   DOMWindow* blink_win = V8Window::ToWrappableUnsafe(info.GetIsolate(), v8_win);

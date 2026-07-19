@@ -455,6 +455,87 @@ ci.thin_tester(
 )
 
 ci.thin_tester(
+    name = "Dawn Android arm64 DEPS Release (Pixel 10)",
+    description_html = "Runs DEPS-ed in Dawn tests on stable Pixel 10 configs",
+    parent = "ci/Dawn Android arm64 DEPS Builder",
+    builder_spec = builder_config.builder_spec(
+        execution_mode = builder_config.execution_mode.TEST,
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+            apply_configs = [
+                "android",
+            ],
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "main_builder",
+            apply_configs = ["mb"],
+            build_config = builder_config.build_config.RELEASE,
+            target_arch = builder_config.target_arch.ARM,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.ANDROID,
+        ),
+        android_config = builder_config.android_config(
+            config = "base_config",
+        ),
+        run_tests_serially = True,
+    ),
+    targets = targets.bundle(
+        targets = [
+            "gpu_dawn_android_compat_telemetry_tests",
+            "gpu_dawn_integration_gtests_passthrough",
+            "gpu_dawn_android_isolated_scripts",
+        ],
+        mixins = [
+            "gpu_pixel_10_stable",
+            "has_native_resultdb_integration",
+        ],
+        per_test_modifications = {
+            "dawn_end2end_skip_validation_tests": targets.remove(
+                reason = "TODO(crbug.com/40238674): Enable once it's shown to work on Android.",
+            ),
+            "dawn_end2end_validation_layers_tests": targets.remove(
+                reason = "TODO(crbug.com/40238674): Enable once it's shown to work on Android.",
+            ),
+            "dawn_end2end_wire_tests": targets.remove(
+                reason = "TODO(crbug.com/40238674): Enable once it's shown to work on Android.",
+            ),
+            "dawn_perf_tests": targets.remove(
+                reason = "TODO(crbug.com/40238674): Enable once it's shown to work on Android.",
+            ),
+            "gl_tests_passthrough": targets.remove(
+                reason = "TODO(crbug.com/40238674): Enable once it's shown to work on Android.",
+            ),
+            "gl_unittests": targets.remove(
+                reason = "TODO(crbug.com/40238674): Enable once it's shown to work on Android.",
+            ),
+            "webgpu_blink_web_tests": targets.remove(
+                reason = "TODO(crbug.com/40238674): Enable once it's shown to work on Android.",
+            ),
+            "webgpu_blink_web_tests_with_backend_validation": targets.remove(
+                reason = "TODO(crbug.com/40238674): Enable once it's shown to work on Android.",
+            ),
+            "webgpu_cts_compat_min_es31_tests": targets.remove(
+                reason = "Too many failures.",
+            ),
+            "webgpu_cts_shared_worker_tests": targets.remove(
+                reason = [
+                    "We only need coverage on one GPU per OS, so remove from lower capacity",
+                    "configs. Additionally, shared workers are not supported on Android.",
+                ],
+            ),
+        },
+    ),
+    targets_settings = targets.settings(
+        browser_config = targets.browser_config.ANDROID_CHROMIUM,
+        os_type = targets.os_type.ANDROID,
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "DEPS|Android",
+        short_name = "p10",
+    ),
+)
+
+ci.thin_tester(
     name = "Dawn Linux x64 DEPS Release (Intel UHD 630)",
     branch_selector = branches.selector.LINUX_BRANCHES,
     description_html = "Runs DEPS-ed in Dawn tests on stable Linux/Intel UHD 630 configs",
@@ -943,11 +1024,6 @@ ci.thin_tester(
         mixins = [
             "gpu_pixel_10_stable",
             "has_native_resultdb_integration",
-            # TODO(crbug.com/443001330): Remove the limited_capacity_bot mixin
-            # once additional devices are deployed. 49 devices is likely not enough
-            # to run both standard GPU and WebGPU tests on CI + have enough
-            # capacity for trybots without this.
-            "limited_capacity_bot",
         ],
         per_test_modifications = {
             "dawn_end2end_skip_validation_tests": targets.remove(
@@ -1830,35 +1906,38 @@ ci.thin_tester(
         # the gpu_noop_sleep_telemetry_test test should be used. Otherwise, this
         # should have the same test_suites as 'Dawn Mac x64 Release (Intel)'.
         targets = [
-            "dawn_chromium_isolated_scripts",
-            "gpu_common_gtests_passthrough",
-            "gpu_dawn_telemetry_tests",
+            "gpu_noop_sleep_telemetry_test",
         ],
         mixins = [
             "limited_capacity_bot",
             "mac_mini_intel_gpu_experimental",
         ],
-        per_test_modifications = {
-            "webgpu_cts_dedicated_worker_tests": targets.remove(
-                reason = "We only need coverage on one GPU per OS, so remove from lower capacity configs.",
-            ),
-            "webgpu_cts_service_worker_tests": targets.remove(
-                reason = "We only need coverage on one GPU per OS, so remove from lower capacity configs.",
-            ),
-            "webgpu_cts_shared_worker_tests": targets.remove(
-                reason = "We only need coverage on one GPU per OS, so remove from lower capacity configs.",
-            ),
-        },
+        # per_test_modifications = {
+        #     "webgpu_cts_dedicated_worker_tests": targets.remove(
+        #         reason = "We only need coverage on one GPU per OS, so remove from lower capacity configs.",
+        #     ),
+        #     "webgpu_cts_service_worker_tests": targets.remove(
+        #         reason = "We only need coverage on one GPU per OS, so remove from lower capacity configs.",
+        #     ),
+        #     "webgpu_cts_shared_worker_tests": targets.remove(
+        #         reason = "We only need coverage on one GPU per OS, so remove from lower capacity configs.",
+        #     ),
+        #     "webgpu_cts_tests": targets.mixin(
+        #         swarming = targets.swarming(
+        #             shards = 20,
+        #         ),
+        #     ),
+        # },
     ),
     targets_settings = targets.settings(
         browser_config = targets.browser_config.RELEASE,
         os_type = targets.os_type.MAC,
     ),
     # Uncomment this entry when this experimental tester is actually in use.
-    console_view_entry = consoles.console_view_entry(
-        category = "ToT|Mac|Intel",
-        short_name = "exp",
-    ),
+    # console_view_entry = consoles.console_view_entry(
+    #     category = "ToT|Mac|Intel",
+    #     short_name = "exp",
+    # ),
     list_view = "chromium.gpu.experimental",
 )
 
@@ -2006,6 +2085,11 @@ ci.thin_tester(
             ),
             "webgpu_cts_shared_worker_tests": targets.remove(
                 reason = "We only need coverage on one GPU per OS, so remove from lower capacity configs.",
+            ),
+            "webgpu_cts_tests": targets.mixin(
+                swarming = targets.swarming(
+                    shards = 20,
+                ),
             ),
         },
     ),
@@ -3196,10 +3280,14 @@ ci.thin_tester(
         os_type = targets.os_type.WINDOWS,
     ),
     # Uncomment this entry when this experimental tester is actually in use.
-    console_view_entry = consoles.console_view_entry(
-        category = "ToT|Windows|x86|Nvidia",
-        short_name = "exp",
-    ),
+    # NEXT TIME THIS IS ENABLED: Remove this builder from the GPU UPF's
+    # GetFakeCiBuilders list. Buildbucket builds are only kept for ~2 years and
+    # this experimental builder has been unused for long enough that all of its
+    # builds have aged out, which then breaks the UPF.
+    # console_view_entry = consoles.console_view_entry(
+    #     category = "ToT|Windows|x86|Nvidia",
+    #     short_name = "exp",
+    # ),
     list_view = "chromium.gpu.experimental",
 )
 

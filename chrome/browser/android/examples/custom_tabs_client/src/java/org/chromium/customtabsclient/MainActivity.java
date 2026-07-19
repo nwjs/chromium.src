@@ -115,6 +115,7 @@ import java.util.List;
 public class MainActivity extends AppCompatActivity
         implements OnClickListener, ServiceConnectionCallback {
     private static final String TAG = "CustomTabsClientExample";
+    private static final String CRASH_MENU_TITLE = "Induce CCT Crash";
     private static final String DEFAULT_URL = "https://www.google.com";
     private static final String SHARED_PREF_BACKGROUND_INTERACT = "BackgroundInteract";
     private static final String SHARED_PREF_BOTTOM_TOOLBAR = "BottomToolbar";
@@ -1391,12 +1392,12 @@ public class MainActivity extends AppCompatActivity
 
     private void launchAuthTab(String url) {
         int colorScheme = getColorSchemeFromButton(null);
-        AuthTabColorSchemeParams.Builder builder = new AuthTabColorSchemeParams.Builder();
+        var colorSchemeBuilder = new AuthTabColorSchemeParams.Builder();
         if (!TextUtils.isEmpty(mToolbarColor)) {
             int toolbarColor = Color.parseColor(mToolbarColor);
-            builder.setToolbarColor(toolbarColor);
+            colorSchemeBuilder.setToolbarColor(toolbarColor);
             if (mNavbarColorToolbarCheckbox.isChecked()) {
-                builder.setNavigationBarColor(toolbarColor);
+                colorSchemeBuilder.setNavigationBarColor(toolbarColor);
             }
         }
         int closeButton = mCloseButtonIcon.getCheckedButtonId();
@@ -1409,14 +1410,17 @@ public class MainActivity extends AppCompatActivity
             closeIconId = R.drawable.baseline_close_white;
         }
         Bitmap closeIcon = BitmapFactory.decodeResource(getResources(), closeIconId);
-        AuthTabIntent authIntent =
+        var intentBuilder =
                 new AuthTabIntent.Builder()
-                        .setSession(getAuthSession())
                         .setColorScheme(colorScheme)
-                        .setDefaultColorSchemeParams(builder.build())
+                        .setDefaultColorSchemeParams(colorSchemeBuilder.build())
                         .setCloseButtonIcon(closeIcon)
-                        .setEphemeralBrowsingEnabled(mEphemeralCctCheckbox.isChecked())
-                        .build();
+                        .setEphemeralBrowsingEnabled(mEphemeralCctCheckbox.isChecked());
+        var authSession = getAuthSession();
+        if (authSession != null) {
+            intentBuilder.setSession(authSession);
+        }
+        var authIntent = intentBuilder.build();
         authIntent.intent.setPackage(mPackageNameToBind);
         String scheme = ((EditText) findViewById(R.id.custom_scheme)).getText().toString();
         if (TextUtils.isEmpty(scheme)) {
@@ -1559,6 +1563,7 @@ public class MainActivity extends AppCompatActivity
                         PendingIntent.FLAG_MUTABLE,
                         menuBundle);
         builder.addMenuItem("Menu entry 1", pi);
+        builder.addMenuItem(CRASH_MENU_TITLE, pi);
     }
 
     private void prepareActionButton(CustomTabsIntent.Builder builder) {

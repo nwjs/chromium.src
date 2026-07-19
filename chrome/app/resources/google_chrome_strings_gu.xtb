@@ -7,6 +7,7 @@
 <translation id="1026101648481255140">ઇન્સ્ટૉલેશનની પ્રક્રિયા ફરી શરૂ કરો</translation>
 <translation id="102763973188675173">Google Chromeને કસ્ટમાઇઝ અને નિયંત્રિત કરો. અપડેટ ઉપલબ્ધ છે.</translation>
 <translation id="1028061813283459617">તમારા Google એકાઉન્ટમાં બ્રાઉઝિંગ ડેટા રાખીને તેને માત્ર આ ડિવાઇસમાંથી ડિલીટ કરવા માટે, <ph name="BEGIN_LINK" />Chromeમાંથી સાઇન આઉટ કરો<ph name="END_LINK" />.</translation>
+<translation id="1028770388543831319">તમારા ફોન પર Chrome ઍપ વડે મુસાફરીમાં Googleની શ્રેષ્ઠ સલામતી સંબંધિત સુવિધાઓ મેળવો</translation>
 <translation id="1042270987544905725">Chromeમાં સાઇન ઇન કરવાનો સંવાદ બંધ કરવા માટે ક્લિક કરો</translation>
 <translation id="1051793555070215510">આ 1 મિનિટનું સર્વેક્ષણ લઈને અમને છૂપા મોડને બહેતર બનાવવામાં અમારી મદદ કરો.</translation>
 <translation id="1055295352198814912">Mac મેનૂ બારમાં Chromeમાં Gemini બતાવો અને કીબોર્ડ શૉર્ટકટ ચાલુ કરો</translation>
@@ -38,6 +39,7 @@
 <translation id="1341711321000856656">તમે બીજી Chrome પ્રોફાઇલમાંથી પાસવર્ડ જુઓ પર સ્વિચ કરી શકો છો</translation>
 <translation id="1343830902827845050">Chromeમાં સાઇન ઇન કરો</translation>
 <translation id="1356661055722410047">નવું! તમે તમારી સ્ક્રીન પર ટેક્સ્ટ અને છબીઓનો અનુવાદ કરી શકો છો</translation>
+<translation id="1361351916482714918">Google Lens વડે વધુ સ્માર્ટ રીતે બ્રાઉઝ કરો</translation>
 <translation id="1363996462118479832">સાઇન ઇનમાં થયેલી ભૂલને કારણે ChromeOS તમારા ડેટાને સિંક કરી શક્યું નથી.</translation>
 <translation id="137466361146087520">Google Chrome બીટા</translation>
 <translation id="1383876407941801731">શોધો</translation>
@@ -61,11 +63,23 @@
 <translation id="1587223624401073077">Google Chrome તમારા કૅમેરાનો ઉપયોગ કરી રહ્યું છે.</translation>
 <translation id="1587325591171447154"><ph name="FILE_NAME" /> જોખમી છે, તેથી Chrome એ તેને અવરોધિત કરેલ છે.</translation>
 <translation id="1597911401261118146">ડેટા ઉલ્લંઘન અને અન્ય સુરક્ષાની સમસ્યાથી તમારા પાસવર્ડ સુરક્ષિત છે કે નહીં તે ચેક કરવા માટે, <ph name="BEGIN_LINK" />Chromeમાં સાઇન ઇન કરો<ph name="END_LINK" />.</translation>
+<translation id="1619639070275605589">આ ઍક્શન કરવાથી:
+          <ph name="LINE_BREAKS" />
+            • તમારું સ્ટાર્ટઅપ પેજ, નવું ટૅબ પેજ, શોધ એન્જિન અને પિન કરેલા ટૅબ રીસેટ થઈ જશે
+            <ph name="LINE_BREAK" />
+            • એક્સ્ટેન્શન બંધ થઈ જશે
+            <ph name="LINE_BREAK" />
+            • કુકી અને સાઇટનો અન્ય હંગામી ડેટા ડિલીટ થઈ જશે
+            <ph name="LINE_BREAK" />
+            • Chrome શૉર્ટકટ રીસેટ થઈ જશે
+            <ph name="LINE_BREAKS" />
+            બુકમાર્ક, ઇતિહાસ અને સાચવેલા પાસવર્ડને કોઈ અસર થશે નહીં.</translation>
 <translation id="1619887657840448962">Chrome ને સુરક્ષિત બનાવવા માટે, અમે નીચેના એક્સ્ટેન્શનને અક્ષમ કર્યું છે કે જે <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> માં સૂચિબદ્ધ નથી અને તમારી જાણ વિના ઉમેરવામાં આવ્યું હોઈ શકે છે.</translation>
 <translation id="1628000112320670027">Chrome સાથે સહાય મેળવો</translation>
 <translation id="1640672724030957280">ડાઉનલોડ કરી રહ્યું છે...</translation>
 <translation id="1651617469580841801">જ્યારે તમે Google Lensનો ઉપયોગ કરો છો, ત્યારે PDFs સહિત પેજનું શીર્ષક, URL અને કન્ટેન્ટ Googleને મોકલવામાં આવે છે. <ph name="LEARN_MORE" /></translation>
 <translation id="1662146548738125461">ChromeOS Flex વિશે</translation>
+<translation id="1665867022636014702">Google દ્વારા સુઝાવ આપવામાં આવેલા બ્રાઉઝર સેટિંગનો ઉપયોગ કરો</translation>
 <translation id="1674870198290878346">Chrome છુ&amp;પી વિંડોમાં લિંક ખોલો</translation>
 <translation id="1682634494516646069">Google Chrome એની ડેટા ડિરેક્ટરી વાંચી અથવા લખી શકતુંં નથી:
 
@@ -77,13 +91,13 @@
 <translation id="177180974022074201">Gemini in Chrome વડે અજમાવી જુઓ</translation>
 <translation id="1786003790898721085">ખાતરી કરો કે તમે તમારા <ph name="TARGET_DEVICE_NAME" /> પર Chromeમાં સાઇન ઇન કર્યું છે અને પછી ફરીથી મોકલવાનો પ્રયાસ કરો.</translation>
 <translation id="1786044937610313874">શૉર્ટકટ Chromeમાં ખુલે છે</translation>
-<translation id="178701303897325119">આ એક્સ્ટેન્શન હવે સપોર્ટેડ રહ્યું નથી. એના બદલે Chrome તેને કાઢી નાખવાનો સુઝાવ તમને આપે છે.</translation>
 <translation id="1812689907177901597">આને બંધ કરવાથી, તમે Chromeમાં સાઇન ઇન કર્યા સિવાય Gmail જેવી Googleની સાઇટમાં સાઇન ઇન કરી શકશો</translation>
 <translation id="1821644463306970002">{NUM_TABS,plural, =1{Chromeનો સુઝાવ છે કે તમારા બ્રાઉઝરની સ્પીડને ધીમી કરી રહ્યું હોય એવા ટૅબને થોભાવી દો}one{Chromeનો સુઝાવ છે કે તમારા બ્રાઉઝરની સ્પીડને ધીમી કરી રહ્યું હોય એવા ટૅબને થોભાવી દો}other{Chromeનો સુઝાવ છે કે તમારા બ્રાઉઝરની સ્પીડને ધીમી કરી રહ્યાં હોય એવા ટૅબને થોભાવી દો}}</translation>
 <translation id="1832046143430087831">Chromeના V8 એન્જિન વડે સાઇટની ગતિ વધારે છે પરંતુ Chromeને અટૅક સામે થોડું ઓછું પ્રતિરોધક બનાવે છે. આ સેટિંગ બંધ છે.</translation>
 <translation id="1838374766361614909">શોધ સાફ કરો</translation>
 <translation id="1843347690926158494">Google Lens વડે આ ટૅબ શોધો</translation>
 <translation id="1849248141818021764">તમારો પાસફ્રેઝ ધરાવતી કોઈ વ્યક્તિ જ તમારો એન્ક્રિપ્ટેડ ડેટા વાંચી શકે છે. Googleને પાસફ્રેઝ મોકલવામાં આવતો નથી કે તેમાં સ્ટોર કરવામાં આવતો નથી. જો તમે તમારો પાસફ્રેઝ ભૂલી ગયા હો અથવા આ સેટિંગ બદલવા માગતા હો, તો તમારે <ph name="BEGIN_LINK" />તમારા એકાઉન્ટમાંનો Chrome ડેટા ડિલીટ કરવો<ph name="END_LINK" /> જરૂરી રહેશે.</translation>
+<translation id="1856809424654973980">મુસાફરીમાં બ્રાઉઝ કરવાનું ચાલુ રાખવા માટે Chrome ઍપનો ઉપયોગ કરો</translation>
 <translation id="1860536484129686729">Chromeને આ સાઇટ માટે તમારા કૅમેરાના ઍક્સેસની પરવાનગીની જરૂર પડે છે</translation>
 <translation id="1867503717113754604"><ph name="START_GLIC_STYLING" />Gemini<ph name="END_GLIC_STYLING" />નો ઉપયોગ કરવા માટે તમારા Google એકાઉન્ટ વડે Chromeમાં સાઇન ઇન કરો</translation>
 <translation id="1873233029667955273">Google Chrome તમારું ડિફૉલ્ટ બ્રાઉઝર નથી</translation>
@@ -93,14 +107,17 @@
 <translation id="1896602904211344018">Chrome ઍપ મેળવો</translation>
 <translation id="1919130412786645364">Chromeમાં સાઇન-ઇનની મંજૂરી આપો</translation>
 <translation id="1953553007165777902">ડાઉનલોડ કરી રહ્યાં છીએ… <ph name="MINUTE" /> મિનિટ બાકી છે</translation>
+<translation id="1975400514743766362">તમારા <ph name="DEVICE_TYPE" /> પર Chrome ઍપ વડે મુસાફરીમાં Googleની સલામતી મેળવો</translation>
 <translation id="1979600810166324878">iOS માટે Chrome પર Safe Browsingમાં વધારેલી સુરક્ષા વડે મુસાફરીમાં વધુ સલામત રહો</translation>
 <translation id="2001586581944147178">તમારા ઇન્ટરનેટ ટ્રાફિકનો ઍક્સેસ ધરાવતા લોકો માટે, તમે કઈ સાઇટની મુલાકાત લો છો તે જોવાનું વધુ મુશ્કેલ બનાવો. Chrome દ્વારા DNS (ડોમેન નેમ સિસ્ટમ)માં સાઇટનું IP ઍડ્રેસ જોવા માટે સુરક્ષિત કનેક્શનનો ઉપયોગ કરવામાં આવે છે.</translation>
-<translation id="2008942457798486387">{NUM_EXTENSIONS,plural, =1{આ એક્સ્ટેન્શનને હવે સપોર્ટ કરવામાં આવતો નથી. Chrome તમને તેને કાઢી નાખવાનો સુઝાવ આપે છે.}one{આ એક્સ્ટેન્શનને હવે સપોર્ટ કરવામાં આવતો નથી. Chrome તમને તેને કાઢી નાખવાનો સુઝાવ આપે છે.}other{આ એક્સ્ટેન્શનને હવે સપોર્ટ કરવામાં આવતો નથી. Chrome તમને તેને કાઢી નાખવાનો સુઝાવ આપે છે.}}</translation>
+<translation id="2005658457661191636">મુસાફરીમાં શૉપિંગના શ્રેષ્ઠ ટૂલ સાથે રાખવા માટે Chrome ઍપનો ઉપયોગ કરો</translation>
 <translation id="2018528049276128029">દરેક પ્રોફાઇલ બુકમાર્ક, ઇતિહાસ, પાસવર્ડ અને બીજી ઘણી બાબતો જેવી તેની પોતાની Chrome માહિતી ધરાવે છે</translation>
 <translation id="2018879682492276940">ઇન્સ્ટૉલ કરવામાં નિષ્ફળ રહ્યાં. કૃપા કરીને ફરી પ્રયાસ કરો.</translation>
 <translation id="2024959665595762054">તમારા Google એકાઉન્ટમાં Chromeના ડેટાનો ઉપયોગ કરવા અને તેને સાચવવા માટે, આ તમે જ છો તેની ચકાસણી કરો</translation>
 <translation id="2034233344106846793">જ્યારે શક્ય હોય ત્યારે Chrome અસુરક્ષિત કનેક્શનને ઑટોમૅટિક રીતે HTTPS પર અપગ્રેડ કરે છે</translation>
 <translation id="2039417478970545937">સેટિંગ.</translation>
+<translation id="2040220733769034247">Chrome ડાઉનલોડ કરવા અને તમારા Google એકાઉન્ટમાં સાઇન ઇન કરવા માટે તમારા ફોન વડે QR કોડને સ્કૅન કરો.</translation>
+<translation id="2050189601866423230">તમે બ્રાઉઝ કરો ત્યારે પ્રશ્નો પૂછવા માટે, તમે Google Search AI મોડને પિન કરી શકો છો</translation>
 <translation id="2066690553719545730">હંમેશાં AI મોડ બતાવો</translation>
 <translation id="2091012649849228750">Google Chromeની ભાવિ અપડેટ મેળવવા માટે, તમારે Windows 10 કે તે પછીના વર્ઝન પર અપડેટ કરવું જરૂરી રહેશે. આ કમ્પ્યુટર Windows 8નો ઉપયોગ કરે છે.</translation>
 <translation id="2094648590148273905">ChromeOS Flexની શરતો</translation>
@@ -140,6 +157,7 @@
 <translation id="2472092250898121027">આ એક્સ્ટેન્શન માલવેર ધરાવે છે અને તે અસુરક્ષિત છે. તેને Chromeમાંથી કાઢી નાખો જેથી હવેથી તે તમારી વ્યક્તિગત માહિતી સહિત તમે મુલાકાત લો તે સાઇટ પરનો તમારો ડેટા જોઈ કે બદલી શકે નહીં.</translation>
 <translation id="2485422356828889247">અનઇન્સ્ટૉલ કરો</translation>
 <translation id="2513154137948333830">રીબૂટ કરવું આવશ્યક છે: <ph name="INSTALL_SUCCESS" /></translation>
+<translation id="2523492931736391680">Chrome પર તમારું કાર્ય સુરક્ષિત છે</translation>
 <translation id="2534365042754120737">તમારા ડેટાને સુરક્ષિત કરવા માટે, Chromeને તમે તાજેતરમાં મુલાકાત લીધી ન હોય તેવી સાઇટમાંથી પરવાનગીઓ દૂર કરવા દો. નોટિફિકેશન બંધ કરવામાં આવશે નહીં.</translation>
 <translation id="2556847002339236023">જ્યારે તમારી સંસ્થા <ph name="TIMEOUT_DURATION" /> માટે Chromeનો ઉપયોગ ન કરે ત્યારે તેને બંધ કરે છે. બ્રાઉઝિંગ ડેટા ડિલીટ કરવામાં આવ્યો હતો. આમાં ઇતિહાસ, ઑટોમૅટિક રીતે ભરવાની સુવિધા અને ડાઉનલોડ કરેલું કન્ટેન્ટ શામેલ હોઈ શકે છે.</translation>
 <translation id="2563121210305478421">Chrome ફરીથી લૉન્ચ કરીએ?</translation>
@@ -152,6 +170,7 @@
 <translation id="2580411288591421699">હાલમાં ચાલી રહ્યું છે તે જ Google Chrome વર્ઝનને ઇન્સ્ટૉલ કરી શકાતું નથી. કૃપા કરીને Google Chrome બંધ કરો અને ફરીથી પ્રયાસ કરો.</translation>
 <translation id="2586406160782125153">આ, તમારા બ્રાઉઝિંગ ડેટાને આ ડિવાઇસમાંથી ડિલીટ કરશે. પછીથી તમારો ડેટા ફરીથી મેળવવા માટે, Chromeમાં <ph name="USER_EMAIL" /> તરીકે સાઇન ઇન કરો.</translation>
 <translation id="259935314519650377">ડાઉનલોડ કરેલા ઇન્સ્ટૉલરને કૅશ મેમરીમાં સાચવવામાં નિષ્ફળ રહ્યાં. ભૂલ: <ph name="UNPACK_CACHING_ERROR_CODE" />.</translation>
+<translation id="2608461706055011366">આ દસ્તાવેજનો ઝડપી ઓવરવ્યૂ મેળવો અને Gemini in Chrome વડે પ્રશ્નો પૂછો</translation>
 <translation id="2620436844016719705">સિસ્ટમ</translation>
 <translation id="263447411082773721">તમારા પાસવર્ડ, બુકમાર્ક અને ઇતિહાસને બધા ડિવાઇસ પર સંપૂર્ણ રીતે સિંક કરેલા રાખો. તમારા ડિફૉલ્ટ બ્રાઉઝરને Chrome પર અપડેટ કરીને તમે જાણતા હો એવી અને તમને ગમતી હોય એવી સુવિધાઓને સરળતાથી ઍક્સેસ કરો. ઝડપી ઍક્સેસ માટે Chromeને તમારા ટાસ્કબાર પર પિન કરવામાં આવશે.</translation>
 <translation id="2645435784669275700">ChromeOS</translation>
@@ -159,6 +178,7 @@
 <translation id="2652691236519827073">નવા Chrome &amp;ટૅબમાં લિંક ખોલો</translation>
 <translation id="2665296953892887393">ક્રૅશ રિપોર્ટ અને <ph name="UMA_LINK" /> Googleને મોકલીને Google Chromeને વધુ સારું બનાવવામાં મદદ કરો.</translation>
 <translation id="2668094785979141847">Google Lensમાંથી બહાર નીકળવા માટે ક્લિક કરો</translation>
+<translation id="2674238339205910678">તમારા એકાઉન્ટની સાઇન ઇન વિગતો જૂની હોવાને કારણે ChromeOS Flex તમારા Google એકાઉન્ટમાં Chrome ડેટા સાચવી શક્યું નથી</translation>
 <translation id="2681444469812712297">Google Chromeમાં નવા ટૅબમાં <ph name="URL" /> ખોલો.</translation>
 <translation id="2699790011615497488">Chrome બીટામાં Gemini ખોલો</translation>
 <translation id="2712141162840347885">Google Lens વડે શોધવા માટે કંઈપણ પસંદ કરો અથવા Google Lensમાંથી બહાર નીકળવા માટે Esc કી દબાવો</translation>
@@ -189,6 +209,7 @@
 <translation id="2945997411976714835">ઇન્સ્ટૉલ કરવામાં ભૂલ: ઇન્સ્ટૉલરની પ્રક્રિયા શરૂ થવામાં નિષ્ફળ રહી.</translation>
 <translation id="2969728957078202736"><ph name="PAGE_TITLE" /> - નેટવર્ક સાઇન ઇન - Chrome</translation>
 <translation id="2970681950995291301">Chromeમાંથી તમારા Google એકાઉન્ટને કાઢી નાખવા માટે, સેટિંગ પેજમાં જઈને Chromeમાંથી સાઇન આઉટ કરો</translation>
+<translation id="2976869732253036751">તમારા ફોન પર Chrome વડે કિંમત ટ્રૅક કરવા સંબંધિત અલર્ટ મેળવો</translation>
 <translation id="2991167882679440829">તમારા Google એકાઉન્ટમાં તમે સાચવેલા તમારા પાસવર્ડ અને Chromeનો અન્ય ડેટા આ ડિવાઇસમાંથી કાઢી નાખવામાં આવશે. Chromeમાં તેનો ફરીથી ઉપયોગ કરવા માટે, પાછું સાઇન ઇન કરો.</translation>
 <translation id="2994465299455873643">એન્ક્રિપ્શનની સેવાઓ અને <ph name="BROWSER_NAME" />ને રિકવર કરવા માટે કોઈ સલામત રીત પ્રદાન કરે છે, જો તેની તારીખ સિંકમાં ન રહે. જો આ સેવાને બંધ કરવામાં આવે, તો કદાચ <ph name="BROWSER_NAME" /> એન્ક્રિપ્ટેડ ડેટાનો ઍક્સેસ ગુમાવી શકે છે તેમજ કદાચ <ph name="BROWSER_NAME" /> પોતાને રિકવર ન પણ કરી શકે.</translation>
 <translation id="3003694935412297923">બધા કામ</translation>
@@ -221,6 +242,7 @@
 <translation id="3222857603094643834">Google Lens વડે આ પેજ પર કંઈ પણ શોધો</translation>
 <translation id="3226612997184048185">જો તમે બુકમાર્કને તમારા Google એકાઉન્ટમાં પણ સાચવશો, તો તમે પ્રોડક્ટની કિંમતો Chromeમાં ટ્રૅક કરી શકશો તેમજ જ્યારે પણ કિંમતમાં ઘટાડો થાય ત્યારે નોટિફિકેશન મેળવશો</translation>
 <translation id="3242123554343253302">Chrome પ્રોફાઇલ ઉમેરો</translation>
+<translation id="3242486428260808857">જ્યારે તમે તમારા <ph name="DEVICE_TYPE" /> પર Chrome ઍપનો ઉપયોગ કરો, ત્યારે ઑનલાઇન શૉપિંગનો વધુ લાભ મેળવો</translation>
 <translation id="3245429137663807393">જો તમે Chromeના વપરાશના રિપોર્ટ પણ શેર કરતા હો, તો તે રિપોર્ટમાં તમે મુલાકાત લો છો તે URLs શામેલ હોય છે</translation>
 <translation id="3259748324892322072">Chrome ઍપ મેળવો</translation>
 <translation id="3282568296779691940">Chrome માં સાઇન ઇન કરો</translation>
@@ -240,8 +262,11 @@
 <translation id="3451115285585441894">Chrome માં ઉમેરી રહ્યું છે...</translation>
 <translation id="345171907106878721">સ્વયંને Chrome માં ઉમેરો</translation>
 <translation id="3453763134178591239">ChromeOSની શરતો</translation>
+<translation id="3475778264501649775">તમારા ફોન પર Chrome ઍપ વડે તમારા પાસવર્ડ, ટૅબ અને બીજું ઘણું મુસાફરીમાં સાથે રાખો</translation>
 <translation id="3503306920980160878">Chromeને આ સાઇટ સાથે તમારું સ્થાન શેર કરવા માટે તમારા સ્થાનના ઍક્સેસની જરૂર પડે છે</translation>
+<translation id="3512495006767217696">સશક્ત પાસવર્ડ બનાવવામાં, સાચવવામાં અને ઑટોમૅટિક રીતે ભરવામાં તમારી મદદ કરવા માટે Chromeમાં બિલ્ટ ઇન છે. સરળ ઍક્સેસ માટે શૉર્ટકટ ઉમેરો</translation>
 <translation id="3539955434060988644">Chrome Inco&amp;gnito વિન્ડોમાં લિંક ખોલો</translation>
+<translation id="354621070532799440">રિમાઇન્ડર: Googleની શ્રેષ્ઠ સલામતી સુવિધાઓ તમારા ખિસ્સામાં</translation>
 <translation id="3576528680708590453">તમારા સિસ્ટમ વ્યવસ્થાપકે <ph name="TARGET_URL_HOSTNAME" />ને ઍક્સેસ કરવા Google Chromeને વૈકલ્પિક બ્રાઉઝર ખોલવા માટે ગોઠવેલું છે.</translation>
 <translation id="3582972582564653026">તમારા બધા ડિવાઇસ પર Chromeને સિંક કરો અને મનગમતું બનાવો</translation>
 <translation id="3583751698304738917">તમે પહેલેથી Chromeની અન્ય પ્રોફાઇલમાં <ph name="USER_EMAIL_ADDRESS" /> તરીકે સાઇન ઇન થયા છો</translation>
@@ -280,6 +305,7 @@
 <translation id="3885770153807205175">ભાષા પિકર</translation>
 <translation id="3889417619312448367">Google Chromeને અનઇન્સ્ટૉલ કરો</translation>
 <translation id="3892148308691398805">ટેક્સ્ટ કૉપિ કરો</translation>
+<translation id="3893650521827656233">Chrome વડે મુસાફરીમાં Googleની શ્રેષ્ઠ સલામતી સુવિધાઓ મેળવો.</translation>
 <translation id="3941890832296813527">ઇન્સ્ટૉલ કરવામાં ભૂલ: ઇન્સ્ટૉલરની ફાઇલનું નામ અમાન્ય અથવા અનસપોર્ટેડ છે.</translation>
 <translation id="395904275706073188">સંરક્ષિત પેજ વાંચી શકાતા નથી. કોઈ અલગ પેજ અજમાવી જુઓ.</translation>
 <translation id="3965532487635448963">સિસ્ટમ ટ્રેમાં Chromeમાં Gemini બતાવો અને કીબોર્ડ શૉર્ટકટ ચાલુ કરો</translation>
@@ -303,6 +329,7 @@
 <translation id="4149882025268051530">ઇન્સ્ટૉલર આર્કાઇવને અનકોમ્પ્રેસ કરવામાં નિષ્ફળ. કૃપા કરીને Google Chrome ફરીથી ડાઉનલોડ કરો.</translation>
 <translation id="415112847282352845">તમારા બધા ડિવાઇસ પર તમારા ઍડ્રેસ અને બીજું ઘણું મેળવવા માટે, Chromeમાં સાઇન ઇન કરો. તમે સાઇન ઇન કરો તે પછી આ ઍડ્રેસ તમારા Google એકાઉન્ટમાં સાચવવામાં આવશે.</translation>
 <translation id="4153934450158521343">Chrome ટૂંક સમયમાં જ બંધ થશે અને ડેટા ડિલીટ કરશે</translation>
+<translation id="4159985264221160808">Chrome પર તમારા કાર્યને સુરક્ષિત રાખવા માટે, તમારી સંસ્થા અમુક માહિતી જોઈ અથવા મેનેજ કરી શકશે</translation>
 <translation id="4173512894976930765">સાઇટ અપેક્ષા મુજબ કામ કરે તેમ બની શકે છે. જો તમે Chromeમાં સાઇન ઇન કર્યું હોય, તો જ્યારે તમે તમારા Google એકાઉન્ટ સિવાયની બધી Chrome વિન્ડો બંધ કરશો, ત્યારે તમે મોટાભાગની સાઇટમાંથી સાઇન આઉટ થઈ જશો.</translation>
 <translation id="4175922240926474352">Chrome દ્વારા આ ડાઉનલોડ બ્લૉક કરવામાં આવ્યું કારણ કે આ સાઇટ કોઈ સુરક્ષિત કનેક્શનનો ઉપયોગ કરી રહી નથી તેમજ ફાઇલ સાથે ચેડાં કરવામાં આવ્યા હોઈ શકે છે</translation>
 <translation id="4191857738314598978">{0,plural, =1{એક દિવસની અંદર Chromeને ફરીથી લૉન્ચ કરો}one{# દિવસની અંદર Chromeને ફરીથી લૉન્ચ કરો}other{# દિવસની અંદર Chromeને ફરીથી લૉન્ચ કરો}}</translation>
@@ -311,6 +338,8 @@
 <translation id="4242034826641750751">આ સાઇટ માટે Chromeને કૅમેરા અને માઇક્રોફોનની પરવાનગીઓની જરૂર છે</translation>
 <translation id="424864128008805179">Chromeમાંથી સાઇન આઉટ કરીએ?</translation>
 <translation id="4251615635259297716">તમારા Chrome ડેટાને આ એકાઉન્ટ સાથે લિંક કરીએ?</translation>
+<translation id="4252262470181310206">Chrome વડે મુસાફરીમાં Google Drive અને YouTube જેવી તમારી મનપસંદ ઍપ સાથે વિક્ષેપરહિત કામ કરો.</translation>
+<translation id="4266456958461406346">વધુ <ph name="THREE_DOTS_ICON" /> મેનૂ ખોલો</translation>
 <translation id="4280647692742956593">મુસાફરીમાં હો ત્યારે ટૅબના નવા ગ્રૂપ ખોલવા અથવા બનાવવા માટે તમારા ફોન પર Chrome ડાઉનલોડ કરો.</translation>
 <translation id="4281844954008187215">સેવાની શરતો</translation>
 <translation id="430327780270213103">Chromeના ટૂલબારમાં ઍક્સેસની વિનંતીઓ બતાવવા માટે એક્સ્ટેન્શનને મંજૂરી આપો</translation>
@@ -334,6 +363,7 @@
 <translation id="4493028449971051158">સ્ટાર્ટઅપ દરમિયાન ભૂલ: કૃપા કરીને ઇન્સ્ટૉલરને ઍડમિનિસ્ટ્રેટર તરીકે ચલાવો.</translation>
 <translation id="4501471624619070934">ઇન્સ્ટૉલેશન નિષ્ફળ ગયું કારણ કે આ દેશમાં ઍક્સેસ પ્રતિબંધિત છે.</translation>
 <translation id="4571503333518166079">Chromeની નોટિફિકેશનની સેટિંગ પર જાઓ</translation>
+<translation id="4580939929828762295">Google Password Manager સાથે સુરક્ષિત રહો</translation>
 <translation id="4592634244097223647">આ છબી વિશે Googleને પૂછો</translation>
 <translation id="459622048091363950">એકવાર Chromeને ઍક્સેસ મળે, તે પછી વેબસાઇટ તમારી પાસે ઍક્સેસ માગી શકશે.</translation>
 <translation id="4598116752460667024">સૂચિમાંથી કોઈપણ પ્રક્રિયા શોધો.</translation>
@@ -385,6 +415,7 @@
 <translation id="5127558335897923940">Chromeને કોઈપણ સમયે ઝડપથી ઍક્સેસ કરવા માટે, તેને તમારા ડૉકમાં રાખો</translation>
 <translation id="5132929315877954718">Google Chrome માટે શ્રેષ્ઠ ઍપ્લિકેશનો, રમતો, એક્સટેન્શન્સ અને થીમ્સ શોધો</translation>
 <translation id="5139423532931106058">તમારી Chrome પ્રોફાઇલને કસ્ટમાઇઝ કરો</translation>
+<translation id="5152381187352661267">Chromeમાં કૌશલ્યો</translation>
 <translation id="5163087008893166964">Chrome પર આપનું સ્વાગત છે; નવી બ્રાઉઝર વિન્ડો ખોલી છે</translation>
 <translation id="5166439563123238795">Chromeને તમારા હાથ ટ્રૅક કરવા માટે પરવાનગીની જરૂર છે</translation>
 <translation id="5169778651486082413">તમારા ફોન પર Chrome વડે તમારા પાસવર્ડનો ઉપયોગ કરો</translation>
@@ -400,6 +431,7 @@
 <translation id="5234764350956374838">કાઢી નાખો</translation>
 <translation id="5239627039202700673">જ્યારે પણ તમે મેસેજ, દસ્તાવેજો અને અન્ય ઍપમાંની લિંક પર ક્લિક કરો, ત્યારે Chromeનો ઉપયોગ કરો</translation>
 <translation id="5251420635869119124">અતિથિઓ કંઈપણ પાછળ છોડ્યાં વિના Chrome નો ઉપયોગ કરી શકે છે.</translation>
+<translation id="5271833978500241046">Chromeમાં Geminiની અન્ય સુવિધાઓની સાથે તેનો ઉપયોગ કરો</translation>
 <translation id="5286907366254680517">ભાળ મળી</translation>
 <translation id="5320351714793324716">જો તમે કુકીને મંજૂરી આપો, તો Chrome પહેલેથી લોડ કરતી વખતે તેનો ઉપયોગ કરી શકે છે</translation>
 <translation id="5321325624576443340">Google Lens ઉપલબ્ધ નથી. થોડા સમય પછી ફરી પ્રયાસ કરો.</translation>
@@ -412,12 +444,14 @@
 <translation id="5386244825306882791">જ્યારે તમે Chrome શરૂ કરો અથવા ઑમ્નિબૉક્સ પરથી શોધ કરો ત્યારે કયું પેજ બતાવવામાં આવે તે તેનું પણ નિયંત્રણ કરે છે.</translation>
 <translation id="5394833366792865639">Chrome ટૅબ શેર કરો</translation>
 <translation id="5402307365844630024">Chrome બીટામાં Gemini ટૉગલ કરો</translation>
+<translation id="541844421954567481">તમારા <ph name="DEVICE_TYPE" /> પર Chrome ઍપ વડે તમારા પાસવર્ડ, ટૅબ અને બીજું ઘણું મુસાફરીમાં સાથે રાખો</translation>
 <translation id="5430073640787465221">તમારી પસંદગીઓ ફાઇલ દૂષિત અથવા અમાન્ય છે.
 
 Google Chrome તમારા સેટિંગને રિકવર કરી શકતું નથી.</translation>
 <translation id="5465210843490471889"><ph name="START_GLIC_STYLING" />Gemini<ph name="END_GLIC_STYLING" /> સાથે ઉપયોગમાં લેવા માટે Chrome પ્રોફાઇલ પસંદ કરો</translation>
 <translation id="547202872422499512">હવે Windows શરૂ થાય ત્યારે Chrome લૉન્ચ થાય છે, જેથી તમે તરત જ બ્રાઉઝ કરવાનું શરૂ કરી શકો. તમે સેટિંગમાં જઈને આને બંધ કરી શકો છો.</translation>
 <translation id="5486346529181556467">જ્યારે તમે તમને હાનિકારક લાગતી સાઇટની જાણ કરો, ત્યારે દરેક જણ માટે ઑનલાઇન સલામતી બહેતર બનાવો. <ph name="BEGIN_LINK" />Googleની અસુરક્ષિત સાઇટ પૉલિસી<ph name="END_LINK" /> વિશે વધુ જાણો.</translation>
+<translation id="5503069778428381665">જ્યારે તમે ડેસ્કટૉપ પર Google Lensનો ઉપયોગ કરો છો, ત્યારે PDF સહિત પેજનું શીર્ષક, URL અને કન્ટેન્ટ Googleને મોકલવામાં આવે છે</translation>
 <translation id="5524890928877629608">શોધ વિસ્તારના સૌથી ઉપર ડાબા ખૂણે: ડાબી બાજુ <ph name="LEFT" />%, સૌથી ઉપર <ph name="TOP" />%</translation>
 <translation id="5529390769101499214">Chromeના મુખ્ય મેનૂમાં એક્સ્ટેન્શન પર ક્લિક કરીને તમારા એક્સ્ટેન્શન મેનેજ કરો.</translation>
 <translation id="5550137307985173298">Chromeને નવો દેખાવ આપવા માટે નવા ટૅબ પેજ પર જઈને Chromeને કસ્ટમાઇઝ કરો બટન પર ક્લિક કરો</translation>
@@ -428,6 +462,7 @@ Google Chrome તમારા સેટિંગને રિકવર કરી
 <translation id="5602351063754773347">Chrome તેને કાઢી નાખવાનો સુઝાવ તમને આપે છે. <ph name="BEGIN_LINK" />સપોર્ટેડ એક્સ્ટેન્શન વિશે વધુ જાણો<ph name="END_LINK" /></translation>
 <translation id="5610759359710387751">Chrome ને તમારું બનાવો</translation>
 <translation id="5649156266046089790">Chrome પ્રોફાઇલ વડે તમે તમારી બધી વસ્તુઓ Chrome પર અલગ-અલગ રાખી શકો છો. મિત્રો અને કુટુંબ માટે પ્રોફાઇલ બનાવો અથવા તેને ઑફિસ અને મનોરંજન વચ્ચે વિભાજિત કરો.</translation>
+<translation id="5655063652337498476">iOS પર Chrome વડે તમારા કૅમેરા વડે પ્રોડક્ટ શોધો, કિંમતમાં ઘટાડાને ટ્રૅક કરો અને મુસાફરીમાં બીજું ઘણું કરો.</translation>
 <translation id="565744775970812598"><ph name="FILE_NAME" /> જોખમી હોઈ શકે છે, તેથી Chrome એ તેને અવરોધિત કરેલ છે.</translation>
 <translation id="566040795510471729">તમારા Chromeને કસ્ટમાઇઝ કરો</translation>
 <translation id="566568153320186256">Chrome દ્વારા સ્મૂધ સ્ક્રોલિંગ અને વીડિયોના ફ્રેમ રેટ જેવી બૅકગ્રાઉન્ડ ઍક્ટિવિટી અને વિઝ્યુઅલ ઇફેક્ટને મર્યાદિત કરીને બૅટરીના પાવરની બચત કરવામાં આવે છે. <ph name="BEGIN_LINK" />એનર્જી સેવર વિશે વધુ જાણો<ph name="END_LINK" /></translation>
@@ -438,16 +473,8 @@ Google Chrome તમારા સેટિંગને રિકવર કરી
 <translation id="569897634095159764">ઇન્ટરનેટ સાથે કનેક્ટ કરી શકતા નથી. પ્રૉક્સી સર્વરને પ્રમાણીકરણની જરૂર છે.</translation>
 <translation id="5709557627224531708">Chromeને તમારા ડિફૉલ્ટ બ્રાઉઝર તરીકે સેટ કરો</translation>
 <translation id="5719246646468301581">Google Chrome અને ChromeOSની વધારાની સેવાની શરતો</translation>
-<translation id="5719324992913248873">આમ કરવાથી:
-          <ph name="LINE_BREAKS" />
-           • Chromeના અમુક સેટિંગ અને Chrome શૉર્ટકટ રીસેટ થઈ જશે
-           <ph name="LINE_BREAK" />
-           • એક્સ્ટેન્શન બંધ થઈ જશે
-           <ph name="LINE_BREAK" />
-           • કુકી અને સાઇટનો અન્ય હંગામી ડેટા ડિલીટ થઈ જશે
-            <ph name="LINE_BREAKS" />
-           બુકમાર્ક, ઇતિહાસ અને સાચવેલા પાસવર્ડને કોઈ અસર નહીં થાય.</translation>
 <translation id="5736850870166430177">જો કોઈ સાઇટ તમારો પાસવર્ડ ચોરી કરવાનો પ્રયાસ કરે અથવા તમે કોઈ નુકસાનકારક ફાઇલ ડાઉનલોડ કરો, ત્યારે Chrome પેજ કન્ટેન્ટના બિટ સહિત URLs પણ Safe Browsingને મોકલી શકે છે</translation>
+<translation id="5742003800414899269">મુસાફરીમાં શ્રેષ્ઠ AI ટૂલ સાથે રાખવા માટે Chrome ઍપનો ઉપયોગ કરો</translation>
 <translation id="5756509061973259733">આ એકાઉન્ટ સાથેની Chrome પ્રોફાઇલ પહેલેથી જ આ ડિવાઇસ પર અસ્તિત્વમાં છે</translation>
 <translation id="5759947850379142561">Google Lens વડે શોધવા માટે કોઈપણ ટેક્સ્ટ અથવા છબી પસંદ કરો અથવા Google Lensમાંથી બહાર નીકળવા માટે Escape દબાવો</translation>
 <translation id="5779427581965287859">Chromeને ડિફૉલ્ટ તરીકે સેટ કરો અને તેને ટાસ્કબાર પર પિન કરો</translation>
@@ -460,6 +487,7 @@ Google Chrome તમારા સેટિંગને રિકવર કરી
 <translation id="586971344380992563">અસુરક્ષિત સાઇટ અને ડાઉનલોડ વિશે <ph name="BEGIN_LINK" />Chrome તમને ચેતવણી આપે છે<ph name="END_LINK" /></translation>
 <translation id="5894164573378901688">Chromeમાં Geminiનો ઉપયોગ કરવા માટે, કોઈ બીજા Google એકાઉન્ટ વડે સાઇન ઇન કરો</translation>
 <translation id="5895138241574237353">પુનઃપ્રારંભ કરો</translation>
+<translation id="5899008323405946573">તમારા ફોન પર Chrome ઍપ વડે Googleના શ્રેષ્ઠ AI ટૂલનો ઉપયોગ કરો</translation>
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" /> - નેટવર્ક સાઇન ઇન</translation>
 <translation id="5924017743176219022">ઇન્ટરનેટ સાથે કનેક્ટ કરી રહ્યાં છીએ...</translation>
 <translation id="5925596746603389877">Chrome ઇન્સ્ટૉલર ડાઉનલોડ કરો</translation>
@@ -484,7 +512,9 @@ Google Chrome તમારા સેટિંગને રિકવર કરી
 <translation id="6070348360322141662">વધારાની સુરક્ષા માટે, Google Chrome, તમારા ડેટાને એન્ક્રિપ્ટ કરશે</translation>
 <translation id="6075300983329039771">તમારી સંસ્થાના <ph name="MANAGER" /> માટે જરૂરી છે કે તમે Chromeમાં સાઇન ઇન કરો</translation>
 <translation id="6113794647360055231">Chrome હવે પહેલાંથી બહેતર બન્યું છે</translation>
+<translation id="6116004140911290070">Chromeમાં કૌશલ્યો ચાલુ કરો</translation>
 <translation id="6116252277240876590">આ ભાષાનો ઉપયોગ Chromeમાંના મેનૂ, સેટિંગ, અલર્ટ અને અન્ય ટેક્સ્ટ બતાવવા માટે થાય છે</translation>
+<translation id="6117557075995890082">મુસાફરીમાં Googleની સલામતી મેળવવા માટે Chrome ઍપનો ઉપયોગ કરો</translation>
 <translation id="6127237283587442951">ડિફૉલ્ટ તરીકે Chromeનો ઉપયોગ કરો અને તેને પિન કરો</translation>
 <translation id="6134085236017727171">તમારા માઇક્રોફોનનો ઉપયોગ કરવા માટે, <ph name="BEGIN_LINK" />સિસ્ટમના સેટિંગ<ph name="END_LINK" />માં જઈને Chromeને ઍક્સેસ આપો</translation>
 <translation id="6135456723633883042">આ ટૅબ વધારાના સંસાધનોનો ઉપયોગ કરી રહ્યાં છે. તમારા પર્ફોર્મન્સને બહેતર બનાવવા માટે, Chromeને તેમને નિષ્ક્રિય કરવા દો.</translation>
@@ -528,6 +558,7 @@ Google Chrome તમારા સેટિંગને રિકવર કરી
 <translation id="6438015621983209660">તમારા ફોન પર Chrome વડે Safe Browsingમાં વધારેલી સુરક્ષા વિસ્તૃત કરો</translation>
 <translation id="6442774133615368941">Chrome iOS ઍપ પર તમારા કૅમેરા વડે જે જુઓ, તેને ખરીદો, અનુવાદ કરો અને તેની ઓળખ કરો</translation>
 <translation id="6448835208126432197">Chromeમાં Geminiમાં સ્ક્રીનનો ભાગ પસંદ કરવા માટે, કીબોર્ડ શૉર્ટકટનો ઉપયોગ કરો.</translation>
+<translation id="6473659734176498825">Chromeમાં Google Password Managerનો એન્ટ્રી પૉઇન્ટ બતાવતી સરળ છબી</translation>
 <translation id="6473905796280459355">Chrome વિશે પેજ પર જાઓ</translation>
 <translation id="6481963882741794338">મનગમતું બનાવવા અને અન્ય હેતુઓ માટે, Chrome અને Googleની અન્ય સેવાઓ લિંક કરો</translation>
 <translation id="648319183876919572">Safe Browsingમાં વધારેલી સુરક્ષા તમને જોખમી વેબસાઇટ અને ડાઉનલોડ સામે વધુ સુરક્ષા આપે છે</translation>
@@ -537,6 +568,7 @@ Google Chrome તમારા સેટિંગને રિકવર કરી
 <translation id="6497147134301593682">Chrome ઑટોમેટિક રીતે બંધ થઈ ગયું હતું</translation>
 <translation id="6506909944137591434">તમારા આસપાસનો 3D નકશો બનાવવા માટે, Chromeને કૅમેરાની પરવાનગીની જરૂર છે</translation>
 <translation id="6515495397637126556"><ph name="PAGE_TITLE" /> - Google Chrome Dev</translation>
+<translation id="6520608191273161151">સાઇન ઇન કરવામાં ભૂલ આવવાને કારણે, ChromeOS Flex તમારા Google એકાઉન્ટમાં Chrome ડેટા સાચવી શક્યું નથી</translation>
 <translation id="6520670145826811516">તમારા લોકેશનનો ઉપયોગ કરવા માટે, <ph name="BEGIN_LINK" />સિસ્ટમના સેટિંગ<ph name="END_LINK" />માં જઈને Chromeને ઍક્સેસ આપો</translation>
 <translation id="652948702951888897">Chrome ઇતિહાસ</translation>
 <translation id="6532945796722480006">Chrome Canaryમાં Gemini ખોલો</translation>
@@ -554,6 +586,7 @@ Google Chrome તમારા સેટિંગને રિકવર કરી
 <translation id="6706525880530967390">{count,plural, =1{તમારા Google એકાઉન્ટમાં કેટલોક ડેટા સાચવી શકાય અને તમારા બધા ડિવાઇસ પર તેનો ઉપયોગ કરી શકાય તે પહેલાં, Chrome માટે એ તમે જ છો તેની ચકાસણી કરવી જરૂરી છે. જો તમે હમણાં જ સાઇન આઉટ કરશો, તો આ ડેટા (1 આઇટમ) ડિલીટ કરવામાં આવશે.}one{તમારા Google એકાઉન્ટમાં કેટલોક ડેટા સાચવી શકાય અને તમારા બધા ડિવાઇસ પર તેનો ઉપયોગ કરી શકાય તે પહેલાં, Chrome માટે એ તમે જ છો તેની ચકાસણી કરવી જરૂરી છે. જો તમે હમણાં જ સાઇન આઉટ કરશો, તો આ ડેટા ({count} આઇટમ) ડિલીટ કરવામાં આવશે.}other{તમારા Google એકાઉન્ટમાં કેટલોક ડેટા સાચવી શકાય અને તમારા બધા ડિવાઇસ પર તેનો ઉપયોગ કરી શકાય તે પહેલાં, Chrome માટે એ તમે જ છો તેની ચકાસણી કરવી જરૂરી છે. જો તમે હમણાં જ સાઇન આઉટ કરશો, તો આ ડેટા ({count} આઇટમ) ડિલીટ કરવામાં આવશે.}}</translation>
 <translation id="6712881677154121168">ડાઉનલોડ કરવામાં ભૂલ: <ph name="DOWNLOAD_ERROR" />.</translation>
 <translation id="6718739135284199302">Chromeને વધુ ઝડપી બનાવો</translation>
+<translation id="6723445727540769832">તમારા ફોન પર Chrome ઍપ વડે Googleનો વધુમાં વધુ લાભ મેળવો</translation>
 <translation id="6734827584173583205">તમે તાજેતરમાં આ સાઇટની મુલાકાત લીધી નથી. Chrome દ્વારા <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" />ની અને વધુ <ph name="COUNT" /> પરવાનગી કાઢી નાખવામાં આવી.</translation>
 <translation id="6735387454586646204">ChromeOS Flex સિસ્ટમ</translation>
 <translation id="6750954913813541382">જોડણીની ભૂલો સુધારવા માટે, તમે બ્રાઉઝરમાં ટાઇપ કરો છો તે ટેક્સ્ટ Chrome દ્વારા Googleને મોકલવામાં આવે છે</translation>
@@ -569,6 +602,7 @@ Google Chrome તમારા સેટિંગને રિકવર કરી
 <translation id="6881299373831449287">Chrome અપડેટ કરી રહ્યાં છીએ</translation>
 <translation id="6885412569789873916">Chrome બીટા ઍપ્લિકેશનો</translation>
 <translation id="6893363893008038481">Chromeમાંથી એકાઉન્ટ કાઢી નાખો</translation>
+<translation id="689368324615299626">તમારા <ph name="DEVICE_TYPE" /> પર Chrome ઍપ વડે Googleનો વધુમાં વધુ લાભ મેળવો</translation>
 <translation id="6896758677409633944">કૉપિ કરો</translation>
 <translation id="6908182077349113099">તમારા પાસવર્ડ, બુકમાર્ક અને ઇતિહાસને બધા ડિવાઇસ પર સંપૂર્ણ રીતે સિંક કરેલા રાખો. તમારા ડિફૉલ્ટ બ્રાઉઝરને Chrome પર અપડેટ કરીને તમે જાણતા હો એવી અને તમને ગમતી હોય એવી સુવિધાઓને સરળતાથી ઍક્સેસ કરો.</translation>
 <translation id="6930294499209825">તમારો Google સૉફ્ટવેર અપ ટૂ ડેટ રાખે છે. જો આ સેવા બંધ કરવા કે રોકવામાં આવે, તો તમારો Google સૉફ્ટવેર અપ ટૂ ડેટ રહેશે નહીં, એટલે કે ઉદ્ભવી શકે તેવા સુરક્ષા સંબંધિત જોખમોનું નિરાકરણ કરી શકાય નહીં એમ બની શકે છે અને સુવિધાઓ કાર્ય કરે નહીં એમ બની શકે છે. જ્યારે આ સેવાનો ઉપયોગ કરતો કોઈ Google સૉફ્ટવેર ન હોય, ત્યારે તે આપમેળે જ અનઇન્સ્ટૉલ થઈ જાય છે.</translation>
@@ -584,6 +618,7 @@ Google Chrome તમારા સેટિંગને રિકવર કરી
 <translation id="7011190694940573312">ઑપરેટિંગ સિસ્ટમનું આ વર્ઝન સપોર્ટેડ ન હોવાને કારણે ઇન્સ્ટૉલેશન નિષ્ફળ રહ્યું.</translation>
 <translation id="7024536598735240744">અનપૅક કરવામાં ભૂલ: <ph name="UNPACK_ERROR" />.</translation>
 <translation id="7025800014283535195">તમે અહીં એક Chrome પ્રોફાઇલથી બીજી Chrome પ્રોફાઇલ પર સ્વિચ કરી શકો છો</translation>
+<translation id="7026856149118332950">ઝડપી ઍક્સેસ માટે Chromeને તમારા ટાસ્કબાર પર પિન કરવા માટે Windows નોટિફિકેશનમાં <ph name="BEGIN_BOLD" />હા<ph name="END_BOLD" /> પર ક્લિક કરો</translation>
 <translation id="7047386856539490735">શું આ પરિણામો ઉપયોગી છે?</translation>
 <translation id="7051685429025310665">તમે તાજેતરમાં આ સાઇટની મુલાકાત લીધી નથી. Chrome દ્વારા <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" />, <ph name="PERMISSION_3" />ની પરવાનગીઓ કાઢી નાખવામાં આવી.</translation>
 <translation id="7059914902409643750">Chrome કસ્ટમાઇઝ કરો</translation>
@@ -591,6 +626,7 @@ Google Chrome તમારા સેટિંગને રિકવર કરી
 <translation id="7071827361006050863">Chrome ટૂંક સમયમાં જ બ્રાઉઝિંગ ડેટા ડિલીટ કરશે</translation>
 <translation id="7085332316435785646">Googleની સેવાઓમાં વધુ મનગમતા બનાવેલા અનુભવો આપવા માટે, Chrome ઇતિહાસ શામેલ કરવો કે નહીં, તે પસંદ કરો</translation>
 <translation id="7088681679121566888">Chrome અપ ટૂ ડેટ છે</translation>
+<translation id="708972073591616506">iOS પર Chrome વડે તમારા મનપસંદ Google AI ટૂલને મુસાફરીમાં તમારી સાથે રાખો.</translation>
 <translation id="7096221564931416126">Google Lens વડે શોધવા માટે કોઈપણ ટેક્સ્ટ અથવા છબી પસંદ કરો</translation>
 <translation id="7098166902387133879">Google Chrome તમારા માઇક્રોફોનનો ઉપયોગ કરી રહ્યું છે.</translation>
 <translation id="7099479769133613710">&amp;ChromeOSને અપડેટ કરવા માટે તેને ફરીથી લૉન્ચ કરો</translation>
@@ -625,6 +661,7 @@ Google Chrome તમારા સેટિંગને રિકવર કરી
 <translation id="7481213027396403996">Chromeની સૌથી વધુ મજબૂત સુરક્ષા મેળવો</translation>
 <translation id="749228101751499733">જ્યારે તમે સાઇન ઇન કર્યું હોય, ત્યારે તમે Chromeમાં તમારા Google એકાઉન્ટમાંથી તમારા પાસવર્ડ અને વધુનો ઉપયોગ કરી શકો છો. <ph name="SHORTCUT" /> તમારા Googleની સેવાઓના સેટિંગ બદલી શકે છે.</translation>
 <translation id="7496017508659652909">Chrome દ્વારા પેજ પહેલેથી લોડ કરવામાં આવે છે, જેને કારણે બ્રાઉઝ કરવાની અને શોધવાની ક્રિયા વધુ ઝડપી બને છે. <ph name="BEGIN_LINK" />પહેલેથી લોડ કરેલા પેજ વિશે વધુ જાણો<ph name="END_LINK" /></translation>
+<translation id="7510190804000607802">રિમાઇન્ડર: Googleની શ્રેષ્ઠ સુવિધાઓ હવે તમારા ખિસ્સામાં</translation>
 <translation id="7514258452813684157">Google અપડેટર સેવા</translation>
 <translation id="7515191208480168435">તમે સરળ ઍક્સેસ માટે Google Lensને પિન કરી શકો છો</translation>
 <translation id="7535429826459677826">Google Chrome Dev</translation>
@@ -641,6 +678,7 @@ Google Chrome તમારા સેટિંગને રિકવર કરી
 <translation id="7606334485649076285">Google ChromeOS Flex</translation>
 <translation id="7627609214560473136">તમારા ડેટાને સુરક્ષિત કરવા માટે, Chromeને તમે તાજેતરમાં મુલાકાત લીધી ન હોય તેવી સાઇટમાંથી પરવાનગીઓ દૂર કરવા દો.</translation>
 <translation id="7629695634924605473">Chrome વડે તમે તમારા પાસવર્ડમાં ક્યારેક ચેડાં થાય તો તેના વિશે જાણકારી મેળવી શકો છો</translation>
+<translation id="7629898584100520089">કૌશલ્યો જેવી AI ઇનોવેશનને તમારા Google એકાઉન્ટમાં સાચવવામાં આવે છે અને Chrome સિંકથી અલગ રીતે મેનેજ કરવામાં આવે છે</translation>
 <translation id="7641148173327520642">તમારા સિસ્ટમ વ્યવસ્થાપકે <ph name="TARGET_URL_HOSTNAME" />ને ઍક્સેસ કરવા Google Chromeને <ph name="ALTERNATIVE_BROWSER_NAME" /> ખોલવા માટે ગોઠવેલું છે.</translation>
 <translation id="7649070708921625228">સહાય</translation>
 <translation id="7651907282515937834">Chrome એન્ટરપ્રાઇઝ લૉગો</translation>
@@ -665,6 +703,7 @@ Google Chrome તમારા સેટિંગને રિકવર કરી
 <translation id="7804364787702057554">Chromeમાં તમારું એકાઉન્ટ</translation>
 <translation id="7804947029129221742">Chromeની બહારથી તમારું શોધ એન્જિન બદલવામાં આવ્યું હતું. તમારી સુરક્ષા માટે, Chrome તેને ફરી તેના ઑરિજિનલ ડિફૉલ્ટ સેટિંગ પર રીસેટ કરે છે. <ph name="LEARN_MORE_LINK" /></translation>
 <translation id="7808348361785373670">Chrome માંથી દૂર કરો...</translation>
+<translation id="7812800388699096556">પ્રોડક્ટ શોધવા માટે તમે Google Lensનો ઉપયોગ કેવી રીતે કરી શકો છો તે દર્શાવતું ચિત્ર</translation>
 <translation id="7827099906024714326">તમારા Google એકાઉન્ટમાં કેટલોક ડેટા સાચવી શકાય અને તમારા બધા ડિવાઇસ પર તેનો ઉપયોગ કરી શકાય તે પહેલાં, Chrome માટે એ તમે જ છો તેની ચકાસણી કરવી જરૂરી છે. જો તમે હમણાં જ સાઇન આઉટ કરશો, તો આ ડેટા ડિલીટ કરવામાં આવશે.</translation>
 <translation id="7832314606810669113">તમારા બધા ડિવાઇસ પર તમારા બુકમાર્ક અને બીજું ઘણું મેળવવા માટે, Chromeમાં સાઇન ઇન કરો. તમે સાઇન ઇન કરો તે પછી આ બુકમાર્ક તમારા Google એકાઉન્ટમાં સાચવવામાં આવશે.</translation>
 <translation id="7845233973568007926">ઇન્સ્ટૉલ કરવા બદલ આભાર. <ph name="BUNDLE_NAME" />નો ઉપયોગ કરતા પહેલાં તમારે તમારું કમ્પ્યુટર ફરી શરૂ કરવું આવશ્યક છે.</translation>
@@ -676,11 +715,13 @@ Google Chrome તમારા સેટિંગને રિકવર કરી
 <translation id="7890208801193284374">જો તમે કમ્પ્યુટરને શેર કરો છો, તો મિત્રો અને કુટુંબીજનો અલગ-અલગ બ્રાઉઝ કરી શકે છે અને તેમને જોઈએ તેમ Chrome ને સેટ કરી શકે છે.</translation>
 <translation id="7896673875602241923">કોઈએ આ કમ્પ્યુટર પર પહેલા <ph name="ACCOUNT_EMAIL_LAST" /> તરીકે Chromeમાં સાઇન ઇન કર્યું છે. તમારી માહિતી અલગ રાખવા માટે કૃપા કરીને નવો Chrome વપરાશકર્તા બનાવો.</translation>
 <translation id="7904985524660297937">Google Chromeમાં Gemini અજમાવો</translation>
+<translation id="7905880575591690197">સાઇન ઇન કરવામાં ભૂલ આવવાને કારણે, ChromeOS તમારા Google એકાઉન્ટમાં Chromeનો ડેટા સાચવી શક્યું નથી</translation>
 <translation id="7917876797003313048">તમે તમારા સાઇન ઇન કરેલા હોય એવા Google એકાઉન્ટ મેનેજ કરી શકો છો. તમારા Google એકાઉન્ટનો ઉપયોગ Chrome બ્રાઉઝર, Play Store, Gmail અને વધુ માટે થાય છે. જો તમે કોઈ બીજા, જેમકે તમારા કુટુંબના સભ્ય માટે એકાઉન્ટ ઉમેરવા માંગતા હો, તો તેના બદલે નવી વ્યક્તિને તમારા <ph name="DEVICE_TYPE" />માં ઉમેરો. <ph name="LINK_BEGIN" />વધુ જાણો<ph name="LINK_END" /></translation>
 <translation id="7936702483636872823">Chrome દ્વારા આ ડાઉનલોડ બ્લૉક કરવામાં આવ્યું કારણ કે આ ફાઇલ છેતરામણી છે અને તે તમારા ડિવાઇસમાં અનપેક્ષિત ફેરફારો કરે તેમ બની શકે છે</translation>
 <translation id="7951272445806340501">અપડેટ લાગુ કરવા માટે ChromeOS Flexને ફરી શરૂ કરવાની જરૂર છે.</translation>
 <translation id="7959172989483770734">Chrome પ્રોફાઇલ મેનેજ કરો</translation>
 <translation id="7962410387636238736">આ કમ્પ્યુટર હવેથી Google Chrome અપડેટ મેળવી શકશે નહીં કારણકે Windows XP અને Windows Vista હવે સમર્થિત રહ્યાં નથી</translation>
+<translation id="7988335136512059384">તમારા ફોન પર Chrome ઍપ વડે તમને રુચિ હોય તેવી આઇટમ પર કિંમતમાં ઘટાડાના અલર્ટ મેળવો</translation>
 <translation id="8004582292198964060">બ્રાઉઝર</translation>
 <translation id="8005666035647241369">આ ડિવાઇસ પર Google પાસવર્ડ મેનેજરમાં સાચવો</translation>
 <translation id="8008534537613507642">Chrome ફરીથી ઇન્સ્ટોલ કરો</translation>
@@ -688,6 +729,7 @@ Google Chrome તમારા સેટિંગને રિકવર કરી
 <translation id="8010081455002666927">ઑટોમેટિક રીતે ભાષા ઓળખો</translation>
 <translation id="8013993649590906847">જો છબીમાં ઉપયોગી વર્ણન ન હોય, તો Chrome તમને વર્ણન પૂરું પાડવાનો પ્રયાસ કરશે. વર્ણન બનાવવા માટે, Googleને છબીઓ મોકલવામાં આવે છે.</translation>
 <translation id="8019103195866286235">આ એક્સ્ટેન્શનને તેના ડેવલપર દ્વારા અનપબ્લિશ કરવામાં આવ્યું હતું અને તે અસુરક્ષિત હોઈ શકે છે. તેને Chromeમાંથી કાઢી નાખો જેથી હવેથી તે તમારી વ્યક્તિગત માહિતી સહિત તમે મુલાકાત લો તે સાઇટ પરનો તમારો ડેટા જોઈ કે બદલી શકે નહીં.</translation>
+<translation id="8038678618803403071">તમારા <ph name="DEVICE_TYPE" /> પર Chrome વડે તમારા Googleના બધા મનપસંદ ઍક્સેસ કરો</translation>
 <translation id="8040768861829554732">કોઈ એક્સ્ટેન્શન ઇચ્છે છે કે તમે Chromeમાં સાઇન ઇન કરો</translation>
 <translation id="8041795619940733262">આ ટૅબ વિશે<ph name="LINE_BREAK" />Googleને પૂછો</translation>
 <translation id="80471789339884597">ઇન્સ્ટૉલ કરવા બદલ આભાર. તમારે <ph name="BUNDLE_NAME" />નો ઉપયોગ કરતા પહેલાં તમારા બધા બ્રાઉઝર ફરી શરૂ કરવા આવશ્યક છે.</translation>
@@ -695,6 +737,7 @@ Google Chrome તમારા સેટિંગને રિકવર કરી
 <translation id="8064965390968184078">1. નીચે <ph name="BUTTON_LABEL" /> ક્લિક કરો
 2. તમારા Windows સેટિંગમાં <ph name="BUTTON_2" /> પર ક્લિક કરો
 3. ઝડપી ઍક્સેસ માટે Chromeને તમારા ટાસ્કબાર પર પિન કરવા માટે Windows નોટિફિકેશનમાં <ph name="BUTTON_3" /> પર ક્લિક કરો</translation>
+<translation id="8069447462453318634">"ટૂલબાર પર પિન કરો" પસંદ કરો</translation>
 <translation id="8074398340364918139">Chromeની કોઈ ચોક્કસ સુવિધા કે એક્સ્ટેન્શન શોધવા માટે, ઍડ્રેસ બારમાં તેનો શૉર્ટકટ અને તે પછી પસંદ કરેલા તમારા કીબોર્ડની કી ટાઇપ કરો</translation>
 <translation id="8077579734294125741">અન્ય Chrome પ્રોફાઇલ</translation>
 <translation id="8086881907087796310">તમારું કમ્પ્યૂટર, હાર્ડવેરની ઓછામાં ઓછી આવશ્યકતાઓ પૂર્ણ ન કરી શકવાને કારણે ઇન્સ્ટૉલેશન નિષ્ફળ રહ્યું.</translation>
@@ -751,6 +794,7 @@ Google Chrome તમારા સેટિંગને રિકવર કરી
 <translation id="8624541899164515475">સેટિંગ, નવા ટૅબમાં ખૂલે છે.</translation>
 <translation id="8625237574518804553">{0,plural, =1{Chrome 1 મિનિટમાં ફરીથી લૉન્ચ થશે}one{Chrome # મિનિટમાં ફરીથી લૉન્ચ થશે}other{Chrome # મિનિટમાં ફરીથી લૉન્ચ થશે}}</translation>
 <translation id="8637932705841171563">તમારી વિન્ડો શેર કરવા માટે, સિસ્ટમના સેટિંગમાં Chrome માટે સ્ક્રીન રેકોર્ડિંગની મંજૂરી આપો</translation>
+<translation id="8642497536370021917">તમે હંમેશાં તમારા Google એકાઉન્ટમાં Chromeના ડેટાનો ઉપયોગ કરી શકો અને તેને સાચવી શકો તેની ખાતરી કરવા માટે, આ તમે જ છો તેની ચકાસણી કરો</translation>
 <translation id="8656634243791296665">Chrome Devમાં Gemini ખોલો</translation>
 <translation id="8669527147644353129">Google Chrome સહાયક</translation>
 <translation id="8679801911857917785">જ્યારે તમે Chrome શરૂ કરો ત્યારે કયું પેજ બતાવવામાં આવે તે તેનું પણ નિયંત્રણ કરે છે.</translation>
@@ -775,12 +819,23 @@ Google Chrome તમારા સેટિંગને રિકવર કરી
 <translation id="8865415417596392024">તમારા એકાઉન્ટમાંનો Chrome ડેટા</translation>
 <translation id="8883862939660515976">આ છબી વિશે Google Lensને પૂછો</translation>
 <translation id="8914504000324227558">Chrome ફરીથી લોંચ કરો</translation>
+<translation id="8920304659326707347">iOS પર Chrome વડે તમે જ્યાંથી છોડ્યું હતું, ત્યાંથી શરૂ કરો.</translation>
 <translation id="8922193594870374009"><ph name="ORIGIN" />માંથી તમારા Android ફોન પર નંબર મોકલવા માટે, બન્ને ડિવાઇસ પર Chromeમાં સાઇન ઇન કરો.</translation>
 <translation id="8922998289262614701">Chromeમાંથી આ ઍપનો ડેટા કાઢી નાખો</translation>
 <translation id="8925636929359899517">અમે આ સેવામાં સુધારણા કરવા માટે માહિતીનો ઉપયોગ કરીએ છીએ. <ph name="BEGIN_LINK1" />પ્રાઇવસી પૉલિસી<ph name="END_LINK1" /> અને <ph name="BEGIN_LINK2" />સેવાની શરતો<ph name="END_LINK2" /> જુઓ.</translation>
 <translation id="8936233353620149764">Chromeમાં Gemini ટૉગલ કરો</translation>
+<translation id="8944232836376404813">આ ઍક્શન કરવાથી:
+          <ph name="LINE_BREAKS" />
+            • તમારું સ્ટાર્ટઅપ પેજ, નવું ટૅબ પેજ, શોધ એન્જિન અને પિન કરેલા ટૅબ રીસેટ થઈ જશે
+            <ph name="LINE_BREAK" />
+            • એક્સ્ટેન્શન બંધ થઈ જશે
+            <ph name="LINE_BREAK" />
+            • કુકી અને સાઇટનો અન્ય હંગામી ડેટા ડિલીટ થઈ જશે
+            <ph name="LINE_BREAKS" />
+            બુકમાર્ક, ઇતિહાસ અને સાચવેલા પાસવર્ડને કોઈ અસર થશે નહીં.</translation>
 <translation id="8948460679427074738">આ એક્સ્ટેન્શન દ્વારા તેની ડેટા એકત્રિત કરવાની અને તેનો ઉપયોગ કરવાની રીત જેવી પ્રાઇવસી પ્રૅક્ટિસ પબ્લિશ કરવામાં આવી નથી. Chrome તેને કાઢી નાખવાનો સુઝાવ તમને આપે છે.</translation>
 <translation id="8958307504142971576">Chromeમાં હવે તમારા માટે વધુ સુવિધાઓ ઉપલબ્ધ છે</translation>
+<translation id="8987061207681586800">Chrome ને તમારું બનાવો</translation>
 <translation id="8991530961471831170">Chromeમાં Gemini ખોલો</translation>
 <translation id="8992769679401294069">તમારો ડેટા તમારા પાસફ્રેઝ વડે એન્ક્રિપ્ટ કરવામાં આવ્યો છે. તમારા Google એકાઉન્ટમાં Chrome ડેટાનો ઉપયોગ કરવા અને તેને સાચવવા માટે, તમારો પાસફ્રેઝ દાખલ કરો.</translation>
 <translation id="8999117580775242387">જ્યારે HTTPS ઉપલબ્ધ ન હોય, ત્યારે Chrome તમને ચેતવણી આપ્યા વિના અસુરક્ષિત કનેક્શનનો ઉપયોગ કરશે</translation>
@@ -789,17 +844,20 @@ Google Chrome તમારા સેટિંગને રિકવર કરી
 <translation id="9018218886431812662">ઇન્સ્ટૉલેશન પૂર્ણ</translation>
 <translation id="9024318700713112071">Chromeને તમારા ડિફૉલ્ટ બ્રાઉઝર તરીકે સેટ કરો</translation>
 <translation id="9066987883552592250">Chrome Canaryમાં Gemini બંધ કરો</translation>
+<translation id="9074041031320636790">સફળતા! હવે તમે Google Search AI મોડ વડે બ્રાઉઝ કરો ત્યારે સરળતાથી પ્રશ્નો પૂછી શકો છો</translation>
 <translation id="9090566250983691233">Chrome શા માટે અમુક ફાઇલો બ્લૉક કરે છે, તે જાણો</translation>
 <translation id="9106236359747881194">શોધવા માટે ટેક્સ્ટ પસંદ કરો</translation>
 <translation id="911206726377975832">તમારો બ્રાઉઝિંગ ડેટા પણ ડિલીટ કરી દઈએ?</translation>
 <translation id="9134482777260927479">હોમવર્ક માટે મદદ</translation>
 <translation id="9138603949443464873">તમારા ફેરફારો લાગુ કરવા માટે, Chromeને ફરી લૉન્ચ કરો</translation>
 <translation id="9148058034647219655">બહાર નીકળો</translation>
+<translation id="9150331942025550505">જ્યારે તમે તમારા <ph name="DEVICE_TYPE" /> પર Chrome ઍપનો ઉપયોગ કરો, ત્યારે AIનું સામર્થ્ય મેળવો</translation>
 <translation id="919706545465235479">સમન્વયન પ્રારંભ કરવા માટે Chrome અપડેટ કરો</translation>
 <translation id="922152298093051471">Chrome કસ્ટમાઇઝ કરો</translation>
 <translation id="93760716455950538">ChromeOS Flex ફરી શરૂ કરો</translation>
 <translation id="943390475793766444">Chrome આ ફાઇલને સ્કૅન કરવાનો સુઝાવ આપે છે, કારણ કે તે જોખમકારક હોઈ શકે છે.</translation>
 <translation id="945522503751344254">પ્રતિસાદ મોકલો</translation>
+<translation id="973195869036269770">તમારા એકાઉન્ટની સાઇન ઇન વિગતો જૂની હોવાને કારણે ChromeOS તમારા Google એકાઉન્ટમાં Chrome ડેટા સાચવી શક્યું નથી</translation>
 <translation id="983803489796659991">અપડેટ સર્વર પાસે ઍપ્લિકેશન માટે કોઈ હૅશ સંબંધી ડેટા ન હોવાને કારણે ઇન્સ્ટૉલેશન નિષ્ફળ રહ્યું.</translation>
 <translation id="989369509083708165">Google Chrome તમારું ડિફૉલ્ટ બ્રાઉઝર છે</translation>
 <translation id="989816563149873169"><ph name="SHORTCUT" /> વડે એક Chrome પ્રોફાઇલથી બીજી Chrome પ્રોફાઇલ પર સ્વિચ કરી શકાય છે</translation>

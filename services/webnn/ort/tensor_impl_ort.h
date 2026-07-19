@@ -23,7 +23,6 @@ class TensorImplOrt final : public WebNNTensorImpl {
                 mojom::TensorInfoPtr tensor_info,
                 size_t size,
                 ScopedOrtValue tensor,
-                bool can_access_on_cpu,
                 scoped_refptr<DeviceAllocator> device_allocator);
 
   TensorImplOrt(mojo::PendingAssociatedReceiver<mojom::WebNNTensor> receiver,
@@ -31,6 +30,7 @@ class TensorImplOrt final : public WebNNTensorImpl {
                 mojom::TensorInfoPtr tensor_info,
                 RepresentationPtr representation,
                 size_t size,
+                ScopedOrtExternalMemoryHandle d3d_heap_external_memory_handle,
                 ScopedOrtValue tensor);
 
   TensorImplOrt(const TensorImplOrt&) = delete;
@@ -56,12 +56,12 @@ class TensorImplOrt final : public WebNNTensorImpl {
   // and declared before `tensor_` to ensure correct destruction order to avoid
   // use-after-free errors.
   scoped_refptr<DeviceAllocator> device_allocator_;
+  // ORT wrapper around the D3D12 heap handle used for external memory import.
+  // Valid if the tensor was created with the ORT interop API. Must be kept
+  // alive for the lifetime of the OrtValue.
+  const ScopedOrtExternalMemoryHandle d3d_heap_external_memory_handle_;
   const ScopedOrtValue tensor_ GUARDED_BY_CONTEXT(sequence_checker_);
   const size_t size_;
-  // Whether `tensor_`'s backing memory is CPU-accessible. When false (e.g.
-  // WebGPU EP device tensors), `AsSpan()` must not be called because
-  // `GetTensorMutableData()` returns a device handle, not a host pointer.
-  const bool can_access_on_cpu_ = true;
 };
 
 }  // namespace webnn::ort

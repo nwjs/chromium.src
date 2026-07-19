@@ -155,6 +155,7 @@ void PolicyUIHandler::AddCommonLocalizedStringsToSource(
       {"ignored", IDS_POLICY_LABEL_IGNORED},
       {"notSpecified", IDS_POLICY_NOT_SPECIFIED},
       {"ok", IDS_POLICY_OK},
+      {"restartRequired", IDS_POLICY_RESTART_REQUIRED},
       {"scopeDevice", IDS_POLICY_SCOPE_DEVICE},
       {"scopeUser", IDS_POLICY_SCOPE_USER},
       {"title", IDS_POLICY_TITLE},
@@ -256,10 +257,10 @@ void PolicyUIHandler::HandleUploadReport(const base::ListValue& args) {
       report_count, base::BindOnce(&PolicyUIHandler::OnReportUploaded,
                                    weak_factory_.GetWeakPtr(), callback_id));
   if (report_scheduler) {
-    report_scheduler->UploadFullReport(on_report_uploaded);
+    report_scheduler->UploadReport(on_report_uploaded);
   }
   if (profile_report_scheduler) {
-    profile_report_scheduler->UploadFullReport(on_report_uploaded);
+    profile_report_scheduler->UploadReport(on_report_uploaded);
   }
 }
 

@@ -8,11 +8,11 @@ import type {DragEventSource} from 'chrome://resources/mojo/ui/base/dragdrop/moj
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {TestBrowserProxy} from 'chrome://webui-test/test_browser_proxy.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
-import {BrowserProxyImpl, LhsChipIdentifier, PermissionAction, PermissionChipTheme, PermissionPromptStyle} from 'chrome://webui-toolbar.top-chrome/app.js';
+import {BrowserProxyImpl, INVALID_FOCUS_REQUEST_HANDLE, INVALID_NAVIGATION_CONTROLS_STATE_LISTENER_HANDLE, LhsChipIdentifier, PermissionAction, PermissionChipTheme, PermissionPromptStyle} from 'chrome://webui-toolbar.top-chrome/app.js';
 import type {PermissionChipElement, PermissionChipState} from 'chrome://webui-toolbar.top-chrome/app.js';
-import type {BrowserControlsServiceInterface} from 'chrome://webui-toolbar.top-chrome/browser_controls_api.mojom-webui.js';
 import type {BrowserProxy} from 'chrome://webui-toolbar.top-chrome/browser_proxy.js';
-import type {ToolbarUIServiceInterface} from 'chrome://webui-toolbar.top-chrome/toolbar_ui_api.mojom-webui.js';
+import type {BrowserControlsServiceInterface} from 'chrome://webui-toolbar.top-chrome/shared/browser_controls_api.mojom-webui.js';
+import type {ToolbarUIServiceInterface} from 'chrome://webui-toolbar.top-chrome/shared/toolbar_ui_api.mojom-webui.js';
 
 class TestToolbarUiHandler extends TestBrowserProxy implements
     ToolbarUIServiceInterface {
@@ -40,11 +40,26 @@ class TestToolbarUiHandler extends TestBrowserProxy implements
   showContentSettingsBubble() {
     return new Promise<never>(() => {});
   }
+  onPageActionClick() {
+    return new Promise<never>(() => {});
+  }
+  onPageActionChipShowingChanged() {
+    return new Promise<never>(() => {});
+  }
   invokePinnedToolbarAction() {}
   onHomeButtonDropUrl() {}
   onHomeButtonDropFile() {}
   onToolbarDropFile() {}
   showAvatarMenu() {
+    return new Promise<never>(() => {});
+  }
+  setAvatarButtonHovered(_hovered: boolean) {
+    return new Promise<never>(() => {});
+  }
+  setAvatarButtonFocused(_focused: boolean) {
+    return new Promise<never>(() => {});
+  }
+  setAvatarButtonIphPromoShowing(_showing: boolean) {
     return new Promise<never>(() => {});
   }
 
@@ -106,6 +121,9 @@ class TestBrowserControlsHandler extends TestBrowserProxy implements
   navigate() {
     return new Promise<never>(() => {});
   }
+  navigateText() {
+    return new Promise<never>(() => {});
+  }
 }
 
 class TestToolbarBrowserProxy extends TestBrowserProxy implements BrowserProxy {
@@ -124,9 +142,13 @@ class TestToolbarBrowserProxy extends TestBrowserProxy implements BrowserProxy {
 
   recordInHistogram() {}
   addNavigationStateListener() {
-    return -1;
+    return INVALID_NAVIGATION_CONTROLS_STATE_LISTENER_HANDLE;
+  }
+  addFocusRequestListener() {
+    return INVALID_FOCUS_REQUEST_HANDLE;
   }
   removeNavigationStateListener() {}
+  removeFocusRequestListener() {}
 }
 
 suite('PermissionChipTest', function() {
@@ -140,7 +162,7 @@ suite('PermissionChipTest', function() {
       accessibilityName: 'Camera',
       tooltip: 'Camera in use',
       isVisible: true,
-      iconName: 'kVideocamChromeRefreshIcon',
+      iconName: 'kVideocamChromeRefreshOldIcon',
       theme: PermissionChipTheme.kNormalVisibility,
       promptStyle: PermissionPromptStyle.kChip,
       userDecision: PermissionAction.kGranted,
@@ -185,6 +207,10 @@ suite('PermissionChipTest', function() {
     const messageEl = chip.shadowRoot.querySelector<HTMLElement>('#message');
     assertTrue(!!messageEl);
     assertEquals('Camera', messageEl.textContent);
+
+    // Verify it is a button for accessibility
+    assertEquals('BUTTON', chipEl.tagName);
+    assertEquals('Camera', chipEl.getAttribute('aria-label'));
   });
 
   test('Click events', async function() {

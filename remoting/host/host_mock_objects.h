@@ -16,6 +16,7 @@
 #include "build/build_config.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "remoting/base/errors.h"
+#include "remoting/base/ipc_fifo_buffer.h"
 #include "remoting/base/session_policies.h"
 #include "remoting/host/action_executor.h"
 #include "remoting/host/active_display_monitor.h"
@@ -53,7 +54,6 @@ class TimeDelta;
 }  // namespace base
 
 namespace remoting {
-class IpcFifoBufferReader;
 
 class MockDesktopEnvironment : public DesktopEnvironment {
  public:
@@ -315,8 +315,12 @@ class MockSecurityKeyAuthHandler : public SecurityKeyAuthHandler {
       const SecurityKeyAuthHandler::SendMessageCallback& callback) override;
   const SecurityKeyAuthHandler::SendMessageCallback& GetSendMessageCallback();
 
+  base::WeakPtr<SecurityKeyAuthHandler> GetWeakPtr() override;
+
  private:
   SecurityKeyAuthHandler::SendMessageCallback callback_;
+
+  base::WeakPtrFactory<MockSecurityKeyAuthHandler> weak_factory_{this};
 };
 
 class MockMouseCursorMonitor : public protocol::MouseCursorMonitor {

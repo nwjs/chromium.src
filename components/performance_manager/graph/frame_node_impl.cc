@@ -81,13 +81,13 @@ FrameNodeImpl::FrameNodeImpl(
       is_active_(is_active),
       priority_and_reason_(PriorityAndReason(base::Process::Priority::kMinValue,
                                              kDefaultPriorityReason),
-                           perfetto::NamedTrack("Priority", 0, tracing_track_),
+                           perfetto::StateTrack("Priority", 0, tracing_track_),
                            PriorityAndReasonToString),
       is_audible_(false,
-                  perfetto::NamedTrack("IsAudible", 0, tracing_track_),
+                  perfetto::StateTrack("IsAudible", 0, tracing_track_),
                   YesNoStateToString),
       visibility_(Visibility::kUnknown,
-                  perfetto::NamedTrack("Visibility", 0, tracing_track_),
+                  perfetto::StateTrack("Visibility", 0, tracing_track_),
                   FrameNodeVisibilityToString) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   DCHECK(process_node);
@@ -851,6 +851,9 @@ void FrameNodeImpl::OnUninitializingEdges() {
   // Leave the page.
   DCHECK(graph()->NodeInGraph(page_node_));
   page_node_->RemoveFrame(base::PassKey<FrameNodeImpl>(), this);
+  TRACE_EVENT_INSTANT("performance_manager.graph", "DetachPage",
+                      perfetto::NamedTrack("Edges", 0, tracing_track_),
+                      perfetto::TerminatingFlow::FromPointer(this));
 
   // Leave the frame hierarchy.
   if (parent_frame_node_) {

@@ -78,6 +78,13 @@ TranslateLanguageSearchView::TranslateLanguageSearchView(
 
 TranslateLanguageSearchView::~TranslateLanguageSearchView() = default;
 
+// Focus on the search field when TranslateLanguageSearchView is focused.
+void TranslateLanguageSearchView::RequestFocus() {
+  if (search_field_) {
+    search_field_->RequestFocus();
+  }
+}
+
 void TranslateLanguageSearchView::ContentsChanged(
     views::Textfield* sender,
     const std::u16string& new_contents) {
@@ -124,13 +131,26 @@ void TranslateLanguageSearchView::UpdateLanguageList(
     CreateLanguageHoverButton(i);
   }
 
+  if (list_view_->children().empty()) {
+    views::Label* no_results_label =
+        list_view_->AddChildView(std::make_unique<views::Label>(
+            l10n_util::GetStringUTF16(IDS_TRANSLATE_BUBBLE_NO_RESULTS),
+            views::style::CONTEXT_LABEL, views::style::STYLE_SECONDARY));
+    no_results_label->SetProperty(views::kMarginsKey, gfx::Insets::VH(16, 8));
+  }
+
   list_view_->InvalidateLayout();
 }
 
 void TranslateLanguageSearchView::OnLanguageButtonPressed(int language_index) {
   search_field_->SetText(model_->GetTargetLanguageNameAt(language_index));
-  UpdateLanguageList(std::u16string(search_field_->GetText()));
+  ClearLanguageList();
   on_language_selected_.Run(language_index);
+}
+
+void TranslateLanguageSearchView::ClearLanguageList() {
+  list_view_->RemoveAllChildViews();
+  list_view_->InvalidateLayout();
 }
 
 BEGIN_METADATA(TranslateLanguageSearchView)

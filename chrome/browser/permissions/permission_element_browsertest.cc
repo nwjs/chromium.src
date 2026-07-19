@@ -5,6 +5,7 @@
 #include <memory>
 #include <optional>
 
+#include "base/command_line.h"
 #include "base/strings/strcat.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/single_thread_task_runner.h"
@@ -26,17 +27,18 @@
 #include "components/permissions/permission_request_manager.h"
 #include "components/permissions/test/mock_permission_request.h"
 #include "components/permissions/test/permission_request_observer.h"
+#include "components/ukm/test_ukm_recorder.h"
 #include "components/zoom/zoom_controller.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/render_frame_host_test_support.h"
 #include "content/public/test/test_devtools_protocol_client.h"
+#include "media/base/media_switches.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
+#include "services/metrics/public/cpp/ukm_builders.h"
 #include "third_party/blink/public/common/features_generated.h"
 #include "third_party/blink/public/mojom/permissions/permission.mojom-shared.h"
-#include "components/ukm/test_ukm_recorder.h"
-#include "services/metrics/public/cpp/ukm_builders.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/views/widget/any_widget_observer.h"
 
@@ -63,6 +65,11 @@ class PermissionElementBrowserTestBase
       const PermissionElementBrowserTestBase&) = delete;
 
   ~PermissionElementBrowserTestBase() override = default;
+
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    InProcessBrowserTest::SetUpCommandLine(command_line);
+    command_line->AppendSwitch(switches::kUseFakeDeviceForMediaStream);
+  }
 
   void SetUpOnMainThread() override {
     // Open and reset DevTools. This is needed to be able to observer the
@@ -182,13 +189,22 @@ class PermissionElementBrowserTest : public PermissionElementBrowserTestBase {
     feature_list_.InitWithFeatures(
         {blink::features::kGeolocationElement,
          blink::features::kUserMediaElement,
+         blink::features::kUserMediaElementLegacy,
          blink::features::kBypassPepcSecurityForTesting},
         {permissions::features::kPermissionElementPromptPositioning});
   }
 };
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
+#define MAYBE_RequestPermissionDispatchResolveEvent \
+  DISABLED_RequestPermissionDispatchResolveEvent
+#else
+#define MAYBE_RequestPermissionDispatchResolveEvent \
+  RequestPermissionDispatchResolveEvent
+#endif
+
 IN_PROC_BROWSER_TEST_F(PermissionElementBrowserTest,
-                       RequestPermissionDispatchResolveEvent) {
+                       MAYBE_RequestPermissionDispatchResolveEvent) {
   permissions::PermissionRequestManager::AutoResponseType responses[] = {
       permissions::PermissionRequestManager::AutoResponseType::ACCEPT_ALL,
       permissions::PermissionRequestManager::AutoResponseType::ACCEPT_ONCE,
@@ -449,7 +465,8 @@ class PermissionElementWithSecurityBrowserTest
  public:
   PermissionElementWithSecurityBrowserTest() {
     feature_list_.InitWithFeatures({blink::features::kGeolocationElement,
-                                    blink::features::kUserMediaElement},
+                                    blink::features::kUserMediaElement,
+                                    blink::features::kUserMediaElementLegacy},
                                    {});
   }
 };
@@ -503,6 +520,7 @@ class PermissionElementStandardizedBrowserZoomTest
       feature_list_.InitWithFeatures(
           {blink::features::kGeolocationElement,
            blink::features::kUserMediaElement,
+           blink::features::kUserMediaElementLegacy,
            blink::features::kBypassPepcSecurityForTesting,
            blink::features::kStandardizedBrowserZoom},
           {});
@@ -510,6 +528,7 @@ class PermissionElementStandardizedBrowserZoomTest
       feature_list_.InitWithFeatures(
           {blink::features::kGeolocationElement,
            blink::features::kUserMediaElement,
+           blink::features::kUserMediaElementLegacy,
            blink::features::kBypassPepcSecurityForTesting},
           {blink::features::kStandardizedBrowserZoom});
     }
@@ -555,6 +574,7 @@ class PermissionElementNearElementBrowserTest
     feature_list_.InitWithFeaturesAndParameters(
         {{blink::features::kGeolocationElement, {}},
          {blink::features::kUserMediaElement, {}},
+         {blink::features::kUserMediaElementLegacy, {}},
          {blink::features::kBypassPepcSecurityForTesting, {}},
          {permissions::features::kPermissionElementPromptPositioning,
           {{"PermissionElementPromptPositioningParam", "near_element"}}}},
@@ -569,6 +589,7 @@ class PermissionElementWindowMiddleBrowserTest
     feature_list_.InitWithFeaturesAndParameters(
         {{blink::features::kGeolocationElement, {}},
          {blink::features::kUserMediaElement, {}},
+         {blink::features::kUserMediaElementLegacy, {}},
          {blink::features::kBypassPepcSecurityForTesting, {}},
          {permissions::features::kPermissionElementPromptPositioning,
           {{"PermissionElementPromptPositioningParam", "window_middle"}}}},
@@ -583,6 +604,7 @@ class PermissionElementLegacyPromptBrowserTest
     feature_list_.InitWithFeaturesAndParameters(
         {{blink::features::kGeolocationElement, {}},
          {blink::features::kUserMediaElement, {}},
+         {blink::features::kUserMediaElementLegacy, {}},
          {blink::features::kBypassPepcSecurityForTesting, {}},
          {permissions::features::kPermissionElementPromptPositioning,
           {{"PermissionElementPromptPositioningParam", "legacy_prompt"}}}},
@@ -622,6 +644,7 @@ class MiscellaneousElementBrowserTest
     feature_list_.InitWithFeatures(
         {blink::features::kGeolocationElement,
          blink::features::kUserMediaElement,
+         blink::features::kUserMediaElementLegacy,
          blink::features::kBypassPepcSecurityForTesting,
          blink::features::kInstallElement},
         {permissions::features::kPermissionElementPromptPositioning});

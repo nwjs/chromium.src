@@ -707,7 +707,7 @@ TEST_F(AccountTrackerServiceTest, TokenAvailable_AccountCapabilitiesFailed) {
   EXPECT_TRUE(CheckAccountTrackerEvents({}));
   AccountInfo account_info = account_tracker()->GetAccountInfo(
       AccountKeyToAccountId(kAccountKeyAlpha));
-  EXPECT_FALSE(account_info.capabilities.AreAllCapabilitiesKnown());
+  EXPECT_FALSE(account_info.GetAccountCapabilities().AreAllCapabilitiesKnown());
 }
 
 TEST_F(AccountTrackerServiceTest, TokenAvailable_AccountCapabilitiesCancelled) {
@@ -722,7 +722,7 @@ TEST_F(AccountTrackerServiceTest, TokenAvailable_AccountCapabilitiesCancelled) {
   EXPECT_TRUE(CheckAccountTrackerEvents({}));
   AccountInfo account_info = account_tracker()->GetAccountInfo(
       AccountKeyToAccountId(kAccountKeyAlpha));
-  EXPECT_FALSE(account_info.capabilities.AreAllCapabilitiesKnown());
+  EXPECT_FALSE(account_info.GetAccountCapabilities().AreAllCapabilitiesKnown());
 }
 
 TEST_F(AccountTrackerServiceTest,
@@ -769,8 +769,9 @@ TEST_F(AccountTrackerServiceTest,
   EXPECT_FALSE(account_fetcher()->AreAllAccountCapabilitiesFetched());
   AccountInfo account_info = account_tracker()->GetAccountInfo(
       AccountKeyToAccountId(kAccountKeyAlpha));
-  EXPECT_EQ(account_info.capabilities.can_fetch_family_member_info(),
-            signin::Tribool::kTrue);
+  EXPECT_EQ(
+      account_info.GetAccountCapabilities().can_fetch_family_member_info(),
+      signin::Tribool::kTrue);
 
   // Phase 2: complete the fetch.
   CompleteAccountCapabilitiesFetchWithoutCapabilities(kAccountKeyAlpha);
@@ -1295,6 +1296,36 @@ TEST_F(AccountTrackerServiceTest, TimerRefresh) {
   EXPECT_FALSE(account_fetcher()->AreAllAccountCapabilitiesFetched());
 }
 
+TEST_F(AccountTrackerServiceTest, FetchAccountInfoOnRestart) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      switches::kFetchAccountInfoOnRestart);
+
+  // Setup tracker with a valid, persisted account whose UserInfo and
+  // Capabilities are known.
+  ResetAccountTracker();
+  SimulateTokenAvailable(kAccountKeyAlpha);
+  ReturnAccountInfoFetchSuccess(kAccountKeyAlpha);
+  ReturnAccountCapabilitiesFetchSuccess(kAccountKeyAlpha);
+
+  // Rewind time by 12 hours (not enough to trigger the legacy 24h timer).
+  base::Time fake_update = base::Time::Now() - base::Hours(12);
+  signin_client()->GetPrefs()->SetTime(AccountFetcherService::kLastUpdatePref,
+                                       fake_update);
+
+  // Reinstantiate ATS with network disabled.
+  ResetAccountTrackerNetworkDisabled();
+  EXPECT_TRUE(account_fetcher()->IsAllUserInfoFetched());
+  EXPECT_TRUE(account_fetcher()->AreAllAccountCapabilitiesFetched());
+
+  // Enable network fetches (simulating startup completion).
+  account_fetcher()->EnableNetworkFetchesForTest();
+
+  // BOTH UserInfo and Capabilities MUST be fetching due to the restart feature
+  // flag.
+  EXPECT_FALSE(account_fetcher()->IsAllUserInfoFetched());
+  EXPECT_FALSE(account_fetcher()->AreAllAccountCapabilitiesFetched());
+}
+
 TEST_F(AccountTrackerServiceTest, LoadFromPrefs_RemovesAccountsWithoutGaiaId) {
   base::test::ScopedFeatureList scoped_feature_list(
       switches::kGaiaAccountIdEnforcement);
@@ -1786,6 +1817,66 @@ TEST_F(AccountTrackerServiceTest, CountOfLoadedAccounts_TwoAccounts) {
   EXPECT_THAT(
       tester.GetAllSamples("Signin.AccountTracker.CountOfLoadedAccounts"),
       testing::ElementsAre(base::Bucket(2, 1)));
+}
+
+TEST_F(AccountTrackerServiceTest, SaveToPrefs_CapabilityOverridesOverwritten) {
+  base::ScopedTempDir scoped_user_data_dir;
+  ASSERT_TRUE(scoped_user_data_dir.CreateUniqueTempDir());
+
+  ResetAccountTrackerWithPersistence(scoped_user_data_dir.GetPath());
+
+  // Set an override.
+  AccountCapabilities capabilities;
+  AccountCapabilitiesTestMutator mutator(&capabilities);
+  mutator.SetCapabilityOverride(
+      kCanShowHistorySyncOptInsWithoutMinorModeRestrictionsCapabilityName,
+      signin::Tribool::kTrue);
+
+  AccountInfo account_info =
+      AccountInfo::Builder(AccountKeyToGaiaId(kAccountKeyAlpha),
+                           AccountKeyToEmail(kAccountKeyAlpha))
+          .SetAccountId(AccountKeyToAccountId(kAccountKeyAlpha))
+          .SetAccountCapabilities(capabilities)
+          .Build();
+
+  // Save to prefs.
+  SaveToPrefs(account_info);
+
+  // Verify that it is loaded back correctly from prefs.
+  ResetAccountTrackerWithPersistence(scoped_user_data_dir.GetPath());
+  std::vector<AccountInfo> infos = account_tracker()->GetAccounts();
+  ASSERT_EQ(1u, infos.size());
+  EXPECT_EQ(
+      infos[0]
+          .GetAccountCapabilities()
+          .can_show_history_sync_opt_ins_without_minor_mode_restrictions(),
+      signin::Tribool::kTrue);
+
+  // Clear the overrides.
+  AccountCapabilities capabilities_updated;
+  AccountInfo account_info_updated =
+      AccountInfo::Builder(AccountKeyToGaiaId(kAccountKeyAlpha),
+                           AccountKeyToEmail(kAccountKeyAlpha))
+          .SetAccountId(AccountKeyToAccountId(kAccountKeyAlpha))
+          .SetAccountCapabilities(capabilities_updated)
+          .Build();
+
+  // Save to prefs again.
+  SaveToPrefs(account_info_updated);
+
+  // Reload and verify that the capability override was cleared.
+  ResetAccountTrackerWithPersistence(scoped_user_data_dir.GetPath());
+  infos = account_tracker()->GetAccounts();
+  ASSERT_EQ(1u, infos.size());
+  EXPECT_EQ(
+      infos[0]
+          .GetAccountCapabilities()
+          .can_show_history_sync_opt_ins_without_minor_mode_restrictions(),
+      signin::Tribool::kUnknown);
+
+  // Clean up.
+  ResetAccountTracker();
+  ASSERT_TRUE(scoped_user_data_dir.Delete());
 }
 
 #if BUILDFLAG(IS_CHROMEOS)

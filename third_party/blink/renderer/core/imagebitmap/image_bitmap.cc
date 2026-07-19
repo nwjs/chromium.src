@@ -436,7 +436,7 @@ ImageBitmap::ImageBitmap(ImageData* data,
   // Create a StaticBitmapImage that directly references the ImageData pixels.
   SkPixmap pm = data->GetSkPixmap();
   auto sk_data = SkData::MakeWithoutCopy(pm.addr(), pm.computeByteSize());
-  auto image = StaticBitmapImage::Create(sk_data, pm.info(),
+  auto image = StaticBitmapImage::Create(sk_data, pm.info(), gfx::HDRMetadata(),
                                          ImageOrientationEnum::kOriginTopLeft);
 
   // Force a copy of the data during the transformation (so that we do not
@@ -494,10 +494,10 @@ scoped_refptr<StaticBitmapImage> ImageBitmap::Transfer() {
     // For it to be safe to transfer a StaticBitmapImage it must not be
     // referenced by any other object on this thread.
     // The first step is to attempt to release other references via
-    // NotifyWillTransfer
+    // NotifyImageBitmapWillTransfer.
     const auto content_id =
         image_->PaintImageForCurrentFrame().GetContentIdForFrame(0);
-    CanvasResourceProvider::NotifyWillTransfer(content_id);
+    NotifyImageBitmapWillTransfer(content_id);
 
     // If will still have other references, the last resort is to make a copy
     // of the bitmap.  This could happen, for example, if another ImageBitmap

@@ -225,7 +225,7 @@ GPUCanvasContext::GetOrCreateCanvasResourceProvider() {
         resource_provider_ =
             CanvasNon2DResourceProviderSharedImage::CreateForWebGPU(
                 Host()->Size(), GetSharedImageFormat(), GetAlphaType(),
-                GetColorSpace(),
+                GetColorSpace(), swap_buffers_->GetHDRMetadata(),
                 swap_buffers_->GetSharedImageUsagesForDisplay(), Host());
       }
       Host()->UpdateMemoryUsage();
@@ -233,11 +233,11 @@ GPUCanvasContext::GetOrCreateCanvasResourceProvider() {
     }
     if (!provider) {
       did_fail_to_create_resource_provider_ = true;
-    } else if (provider->IsValid()) {
+    } else {
       base::UmaHistogramBoolean("Blink.Canvas.ResourceProviderIsAccelerated",
-                                provider->IsAccelerated());
+                                true);
       base::UmaHistogramEnumeration("Blink.Canvas.ResourceProviderType",
-                                    provider->GetType());
+                                    CanvasResourceProviderType::kSharedImage);
     }
   }
   return provider;
@@ -319,12 +319,14 @@ void GPUCanvasContext::SizeChanged() {
   resource_provider_.reset();
 }
 
-bool GPUCanvasContext::PushFrame() {
+scoped_refptr<CanvasResource> GPUCanvasContext::GetResourceForPushFrame(
+    bool& should_call_push_frame) {
+  should_call_push_frame = false;
   DCHECK(Host());
   DCHECK(Host()->IsOffscreenCanvas());
 
   if (!swap_buffers_) {
-    return false;
+    return nullptr;
   }
 
   gpu::SyncToken sync_token;
@@ -332,7 +334,7 @@ bool GPUCanvasContext::PushFrame() {
   auto client_si =
       swap_buffers_->ExportCurrentSharedImage(sync_token, &release_callback);
   if (!client_si) {
-    return false;
+    return nullptr;
   }
 
   auto canvas_resource = ExternalCanvasResource::Create(
@@ -340,11 +342,12 @@ bool GPUCanvasContext::PushFrame() {
       viz::TransferableResource::ResourceSource::kWebGPUSwapBuffer,
       swap_buffers_->GetHDRMetadata(), std::move(release_callback),
       GetContextProviderWeakPtr());
-  if (!canvas_resource)
-    return false;
+  if (!canvas_resource) {
+    return nullptr;
+  }
 
-  bool result = Host()->PushFrame(std::move(canvas_resource));
-  return result;
+  should_call_push_frame = true;
+  return canvas_resource;
 }
 
 ImageBitmap* GPUCanvasContext::TransferToImageBitmap(
@@ -379,7 +382,8 @@ ImageBitmap* GPUCanvasContext::TransferToImageBitmap(
   return MakeGarbageCollected<ImageBitmap>(
       AcceleratedStaticBitmapImage::CreateFromCanvasSharedImage(
           std::move(client_si), sk_image_sync_token, kPremul_SkAlphaType,
-          GetContextProviderWeakPtr(), base::PlatformThread::CurrentRef(),
+          swap_buffers_->GetHDRMetadata(), GetContextProviderWeakPtr(),
+          base::PlatformThread::CurrentRef(),
           ThreadScheduler::Current()->CleanupTaskRunner(),
           std::move(release_callback)));
 }
@@ -1036,6 +1040,7 @@ scoped_refptr<StaticBitmapImage> GPUCanvasContext::SnapshotInternal(
   auto resource_provider =
       CanvasNon2DResourceProviderSharedImage::CreateForWebGPU(
           size, GetSharedImageFormat(), GetAlphaType(), GetColorSpace(),
+          swap_buffers_->GetHDRMetadata(),
           swap_buffers_->GetSharedImageUsagesForDisplay());
   if (!resource_provider)
     return nullptr;

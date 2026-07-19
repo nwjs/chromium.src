@@ -14,7 +14,7 @@
 #include "chrome/browser/android/tab_android.h"
 #include "chrome/browser/context_sharing/tab_bottom_sheet/android/co_browse_views_bridge.h"
 #include "chrome/browser/context_sharing/tab_bottom_sheet/android/tab_bottom_sheet_bridge.h"
-#include "chrome/browser/glic/android/jni_headers/GlicBottomSheetContentProvider_jni.h"
+#include "chrome/browser/glic/android/jni_headers/GlicBottomSheetComponentProvider_jni.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "components/tabs/public/tab_interface.h"
@@ -46,7 +46,13 @@ GlicSidePanelCoordinatorAndroid::GlicSidePanelCoordinatorAndroid(
 GlicSidePanelCoordinatorAndroid::~GlicSidePanelCoordinatorAndroid() = default;
 
 void GlicSidePanelCoordinatorAndroid::Show(const ShowOptions& options) {
-  if (state_ == State::kShown) {
+  if (options.initial_state == ShowOptions::InitialState::kExpanded &&
+      state_ == State::kShown) {
+    return;
+  }
+
+  if (options.initial_state == ShowOptions::InitialState::kPeeked &&
+      state_ == State::kPeek) {
     return;
   }
 
@@ -164,15 +170,13 @@ void GlicSidePanelCoordinatorAndroid::OnTabWillDeactivate(
 void GlicSidePanelCoordinatorAndroid::OnTabWillDetach(
     tabs::TabInterface* tab,
     tabs::TabInterface::DetachReason detach_reason) {
-  // If the tab was deleted, set the state to backgrounded in case the
-  // deletion is undone.
-  // This can happen if the user closes the tab in the tab switcher, causing the
-  // bottom sheet to appear for the next active tab.
-  if (detach_reason == tabs::TabInterface::DetachReason::kDelete) {
-    if (state_ != State::kClosed) {
-      SetState(State::kBackgrounded);
-      tab_bottom_sheet_bridge_->Close(/* animate= */ false);
-    }
+  // Set the state to backgrounded and close the bottom sheet bridge when
+  // detaching, so that Glic is correctly deactivated. This handles cases where
+  // the tab is being deleted, or moved to another window (such as during a
+  // foldable fold/unfold).
+  if (state_ != State::kClosed) {
+    SetState(State::kBackgrounded);
+    tab_bottom_sheet_bridge_->Close(/* animate= */ false);
   }
 }
 
@@ -192,7 +196,7 @@ void GlicSidePanelCoordinatorAndroid::OnOpened(bool is_expanded) {
 base::android::ScopedJavaLocalRef<jobject>
 GlicSidePanelCoordinatorAndroid::CreateBottomSheetContentProvider() {
   JNIEnv* env = base::android::AttachCurrentThread();
-  return Java_GlicBottomSheetContentProvider_createProvider(
+  return Java_GlicBottomSheetComponentProvider_createProvider(
       env, tab_->GetProfile()->GetJavaObject());
 }
 

@@ -23,13 +23,11 @@ declare_args() {
   # Indicates support for client certificates provisioning.
   # iOS support is currently under development
   enterprise_client_certificates =
-      is_win || is_mac || is_linux || is_android || is_ios
+      is_win || is_mac || is_linux || is_android || is_ios || is_chromeos
 
-  # The watermark is currently implemented using the views framework.
-
+  # Indicates support for watermark.
   enterprise_watermark =
-      toolkit_views && (is_win || is_mac || is_linux || is_chromeos) &&
-      !is_castos
+      (is_win || is_mac || is_linux || is_chromeos) && !is_castos
 
   enterprise_screenshot_protection = is_win || is_mac || is_ios
 
@@ -38,6 +36,9 @@ declare_args() {
   # Support on all platforms except for iOS since it uses `WKWebView` cache.
   enterprise_cache_encryption =
       is_win || is_mac || is_linux || is_chromeos || is_android
+
+  # Indicates support for Enterprise Proxy policy and service.
+  enterprise_proxy = is_win || is_mac || is_linux || is_android
 }
 
 declare_args() {

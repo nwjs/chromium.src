@@ -61,8 +61,7 @@ enum class PageLoadTrackerPageType {
   kPrimaryPage = 0,
   kPrerenderPage = 1,
   kFencedFramesPage = 2,
-  kPreviewPrimaryPage = 3,  // Primary page in the preview mode
-  kMaxValue = kPreviewPrimaryPage,
+  kMaxValue = kFencedFramesPage,
 };
 
 extern const char kErrorEvents[];
@@ -283,6 +282,7 @@ class PageLoadTracker : public PageLoadMetricsUpdateDispatcher::Client,
       const override;
   const std::optional<blink::SubresourceLoadMetrics>&
   GetSubresourceLoadMetrics() const override;
+  const mojom::FontLoadingMetricsPtr& GetFontLoadingMetrics() const override;
   const PageRenderData& GetMainFrameRenderData() const override;
   const ui::ScopedVisibilityTracker& GetVisibilityTracker() const override;
   const ResourceTracker& GetResourceTracker() const override;
@@ -437,9 +437,6 @@ class PageLoadTracker : public PageLoadMetricsUpdateDispatcher::Client,
   // Called when the page tracked was just activated after being prerendered.
   void DidActivatePrerenderedPage(content::NavigationHandle* navigation_handle);
 
-  // Called when the previewed page was activated for the tab promotion.
-  void DidActivatePreviewedPage(base::TimeTicks activation_time);
-
   // Called when a `SharedStorageWorkletHost` is created.
   void OnSharedStorageWorkletHostCreated();
 
@@ -468,7 +465,8 @@ class PageLoadTracker : public PageLoadMetricsUpdateDispatcher::Client,
           subresource_load_metrics,
       std::vector<mojom::SoftNavigationMetricsPtr> soft_navigation_metrics,
       std::vector<mojom::LargestContentfulPaintTimingPtr>
-          soft_largest_contentful_paint);
+          soft_largest_contentful_paint,
+      mojom::FontLoadingMetricsPtr font_loading_metrics);
 
   void AddCustomUserTimings(
       std::vector<mojom::CustomUserTimingMarkPtr> custom_timings);

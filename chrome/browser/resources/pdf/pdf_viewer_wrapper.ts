@@ -33,6 +33,7 @@ export {InkAnnotationTextMixin, TEXT_COLORS, TEXT_SIZES} from './elements/ink_an
 export {InkBrushSelectorElement} from './elements/ink_brush_selector.js';
 export {InkColorSelectorElement} from './elements/ink_color_selector.js';
 export {InkSizeSelectorElement, HIGHLIGHTER_SIZES, PEN_SIZES} from './elements/ink_size_selector.js';
+export {InkTextAnnotationsElement} from './elements/ink_text_annotations.js';
 export {InkTextBoxElement, TextBoxState} from './elements/ink_text_box.js';
 export {SelectableIconButtonElement} from './elements/selectable_icon_button.js';
 export {TextAlignmentSelectorElement} from './elements/text_alignment_selector.js';
@@ -68,7 +69,7 @@ export {GestureDetector} from './gesture_detector.js';
 export type {PinchEventDetail} from './gesture_detector.js';
 // <if expr="enable_pdf_ink2">
 export {DEFAULT_TEXTBOX_WIDTH, Ink2Manager, MIN_TEXTBOX_SIZE_PX} from './ink2_manager.js';
-export type {TextBoxInit, ViewportParams} from './ink2_manager.js';
+export type {TextBoxInit} from './ink2_manager.js';
 export {UndoRedoStack} from './undo_redo_stack.js';
 export type {UndoRedoState, UndoRedoStateChangedDetail} from './undo_redo_stack.js';
 // </if>
@@ -84,6 +85,7 @@ export {PdfViewerPrivateProxyImpl} from './pdf_viewer_private_proxy.js';
 export type {PdfViewerPrivateProxy} from './pdf_viewer_private_proxy.js';
 // </if>
 // <if expr="enable_pdf_ink2">
+export {convertRotatedCoordinates, pageToScreenCoordinates, screenToPageCoordinates} from './ink_text_annotation_utils.js';
 export {hexToColor} from './pdf_viewer_utils.js';
 // </if>
 export {shouldIgnoreKeyEvents} from './pdf_viewer_utils.js';

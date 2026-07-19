@@ -164,19 +164,6 @@ class CastActivityManager : public CastActivityManagerBase,
   FRIEND_TEST_ALL_PREFIXES(CastActivityManagerTest,
                            StartSessionAndRemoveExistingSessionOnSink);
 
-  void SendRouteJsonMessage(const std::string& media_route_id,
-                            const std::string& message,
-                            data_decoder::DataDecoder::ValueOrError result);
-
-  void LaunchSessionParsed(
-      const CastMediaSource& cast_source,
-      const MediaSinkInternal& sink,
-      const std::string& presentation_id,
-      const url::Origin& origin,
-      content::FrameTreeNodeId frame_tree_node_id,
-      mojom::MediaRouteProvider::CreateRouteCallback callback,
-      data_decoder::DataDecoder::ValueOrError result);
-
   // Bundle of parameters for DoLaunchSession().
   struct DoLaunchSessionParams {
     // Note: The compiler-generated constructors and destructor would be

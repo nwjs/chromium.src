@@ -67,6 +67,8 @@ class BLINK_EXPORT WebFormControlElement : public WebElement {
     sk_sp<SkTypeface> typeface;
     std::vector<GlyphInfo> glyphs;
     bool is_horizontal;
+    bool is_synthetic_bold;
+    bool is_synthetic_italic;
   };
 
   struct TextRunInfo {
@@ -78,6 +80,7 @@ class BLINK_EXPORT WebFormControlElement : public WebElement {
   struct TextInfo {
     std::vector<TextRunInfo> text_runs;
     float effective_zoom;
+    float primary_ascent;
   };
 
   explicit WebFormControlElement(

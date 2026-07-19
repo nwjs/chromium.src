@@ -4,8 +4,10 @@
 
 package org.chromium.chrome.browser.omnibox.suggestions;
 
+import android.content.Context;
 import android.graphics.Color;
 import android.view.View;
+import android.view.ViewGroup;
 
 import androidx.annotation.ColorInt;
 
@@ -13,6 +15,8 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.browser.omnibox.R;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxLayoutMode;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
+import org.chromium.chrome.browser.ui.vertical_tabs.VerticalTabUtils;
+import org.chromium.ui.base.ViewUtils;
 import org.chromium.ui.modelutil.ListObservable;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyKey;
@@ -156,15 +160,39 @@ class SuggestionListViewBinder {
             PropertyModel model, SuggestionListViewHolder holder) {
         ModelList listItems = model.get(SuggestionListProperties.SUGGESTION_MODELS);
         boolean shouldListBeVisible =
-                model.get(SuggestionListProperties.OMNIBOX_SESSION_ACTIVE) && listItems.size() > 0;
-        boolean shouldContainerBeVisible =
                 model.get(SuggestionListProperties.ACTIVITY_WINDOW_FOCUSED)
                         && model.get(SuggestionListProperties.OMNIBOX_SESSION_ACTIVE)
+                        && listItems.size() > 0;
+        boolean shouldContainerBeVisible =
+                model.get(SuggestionListProperties.OMNIBOX_SESSION_ACTIVE)
                         && (listItems.size() > 0
                                 || model.get(SuggestionListProperties.CONTAINER_ALWAYS_VISIBLE));
         int listVisibility = shouldListBeVisible ? View.VISIBLE : View.GONE;
         int containerVisibility = shouldContainerBeVisible ? View.VISIBLE : View.GONE;
         holder.container.setVisibility(containerVisibility);
         holder.dropdown.setVisibility(listVisibility);
+        updateContainerMargin(holder);
+    }
+
+    private static void updateContainerMargin(SuggestionListViewHolder holder) {
+        OmniboxSuggestionsContainer container = holder.container;
+        var layoutParams = (ViewGroup.MarginLayoutParams) container.getLayoutParams();
+        if (layoutParams == null) {
+            layoutParams =
+                    new ViewGroup.MarginLayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT);
+        }
+        // TODO(crbug.com/521986417): Consider plumbing SideUiStateProvider to get the Vertical Tabs
+        //     panel width. Using the constant works for now since the the width is fixed in MVP.
+        Context context = container.getContext();
+        int leftMargin =
+                VerticalTabUtils.isVerticalTabsEnabled(context)
+                        ? ViewUtils.dpToPx(context, VerticalTabUtils.SIDE_UI_CONTAINER_WIDTH_DP)
+                        : 0;
+        if (layoutParams.leftMargin != leftMargin) {
+            layoutParams.leftMargin = leftMargin;
+            container.setLayoutParams(layoutParams);
+        }
     }
 }

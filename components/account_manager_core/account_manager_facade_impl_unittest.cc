@@ -8,25 +8,24 @@
 #include <limits>
 #include <memory>
 
-#include "base/functional/callback_helpers.h"
 #include "base/notreached.h"
 #include "base/run_loop.h"
 #include "base/scoped_observation.h"
 #include "base/test/bind.h"
 #include "base/test/gmock_callback_support.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/run_until.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
 #include "base/time/time.h"
 #include "chromeos/crosapi/mojom/account_manager.mojom.h"
 #include "components/account_manager_core/account.h"
-#include "components/account_manager_core/account_addition_options.h"
 #include "components/account_manager_core/account_manager_facade.h"
-#include "components/account_manager_core/account_manager_metrics.h"
 #include "components/account_manager_core/account_manager_test_util.h"
 #include "components/account_manager_core/account_manager_util.h"
-#include "components/account_manager_core/account_upsertion_result.h"
+#include "components/account_manager_core/chromeos/account_manager.h"
 #include "components/account_manager_core/mock_account_manager_facade.h"
+#include "components/prefs/testing_pref_service.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "google_apis/gaia/oauth2_access_token_consumer.h"
 #include "google_apis/gaia/oauth2_access_token_fetcher.h"
@@ -35,6 +34,8 @@
 #include "mojo/public/cpp/bindings/receiver_set.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/bindings/remote_set.h"
+#include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
+#include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -141,13 +142,6 @@ class FakeAccountManager : public crosapi::mojom::AccountManager {
     observers_.Add(std::move(observer));
   }
 
-  void GetAccounts(GetAccountsCallback callback) override {
-    std::vector<crosapi::mojom::AccountPtr> mojo_accounts;
-    std::ranges::transform(accounts_, std::back_inserter(mojo_accounts),
-                           &ToMojoAccount);
-    std::move(callback).Run(std::move(mojo_accounts));
-  }
-
   void GetPersistentErrorForAccount(
       crosapi::mojom::AccountKeyPtr mojo_account_key,
       GetPersistentErrorForAccountCallback callback) override {
@@ -163,24 +157,14 @@ class FakeAccountManager : public crosapi::mojom::AccountManager {
         ToMojoGoogleServiceAuthError(GoogleServiceAuthError::AuthErrorNone()));
   }
 
-  void ShowAddAccountDialog(crosapi::mojom::AccountAdditionOptionsPtr options,
-                            ShowAddAccountDialogCallback callback) override {
-    show_add_account_dialog_calls_++;
-    show_add_account_dialog_options_ = FromMojoAccountAdditionOptions(options);
-    std::move(callback).Run(
-        account_manager::ToMojoAccountUpsertionResult(*upsertion_result_));
+  void ShowAddAccountDialog(crosapi::mojom::AccountAdditionOptionsPtr,
+                            ShowAddAccountDialogCallback) override {
+    NOTREACHED();
   }
 
-  void ShowReauthAccountDialog(
-      const std::string& email,
-      ShowReauthAccountDialogCallback callback) override {
-    show_reauth_account_dialog_calls_++;
-    std::move(callback).Run(
-        account_manager::ToMojoAccountUpsertionResult(*upsertion_result_));
-  }
-
-  void ShowManageAccountsSettings() override {
-    show_manage_accounts_settings_calls_++;
+  void ShowReauthAccountDialog(const std::string&,
+                               ShowReauthAccountDialogCallback) override {
+    NOTREACHED();
   }
 
   void SetMockAccessTokenFetcher(
@@ -235,41 +219,13 @@ class FakeAccountManager : public crosapi::mojom::AccountManager {
     persistent_errors_.emplace(account, error);
   }
 
-  void SetAccountUpsertionResult(
-      const account_manager::AccountUpsertionResult& result) {
-    upsertion_result_ = std::make_unique<AccountUpsertionResult>(result);
-  }
-
   void ClearReceivers() { receivers_.Clear(); }
 
   void ClearObservers() { observers_.Clear(); }
 
-  int show_add_account_dialog_calls() const {
-    return show_add_account_dialog_calls_;
-  }
-
-  std::optional<account_manager::AccountAdditionOptions>
-  show_add_account_dialog_options() const {
-    return show_add_account_dialog_options_;
-  }
-
-  int show_reauth_account_dialog_calls() const {
-    return show_reauth_account_dialog_calls_;
-  }
-
-  int show_manage_accounts_settings_calls() const {
-    return show_manage_accounts_settings_calls_;
-  }
-
  private:
-  int show_add_account_dialog_calls_ = 0;
-  std::optional<account_manager::AccountAdditionOptions>
-      show_add_account_dialog_options_;
-  int show_reauth_account_dialog_calls_ = 0;
-  int show_manage_accounts_settings_calls_ = 0;
   std::vector<Account> accounts_;
   std::map<AccountKey, GoogleServiceAuthError> persistent_errors_;
-  std::unique_ptr<AccountUpsertionResult> upsertion_result_;
   std::unique_ptr<MockAccessTokenFetcher> access_token_fetcher_;
   mojo::ReceiverSet<crosapi::mojom::AccountManager> receivers_;
   mojo::RemoteSet<crosapi::mojom::AccountManagerObserver> observers_;
@@ -296,16 +252,26 @@ class AccountManagerFacadeImplTest : public testing::Test {
   ~AccountManagerFacadeImplTest() override = default;
 
  protected:
+  void SetUp() override {
+    AccountManager::RegisterPrefs(pref_service_.registry());
+    real_account_manager_ = std::make_unique<AccountManager>();
+    real_account_manager_->InitializeInEphemeralMode(
+        test_url_loader_factory_.GetSafeWeakWrapper());
+    real_account_manager_->SetPrefService(&pref_service_);
+  }
+
   FakeAccountManager& account_manager() { return account_manager_; }
 
   base::HistogramTester& histogram_tester() { return histogram_tester_; }
+
+  AccountManager* real_account_manager() { return real_account_manager_.get(); }
 
   std::unique_ptr<AccountManagerFacadeImpl> CreateFacade() {
     base::test::TestFuture<void> future;
     auto result = std::make_unique<AccountManagerFacadeImpl>(
         account_manager().CreateRemote(),
         /*remote_version=*/std::numeric_limits<uint32_t>::max(),
-        /*account_manager_for_tests=*/nullptr, future.GetCallback());
+        real_account_manager(), future.GetCallback());
     EXPECT_TRUE(future.Wait());
     return result;
   }
@@ -314,6 +280,10 @@ class AccountManagerFacadeImplTest : public testing::Test {
   base::test::SingleThreadTaskEnvironment task_environment_;
   FakeAccountManager account_manager_;
   base::HistogramTester histogram_tester_;
+
+  TestingPrefServiceSimple pref_service_;
+  network::TestURLLoaderFactory test_url_loader_factory_;
+  std::unique_ptr<AccountManager> real_account_manager_;
 };
 
 TEST_F(AccountManagerFacadeImplTest, InitializationStatusIsCorrectlySet) {
@@ -355,77 +325,30 @@ TEST_F(AccountManagerFacadeImplTest, OnAccountRemovedIsPropagatedToObservers) {
   EXPECT_TRUE(future.Wait());
 }
 
-TEST_F(
-    AccountManagerFacadeImplTest,
-    GetAccountsReturnsEmptyListOfAccountsWhenAccountManagerMojoServiceIsEmpty) {
+TEST_F(AccountManagerFacadeImplTest,
+       GetAccountsReturnsEmptyListOfAccountsWhenEmpty) {
   std::unique_ptr<AccountManagerFacadeImpl> account_manager_facade =
       CreateFacade();
-  account_manager().SetAccounts({});
 
   base::test::TestFuture<const std::vector<Account>&> future;
   account_manager_facade->GetAccounts(future.GetCallback());
   EXPECT_THAT(future.Get(), testing::IsEmpty());
 }
 
-TEST_F(AccountManagerFacadeImplTest, GetAccountsCorrectlyMarshalsTwoAccounts) {
+TEST_F(AccountManagerFacadeImplTest, GetAccountsReturnsAccounts) {
   std::unique_ptr<AccountManagerFacadeImpl> account_manager_facade =
       CreateFacade();
   Account account1 = CreateTestGaiaAccount(kTestAccountEmail);
   Account account2 = CreateTestGaiaAccount(kAnotherTestAccountEmail);
-  account_manager().SetAccounts({account1, account2});
+  real_account_manager()->UpsertAccount(account1.key, account1.raw_email,
+                                        "token1");
+  real_account_manager()->UpsertAccount(account2.key, account2.raw_email,
+                                        "token2");
 
   base::test::TestFuture<const std::vector<Account>&> future;
   account_manager_facade->GetAccounts(future.GetCallback());
-  EXPECT_THAT(future.Get(),
-              testing::ElementsAre(AccountEq(account1), AccountEq(account2)));
-}
-
-TEST_F(AccountManagerFacadeImplTest,
-       GetAccountsIsSafeToCallBeforeAccountManagerFacadeIsInitialized) {
-  Account account = CreateTestGaiaAccount(kTestAccountEmail);
-  account_manager().SetAccounts({account});
-
-  // |CreateFacade| waits for the AccountManagerFacadeImpl's initialization
-  // sequence to be finished. To avoid this, create it directly here.
-  auto account_manager_facade = std::make_unique<AccountManagerFacadeImpl>(
-      account_manager().CreateRemote(),
-      /*remote_version=*/std::numeric_limits<uint32_t>::max(),
-      /*account_manager_for_tests=*/nullptr);
-
-  base::test::TestFuture<const std::vector<Account>&> future;
-  account_manager_facade->GetAccounts(future.GetCallback());
-  EXPECT_THAT(future.Get(), testing::ElementsAre(AccountEq(account)));
-}
-
-// Regression test for https://crbug.com/1287297
-// Do not return empty accounts when the remote is not available.
-TEST_F(AccountManagerFacadeImplTest, GetAccountsHangsWhenRemoteIsNull) {
-  base::HistogramTester tester;
-  auto account_manager_facade = std::make_unique<AccountManagerFacadeImpl>(
-      mojo::Remote<crosapi::mojom::AccountManager>(),
-      /*remote_version=*/std::numeric_limits<uint32_t>::max(),
-      /*account_manager_for_tests=*/nullptr);
-
-  bool callback_was_dropped = false;
-  // scoped_closure that sets `callback_was_dropped` when it is destroyed.
-  base::ScopedClosureRunner scoped_closure(base::BindLambdaForTesting(
-      [&callback_was_dropped]() { callback_was_dropped = true; }));
-  // Pass ownership of the scoped closure to the main callback, so that the
-  // scoped closure is run when the callback is destroyed.
-  // This callback should not be run.
-  base::OnceCallback<void(const std::vector<Account>&)> dropped_callback =
-      base::BindLambdaForTesting(
-          [scoped_closure = std::move(scoped_closure)](
-              const std::vector<Account>&) { NOTREACHED(); });
-  EXPECT_FALSE(callback_was_dropped);
-  account_manager_facade->GetAccounts(std::move(dropped_callback));
-  // `dropped_callback` was destroyed without being run.
-  EXPECT_TRUE(callback_was_dropped);
-
-  tester.ExpectUniqueSample(
-      AccountManagerFacadeImpl::GetAccountsMojoStatusHistogramNameForTesting(),
-      /*sample=*/AccountManagerFacadeImpl::FacadeMojoStatus::kNoRemote,
-      /*expected_count=*/1);
+  EXPECT_THAT(future.Get(), testing::UnorderedElementsAre(AccountEq(account1),
+                                                          AccountEq(account2)));
 }
 
 TEST_F(AccountManagerFacadeImplTest, GetPersistentErrorMarshalsAuthErrorNone) {
@@ -456,195 +379,12 @@ TEST_F(AccountManagerFacadeImplTest,
   EXPECT_THAT(future.Get(), Eq(error));
 }
 
-TEST_F(AccountManagerFacadeImplTest, ShowAddAccountDialogCallsMojo) {
-  std::unique_ptr<AccountManagerFacadeImpl> account_manager_facade =
-      CreateFacade();
-  account_manager().SetAccountUpsertionResult(
-      account_manager::AccountUpsertionResult::FromStatus(
-          account_manager::AccountUpsertionResult::Status::
-              kUnexpectedResponse));
-  EXPECT_EQ(0, account_manager().show_add_account_dialog_calls());
-  account_manager_facade->ShowAddAccountDialog(
-      account_manager::AccountManagerFacade::AccountAdditionSource::
-          kSettingsAddAccountButton);
-  account_manager_facade->FlushMojoForTesting();
-  EXPECT_EQ(1, account_manager().show_add_account_dialog_calls());
-}
-
-TEST_F(AccountManagerFacadeImplTest,
-       ShowAddAccountDialogSetsCorrectOptionsForAdditionFromAsh) {
-  std::unique_ptr<AccountManagerFacadeImpl> account_manager_facade =
-      CreateFacade();
-  account_manager().SetAccountUpsertionResult(
-      account_manager::AccountUpsertionResult::FromStatus(
-          account_manager::AccountUpsertionResult::Status::
-              kUnexpectedResponse));
-  EXPECT_EQ(0, account_manager().show_add_account_dialog_calls());
-  account_manager_facade->ShowAddAccountDialog(
-      account_manager::AccountManagerFacade::AccountAdditionSource::
-          kSettingsAddAccountButton);
-  account_manager_facade->FlushMojoForTesting();
-  EXPECT_EQ(1, account_manager().show_add_account_dialog_calls());
-  EXPECT_TRUE(account_manager().show_add_account_dialog_options().has_value());
-  EXPECT_TRUE(
-      account_manager().show_add_account_dialog_options()->is_available_in_arc);
-  EXPECT_FALSE(account_manager()
-                   .show_add_account_dialog_options()
-                   ->show_arc_availability_picker);
-}
-
-TEST_F(AccountManagerFacadeImplTest,
-       ShowAddAccountDialogSetsCorrectOptionsForAdditionFromLacros) {
-  std::unique_ptr<AccountManagerFacadeImpl> account_manager_facade =
-      CreateFacade();
-  account_manager().SetAccountUpsertionResult(
-      account_manager::AccountUpsertionResult::FromStatus(
-          account_manager::AccountUpsertionResult::Status::
-              kUnexpectedResponse));
-  EXPECT_EQ(0, account_manager().show_add_account_dialog_calls());
-  account_manager_facade->ShowAddAccountDialog(
-      account_manager::AccountManagerFacade::AccountAdditionSource::
-          kOgbAddAccount);
-  account_manager_facade->FlushMojoForTesting();
-  EXPECT_EQ(1, account_manager().show_add_account_dialog_calls());
-  EXPECT_TRUE(account_manager().show_add_account_dialog_options().has_value());
-  EXPECT_FALSE(
-      account_manager().show_add_account_dialog_options()->is_available_in_arc);
-  EXPECT_FALSE(account_manager()
-                   .show_add_account_dialog_options()
-                   ->show_arc_availability_picker);
-}
-
-TEST_F(AccountManagerFacadeImplTest,
-       ShowAddAccountDialogSetsCorrectOptionsForAdditionFromArc) {
-  std::unique_ptr<AccountManagerFacadeImpl> account_manager_facade =
-      CreateFacade();
-  account_manager().SetAccountUpsertionResult(
-      account_manager::AccountUpsertionResult::FromStatus(
-          account_manager::AccountUpsertionResult::Status::
-              kUnexpectedResponse));
-  EXPECT_EQ(0, account_manager().show_add_account_dialog_calls());
-  account_manager_facade->ShowAddAccountDialog(
-      account_manager::AccountManagerFacade::AccountAdditionSource::kArc);
-  account_manager_facade->FlushMojoForTesting();
-  EXPECT_EQ(1, account_manager().show_add_account_dialog_calls());
-  EXPECT_TRUE(account_manager().show_add_account_dialog_options().has_value());
-  EXPECT_TRUE(
-      account_manager().show_add_account_dialog_options()->is_available_in_arc);
-  EXPECT_TRUE(account_manager()
-                  .show_add_account_dialog_options()
-                  ->show_arc_availability_picker);
-}
-
-TEST_F(AccountManagerFacadeImplTest, ShowAddAccountDialogUMA) {
-  base::HistogramTester tester;
-  std::unique_ptr<AccountManagerFacadeImpl> account_manager_facade =
-      CreateFacade();
-  auto result = account_manager::AccountUpsertionResult::FromStatus(
-      account_manager::AccountUpsertionResult::Status::kAlreadyInProgress);
-  account_manager().SetAccountUpsertionResult(result);
-  auto source = account_manager::AccountManagerFacade::AccountAdditionSource::
-      kSettingsAddAccountButton;
-
-  account_manager_facade->ShowAddAccountDialog(source);
-  account_manager_facade->FlushMojoForTesting();
-
-  // Check that UMA stats were sent.
-  tester.ExpectUniqueSample(
-      account_manager::kAccountAdditionSourceHistogramName,
-      /*sample=*/source, /*expected_count=*/1);
-  tester.ExpectUniqueSample(
-      account_manager::kAccountUpsertionResultStatusHistogramName,
-      /*sample=*/result.status(), /*expected_count=*/1);
-}
-
-TEST_F(AccountManagerFacadeImplTest,
-       ShowAddAccountDialogReturnsAnErrorIfMojoRemoteIsDisconnected) {
-  auto account_manager_facade = std::make_unique<AccountManagerFacadeImpl>(
-      mojo::Remote<crosapi::mojom::AccountManager>(),
-      /*remote_version=*/std::numeric_limits<uint32_t>::max(),
-      /*account_manager_for_tests=*/nullptr);
-
-  base::test::TestFuture<const account_manager::AccountUpsertionResult&> future;
-  account_manager_facade->ShowAddAccountDialog(
-      account_manager::AccountManagerFacade::AccountAdditionSource::
-          kSettingsAddAccountButton,
-      future.GetCallback());
-  account_manager::AccountUpsertionResult result = future.Get();
-  EXPECT_EQ(
-      account_manager::AccountUpsertionResult::Status::kMojoRemoteDisconnected,
-      result.status());
-}
-
-TEST_F(AccountManagerFacadeImplTest,
-       ShowAddAccountDialogReturnsAnErrorIfMojoVersionIsIncompatible) {
-  auto account_manager_facade = std::make_unique<AccountManagerFacadeImpl>(
-      account_manager().CreateRemote(),
-      /*remote_version=*/1,
-      /*account_manager_for_tests=*/nullptr);
-
-  base::test::TestFuture<const account_manager::AccountUpsertionResult&> future;
-  account_manager_facade->ShowAddAccountDialog(
-      account_manager::AccountManagerFacade::AccountAdditionSource::
-          kSettingsAddAccountButton,
-      future.GetCallback());
-  account_manager::AccountUpsertionResult result = future.Get();
-  EXPECT_EQ(account_manager::AccountUpsertionResult::Status::
-                kIncompatibleMojoVersions,
-            result.status());
-}
-
-TEST_F(AccountManagerFacadeImplTest, ShowReauthAccountDialogCallsMojo) {
-  std::unique_ptr<AccountManagerFacadeImpl> account_manager_facade =
-      CreateFacade();
-
-  account_manager().SetAccountUpsertionResult(
-      account_manager::AccountUpsertionResult::FromStatus(
-          account_manager::AccountUpsertionResult::Status::
-              kUnexpectedResponse));
-  EXPECT_EQ(0, account_manager().show_reauth_account_dialog_calls());
-  account_manager_facade->ShowReauthAccountDialog(
-      account_manager::AccountManagerFacade::AccountAdditionSource::
-          kContentAreaReauth,
-      kTestAccountEmail, base::DoNothing());
-  account_manager_facade->FlushMojoForTesting();
-  EXPECT_EQ(1, account_manager().show_reauth_account_dialog_calls());
-}
-
-TEST_F(AccountManagerFacadeImplTest, ShowReauthAccountDialogUMA) {
-  base::HistogramTester tester;
-  std::unique_ptr<AccountManagerFacadeImpl> account_manager_facade =
-      CreateFacade();
-
-  auto result = account_manager::AccountUpsertionResult::FromStatus(
-      account_manager::AccountUpsertionResult::Status::kAlreadyInProgress);
-  account_manager().SetAccountUpsertionResult(result);
-  auto source = AccountManagerFacade::AccountAdditionSource::kContentAreaReauth;
-
-  account_manager_facade->ShowReauthAccountDialog(source, kTestAccountEmail,
-                                                  base::DoNothing());
-  account_manager_facade->FlushMojoForTesting();
-
-  // Check that UMA stats were sent.
-  tester.ExpectUniqueSample(kAccountAdditionSourceHistogramName,
-                            /*sample=*/source, /*expected_count=*/1);
-}
-
-TEST_F(AccountManagerFacadeImplTest, ShowManageAccountsSettingsCallsMojo) {
-  std::unique_ptr<AccountManagerFacadeImpl> account_manager_facade =
-      CreateFacade();
-  EXPECT_EQ(0, account_manager().show_manage_accounts_settings_calls());
-  account_manager_facade->ShowManageAccountsSettings();
-  account_manager_facade->FlushMojoForTesting();
-  EXPECT_EQ(1, account_manager().show_manage_accounts_settings_calls());
-}
-
 TEST_F(AccountManagerFacadeImplTest,
        AccessTokenFetcherReturnsAnErrorForUninitializedRemote) {
   auto account_manager_facade = std::make_unique<AccountManagerFacadeImpl>(
       mojo::Remote<crosapi::mojom::AccountManager>(),
       /*remote_version=*/std::numeric_limits<uint32_t>::max(),
-      /*account_manager_for_tests=*/nullptr);
+      real_account_manager());
   const Account account = CreateTestGaiaAccount(kTestAccountEmail);
 
   MockOAuthConsumer consumer;
@@ -664,7 +404,7 @@ TEST_F(AccountManagerFacadeImplTest,
   auto account_manager_facade = std::make_unique<AccountManagerFacadeImpl>(
       account_manager().CreateRemote(),
       /*remote_version=*/std::numeric_limits<uint32_t>::max(),
-      /*account_manager_for_tests=*/nullptr);
+      real_account_manager());
   const Account account = CreateTestGaiaAccount(kTestAccountEmail);
 
   auto mock_access_token_fetcher = std::make_unique<MockAccessTokenFetcher>();
@@ -940,6 +680,23 @@ TEST_F(AccountManagerFacadeImplTest,
       .WillOnce(base::test::RunOnceClosure(future.GetCallback()));
   account_manager_facade->OnSigninDialogClosed();
   EXPECT_TRUE(future.Wait());
+}
+
+TEST_F(AccountManagerFacadeImplTest, GetAccountsIsAlwaysAsynchronous) {
+  std::unique_ptr<AccountManagerFacadeImpl> account_manager_facade =
+      CreateFacade();
+
+  bool callback_called = false;
+  account_manager_facade->GetAccounts(base::BindLambdaForTesting(
+      [&callback_called](const std::vector<Account>& accounts) {
+        callback_called = true;
+      }));
+
+  // The callback must not be called synchronously.
+  EXPECT_FALSE(callback_called);
+
+  // Wait for the task to run.
+  EXPECT_TRUE(base::test::RunUntil([&]() { return callback_called; }));
 }
 
 }  // namespace account_manager

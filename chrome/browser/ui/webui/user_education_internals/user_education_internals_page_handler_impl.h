@@ -8,6 +8,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/webui/user_education_internals/user_education_internals.mojom-forward.h"
 #include "chrome/browser/ui/webui/user_education_internals/user_education_internals.mojom.h"
 #include "components/user_education/common/feature_promo/feature_promo_result.h"
 #include "components/user_education/common/tutorial/tutorial_service.h"
@@ -46,6 +47,8 @@ class UserEducationInternalsPageHandlerImpl
       const UserEducationInternalsPageHandlerImpl&) = delete;
 
   // mojom::user_education_internals::UserEducationInternalsPageHandler:
+  void IsFeatureEngagementInitialized(
+      IsFeatureEngagementInitializedCallback callback) override;
   void GetTutorials(GetTutorialsCallback callback) override;
   void StartTutorial(const std::string& tutorial_id,
                      StartTutorialCallback callback) override;
@@ -56,6 +59,9 @@ class UserEducationInternalsPageHandlerImpl
                         ShowFeaturePromoCallback callback) override;
   void ClearFeaturePromoData(const std::string& feature_name,
                              ClearFeaturePromoDataCallback callback) override;
+  void GetNonIphPromos(GetFeaturePromosCallback callback) override;
+  void ClearNonIphPromoData(const std::string& feature_name,
+                            ClearFeaturePromoDataCallback callback) override;
   void ClearSessionData(ClearSessionDataCallback callback) override;
   void ForceNewSession(ForceNewSessionCallback callback) override;
   void RemoveGracePeriods(RemoveGracePeriodsCallback callback) override;
@@ -82,6 +88,12 @@ class UserEducationInternalsPageHandlerImpl
   GetPromoData(
       const user_education::FeaturePromoSpecification& spec,
       const user_education::UserEducationStorageService* storage_service,
+      const feature_engagement::Tracker* tracker);
+
+  static void AddTrackerData(
+      const base::Feature& feature,
+      std::vector<mojom::user_education_internals::FeaturePromoDemoPageDataPtr>&
+          result,
       const feature_engagement::Tracker* tracker);
 
   raw_ptr<content::WebUI> web_ui_ = nullptr;

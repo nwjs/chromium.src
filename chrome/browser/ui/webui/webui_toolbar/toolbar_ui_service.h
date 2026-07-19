@@ -65,6 +65,9 @@ class ToolbarUIService : public toolbar_ui_api::mojom::ToolbarUIService {
     virtual base::expected<std::monostate, mojo_base::mojom::ErrorPtr>
     OnOmniboxAction(toolbar_ui_api::mojom::OmniboxActionPtr action) = 0;
     virtual void ShowAvatarMenu() = 0;
+    virtual void SetAvatarButtonHovered(bool hovered) = 0;
+    virtual void SetAvatarButtonFocused(bool focused) = 0;
+    virtual void SetAvatarButtonIPHPromoShowing(bool showing) = 0;
   };
 
   ToolbarUIService(
@@ -83,6 +86,7 @@ class ToolbarUIService : public toolbar_ui_api::mojom::ToolbarUIService {
 
   void OnNavigationControlsStateChanged(
       const mojom::NavigationControlsState& state);
+  void OnFocusRequested(toolbar_ui_api::mojom::FocusRequestTarget target);
 
   // toolbar_ui_api::mojom::ToolbarUIService:
   void Bind(BindCallback callback) override;
@@ -95,6 +99,12 @@ class ToolbarUIService : public toolbar_ui_api::mojom::ToolbarUIService {
   void ShowContentSettingsBubble(
       ::toolbar_ui_api::mojom::ContentSettingImageType type,
       ShowContentSettingsBubbleCallback callback) override;
+  void OnPageActionClick(::toolbar_ui_api::mojom::PageActionId action_id,
+                         ::toolbar_ui_api::mojom::PageActionTrigger trigger,
+                         OnPageActionClickCallback callback) override;
+  void OnPageActionChipShowingChanged(
+      ::toolbar_ui_api::mojom::PageActionId action_id,
+      OnPageActionChipShowingChangedCallback callback) override;
   void InvokePinnedToolbarAction(
       toolbar_ui_api::mojom::PinnedToolbarAction action_id) override;
   void OnLhsChipMousePressed(
@@ -115,6 +125,13 @@ class ToolbarUIService : public toolbar_ui_api::mojom::ToolbarUIService {
   void OnHomeButtonDropFile(const gfx::PointF& drop_position) override;
   void OnToolbarDropFile(const gfx::PointF& drop_position) override;
   void ShowAvatarMenu(ShowAvatarMenuCallback callback) override;
+  void SetAvatarButtonHovered(bool hovered,
+                              SetAvatarButtonHoveredCallback callback) override;
+  void SetAvatarButtonFocused(bool focused,
+                              SetAvatarButtonFocusedCallback callback) override;
+  void SetAvatarButtonIphPromoShowing(
+      bool showing,
+      SetAvatarButtonIphPromoShowingCallback callback) override;
 
  private:
   mojo::Receiver<toolbar_ui_api::mojom::ToolbarUIService> service_;

@@ -545,6 +545,64 @@ TEST_F(OSExchangeDataWinTest, VirtualFiles) {
   }
 }
 
+TEST_F(OSExchangeDataWinTest, VirtualFilesWithLeadingDirectoryEntry) {
+  // A descriptor whose first entry is a directory (as produced by dropping a
+  // folder out of a Windows ZIP "compressed folder"). The directory has no
+  // content stream and must be skipped without shifting the file entries that
+  // follow.
+  const std::vector<std::pair<base::FilePath, base::span<const uint8_t>>>
+      kTestFilenamesAndContents = {
+          {base::FilePath(FILE_PATH_LITERAL("folder")),
+           base::span<const uint8_t>()},
+          {base::FilePath(FILE_PATH_LITERAL("first.txt")),
+           base::byte_span_from_cstring("contents of first")},
+          {base::FilePath(FILE_PATH_LITERAL("second.txt")),
+           base::byte_span_from_cstring("contents of second")},
+      };
+  const std::vector<size_t> kDirectoryIndices = {0};
+
+  // Only the non-directory entries should be surfaced as files.
+  const std::vector<std::pair<base::FilePath, base::span<const uint8_t>>>
+      kExpectedFiles = {kTestFilenamesAndContents[1],
+                        kTestFilenamesAndContents[2]};
+
+  for (const auto& tymed : kStorageMediaTypesForVirtualFiles) {
+    OSExchangeData data;
+    static_cast<OSExchangeDataProviderWin*>(&data.provider())
+        ->SetVirtualFileContentsWithDirectoriesForTesting(
+            kTestFilenamesAndContents, kDirectoryIndices, tymed);
+
+    OSExchangeData copy(data.provider().Clone());
+    std::optional<std::vector<FileInfo>> file_infos =
+        copy.GetVirtualFilenames();
+    ASSERT_TRUE(file_infos.has_value());
+    EXPECT_EQ(kExpectedFiles.size(), file_infos.value().size());
+
+    auto callback =
+        base::BindOnce(&OSExchangeDataWinTest::OnGotVirtualFilesAsTempFiles,
+                       base::Unretained(this));
+    OnGotVirtualFilesAsTempFilesCalledChecker checker(this);
+    copy.GetVirtualFilesAsTempFiles(std::move(callback));
+    task_environment_.RunUntilIdle();
+
+    ASSERT_EQ(kExpectedFiles.size(), retrieved_virtual_files_.size());
+    for (size_t i = 0; i < retrieved_virtual_files_.size(); i++) {
+      EXPECT_EQ(kExpectedFiles[i].first,
+                retrieved_virtual_files_[i].display_name);
+      std::optional<std::vector<uint8_t>> read_contents =
+          base::ReadFileToBytes(retrieved_virtual_files_[i].path);
+      ASSERT_TRUE(read_contents.has_value());
+      if (tymed != TYMED_ISTORAGE) {
+        EXPECT_EQ(kExpectedFiles[i].second, read_contents.value());
+      } else {
+        EXPECT_FALSE(
+            std::ranges::search(read_contents.value(), kExpectedFiles[i].second)
+                .empty());
+      }
+    }
+  }
+}
+
 TEST_F(OSExchangeDataWinTest, VirtualFilesAsyncChunkedCopy) {
   const base::FilePath kPathPlaceholder(kVirtualFileTempPlaceholderPath);
 

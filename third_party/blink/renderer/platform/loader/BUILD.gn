@@ -2,9 +2,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//testing/libfuzzer/fuzzer_test.gni")
 import("//testing/test.gni")
 import("//third_party/blink/renderer/build/scripts/scripts.gni")
+import("//third_party/blink/renderer/platform/blink_fuzzer_test.gni")
 import("//third_party/blink/renderer/platform/platform.gni")
 import("//third_party/blink/renderer/platform/platform_generated.gni")
 
@@ -43,6 +43,7 @@ blink_platform_sources("loader") {
     "fetch/code_cache_host.cc",
     "fetch/code_cache_host.h",
     "fetch/console_logger.h",
+    "fetch/cross_origin_attribute_value.cc",
     "fetch/cross_origin_attribute_value.h",
     "fetch/data_pipe_bytes_consumer.cc",
     "fetch/data_pipe_bytes_consumer.h",
@@ -73,9 +74,13 @@ blink_platform_sources("loader") {
     "fetch/memory_cache.h",
     "fetch/null_resource_fetcher_properties.cc",
     "fetch/null_resource_fetcher_properties.h",
+    "fetch/persistent_code_cache_host.cc",
+    "fetch/persistent_code_cache_host.h",
     "fetch/policy_container_utils.cc",
     "fetch/policy_container_utils.h",
     "fetch/preload_key.h",
+    "fetch/proxy_code_cache_host.cc",
+    "fetch/proxy_code_cache_host.h",
     "fetch/raw_resource.cc",
     "fetch/raw_resource.h",
     "fetch/render_blocking_behavior.h",
@@ -333,13 +338,12 @@ source_set("test_support") {
   ]
 }
 
-fuzzer_test("policy_container_utils_fuzzer") {
+blink_fuzzer_test("policy_container_utils_fuzzer") {
   sources = [ "fetch/policy_container_utils_fuzzer.cc" ]
   deps = [
     "//testing/libfuzzer:libfuzzer_base_wrappers",
     "//third_party/blink/renderer/core:testing",
     "//third_party/blink/renderer/platform",
-    "//third_party/blink/renderer/platform:blink_fuzzer_test_support",
   ]
   dict = "//testing/libfuzzer/fuzzers/dicts/content_security_policy.dict"
   seed_corpus = "//testing/libfuzzer/fuzzers/content_security_policy_corpus"

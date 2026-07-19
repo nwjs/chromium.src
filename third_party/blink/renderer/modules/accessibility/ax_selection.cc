@@ -74,7 +74,7 @@ AXSelection::Builder& AXSelection::Builder::SetFocus(const Position& focus) {
 }
 
 AXSelection::Builder& AXSelection::Builder::SetSelection(
-    const SelectionInDOMTree& selection) {
+    const SelectionInDomTree& selection) {
   if (selection.IsNone())
     return *this;
 
@@ -137,7 +137,7 @@ AXSelection AXSelection::FromCurrentSelection(
   if (!frame_selection.IsAvailable())
     return {};
 
-  return FromSelection(frame_selection.GetSelectionInDOMTree(), ax_object_cache,
+  return FromSelection(frame_selection.GetSelectionInDomTree(), ax_object_cache,
                        selection_behavior);
 }
 
@@ -147,6 +147,16 @@ AXSelection AXSelection::FromCurrentSelection(
     const AXObjectCacheImpl& ax_object_cache) {
   const AXObject* ax_text_control = ax_object_cache.Get(&text_control);
   DCHECK(ax_text_control);
+
+  // If the selection offsets are out of sync with the text control's value
+  // length in the accessibility tree (which can happen if the shadow DOM is
+  // mutated directly), return an invalid selection to avoid crashing
+  // downstream.
+  unsigned value_length = ax_text_control->GetValueForControl().length();
+  if (text_control.selectionStart() > value_length ||
+      text_control.selectionEnd() > value_length) {
+    return {};
+  }
 
   // We can't directly use "text_control.Selection()" because the selection it
   // returns is inside the shadow DOM and it's not anchored to the text field
@@ -180,7 +190,7 @@ AXSelection AXSelection::FromCurrentSelection(
 
 // static
 AXSelection AXSelection::FromSelection(
-    const SelectionInDOMTree& selection,
+    const SelectionInDomTree& selection,
     const AXObjectCacheImpl& ax_object_cache,
     const AXSelectionBehavior selection_behavior) {
   if (selection.IsNone())
@@ -296,7 +306,7 @@ bool AXSelection::IsValid() const {
   return true;
 }
 
-const SelectionInDOMTree AXSelection::AsSelection(
+const SelectionInDomTree AXSelection::AsSelection(
     const AXSelectionBehavior selection_behavior) const {
   if (!IsValid())
     return {};
@@ -328,7 +338,7 @@ const SelectionInDOMTree AXSelection::AsSelection(
 
   const auto dom_anchor = anchor_.ToPositionWithAffinity(anchor_adjustment);
   const auto dom_focus = focus_.ToPositionWithAffinity(focus_adjustment);
-  SelectionInDOMTree::Builder selection_builder;
+  SelectionInDomTree::Builder selection_builder;
   selection_builder.SetBaseAndExtent(dom_anchor.GetPosition(),
                                      dom_focus.GetPosition());
   if (focus_.IsTextPosition()) {
@@ -390,7 +400,7 @@ bool AXSelection::Select(const AXSelectionBehavior selection_behavior) {
     return true;
   }
 
-  const SelectionInDOMTree old_selection = AsSelection(selection_behavior);
+  const SelectionInDomTree old_selection = AsSelection(selection_behavior);
   DCHECK(old_selection.AssertValid());
   Document* document = old_selection.Anchor().GetDocument();
   if (!document) {
@@ -424,10 +434,10 @@ bool AXSelection::Select(const AXSelectionBehavior selection_behavior) {
   if (!frame_selection.IsAvailable())
     return false;
 
-  // Re-retrieve the SelectionInDOMTree in case a DOM mutation took place.
+  // Re-retrieve the SelectionInDomTree in case a DOM mutation took place.
   // That way it will also have the updated DOM tree and Style versions,
   // and the SelectionTemplate checks for each won't fail.
-  const SelectionInDOMTree selection = AsSelection(selection_behavior);
+  const SelectionInDomTree selection = AsSelection(selection_behavior);
 
   SetSelectionOptions::Builder options_builder;
   options_builder.SetIsDirectional(true)

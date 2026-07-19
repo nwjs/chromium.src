@@ -9,6 +9,7 @@
 
 #include "base/containers/span.h"
 #include "base/functional/callback.h"
+#include "base/memory/raw_ptr.h"
 #include "base/time/time.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
 #include "components/autofill/core/browser/foundations/autofill_manager.h"
@@ -55,8 +56,8 @@ class FormPredictionsTracker : public AutofillManager::Observer {
   void OnAfterFormsSeen(AutofillManager& manager,
                         base::span<const FormGlobalId> updated_forms,
                         base::span<const FormGlobalId> removed_forms) override;
-  void OnFieldTypesDetermined(autofill::AutofillManager& manager,
-                              autofill::FormGlobalId form_id,
+  void OnFieldTypesDetermined(AutofillManager& manager,
+                              FormGlobalId form_id,
                               FieldTypeSource source,
                               bool small_forms_were_parsed) override;
 
@@ -67,6 +68,9 @@ class FormPredictionsTracker : public AutofillManager::Observer {
   // Callbacks that inform callers that form parsing is complete or that the
   // timeout has been reached.
   std::vector<base::OnceClosure> callbacks_;
+
+  // The client that owns `this`.
+  const raw_ptr<AutofillClient> client_;
 
   // The observation for the Autofill manager of the relevant tab.
   ScopedAutofillManagersObservation autofill_managers_observation_{this};

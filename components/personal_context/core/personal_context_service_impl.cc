@@ -32,4 +32,12 @@ void PersonalContextServiceImpl::FetchContext(
       feature, request_metadata, options.request_timeout, std::move(callback));
 }
 
+void PersonalContextServiceImpl::FetchPiiEntities(
+    const proto::FetchPiiEntitiesRequest& request,
+    const ContextMemoryRequestOptions& options,
+    FetchPiiContextCallback callback) {
+  personal_context_manager_->FetchPiiEntities(request, options.request_timeout,
+                                              std::move(callback));
+}
+
 }  // namespace personal_context

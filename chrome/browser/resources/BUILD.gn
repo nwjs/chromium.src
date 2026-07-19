@@ -22,6 +22,7 @@ group("resources") {
   public_deps = [
     "contextual_tasks:resources",
     "glic:resources",
+    "private_ai_internals:resources",
     "saved_tab_groups_unsupported:resources",
     "segmentation_internals:resources",
     "//components/enterprise/connectors/resources",
@@ -53,6 +54,7 @@ group("resources") {
       "bookmarks:resources",
       "certificate_manager:resources",
       "content_annotator_internals:resources",
+      "contextual_cueing/internals:resources",
       "data_sharing:resources",
       "downloads:resources",
       "drive_picker_host:resources",
@@ -68,10 +70,9 @@ group("resources") {
       "lens/overlay:resources",
       "lens/shared:resources",
       "new_tab_footer:resources",
+      "omnibox_everywhere:resources",
       "omnibox_popup:resources",
       "password_manager:resources",
-      "privacy_sandbox/internals:resources",
-      "private_ai_internals:resources",
       "profile_internals:resources",
       "search_engine_choice:resources",
       "settings:resources",
@@ -96,6 +97,7 @@ group("resources") {
       "webui_browser:resources",
       "webui_gallery:resources",
       "webui_toolbar:resources",
+      "webui_toolbar_shared:resources",
       "whats_new:resources",
       "//components/browser_apis/tab_strip/resources",
     ]
@@ -253,7 +255,10 @@ if (enable_extensions_core) {
 
     # Some resources within component_extension_resources.grd are generated at
     # build time so we include them as explicit dependencies here
-    deps = [ "//chrome/browser/resources/glic/extension:build_ts" ]
+    deps = [
+      "//chrome/browser/resources/contextual_tasks/extension:build_ts",
+      "//chrome/browser/resources/glic/extension:build_ts",
+    ]
 
     if (is_chromeos) {
       deps += [
@@ -322,6 +327,7 @@ group("dev_ui_resources") {
     "browsing_topics:resources",
     "chrome_finds_internals:resources",
     "components:resources",
+    "context_hub:resources",
     "device_log:resources",
     "engagement:resources",
     "family_link_user_internals:resources",
@@ -332,7 +338,6 @@ group("dev_ui_resources") {
     "omnibox:resources",
     "personal_context_internals:resources",
     "predictors:resources",
-    "privacy_sandbox/internals:resources",
     "subresource_filter:resources",
     "usb_internals:resources",
     "//components/actor/core/internals/resources",
@@ -403,6 +408,7 @@ repack("dev_ui_paks") {
     "$root_gen_dir/chrome/browsing_topics_internals_resources.pak",
     "$root_gen_dir/chrome/chrome_finds_internals_resources.pak",
     "$root_gen_dir/chrome/components_resources.pak",
+    "$root_gen_dir/chrome/context_hub_resources.pak",
     "$root_gen_dir/chrome/device_log_resources.pak",
     "$root_gen_dir/chrome/engagement_resources.pak",
     "$root_gen_dir/chrome/family_link_user_internals_resources.pak",
@@ -413,7 +419,6 @@ repack("dev_ui_paks") {
     "$root_gen_dir/chrome/omnibox_resources.pak",
     "$root_gen_dir/chrome/personal_context_internals_resources.pak",
     "$root_gen_dir/chrome/predictors_resources.pak",
-    "$root_gen_dir/chrome/privacy_sandbox_internals_resources.pak",
     "$root_gen_dir/chrome/subresource_filter_internals_resources.pak",
     "$root_gen_dir/chrome/usb_internals_resources.pak",
     "$root_gen_dir/components/actor_internals_resources.pak",

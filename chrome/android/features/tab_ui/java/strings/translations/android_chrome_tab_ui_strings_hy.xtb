@@ -31,6 +31,7 @@
 <translation id="1828808367831369073"><ph name="TABS_COUNT_ONE" /> ներդիր խմբավորվեց</translation>
 <translation id="1844381456014878100">7 օր հետո ներդիրը կդառնա ոչ ակտիվ</translation>
 <translation id="1869137256605757565">{TABS_COUNT,plural, =1{<ph name="TABS_COUNT_ONE" /> ներդիր}one{<ph name="TABS_COUNT_MANY" /> ներդիր}other{<ph name="TABS_COUNT_MANY" /> ներդիր}}</translation>
+<translation id="1894429470045525403">{TAB_COUNT,plural, =1{Ավելացնել ներդիր ընթերցանության ցանկում}one{Ավելացնել ներդիր ընթերցանության ցանկում}other{Ավելացնել ներդիրներ ընթերցանության ցանկում}}</translation>
 <translation id="1909810060368225529">Նշում․ ներդիրների ընդհանուր խմբում կատարված փոփոխությունները տեսանելի են բոլորին։ Ցանկացած օգտատեր կարող է փոփոխություններ կատարել ներդիրների ընդհանուր խմբերում</translation>
 <translation id="1925363809167540686">{TAB_COUNT,plural, =1{Ամրացնել ներդիրը}one{Ամրացնել ներդիրը}other{Ամրացնել ներդիրները}}</translation>
 <translation id="1982637982196732906">Տեղափոխում ոչ ակտիվ ներդիրների բաժին</translation>
@@ -76,6 +77,8 @@
 <translation id="3052964831964880138"><ph name="PRICE_DROP" /> գնիջեցում <ph name="PRODUCT_NAME" />-ի համար</translation>
 <translation id="3078350928901129212">Ներդիրների խմբի <ph name="COLOR_NAME" /> գույնի պատկերակ</translation>
 <translation id="311432875115153175">Ներդիրների խմբերի ցանկը փակված է</translation>
+<translation id="3152596030350326139">Ցույց տալ ներդիրները հորիզոնական դիրքով</translation>
+<translation id="31806439105337256">Ցույց տալ ներդիրներն ուղղաձիգ դիրքով</translation>
 <translation id="3194464645767632461">գնահատական</translation>
 <translation id="3269930881809501915">{TABS_COUNT,plural, =1{Ավելացրեք <ph name="TABS_COUNT_ONE" /> ընտրված ներդիր խմբում}one{Ավելացրեք <ph name="TABS_COUNT_MANY" /> ընտրված ներդիր խմբում}other{Ավելացրեք <ph name="TABS_COUNT_MANY" /> ընտրված ներդիր խմբում}}</translation>
 <translation id="3328308545011660196">Հուշում․ <ph name="NUMBER_OF_TABS" /> ներդիր նմանություն ունեն։ Խմբավորե՞լ դրանք։</translation>
@@ -180,7 +183,6 @@
 <translation id="7129458170538955174">Այս խանութի մասին տեղեկությունները բացված են կիսով չափ</translation>
 <translation id="7204204600596740190">Մի քանի ներդիրի ընտրության ռեժիմ</translation>
 <translation id="7211038039686180558">Ձեր ներդիրների խմբերն ավտոմատ պահվում և թարմացվում են ձեր բոլոր սարքերում, որոնցում մտել եք հաշիվ</translation>
-<translation id="731648547091221002">Ընտրված է <ph name="COLOR_NAME" /> գույնը</translation>
 <translation id="7326879924029668159">Դիտեք վերադարձման կանոնները և այլ տեղեկություններ</translation>
 <translation id="7352298686197644113">Տեսեք, թե ձեր բացված ներդիրներում որ ապրանքն ունի ամենացածր գինը</translation>
 <translation id="7369451074646620503">«<ph name="TAB_GROUP_NAME" />» ներդիրների խումբն այլևս հասանելի չէ</translation>
@@ -206,7 +208,6 @@
 <translation id="7854360405711302755">{REVIEWS,plural, =1{ Գնահատական՝ <ph name="CURRENT_RATING" />/<ph name="RATING_BASELINE" />, <ph name="REVIEWS_COUNT_ONE" /> կարծիք}one{Գնահատական՝ <ph name="CURRENT_RATING" />/<ph name="RATING_BASELINE" />, <ph name="REVIEWS_COUNT_MANY" /> կարծիք}other{Գնահատական՝ <ph name="CURRENT_RATING" />/<ph name="RATING_BASELINE" />, <ph name="REVIEWS_COUNT_MANY" /> կարծիք}}</translation>
 <translation id="7885132941432959125">Տեղափոխել ներդիրն աջ</translation>
 <translation id="7887334752153342268">Կրկնօրինակել</translation>
-<translation id="7939917283308035850"><ph name="COLOR_NAME" /> գույնն ընտրված չէ</translation>
 <translation id="7961015016161918242">Երբեք</translation>
 <translation id="7966321538264951561">Փակել հուշումները։</translation>
 <translation id="796696298310625748">{WINDOW_COUNT,plural, =1{Բացել ներդիրը նոր պատուհանում}one{Բացել ներդիրն այլ պատուհանում}other{Բացել ներդիրն այլ պատուհանում}}</translation>

@@ -4,6 +4,9 @@
 
 package org.chromium.chrome.browser.toolbar.top;
 
+import static androidx.test.espresso.matcher.ViewMatchers.withId;
+
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertEquals;
 
@@ -11,6 +14,7 @@ import static org.chromium.ui.test.util.RenderTestRule.Component.UI_BROWSER_TOOL
 
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewGroup.MarginLayoutParams;
 
 import androidx.test.filters.SmallTest;
 
@@ -38,6 +42,8 @@ import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.page.WebPageStation;
+import org.chromium.content_public.browser.HostZoomMap;
+import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.test.util.RenderTestRule;
 import org.chromium.ui.test.util.ViewUtils;
@@ -93,18 +99,11 @@ public class ToolbarTabletTest {
         // Transition to URL focused state, which expands the Omnibox on tablets.
         ThreadUtils.runOnUiThreadBlocking(() -> mToolbar.onUrlFocusChange(true));
 
-        var bookmarkButton = mToolbar.findViewById(R.id.bookmark_button);
-
         // Wait for the button to be visible and then request focus. We explicitly set
         // focusableInTouchMode to true because the system-wide touch mode state is often
         // unpredictable in instrumentation tests.
-        CriteriaHelper.pollUiThread(
-                () -> {
-                    Criteria.checkThat(
-                            "Bookmark button is not visible",
-                            bookmarkButton.getVisibility(),
-                            is(View.VISIBLE));
-                });
+        ViewUtils.waitForVisibleView(withId(R.id.bookmark_button));
+        var bookmarkButton = mToolbar.findViewById(R.id.bookmark_button);
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     bookmarkButton.setFocusableInTouchMode(true);
@@ -292,5 +291,126 @@ public class ToolbarTabletTest {
                 (ViewGroup.MarginLayoutParams) bookmarkButton.getLayoutParams();
         assertEquals("Start margin mismatch", marginHorizontal, lp.getMarginStart());
         assertEquals("End margin mismatch", marginHorizontal, lp.getMarginEnd());
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(ChromeFeatureList.TOOLBAR_SNAPSHOT_REFACTOR)
+    public void testToolbarSnapshotRefactorFlagEnabled() {
+        int expectedToolbarHeight =
+                mActivityTestRule
+                        .getActivity()
+                        .getResources()
+                        .getDimensionPixelSize(R.dimen.toolbar_height_no_shadow);
+
+        // Capture live view locations directly off the active UI hierarchy tree.
+        ToolbarControlContainer controlContainer =
+                mActivityTestRule.getActivity().findViewById(R.id.control_container);
+        View toolbarContainer =
+                mActivityTestRule.getActivity().findViewById(R.id.toolbar_container);
+        View hairline = mActivityTestRule.getActivity().findViewById(R.id.toolbar_hairline);
+        View toolbarView = mActivityTestRule.getActivity().findViewById(R.id.toolbar);
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    // Extract the exact runtime value of the tab strip height.
+                    int expectedTabStripHeight =
+                            controlContainer.getMeasuredHeight()
+                                    - controlContainer.getControlContainerHeightExcludingTabStrip();
+
+                    MarginLayoutParams toolbarContainerParams =
+                            (MarginLayoutParams) toolbarContainer.getLayoutParams();
+                    MarginLayoutParams hairlineParams =
+                            (MarginLayoutParams) hairline.getLayoutParams();
+                    MarginLayoutParams toolbarParams =
+                            (MarginLayoutParams) toolbarView.getLayoutParams();
+
+                    assertEquals(
+                            "Toolbar container top margin should be the tab strip height.",
+                            expectedTabStripHeight,
+                            toolbarContainerParams.topMargin);
+
+                    assertEquals(
+                            "Hairline top margin should be the toolbar height.",
+                            expectedToolbarHeight,
+                            hairlineParams.topMargin);
+
+                    assertEquals(
+                            "Inner toolbar view top margin should be stripped down to 0 under the"
+                                    + " snapshot refactor.",
+                            0,
+                            toolbarParams.topMargin);
+                });
+    }
+
+    @Test
+    @SmallTest
+    public void testZoomButton_defaultZoom_buttonInvisible() {
+        var zoomButton = mToolbar.findViewById(R.id.zoom_button);
+        assertEquals(View.GONE, zoomButton.getVisibility());
+    }
+
+    @Test
+    @SmallTest
+    public void testZoomButton_nonDefaultZoom_buttonVisible() {
+        final WebContents contents =
+                mActivityTestRule.getActivity().getActivityTabProvider().get().getWebContents();
+        try {
+            ThreadUtils.runOnUiThreadBlocking(() -> HostZoomMap.setZoomLevel(contents, 2.22));
+
+            CriteriaHelper.pollUiThread(
+                    () -> {
+                        int consumedWidth =
+                                mToolbar.getLocationBarCoordinatorForTesting()
+                                        .getZoomButtonToolbarWidthConsumer()
+                                        .updateVisibility(2000);
+                        Criteria.checkThat(
+                                "Zoom button should consume width when toolbar has space",
+                                consumedWidth,
+                                greaterThan(0));
+                    });
+        } finally {
+            ThreadUtils.runOnUiThreadBlocking(() -> HostZoomMap.setZoomLevel(contents, 0.0));
+        }
+    }
+
+    @Test
+    @SmallTest
+    public void testZoomButton_resetToDefault_buttonInvisible() {
+        final WebContents contents =
+                mActivityTestRule.getActivity().getActivityTabProvider().get().getWebContents();
+        try {
+            // Set zoom to non-default first
+            ThreadUtils.runOnUiThreadBlocking(() -> HostZoomMap.setZoomLevel(contents, 2.22));
+
+            CriteriaHelper.pollUiThread(
+                    () -> {
+                        int consumedWidth =
+                                mToolbar.getLocationBarCoordinatorForTesting()
+                                        .getZoomButtonToolbarWidthConsumer()
+                                        .updateVisibility(2000);
+                        Criteria.checkThat(
+                                "Zoom button should consume width when non-default zoom",
+                                consumedWidth,
+                                greaterThan(0));
+                    });
+
+            // Reset back to default (0.0)
+            ThreadUtils.runOnUiThreadBlocking(() -> HostZoomMap.setZoomLevel(contents, 0.0));
+
+            CriteriaHelper.pollUiThread(
+                    () -> {
+                        int consumedWidth =
+                                mToolbar.getLocationBarCoordinatorForTesting()
+                                        .getZoomButtonToolbarWidthConsumer()
+                                        .updateVisibility(2000);
+                        Criteria.checkThat(
+                                "Zoom button should not consume width at default zoom",
+                                consumedWidth,
+                                is(0));
+                    });
+        } finally {
+            ThreadUtils.runOnUiThreadBlocking(() -> HostZoomMap.setZoomLevel(contents, 0.0));
+        }
     }
 }

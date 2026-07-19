@@ -19,6 +19,7 @@ namespace send_tab_to_self {
 
 class SendTabToSelfEntry;
 enum class SendTabToSelfResult;
+enum class ShareActivatedEntryPoint;
 
 }  // namespace send_tab_to_self
 
@@ -30,7 +31,8 @@ namespace send_tab_to_self {
 // Returns a weak pointer to the opened WebContents.
 base::WeakPtr<content::WebContents> OpenEntryInNewForegroundTab(
     Profile* profile,
-    const SendTabToSelfEntry& entry);
+    const SendTabToSelfEntry& entry,
+    ShareActivatedEntryPoint entry_point);
 
 // Opens the given `entry` in a new background tab for the given `profile`.
 // Returns a weak pointer to the opened WebContents.

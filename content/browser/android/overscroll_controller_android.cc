@@ -138,6 +138,7 @@ void OverscrollControllerAndroid::OnGestureEvent(
       if (event.SourceDevice() == blink::WebGestureDevice::kTouchpad) {
         gfx::Vector2dF scroll_delta(event.data.scroll_update.delta_x,
                                     event.data.scroll_update.delta_y);
+        scroll_delta.Scale(dpi_scale_);
         refresh_effect_->WillHandleScrollUpdate(scroll_delta);
       }
     } break;
@@ -302,6 +303,13 @@ void OverscrollControllerAndroid::SetTouchpadOverscrollHistoryNavigation(
     bool enabled) {
   if (refresh_effect_) {
     refresh_effect_->SetTouchpadOverscrollHistoryNavigation(enabled);
+  }
+}
+
+void OverscrollControllerAndroid::SetIsGestureNavigationMode(
+    bool is_gesture_navigation_mode) {
+  if (refresh_effect_) {
+    refresh_effect_->SetIsGestureNavigationMode(is_gesture_navigation_mode);
   }
 }
 

@@ -5,7 +5,8 @@
 #include "chrome/browser/resource_coordinator/tab_manager.h"
 
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 
 #include <stddef.h>
 
@@ -101,7 +102,12 @@ void TabManager::Start() {
 
 WebContents* TabManager::DiscardTabByExtension(content::WebContents* contents) {
   if (contents) {
-    Browser* browser = chrome::FindBrowserWithTab(contents);
+    BrowserWindowInterface* browser_window_interface =
+        GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(contents);
+    Browser* browser =
+        browser_window_interface
+            ? browser_window_interface->GetBrowserForMigrationOnly()
+            : nullptr;
     if (browser && browser->is_type_popup())
       return nullptr;
     TabLifecycleUnitExternal* tab_lifecycle_unit_external =
@@ -114,9 +120,7 @@ WebContents* TabManager::DiscardTabByExtension(content::WebContents* contents) {
     return nullptr;
   }
 
-  return DiscardTabImpl(
-      LifecycleUnitDiscardReason::EXTERNAL,
-      performance_manager::policies::kNonVisiblePagesUrgentProtectionTime);
+  return DiscardTabImpl(LifecycleUnitDiscardReason::EXTERNAL);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -143,7 +147,7 @@ bool TabManager::IsInternalPage(const GURL& url) {
 
 content::WebContents* TabManager::DiscardTabImpl(
     LifecycleUnitDiscardReason reason,
-    base::TimeDelta minimum_time_in_background_to_discard) {
+    bool ignore_recent_visibility) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   performance_manager::Graph* graph =
@@ -152,11 +156,16 @@ content::WebContents* TabManager::DiscardTabImpl(
   content::WebContents* contents =
       performance_manager::policies::PageDiscardingHelper::GetFromGraph(
              graph)
-      ->DiscardAPage(reason, minimum_time_in_background_to_discard)
+      ->DiscardAPage(reason, ignore_recent_visibility)
       .first_content_after_discard;
   if (!contents)
     return nullptr;
-  Browser* browser = chrome::FindBrowserWithTab(contents);
+  BrowserWindowInterface* browser_window_interface =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(contents);
+  Browser* browser =
+      browser_window_interface
+          ? browser_window_interface->GetBrowserForMigrationOnly()
+          : nullptr;
   if (browser && browser->is_type_popup())
     return nullptr;
   return contents;

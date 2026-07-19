@@ -35,6 +35,7 @@
 #include "extensions/renderer/service_worker_natives.h"
 #include "extensions/renderer/set_icon_natives.h"
 #include "extensions/renderer/storage_area.h"
+#include "extensions/renderer/test_api_standardized_behavior_native_handler.h"
 #include "extensions/renderer/test_features_native_handler.h"
 #include "extensions/renderer/user_gestures_native_handler.h"
 #include "extensions/renderer/utils_native_handler.h"
@@ -74,6 +75,9 @@ void CoreExtensionsRendererAPIProvider::RegisterNativeHandlers(
   module_system->RegisterNativeHandler(
       "schema_registry",
       v8_schema_registry->AsNativeHandler(context->isolate()));
+  module_system->RegisterNativeHandler(
+      "test_api_standardized_behavior",
+      std::make_unique<TestApiStandardizedBehaviorNativeHandler>(context));
   module_system->RegisterNativeHandler(
       "test_features", std::make_unique<TestFeaturesNativeHandler>(context));
   module_system->RegisterNativeHandler(
@@ -223,8 +227,6 @@ void CoreExtensionsRendererAPIProvider::PopulateSourceMap(
       {"uncaught_exception_handler",
        IDR_EXTENSIONS_RENDERER_GENERATED_UNCAUGHT_EXCEPTION_HANDLER_JS},
       {"utils", IDR_EXTENSIONS_RENDERER_GENERATED_UTILS_JS},
-      {"webRequest",
-       IDR_EXTENSIONS_RENDERER_GENERATED_WEB_REQUEST_CUSTOM_BINDINGS_JS},
       {"webRequestEvent",
        IDR_EXTENSIONS_RENDERER_GENERATED_WEB_REQUEST_EVENT_JS},
 

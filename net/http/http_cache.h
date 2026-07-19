@@ -20,6 +20,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -85,6 +86,23 @@ class NET_EXPORT HttpCache : public HttpTransactionFactory {
     DISABLE
   };
 
+  // LINT.IfChange(InvalidationFilterLoadResult)
+  enum class InvalidationFilterLoadResult {
+    kSuccess = 0,
+    kFileNotFound = 1,
+    kCorrupt = 2,
+    kMaxValue = kCorrupt,
+  };
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/net/enums.xml:NetHttpCacheLogicalInvalidationLoadResult)
+
+  // LINT.IfChange(InvalidationFilterClearContext)
+  enum class InvalidationFilterClearContext {
+    kSameSession = 0,
+    kRecoveredAfterCrash = 1,
+    kMaxValue = kRecoveredAfterCrash,
+  };
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/net/enums.xml:NetHttpCacheLogicalInvalidationClearContext)
+
   // A BackendFactory creates a backend object to be used by the HttpCache.
   class NET_EXPORT BackendFactory {
    public:
@@ -110,6 +128,10 @@ class NET_EXPORT HttpCache : public HttpTransactionFactory {
     // Returns true via `callback` if existing cache files are found, indicating
     // that early initialization of the backend is appropriate.
     virtual void HasExistingFileToLoad(base::OnceCallback<void(bool)> callback);
+
+    // Updates the max bytes that backends will be created with (if applicable
+    // for this factory).
+    virtual void SetMaxBytes(int max_bytes);
   };
 
   // A default backend factory for the common use cases.
@@ -148,6 +170,7 @@ class NET_EXPORT HttpCache : public HttpTransactionFactory {
     std::optional<CacheType> GetCacheType() const override;
     void HasExistingFileToLoad(
         base::OnceCallback<void(bool)> callback) override;
+    void SetMaxBytes(int max_bytes) override;
 
    private:
     CacheType type_;
@@ -215,6 +238,41 @@ class NET_EXPORT HttpCache : public HttpTransactionFactory {
 
   using GetBackendResult = std::pair<int, raw_ptr<disk_cache::Backend>>;
   using GetBackendCallback = base::OnceCallback<void(GetBackendResult)>;
+
+  // InvalidationFilter represents a request to logically clear parts of the
+  // cache. Instead of waiting for slow disk deletion, any entry matching
+  // these criteria is treated as a cache miss.
+  struct NET_EXPORT InvalidationFilter {
+    InvalidationFilter();
+    ~InvalidationFilter();
+    InvalidationFilter(const InvalidationFilter&);
+    InvalidationFilter& operator=(const InvalidationFilter&);
+
+    // Checks if the given cache entry matches this filter's criteria
+    // (time bounds and URL).
+    bool Matches(const GURL& url, const disk_cache::Entry* entry) const;
+
+    // The time range of entries to invalidate based on their 'LastUsed' time.
+    base::Time begin_time;
+    base::Time end_time;
+
+    // Filter type (e.g., exclude vs include) and the specific origins/domains.
+    UrlFilterType filter_type;
+    base::flat_set<url::Origin> origins;
+    base::flat_set<std::string> domains;
+
+    // Runtime only, not serialized.
+    bool was_loaded_from_disk = false;
+
+    bool operator==(const InvalidationFilter& other) const {
+      // `was_loaded_from_disk` is a transient runtime property used to track
+      // metrics and is not part of the logical filter identity.
+      return begin_time == other.begin_time && end_time == other.end_time &&
+             filter_type == other.filter_type && origins == other.origins &&
+             domains == other.domains;
+    }
+  };
+
   // Retrieves the cache backend for this HttpCache instance. If the backend
   // is not initialized yet, this method will initialize it. The integer portion
   // of the return value is a network error code, and it could be
@@ -265,41 +323,46 @@ class NET_EXPORT HttpCache : public HttpTransactionFactory {
                               base::Time delete_begin,
                               base::Time delete_end);
 
-  // InvalidationFilter represents a request to logically clear parts of the
-  // cache. Instead of waiting for slow disk deletion, any entry matching
-  // these criteria is treated as a cache miss.
-  struct NET_EXPORT InvalidationFilter {
-    InvalidationFilter();
-    ~InvalidationFilter();
-    InvalidationFilter(const InvalidationFilter&);
-    InvalidationFilter& operator=(const InvalidationFilter&);
 
-    // Checks if the given cache entry matches this filter's criteria
-    // (time bounds and URL).
-    bool Matches(const GURL& url, const disk_cache::Entry* entry) const;
-
-    // The time range of entries to invalidate based on their 'LastUsed' time.
-    base::Time begin_time;
-    base::Time end_time;
-
-    // Filter type (e.g., exclude vs include) and the specific origins/domains.
-    UrlFilterType filter_type;
-    base::flat_set<url::Origin> origins;
-    base::flat_set<std::string> domains;
-  };
 
   // Adds a filter to the logical invalidation list. Any subsequent access
   // to an entry matching this filter will result in a cache miss.
   void AddInvalidationFilter(InvalidationFilter filter);
+
+  // Removes a filter from the logical invalidation list.
+  void RemoveInvalidationFilter(const InvalidationFilter& filter);
+
+  size_t GetInvalidationFilterCountForTesting() const {
+    return invalidation_filters_.size();
+  }
 
   // Orchestrator for invalidation checks. This provides a fast-path bailout
   // when no filters are active, decodes the URL from the cache key exactly once,
   // and iterates over all active filters to see if any match the given entry.
   bool IsInvalidated(disk_cache::Entry* entry);
 
+  // Updates the cache quota (max bytes) that backends should use.
+  // This can be used before, after, or during backend initialization, and
+  // the new value will be used for both subsequent backend creation and will
+  // be used to resize any existing backends.
+  // Note that zero is not a special value for |max_bytes| and does not select
+  // a default.
+  // If |force_initialization| is true, the backend will be initialized,
+  // allowing evictions to occur even if it had not already been initialized.
+  void SetMaxBytes(base::ByteSize max_bytes, bool force_initialization);
+
   // Causes all transactions created after this point to simulate lock timeout
   // and effectively bypass the cache lock whenever there is lock contention.
   void SimulateCacheLockTimeoutForTesting() { bypass_lock_for_test_ = true; }
+
+  // Causes CacheBodyCompressor to fail after `max_size` uncompressed bytes.
+  // Used by tests to exercise compression error paths in Writers.
+  void set_compression_max_size_for_testing(int64_t max_size) {
+    compression_max_size_for_testing_ = max_size;
+  }
+  std::optional<int64_t> compression_max_size_for_testing() const {
+    return compression_max_size_for_testing_;
+  }
 
   // Causes all transactions created after this point to simulate lock timeout
   // and effectively bypass the cache lock whenever there is lock contention
@@ -335,7 +398,8 @@ class NET_EXPORT HttpCache : public HttpTransactionFactory {
       std::unique_ptr<HttpTransactionFactory> new_network_layer);
 
   // Get the URL from the entry's cache key.
-  static std::string GetResourceURLFromHttpCacheKey(const std::string& key);
+  static std::string_view GetResourceURLFromHttpCacheKey(
+      const std::string_view key);
 
   // Generates the cache key for a request.
   static std::optional<std::string> GenerateCacheKeyForRequest(
@@ -877,6 +941,8 @@ class NET_EXPORT HttpCache : public HttpTransactionFactory {
 
   // A clock that can be swapped out for testing.
   raw_ptr<base::Clock> clock_;
+
+  std::optional<int64_t> compression_max_size_for_testing_;
 
   // Used to track which keys led to a no-store response.
   base::LRUCacheSet<SHA256HashValue> keys_marked_no_store_;

@@ -126,8 +126,7 @@ class CanvasResourceProviderTest : public Test {
     return resource->sync_token();
   }
 
-  void EnsureResourceRecycled(CanvasResourceProvider* provider,
-                              scoped_refptr<CanvasResource>&& resource) {
+  void EnsureResourceRecycled(scoped_refptr<CanvasResource>&& resource) {
     viz::TransferableResource transferable_resource;
     CHECK(resource->PrepareTransferableResource(
         &transferable_resource,
@@ -186,8 +185,8 @@ TEST_F(CanvasResourceProviderTest, CanvasResourceProviderAcceleratedOverlay) {
       kSize, color_params, context_provider_wrapper_, shared_image_usage_flags);
 
   EXPECT_EQ(provider->Size(), kSize);
-  EXPECT_TRUE(provider->IsValid());
-  EXPECT_TRUE(provider->IsAccelerated());
+  EXPECT_TRUE(provider && provider->IsValid());
+  EXPECT_FALSE(provider->IsSoftware());
   EXPECT_TRUE(provider->IsSingleBuffered());
   // As it is an CanvasResourceProviderSharedImage and an accelerated canvas, it
   // will internally force it to RGBA8 on MacOS, or otherwise RGBA8 if not on
@@ -217,8 +216,8 @@ TEST_F(CanvasResourceProviderTest, CanvasResourceProviderTexture) {
       gpu::SharedImageUsageSet());
 
   EXPECT_EQ(provider->Size(), kSize);
-  EXPECT_TRUE(provider->IsValid());
-  EXPECT_TRUE(provider->IsAccelerated());
+  EXPECT_TRUE(provider && provider->IsValid());
+  EXPECT_FALSE(provider->IsSoftware());
   EXPECT_FALSE(provider->IsSingleBuffered());
   // As it is an CanvasResourceProviderSharedImage and an accelerated canvas, it
   // will internally force it to kRGBA8
@@ -245,7 +244,7 @@ TEST_F(CanvasResourceProviderTest, CanvasResourceProviderUnacceleratedOverlay) {
       shared_image_usage_flags);
 
   EXPECT_EQ(provider->Size(), kSize);
-  EXPECT_TRUE(provider->IsValid());
+  EXPECT_TRUE(provider && provider->IsValid());
   EXPECT_FALSE(provider->IsAccelerated());
 
   // We do not support single buffering for unaccelerated low latency canvas.
@@ -340,7 +339,6 @@ TEST_F(CanvasResourceProviderTest,
       shared_image_usage_flags);
 
   EXPECT_EQ(provider->Size(), kSize);
-  EXPECT_TRUE(provider->IsValid());
   EXPECT_TRUE(provider->IsAccelerated());
   EXPECT_FALSE(provider->IsSingleBuffered());
   // As it is an CanvasResourceProviderSharedImage and an accelerated canvas, it
@@ -366,7 +364,7 @@ TEST_F(CanvasResourceProviderTest,
   EXPECT_NE(GetSyncToken(resource.get()), GetSyncToken(new_resource.get()));
   auto* resource_ptr = resource.get();
 
-  EnsureResourceRecycled(provider.get(), std::move(resource));
+  EnsureResourceRecycled(std::move(resource));
 
   provider->GetCanvasForTesting().clear(SkColors::kBlack);
   auto resource_again = provider->ProduceCanvasResource(FlushReason::kOther);
@@ -387,7 +385,7 @@ TEST_F(CanvasResourceProviderTest, CanvasResourceProviderUnusedResources) {
 
   EXPECT_FALSE(
       provider->unused_resources_reclaim_timer_is_running_for_testing());
-  EnsureResourceRecycled(provider.get(), std::move(resource));
+  EnsureResourceRecycled(std::move(resource));
   // The reclaim task has been posted.
   EXPECT_TRUE(
       provider->unused_resources_reclaim_timer_is_running_for_testing());
@@ -395,7 +393,7 @@ TEST_F(CanvasResourceProviderTest, CanvasResourceProviderUnusedResources) {
   // There is a ready-to-reuse resource
   EXPECT_TRUE(provider->HasUnusedResourcesForTesting());
   task_environment_.FastForwardBy(
-      CanvasResourceProvider::kUnusedResourceExpirationTime);
+      Canvas2DResourceProviderSharedImage::kUnusedResourceExpirationTime);
   // The resource is freed, don't repost the task.
   EXPECT_FALSE(provider->HasUnusedResourcesForTesting());
   EXPECT_FALSE(
@@ -415,7 +413,7 @@ TEST_F(CanvasResourceProviderTest,
   ASSERT_NE(GetSyncToken(resource.get()), GetSyncToken(new_resource.get()));
   EXPECT_FALSE(
       provider->unused_resources_reclaim_timer_is_running_for_testing());
-  EnsureResourceRecycled(provider.get(), std::move(resource));
+  EnsureResourceRecycled(std::move(resource));
   // There is a ready-to-reuse resource
   EXPECT_TRUE(provider->HasUnusedResourcesForTesting());
   // No task posted.
@@ -435,14 +433,15 @@ TEST_F(CanvasResourceProviderTest,
   ASSERT_NE(GetSyncToken(resource.get()), GetSyncToken(new_resource.get()));
   EXPECT_FALSE(
       provider->unused_resources_reclaim_timer_is_running_for_testing());
-  EnsureResourceRecycled(provider.get(), std::move(resource));
+  EnsureResourceRecycled(std::move(resource));
   EXPECT_TRUE(
       provider->unused_resources_reclaim_timer_is_running_for_testing());
 
   // There is a ready-to-reuse resource
   EXPECT_TRUE(provider->HasUnusedResourcesForTesting());
   task_environment_.FastForwardBy(
-      CanvasResourceProvider::kUnusedResourceExpirationTime - base::Seconds(1));
+      Canvas2DResourceProviderSharedImage::kUnusedResourceExpirationTime -
+      base::Seconds(1));
   // The reclaim task hasn't run yet.
   EXPECT_TRUE(
       provider->unused_resources_reclaim_timer_is_running_for_testing());
@@ -453,7 +452,7 @@ TEST_F(CanvasResourceProviderTest,
   ASSERT_NE(resource, new_resource);
   ASSERT_NE(GetSyncToken(resource.get()), GetSyncToken(new_resource.get()));
 
-  EnsureResourceRecycled(provider.get(), std::move(resource));
+  EnsureResourceRecycled(std::move(resource));
   EXPECT_TRUE(provider->HasUnusedResourcesForTesting());
   task_environment_.FastForwardBy(base::Seconds(1));
 
@@ -464,7 +463,7 @@ TEST_F(CanvasResourceProviderTest,
       provider->unused_resources_reclaim_timer_is_running_for_testing());
 
   task_environment_.FastForwardBy(
-      CanvasResourceProvider::kUnusedResourceExpirationTime);
+      Canvas2DResourceProviderSharedImage::kUnusedResourceExpirationTime);
   // Now it's collected.
   EXPECT_FALSE(provider->HasUnusedResourcesForTesting());
   // And no new task is posted.
@@ -485,7 +484,7 @@ TEST_F(CanvasResourceProviderTest,
       gfx::Size(10, 10), color_params, context_provider_wrapper_,
       RasterMode::kGPU, shared_image_usage_flags);
 
-  ASSERT_TRUE(provider->IsValid());
+  ASSERT_NE(provider, nullptr);
 
   // Same resource returned until the canvas is updated.
   auto image = provider->Snapshot();
@@ -510,7 +509,7 @@ TEST_F(CanvasResourceProviderTest,
   EXPECT_EQ(original_shared_image, provider->Snapshot()->GetSharedImage());
 }
 
-TEST_F(CanvasResourceProviderTest, Canvas2DResourceProviderBitmap) {
+TEST_F(CanvasResourceProviderTest, Canvas2DBitmapProvider) {
   const gfx::Size kSize(10, 10);
   const SkImageInfo kInfo =
       SkImageInfo::MakeN32Premul(10, 10, SkColorSpace::MakeSRGB());
@@ -519,12 +518,10 @@ TEST_F(CanvasResourceProviderTest, Canvas2DResourceProviderBitmap) {
                                    gfx::HDRMetadata(),
                                    CanvasPixelFormat::kUint8,
                                    /*has_alpha=*/true);
-  auto provider =
-      Canvas2DResourceProviderBitmap::CreateForTesting(kSize, color_params);
+  auto provider = Canvas2DBitmapProvider::CreateForTesting(kSize, color_params);
 
   EXPECT_EQ(provider->Size(), kSize);
-  EXPECT_TRUE(provider->IsValid());
-  EXPECT_FALSE(provider->IsAccelerated());
+  EXPECT_TRUE(provider && provider->IsValid());
   EXPECT_TRUE(GetSkImageInfo(provider.get()) == kInfo);
 }
 
@@ -563,8 +560,8 @@ TEST_F(CanvasResourceProviderTest,
           test_web_shared_image_interface_provider.get());
 
   EXPECT_EQ(provider->Size(), kSize);
-  EXPECT_TRUE(provider->IsValid());
-  EXPECT_FALSE(provider->IsAccelerated());
+  EXPECT_TRUE(provider && provider->IsValid());
+  EXPECT_TRUE(provider->IsSoftware());
   EXPECT_TRUE(GetSkImageInfo(provider.get()) == kInfo);
 
   EXPECT_FALSE(provider->IsSingleBuffered());
@@ -588,8 +585,8 @@ TEST_F(CanvasResourceProviderTest,
       kSize, color_params, context_provider_wrapper_, shared_image_usage_flags);
 
   EXPECT_EQ(provider->Size(), kSize);
-  EXPECT_TRUE(provider->IsValid());
-  EXPECT_TRUE(provider->IsAccelerated());
+  EXPECT_TRUE(provider && provider->IsValid());
+  EXPECT_FALSE(provider->IsSoftware());
   EXPECT_TRUE(provider->IsSingleBuffered());
   // As it is an CanvasResourceProviderSharedImage and an accelerated canvas, it
   // will internally force it to RGBA8 on MacOS, or otherwise RGBA8 if not on
@@ -610,15 +607,15 @@ TEST_F(CanvasResourceProviderTest, DimensionsExceedMaxTextureSize_Bitmap) {
                                    gfx::HDRMetadata(),
                                    CanvasPixelFormat::kUint8,
                                    /*has_alpha=*/true);
-  auto provider = Canvas2DResourceProviderBitmap::CreateForTesting(
+  auto provider = Canvas2DBitmapProvider::CreateForTesting(
       gfx::Size(kMaxTextureSize - 1, kMaxTextureSize), color_params);
-  EXPECT_TRUE(provider && provider->IsValid());
-  provider = Canvas2DResourceProviderBitmap::CreateForTesting(
+  EXPECT_TRUE(provider);
+  provider = Canvas2DBitmapProvider::CreateForTesting(
       gfx::Size(kMaxTextureSize, kMaxTextureSize), color_params);
-  EXPECT_TRUE(provider && provider->IsValid());
-  provider = Canvas2DResourceProviderBitmap::CreateForTesting(
+  EXPECT_TRUE(provider);
+  provider = Canvas2DBitmapProvider::CreateForTesting(
       gfx::Size(kMaxTextureSize + 1, kMaxTextureSize), color_params);
-  EXPECT_TRUE(provider && provider->IsValid());
+  EXPECT_TRUE(provider);
 }
 
 TEST_F(CanvasResourceProviderTest, DimensionsExceedMaxTextureSize_SharedImage) {
@@ -712,8 +709,7 @@ TEST_F(CanvasResourceProviderTest, ImageCacheOnContextLost) {
 }
 
 TEST_F(CanvasResourceProviderTest, FlushCanvasReleasesAllReleasableOps) {
-  std::unique_ptr<CanvasResourceProvider> provider =
-      MakeCanvas2DResourceProvider(context_provider_wrapper_);
+  auto provider = MakeCanvas2DResourceProvider(context_provider_wrapper_);
 
   EXPECT_FALSE(provider->Recorder().HasRecordedDrawOps());
   EXPECT_FALSE(provider->Recorder().HasReleasableDrawOps());
@@ -729,8 +725,7 @@ TEST_F(CanvasResourceProviderTest, FlushCanvasReleasesAllReleasableOps) {
 }
 
 TEST_F(CanvasResourceProviderTest, FlushCanvasReleasesAllOpsOutsideLayers) {
-  std::unique_ptr<CanvasResourceProvider> provider =
-      MakeCanvas2DResourceProvider(context_provider_wrapper_);
+  auto provider = MakeCanvas2DResourceProvider(context_provider_wrapper_);
 
   EXPECT_FALSE(provider->Recorder().HasRecordedDrawOps());
   EXPECT_FALSE(provider->Recorder().HasReleasableDrawOps());

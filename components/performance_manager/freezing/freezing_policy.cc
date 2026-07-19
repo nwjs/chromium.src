@@ -374,7 +374,8 @@ base::flat_set<raw_ptr<const PageNode>> FreezingPolicy::GetConnectedPages(
       auto it = browsing_instance_states_.find(browsing_instance_id);
       CHECK(it != browsing_instance_states_.end());
       const BrowsingInstanceState& browsing_instance_state = it->second;
-      for (auto* browsing_instance_page : browsing_instance_state.pages) {
+      for (const performance_manager::PageNode* browsing_instance_page :
+           browsing_instance_state.pages) {
         if (!connected_pages.contains(browsing_instance_page)) {
           pages_to_visit.insert(browsing_instance_page);
         }
@@ -564,6 +565,7 @@ void FreezingPolicy::OnTakenFromGraph(Graph* graph) {
 }
 
 void FreezingPolicy::OnPageNodeAdded(const PageNode* page_node) {
+  CHECK_EQ(page_node->GetType(), PageType::kUnknown);
   auto& page_freezing_state = GetFreezingState(page_node);
 
   PageLiveStateDecorator::Data::GetOrCreateForPageNode(page_node)->AddObserver(
@@ -625,6 +627,13 @@ void FreezingPolicy::OnBeforePageNodeRemoved(const PageNode* page_node) {
 void FreezingPolicy::OnTypeChanged(const PageNode* page_node,
                                    PageType previous_type) {
   CHECK_EQ(previous_type, PageType::kUnknown, base::NotFatalUntil::M140);
+  if (page_node->GetType() == PageType::kNonTabWebUI) {
+    // This Page is marked as a Non Tab WebUI, opt it out of freezing.
+    OnCannotFreezeReasonChange(page_node, /*add=*/true,
+                               CannotFreezeReason::kNonTabWebUI);
+    return;
+  }
+
   if (page_node->GetType() != PageType::kTab) {
     return;
   }

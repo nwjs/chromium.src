@@ -134,11 +134,19 @@ function updateTaskDetailsInUrl(
   }
 
   // Add all the params from the aim URL, except host.
-  new URL(aimUrl).searchParams.forEach((value, key) => {
-    if (key !== CHROME_HOST_PARAM_KEY) {
-      url.searchParams.set(key, value);
+  if (aimUrl) {
+    try {
+      const aimUrlObj = new URL(aimUrl);
+      aimUrlObj.searchParams.forEach((value, key) => {
+        if (key !== CHROME_HOST_PARAM_KEY) {
+          url.searchParams.set(key, value);
+        }
+      });
+      url.hash = aimUrlObj.hash;
+    } catch (e) {
+      console.error('Failed to parse AI thread URL:', aimUrl, e);
     }
-  });
+  }
 
   // Add the task ID to the params.
   if (taskId) {
@@ -214,6 +222,7 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
         reflect: true,
       },
       isAiPage_: {type: Boolean, reflect: true},
+      isUserSignedIn_: {type: Boolean},
       isLensOverlayShowing_: {type: Boolean},
       isOverlayOpenForAimVisualSearch_: {type: Boolean},
       isGhostLoaderVisible_: {type: Boolean, reflect: true},
@@ -270,6 +279,11 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
         type: Boolean,
         reflect: true,
       },
+      isInitialFrameLoad_: {
+        type: Boolean,
+        reflect: true,
+      },
+      onboardingTooltipShowing_: {type: Boolean},
     };
   }
 
@@ -279,6 +293,7 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
       loadTimeData.getBoolean('showOnboardingTooltip');
   protected accessor showSmartTabSharingTryItIph_: boolean = false;
   protected accessor showSmartTabSharingDefaultOnIph_: boolean = false;
+  protected accessor onboardingTooltipShowing_: boolean = false;
   protected accessor userName_: string =
       loadTimeData.getString('friendlyZeroStateGaiaName');
   protected accessor friendlyZeroStateTitleBeforeName_: string =
@@ -299,12 +314,15 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
   // though top-level navigation could fail for numerous reasons.
   protected accessor isLoadError_: boolean = !window.navigator.onLine;
   protected accessor isAiPage_: boolean = loadTimeData.getBoolean('isAiPage');
+  protected accessor isUserSignedIn_: boolean =
+      loadTimeData.getBoolean('isSignedIn');
   protected accessor isAimEligible_: boolean =
       loadTimeData.getBoolean('isAimEligible');
   protected accessor isLensOverlayShowing_: boolean = false;
   protected accessor isOverlayOpenForAimVisualSearch_: boolean = false;
   // Indicates if in tab mode. Most start in a tab.
-  protected accessor isShownInTab_: boolean = true;
+  protected accessor isShownInTab_: boolean =
+      loadTimeData.getBoolean('isShownInTab');
   protected accessor darkMode_: boolean = loadTimeData.getBoolean('darkMode');
   protected accessor isErrorDialogVisible_: boolean = false;
   private pendingUrl_: string = '';
@@ -316,8 +334,8 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
   // Whether no queries have been submitted in the current AIM thread. This
   // can be undefined on initial load to prevent the composebox from flashing
   // briefly before the zero state is rendered.
-  protected accessor isZeroState_: boolean|undefined =
-      loadTimeData.getBoolean('isGhostLoaderVisible') ? false : undefined;
+  protected accessor isZeroState_: boolean =
+      loadTimeData.getBoolean('isZeroState');
   protected accessor enableNativeZeroStateSuggestions_: boolean =
       loadTimeData.getBoolean('enableNativeZeroStateSuggestions');
   protected accessor inNlm_: boolean = false;
@@ -343,6 +361,9 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
   protected accessor friendlyZeroStateTitle: string =
       loadTimeData.getString('friendlyZeroStateTitle');
   protected accessor isDomContentLoaded_: boolean = false;
+  // Tracks whether the frame is loading for the very first time to prevent
+  // double animations.
+  protected accessor isInitialFrameLoad_: boolean = true;
   // Tracks whether the frame is currently loading. Needed to avoid race
   // condition while awaiting isAiPage.
   private isFrameLoading: boolean = false;
@@ -383,11 +404,16 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
   // even if the load is aborted and the frame therefore never changes.
   private lastThreadFrameLoadStartEvent_: chrome.webviewTag.LoadStartEvent|
       LoadEvent|null = null;
-  // Tracks whether the frame is loading for the very first time to prevent
-  // double animations.
-  private isInitialFrameLoad_: boolean = true;
   private contextManagementInComposeboxEnabled_: boolean =
       loadTimeData.getBoolean('contextManagementInComposeboxEnabled');
+
+  private constructorStartTime_: number;
+  private isFirstLoadCommit_: boolean = true;
+
+  constructor() {
+    super();
+    this.constructorStartTime_ = performance.now();
+  }
 
   private updateThemeFromUrl(url: URL) {
     const csParam = url.searchParams.get('cs');
@@ -507,7 +533,7 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
         // we are not in zero state anymore, or not in an AIM URL. In
         // both thread/AIM cases for zero state, we clear input.
         if (isZeroState) {
-          this.composebox_?.clearInputAndFocus();
+          this.forceComposeboxFocus();
           // Reset the forced composebox bounds since the zero state position
           if (!this.shouldSetForceComposeboxBounds_()) {
             this.forcedComposeboxBounds_ = null;
@@ -605,9 +631,11 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
     this.eventTracker_.add(window, 'message', (event: MessageEvent) => {
       if (event.data === 'domContentLoaded') {
         this.isDomContentLoaded_ = true;
-        // Play the zero state animations, unhide the composebox and header.
-        if (this.isZeroState_) {
+        // Play the zero state animations, unhide the composebox/header,
+        // and focus the composebox.
+        if (this.isZeroState_ && this.isShownInTab_) {
           this.playZeroStateAnimations_();
+          this.forceComposeboxFocus();
         }
       }
     });
@@ -617,7 +645,9 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
 
     // <if expr="not is_android">
     // Handle newwindow events with mock webviews.
-    new WindowManager(this.$.threadFrame);
+    if (loadTimeData.getBoolean('windowTrackingEnabled')) {
+      new WindowManager(this.$.threadFrame);
+    }
     // </if>
 
     // Check if the URL that loaded this page has a task attached to it. If it
@@ -635,7 +665,6 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
     } else {
       const {url} = await this.browserProxy_.handler.getThreadUrl();
       threadUrl = url;
-      this.composebox_?.clearInputAndFocus();
     }
 
     const threadUrlAsUrl = new URL(threadUrl);
@@ -684,7 +713,10 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
 
     // Add this fallback: If the DOM already loaded while we were awaiting, play
     // it now!
-    if (this.isZeroState_ && this.isDomContentLoaded_) {
+    if (this.isZeroState_ && this.isDomContentLoaded_ && this.isShownInTab_) {
+      this.playZeroStateAnimations_();
+      this.forceComposeboxFocus();
+    } else if (this.isZeroState_ && !this.isShownInTab_) {
       this.playZeroStateAnimations_();
     }
 
@@ -755,6 +787,15 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
             this.requestUpdate();
           }
         });
+
+    // <if expr="is_android and not is_desktop_android">
+    this.isDomContentLoaded_ = true;
+    if (this.isInitialFrameLoad_ && this.isZeroState_) {
+      this.playZeroStateAnimations_();
+      // Omit calling this.forceComposeboxFocus() on mobile Android startup to
+      // avoid automatically popping up the software keyboard on page load.
+    }
+    // </if>
   }
 
   override updated(changedProperties: PropertyValues<this>) {
@@ -807,8 +848,13 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
     const crComposebox = this.composebox_.getComposebox();
     if (tooltip && crComposebox) {
       tooltip.updateTooltipVisibility(composeboxContainer, crComposebox);
+      this.onboardingTooltipShowing_ = tooltip.shouldShow;
     }
     // </if>
+  }
+
+  protected onOnboardingTooltipDismissed_() {
+    this.onboardingTooltipShowing_ = false;
   }
 
   private playZeroStateAnimations_() {
@@ -830,7 +876,7 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
       // Since a separate IPH "Try It" promo may turn the STS feature on, make
       // sure it is not already on before promoting with the help bubble.
       if (menu && !menu.smartTabSharingActive) {
-        const menuItem = menu.shadowRoot?.querySelector('#smartTabSharingItem');
+        const menuItem = menu.shadowRoot?.querySelector('#shareTabsTrigger');
         if (menuItem) {
           const rect = menuItem.getBoundingClientRect();
           const floatingAnchor = this.shadowRoot.querySelector<HTMLElement>(
@@ -901,8 +947,25 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
     if (!ev.isTopLevel) {
       return;
     }
+    if (this.isFirstLoadCommit_) {
+      this.isFirstLoadCommit_ = false;
+      const latencyMs =
+          Math.round(performance.now() - this.constructorStartTime_);
+      chrome.metricsPrivate.recordMediumTime(
+          'ContextualTasks.OAuth.StartToCommitLatency', latencyMs);
+    }
     this.updateBasicModeAfterNavigation();
     this.maybeOnThreadFrameTopLevelNavigation(ev.url);
+
+    // <if expr="is_android and not is_desktop_android">
+    // On standard mobile Android phones, since guest-to-host script
+    // communication is not supported, must set isDomContentLoaded_ on
+    // loadcommit rather than waiting for a domContentLoaded message.
+    this.isDomContentLoaded_ = true;
+    if (this.isZeroState_) {
+      this.playZeroStateAnimations_();
+    }
+    // </if>
   }
 
   private onThreadFrameContentLoad() {
@@ -964,6 +1027,7 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
     this.forcedComposeboxBounds_ = null;
     this.occluders_ = null;
     this.isInputHidden_ = false;
+    this.isDomContentLoaded_ = false;
 
     // Set frame loading to true initially to avoid race conditions.
     this.isFrameLoading = true;
@@ -985,7 +1049,8 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
 
     if (isAiPage && isZeroState) {
       this.isZeroState_ = true;
-      if (!this.isInitialFrameLoad_) {
+      if (!this.isInitialFrameLoad_ && this.isDomContentLoaded_ &&
+          this.isShownInTab_) {
         this.playZeroStateAnimations_();
       }
     }
@@ -1054,7 +1119,7 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
       const currentHeight = composebox.offsetHeight;
       const currentUrl = this.$.threadFrame.src;
       if (currentUrl.includes(AIOH_URL_IDENTIFIER) &&
-          this.forcedComposeboxBounds_ === null) {
+          this.forcedComposeboxBounds_ === null && !this.isZeroState_) {
         this.playComposeboxAiohFadeInAnimation_();
       }
       if (currentHeight !== inputRect.height) {
@@ -1069,12 +1134,21 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
       // Since the height is controlled client side and the composebox grows
       // updwards, set the top of the rect to match the current height to avoid
       // miscalculations in the clip path.
+      const wasHidden = this.isComposeboxHidden_();
       if (this.shouldSetForceComposeboxBounds_()) {
         this.forcedComposeboxBounds_ = {
           ...inputRect,
           height: currentHeight,
           top: inputRect.bottom - currentHeight,
         };
+        // Only focus the input if the composebox transitions from hidden to
+        // visible. This prevents focus-stealing on subsequent bounds updates
+        // (e.g., when the composebox changes height).
+        if (wasHidden && !this.isComposeboxHidden_()) {
+          this.updateComplete.then(() => {
+            this.composebox_?.tryFocus();
+          });
+        }
       } else {
         this.forcedComposeboxBounds_ = null;
       }
@@ -1141,7 +1215,18 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
     return false;
   }
 
+  // Helper to focus the composebox, even if it is transitioning from hidden.
+  private forceComposeboxFocus() {
+    this.composebox_?.clearInputAndFocus();
+    this.updateComplete.then(() => {
+      this.composebox_?.tryFocus();
+    });
+  }
+
   protected isComposeboxHeaderWrapperHidden_(): boolean {
+    if (this.isComposeboxHidden_()) {
+      return true;
+    }
     return (this.enableBasicMode_ && this.isInBasicMode_ &&
             !this.enableBasicModeZOrder_) ||
         this.inNlm_;
@@ -1349,26 +1434,6 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
           },
           ['blocking']);
 
-      // Allow downloading files. This is necessary since aim can generate
-      // images for download.
-      this.$.threadFrame.addEventListener(
-          'permissionrequest',
-          (e: chrome.webviewTag.PermissionRequestEvent|
-           PermissionRequestEvent) => {
-            if (e.permission === 'download') {
-              e.request.allow();
-            } else if (e.permission === 'geolocation') {
-              e.request.allow();
-            }
-          });
-
-      // Sets the user agent to the default user agent + the contextual tasks
-      // custom suffix.
-      const userAgent = this.$.threadFrame.getUserAgent();
-      const userAgentSuffix = loadTimeData.getString('userAgentSuffix');
-      this.$.threadFrame.setUserAgentOverride(
-          `${userAgent} ${userAgentSuffix}`);
-
       // Inject a script to notify the embedder when the DOM has loaded so the
       // app knows when to show the header and composebox.
       this.$.threadFrame.addContentScripts([{
@@ -1399,6 +1464,27 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
         },
         run_at: 'document_start',
       }]);
+    }
+
+    // Allow downloading files. This is necessary since aim can generate
+    // images for download.
+    this.$.threadFrame.addEventListener('permissionrequest', (e: Event) => {
+      const permissionEvent = e as chrome.webviewTag.PermissionRequestEvent |
+          PermissionRequestEvent;
+      if (permissionEvent.permission === 'download') {
+        permissionEvent.request.allow();
+      } else if (permissionEvent.permission === 'geolocation') {
+        permissionEvent.request.allow();
+      }
+    });
+
+    const userAgentSuffix = loadTimeData.getString('userAgentSuffix');
+    if (userAgentSuffix) {
+      const userAgent = this.$.threadFrame.getUserAgent();
+      if (!userAgent.endsWith(userAgentSuffix)) {
+        this.$.threadFrame.setUserAgentOverride(
+            `${userAgent} ${userAgentSuffix}`);
+      }
     }
   }
 
@@ -1571,8 +1657,12 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
     await this.onThreadFrameLoadAbort(event);
   }
 
-  setIsZeroStateForTesting(isZeroState: boolean|undefined) {
+  setIsZeroStateForTesting(isZeroState: boolean) {
     this.isZeroState_ = isZeroState;
+  }
+
+  setIsInitialFrameLoadForTesting(isInitialFrameLoad: boolean) {
+    this.isInitialFrameLoad_ = isInitialFrameLoad;
   }
 
   setInNlmForTesting(inNlm: boolean) {
@@ -1581,6 +1671,10 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
 
   setForcedComposeboxBoundsForTesting(bounds: Rect|null) {
     this.forcedComposeboxBounds_ = bounds;
+  }
+
+  onInputPlateBoundsUpdateForTesting(inputRect?: Rect, occluders?: Rect[]) {
+    this.onInputPlateBoundsUpdate_(inputRect, occluders);
   }
 
   getOccludersForTesting(): Rect[]|null {

@@ -63,6 +63,7 @@
 #import "ios/chrome/browser/home_customization/coordinator/home_customization_delegate.h"
 #import "ios/chrome/browser/home_customization/utils/home_customization_constants.h"
 #import "ios/chrome/browser/lens/ui_bundled/lens_entrypoint.h"
+#import "ios/chrome/browser/metrics/model/activity_reporter.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_util.h"
 #import "ios/chrome/browser/ntp/search_engine_logo/mediator/search_engine_logo_mediator.h"
@@ -91,6 +92,7 @@
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_header_commands.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_header_view.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_mediator.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_redesign_view_controller.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_shortcuts_handler.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_url_loader_delegate.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_utils.h"
@@ -99,6 +101,7 @@
 #import "ios/chrome/browser/omnibox/model/placeholder_service/placeholder_service_factory.h"
 #import "ios/chrome/browser/overscroll_actions/ui_bundled/overscroll_actions_controller.h"
 #import "ios/chrome/browser/policy/model/policy_util.h"
+#import "ios/chrome/browser/popup_menu/overflow_menu/public/features.h"
 #import "ios/chrome/browser/safari_data_import/coordinator/safari_data_import_child_coordinator_delegate.h"
 #import "ios/chrome/browser/safari_data_import/coordinator/safari_data_import_export_coordinator.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
@@ -177,7 +180,7 @@
                                      OverscrollActionsControllerDelegate,
                                      ProfileStateObserver,
                                      SceneStateObserver,
-                                     TabGridStateObserver,
+                                     TabGridStateObserving,
                                      FamilyLinkUserCapabilitiesObserving,
                                      NewTabPageShortcutsHandler,
                                      SafariDataImportChildCoordinatorDelegate> {
@@ -205,6 +208,10 @@
 
 // View controller for the regular NTP.
 @property(nonatomic, strong) NewTabPageViewController* NTPViewController;
+
+// View controller for the redesigned NTP.
+@property(nonatomic, strong)
+    NewTabPageRedesignViewController* NTPRedesignViewController;
 
 // Mediator owned by this coordinator.
 @property(nonatomic, strong) NewTabPageMediator* NTPMediator;
@@ -301,10 +308,9 @@
   SearchEngineLogoMediator* _searchEngineLogoMediator;
   // The Safari data import used by the content suggestions.
   SafariDataImportExportCoordinator* _safariDataImportExportCoordinator;
+  ActivityReporterWithIncognito* _activityReporter;
 }
 
-// Synthesize NewTabPageConfiguring properties.
-@synthesize shouldScrollIntoFeed = _shouldScrollIntoFeed;
 @synthesize baseViewController = _baseViewController;
 
 #pragma mark - ChromeCoordinator
@@ -318,6 +324,8 @@
     _componentFactory = componentFactory;
     _containerViewController = [[UIViewController alloc] init];
     _canfocusAccessibilityOmniboxWhenViewAppears = YES;
+    _activityReporter = [[ActivityReporterWithIncognito alloc]
+        initWithDomain:ActivityReportDomainNtp];
   }
   return self;
 }
@@ -342,10 +350,7 @@
   // Start observing SceneState changes.
   SceneState* sceneState = self.browser->GetSceneState();
   [sceneState addObserver:self];
-
-  if (IsNTPBackgroundCustomizationEnabled()) {
-    [sceneState.tabGridState addObserver:self];
-  }
+  [sceneState.tabGridState addObserver:self];
 
   // Configures incognito NTP if user is in incognito mode.
   if (self.isOffTheRecord) {
@@ -381,7 +386,12 @@
   // show or if the caller requested for this focus to not happen.
   BOOL appInitializing = profileState.initStage < ProfileInitStage::kFinal;
   if (appInitializing || !self.canfocusAccessibilityOmniboxWhenViewAppears) {
-    self.NTPViewController.focusAccessibilityOmniboxWhenViewAppears = NO;
+    if (IsNTPRedesignEnabled()) {
+      self.NTPRedesignViewController.focusAccessibilityOmniboxWhenViewAppears =
+          NO;
+    } else {
+      self.NTPViewController.focusAccessibilityOmniboxWhenViewAppears = NO;
+    }
   }
 
   // Update the feed if the account is subject to parental controls.
@@ -390,11 +400,9 @@
           _identityManager);
   [self updateFeedWithIsSupervisedUser:(capability == signin::Tribool::kTrue)];
 
-  if (IsNTPBackgroundCustomizationEnabled()) {
-    // Ensure the initial background is applied after all components have been
-    // set up.
-    [self.NTPMediator updateBackground];
-  }
+  // Ensure the initial background is applied after all components have been
+  // set up.
+  [self.NTPMediator updateBackground];
 
   self.started = YES;
 }
@@ -404,14 +412,13 @@
     return;
   }
 
+  [_activityReporter reportInactive];
+
   _webState = nullptr;
 
   SceneState* sceneState = self.browser->GetSceneState();
   [sceneState removeObserver:self];
-
-  if (IsNTPBackgroundCustomizationEnabled()) {
-    [sceneState.tabGridState removeObserver:self];
-  }
+  [sceneState.tabGridState removeObserver:self];
 
   if (self.isOffTheRecord) {
     self.incognitoViewController = nil;
@@ -441,6 +448,8 @@
   self.containedViewController = nil;
   [self.NTPViewController invalidate];
   self.NTPViewController = nil;
+  [self.NTPRedesignViewController invalidate];
+  self.NTPRedesignViewController = nil;
   self.feedHeaderViewController.NTPDelegate = nil;
   self.feedHeaderViewController = nil;
   [self.feedTopSectionCoordinator stop];
@@ -515,12 +524,16 @@
 }
 
 - (void)scrollToTop {
-  [self.NTPViewController setContentOffsetToTop];
+  if (!IsNTPRedesignEnabled()) {
+    [self.NTPViewController setContentOffsetToTop];
+  }
 }
 
 - (void)willUpdateSnapshot {
   if (self.contentSuggestionsCoordinator.started) {
-    [self.NTPViewController willUpdateSnapshot];
+    if (!IsNTPRedesignEnabled()) {
+      [self.NTPViewController willUpdateSnapshot];
+    }
   }
 }
 
@@ -530,7 +543,11 @@
     return;
   }
   _fakeboxTapped = NO;
-  [self.NTPViewController focusOmnibox];
+  if (!IsNTPRedesignEnabled()) {
+    [self.NTPViewController focusOmnibox];
+  } else if (self.NTPRedesignViewController) {
+    [self.NTPRedesignViewController focusOmnibox];
+  }
 }
 
 - (void)reload {
@@ -541,38 +558,44 @@
   // Call this before RefreshFeed() to ensure some NTP state configs are reset
   // before callbacks in repsonse to a feed refresh are called, ensuring the NTP
   // returns to a state at the top of the surface upon refresh.
-  [self.NTPViewController resetStateUponReload];
+  if (!IsNTPRedesignEnabled()) {
+    [self.NTPViewController resetStateUponReload];
+  }
   self.discoverFeedService->RefreshFeed(
       FeedRefreshTrigger::kForegroundUserTriggered);
 }
 
 - (void)locationBarDidBecomeFirstResponder {
-  [self.NTPViewController omniboxDidBecomeFirstResponder];
+  if (IsNTPRedesignEnabled()) {
+    [self.NTPRedesignViewController omniboxDidBecomeFirstResponder];
+  } else {
+    [self.NTPViewController omniboxDidBecomeFirstResponder];
+  }
 }
 
 - (void)locationBarWillResignFirstResponder {
-  [self.NTPViewController omniboxWillResignFirstResponder];
+  if (IsNTPRedesignEnabled()) {
+    [self.NTPRedesignViewController omniboxWillResignFirstResponder];
+  } else {
+    [self.NTPViewController omniboxWillResignFirstResponder];
+  }
 }
 
 - (void)locationBarDidResignFirstResponder {
-  [self.NTPViewController omniboxDidEndEditing];
-}
-
-- (void)constrainNamedGuideForFeedIPH {
-  if (self.isOffTheRecord) {
-    return;
+  if (IsNTPRedesignEnabled()) {
+    [self.NTPRedesignViewController omniboxDidEndEditing];
+  } else {
+    [self.NTPViewController omniboxDidEndEditing];
   }
-  [LayoutGuideCenterForBrowser(self.browser)
-      referenceView:self.headerView.customizationMenuButton
-          underName:kFeedIPHNamedGuide];
 }
 
 - (void)handleFeedModelDidEndUpdates:(FeedLayoutUpdateType)updateType {
-  DCHECK(self.NTPViewController);
   if (!self.feedViewController) {
     return;
   }
-  [self.NTPViewController feedLayoutDidEndUpdatesWithType:updateType];
+  if (!IsNTPRedesignEnabled()) {
+    [self.NTPViewController feedLayoutDidEndUpdatesWithType:updateType];
+  }
 }
 
 - (void)didNavigateToNTPInWebState:(web::WebState*)webState {
@@ -581,7 +604,6 @@
   [self restoreNTPScrollPosition];
   [self updateNTPIsVisible:YES];
   [self updateStartForVisibilityChange:YES];
-  [self.toolbarDelegate didNavigateToNTPOnActiveWebState];
 }
 
 - (void)didNavigateAwayFromNTP {
@@ -596,6 +618,9 @@
 - (BOOL)isFakeboxPinned {
   if (self.isOffTheRecord) {
     return YES;
+  }
+  if (IsNTPRedesignEnabled()) {
+    return NO;
   }
   return self.NTPViewController.isFakeboxPinned;
 }
@@ -691,20 +716,27 @@
                                             offTheRecord:offTheRecord];
   id<NewTabPageComponentFactoryProtocol> componentFactory =
       self.componentFactory;
-  self.NTPViewController = [componentFactory NTPViewController];
-  self.NTPViewController.engagementTracker =
-      feature_engagement::TrackerFactory::GetForProfile(self.profile);
-  self.NTPViewController.incognitoDisabled =
-      IsIncognitoModeDisabled(self.prefService);
+  if (IsNTPRedesignEnabled()) {
+    self.NTPRedesignViewController =
+        [[NewTabPageRedesignViewController alloc] init];
+  } else {
+    self.NTPViewController = [componentFactory NTPViewController];
+  }
   self.headerView = [componentFactory headerViewForProfile:self.profile];
   self.NTPMediator = [componentFactory NTPMediatorForBrowser:browser
                                     identityDiscImageUpdater:nil];
-  self.NTPViewController.mutator = self.NTPMediator;
   self.contentSuggestionsCoordinator =
       [componentFactory contentSuggestionsCoordinatorForBrowser:browser];
   self.feedMetricsRecorder =
       [componentFactory feedMetricsRecorderForBrowser:browser];
   self.NTPMetricsRecorder = [[NewTabPageMetricsRecorder alloc] init];
+
+  if (IsNTPRedesignEnabled()) {
+    self.NTPRedesignViewController.mutator = self.NTPMediator;
+  } else {
+    self.NTPViewController.headerView = self.headerView;
+    self.NTPViewController.mutator = self.NTPMediator;
+  }
 }
 
 #pragma mark - Configurators
@@ -712,7 +744,7 @@
 // Creates and configures the feed and feed header based on user prefs.
 - (void)configureFeedAndHeader {
   CHECK([self.NTPMediator isFeedHeaderVisible]);
-  CHECK(self.NTPViewController);
+  CHECK([self activeViewController]);
 
   if (!self.feedHeaderViewController) {
     self.feedHeaderViewController =
@@ -722,8 +754,6 @@
   self.feedHeaderViewController.feedControlDelegate = self;
   self.feedHeaderViewController.NTPDelegate = self;
   self.feedHeaderViewController.feedMetricsRecorder = self.feedMetricsRecorder;
-  self.NTPViewController.feedHeaderViewController =
-      self.feedHeaderViewController;
 
   // Requests feeds here if the correct flags and prefs are enabled.
   if ([self.NTPMediator isFeedHeaderVisible]) {
@@ -756,13 +786,21 @@
   headerView.NTPShortcutsHandler = self;
 
   headerView.commandHandler = self;
-  headerView.delegate = self.NTPViewController;
-  self.NTPViewController.headerView = headerView;
+  headerView.delegate =
+      (id<NewTabPageHeaderViewDelegate>)[self activeViewController];
   headerView.layoutGuideCenter = LayoutGuideCenterForBrowser(self.browser);
-  headerView.toolbarDelegate = self.toolbarDelegate;
+  headerView.scribbleForwardingTarget =
+      [self.toolbarDelegate fakeboxScribbleForwardingTarget];
   headerView.mutator = self.NTPMediator;
   [headerView setupSubviews];
-  [headerView setSearchEngineLogoMediator:_searchEngineLogoMediator];
+  if (IsNTPRedesignEnabled()) {
+    self.NTPRedesignViewController.searchEngineLogoView =
+        _searchEngineLogoMediator.view;
+    _searchEngineLogoMediator.consumer = self.NTPRedesignViewController;
+  } else {
+    headerView.searchEngineLogoView = _searchEngineLogoMediator.view;
+    _searchEngineLogoMediator.consumer = headerView;
+  }
 }
 
 // Configures `self.contentSuggestionsCoordinator`.
@@ -784,26 +822,55 @@
   NTPMediator.feedControlDelegate = self;
   NTPMediator.NTPContentDelegate = self;
   NTPMediator.headerConsumer = self.headerView;
-  NTPMediator.consumer = self.NTPViewController;
+  if (IsNTPRedesignEnabled()) {
+    NTPMediator.consumer = self.NTPRedesignViewController;
+  } else {
+    NTPMediator.consumer = self.NTPViewController;
+  }
   PlaceholderService* placeholderService =
       ios::PlaceholderServiceFactory::GetForProfile(self.profile);
   NTPMediator.placeholderService = placeholderService;
   NTPMediator.imageUpdater = self.headerView;
+  NTPMediator.logoMediator = _searchEngineLogoMediator;
 
   [NTPMediator setUp];
+}
+
+// Binds properties to the New Tab Page view controller.
+- (void)configureViewControllerProperties:
+    (NewTabPageViewController*)NTPViewController {
+  NTPViewController.incognitoDisabled =
+      IsIncognitoModeDisabled(self.prefService);
+  NTPViewController.mutator = self.NTPMediator;
+  NTPViewController.feedHeaderViewController = self.feedHeaderViewController;
+  NTPViewController.headerView = self.headerView;
+  NTPViewController.magicStackCollectionView =
+      self.contentSuggestionsCoordinator.magicStackCollectionView;
+  NTPViewController.contentSuggestionsViewController =
+      self.contentSuggestionsCoordinator.viewController;
+  NTPViewController.NTPShortcutsHandler = self;
+  NTPViewController.feedVisible = [self isFeedVisible];
+  NTPViewController.feedTopSectionViewController =
+      [self isFeedVisible] ? self.feedTopSectionCoordinator.viewController
+                           : nil;
+  NTPViewController.feedWrapperViewController = self.feedWrapperViewController;
+  NTPViewController.overscrollDelegate = self;
+  NTPViewController.NTPContentDelegate = self;
+  NTPViewController.feedMetricsRecorder = self.feedMetricsRecorder;
+  NTPViewController.helpHandler =
+      HandlerForProtocol(self.browser->GetCommandDispatcher(), HelpCommands);
 }
 
 // Configures `self.NTPViewController` and sets it up as the main ViewController
 // managed by this Coordinator.
 - (void)configureNTPViewController {
-  DCHECK(self.NTPViewController);
+  if (IsNTPRedesignEnabled()) {
+    self.NTPRedesignViewController.NTPContentDelegate = self;
+    [self configureMainViewControllerUsing:self.NTPRedesignViewController];
+    return;
+  }
 
-  self.NTPViewController.magicStackCollectionView =
-      self.contentSuggestionsCoordinator.magicStackCollectionView;
-  self.NTPViewController.contentSuggestionsViewController =
-      self.contentSuggestionsCoordinator.viewController;
-  self.NTPViewController.NTPShortcutsHandler = self;
-  self.NTPViewController.feedVisible = [self isFeedVisible];
+  DCHECK(self.NTPViewController);
 
   self.feedWrapperViewController = [self.componentFactory
       feedWrapperViewControllerWithDelegate:self
@@ -813,20 +880,9 @@
   self.NTPMediator.screenSize =
       self.browser->GetSceneState().scene.screen.bounds.size;
 
-  if ([self isFeedVisible]) {
-    self.NTPViewController.feedTopSectionViewController =
-        self.feedTopSectionCoordinator.viewController;
-  }
-
-  self.NTPViewController.feedWrapperViewController =
-      self.feedWrapperViewController;
-  self.NTPViewController.overscrollDelegate = self;
-  self.NTPViewController.NTPContentDelegate = self;
+  [self configureViewControllerProperties:self.NTPViewController];
 
   [self configureMainViewControllerUsing:self.NTPViewController];
-  self.NTPViewController.feedMetricsRecorder = self.feedMetricsRecorder;
-  self.NTPViewController.helpHandler =
-      HandlerForProtocol(self.browser->GetCommandDispatcher(), HelpCommands);
 }
 
 // Configures the `_tabGroupIndicatorCoordinator` and sets the
@@ -834,8 +890,9 @@
 - (void)configureTabGroupIndicator {
   // The `_tabGroupIndicatorCoordinator` should be configured after the
   // `AdaptiveToolbarCoordinator` to gain access to the `NTPViewController`.
+  UIViewController* baseVC = [self activeViewController];
   _tabGroupIndicatorCoordinator = [[TabGroupIndicatorCoordinator alloc]
-      initWithBaseViewController:self.NTPViewController
+      initWithBaseViewController:baseVC
                          browser:self.browser];
   _tabGroupIndicatorCoordinator.toolbarHeightDelegate = nil;
   _tabGroupIndicatorCoordinator.displayedOnNTP = YES;
@@ -862,19 +919,28 @@
 
 #pragma mark - Properties
 
+- (UIViewController*)activeViewController {
+  return IsNTPRedesignEnabled() ? self.NTPRedesignViewController
+                                : self.NTPViewController;
+}
+
 - (UIViewController*)viewController {
   DCHECK(self.started);
   if (self.isOffTheRecord) {
     return self.incognitoViewController;
-  } else {
-    return self.containerViewController;
   }
+  if (IsNTPRedesignEnabled()) {
+    return self.NTPRedesignViewController;
+  }
+  return self.containerViewController;
 }
 
 #pragma mark - NewTabPageHeaderCommands
 
 - (void)updateForHeaderSizeChange {
-  [self.NTPViewController updateHeightAboveFeed];
+  if (self.NTPViewController) {
+    [self.NTPViewController updateHeightAboveFeed];
+  }
 }
 
 - (void)fakeboxTapped {
@@ -885,7 +951,9 @@
   if (MaybeShowComposebox(self.browser, ComposeboxEntrypoint::kNTPFakebox)) {
     return;
   }
-  [self.NTPViewController focusOmnibox];
+  if (self.NTPViewController) {
+    [self.NTPViewController focusOmnibox];
+  }
 }
 
 - (void)fakeTapViewTapped {
@@ -941,6 +1009,7 @@
 }
 
 - (void)customizationMenuWasTapped:(UIView*)customizationMenu {
+  CHECK(!IsOverflowMenuHomeCustomizationEntrypointEnabled());
   if (_customizationCoordinator) {
     // The menu is already opened, so tapping an entrypoint again should close
     // it.
@@ -950,6 +1019,21 @@
 
   // Hide the 'new' badge for the current session after being tapped.
   [self.headerView hideBadgeOnCustomizationMenu];
+
+  [self.NTPMetricsRecorder recordHomeCustomizationMenuOpenedFromEntrypoint:
+                               HomeCustomizationEntrypoint::kMain];
+
+  [self openCustomizationMenuAtPage:CustomizationMenuPage::kMain animated:YES];
+}
+
+- (void)customizationMenuWasTapped {
+  CHECK(IsOverflowMenuHomeCustomizationEntrypointEnabled());
+  if (_customizationCoordinator) {
+    // The menu is already opened, so tapping an entrypoint again should close
+    // it.
+    [self dismissCustomizationMenu];
+    return;
+  }
 
   [self.NTPMetricsRecorder recordHomeCustomizationMenuOpenedFromEntrypoint:
                                HomeCustomizationEntrypoint::kMain];
@@ -1007,7 +1091,8 @@
 
 - (void)didChangeDiscoverFeedVisibility {
   // TODO(crbug.com/412691611): Consider moving to mediator after refactor.
-  if (!self.NTPViewController.viewLoaded) {
+  UIViewController* activeVC = [self activeViewController];
+  if (!activeVC.viewLoaded) {
     return;
   }
   [self updateModuleVisibility];
@@ -1044,13 +1129,16 @@
 }
 
 - (void)updateFeedForDefaultSearchEngineChanged {
-  if (!self.NTPViewController.viewLoaded) {
+  UIViewController* activeVC = [self activeViewController];
+  if (!activeVC.viewLoaded) {
     return;
   }
   [self.feedHeaderViewController updateForDefaultSearchEngineChanged];
   [self updateFeedLayout];
   [self cancelOmniboxEdit];
-  [self.NTPViewController setContentOffsetToTop];
+  if (!IsNTPRedesignEnabled()) {
+    [self.NTPViewController setContentOffsetToTop];
+  }
 
   self.headerView.isGoogleDefaultSearchEngine =
       [self isGoogleDefaultSearchEngine];
@@ -1059,13 +1147,15 @@
 #pragma mark - ContentSuggestionsDelegate
 
 - (void)contentSuggestionsWasUpdated {
-  // Force a layout to make sure the frame height is successfully updated,
-  // before updating height above the feed.
-  UIView* contentSuggestionsView =
-      self.NTPViewController.contentSuggestionsViewController.view;
-  [contentSuggestionsView setNeedsLayout];
-  [contentSuggestionsView layoutIfNeeded];
-  [self.NTPViewController updateHeightAboveFeed];
+  if (!IsNTPRedesignEnabled()) {
+    // Force a layout to make sure the frame height is successfully updated,
+    // before updating height above the feed.
+    UIView* contentSuggestionsView =
+        self.NTPViewController.contentSuggestionsViewController.view;
+    [contentSuggestionsView setNeedsLayout];
+    [contentSuggestionsView layoutIfNeeded];
+    [self.NTPViewController updateHeightAboveFeed];
+  }
 }
 
 - (void)shareURL:(const GURL&)URL
@@ -1075,11 +1165,12 @@
       [[SharingParams alloc] initWithURL:URL
                                    title:title
                                 scenario:SharingScenario::MostVisitedEntry];
-  _sharingCoordinator = [[SharingCoordinator alloc]
-      initWithBaseViewController:self.NTPViewController
-                         browser:self.browser
-                          params:params
-                      sourceItem:view];
+  UIViewController* baseVC = [self activeViewController];
+  _sharingCoordinator =
+      [[SharingCoordinator alloc] initWithBaseViewController:baseVC
+                                                     browser:self.browser
+                                                      params:params
+                                                  sourceItem:view];
   [_sharingCoordinator start];
 }
 
@@ -1103,9 +1194,10 @@
 }
 
 - (void)openSafariDataImport {
+  UIViewController* baseVC = [self activeViewController];
   _safariDataImportExportCoordinator =
       [[SafariDataImportExportCoordinator alloc]
-          initWithBaseViewController:self.NTPViewController
+          initWithBaseViewController:baseVC
                              browser:self.browser];
   _safariDataImportExportCoordinator.delegate = self;
   [self.NTPMediator markSafariDataImportSetupListItemAsComplete];
@@ -1156,16 +1248,17 @@
       break;
   }
   __weak __typeof(self) weakSelf = self;
+  UIViewController* baseVC = [self activeViewController];
   // If there are 0 identities, kInstantSignin requires less taps.
   if (hasUserIdentities) {
     _signinCoordinator = [SigninCoordinator
-        consistencyPromoSigninCoordinatorWithBaseViewController:
-            self.NTPViewController
+        consistencyPromoSigninCoordinatorWithBaseViewController:baseVC
                                                         browser:self.browser
                                                    contextStyle:
                                                        SigninContextStyle::
                                                            kDefault
                                                     accessPoint:accessPoint
+                                           confirmChangeProfile:nil
                                            prepareChangeProfile:nil
                                            continuationProvider:
                                                DoNothingContinuationProvider()];
@@ -1174,7 +1267,7 @@
     CHECK_EQ(browser->type(), Browser::Type::kRegular,
              base::NotFatalUntil::M145);
     _signinCoordinator = [SigninCoordinator
-        instantSigninCoordinatorWithBaseViewController:self.NTPViewController
+        instantSigninCoordinatorWithBaseViewController:baseVC
                                                browser:browser
                                               identity:nil
                                           contextStyle:SigninContextStyle::
@@ -1252,6 +1345,10 @@
       ->NotifyEvent(feature_engagement::events::kIOSScrolledOnFeed);
 }
 
+- (void)didUpdateNTPTabOmniboxScrollProgress:(CGFloat)progress {
+  [self.toolbarDelegate setScrollProgressForTabletOmnibox:progress];
+}
+
 #pragma mark - NewTabPageDelegate
 
 - (void)updateFeedLayout {
@@ -1265,11 +1362,15 @@
   // relayout.
   [self.containedViewController.view setNeedsLayout];
   [self.containedViewController.view layoutIfNeeded];
-  [self.NTPViewController updateNTPLayout];
+  if (!IsNTPRedesignEnabled()) {
+    [self.NTPViewController updateNTPLayout];
+  }
 }
 
 - (void)setContentOffsetToTop {
-  [self.NTPViewController setContentOffsetToTop];
+  if (!IsNTPRedesignEnabled()) {
+    [self.NTPViewController setContentOffsetToTop];
+  }
 }
 
 - (BOOL)isGoogleDefaultSearchEngine {
@@ -1288,7 +1389,9 @@
 }
 
 - (void)handleFeedTopSectionClosed {
-  [self.NTPViewController updateScrollPositionForFeedTopSectionClosed];
+  if (!IsNTPRedesignEnabled()) {
+    [self.NTPViewController updateScrollPositionForFeedTopSectionClosed];
+  }
 }
 
 - (BOOL)isSignInAllowed {
@@ -1417,6 +1520,9 @@
 
 - (CGFloat)headerInsetForOverscrollActionsController:
     (OverscrollActionsController*)controller {
+  if (IsNTPRedesignEnabled()) {
+    return 0.0;
+  }
   return [self.NTPViewController heightAboveFeed];
 }
 
@@ -1450,7 +1556,12 @@
     didTransitionToInitStage:(ProfileInitStage)nextInitStage
                fromInitStage:(ProfileInitStage)fromInitStage {
   if (nextInitStage == ProfileInitStage::kFinal) {
-    self.NTPViewController.focusAccessibilityOmniboxWhenViewAppears = YES;
+    if (IsNTPRedesignEnabled()) {
+      self.NTPRedesignViewController.focusAccessibilityOmniboxWhenViewAppears =
+          YES;
+    } else {
+      self.NTPViewController.focusAccessibilityOmniboxWhenViewAppears = YES;
+    }
     [self.headerView focusAccessibilityOnOmnibox];
 
     [profileState removeObserver:self];
@@ -1460,9 +1571,14 @@
 #pragma mark - DiscoverFeedObserverBridge
 
 - (void)discoverFeedModelWasCreated {
-  if (self.NTPViewController.viewDidAppear) {
+  BOOL viewDidAppear = IsNTPRedesignEnabled()
+                           ? self.NTPRedesignViewController.viewDidAppear
+                           : self.NTPViewController.viewDidAppear;
+  if (viewDidAppear) {
     [self handleChangeInModules];
-    [self.NTPViewController setContentOffsetToTop];
+    if (!IsNTPRedesignEnabled()) {
+      [self.NTPViewController setContentOffsetToTop];
+    }
   }
 }
 
@@ -1569,8 +1685,9 @@
 }
 
 - (void)showAccountMenu:(UIView*)identityDisc {
+  UIViewController* baseVC = [self activeViewController];
   _accountMenuCoordinator = [[AccountMenuCoordinator alloc]
-      initWithBaseViewController:self.NTPViewController
+      initWithBaseViewController:baseVC
                          browser:self.browser
                       anchorView:identityDisc
                      accessPoint:AccountMenuAccessPoint::kNewTabPage
@@ -1623,6 +1740,9 @@
 
 // Updates the NTP to take into account a change in module visibility
 - (void)handleChangeInModules {
+  if (IsNTPRedesignEnabled()) {
+    return;
+  }
   DCHECK(self.NTPViewController);
 
   [self.NTPViewController resetViewHierarchy];
@@ -1633,8 +1753,6 @@
 
   [self.feedTopSectionCoordinator stop];
 
-  self.NTPViewController.feedWrapperViewController = nil;
-  self.NTPViewController.feedTopSectionViewController = nil;
   self.feedWrapperViewController = nil;
   self.feedViewController = nil;
   self.feedTopSectionCoordinator = nil;
@@ -1644,25 +1762,17 @@
   if ([self.NTPMediator isFeedHeaderVisible]) {
     [self configureFeedAndHeader];
   } else {
-    self.NTPViewController.feedHeaderViewController = nil;
     self.feedHeaderViewController = nil;
   }
-
-  if ([self isFeedVisible]) {
-    self.NTPViewController.feedTopSectionViewController =
-        self.feedTopSectionCoordinator.viewController;
-  }
-
-  self.NTPViewController.feedVisible = [self isFeedVisible];
 
   self.feedWrapperViewController = [self.componentFactory
       feedWrapperViewControllerWithDelegate:self
                          feedViewController:self.feedViewController];
 
-  self.NTPViewController.feedWrapperViewController =
-      self.feedWrapperViewController;
   self.NTPMediator.contentCollectionView =
       self.feedWrapperViewController.contentCollectionView;
+
+  [self configureViewControllerProperties:self.NTPViewController];
 
   [self.NTPViewController layoutContentInParentCollectionView];
 
@@ -1674,7 +1784,8 @@
   DiscoverFeedViewControllerConfiguration* viewControllerConfig =
       [[DiscoverFeedViewControllerConfiguration alloc] init];
   viewControllerConfig.browser = self.browser;
-  viewControllerConfig.scrollDelegate = self.NTPViewController;
+  viewControllerConfig.scrollDelegate =
+      (id<UIScrollViewDelegate>)[self activeViewController];
   viewControllerConfig.previewDelegate = self;
   viewControllerConfig.signInPromoDelegate = self;
 
@@ -1683,10 +1794,11 @@
 
 // Configures and returns the feed top section coordinator.
 - (FeedTopSectionCoordinator*)createFeedTopSectionCoordinator {
-  DCHECK(self.NTPViewController);
+  UIViewController* baseVC = [self activeViewController];
+  DCHECK(baseVC);
   FeedTopSectionCoordinator* feedTopSectionCoordinator =
       [[FeedTopSectionCoordinator alloc]
-          initWithBaseViewController:self.NTPViewController
+          initWithBaseViewController:baseVC
                              browser:self.browser];
   feedTopSectionCoordinator.NTPDelegate = self;
   [feedTopSectionCoordinator start];
@@ -1717,6 +1829,12 @@
   self.visible = visible;
   self.NTPViewController.NTPVisible = visible;
   self.NTPMediator.NTPVisible = visible;
+
+  if (visible) {
+    [_activityReporter reportActiveWithIncognito:self.isOffTheRecord];
+  } else {
+    [_activityReporter reportInactive];
+  }
 
   if (!self.isOffTheRecord) {
     if (visible) {
@@ -1794,8 +1912,9 @@
 // Opens the Home customization menu at a specific `page`.
 - (void)openCustomizationMenuAtPage:(CustomizationMenuPage)page
                            animated:(BOOL)animated {
+  UIViewController* baseVC = [self activeViewController];
   _customizationCoordinator = [[HomeCustomizationCoordinator alloc]
-      initWithBaseViewController:self.NTPViewController
+      initWithBaseViewController:baseVC
                          browser:self.browser];
   _customizationCoordinator.delegate = self;
   [_customizationCoordinator start];
@@ -1804,8 +1923,7 @@
       feature_engagement::TrackerFactory::GetForProfile(self.profile);
 
   tracker->NotifyEvent(feature_engagement::events::kHomeCustomizationMenuUsed);
-  if (page == CustomizationMenuPage::kMain &&
-      IsNTPBackgroundCustomizationEnabled()) {
+  if (page == CustomizationMenuPage::kMain) {
     tracker->NotifyEvent(
         feature_engagement::events::kHomeBackgroundCustomizationMenuUsed);
   }
@@ -1871,12 +1989,11 @@
                           alignment:BubbleAlignmentBottomOrTrailing
                   dismissalCallback:nil];
   // Discard if it doesn't fit in the view as it is currently shown.
-  if (![presenter canPresentInView:self.NTPViewController.view
-                       anchorPoint:anchorPoint]) {
+  UIViewController* activeVC = [self activeViewController];
+  if (![presenter canPresentInView:activeVC.view anchorPoint:anchorPoint]) {
     return;
   }
-  [presenter presentInViewController:self.NTPViewController
-                         anchorPoint:anchorPoint];
+  [presenter presentInViewController:activeVC anchorPoint:anchorPoint];
   _fakeboxLensIconBubblePresenter = presenter;
 }
 
@@ -1908,6 +2025,7 @@
 #pragma mark - NewTabPageShortcutsHandler
 
 - (void)openLensViewFinder {
+  RecordHomeAction(IOSHomeActionType::kLens, [self isStartSurface]);
   [self.NTPMetricsRecorder recordLensTapped];
   feature_engagement::TrackerFactory::GetForProfile(self.profile)
       ->NotifyEvent(feature_engagement::events::kIOSLensButtonUsed);
@@ -1924,6 +2042,7 @@
 }
 
 - (void)openAIM {
+  RecordHomeAction(IOSHomeActionType::kQuickActionAIM, [self isStartSurface]);
   [self.NTPMetricsRecorder recordAIMButtonTapped];
   if (!IsDisableComposeboxFromAIMNTPEnabled() && !IsComposeboxAIMDisabled() &&
       _aimEligibilityService->IsFuseboxEligible() &&
@@ -1941,6 +2060,7 @@
 }
 
 - (void)loadVoiceSearchFromView:(UIView*)voiceSearchSourceView {
+  RecordHomeAction(IOSHomeActionType::kVoiceSearch, [self isStartSurface]);
   [self.NTPMetricsRecorder recordVoiceSearchTapped];
   [self dismissCustomizationMenu];
 
@@ -1955,6 +2075,8 @@
 }
 
 - (void)openIncognitoSearch {
+  RecordHomeAction(IOSHomeActionType::kQuickActionIncognito,
+                   [self isStartSurface]);
   [self.NTPMetricsRecorder recordIncognitoTapped];
   [self dismissCustomizationMenu];
 
@@ -1966,6 +2088,7 @@
 }
 
 - (void)openMultimodalActionsMenu {
+  RecordHomeAction(IOSHomeActionType::kPlusButton, [self isStartSurface]);
   [self.NTPMetricsRecorder recordPlusButtonTapped];
   [self dismissCustomizationMenu];
 
@@ -1979,7 +2102,7 @@
                       BrowserCoordinatorCommands) showMultimodalActionsMenu];
 }
 
-#pragma mark - TabGridStateObserver
+#pragma mark - TabGridStateObserving
 
 - (void)willEnterTabGrid {
   [self clearPresentedState];

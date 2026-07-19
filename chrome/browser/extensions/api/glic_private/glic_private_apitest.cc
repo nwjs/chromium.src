@@ -12,6 +12,7 @@
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/glic/glic_pref_names.h"
+#include "chrome/browser/glic/glic_pref_names_internal.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
@@ -21,6 +22,7 @@
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/webui_url_constants.h"
+#include "components/prefs/pref_service.h"
 #include "components/signin/public/identity_manager/account_capabilities_test_mutator.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "content/public/test/browser_test.h"
@@ -37,17 +39,33 @@
 #include "services/network/public/cpp/network_switches.h"
 #include "url/gurl.h"
 
+#if BUILDFLAG(IS_CHROMEOS)
+#include "chromeos/constants/chromeos_features.h"
+#include "components/sync/base/features.h"
+#endif
+
 namespace extensions {
 
 class GlicPrivateApiTest : public GlicPrivateApiTestBase {
  public:
   GlicPrivateApiTest() {
     scoped_feature_list_.InitWithFeaturesAndParameters(
+        /*enabled_features=*/
         {{extensions_features::kApiGlicPrivate, {}},
          {extensions_features::kApiGlicAccessFromGoogleWebpage, {}},
+         {extensions_features::kApiGlicAccessFromPromotionPage, {}},
+         {features::kGlicAnchorEntryPointForOnboardedUsers, {}},
          {features::kGlicActor,
-          {{"glic_actor_policy_control_exemption", "true"}}}},
-        {{features::kGlicShowForSignedOut}});
+          {{"glic_actor_policy_control_exemption", "true"}}}
+#if BUILDFLAG(IS_CHROMEOS)
+         ,
+         {syncer::kReplaceSyncPromosWithSignInPromos, {}},
+         {chromeos::features::kFeatureManagementGlic, {}}
+#endif
+        },
+        /*disabled_features=*/{features::kGlicShowForSignedOut,
+                               features::kGlicCountryFiltering,
+                               features::kGlicLocaleFiltering});
   }
 
  private:
@@ -94,6 +112,45 @@ IN_PROC_BROWSER_TEST_F(GlicPrivateApiDisabledTest, GetState) {
       << message_;
 }
 
+class GlicPrivateApiIneligibleAccountTest
+    : public glic::GlicBrowserTestMixin<GlicPrivateApiTest> {
+ public:
+  void SetUpOnMainThread() override {
+    GlicPrivateApiTest::SetUpOnMainThread();
+
+    profile()->GetPrefs()->SetInteger(
+        ::glic::prefs::kGlicCompletedFre,
+        static_cast<int>(::glic::prefs::FreStatus::kCompleted));
+
+    Profile* test_profile = profile();
+    signin::IdentityManager* identity_manager =
+        IdentityManagerFactory::GetForProfile(test_profile);
+
+    CoreAccountInfo primary_account =
+        identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin);
+    ASSERT_FALSE(primary_account.IsEmpty());
+
+    AccountInfo account_info =
+        identity_manager->FindExtendedAccountInfoByAccountId(
+            primary_account.account_id);
+
+    AccountCapabilitiesTestMutator mutator(&account_info);
+    mutator.set_can_use_gemini_in_chrome(false);
+    mutator.set_can_use_model_execution_features(false);
+    signin::UpdateAccountInfoForAccount(identity_manager, account_info);
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(GlicPrivateApiIneligibleAccountTest, GetState) {
+  SimpleFeature::ScopedThreadUnsafeAllowlistForTest allowlist(
+      kGlicPrivateTestExtensionId);
+  EXPECT_TRUE(RunExtensionTest(
+      "glic_private",
+      {.extension_url = "test.html", .custom_arg = "ineligible_account"},
+      {.load_as_component = true}))
+      << message_;
+}
+
 class GlicPrivateApiNotReadyTest : public GlicPrivateApiTest {
  public:
   void SetUpOnMainThread() override {
@@ -112,23 +169,6 @@ IN_PROC_BROWSER_TEST_F(GlicPrivateApiNotReadyTest, GetState) {
   EXPECT_TRUE(RunExtensionTest(
       "glic_private", {.extension_url = "test.html", .custom_arg = "not_ready"},
       {.load_as_component = true}))
-      << message_;
-}
-
-class GlicPrivateApiAccountMismatchTest : public GlicPrivateApiTest {
- private:
-  glic::GlicTestEnvironment glic_test_environment_;
-};
-
-IN_PROC_BROWSER_TEST_F(GlicPrivateApiAccountMismatchTest, GetState) {
-  SimpleFeature::ScopedThreadUnsafeAllowlistForTest allowlist(
-      kGlicPrivateTestExtensionId);
-
-  // Run the test on a non-extension page with a mismatched account index in the
-  // URL. CheckAccountConsistency should trigger.
-  EXPECT_TRUE(RunExtensionTest("glic_private",
-                               {.custom_arg = "account_mismatch"},
-                               {.load_as_component = true}))
       << message_;
 }
 
@@ -322,6 +362,140 @@ IN_PROC_BROWSER_TEST_F(GlicPrivateApiDisabledTest, Invoke) {
       << message_;
 }
 
+class GlicPrivateApiUniversalCartOnlyTest
+    : public glic::GlicBrowserTestMixin<GlicPrivateApiTest> {
+ public:
+  GlicPrivateApiUniversalCartOnlyTest() {
+    scoped_feature_list_.InitWithFeaturesAndParameters(
+        {{extensions_features::kApiGlicPrivate, {}},
+         {extensions_features::kApiGlicAccessFromGoogleWebpage, {}},
+         {features::kGlicActor,
+          {{"glic_actor_policy_control_exemption", "true"}}}},
+        {extensions_features::kApiGlicAccessFromPromotionPage,
+         features::kGlicShowForSignedOut});
+  }
+
+  void SetUpOnMainThread() override {
+    GlicPrivateApiTest::SetUpOnMainThread();
+    SetupIdentityAndCapabilities();
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(GlicPrivateApiUniversalCartOnlyTest, Invoke) {
+  SimpleFeature::ScopedThreadUnsafeAllowlistForTest allowlist(
+      kGlicPrivateTestExtensionId);
+
+  auto interceptor = CreateMockPromptResponseInterceptor();
+
+  EXPECT_TRUE(RunExtensionTest(
+      "glic_private",
+      {.extension_url = "test.html", .custom_arg = "universal_cart_only"},
+      {.load_as_component = true}))
+      << message_;
+}
+
+IN_PROC_BROWSER_TEST_F(GlicPrivateApiUniversalCartOnlyTest,
+                       InvokeWithMetadata) {
+  SimpleFeature::ScopedThreadUnsafeAllowlistForTest allowlist(
+      kGlicPrivateTestExtensionId);
+
+  auto interceptor = CreateMockPromptResponseWithMetadataInterceptor();
+
+  EXPECT_TRUE(RunExtensionTest(
+      "glic_private",
+      {.extension_url = "test.html", .custom_arg = "universal_cart_only"},
+      {.load_as_component = true}))
+      << message_;
+}
+
+IN_PROC_BROWSER_TEST_F(GlicPrivateApiUniversalCartOnlyTest,
+                       InvokeWithMetadataBase64Error) {
+  SimpleFeature::ScopedThreadUnsafeAllowlistForTest allowlist(
+      kGlicPrivateTestExtensionId);
+
+  auto interceptor = CreateMockPromptResponseWithMetadataInterceptor(
+      "Mock prompt", "invalid_base64_!!!");
+
+  EXPECT_TRUE(RunExtensionTest(
+      "glic_private",
+      {.extension_url = "test.html", .custom_arg = "universal_cart_only"},
+      {.load_as_component = true}))
+      << message_;
+}
+
+class GlicPrivateApiPromotionPageOnlyTest
+    : public glic::GlicBrowserTestMixin<GlicPrivateApiTest> {
+ public:
+  GlicPrivateApiPromotionPageOnlyTest() {
+    scoped_feature_list_.InitWithFeaturesAndParameters(
+        {{extensions_features::kApiGlicPrivate, {}},
+         {extensions_features::kApiGlicAccessFromPromotionPage, {}},
+         {features::kGlicActor,
+          {{"glic_actor_policy_control_exemption", "true"}}}},
+        {extensions_features::kApiGlicAccessFromGoogleWebpage,
+         features::kGlicShowForSignedOut});
+  }
+
+  void SetUpOnMainThread() override {
+    GlicPrivateApiTest::SetUpOnMainThread();
+    SetupIdentityAndCapabilities();
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(GlicPrivateApiPromotionPageOnlyTest, Invoke) {
+  SimpleFeature::ScopedThreadUnsafeAllowlistForTest allowlist(
+      kGlicPrivateTestExtensionId);
+
+  auto interceptor = CreateMockPromptResponseInterceptor();
+
+  EXPECT_TRUE(RunExtensionTest(
+      "glic_private",
+      {.extension_url = "test.html", .custom_arg = "promotion_page_only"},
+      {.load_as_component = true}))
+      << message_;
+}
+
+class GlicPrivateApiBothAccessDisabledTest
+    : public glic::GlicBrowserTestMixin<GlicPrivateApiTest> {
+ public:
+  GlicPrivateApiBothAccessDisabledTest() {
+    scoped_feature_list_.InitWithFeaturesAndParameters(
+        {{extensions_features::kApiGlicPrivate, {}},
+         {features::kGlicActor,
+          {{"glic_actor_policy_control_exemption", "true"}}}},
+        {extensions_features::kApiGlicAccessFromGoogleWebpage,
+         extensions_features::kApiGlicAccessFromPromotionPage,
+         features::kGlicShowForSignedOut});
+  }
+
+  void SetUpOnMainThread() override {
+    GlicPrivateApiTest::SetUpOnMainThread();
+    SetupIdentityAndCapabilities();
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(GlicPrivateApiBothAccessDisabledTest, Invoke) {
+  SimpleFeature::ScopedThreadUnsafeAllowlistForTest allowlist(
+      kGlicPrivateTestExtensionId);
+
+  auto interceptor = CreateMockPromptResponseInterceptor();
+
+  EXPECT_TRUE(RunExtensionTest(
+      "glic_private",
+      {.extension_url = "test.html", .custom_arg = "both_access_disabled"},
+      {.load_as_component = true}))
+      << message_;
+}
+
 IN_PROC_BROWSER_TEST_F(GlicPrivateApiFeatureDisabledTest, Invoke) {
   SimpleFeature::ScopedThreadUnsafeAllowlistForTest allowlist(
       kGlicPrivateTestExtensionId);
@@ -415,5 +589,40 @@ IN_PROC_BROWSER_TEST_F(GlicPrivateApiFullyEnabledTest,
       {.load_as_component = true}))
       << message_;
 }
+
+#if !BUILDFLAG(IS_ANDROID)
+class GlicPrivateApiActuationDisabledTest
+    : public glic::GlicBrowserTestMixin<GlicPrivateApiTestBase> {
+ public:
+  GlicPrivateApiActuationDisabledTest() {
+    scoped_feature_list_.InitWithFeaturesAndParameters(
+        {{extensions_features::kApiGlicPrivate, {}},
+         {extensions_features::kApiGlicAccessFromGoogleWebpage, {}},
+         {extensions_features::kApiGlicAccessFromPromotionPage, {}}},
+        {{features::kGlicActor, features::kGlicShowForSignedOut}});
+  }
+
+  void SetUpOnMainThread() override {
+    GlicPrivateApiTestBase::SetUpOnMainThread();
+    SetupIdentityAndCapabilities();
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(GlicPrivateApiActuationDisabledTest, Invoke) {
+  SimpleFeature::ScopedThreadUnsafeAllowlistForTest allowlist(
+      kGlicPrivateTestExtensionId);
+
+  auto interceptor = CreateMockPromptResponseInterceptor();
+
+  EXPECT_TRUE(RunExtensionTest(
+      "glic_private",
+      {.extension_url = "test.html", .custom_arg = "actuation_disabled"},
+      {.load_as_component = true}))
+      << message_;
+}
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 }  // namespace extensions

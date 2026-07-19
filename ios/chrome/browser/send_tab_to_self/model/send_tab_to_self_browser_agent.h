@@ -8,14 +8,20 @@
 #import <CoreFoundation/CoreFoundation.h>
 
 #import <string>
-#import <vector>
 
+#import "base/containers/span.h"
 #import "base/memory/raw_ptr.h"
 #import "base/scoped_observation.h"
+#import "components/send_tab_to_self/receiving_ui_handler.h"
 #import "components/send_tab_to_self/send_tab_to_self_model_observer.h"
+#import "ios/chrome/browser/shared/model/browser/browser_observer.h"
 #import "ios/chrome/browser/shared/model/browser/browser_user_data.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list_observer.h"
+#import "ios/chrome/browser/url_loading/model/url_loading_observer.h"
 #import "ios/web/public/web_state_observer.h"
+
+class UrlLoadingNotifierBrowserAgent;
+struct UrlLoadParams;
 
 namespace web {
 class WebState;
@@ -31,21 +37,29 @@ class SendTabToSelfModel;
 class SendTabToSelfBrowserAgent
     : public BrowserUserData<SendTabToSelfBrowserAgent>,
       public send_tab_to_self::SendTabToSelfModelObserver,
+      public send_tab_to_self::ReceivingUiHandler,
       public WebStateListObserver,
-      public web::WebStateObserver {
+      public web::WebStateObserver,
+      public UrlLoadingObserver,
+      public BrowserObserver {
  public:
   ~SendTabToSelfBrowserAgent() override;
 
-  // SendTabToSelfModelObserver::
+  // BrowserObserver::
+  void BrowserDestroyed(Browser* browser) override;
 
-  // Updates the UI to reflect the new entries. Calls the handlers
-  // registered through ReceivingUIRegistry.
+  // SendTabToSelfModelObserver::
   void OnEntriesAddedRemotely(
-      const std::vector<const send_tab_to_self::SendTabToSelfEntry*>&
-          new_entries) override;
-  // Updates the UI to reflect the removal of entries. Calls the handlers
-  // registered through ReceivingUIRegistry.
-  void OnEntriesRemovedRemotely(const std::vector<std::string>& guids) override;
+      base::span<const send_tab_to_self::SendTabToSelfEntry* const> new_entries)
+      override;
+  void OnEntriesRemovedRemotely(base::span<const std::string> guids) override;
+  void OnModelReady() override;
+
+  // ReceivingUiHandler::
+  void DisplayNewEntries(
+      base::span<const send_tab_to_self::SendTabToSelfEntry* const> new_entries)
+      override;
+  void DismissEntries(base::span<const std::string> guids) override;
 
   // WebStateListObserver::
   void WebStateListDidChange(WebStateList* web_state_list,
@@ -56,10 +70,22 @@ class SendTabToSelfBrowserAgent
   void WasShown(web::WebState* web_state) override;
   void WebStateDestroyed(web::WebState* web_state) override;
 
+  // UrlLoadingObserver::
+  void TabWillLoadUrl(const UrlLoadParams& params,
+                      base::WeakPtr<web::WebState> web_state) override;
+
  private:
   friend class BrowserUserData<SendTabToSelfBrowserAgent>;
 
   explicit SendTabToSelfBrowserAgent(Browser* browser);
+
+  // Checks if there are any unopened entries targeted to the local device
+  // and auto-opens them as background tabs.
+  void CheckAndOpenPendingEntriesIfBrowserVisible();
+
+  // Opens `entry` in a new background tab and marks it as opened.
+  void OpenEntryInBackgroundTab(
+      const send_tab_to_self::SendTabToSelfEntry* entry);
 
   // Display an infobar for `entry` on the specified `web_state`.
   void DisplayInfoBar(web::WebState* web_state,
@@ -77,6 +103,11 @@ class SendTabToSelfBrowserAgent
 
   // The WebState that is being observed for activation, if any.
   raw_ptr<web::WebState> pending_web_state_ = nullptr;
+
+  base::ScopedObservation<Browser, BrowserObserver> browser_observation_{this};
+
+  base::ScopedObservation<UrlLoadingNotifierBrowserAgent, UrlLoadingObserver>
+      url_loading_observation_{this};
 
   base::ScopedObservation<WebStateList, WebStateListObserver>
       web_state_list_observation_{this};

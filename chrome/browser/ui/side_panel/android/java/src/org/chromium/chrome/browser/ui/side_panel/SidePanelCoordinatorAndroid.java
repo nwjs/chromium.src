@@ -11,17 +11,27 @@ import org.chromium.chrome.browser.ui.browser_window.ChromeAndroidTaskFeature;
 @NullMarked
 public interface SidePanelCoordinatorAndroid extends ChromeAndroidTaskFeature {
 
+    /** Initializes the coordinator and restores the active entry if one exists. */
+    void init();
+
     /**
-     * Called when a window size change affects the side panel's visibility.
+     * Returns whether the side panel has content to show.
      *
-     * <p>For example, when the window becomes too small, we may need to hide the side panel. When
-     * the window becomes large enough again, the panel can be re-shown.
-     *
-     * <p>This method won't be called if a window size change doesn't affect the panel's visibility.
-     *
-     * @param canShowSidePanel Whether the side panel <i>can</i> be shown after a window size
-     *     change. This parameter doesn't mean the panel <i>must</i> be shown or hidden. The final
-     *     decision should be made by the native {@code SidePanelCoordinatorAndroid}.
+     * @see org.chromium.chrome.browser.ui.side_ui.SideUiContainer#hasContentToShow
      */
-    void onWindowResized(boolean canShowSidePanel);
+    boolean hasContentToShow();
+
+    /**
+     * Called when the side panel <i>will</i> be auto-closed due to space constraints.
+     *
+     * @see org.chromium.chrome.browser.ui.side_ui.SideUiContainer#onWillAutoClose()
+     */
+    void onWillAutoClose();
+
+    /**
+     * Called when the side panel <i>will</i> be auto-restored after it's auto-closed.
+     *
+     * @see org.chromium.chrome.browser.ui.side_ui.SideUiContainer#onWillAutoRestore()
+     */
+    void onWillAutoRestore();
 }

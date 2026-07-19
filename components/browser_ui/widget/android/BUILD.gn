@@ -279,7 +279,6 @@ android_resources("java_resources") {
     "java/res/drawable/oval_surface_1.xml",
     "java/res/drawable/popup_menu_bg_no_horizontal_padding.xml",
     "java/res/drawable/query_tile_overlay.xml",
-    "java/res/drawable/reader_mode_bottom_sheet_background.xml",
     "java/res/drawable/rich_radio_button_background.xml",
     "java/res/drawable/rich_radio_button_selector.xml",
     "java/res/drawable/rounded_corner_card.xml",
@@ -350,8 +349,6 @@ android_resources("java_resources") {
     "java/res/values/ids.xml",
     "java/res/values/styles.xml",
     "java/res/values/values.xml",
-    "java/res/xml/rich_radio_button_horizontal_constraints.xml",
-    "java/res/xml/rich_radio_button_vertical_constraints.xml",
   ]
   deps = [
     "shared_with_webview:java_resources",
@@ -509,6 +506,7 @@ robolectric_library("junit") {
     "java/src/org/chromium/components/browser_ui/widget/ChromeTransitionDrawableTest.java",
     "java/src/org/chromium/components/browser_ui/widget/CompositeTouchDelegateUnitTest.java",
     "java/src/org/chromium/components/browser_ui/widget/ContextMenuDialogUnitTest.java",
+    "java/src/org/chromium/components/browser_ui/widget/CoordinatorLayoutForPointerUnitTest.java",
     "java/src/org/chromium/components/browser_ui/widget/DateDividedAdapterUnitTest.java",
     "java/src/org/chromium/components/browser_ui/widget/FullscreenAlertDialogUnitTest.java",
     "java/src/org/chromium/components/browser_ui/widget/ListItemBuilderUnitTest.java",

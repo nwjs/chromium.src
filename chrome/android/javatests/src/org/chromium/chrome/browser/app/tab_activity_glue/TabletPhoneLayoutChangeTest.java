@@ -33,7 +33,9 @@ import org.chromium.chrome.tab_ui.R;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
+import org.chromium.components.omnibox.AutocompleteInput;
 import org.chromium.components.omnibox.OmniboxFocusReason;
+import org.chromium.components.omnibox.TextSelection;
 import org.chromium.ui.base.DeviceFormFactor;
 
 import java.util.concurrent.TimeoutException;
@@ -107,8 +109,10 @@ public class TabletPhoneLayoutChangeTest {
 
         ThreadUtils.runOnUiThreadBlocking(
                 () ->
-                        toolbarManager.setUrlBarFocusAndText(
-                                true, OmniboxFocusReason.OMNIBOX_TAP, urlBarText));
+                        toolbarManager.beginFuseboxInput(
+                                new AutocompleteInput(OmniboxFocusReason.OMNIBOX_TAP)
+                                        .setUserText(urlBarText)
+                                        .setSelection(TextSelection.SELECT_ALL)));
 
         CriteriaHelper.pollUiThread(
                 () -> {
@@ -146,7 +150,7 @@ public class TabletPhoneLayoutChangeTest {
         CriteriaHelper.pollUiThread(
                 () -> {
                     boolean isTabSwitcherShown =
-                            cta.getLayoutManager().isLayoutVisible(LayoutType.TAB_SWITCHER);
+                            cta.getLayoutManager().isLayoutVisible(LayoutType.HUB);
                     Criteria.checkThat(isTabSwitcherShown, Matchers.is(true));
                 },
                 TIMEOUT_MS,
@@ -159,8 +163,7 @@ public class TabletPhoneLayoutChangeTest {
                     boolean isTabSwitcherShown =
                             newCta.getCompositorViewHolderSupplier().get() != null
                                     && newCta.getLayoutManager() != null
-                                    && newCta.getLayoutManager()
-                                            .isLayoutVisible(LayoutType.TAB_SWITCHER);
+                                    && newCta.getLayoutManager().isLayoutVisible(LayoutType.HUB);
                     Criteria.checkThat(isTabSwitcherShown, Matchers.is(true));
                 },
                 TIMEOUT_MS,

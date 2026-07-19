@@ -10,6 +10,8 @@
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/logging.h"
+#include "base/no_destructor.h"
+#include "base/synchronization/atomic_flag.h"
 #include "build/build_config.h"
 #include "gpu/config/gpu_feature_info.h"
 #include "gpu/config/gpu_switches.h"
@@ -29,13 +31,76 @@
 #include "ui/gfx/android/android_surface_control_compat.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
-#if BUILDFLAG(IS_MAC)
-#include "base/mac/mac_util.h"
-#include "base/system/sys_info.h"
-#endif  // BUILDFLAG(IS_MAC)
-
 namespace features {
 namespace {
+
+SkiaGraphiteFeatureParams g_skia_graphite_feature_params;
+
+base::AtomicFlag& GetGraphiteParamsInitFlag() {
+  static base::NoDestructor<base::AtomicFlag> flag;
+  return *flag;
+}
+
+void InitSkiaGraphiteFeatureParams(const base::Feature& feature) {
+  if (GetGraphiteParamsInitFlag().IsSet()) {
+    return;
+  }
+
+  g_skia_graphite_feature_params.dawn_skip_validation =
+      base::FeatureParam<bool>(
+          &feature, "dawn_skip_validation",
+          g_skia_graphite_feature_params.dawn_skip_validation)
+          .Get();
+  g_skia_graphite_feature_params.dawn_backend_validation =
+      base::FeatureParam<bool>(
+          &feature, "dawn_backend_validation",
+          g_skia_graphite_feature_params.dawn_backend_validation)
+          .Get();
+  g_skia_graphite_feature_params.dawn_backend_debug_labels =
+      base::FeatureParam<bool>(
+          &feature, "dawn_backend_debug_labels",
+          g_skia_graphite_feature_params.dawn_backend_debug_labels)
+          .Get();
+  g_skia_graphite_feature_params.dawn_enable_auto_map =
+      base::FeatureParam<bool>(
+          &feature, "dawn_enable_auto_map",
+          g_skia_graphite_feature_params.dawn_enable_auto_map)
+          .Get();
+  g_skia_graphite_feature_params.max_pending_recordings =
+      base::FeatureParam<int>(
+          &feature, "max_pending_recordings",
+          g_skia_graphite_feature_params.max_pending_recordings)
+          .Get();
+  g_skia_graphite_feature_params.enable_deferred_submit =
+      base::FeatureParam<bool>(
+          &feature, "enable_deferred_submit",
+          g_skia_graphite_feature_params.enable_deferred_submit)
+          .Get();
+  g_skia_graphite_feature_params.enable_msaa_on_newer_intel =
+      base::FeatureParam<bool>(
+          &feature, "enable_msaa_on_newer_intel",
+          g_skia_graphite_feature_params.enable_msaa_on_newer_intel)
+          .Get();
+#if BUILDFLAG(IS_WIN)
+  g_skia_graphite_feature_params.dawn_dumpwc_d3d_errors =
+      base::FeatureParam<bool>(
+          &feature, "dawn_dumpwc_d3d_errors",
+          g_skia_graphite_feature_params.dawn_dumpwc_d3d_errors)
+          .Get();
+  g_skia_graphite_feature_params.dawn_disable_d3d_shader_optimizations =
+      base::FeatureParam<bool>(
+          &feature, "dawn_disable_d3d_shader_optimizations",
+          g_skia_graphite_feature_params.dawn_disable_d3d_shader_optimizations)
+          .Get();
+  g_skia_graphite_feature_params.dawn_d3d11_delay_flush =
+      base::FeatureParam<bool>(
+          &feature, "dawn_d3d11_delay_flush",
+          g_skia_graphite_feature_params.dawn_d3d11_delay_flush)
+          .Get();
+#endif
+
+  GetGraphiteParamsInitFlag().Set();
+}
 
 #if BUILDFLAG(IS_ANDROID)
 bool IsDeviceBlocked(std::string_view field, std::string_view block_list) {
@@ -223,7 +288,7 @@ BASE_FEATURE(kWebGPUBlobCache, WEBGPU_ENABLED);
 
 // Feature enforces WebGPU security in Android Advanced Protection Mode.
 // Disable feature by default for Finch testing.
-BASE_FEATURE(kAAPMBlocksWebGPU, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kAAPMBlocksWebGPU, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // List of Dawn toggles for WebGPU, delimited by ,
 // The FeatureParam may be overridden via Finch config, or via the command line
@@ -311,6 +376,15 @@ BASE_FEATURE(kSkiaGraphite,
 #endif
 );
 
+// Controls Skia Graphite specifically for Intel GPUs on Windows.
+// On Windows, the status of Graphite on Intel GPUs won't be controlled
+// by the standard SkiaGraphite feature, but by this feature flag
+// instead. This feature only works if `kLateGraphiteFeatureCheck` is
+// also enabled.
+BASE_FEATURE(kSkiaGraphiteWinIntel,
+             "SkiaGraphiteWinIntel",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Allows CompoundImageBacking to allocate backings during runtime if a
 // compatible backing to serve clients requested usage is not already present.
 BASE_FEATURE(kUseDynamicBackingAllocations, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -325,12 +399,36 @@ BASE_FEATURE(kUseStrongRefToSharedImageInterface,
 // SkiaGraphite is also enabled.
 BASE_FEATURE(kSkiaGraphiteSmallPathAtlas, base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled, the Graphite feature check (including blocklist) is deferred to
+// the GPU process rather than evaluated in the browser process.
+BASE_FEATURE(kLateGraphiteFeatureCheck,
+#if BUILDFLAG(IS_WIN)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
+
 // Enable Skia Graphite's Pipeline precompilation feature.
 // Note: This is only meaningful when Skia Graphite is enabled but can then also
 // be overridden by
 // --enable-skia-graphite-precompilation and
 // --disable-skia-graphite-precompilation.
 BASE_FEATURE(kSkiaGraphitePrecompilation, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Whether to use PersistentCache for Skia Graphite's pipeline cache.
+BASE_FEATURE(kSkiaGraphiteUsePersistentCache,
+             "SkiaGraphiteUsePersistentCache",
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_WIN)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
+
+bool SkiaGraphiteUsesPersistentCache() {
+  return base::FeatureList::IsEnabled(kSkiaGraphiteUsePersistentCache);
+}
 
 BASE_FEATURE(kConditionallySkipGpuChannelFlush,
 // To enable on ChromeOS, test failures must be investigated
@@ -342,62 +440,25 @@ BASE_FEATURE(kConditionallySkipGpuChannelFlush,
 #endif
 );
 
-// Whether the Dawn "skip_validation" toggle is enabled for Skia Graphite.
-const base::FeatureParam<bool> kSkiaGraphiteDawnSkipValidation{
-    &kSkiaGraphite, "dawn_skip_validation", !DCHECK_IS_ON()};
+const SkiaGraphiteFeatureParams& GetSkiaGraphiteFeatureParams() {
+  DCHECK(GetGraphiteParamsInitFlag().IsSet());
+  return g_skia_graphite_feature_params;
+}
 
-// Whether Dawn backend validation is enabled for Skia Graphite.
-const base::FeatureParam<bool> kSkiaGraphiteDawnBackendValidation{
-    &kSkiaGraphite, "dawn_backend_validation", false};
+void InitSkiaGraphiteDefaultParamsForTesting() {
+  if (GetGraphiteParamsInitFlag().IsSet()) {
+    return;
+  }
 
-// Whether Dawn backend debug labels are enabled for Skia Graphite.
-// Only enable backend labels by default on DCHECK builds since it
-// can have non-trivial performance overhead e.g. with Metal.
-const base::FeatureParam<bool> kSkiaGraphiteDawnBackendDebugLabels{
-    &kSkiaGraphite, "dawn_backend_debug_labels", DCHECK_IS_ON()};
+  g_skia_graphite_feature_params = SkiaGraphiteFeatureParams();
 
-// Enables automatic buffer mappings in Dawn's backend.
-const base::FeatureParam<bool> kSkiaGraphiteDawnEnableAutoMap{
-    &kSkiaGraphite, "dawn_enable_auto_map", true};
-
-// Whether to use PersistentCache for Dawn's pipeline cache.
-BASE_FEATURE_PARAM(bool,
-                   kSkiaGraphiteDawnUsePersistentCache,
-                   &kSkiaGraphite,
-                   "dawn_use_persistent_cache",
-                   BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_WIN));
-
-const base::FeatureParam<int> kSkiaGraphiteMaxPendingRecordings{
-    &kSkiaGraphite, "max_pending_recordings", 100};
+  GetGraphiteParamsInitFlag().Set();
+}
 
 const base::FeatureParam<int> kSkiaGraphiteMinPathSizeForMsaa{
     &kSkiaGraphiteSmallPathAtlas, "min_path_size_for_msaa", 0};
 
-// Whether to enable deferred submissions optimization (if possible). If it's
-// false, every SI's access will require a Graphite's Context::submit() call
-// before EndAccess()
-BASE_FEATURE_PARAM(bool,
-                   kSkiaGraphiteEnableDeferredSubmit,
-                   &kSkiaGraphite,
-                   "enable_deferred_submit",
-                   BUILDFLAG(IS_WIN));
-
-const base::FeatureParam<bool> kSkiaGraphiteEnableMSAAOnNewerIntel{
-    &kSkiaGraphite, "enable_msaa_on_newer_intel", true};
-
 #if BUILDFLAG(IS_WIN)
-// Whether the we should DumpWithoutCrashing when D3D related errors are detected.
-const base::FeatureParam<bool> kSkiaGraphiteDawnDumpWCOnD3DError{
-    &kSkiaGraphite, "dawn_dumpwc_d3d_errors", false};
-
-// Whether to disable D3D shader optimizations.
-const base::FeatureParam<bool> kSkiaGraphiteDawnDisableD3DShaderOptimizations{
-    &kSkiaGraphite, "dawn_disable_d3d_shader_optimizations", false};
-
-// Whether the Dawn D3D11 flush should be delayed until the end of the frame.
-const base::FeatureParam<bool> kSkiaGraphiteDawnD3D11DelayFlush{
-    &kSkiaGraphite, "dawn_d3d11_delay_flush", true};
-
 BASE_FEATURE(kSkiaGraphiteDawnUseD3D12, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
@@ -410,6 +471,11 @@ BASE_FEATURE(kGpuPersistentCache,
 #else
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
+
+BASE_FEATURE(kGpuPersistentCacheMetadata, base::FEATURE_DISABLED_BY_DEFAULT);
+
+const base::FeatureParam<int> kGpuPersistentCacheMetadataPreloadCount{
+    &kGpuPersistentCacheMetadata, "preload_count", 50};
 
 // Use a 100-command limit before forcing context switch per command buffer
 // instead of 20.
@@ -510,56 +576,13 @@ namespace {
 bool IsSkiaGraphiteSupportedByDevice(const base::CommandLine* command_line) {
 #if BUILDFLAG(IS_APPLE)
   // Graphite only works well with ANGLE Metal on Mac or iOS.
-  // TODO(crbug.com/40063538): Remove this after ANGLE Metal launches fully.
-  const bool is_angle_metal_enabled =
-      UsePassthroughCommandDecoder() &&
-      (base::FeatureList::IsEnabled(features::kDefaultANGLEMetal) ||
-       command_line->GetSwitchValueASCII(switches::kUseANGLE) ==
-           gl::kANGLEImplementationMetalName);
-  if (!is_angle_metal_enabled) {
-    return false;
-  }
-#if BUILDFLAG(IS_MAC)
-  // This function only works in the Browser process on Macs. Calling
-  // HardwareModelName() from the Renderer or GPU processes will result in an
-  // empty hardware model name and an inability to detect unsupported devices.
-
-  // The following code tries to match angle::IsMetalRendererAvailable().
-  auto model_name_split = base::SysInfo::SplitHardwareModelNameDoNotUse(
-      base::SysInfo::HardwareModelName());
-  if (model_name_split.has_value()) {
-    // We hardcode the minimum model numbers supporting Mac2 Metal GPU family
-    // since ANGLE Metal requires that. We can't check if ANGLE uses Metal until
-    // we initialize the GPU process, but this code runs in the browser so we
-    // just do our best here to skip the feature check below if we know that
-    // ANGLE can't possibly use Metal since we don't want to contaminate the
-    // experiment arms with devices that won't run Graphite. Any models not in
-    // the list are those that support Mac2 GPU family universally e.g. Mac
-    // Mini/Studio. The 5K Retina iMac15,1 is special as it has a discrete GPU
-    // and can support ANGLE Metal, but its successors can't until iMac17,1.
-    const bool is_imac_15_1 = model_name_split->category == "iMac" &&
-                              model_name_split->model == 15 &&
-                              model_name_split->variant == 1;
-    if (!is_imac_15_1) {
-      static constexpr struct {
-        std::string category;
-        int32_t min_supported_model;
-      } kModelSupportData[] = {
-          {"MacBookPro", 13}, {"MacBookAir", 8}, {"MacBook", 9},
-          {"iMac", 17},       {"iMacPro", 1},    {"Macmini", 8},
-      };
-      for (const auto& [category, min_supported_model] : kModelSupportData) {
-        if (model_name_split->category == category) {
-          if (model_name_split->model < min_supported_model) {
-            return false;
-          }
-          break;
-        }
-      }
-    }
-  }
-#endif  // BUILDFLAG(IS_MAC)
-  return true;
+  // TODO(https://crbug.com/40063538): Remove this after ANGLE Metal launches
+  // fully.
+  const bool is_angle_metal_selected =
+      base::FeatureList::IsEnabled(features::kDefaultANGLEMetal) ||
+      command_line->GetSwitchValueASCII(switches::kUseANGLE) ==
+          gl::kANGLEImplementationMetalName;
+  return UsePassthroughCommandDecoder() && is_angle_metal_selected;
 #elif BUILDFLAG(IS_ANDROID)
   // Desktop Android isn't ready to pick up the fieldtrial_testing_config.json
   // change that enables graphite. However, it's the same platform as regular
@@ -594,11 +617,6 @@ bool IsSkiaGraphiteSupportedByDevice(const base::CommandLine* command_line) {
 }
 }  // namespace
 
-// This function should be called only from the browser process on all platforms
-// so that the finch flag check will happen in exactly one place and then the
-// Graphite enabled state will be propagated elsewhere via GpuPreferences to GPU
-// process launch and then later to renderer processes via GpuFeatureInfo.
-
 bool IsSkiaGraphiteEnabled(const base::CommandLine* command_line) {
   // Force disabling graphite if --disable-skia-graphite flag is specified.
   if (command_line->HasSwitch(switches::kDisableSkiaGraphite)) {
@@ -607,6 +625,9 @@ bool IsSkiaGraphiteEnabled(const base::CommandLine* command_line) {
 
   // Force Graphite on if --enable-skia-graphite flag is specified.
   if (command_line->HasSwitch(switches::kEnableSkiaGraphite)) {
+    // It is safe to query parameter values for the SkiaGraphite feature. If the
+    // feature is disabled, the default parameter values will be populated.
+    InitSkiaGraphiteFeatureParams(kSkiaGraphite);
     return true;
   }
 
@@ -616,7 +637,19 @@ bool IsSkiaGraphiteEnabled(const base::CommandLine* command_line) {
     return false;
   }
 
-  return base::FeatureList::IsEnabled(features::kSkiaGraphite);
+  if (base::FeatureList::IsEnabled(kSkiaGraphite)) {
+    InitSkiaGraphiteFeatureParams(kSkiaGraphite);
+    return true;
+  }
+  return false;
+}
+
+bool IsSkiaGraphiteWinIntelEnabled() {
+  if (base::FeatureList::IsEnabled(kSkiaGraphiteWinIntel)) {
+    InitSkiaGraphiteFeatureParams(kSkiaGraphiteWinIntel);
+    return true;
+  }
+  return false;
 }
 
 bool IsDrDcEnabled(const gpu::GpuFeatureInfo& gpu_feature_info) {

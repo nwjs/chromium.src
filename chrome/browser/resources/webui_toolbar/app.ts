@@ -7,16 +7,21 @@ import './reload_button.js';
 import './location_bar.js';
 import './split_tabs_button.js';
 import './home_button.js';
+import './battery_saver_button.js';
 import './pinned_toolbar_actions.js';
+import './extensions.js';
+import './app_menu_button.js';
 import './avatar_button.js';
-import './icon_table.js';
-import './icon_from_table.js';
+import '/shared/icon_table.js';
+import '/shared/icon_from_table.js';
 import './icons.html.js';
 
+import {assert} from '//resources/js/assert.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import {TrackedElementManager} from '//resources/js/tracked_element/tracked_element_manager.js';
 import {CrLitElement, nothing} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
+import {IconTable} from '/shared/icon_table.js';
 import {ColorChangeUpdater} from 'chrome://resources/cr_components/color_change_listener/colors_css_updater.js';
 import {HelpBubbleMixinLit} from 'chrome://resources/cr_components/help_bubble/help_bubble_mixin_lit.js';
 
@@ -24,44 +29,61 @@ import {getCss} from './app.css.js';
 import {getHtml} from './app.html.js';
 import {BrowserProxyImpl, EventDispositionFlag, INVALID_NAVIGATION_CONTROLS_STATE_LISTENER_HANDLE} from './browser_proxy.js';
 import type {BrowserProxy, IconUpdate, NavigationControlsState, NavigationControlsStateListenerHandle} from './browser_proxy.js';
-import {IconTable} from './icon_table.js';
 import {MetricsRecorder} from './metrics_recorder.js';
+import {setHasHelpBubble} from './toolbar_button.js';
+
 // clang-format off
 // Helper so tests can find what they needed when optimization is on.
-// This should probably be a separate file, but rollup support only
-// handles 2 at most now.
+// Exporting from this file, the rollup file, ensures that we test the
+// same code that we ship in optimized builds.
+import type {IconFromTableElement} from '/shared/icon_from_table.js';
 import {
+  AppMenuIconType,
+  AppMenuSeverity,
+  AvatarToolbarButtonState,
   ContentSettingImageType,
-  IconType,
+  ContextMenuType,
   LhsChipIdentifier,
   OmniboxTextColor,
   PermissionAction,
   PermissionChipTheme,
   PermissionPromptStyle,
   SplitTabActiveLocation,
-} from './toolbar_ui_api_data_model.mojom-webui.js';
-import type {OmniboxAction, LocationBarState, PermissionChipState} from './toolbar_ui_api_data_model.mojom-webui.js';
+} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
+import {IconType} from '/shared/icon_handle.mojom-webui.js';
+import type {OmniboxAction, LocationBarState, PermissionChipState, PermissionDashboardState} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
+
+import {INVALID_FOCUS_REQUEST_HANDLE} from './browser_proxy.js';
+import {AppMenuButtonElement} from './app_menu_button.js';
 import {ContentSettingIconElement} from './content_setting_icon.js';
 import {ContentSettingsIconsElement} from './content_settings_icons.js';
-import type {IconFromTableElement} from './icon_from_table.js';
 import {LocationBarElement} from './location_bar.js';
 import {LocationIconElement} from './location_icon.js';
 import {PointerProxyImpl} from './pointer_proxy.js';
 import type {PointerProxy} from './pointer_proxy.js';
 import {PermissionChipElement} from './permission_chip.js';
+import type {PermissionDashboardElement} from './permission_dashboard.js';
 import {ReadonlyOmniboxElement} from './readonly_omnibox.js';
-import {getClickSourceType, getContextMenuSourceType} from './toolbar_button.js';
+import {getClickSourceType, getContextMenuSourceType, PressHandler} from './toolbar_button.js';
+import {ToolbarChipButtonElement} from './toolbar_chip_button.js';
 
 export {
+  AppMenuButtonElement,
+  AppMenuIconType,
+  AppMenuSeverity,
   BrowserProxyImpl,
+  ContextMenuType,
   ContentSettingIconElement,
   ContentSettingImageType,
   ContentSettingsIconsElement,
   EventDispositionFlag,
   getClickSourceType,
   getContextMenuSourceType,
+  PressHandler,
   IconTable,
   IconType,
+  INVALID_FOCUS_REQUEST_HANDLE,
+  INVALID_NAVIGATION_CONTROLS_STATE_LISTENER_HANDLE,
   LhsChipIdentifier,
   LocationBarElement,
   LocationIconElement,
@@ -72,6 +94,7 @@ export {
   PermissionPromptStyle,
   PointerProxyImpl,
   ReadonlyOmniboxElement,
+  ToolbarChipButtonElement,
   TrackedElementManager,
 };
 export type {
@@ -79,6 +102,8 @@ export type {
   LocationBarState,
   OmniboxAction,
   PermissionChipState,
+  PermissionDashboardElement,
+  PermissionDashboardState,
   PointerProxy,
 };
 // clang-format on
@@ -90,7 +115,9 @@ const TRACKED_ELEMENTS: Array<{selector: string, id: string}> = [
   {selector: '#split-tabs', id: 'kToolbarSplitTabsToolbarButtonElementId'},
   {selector: '#location-bar', id: 'kLocationBarElementId'},
   {selector: '#home', id: 'kToolbarHomeButtonElementId'},
+  {selector: '#app-menu', id: 'kToolbarAppMenuButtonElementId'},
   {selector: '#avatar', id: 'kToolbarAvatarButtonElementId'},
+  {selector: '#battery-saver', id: 'kToolbarBatterySaverButtonElementId'},
 ];
 
 const AppElementBase = HelpBubbleMixinLit(CrLitElement);
@@ -119,12 +146,15 @@ export class ToolbarAppElement extends AppElementBase {
   static override get properties() {
     return {
       isReloadButtonEnabled_: {type: Boolean},
+      isAppMenuButtonEnabled_: {type: Boolean},
       isSplitTabsButtonEnabled_: {type: Boolean},
       isHomeButtonEnabled_: {type: Boolean},
+      isBatterySaverButtonEnabled_: {type: Boolean},
       isLocationBarEnabled_: {type: Boolean},
       navigationControlsState_: {type: Object},
       isBackForwardButtonEnabled_: {type: Boolean},
       isPinnedToolbarActionsEnabled_: {type: Boolean},
+      isExtensionsContainerEnabled_: {type: Boolean},
       isAvatarButtonEnabled_: {type: Boolean},
       isInitialized_: {type: Boolean},
     };
@@ -132,16 +162,22 @@ export class ToolbarAppElement extends AppElementBase {
 
   protected accessor isReloadButtonEnabled_: boolean =
       loadTimeData.getBoolean('enableReloadButton');
+  protected accessor isAppMenuButtonEnabled_: boolean =
+      loadTimeData.getBoolean('enableAppMenuButton');
   protected accessor isSplitTabsButtonEnabled_: boolean =
       loadTimeData.getBoolean('enableSplitTabsButton');
   protected accessor isHomeButtonEnabled_: boolean =
       loadTimeData.getBoolean('enableHomeButton');
+  protected accessor isBatterySaverButtonEnabled_: boolean =
+      loadTimeData.getBoolean('enableBatterySaverButton');
   protected accessor isLocationBarEnabled_: boolean =
       loadTimeData.getBoolean('enableLocationBar');
   protected accessor isBackForwardButtonEnabled_: boolean =
       loadTimeData.getBoolean('enableBackForwardButtons');
   protected accessor isPinnedToolbarActionsEnabled_: boolean =
       loadTimeData.getBoolean('enablePinnedToolbarActions');
+  protected accessor isExtensionsContainerEnabled_: boolean =
+      loadTimeData.getBoolean('enableExtensionsContainer');
   protected accessor isAvatarButtonEnabled_: boolean =
       loadTimeData.getBoolean('enableAvatarButton');
   /**
@@ -178,14 +214,28 @@ export class ToolbarAppElement extends AppElementBase {
       shouldBeShown: false,
       isContextMenuVisible: false,
     },
+    appMenuControlState: {
+      iconType: AppMenuIconType.kNone,
+      severity: AppMenuSeverity.kNone,
+      labelText: null,
+      accessibilityText: '',
+      tooltip: '',
+      isContextMenuVisible: false,
+      trailingMargin: 0,
+    },
+
+    batterySaverButtonVisible: false,
     locationBarState: {
       omniboxViewState: {
         browserVersion: 0,
         uiVersion: 0,
+        formattedFullUrl: '',
         textPieces: [],
         inlineAutocompletion: '',
+        additionalText: '',
         selection: null,
         textIsUrl: false,
+        userInputInProgress: false,
       },
       locationBarFlags: {
         userInputInProgress: false,
@@ -209,21 +259,25 @@ export class ToolbarAppElement extends AppElementBase {
         activityIndicators: [],
         permissionDashboard: null,
       },
+      pageActionStates: [],
     },
     avatarControlState: {
-      iconUrl: '',
+      state: AvatarToolbarButtonState.kNormal,
+      icon: {handleId: 0n},
       text: '',
       tooltip: '',
       accessibilityName: '',
       accessibilityDescription: '',
+      enabled: true,
     },
     layoutConstantsVersion: 0,
+    touchUi: false,
     pinnedToolbarActionsState: [],
+    extensionsState: [],
   };
 
   private browserProxy_: BrowserProxy;
   private metricsRecorder_: MetricsRecorder;
-  private trackedElementManager_: TrackedElementManager;
   private navigationStateListenerHandle_:
       NavigationControlsStateListenerHandle =
           INVALID_NAVIGATION_CONTROLS_STATE_LISTENER_HANDLE;
@@ -232,6 +286,9 @@ export class ToolbarAppElement extends AppElementBase {
   private initializeSessionId_: number = 0;
   private dragOverListener_ = (e: DragEvent) => this.onDragOver_(e);
   private dropListener_ = (e: DragEvent) => this.onDrop_(e);
+  private keyDownListener_ = (e: KeyboardEvent) => this.onKeyDown_(e);
+
+  private isRtl_: boolean = loadTimeData.getString('textdirection') === 'rtl';
 
   constructor() {
     super();
@@ -243,7 +300,6 @@ export class ToolbarAppElement extends AppElementBase {
     });
     this.browserProxy_ = BrowserProxyImpl.getInstance();
     this.metricsRecorder_ = new MetricsRecorder(this.browserProxy_);
-    this.trackedElementManager_ = TrackedElementManager.getInstance();
     this.iconTable_ = IconTable.getInstance();
     ColorChangeUpdater.forDocument().start();
   }
@@ -259,6 +315,7 @@ export class ToolbarAppElement extends AppElementBase {
 
     this.addEventListener('dragover', this.dragOverListener_);
     this.addEventListener('drop', this.dropListener_);
+    this.addEventListener('keydown', this.keyDownListener_);
 
     // Initial setup of CSS variables
     this.style.setProperty(
@@ -307,17 +364,25 @@ export class ToolbarAppElement extends AppElementBase {
     for (const {selector, id} of TRACKED_ELEMENTS) {
       const el = this.shadowRoot.querySelector<HTMLElement>(selector);
       if (el) {
-        this.trackedElementManager_.startTracking(el, id, {
+        this.registerHelpBubble(id, el, {
           onHighlightChanged: (highlighted: boolean) => {
             el.classList.toggle('anchor-highlight', highlighted);
           },
+          onHelpBubbleShown: () => setHasHelpBubble(el, true),
+          onHelpBubbleHidden: () => setHasHelpBubble(el, false),
         });
-        this.registerHelpBubble(id, el);
       }
     }
 
-    const waitSelectors =
-        ['#back', '#forward', '#reload', '#split-tabs', '#home', '#avatar'];
+    const waitSelectors = [
+      '#back',
+      '#forward',
+      '#reload',
+      '#split-tabs',
+      '#home',
+      '#app-menu',
+      '#avatar',
+    ];
     const promises =
         waitSelectors.map(s => this.shadowRoot.querySelector<CrLitElement>(s))
             .filter(el => !!el)
@@ -339,6 +404,7 @@ export class ToolbarAppElement extends AppElementBase {
 
     this.removeEventListener('dragover', this.dragOverListener_);
     this.removeEventListener('drop', this.dropListener_);
+    this.removeEventListener('keydown', this.keyDownListener_);
 
     this.browserProxy_.removeNavigationStateListener(
         this.navigationStateListenerHandle_);
@@ -352,12 +418,119 @@ export class ToolbarAppElement extends AppElementBase {
       for (const {selector, id} of TRACKED_ELEMENTS) {
         const el = this.shadowRoot.querySelector<HTMLElement>(selector);
         if (el) {
-          this.trackedElementManager_.stopTracking(el);
           this.unregisterHelpBubble(id);
         }
       }
       this.isPageInitialized_ = false;
     }
+  }
+
+  // Drill down to find the actual active element
+  private getDeepActiveElement(root: Document|ShadowRoot = document): Element
+      |null {
+    let active = root.activeElement;
+    while (active && active.shadowRoot && active.shadowRoot.activeElement) {
+      active = active.shadowRoot.activeElement;
+    }
+    return active;
+  }
+
+  // Recursively find all focusable elements
+  private getDeepFocusableElements(root: Element|Document|ShadowRoot):
+      HTMLElement[] {
+    const focusableSelectors = 'button, cr-button, cr-icon-button, input';
+
+    let focusable: HTMLElement[] = [];
+
+    for (const node of Array.from(root.children)) {
+      // 1. If this element matches our selectors, check if it's visible/enabled
+      if (node.matches(focusableSelectors)) {
+        const el = node as HTMLElement;
+        const isDisabled = el.hasAttribute('disabled');
+        const isHidden = el.closest('[hidden]') !== null;
+        const isVisible = el.offsetWidth > 0 || el.offsetHeight > 0;
+
+        if (!isDisabled && !isHidden && isVisible) {
+          focusable.push(el);
+        }
+
+        // Don't bother digging into cr-buttons etc.
+        continue;
+      }
+
+      // 2. If it has a Shadow DOM, pierce into it recursively
+      if (node.shadowRoot) {
+        focusable =
+            focusable.concat(this.getDeepFocusableElements(node.shadowRoot));
+      }
+
+      // 3. Always check its Light DOM children as well (handles <slot>
+      // projections)
+      if (node.children.length > 0) {
+        focusable = focusable.concat(this.getDeepFocusableElements(node));
+      }
+    }
+
+    return focusable;
+  }
+
+  private onKeyDown_(event: KeyboardEvent) {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight' &&
+        // TODO(crbug.com/510825650): When app menu button enabled:
+        // (event.key !== 'End' || !this.isAppMenuButtonEnabled_) &&
+        (event.key !== 'Home' || !this.isBackForwardButtonEnabled_)) {
+      return;
+    }
+
+    // Find focused element, may have to recurse in.
+    const active =
+        this.getDeepActiveElement(this.shadowRoot) as HTMLElement | null;
+    if (!active) {
+      return;
+    }
+
+    // Let omnibox handle these keys.
+    if (active instanceof HTMLInputElement) {
+      return;
+    }
+
+    // Build the array of targets.
+    const focusableElements = this.getDeepFocusableElements(this.shadowRoot);
+
+    const currentIndex = focusableElements.indexOf(active);
+    assert(currentIndex !== -1);
+    let nextIndex: number = 0;
+
+    const shouldAdvance =
+        event.key === (this.isRtl_ ? 'ArrowLeft' : 'ArrowRight');
+    const shouldReverse =
+        event.key === (this.isRtl_ ? 'ArrowRight' : 'ArrowLeft');
+
+    if (event.key === 'Home') {
+      nextIndex = 0;
+      // TODO(crbug.com/510825650): When app menu button enabled:
+      // } else if (event.key === 'End') {
+      //   nextIndex = focusableElements.length - 1;
+    } else if (shouldAdvance) {
+      nextIndex = currentIndex + 1;
+      // Let parent handle this for now.
+      // TODO(crbug.com/510825650): Handle wrap around when app menu button is
+      // WebUI.
+      if (nextIndex >= focusableElements.length) {
+        return;
+      }
+    } else if (shouldReverse) {
+      nextIndex = currentIndex - 1;
+      // Let parent handle this for now.
+      // TODO(crbug.com/510825650): Handle wrap around when app menu button is
+      // WebUI.
+      if (nextIndex < 0) {
+        return;
+      }
+    }
+
+    event.preventDefault();
+    focusableElements[nextIndex]!.focus();
   }
 
   override firstUpdated(changedProperties: PropertyValues<this>) {
@@ -374,6 +547,7 @@ export class ToolbarAppElement extends AppElementBase {
   protected onDragOver_(e: DragEvent) {
     if (e.dataTransfer &&
         (e.dataTransfer.types.includes('text/uri-list') ||
+         e.dataTransfer.types.includes('text/plain') ||
          e.dataTransfer.types.includes('Files'))) {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'copy';
@@ -390,13 +564,19 @@ export class ToolbarAppElement extends AppElementBase {
       return;
     }
 
-    const url = e.dataTransfer.getData('text/uri-list');
-    if (url) {
-      this.browserProxy_.browserControlsHandler.navigate(
-          url.split('\n')[0]!);
+    if (e.dataTransfer.types.includes('text/uri-list')) {
+      const url = e.dataTransfer.getData('text/uri-list');
+      if (url) {
+        this.browserProxy_.browserControlsHandler.navigate(url.split('\n')[0]!);
+      }
     } else if (e.dataTransfer.types.includes('Files')) {
       this.browserProxy_.toolbarUIHandler.onToolbarDropFile(
           {x: e.clientX, y: e.clientY});
+    } else if (e.dataTransfer.types.includes('text/plain')) {
+      const text = e.dataTransfer.getData('text/plain');
+      if (text) {
+        this.browserProxy_.browserControlsHandler.navigateText(text);
+      }
     }
   }
 }

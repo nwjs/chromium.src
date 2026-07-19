@@ -6,6 +6,8 @@ package org.chromium.chrome.browser.tab_bottom_sheet;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -29,19 +31,23 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.chromium.base.ThreadUtils;
+import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplier;
+import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
+import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.supplier.SettableNullableObservableSupplier;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
-import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.content.WebContentsFactory;
 import org.chromium.chrome.browser.context_sharing.R;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.keyboard_accessory.EmptyManualFillingComponent;
+import org.chromium.chrome.browser.keyboard_accessory.ManualFillingComponent;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.permissions.PermissionTestRule;
@@ -54,6 +60,7 @@ import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.chrome.test.transit.hub.RegularTabSwitcherStation;
 import org.chromium.chrome.test.transit.page.WebPageStation;
 import org.chromium.chrome.test.util.browser.LocationSettingsTestUtil;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.modaldialog.ModalDialogView;
 import org.chromium.components.browser_ui.widget.TouchEventProvider;
@@ -122,7 +129,7 @@ public class TabBottomSheetManagerTest {
                                     null,
                                     null,
                                     Color.WHITE,
-                                    new TestTabBottomSheetContentProvider());
+                                    new TestCoBrowseComponentProvider());
                     mManager =
                             (TabBottomSheetManagerImpl)
                                     tabbedRootUiCoordinator.getTabBottomSheetManagerForTesting();
@@ -193,7 +200,8 @@ public class TabBottomSheetManagerTest {
                                     mWindowAndroid,
                                     mockBottomSheetController,
                                     mockLayoutStateProviderSupplier,
-                                    mockTouchEventProvider);
+                                    mockTouchEventProvider,
+                                    ObservableSuppliers.createNonNull(false));
 
                     manager.tryToShowBottomSheet(
                             mDelegate,
@@ -228,7 +236,7 @@ public class TabBottomSheetManagerTest {
                                         webContents,
                                         TabBottomSheetClientType.UNKNOWN,
                                         CoBrowseContainerType.BOTTOM_SHEET,
-                                        new TestTabBottomSheetContentProvider()));
+                                        new TestCoBrowseComponentProvider()));
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -253,9 +261,10 @@ public class TabBottomSheetManagerTest {
                     Criteria.checkThat(imeAdapter.isValid(), Matchers.is(true));
                 });
 
-        ThreadUtils.runOnUiThread(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     coBrowseViews.destroy();
+                    webContents.destroy();
                 });
     }
 
@@ -280,7 +289,7 @@ public class TabBottomSheetManagerTest {
                                         webContents,
                                         TabBottomSheetClientType.UNKNOWN,
                                         CoBrowseContainerType.BOTTOM_SHEET,
-                                        new TestTabBottomSheetContentProvider()));
+                                        new TestCoBrowseComponentProvider()));
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -315,9 +324,10 @@ public class TabBottomSheetManagerTest {
                 10000,
                 CriteriaHelper.DEFAULT_POLLING_INTERVAL);
 
-        ThreadUtils.runOnUiThread(
+        ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     coBrowseViews.destroy();
+                    webContents.destroy();
                 });
     }
 
@@ -368,13 +378,12 @@ public class TabBottomSheetManagerTest {
                         });
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    mManager.setReadAloudActivePlaybackTabSupplierForTesting(readAloudTabSupplier);
+                    mManager.initReadAloudIntegrationForTesting(readAloudTabSupplier, () -> {});
                 });
         showBottomSheetAndBlockUntilReady();
 
-        // Fake start read aloud
         ThreadUtils.runOnUiThreadBlocking(
-                () -> readAloudTabSupplier.set(mActivity.getActivityTab()));
+                () -> readAloudTabSupplier.set(mActivity.getTabModelSelector().getCurrentTab()));
 
         CriteriaHelper.pollUiThread(() -> !mManager.isSheetShowing());
 
@@ -382,6 +391,39 @@ public class TabBottomSheetManagerTest {
         ThreadUtils.runOnUiThreadBlocking(() -> readAloudTabSupplier.set(null));
 
         blockUntilSheetFullyRestored();
+    }
+
+    @Test
+    @SmallTest
+    public void testReadAloudClosedOnBottomSheetShown() {
+        SettableNullableObservableSupplier<Tab> readAloudTabSupplier =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> {
+                            return ObservableSuppliers.createNullable();
+                        });
+        Runnable mockStopPlaybackCallback = mock(Runnable.class);
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mManager.initReadAloudIntegrationForTesting(
+                            readAloudTabSupplier, mockStopPlaybackCallback);
+                });
+
+        // Start read aloud
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> readAloudTabSupplier.set(mActivity.getTabModelSelector().getCurrentTab()));
+
+        // Call tabBottomSheet
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mManager.tryToShowBottomSheet(
+                            mDelegate,
+                            mCoBrowseViews,
+                            /* animate= */ false,
+                            /* startsExpanded= */ true);
+                });
+
+        // Verify that stop playback callback was called
+        verify(mockStopPlaybackCallback).run();
     }
 
     @Test
@@ -481,7 +523,6 @@ public class TabBottomSheetManagerTest {
 
     @Test
     @SmallTest
-    @DisabledTest(message = "https://crbug.com/510449718")
     public void testDetachNativeInterfaceDelegate() {
         showBottomSheetAndBlockUntilReady();
         assertEquals(mManager.getNativeInterfaceDelegateForTesting(), mDelegate);
@@ -492,6 +533,11 @@ public class TabBottomSheetManagerTest {
                 });
 
         assertEquals(mManager.getNativeInterfaceDelegateForTesting(), null);
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mManager.attachNativeInterfaceDelegateForTesting(mDelegate);
+                });
     }
 
     @Test
@@ -515,6 +561,48 @@ public class TabBottomSheetManagerTest {
 
     @Test
     @SmallTest
+    public void testTryToCloseBottomSheet_WhenSuppressedByAnotherBottomSheet() {
+        NativeInterfaceDelegate mockDelegate = mock(NativeInterfaceDelegate.class);
+        showBottomSheetAndBlockUntilReady(mockDelegate);
+
+        // Create and show another bottom sheet content of higher priority.
+        BottomSheetContent otherContent = mock(BottomSheetContent.class);
+        when(otherContent.getPriority()).thenReturn(BottomSheetContent.ContentPriority.HIGH);
+        when(otherContent.allowInSheetContentSnackbars()).thenReturn(true);
+        var alwaysFalse =
+                ThreadUtils.runOnUiThreadBlocking(() -> ObservableSuppliers.alwaysFalse());
+        when(otherContent.getBackPressStateChangedSupplier()).thenReturn(alwaysFalse);
+        View otherView = ThreadUtils.runOnUiThreadBlocking(() -> new View(mActivity));
+        when(otherContent.getContentView()).thenReturn(otherView);
+
+        // Request showing the other content. This will suppress the Tab Bottom Sheet.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mBottomSheetController.requestShowContent(otherContent, /* animate= */ false);
+                });
+
+        // Verify the Tab Bottom Sheet is suppressed and no longer showing.
+        CriteriaHelper.pollUiThread(() -> !mManager.isSheetShowing());
+        verify(mockDelegate).onBottomSheetSuppressed();
+
+        // While suppressed, close the Tab Bottom Sheet via the manager.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mManager.tryToCloseBottomSheet(/* animate= */ false);
+                });
+
+        // Verify that native got onBottomSheetClosed.
+        verify(mockDelegate).onBottomSheetClosed();
+
+        // Close the other bottom sheet.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mBottomSheetController.hideContent(otherContent, /* animate= */ false);
+                });
+    }
+
+    @Test
+    @SmallTest
     public void testTryToShowBottomSheet_WhenAlreadyShowing() {
         NativeInterfaceDelegate mockDelegate1 = mock(NativeInterfaceDelegate.class);
         NativeInterfaceDelegate mockDelegate2 = mock(NativeInterfaceDelegate.class);
@@ -532,7 +620,7 @@ public class TabBottomSheetManagerTest {
                                         null,
                                         null,
                                         Color.WHITE,
-                                        new TestTabBottomSheetContentProvider()));
+                                        new TestCoBrowseComponentProvider()));
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -599,5 +687,148 @@ public class TabBottomSheetManagerTest {
 
         // Verify it gets restored
         blockUntilSheetFullyRestored();
+    }
+
+    @Test
+    @SmallTest
+    public void testBottomSheetSuppressedOnAccessoryRequested() {
+        SettableNonNullObservableSupplier<Boolean> accessoryRequestedSupplier =
+                ThreadUtils.runOnUiThreadBlocking(() -> ObservableSuppliers.createNonNull(false));
+        ManualFillingComponent mockComponent =
+                new TestManualFillingComponent(accessoryRequestedSupplier);
+
+        SettableMonotonicObservableSupplier<ManualFillingComponent> supplier =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> {
+                            SettableMonotonicObservableSupplier<ManualFillingComponent> s =
+                                    ObservableSuppliers.createMonotonic();
+                            s.set(mockComponent);
+                            return s;
+                        });
+
+        // Register the mock supplier before showing the bottom sheet
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> mManager.setManualFillingComponentSupplierForTesting(supplier));
+
+        showBottomSheetAndBlockUntilReady();
+
+        // Trigger accessory request / suppression
+        ThreadUtils.runOnUiThreadBlocking(() -> accessoryRequestedSupplier.set(true));
+
+        // Verify the sheet gets suppressed
+        CriteriaHelper.pollUiThread(() -> !mManager.isSheetShowing());
+    }
+
+    @Test
+    @SmallTest
+    public void testLateComponentRegistrationHooksUpObserver() {
+        SettableNonNullObservableSupplier<Boolean> accessoryRequestedSupplier =
+                ThreadUtils.runOnUiThreadBlocking(() -> ObservableSuppliers.createNonNull(true));
+        ManualFillingComponent mockComponent =
+                new TestManualFillingComponent(accessoryRequestedSupplier);
+
+        SettableMonotonicObservableSupplier<ManualFillingComponent> supplier =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> {
+                            SettableMonotonicObservableSupplier<ManualFillingComponent> s =
+                                    ObservableSuppliers.createMonotonic();
+                            s.set(mockComponent);
+                            return s;
+                        });
+
+        // Register the mock supplier
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> mManager.setManualFillingComponentSupplierForTesting(supplier));
+
+        // Try to show the bottom sheet
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mManager.tryToShowBottomSheet(
+                            mDelegate,
+                            mCoBrowseViews,
+                            /* animate= */ false,
+                            /* startsExpanded= */ true);
+                });
+
+        // Verify the sheet is NOT showing (suppressed by autofill)
+        CriteriaHelper.pollUiThread(() -> !mManager.isSheetShowing());
+
+        // Stop accessory requested/suppression
+        ThreadUtils.runOnUiThreadBlocking(() -> accessoryRequestedSupplier.set(false));
+
+        // Verify the sheet is successfully restored
+        blockUntilSheetFullyRestored();
+    }
+
+    @Test
+    @SmallTest
+    public void testBottomSheetClosedOnReaderModeNavigation() {
+        showBottomSheetAndBlockUntilReady();
+
+        // Navigate to a reader mode URL
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mActivity
+                            .getTabModelSelector()
+                            .getCurrentTab()
+                            .loadUrl(new LoadUrlParams("chrome-distiller://some_distilled_page"));
+                });
+
+        // Verify the sheet is closed
+        CriteriaHelper.pollUiThread(() -> !mManager.isSheetShowing());
+    }
+
+    @Test
+    @SmallTest
+    public void testBackPressClosesBottomSheet() {
+        showBottomSheetAndBlockUntilReady();
+        assertTrue(mManager.isSheetShowing());
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    BottomSheetContent content = mBottomSheetController.getCurrentSheetContent();
+                    assertNotNull(content);
+                    boolean handled = content.handleBackPress();
+                    assertTrue(handled);
+                });
+
+        CriteriaHelper.pollUiThread(() -> !mManager.isSheetShowing());
+    }
+
+    @Test
+    @SmallTest
+    public void testBottomSheetSuppressedOnOmniboxFocus() {
+        NativeInterfaceDelegate mockDelegate = mock(NativeInterfaceDelegate.class);
+        showBottomSheetAndBlockUntilReady(mockDelegate);
+
+        SettableNonNullObservableSupplier<Boolean> supplier =
+                (SettableNonNullObservableSupplier<Boolean>)
+                        mActivity.getRootUiCoordinatorForTesting().getOmniboxFocusStateSupplier();
+
+        // Focus the omnibox (suppression)
+        ThreadUtils.runOnUiThreadBlocking(() -> supplier.set(true));
+
+        // Verify the sheet is closed (suppressed)
+        CriteriaHelper.pollUiThread(() -> !mManager.isSheetShowing());
+        verify(mockDelegate).onBottomSheetSuppressed();
+
+        // Unfocus the omnibox (restoration)
+        ThreadUtils.runOnUiThreadBlocking(() -> supplier.set(false));
+
+        // Verify the sheet is restored
+        blockUntilSheetFullyRestored();
+    }
+
+    private static class TestManualFillingComponent extends EmptyManualFillingComponent {
+        private final NonNullObservableSupplier<Boolean> mAccessoryRequestedSupplier;
+
+        TestManualFillingComponent(NonNullObservableSupplier<Boolean> supplier) {
+            mAccessoryRequestedSupplier = supplier;
+        }
+
+        @Override
+        public NonNullObservableSupplier<Boolean> getIsAccessoryRequestedSupplier() {
+            return mAccessoryRequestedSupplier;
+        }
     }
 }

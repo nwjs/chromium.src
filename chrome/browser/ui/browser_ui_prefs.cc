@@ -127,12 +127,14 @@ void RegisterBrowserUserPrefs(user_prefs::PrefRegistrySyncable* registry) {
                                 pref_registration_flags);
   registry->RegisterInt64Pref(prefs::kBookmarkBarHoverCount, 0);
   registry->RegisterInt64Pref(prefs::kBookmarkBarNavigationCount, 0);
+  registry->RegisterTimePref(prefs::kBookmarkBarPreviousInitialRenderOnNtpTime,
+                             base::Time());
+  registry->RegisterIntegerPref(prefs::kBookmarkBarRenderedOnNtpCount, 0);
   registry->RegisterBooleanPref(prefs::kPinContextualTaskButton, true,
                                 pref_registration_flags);
   registry->RegisterBooleanPref(prefs::kPinSplitTabButton, false,
                                 pref_registration_flags);
 
-  registry->RegisterInt64Pref(prefs::kDefaultBrowserInfobarLastDeclined, 0);
   registry->RegisterBooleanPref(prefs::kWebAppCreateOnDesktop, true);
   registry->RegisterBooleanPref(prefs::kWebAppCreateInAppsMenu, true);
   registry->RegisterBooleanPref(prefs::kWebAppCreateInQuickLaunchBar, true);

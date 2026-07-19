@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <vector>
 
+#include "base/numerics/safe_conversions.h"
 #include "base/trace_event/trace_event.h"
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/web/web_local_frame_client.h"
@@ -772,18 +773,25 @@ void EditContext::DeleteSurroundingText(int before, int after) {
   TRACE_EVENT1("ime", "EditContext::DeleteSurroundingText", "before, after",
                std::to_string(before) + ", " + std::to_string(after));
   const bool is_backwards_selection = selection_start_ > selection_end_;
-  const uint32_t update_range_start =
-      std::max(OrderedSelectionStart() - before, 0U);
-  const uint32_t update_range_end =
-      std::min(OrderedSelectionEnd() + after, text_.length());
-  SetSelection(
-      update_range_start,
-      OrderedSelectionEnd() - (OrderedSelectionStart() - update_range_start));
-  CHECK_GE(selection_end_, selection_start_);
+
+  // Safe clamping to avoid unsigned underflow and negative before / after.
+  int clamped_before =
+      std::max(0, std::min(before, static_cast<int>(OrderedSelectionStart())));
+  int clamped_after = std::max(
+      0, std::min(after,
+                  static_cast<int>(text_.length() - OrderedSelectionEnd())));
+
+  const uint32_t update_range_start = OrderedSelectionStart() - clamped_before;
+  const uint32_t update_range_end = OrderedSelectionEnd() + clamped_after;
+
   text_ = StrCat({text_.subview(0, update_range_start),
                   text_.DeprecatedSubstring(selection_start_,
                                             selection_end_ - selection_start_),
                   text_.DeprecatedSubstring(update_range_end)});
+  SetSelection(
+      update_range_start,
+      OrderedSelectionEnd() - (OrderedSelectionStart() - update_range_start));
+  CHECK_GE(selection_end_, selection_start_);
   String update_event_text(text_.DeprecatedSubstring(
       selection_start_, selection_end_ - selection_start_));
 
@@ -921,8 +929,10 @@ bool EditContext::FirstRectForCharacterRange(uint32_t location,
     // we'll use that to provide the result.
     if (base::saturated_cast<int>(location) >= range.StartOffset() &&
         base::saturated_cast<int>(location + length) <= range.EndOffset()) {
-      const size_t start_in_composition = location - range.StartOffset();
-      const size_t end_in_composition = location + length - range.StartOffset();
+      const wtf_size_t start_in_composition =
+          base::checked_cast<wtf_size_t>(location - range.StartOffset());
+      const wtf_size_t end_in_composition = base::checked_cast<wtf_size_t>(
+          location + length - range.StartOffset());
       if (length == 0) {
         if (start_in_composition == character_bounds_.size()) {
           // Zero-width rect after the last character in the composition range
@@ -939,7 +949,8 @@ bool EditContext::FirstRectForCharacterRange(uint32_t location,
         }
       } else {
         rect_in_css_pixels = character_bounds_[start_in_composition];
-        for (size_t i = start_in_composition + 1; i < end_in_composition; ++i) {
+        for (wtf_size_t i = start_in_composition + 1; i < end_in_composition;
+             ++i) {
           rect_in_css_pixels.Union(character_bounds_[i]);
         }
       }
@@ -995,7 +1006,7 @@ WebRange EditContext::GetSelectionOffsets() const {
 void EditContext::Trace(Visitor* visitor) const {
   ActiveScriptWrappable::Trace(visitor);
   EventTarget::Trace(visitor);
-  ElementRareDataField::Trace(visitor);
+  NodeRareDataField::Trace(visitor);
   visitor->Trace(attached_elements_);
   visitor->Trace(execution_context_);
 }

@@ -6,10 +6,12 @@
 #define SERVICES_WEBNN_ORT_ORT_SESSION_OPTIONS_H_
 
 #include <optional>
+#include <string>
 
 #include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/types/expected.h"
 #include "base/types/pass_key.h"
 #include "services/webnn/ort/scoped_ort_types.h"
 #include "services/webnn/public/mojom/webnn_device.mojom.h"
@@ -17,7 +19,11 @@
 #include "services/webnn/public/mojom/webnn_service_introspection.mojom-forward.h"
 #include "third_party/windows_app_sdk_headers/src/inc/abi/winml/winml/onnxruntime_c_api.h"
 
-namespace webnn::ort {
+namespace webnn {
+
+struct EpDeviceInfo;
+
+namespace ort {
 
 class Environment;
 
@@ -26,13 +32,20 @@ class Environment;
 class SessionOptions final : public base::RefCountedThreadSafe<SessionOptions> {
  public:
   // The `device_type` would be used to configure ONNX Runtime EP.
-  static scoped_refptr<SessionOptions> Create(OrtHardwareDeviceType device_type,
+  static base::expected<scoped_refptr<SessionOptions>, std::string> Create(
+      OrtHardwareDeviceType device_type,
+      scoped_refptr<Environment> env);
+
+  // Selects the target EP device directly, bypassing the auto EP selection
+  // policy based on the device type.
+  static scoped_refptr<SessionOptions> Create(const EpDeviceInfo& target_device,
                                               scoped_refptr<Environment> env);
 
   SessionOptions(base::PassKey<SessionOptions>,
                  ScopedOrtSessionOptions session_options,
                  OrtHardwareDeviceType device_type,
-                 scoped_refptr<Environment> env);
+                 scoped_refptr<Environment> env,
+                 const OrtEpDevice* first_selected_device);
 
   SessionOptions(const SessionOptions&) = delete;
   SessionOptions& operator=(const SessionOptions&) = delete;
@@ -65,6 +78,8 @@ class SessionOptions final : public base::RefCountedThreadSafe<SessionOptions> {
   std::optional<uint32_t> batched_matmul_k_dimension_limit_;
 };
 
-}  // namespace webnn::ort
+}  // namespace ort
+
+}  // namespace webnn
 
 #endif  // SERVICES_WEBNN_ORT_ORT_SESSION_OPTIONS_H_

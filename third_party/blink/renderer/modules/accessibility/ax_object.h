@@ -308,6 +308,10 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   // Fires children change on the parent if the node's ignored or included in
   // tree status changes. Use |notify_parent_of_ignored_changes = false| to
   // prevent this.
+  // The children-changed dispatch is queued and runs when the outermost
+  // update completes; it can remove this object, so callers that keep using
+  // the object afterwards must check IsDetached(). See
+  // AXObjectCacheImpl::ScopedCachedAttributeValuesUpdate.
   void UpdateCachedAttributeValuesIfNeeded(
       bool notify_parent_of_ignored_changes = true);
 
@@ -653,6 +657,7 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   // Used by objects of role ColorWellRole.
   virtual RGBA32 ColorValue() const { return Color::kTransparent.Rgb(); }
   virtual bool CanvasHasFallbackContent() const { return false; }
+  virtual String CanvasAnnotation() const { return String(); }
   // Returns the font family that was cascaded onto ComputedStyle. This may
   // contain non-user-friendly internal names.
   virtual const AtomicString& ComputedFontFamily() const { return g_null_atom; }
@@ -1694,6 +1699,7 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
 #endif
 
  private:
+  void NotifyCanvasIgnoredStateChanged(bool is_ignored);
   bool ComputeCanSetFocusAttribute();
   String KeyboardShortcut() const;
   void UpdateStyleAndLayoutTreeForNode(Node& node);
@@ -1809,6 +1815,11 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   FRIEND_TEST_ALL_PREFIXES(AccessibilityTest, NodesRequiringCacheUpdate);
   FRIEND_TEST_ALL_PREFIXES(AccessibilityTest,
                            LoadInlineTextBoxesCrashsOnAndroid);
+  FRIEND_TEST_ALL_PREFIXES(AccessibilityTest,
+                           QueuedChildrenChangedFlattensReentrantDispatch);
+  FRIEND_TEST_ALL_PREFIXES(
+      AccessibilityTest,
+      UpdateChildrenIfNecessaryToleratesDetachDuringCachedValueUpdate);
 };
 
 MODULES_EXPORT bool operator==(const AXObject& first, const AXObject& second);

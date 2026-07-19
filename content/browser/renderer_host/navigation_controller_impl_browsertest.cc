@@ -32,7 +32,6 @@
 #include "base/threading/thread_restrictions.h"
 #include "base/values.h"
 #include "build/build_config.h"
-#include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/process_lock.h"
 #include "content/browser/renderer_host/frame_navigation_entry.h"
 #include "content/browser/renderer_host/frame_tree.h"
@@ -44,6 +43,7 @@
 #include "content/browser/renderer_host/render_process_host_impl.h"
 #include "content/browser/renderer_host/renderer_cancellation_throttle.h"
 #include "content/browser/renderer_host/spare_render_process_host_manager_impl.h"
+#include "content/browser/security/cpsp/child_process_security_policy_impl.h"
 #include "content/browser/site_info.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/browser/web_contents/web_contents_view.h"
@@ -24356,6 +24356,248 @@ IN_PROC_BROWSER_TEST_P(IgnoreDuplicateNavsBrowserTest,
   EXPECT_EQ(link_url, root->current_frame_host()->GetLastCommittedURL());
 }
 
+// Tests that a duplicate link click navigation is not ignored if the document's
+// cookie modification count changed (via document.cookie) after the first
+// navigation started.
+IN_PROC_BROWSER_TEST_P(IgnoreDuplicateNavsBrowserTest,
+                       DuplicateLinkClickIsNotIgnored_CookieChange) {
+  GURL main_url(embedded_test_server()->GetURL(
+      "/navigation_controller/page_with_links.html"));
+  GURL link_url(embedded_test_server()->GetURL(
+      "/navigation_controller/simple_page_1.html"));
+  EXPECT_TRUE(NavigateToURL(shell(), main_url));
+  FrameTreeNode* root = static_cast<WebContentsImpl*>(shell()->web_contents())
+                            ->GetPrimaryFrameTree()
+                            .root();
+
+  // 1. Click the link to start the first navigation to `link_url`.
+  TestNavigationManager nav_manager(shell()->web_contents(), link_url);
+  EXPECT_TRUE(ExecJs(contents(), "document.getElementById('thelink').click()"));
+  // Pause the navigation at request start.
+  EXPECT_TRUE(nav_manager.WaitForRequestStart());
+  int link_click_nav_id = nav_manager.GetNavigationHandle()->GetNavigationId();
+  EXPECT_NE(link_click_nav_id, root->current_frame_host()->navigation_id());
+
+  // Modify cookie to trigger cookie modification count change.
+  EXPECT_TRUE(ExecJs(contents(), "document.cookie = 'foo=bar';"));
+
+  // 2. Click the link again, and assert that the first link click navigation is
+  // overridden by the second navigation because cookie modification count
+  // changed.
+  EXPECT_TRUE(ExecJs(contents(), "document.getElementById('thelink').click()"));
+  // Run script to ensure that the second link click is already processed.
+  EXPECT_TRUE(ExecJs(shell(), "console.log('Success');"));
+
+  // Wait for the first link click navigation to finish.
+  EXPECT_TRUE(nav_manager.WaitForNavigationFinished());
+  // Ensure that the first link click didn't commit.
+  EXPECT_FALSE(nav_manager.was_committed());
+
+  // Ensure that the second link click navigation isn't ignored and eventually
+  // commits.
+  if (root->navigation_request()) {
+    int second_nav_id = root->navigation_request()->GetNavigationId();
+    EXPECT_NE(link_click_nav_id, second_nav_id);
+  }
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+  EXPECT_EQ(link_url, root->current_frame_host()->GetLastCommittedURL());
+}
+
+// Tests that a duplicate link click navigation is not ignored if the document's
+// cookie modification count changed (via CookieStore) after the first
+// navigation started.
+IN_PROC_BROWSER_TEST_P(IgnoreDuplicateNavsBrowserTest,
+                       DuplicateLinkClickIsNotIgnored_CookieStoreChange) {
+  GURL main_url(embedded_test_server()->GetURL(
+      "/navigation_controller/page_with_links.html"));
+  GURL link_url(embedded_test_server()->GetURL(
+      "/navigation_controller/simple_page_1.html"));
+  EXPECT_TRUE(NavigateToURL(shell(), main_url));
+  FrameTreeNode* root = static_cast<WebContentsImpl*>(shell()->web_contents())
+                            ->GetPrimaryFrameTree()
+                            .root();
+
+  // 1. Click the link to start the first navigation to `link_url`.
+  TestNavigationManager nav_manager(shell()->web_contents(), link_url);
+  EXPECT_TRUE(ExecJs(contents(), "document.getElementById('thelink').click()"));
+  // Pause the navigation at request start.
+  EXPECT_TRUE(nav_manager.WaitForRequestStart());
+  int link_click_nav_id = nav_manager.GetNavigationHandle()->GetNavigationId();
+  EXPECT_NE(link_click_nav_id, root->current_frame_host()->navigation_id());
+
+  // Modify cookie via CookieStore to trigger cookie modification count change.
+  EXPECT_TRUE(ExecJs(contents(), "cookieStore.set('foo', 'bar');"));
+
+  // 2. Click the link again, and assert that the first link click navigation is
+  // overridden by the second navigation because cookie modification count
+  // changed.
+  EXPECT_TRUE(ExecJs(contents(), "document.getElementById('thelink').click()"));
+  // Run script to ensure that the second link click is already processed.
+  EXPECT_TRUE(ExecJs(shell(), "console.log('Success');"));
+
+  // Wait for the first link click navigation to finish.
+  EXPECT_TRUE(nav_manager.WaitForNavigationFinished());
+  // Ensure that the first link click didn't commit.
+  EXPECT_FALSE(nav_manager.was_committed());
+
+  // Ensure that the second link click navigation isn't ignored and eventually
+  // commits.
+  if (root->navigation_request()) {
+    int second_nav_id = root->navigation_request()->GetNavigationId();
+    EXPECT_NE(link_click_nav_id, second_nav_id);
+  }
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+  EXPECT_EQ(link_url, root->current_frame_host()->GetLastCommittedURL());
+}
+
+// Tests that a duplicate link click navigation is ignored even if a fetch
+// request modified cookies via response headers, as it does not affect the
+// document's cookie modification count.
+IN_PROC_BROWSER_TEST_P(IgnoreDuplicateNavsBrowserTest,
+                       DuplicateLinkClickIsIgnored_FetchCookieChange) {
+  GURL main_url(embedded_test_server()->GetURL(
+      "/navigation_controller/page_with_links.html"));
+  GURL link_url(embedded_test_server()->GetURL(
+      "/navigation_controller/simple_page_1.html"));
+  EXPECT_TRUE(NavigateToURL(shell(), main_url));
+  FrameTreeNode* root = static_cast<WebContentsImpl*>(shell()->web_contents())
+                            ->GetPrimaryFrameTree()
+                            .root();
+
+  // 1. Click the link to start the first navigation to `link_url`.
+  TestNavigationManager nav_manager(shell()->web_contents(), link_url);
+  EXPECT_TRUE(ExecJs(contents(), "document.getElementById('thelink').click()"));
+  // Pause the navigation at request start.
+  EXPECT_TRUE(nav_manager.WaitForRequestStart());
+  int link_click_nav_id = nav_manager.GetNavigationHandle()->GetNavigationId();
+  EXPECT_NE(link_click_nav_id, root->current_frame_host()->navigation_id());
+
+  // Perform a fetch to /set-cookie?foo=bar. This modifies the cookie via
+  // response headers, so it should NOT affect the document's cookie
+  // modification count.
+  GURL fetch_url = embedded_test_server()->GetURL("/set-cookie?foo=bar");
+  EXPECT_TRUE(ExecJs(contents(), JsReplace("fetch($1);", fetch_url)));
+
+  // 2. Click the link again. The first link click navigation should be kept
+  // (and eventually commit) and the second click should be ignored because the
+  // document's cookie modification count was not affected by the fetch.
+  EXPECT_TRUE(ExecJs(contents(), "document.getElementById('thelink').click()"));
+  // Run script to ensure that the second link click is already processed.
+  EXPECT_TRUE(ExecJs(shell(), "console.log('Success');"));
+
+  EXPECT_TRUE(nav_manager.WaitForNavigationFinished());
+
+  if (ignore_duplicate_nav()) {
+    EXPECT_TRUE(nav_manager.was_committed());
+    EXPECT_EQ(link_url, root->current_frame_host()->GetLastCommittedURL());
+    EXPECT_EQ(link_click_nav_id, root->current_frame_host()->navigation_id());
+  } else {
+    EXPECT_FALSE(nav_manager.was_committed());
+    EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+    EXPECT_EQ(link_url, root->current_frame_host()->GetLastCommittedURL());
+    EXPECT_NE(link_click_nav_id, root->current_frame_host()->navigation_id());
+  }
+}
+
+// Tests that a duplicate link click navigation is ignored even if another
+// document modifies cookies, as it does not affect the main document's cookie
+// modification count.
+IN_PROC_BROWSER_TEST_P(IgnoreDuplicateNavsBrowserTest,
+                       DuplicateLinkClickIsIgnored_OtherDocumentCookieChange) {
+  GURL main_url(embedded_test_server()->GetURL(
+      "/navigation_controller/page_with_links.html"));
+  GURL link_url(embedded_test_server()->GetURL(
+      "/navigation_controller/simple_page_1.html"));
+  EXPECT_TRUE(NavigateToURL(shell(), main_url));
+  FrameTreeNode* root = static_cast<WebContentsImpl*>(shell()->web_contents())
+                            ->GetPrimaryFrameTree()
+                            .root();
+
+  // Create a second tab (same-site) to represent another document.
+  Shell* second_shell =
+      Shell::CreateNewWindow(shell()->web_contents()->GetBrowserContext(),
+                             main_url, nullptr, gfx::Size());
+  EXPECT_TRUE(WaitForLoadStop(second_shell->web_contents()));
+
+  // 1. Click the link to start the first navigation to `link_url`.
+  TestNavigationManager nav_manager(shell()->web_contents(), link_url);
+  EXPECT_TRUE(ExecJs(contents(), "document.getElementById('thelink').click()"));
+  // Pause the navigation at request start.
+  EXPECT_TRUE(nav_manager.WaitForRequestStart());
+  int link_click_nav_id = nav_manager.GetNavigationHandle()->GetNavigationId();
+  EXPECT_NE(link_click_nav_id, root->current_frame_host()->navigation_id());
+
+  // Modify cookies in the second tab's document. This should not affect the
+  // main document's cookie modification count.
+  EXPECT_TRUE(
+      ExecJs(second_shell->web_contents(), "document.cookie = 'foo=bar';"));
+
+  // 2. Click the link again in the main frame. It should be ignored because the
+  // main document's cookie modification count was not affected by the second
+  // tab's change.
+  EXPECT_TRUE(ExecJs(contents(), "document.getElementById('thelink').click()"));
+  EXPECT_TRUE(ExecJs(shell(), "console.log('Success');"));
+
+  EXPECT_TRUE(nav_manager.WaitForNavigationFinished());
+
+  if (ignore_duplicate_nav()) {
+    EXPECT_TRUE(nav_manager.was_committed());
+    EXPECT_EQ(link_url, root->current_frame_host()->GetLastCommittedURL());
+    EXPECT_EQ(link_click_nav_id, root->current_frame_host()->navigation_id());
+  } else {
+    EXPECT_FALSE(nav_manager.was_committed());
+    EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+    EXPECT_EQ(link_url, root->current_frame_host()->GetLastCommittedURL());
+    EXPECT_NE(link_click_nav_id, root->current_frame_host()->navigation_id());
+  }
+}
+
+// Tests that a duplicate link click navigation is ignored even if an HttpOnly
+// cookie is set, as HttpOnly cookie changes do not affect the document's cookie
+// modification count.
+IN_PROC_BROWSER_TEST_P(IgnoreDuplicateNavsBrowserTest,
+                       DuplicateLinkClickIsIgnored_HttpOnlyCookieChange) {
+  GURL main_url(embedded_test_server()->GetURL(
+      "/navigation_controller/page_with_links.html"));
+  GURL link_url(embedded_test_server()->GetURL(
+      "/navigation_controller/simple_page_1.html"));
+  EXPECT_TRUE(NavigateToURL(shell(), main_url));
+  FrameTreeNode* root = static_cast<WebContentsImpl*>(shell()->web_contents())
+                            ->GetPrimaryFrameTree()
+                            .root();
+
+  // 1. Click the link to start the first navigation to `link_url`.
+  TestNavigationManager nav_manager(shell()->web_contents(), link_url);
+  EXPECT_TRUE(ExecJs(contents(), "document.getElementById('thelink').click()"));
+  // Pause the navigation at request start.
+  EXPECT_TRUE(nav_manager.WaitForRequestStart());
+  int link_click_nav_id = nav_manager.GetNavigationHandle()->GetNavigationId();
+  EXPECT_NE(link_click_nav_id, root->current_frame_host()->navigation_id());
+
+  // Perform a fetch to set an HttpOnly cookie.
+  GURL fetch_url =
+      embedded_test_server()->GetURL("/set-cookie?foo=bar;HttpOnly");
+  EXPECT_TRUE(ExecJs(contents(), JsReplace("fetch($1);", fetch_url)));
+
+  // 2. Click the link again. The second click should be ignored because the
+  // document's modification count is not affected by setting an HttpOnly
+  // cookie.
+  EXPECT_TRUE(ExecJs(contents(), "document.getElementById('thelink').click()"));
+  EXPECT_TRUE(ExecJs(shell(), "console.log('Success');"));
+
+  EXPECT_TRUE(nav_manager.WaitForNavigationFinished());
+
+  if (ignore_duplicate_nav()) {
+    EXPECT_TRUE(nav_manager.was_committed());
+    EXPECT_EQ(link_click_nav_id, root->current_frame_host()->navigation_id());
+  } else {
+    EXPECT_FALSE(nav_manager.was_committed());
+    EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+    EXPECT_NE(link_click_nav_id, root->current_frame_host()->navigation_id());
+  }
+}
+
+
 class RestrictDuplicateNavsToOriginsBrowserTest
     : public NavigationControllerBrowserTestBase,
       public ::testing::WithParamInterface<
@@ -24751,6 +24993,128 @@ IN_PROC_BROWSER_TEST_P(
 
   // Ensure the victim page was NOT scrolled.
   EXPECT_EQ(0.0, EvalJs(contents(), "window.scrollY").ExtractDouble());
+}
+
+namespace {
+
+// Body of the ReloadReplacesInitialEntryAfterCanceledNavigation* tests.
+// Runs the shared scenario for the given `first_reload_type`: a new tab whose
+// first browser-initiated navigation is canceled before commit, then reloaded.
+// Verifies the reload properly replaces the initial entry and that a
+// subsequent normal reload also works.
+//
+// Skips the test if the kReplaceInitialEntryForReload feature is disabled.
+void RunReloadReplacesInitialEntryAfterCanceledNavigationTest(
+    Shell* opener,
+    net::EmbeddedTestServer* server,
+    ReloadType first_reload_type) {
+  if (!base::FeatureList::IsEnabled(features::kReplaceInitialEntryForReload)) {
+    GTEST_SKIP() << "Test requires kReplaceInitialEntryForReload";
+  }
+
+  // ControllableHttpResponses must be registered before the server starts.
+  net::test_server::ControllableHttpResponse reload_response(server, "/target");
+  net::test_server::ControllableHttpResponse second_reload_response(server,
+                                                                    "/target");
+  ASSERT_TRUE(server->Start());
+
+  // Create a new window directly (not via window.open) to get a tab in the
+  // initial navigation state. Unlike window.open(''), this does NOT
+  // synchronously commit about:blank, so IsInitialNavigation() stays true.
+  Shell* new_shell =
+      Shell::CreateNewWindow(opener->web_contents()->GetBrowserContext(),
+                             GURL(), nullptr, gfx::Size());
+  WebContentsImpl* new_contents =
+      static_cast<WebContentsImpl*>(new_shell->web_contents());
+  NavigationControllerImpl& controller = new_contents->GetController();
+
+  ASSERT_EQ(1, controller.GetEntryCount());
+  ASSERT_TRUE(controller.GetLastCommittedEntry()->IsInitialEntry());
+  ASSERT_TRUE(controller.IsInitialNavigation());
+
+  // Start a browser-initiated navigation to /target using a URL that will
+  // never commit (the server won't respond). This creates a pending_entry_ on
+  // the NavigationController.
+  GURL target_url(server->GetURL("/target"));
+  FrameTreeNode* root = new_contents->GetPrimaryFrameTree().root();
+  TestNavigationManager nav_manager(new_contents, target_url);
+  new_shell->LoadURL(target_url);
+  ASSERT_TRUE(nav_manager.WaitForRequestStart());
+
+  // Cancel the navigation before it commits. The new tab should still be on
+  // the initial NavigationEntry, and the pending entry should be preserved
+  // because the tab is an unmodified blank tab (IsUnmodifiedBlankTab() ==
+  // true).
+  new_contents->Stop();
+  EXPECT_EQ(1, controller.GetEntryCount());
+  EXPECT_TRUE(controller.GetLastCommittedEntry()->IsInitialEntry());
+  EXPECT_TRUE(controller.IsInitialNavigation());
+  ASSERT_TRUE(controller.GetPendingEntry())
+      << "Pending entry should be preserved on an unmodified blank tab";
+  EXPECT_EQ(target_url, controller.GetPendingEntry()->GetURL());
+
+  // Browser-initiated reload. Reload() finds the preserved pending_entry_ and
+  // re-navigates to target_url. CreateNavigationRequestFromEntry sets
+  // should_replace_current_entry=true so the reload properly replaces the
+  // initial entry.
+  FrameNavigateParamsCapturer capturer(root);
+  controller.Reload(first_reload_type, true);
+  ASSERT_TRUE(root->navigation_request())
+      << "Reload should have created a navigation request";
+  ASSERT_TRUE(
+      root->navigation_request()->common_params().should_replace_current_entry)
+      << "Browser-side fix should set should_replace_current_entry";
+
+  // Send a proper response for the reload request.
+  reload_response.WaitForRequest();
+  reload_response.Send(net::HTTP_OK, "text/html",
+                       "<html><body>loaded</body></html>");
+  reload_response.Done();
+  capturer.Wait();
+
+  // The reload should have replaced the initial entry and loaded the page.
+  EXPECT_TRUE(capturer.did_replace_entry());
+  EXPECT_EQ(1, controller.GetEntryCount());
+  EXPECT_EQ(target_url, controller.GetLastCommittedEntry()->GetURL());
+  EXPECT_FALSE(controller.GetLastCommittedEntry()->IsInitialEntry());
+
+  // A subsequent reload should also work without issues.
+  FrameNavigateParamsCapturer second_capturer(root);
+  controller.Reload(ReloadType::NORMAL, true);
+  second_reload_response.WaitForRequest();
+  second_reload_response.Send(net::HTTP_OK, "text/html",
+                              "<html><body>loaded again</body></html>");
+  second_reload_response.Done();
+  second_capturer.Wait();
+  EXPECT_EQ(1, controller.GetEntryCount());
+  EXPECT_EQ(target_url, controller.GetLastCommittedEntry()->GetURL());
+}
+
+}  // namespace
+
+// Tests that reloading a new tab whose first navigation was canceled will
+// replace the initial NavigationEntry (rather than leaving it as about:blank)
+// when the kReplaceInitialEntryForReload feature is enabled.
+//
+// Scenario: a new tab is opened, a browser-initiated navigation starts but is
+// canceled before it commits (e.g. user types a URL then hits stop), then the
+// user hits reload. Without the fix, the reload doesn't set
+// should_replace_current_entry, so the initial entry is not properly replaced.
+IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTestNoServer,
+                       ReloadReplacesInitialEntryAfterCanceledNavigation) {
+  RunReloadReplacesInitialEntryAfterCanceledNavigationTest(
+      shell(), embedded_test_server(), ReloadType::NORMAL);
+}
+
+// Same as ReloadReplacesInitialEntryAfterCanceledNavigation, but exercises
+// Shift+Reload (ReloadType::BYPASSING_CACHE). Without extending the fix to
+// cover this reload type, shift-reload before the initial entry has been
+// replaced would hit the same stuck-state bug as a normal reload.
+IN_PROC_BROWSER_TEST_P(
+    NavigationControllerBrowserTestNoServer,
+    ReloadReplacesInitialEntryAfterCanceledNavigation_BypassingCache) {
+  RunReloadReplacesInitialEntryAfterCanceledNavigationTest(
+      shell(), embedded_test_server(), ReloadType::BYPASSING_CACHE);
 }
 
 }  // namespace content

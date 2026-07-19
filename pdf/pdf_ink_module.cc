@@ -82,19 +82,14 @@ constexpr ink::AffineTransform kIdentityTransform;
 constexpr SkColor kEraserColor = SK_ColorWHITE;
 constexpr int kEraserSize = 3;
 
-// `is_ink` represents the Ink thumbnail when true, and the PDF thumbnail when
-// false.
 base::DictValue CreateUpdateThumbnailMessage(int page_index,
-                                             bool is_ink,
                                              std::vector<uint8_t> image_data,
                                              const gfx::Size& thumbnail_size) {
   return base::DictValue()
-      .Set("type", "updateInk2Thumbnail")
+      .Set("type", "updateThumbnail")
       .Set("pageNumber", page_index + 1)
-      .Set("isInk", is_ink)
       .Set("imageData", std::move(image_data))
-      .Set("width", thumbnail_size.width())
-      .Set("height", thumbnail_size.height());
+      .Set("width", thumbnail_size.width());
 }
 
 ink::StrokeInput::ToolType GetToolTypeFromTouchEvent(
@@ -188,14 +183,18 @@ InkTextBoxAttributes GetTextBoxAttributesFromDict(const base::DictValue& data) {
   CHECK_GE(orientation, 0);
   CHECK_LE(orientation, 3);
 
+  PageOrientation viewport_orientation =
+      PageOrientationFromClockwiseRotationSteps(
+          data.FindInt("viewportOrientation").value());
+
   const base::DictValue& styles = *text_attributes.FindDict("styles");
   bool is_bold = styles.FindBool("bold").value();
   bool is_italic = styles.FindBool("italic").value();
 
-  return InkTextBoxAttributes(textbox, GetColorFromDict(text_attributes),
-                              css_font_size, typeface, alignment, orientation,
-                              /*is_bold=*/is_bold, /*is_italic=*/is_italic,
-                              *data.FindString("text"));
+  return InkTextBoxAttributes(
+      textbox, GetColorFromDict(text_attributes), css_font_size, typeface,
+      alignment, orientation, viewport_orientation,
+      /*is_bold=*/is_bold, /*is_italic=*/is_italic, *data.FindString("text"));
 }
 
 ink::Rect GetEraserRect(const gfx::PointF& center) {
@@ -308,68 +307,9 @@ PdfInkModule::TransformAndClipRect PdfInkModule::GetTransformAndClipRect(
   return {transform, GetDrawPageClipRect(content_rect, origin_offset)};
 }
 
-void PdfInkModule::GenerateAndSendInkThumbnail(
-    int page_index,
-    const gfx::Size& thumbnail_size) {
-  CHECK(!thumbnail_size.IsEmpty());
-
-  auto info = SkImageInfo::Make(thumbnail_size.width(), thumbnail_size.height(),
-                                kRGBA_8888_SkColorType, kUnpremul_SkAlphaType);
-  const size_t alloc_size = info.computeMinByteSize();
-  CHECK(!SkImageInfo::ByteSizeOverflowed(alloc_size));
-  std::vector<uint8_t> image_data(alloc_size);
-
-  SkBitmap sk_bitmap;
-  sk_bitmap.installPixels(info, image_data.data(), info.minRowBytes());
-  SkCanvas canvas(sk_bitmap);
-  if (!DrawThumbnail(canvas, page_index)) {
-    return;
-  }
-
-  client_->PostMessage(CreateUpdateThumbnailMessage(
-      page_index,
-      /*is_ink=*/true, std::move(image_data), thumbnail_size));
-}
-
-void PdfInkModule::GenerateAndSendInkThumbnailInternal(int page_index) {
-  return GenerateAndSendInkThumbnail(page_index,
-                                     client_->GetThumbnailSize(page_index));
-}
-
-bool PdfInkModule::DrawThumbnail(SkCanvas& canvas, int page_index) {
-  auto it = strokes_.find(page_index);
-  if (it == strokes_.end() || it->second.empty()) {
-    return false;
-  }
-
-  const ink::AffineTransform transform = GetInkThumbnailTransform(
-      gfx::SkISizeToSize(canvas.imageInfo().dimensions()),
-      client_->GetOrientation(), client_->GetPageContentsRect(page_index),
-      client_->GetZoom());
-
-  ink::SkiaRenderer skia_renderer;
-  for (const FinishedStrokeState& finished_stroke : it->second) {
-    if (!finished_stroke.should_draw) {
-      continue;
-    }
-
-    auto status =
-        skia_renderer.Draw(nullptr, finished_stroke.stroke, transform, canvas);
-    CHECK(status.ok());
-  }
-
-  // No need to draw in-progress strokes, since DrawThumbnail() only gets called
-  // after the in-progress strokes finish.
-  return true;
-}
-
 void PdfInkModule::RequestThumbnailUpdates(
-    const base::flat_set<int>& ink_updates,
-    const base::flat_set<int>& pdf_updates) {
-  for (int page_index : ink_updates) {
-    GenerateAndSendInkThumbnailInternal(page_index);
-  }
-  for (int page_index : pdf_updates) {
+    const base::flat_set<int>& page_indices) {
+  for (int page_index : page_indices) {
     client_->RequestThumbnail(
         page_index, base::BindOnce(&PdfInkModule::OnGotThumbnail,
                                    weak_factory_.GetWeakPtr(), page_index));
@@ -378,8 +318,7 @@ void PdfInkModule::RequestThumbnailUpdates(
 
 void PdfInkModule::OnGotThumbnail(int page_index, Thumbnail thumbnail) {
   client_->PostMessage(CreateUpdateThumbnailMessage(
-      page_index,
-      /*is_ink=*/false, thumbnail.TakeData(), thumbnail.image_size()));
+      page_index, thumbnail.TakeData(), thumbnail.image_size()));
 }
 
 bool PdfInkModule::HandleInputEvent(const blink::WebInputEvent& event) {
@@ -979,7 +918,7 @@ bool PdfInkModule::FinishStroke(const gfx::PointF& position,
   }
 
   client_->StrokeFinished(/*modified=*/true);
-  GenerateAndSendInkThumbnailInternal(state.page_index);
+  RequestThumbnailUpdates({state.page_index});
 
   bool undo_redo_success = undo_redo_model_.Finish();
   CHECK(undo_redo_success);
@@ -1073,13 +1012,9 @@ bool PdfInkModule::FinishEraseStroke(const gfx::PointF& position,
 
   CHECK(is_erasing_stroke());
   EraserState& state = erasing_stroke_state();
-  const bool modified =
-      !state.page_indices_with_stroke_erasures.empty() ||
-      !state.page_indices_with_partitioned_mesh_erasures.empty();
+  const bool modified = !state.page_indices_to_update.empty();
   if (modified) {
-    RequestThumbnailUpdates(
-        /*ink_updates=*/state.page_indices_with_stroke_erasures,
-        /*pdf_updates=*/state.page_indices_with_partitioned_mesh_erasures);
+    RequestThumbnailUpdates(state.page_indices_to_update);
     ReportEraseStroke(tool_type);
   }
 
@@ -1087,8 +1022,7 @@ bool PdfInkModule::FinishEraseStroke(const gfx::PointF& position,
 
   // Reset `state` now that the erase operation is done.
   state.erasing = false;
-  state.page_indices_with_stroke_erasures.clear();
-  state.page_indices_with_partitioned_mesh_erasures.clear();
+  state.page_indices_to_update.clear();
   state.input_last_event_position.reset();
   state.tool_type = ink::StrokeInput::ToolType::kUnknown;
 
@@ -1172,12 +1106,7 @@ void PdfInkModule::EraseHelper(const gfx::PointF& position, int page_index) {
 
   CHECK(erased_stroke || erased_partitioned_mesh);
   EraserState& state = erasing_stroke_state();
-  if (erased_stroke) {
-    state.page_indices_with_stroke_erasures.insert(page_index);
-  }
-  if (erased_partitioned_mesh) {
-    state.page_indices_with_partitioned_mesh_erasures.insert(page_index);
-  }
+  state.page_indices_to_update.insert(page_index);
 }
 
 bool PdfInkModule::StartTextHighlight(const gfx::PointF& position,
@@ -1261,7 +1190,7 @@ bool PdfInkModule::FinishTextHighlight(const gfx::PointF& position,
         CHECK(undo_redo_success);
       }
 
-      GenerateAndSendInkThumbnailInternal(page_index);
+      RequestThumbnailUpdates({page_index});
     }
 
     const bool modified = !highlight_strokes.empty();
@@ -1389,7 +1318,7 @@ PdfInkModule::GetTextSelectionAsStrokes() {
   std::map<int, std::vector<ink::Stroke>> result;
   for (const auto& [page_index, selection_rects] :
        client_->GetSelectionRectMap()) {
-    auto& page_result = result[page_index];
+    std::vector<ink::Stroke> page_result;
     page_result.reserve(selection_rects.size());
     const gfx::Transform transform =
         client_->GetCanonicalToPdfTransform(page_index).GetCheckedInverse();
@@ -1399,6 +1328,9 @@ PdfInkModule::GetTextSelectionAsStrokes() {
       if (stroke.has_value()) {
         page_result.push_back(stroke.value());
       }
+    }
+    if (!page_result.empty()) {
+      result[page_index] = std::move(page_result);
     }
   }
   return result;
@@ -1442,19 +1374,15 @@ void PdfInkModule::HandleGetAllTextAnnotationsMessage(
 
   base::ListValue annotations;
 
-  // It is safe to use base::Unretained(&id_generator_) because the callback is
-  // executed synchronously.
   DocumentInkTextBoxesMap document_text_boxes =
-      client_->LoadTextAnnotationsFromPdf(
-          base::BindRepeating(&PdfInkModule::IdGenerator::GetTextIdAndAdvance,
-                              base::Unretained(&id_generator_)));
+      client_->LoadTextAnnotationsFromPdf();
 
   // The backend sets the frontend ID for loaded text annotations.
   int frontend_id = 0;
 
   for (auto& [page_index, text_boxes] : document_text_boxes) {
     for (const auto& item : text_boxes) {
-      text_id_map_[frontend_id] = item.ink_text_id;
+      text_id_map_[frontend_id] = item.ink_loaded_text_id;
 
       auto text_attributes =
           base::DictValue()
@@ -1484,7 +1412,10 @@ void PdfInkModule::HandleGetAllTextAnnotationsMessage(
               .Set("text", item.attributes.text)
               .Set("textAttributes", std::move(text_attributes))
               .Set("textBoxRect", std::move(textbox_rect))
-              .Set("textOrientation", item.attributes.orientation));
+              .Set("textOrientation", item.attributes.orientation)
+              .Set("viewportOrientation",
+                   GetClockwiseRotationSteps(
+                       item.attributes.viewport_orientation)));
 
       ++frontend_id;
     }
@@ -1666,6 +1597,8 @@ void PdfInkModule::HandleFinishTextAnnotationMessage(
     return;
   }
 
+  const int page_index = data.FindInt("pageIndex").value();
+
   // Figure out if this message is for a user action, or for handling undo/redo.
   // If this is for handling undo/redo, then do not modify `undo_redo_model_`.
   const bool modify_undo_redo_model = source == "user";
@@ -1683,7 +1616,7 @@ void PdfInkModule::HandleFinishTextAnnotationMessage(
   // - Deletion: Delete existing annotation only.
   // First do the deletion if needed.
   if (auto it = text_id_map_.find(frontend_id); it != text_id_map_.end()) {
-    InkTextId existing_id = it->second;
+    TextId existing_id = it->second;
     // Make sure `existing_id` gets hidden before being discarded.
     client_->UpdateTextActiveAndInvalidate(existing_id, /*active=*/false);
     // "HandleFinishTextAnnotationMessageDiscard" note: This method will discard
@@ -1691,11 +1624,13 @@ void PdfInkModule::HandleFinishTextAnnotationMessage(
     // this just called `ApplyUndoRedoDiscards()`. This complies with the
     // assumptions `ApplyUndoRedoDiscards()` made regarding text annotation
     // discards.
-    client_->DiscardText(existing_id);
+    if (std::holds_alternative<InkTextId>(existing_id)) {
+      client_->DiscardText(std::get<InkTextId>(existing_id));
+    }
     text_id_map_.erase(it);
 
     if (modify_undo_redo_model) {
-      CHECK(undo_redo_model_.Remove(existing_id));
+      CHECK(undo_redo_model_.Remove(TextIdToIdType(existing_id)));
     }
 
     // Empty text means the annotation is being deleted. Return early since
@@ -1704,7 +1639,29 @@ void PdfInkModule::HandleFinishTextAnnotationMessage(
       if (modify_undo_redo_model) {
         CHECK(undo_redo_model_.Finish());
       }
+      RequestThumbnailUpdates({page_index});
       return;
+    }
+  }
+
+  std::optional<TextId> undo_redo_text_id;
+  if (!modify_undo_redo_model) {
+    // This assumes neither `HandleAnnotationUndoMessage()` nor
+    // `HandleAnnotationRedoMessage()` has been called yet for this action.
+    if (source == "undo") {
+      undo_redo_text_id = undo_redo_model_.GetUndoTextId();
+      if (undo_redo_text_id.has_value() &&
+          std::holds_alternative<InkLoadedTextId>(undo_redo_text_id.value())) {
+        InkLoadedTextId loaded_id =
+            std::get<InkLoadedTextId>(undo_redo_text_id.value());
+        text_id_map_[frontend_id] = loaded_id;
+        client_->UpdateTextActiveAndInvalidate(loaded_id, /*active=*/true);
+        RequestThumbnailUpdates({page_index});
+        return;
+      }
+    } else {
+      CHECK_EQ(source, "redo");
+      undo_redo_text_id = undo_redo_model_.GetRedoInkTextId();
     }
   }
 
@@ -1723,10 +1680,8 @@ void PdfInkModule::HandleFinishTextAnnotationMessage(
   pdf::mojom::InkTextInfoPtr text_info_mojo;
   CHECK(pdf::mojom::InkTextInfo::Deserialize(text_info_blob, &text_info_mojo));
 
-  std::vector<InkTextInfo> ink_info = InkTextInfo::SplitTypefaceRuns(
+  std::vector<InkTextInfo> ink_info = InkTextInfo::BlinkTextInfoToPDFTextInfo(
       text_info_mojo->text_runs, text_info_mojo->effective_zoom);
-
-  const int page_index = data.FindInt("pageIndex").value();
 
   // Note: `pdf_zoom` is similar to GetZoom() but GetZoom() is multiplied by
   // device scale factor while this value isn't. Additionally `pdf_zoom` comes
@@ -1737,25 +1692,23 @@ void PdfInkModule::HandleFinishTextAnnotationMessage(
   InkTextId new_id;
   if (modify_undo_redo_model) {
     new_id = id_generator_.GetTextIdAndAdvance();
-  } else if (source == "undo") {
-    // This assumes `HandleAnnotationUndoMessage()` for this undo action has not
-    // been called yet.
-    new_id = undo_redo_model_.GetUndoInkTextId().value();
   } else {
-    // This assumes `HandleAnnotationRedoMessage()` for this redo action has not
-    // been called yet.
-    CHECK_EQ(source, "redo");
-    new_id = undo_redo_model_.GetRedoInkTextId().value();
+    CHECK(undo_redo_text_id.has_value());
+    CHECK(std::holds_alternative<InkTextId>(undo_redo_text_id.value()));
+    new_id = std::get<InkTextId>(undo_redo_text_id.value());
   }
 
   text_id_map_[frontend_id] = new_id;
-  client_->DrawText(page_index, new_id, ink_info, pdf_zoom,
-                    GetTextBoxAttributesFromDict(data));
+  client_->DrawText(
+      page_index, new_id, ink_info,
+      text_info_mojo->primary_ascent / text_info_mojo->effective_zoom, pdf_zoom,
+      GetTextBoxAttributesFromDict(data));
 
   if (modify_undo_redo_model) {
     CHECK(undo_redo_model_.Add(new_id));
     CHECK(undo_redo_model_.Finish());
   }
+  RequestThumbnailUpdates({page_index});
 }
 
 bool PdfInkModule::IsHighlightingTextAtPosition(
@@ -1865,7 +1818,8 @@ void PdfInkModule::ApplyUndoRedoCommandsHelper(
   std::set<InkStrokeId> stroke_ids;
   std::set<InkModeledShapeId> shape_ids;
   for (const IdType& id : ids) {
-    if (std::holds_alternative<InkTextId>(id)) {
+    if (std::holds_alternative<InkTextId>(id) ||
+        std::holds_alternative<InkLoadedTextId>(id)) {
       // No need to handle text objects. The frontend will separately send
       // "finishTextAnnotation" messages and make changes there.
       continue;
@@ -1889,8 +1843,7 @@ void PdfInkModule::ApplyUndoRedoCommandsHelper(
     CHECK(!loaded_v2_shapes_.empty());
   }
 
-  base::flat_set<int> page_indices_with_ink_thumbnail_updates;
-  base::flat_set<int> page_indices_with_pdf_thumbnail_updates;
+  base::flat_set<int> page_indices_to_update;
   for (auto& [page_index, page_ink_strokes] : strokes_) {
     std::vector<InkStrokeId> page_ids;
     page_ids.reserve(page_ink_strokes.size());
@@ -1925,7 +1878,7 @@ void PdfInkModule::ApplyUndoRedoCommandsHelper(
 
     client_->Invalidate(CanonicalInkEnvelopeToInvalidationScreenRect(
         invalidate_envelope, GetCanonicalToEventTransformForPage(page_index)));
-    page_indices_with_ink_thumbnail_updates.insert(page_index);
+    page_indices_to_update.insert(page_index);
 
     if (stroke_ids.empty()) {
       break;  // Break out of loop if there is no stroke remaining to apply.
@@ -1966,16 +1919,14 @@ void PdfInkModule::ApplyUndoRedoCommandsHelper(
 
     client_->Invalidate(CanonicalInkEnvelopeToInvalidationScreenRect(
         invalidate_envelope, GetCanonicalToEventTransformForPage(page_index)));
-    page_indices_with_pdf_thumbnail_updates.insert(page_index);
+    page_indices_to_update.insert(page_index);
 
     if (shape_ids.empty()) {
       break;  // Break out of loop if there is no shape remaining to apply.
     }
   }
 
-  RequestThumbnailUpdates(
-      /*ink_updates=*/page_indices_with_ink_thumbnail_updates,
-      /*pdf_updates=*/page_indices_with_pdf_thumbnail_updates);
+  RequestThumbnailUpdates(page_indices_to_update);
 }
 
 void PdfInkModule::ApplyUndoRedoDiscards(std::optional<IdType> lowest_discard) {

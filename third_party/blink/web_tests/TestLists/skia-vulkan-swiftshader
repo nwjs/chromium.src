@@ -138,7 +138,6 @@ css3/filters/effect-combined-hw.html
 css3/filters/effect-drop-shadow-hw.html
 external/wpt/css/filter-effects/backdrop-filter-basic-blur.html
 images/yuv-decode-eligible/color-profile-layer-filter.html
-transforms/3d/point-mapping/3d-point-mapping-deep.html
 
 # No Video Rendering - crbug.com/935570
 compositing/geometry/video-fixed-scrolling.html
@@ -601,12 +600,6 @@ css3/selectors3/html/css3-modsel-175c.html
 css3/selectors3/html/css3-modsel-177a.html
 css3/selectors3/html/css3-modsel-184c.html
 css3/selectors3/html/css3-modsel-184e.html
-css3/selectors3/html/css3-modsel-21.html
-css3/selectors3/html/css3-modsel-36.html
-css3/selectors3/html/css3-modsel-39c.html
-css3/selectors3/html/css3-modsel-73.html
-css3/selectors3/html/css3-modsel-77b.html
-css3/selectors3/html/css3-modsel-81b.html
 css3/supports-crash.html
 css3/tab-size-span.html
 css3/viewport-percentage-lengths/css3-viewport-percentage-lengths-getStyle.html

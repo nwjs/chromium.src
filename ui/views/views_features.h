@@ -12,10 +12,13 @@
 namespace views::features {
 
 // Please keep alphabetized.
+VIEWS_EXPORT BASE_DECLARE_FEATURE(kAllowWindowCaptureExclusionInRemoteSessions);
 VIEWS_EXPORT BASE_DECLARE_FEATURE(kApplyInitialUrlToWebContents);
+VIEWS_EXPORT BASE_DECLARE_FEATURE(kDeferHWNDMessageHandlerDestruction);
 VIEWS_EXPORT BASE_DECLARE_FEATURE(kEnableInputProtection);
 VIEWS_EXPORT BASE_DECLARE_FEATURE(kEnableTouchDragCursorSync);
 VIEWS_EXPORT BASE_DECLARE_FEATURE(kKeyboardAccessibleTooltipInViews);
+VIEWS_EXPORT BASE_DECLARE_FEATURE(kUseNativeViewHostAuraWithClipWindow);
 
 }  // namespace views::features
 

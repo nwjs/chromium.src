@@ -167,7 +167,10 @@ class MockContextualTasksCookieSynchronizer
 class ContextualTasksUIBrowserTest : public InProcessBrowserTest {
  public:
   ContextualTasksUIBrowserTest() {
-    feature_list_.InitAndEnableFeature(contextual_tasks::kContextualTasks);
+    feature_list_.InitWithFeatures(
+        {contextual_tasks::kContextualTasks,
+         contextual_tasks::kContextualTasksForceEntryPointEligibility},
+        {});
   }
   ~ContextualTasksUIBrowserTest() override = default;
 
@@ -337,7 +340,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUIBrowserTest, HandleLensButtonClick) {
             return std::unique_ptr<LensSearchController>(std::move(mock));
           }));
 
-  chrome::NewTab(browser());
+  chrome::NewTab(browser(), NewTabTypes::kNoUserAction);
 
   // Bind pipes
   mojo::PendingReceiver<composebox::mojom::PageHandler> handler_receiver;

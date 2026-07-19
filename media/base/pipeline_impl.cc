@@ -278,7 +278,7 @@ class PipelineImpl::RendererWrapper final : public DemuxerHost,
 
   const scoped_refptr<base::SequencedTaskRunner> media_task_runner_;
   const scoped_refptr<base::SingleThreadTaskRunner> main_task_runner_;
-  const raw_ptr<MediaLog, AcrossTasksDanglingUntriaged> media_log_;
+  const std::unique_ptr<MediaLog> media_log_;
 
   // A weak pointer to PipelineImpl. Must only use on the main task runner.
   base::WeakPtr<PipelineImpl> weak_pipeline_;
@@ -335,7 +335,7 @@ PipelineImpl::RendererWrapper::RendererWrapper(
     MediaLog* media_log)
     : media_task_runner_(std::move(media_task_runner)),
       main_task_runner_(std::move(main_task_runner)),
-      media_log_(media_log),
+      media_log_(MediaLog::CloneSafely(media_log)),
       demuxer_(nullptr),
       playback_rate_(kDefaultPlaybackRate),
       volume_(kDefaultVolume),
@@ -1286,7 +1286,7 @@ void PipelineImpl::RendererWrapper::ReportMetadata(StartType start_type) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(shared_state_.media_sequence_checker);
 
   PipelineMetadata metadata;
-  std::vector<DemuxerStream*> streams;
+  std::vector<raw_ptr<DemuxerStream>> streams;
 
   metadata.timeline_offset = demuxer_->GetTimelineOffset();
   // TODO(servolk): What should we do about metadata for multiple streams?
@@ -1354,7 +1354,7 @@ PipelineImpl::PipelineImpl(
     MediaLog* media_log)
     : media_task_runner_(media_task_runner),
       create_renderer_cb_(create_renderer_cb),
-      media_log_(media_log),
+      media_log_(MediaLog::CloneSafely(media_log)),
       client_(nullptr),
       playback_rate_(kDefaultPlaybackRate),
       volume_(kDefaultVolume),
@@ -1363,7 +1363,7 @@ PipelineImpl::PipelineImpl(
   DCHECK(create_renderer_cb_);
 
   renderer_wrapper_ = std::make_unique<RendererWrapper>(
-      media_task_runner_, std::move(main_task_runner), media_log_);
+      media_task_runner_, std::move(main_task_runner), media_log_.get());
 }
 
 PipelineImpl::~PipelineImpl() {

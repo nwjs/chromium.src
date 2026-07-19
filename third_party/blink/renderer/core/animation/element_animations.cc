@@ -70,11 +70,12 @@ void ElementAnimations::RestartAnimationOnCompositor() {
 
 void ElementAnimations::Trace(Visitor* visitor) const {
   visitor->Trace(css_animations_);
+  visitor->Trace(css_image_animations_);
   visitor->Trace(effect_stack_);
   visitor->Trace(animations_);
   visitor->Trace(worklet_animations_);
   visitor->Trace(clip_path_paint_worklet_candidate_);
-  ElementRareDataField::Trace(visitor);
+  NodeRareDataField::Trace(visitor);
 }
 
 bool ElementAnimations::UpdateBoxSizeAndCheckTransformAxisAlignment(
@@ -114,10 +115,12 @@ bool ElementAnimations::HasCompositedPaintWorkletAnimation() {
 void ElementAnimations::RecalcCompositedStatusForKeyframeChange(
     Element& element,
     Animation::NativePaintWorkletReasons properties) {
-  if ((element.GetDocument().Lifecycle().GetState() !=
-       DocumentLifecycle::kInStyleRecalc) &&
-      (element.GetDocument().Lifecycle().GetState() !=
-       DocumentLifecycle::kInPerformLayout)) {
+  // Usually kInStyleRecalc or kInLayout, but sometimes SMIL can cause updates
+  // post-style/layout. See crbug.com/523313381.
+  if ((element.GetDocument().Lifecycle().GetState() <
+       DocumentLifecycle::kInStyleRecalc) ||
+      (element.GetDocument().Lifecycle().GetState() >
+       DocumentLifecycle::kLayoutClean)) {
     DCHECK(false) << "RecalcCompositedStatusForKeyframeChange must not be "
                   << "called outside of style/layout.";
     base::debug::DumpWithoutCrashing();

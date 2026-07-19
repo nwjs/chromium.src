@@ -58,6 +58,7 @@
 #include "third_party/blink/renderer/core/css/media_feature_overrides.h"
 #include "third_party/blink/renderer/core/css/media_values.h"
 #include "third_party/blink/renderer/core/css/mixin_map.h"
+#include "third_party/blink/renderer/core/css/navigation_query.h"
 #include "third_party/blink/renderer/core/css/out_of_flow_data.h"
 #include "third_party/blink/renderer/core/css/properties/computed_style_utils.h"
 #include "third_party/blink/renderer/core/css/property_registration.h"
@@ -3277,6 +3278,32 @@ void StyleEngine::InvalidateFunctionalMediaDependentStylesIfNeeded() {
   });
 }
 
+bool StyleEngine::EvaluateFunctionalNavigationQuery(
+    const NavigationTestExpression& navigation_exp) {
+  bool result = navigation_exp.Matches(GetDocument());
+  functional_navigation_query_results_.insert(&navigation_exp, result);
+  return result;
+}
+
+void StyleEngine::InvalidateFunctionalNavigationDependentStylesIfNeeded() {
+  bool has_changes = false;
+  for (auto& [exp, previous_result] : functional_navigation_query_results_) {
+    if (exp->Matches(GetDocument()) != previous_result) {
+      has_changes = true;
+      break;
+    }
+  }
+  if (!has_changes) {
+    return;
+  }
+  functional_navigation_query_results_.clear();
+  const auto& reason = StyleChangeReasonForTracing::Create(
+      style_change_reason::kNavigationQuery);
+  MarkElementsForRecalc(GetDocument(), reason, [](const ComputedStyle& style) {
+    return style.AffectedByFunctionalNavigation();
+  });
+}
+
 const MediaQueryEvaluator& StyleEngine::EnsureMediaQueryEvaluator() const {
   if (!media_query_evaluator_) {
     if (GetDocument().GetFrame()) {
@@ -3298,10 +3325,9 @@ bool StyleEngine::StyleMaybeAffectedByLayout(const Element& element) {
          ComputedStyle::IsNullOrEnsured(element.GetComputedStyle());
 }
 
-bool StyleEngine::UpdateRootFontRelativeUnits(
-    const ComputedStyle* old_root_style,
-    const ComputedStyle* new_root_style) {
-  if (!new_root_style || !UsesRootFontRelativeUnits()) {
+bool StyleEngine::UpdateRootRelativeUnits(const ComputedStyle* old_root_style,
+                                          const ComputedStyle* new_root_style) {
+  if (!new_root_style || !UsesRootRelativeUnits()) {
     return false;
   }
   bool rem_changed = !old_root_style || old_root_style->SpecifiedFontSize() !=
@@ -3317,12 +3343,12 @@ bool StyleEngine::UpdateRootFontRelativeUnits(
       !old_root_style ||
       (UsesLineHeightUnits() &&
        old_root_style->LineHeight() != new_root_style->LineHeight());
-  bool root_font_changed =
+  bool invalidate_root_units =
       rem_changed || root_font_glyphs_changed || root_line_height_changed;
-  if (root_font_changed) {
-    // Resolved root font relative units are stored in the matched properties
-    // cache so we need to make sure to invalidate the cache if the
-    // documentElement font size changes.
+  if (invalidate_root_units) {
+    // Resolved root relative units are stored in the matched properties cache
+    // so we need to make sure to invalidate the cache if the documentElement
+    // font or line-height changes.
     GetStyleResolver().InvalidateMatchedPropertiesCache();
     return true;
   }
@@ -4677,6 +4703,8 @@ void StyleEngine::MarkAllElementsForStyleRecalc(
 
   functional_media_query_results_.clear();
   functional_media_query_result_flags_.Clear();
+
+  functional_navigation_query_results_.clear();
 }
 
 void StyleEngine::UpdateViewportStyle() {
@@ -4803,6 +4831,7 @@ void StyleEngine::Trace(Visitor* visitor) const {
   visitor->Trace(anchored_element_dirty_set_);
   visitor->Trace(user_rule_set_groups_);
   visitor->Trace(functional_media_query_results_);
+  visitor->Trace(functional_navigation_query_results_);
   visitor->Trace(random_base_value_cache_);
   visitor->Trace(element_keeps_random_caching_key_alive_);
   FontSelectorClient::Trace(visitor);
@@ -5006,6 +5035,10 @@ void StyleEngine::RevisitStyleSheetForInspector(
 void StyleEngine::NavigationsMayHaveChanged() {
   DCHECK(RuntimeEnabledFeatures::RouteMatchingEnabled());
   SetNeedsActiveStyleUpdate(GetDocument());
+
+  // Styles that use functional navigation queries (those within @function or
+  // if()) are invalidated by marking the affected elements for recalc directly.
+  InvalidateFunctionalNavigationDependentStylesIfNeeded();
 
   // Navigation changes may affect how :active-navigation() selectors match. Do
   // a PseudoStateChanged() on each link in the document, which will mark every

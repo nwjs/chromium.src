@@ -14,6 +14,7 @@
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
 #include "base/no_destructor.h"
+#include "base/notreached.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
 #include "chrome/app/vector_icons/vector_icons.h"
@@ -27,13 +28,13 @@
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
 #include "chrome/browser/ui/toolbar_controller_util.h"
 #include "chrome/browser/ui/ui_features.h"
-#include "chrome/browser/ui/views/contextual_tasks/contextual_tasks_button.h"
 #include "chrome/browser/ui/views/toolbar/overflow_button.h"
 #include "chrome/browser/ui/views/toolbar/pinned_toolbar_button_status_indicator.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/vector_icons/vector_icons.h"
+#include "components/omnibox/browser/vector_icons.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
 #include "ui/actions/actions.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -99,7 +100,7 @@ ToolbarController::PopOutHandler::~PopOutHandler() = default;
 
 void ToolbarController::PopOutHandler::OnElementShown(
     ui::TrackedElement* element) {
-  controller_->PopOut(identifier_);
+  controller_->PopOut(identifier_, /*show_synchronously=*/false);
 }
 
 void ToolbarController::PopOutHandler::OnElementHidden(
@@ -263,14 +264,17 @@ ToolbarController::GetDefaultResponsiveElements(Browser* browser) {
               IDS_OVERFLOW_MENU_ITEM_TEXT_SPLIT_VIEW,
               &(features::IsRoundedIconsEnabled() ? kSplitSceneIcon
                                                   : kSplitSceneOldIcon),
-              kToolbarSplitTabsToolbarButtonElementId},
+              kToolbarSplitTabsToolbarButtonElementId,
+              kToolbarSplitTabsMenuElementId},
           /*is_section_end=*/true),
       ToolbarController::ResponsiveElementInfo(
           ToolbarController::ElementIdInfo{
-              ContextualTasksButton::kContextualTasksToolbarButton,
+              kPinnedToolbarActionShowSidePanelContextualTasksElementId,
               IDS_OVERFLOW_MENU_ITEM_TEXT_CONTEXTUAL_TASKS,
-              &kDockToRightSparkCustomIcon,
-              ContextualTasksButton::kContextualTasksToolbarButton},
+              &(features::IsRoundedIconsEnabled()
+                    ? omnibox::kSearchSparkIcon
+                    : omnibox::kSearchSparkOldIcon),
+              kPinnedToolbarActionShowSidePanelContextualTasksElementId},
           /*is_section_end=*/false),
   };
 
@@ -355,7 +359,7 @@ ToolbarController::GetDefaultOverflowOrder() {
       // them on overflow.
       kWebUIToolbarElementIdentifier, kToolbarForwardButtonElementId,
       kToolbarAvatarButtonElementId, kToolbarSplitTabsToolbarButtonElementId,
-      ContextualTasksButton::kContextualTasksToolbarButton};
+      kPinnedToolbarActionShowSidePanelContextualTasksElementId};
   if (base::FeatureList::IsEnabled(features::kToolbarGlicButtonResizing)) {
     const auto it =
         std::find(order.begin(), order.end(), kToolbarAvatarButtonElementId);
@@ -375,11 +379,15 @@ std::string ToolbarController::GetActionNameFromElementIdentifier(
            {kToolbarBatterySaverButtonElementId, "BatterySaverButton"},
            {kExtensionsMenuButtonElementId, "ExtensionsMenuButton"},
            {kToolbarForwardButtonElementId, "ForwardButton"},
+           {kActionForward, "ForwardButton"},
            {kToolbarHomeButtonElementId, "HomeButton"},
+           {kActionHome, "HomeButton"},
            {kToolbarMediaButtonElementId, "MediaButton"},
            {kToolbarSidePanelButtonElementId, "SidePanelButton"},
            {kToolbarSplitTabsToolbarButtonElementId, "SplitTabs"},
-           {ContextualTasksButton::kContextualTasksToolbarButton,
+           {kPinnedToolbarActionShowSidePanelContextualTasksElementId,
+            "PinnedContextualTasksSidePanelButton"},
+           {kActionSidePanelShowContextualTasks,
             "PinnedContextualTasksSidePanelButton"},
            {kActionClearBrowsingData, "PinnedClearBrowsingDataButton"},
            {kActionCopyUrl, "PinnedCopyLinkButton"},
@@ -389,12 +397,16 @@ std::string ToolbarController::GetActionNameFromElementIdentifier(
            {kActionQrCodeGenerator, "PinnedQrCodeGeneratorButton"},
            {kActionRouteMedia, "PinnedCastButton"},
            {kActionSendTabToSelf, "PinnedSendTabToSelfButton"},
+           {kActionShowAddresses, "PinnedShowAddressesBubbleOrPageButton"},
            {kActionShowAddressesBubbleOrPage,
             "PinnedShowAddressesBubbleOrPageButton"},
            {kActionShowChromeLabs, "PinnedShowChromeLabsButton"},
            {kActionShowDownloads, "PinnedShowDownloadsButton"},
+           {kActionShowPasswordManager,
+            "PinnedShowPasswordsBubbleOrPageButton"},
            {kActionShowPasswordsBubbleOrPage,
             "PinnedShowPasswordsBubbleOrPageButton"},
+           {kActionShowPaymentMethods, "PinnedShowPaymentsBubbleOrPageButton"},
            {kActionShowPaymentsBubbleOrPage,
             "PinnedShowPaymentsBubbleOrPageButton"},
            {kActionShowTranslate, "PinnedShowTranslateButton"},
@@ -414,7 +426,8 @@ std::string ToolbarController::GetActionNameFromElementIdentifier(
            {kActionTabSearch, "PinnedTabSearchButton"},
            {kActionSidePanelShowGlic, "PinnedGlicButton"},
            {kActionSidePanelShowTabsFromOtherDevices,
-            "PinnedTabsFromOtherDevicesButton"}});
+            "PinnedTabsFromOtherDevicesButton"},
+           {kGlicButtonElementId, "GlicButtonElementId"}});
 
   const auto it = identifier_to_action_name_map->find(identifier);
   return it == identifier_to_action_name_map->end()
@@ -423,7 +436,8 @@ std::string ToolbarController::GetActionNameFromElementIdentifier(
                              it->second});
 }
 
-bool ToolbarController::PopOut(ui::ElementIdentifier identifier) {
+bool ToolbarController::PopOut(ui::ElementIdentifier identifier,
+                               bool show_synchronously) {
   auto* const element =
       FindToolbarElementWithId(toolbar_container_view_, identifier);
 
@@ -464,6 +478,9 @@ bool ToolbarController::PopOut(ui::ElementIdentifier identifier) {
   }
 
   element->parent()->InvalidateLayout();
+  if (show_synchronously) {
+    toolbar_container_view_->DeprecatedLayoutImmediately();
+  }
   return true;
 }
 
@@ -598,8 +615,22 @@ views::View* ToolbarController::FindToolbarElementWithId(
   return nullptr;
 }
 
+bool ToolbarController::IsElementOverflowedForTesting(
+    ui::ElementIdentifier id) const {
+  for (const auto& responsive_element : responsive_elements_) {
+    const auto* element_id_info = std::get_if<ToolbarController::ElementIdInfo>(
+        &responsive_element.overflow_id);
+    if (!element_id_info || element_id_info->overflow_identifier != id) {
+      continue;
+    }
+    return IsOverflowed(responsive_element);
+  }
+  // Element cannot overflow, since it is not in `responsive_elements_`
+  NOTREACHED();
+}
+
 std::vector<const ToolbarController::ResponsiveElementInfo*>
-ToolbarController::GetOverflowedElements() {
+ToolbarController::GetOverflowedElements() const {
   std::vector<const ToolbarController::ResponsiveElementInfo*>
       overflowed_buttons;
   if (ToolbarControllerUtil::PreventOverflow()) {

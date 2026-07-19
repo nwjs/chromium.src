@@ -98,10 +98,6 @@ class NavigationHandle;
 class SessionStorageNamespace;
 }  // namespace content
 
-namespace gfx {
-class Image;
-}
-
 namespace nw {
   class Menu;
 }
@@ -408,6 +404,7 @@ class Browser : public TabStripModelObserver,
   }
 
   void set_title_override(const std::string& title) { title_override_ = title; }
+  const std::string& title_override() const { return title_override_; }
 
   bool initial_ontop() const { return initial_ontop_; }
   bool initial_allvisible() const { return initial_allvisible_; }
@@ -439,7 +436,6 @@ class Browser : public TabStripModelObserver,
   const CreateParams& create_params() const { return create_params_; }
   Type type() const { return type_; }
   const std::string& app_name() const { return app_name_; }
-  const std::string& user_title() const { return user_title_; }
   std::optional<bool> is_vertical_tabs_initially_collapsed() const {
     return initial_vertical_tab_strip_collapsed_;
   }
@@ -501,10 +497,6 @@ class Browser : public TabStripModelObserver,
     return should_trigger_session_restore_;
   }
 
-  // Remove these functions and migrate to using
-  // AppBrowserController::IsWebApp()` and `AppBrowserController::From()`.
-  const web_app::AppBrowserController* app_controller() const;
-  web_app::AppBrowserController* app_controller();
   BrowserWindowFeatures* browser_window_features() const {
     return features_.get();
   }
@@ -515,34 +507,6 @@ class Browser : public TabStripModelObserver,
   // State Storage and Retrieval for UI ///////////////////////////////////////
 
   GURL GetNewTabURL() const;
-
-  // Gets the Favicon of the page in the selected tab.
-  gfx::Image GetCurrentPageIcon() const;
-
-  // Gets the title of the window based on the selected tab's title.
-  // Disables additional formatting when |include_app_name| is false or if the
-  // window is an app window.
-  std::u16string GetWindowTitleForCurrentTab(bool include_app_name) const;
-
-  // Gets the window title of the tab at |index|.
-  std::u16string GetWindowTitleForTab(const tabs::TabHandle& tab) const;
-
-  std::u16string GetTitleForTab(const tabs::TabHandle& tab) const;
-  // Gets the window title for the current tab, to display in a menu. If the
-  // title is too long to fit in the required space, the tab title will be
-  // elided. The result title might still be a larger width than specified, as
-  // at least a few characters of the title are always shown.
-  std::u16string GetWindowTitleForMaxWidth(int max_width) const;
-
-  // Gets the window title from the provided WebContents.
-  // Disables additional formatting when |include_app_name| is false or if the
-  // window is an app window.
-  std::u16string GetWindowTitleFromWebContents(
-      bool include_app_name,
-      content::WebContents* contents) const;
-
-  // Prepares a title string for display (removes embedded newlines, etc).
-  static std::u16string FormatTitleForDisplay(std::u16string title);
 
   // OnBeforeUnload handling //////////////////////////////////////////////////
 
@@ -749,13 +713,10 @@ class Browser : public TabStripModelObserver,
   // Called each time the browser window is shown.
   void OnWindowDidShow();
 
-  // Sets the browser's user title. Setting it to an empty string clears it.
-  void SetWindowUserTitle(const std::string& user_title);
-
   // Gets the browser for opening chrome:// pages. This will return the opener
   // browser if the current browser is in picture-in-picture mode, otherwise
   // returns the current browser.
-  Browser* GetBrowserForOpeningWebUi();
+  BrowserWindowInterface* GetBrowserForOpeningWebUi();
 
   std::vector<StatusBubble*> GetStatusBubblesForTesting();
   UnloadController* GetUnloadControllerForTesting() {
@@ -1276,8 +1237,6 @@ class Browser : public TabStripModelObserver,
   // True if the browser window has been shown at least once.
   bool window_has_shown_;
 
-  std::string user_title_;
-
   std::optional<bool> initial_vertical_tab_strip_collapsed_;
   std::optional<int> initial_vertical_tab_strip_uncollapsed_width_;
 
@@ -1292,7 +1251,7 @@ class Browser : public TabStripModelObserver,
 
   // The opener browser of the document picture-in-picture browser. Null if the
   // current browser is a regular browser.
-  raw_ptr<Browser> opener_browser_ = nullptr;
+  raw_ptr<BrowserWindowInterface> opener_browser_ = nullptr;
 
   WebContentsCollection web_contents_collection_{this};
 

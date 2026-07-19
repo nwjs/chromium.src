@@ -83,15 +83,14 @@ LaunchQueue::LaunchQueue(content::WebContents* web_contents,
 LaunchQueue::~LaunchQueue() = default;
 
 void LaunchQueue::Enqueue(LaunchParams launch_params) {
-  DCHECK(delegate_->IsInScope(launch_params, launch_params.target_url))
-      << launch_params.target_url.spec();
+  DCHECK(delegate_->IsInScope(launch_params, launch_params.target_url()))
+      << launch_params.target_url().spec();
 
   if (!delegate_->IsValidLaunchParams(launch_params)) {
-    launch_params.paths.clear();
-    launch_params.dir.clear();
+    launch_params.clear_paths();
+    launch_params.clear_dir();
   }
 
-  last_sent_queued_launch_params_ = launch_params;
   SendLaunchParams(std::move(launch_params),
                    web_contents_->GetLastCommittedURL());
 }
@@ -110,47 +109,13 @@ void LaunchQueue::FlushForTesting() const {
   launch_service.FlushForTesting();  // IN-TEST
 }
 
-void LaunchQueue::DidFinishNavigation(content::NavigationHandle* handle) {
-  // Currently, launch data is only sent the primary main frame.
-  if (!handle->IsInPrimaryMainFrame()) {
-    return;
-  }
-
-  // Reloads have the last sent launch params re-sent as they may contain live
-  // file handles that should persist across reloads.
-  if (!base::FeatureList::IsEnabled(
-          ::webapps::features::kLaunchQueueStopSendingOnReload) &&
-      last_sent_queued_launch_params_ &&
-      handle->GetReloadType() != content::ReloadType::NONE) {
-    if (!delegate_->IsInScope(*last_sent_queued_launch_params_,
-                              handle->GetURL())) {
-      last_sent_queued_launch_params_.reset();
-      return;
-    }
-
-    // LaunchParams with the `time_navigation_started_for_enqueue` set will be
-    // resent, but the latency metrics should not be measured, so the time is
-    // cleared.
-    last_sent_queued_launch_params_->time_navigation_started_for_enqueue =
-        base::TimeTicks();
-
-    SendLaunchParams(*last_sent_queued_launch_params_, handle->GetURL());
-    return;
-  }
-
-  // Leaving the document resets all queue state.
-  if (handle->HasCommitted() && !handle->IsSameDocument()) {
-    last_sent_queued_launch_params_.reset();
-  }
-}
-
 void LaunchQueue::SendLaunchParams(LaunchParams launch_params,
                                    const GURL& current_url) {
   // TODO(dmurph): Figure out why this is failing.
   // https://crbug.com/2546057
   DCHECK(delegate_->IsInScope(launch_params, current_url))
       << current_url.spec();
-  CHECK(launch_params.target_url.is_valid());
+  CHECK(launch_params.target_url().is_valid());
   mojo::AssociatedRemote<blink::mojom::WebLaunchService> launch_service;
   web_contents_->GetPrimaryMainFrame()
       ->GetRemoteAssociatedInterfaces()
@@ -159,24 +124,24 @@ void LaunchQueue::SendLaunchParams(LaunchParams launch_params,
 
   std::vector<blink::mojom::FileSystemAccessEntryPtr> files;
 
-  if (!launch_params.paths.empty() || !launch_params.dir.empty()) {
-    EntriesBuilder entries_builder(web_contents_, launch_params.target_url,
-                                   launch_params.paths.size() + 1);
-    if (!launch_params.dir.empty()) {
+  if (!launch_params.paths().empty() || !launch_params.dir().empty()) {
+    EntriesBuilder entries_builder(web_contents_, launch_params.target_url(),
+                                   launch_params.paths().size() + 1);
+    if (!launch_params.dir().empty()) {
       entries_builder.AddDirectoryEntry(
-          delegate_->GetPathInfo(launch_params.dir));
+          delegate_->GetPathInfo(launch_params.dir()));
     }
 
-    for (const auto& path : launch_params.paths) {
+    for (const auto& path : launch_params.paths()) {
       entries_builder.AddFileEntry(delegate_->GetPathInfo(path));
     }
 
     files = entries_builder.Build();
   }
   launch_service->EnqueueLaunchParams(
-      launch_params.target_url,
-      launch_params.time_navigation_started_for_enqueue,
-      launch_params.started_new_navigation, std::move(files));
+      launch_params.target_url(),
+      launch_params.time_navigation_started_for_enqueue(),
+      launch_params.started_new_navigation(), std::move(files));
 }
 
 }  // namespace webapps

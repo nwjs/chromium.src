@@ -253,6 +253,15 @@ class MockUDPSocket : public net::DatagramClientSocket {
     ADD_FAILURE() << "Called SetMulticastInterface()";
     return net::ERR_UNEXPECTED;
   }
+  base::expected<net::DatagramsMetadata, net::Error> ReadMultiple(
+      net::IOBuffer* buf,
+      size_t buf_len,
+      size_t max_message_size,
+      base::OnceCallback<void(base::expected<net::DatagramsMetadata,
+                                             net::Error>)> callback) override {
+    ADD_FAILURE() << "Called ReadMultiple()";
+    return base::unexpected(net::ERR_UNEXPECTED);
+  }
 
   // When ConnectAsync() is called, it should return ERR_IO_PENDING and store
   // the callback in `*connect_callback_`. This callback can be run later by
@@ -315,8 +324,11 @@ class MockSocketFactory : public net::ClientSocketFactory {
   // net::ClientSocketFactory
   std::unique_ptr<net::DatagramClientSocket> CreateDatagramClientSocket(
       net::DatagramSocket::BindType bind_type,
+      net::handles::NetworkHandle target_network,
       net::NetLog* net_log,
       const net::NetLogSource& source) override {
+    // This is used only for testing in scenarios that do not involve multiple
+    // networks. With that in mind, it's safe to ignore `target_network`.
     if (udp_sockets_.empty()) {
       // If we don't have a result for this one, return a socket that never
       // connects (because it is set to connect aysnchronously and isn't added
@@ -334,10 +346,13 @@ class MockSocketFactory : public net::ClientSocketFactory {
   }
   std::unique_ptr<net::TransportClientSocket> CreateTransportClientSocket(
       const net::AddressList& addresses,
+      net::handles::NetworkHandle target_network,
       std::unique_ptr<net::SocketPerformanceWatcher> socket_performance_watcher,
       net::NetworkQualityEstimator* network_quality_estimator,
       net::NetLog* net_log,
       const net::NetLogSource& source) override {
+    // This is used only for testing in scenarios that do not involve multiple
+    // networks. With that in mind, it's safe to ignore `target_network`.
     ADD_FAILURE() << "Called CreateTransportClientSocket()";
     return nullptr;
   }

@@ -4,14 +4,21 @@
 
 package org.chromium.content.browser.accessibility;
 
+import static org.chromium.content.browser.accessibility.AccessibilityContentShellTestUtils.sClassNameMatcher;
+import static org.chromium.content.browser.accessibility.AccessibilityContentShellTestUtils.sViewIdResourceNameMatcher;
+
 import android.app.UiAutomation;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityNodeInfo;
+import android.view.accessibility.AccessibilityNodeInfo.Selection;
+import android.view.accessibility.AccessibilityNodeInfo.SelectionPosition;
 
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat;
 import androidx.test.filters.SmallTest;
@@ -35,6 +42,7 @@ import org.chromium.base.test.util.UrlUtils;
 import org.chromium.content.common.ContentInternalFeatures;
 import org.chromium.content_public.browser.ContentFeatureList;
 import org.chromium.ui.accessibility.testservice.IAccessibilityTestHelperService;
+import org.chromium.ui.accessibility.testservice.NodeMatcher;
 import org.chromium.ui.accessibility.testservice.WaitForEventParams;
 
 import java.io.IOException;
@@ -64,6 +72,16 @@ public class WebContentsAccessibilityE2ETest {
     private static final long BIND_TIMEOUT_MS = 5000;
     private static final long EVENT_TIMEOUT_MS = 5000;
     private static final String TAG = "WebContentsAXTest";
+
+    private static final String EXTRA_SELECTION_START_OFFSET_TYPE =
+            "androidx.view.accessibility.AccessibilityNodeInfoCompat.SELECTION_START_OFFSET_TYPE";
+    private static final String EXTRA_SELECTION_END_OFFSET_TYPE =
+            "androidx.view.accessibility.AccessibilityNodeInfoCompat.SELECTION_END_OFFSET_TYPE";
+
+    // Extended selection offset types, defined in:
+    // androidx.view.accessibility.AccessibilityNodeInfoCompat
+    private static final int OFFSET_TYPE_TEXT = 0;
+    private static final int OFFSET_TYPE_CHILD = 1;
 
     private final AtomicReference<CompletableFuture<IAccessibilityTestHelperService>>
             mServiceFuture = new AtomicReference<>(new CompletableFuture<>());
@@ -179,6 +197,63 @@ public class WebContentsAccessibilityE2ETest {
         }
     }
 
+    private void initializeMockWebContentsAccessibility() {
+        // Initialize mWcax as a Mockito mock so that we can verify performAction interactions on
+        // it.
+        mActivityTestRule.mockWebContentsAccessibilityImpl();
+        org.chromium.base.ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mActivityTestRule.mWcax = mActivityTestRule.getWebContentsAccessibility();
+                });
+        org.chromium.base.test.util.CriteriaHelper.pollUiThread(
+                () -> mActivityTestRule.mWcax.getAccessibilityNodeProviderCompat() != null,
+                "AccessibilityNodeProvider is null");
+        mActivityTestRule.mNodeProvider =
+                mActivityTestRule.mWcax.getAccessibilityNodeProviderCompat();
+    }
+
+    private Bundle createSelectionArgs(
+            int startVvid,
+            int startOffset,
+            int startOffsetType,
+            int endVvid,
+            int endOffset,
+            int endOffsetType) {
+        SelectionPosition startPosition =
+                new SelectionPosition(mActivityTestRule.getContainerView(), startVvid, startOffset);
+        SelectionPosition endPosition =
+                new SelectionPosition(mActivityTestRule.getContainerView(), endVvid, endOffset);
+        Selection selection = new Selection(startPosition, endPosition);
+
+        Bundle args = new Bundle();
+        args.putParcelable(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_PARCELABLE, selection);
+        args.putInt(EXTRA_SELECTION_START_OFFSET_TYPE, startOffsetType);
+        args.putInt(EXTRA_SELECTION_END_OFFSET_TYPE, endOffsetType);
+        return args;
+    }
+
+    private static class NodeMatcherBuilder {
+        private String mClassName = "";
+        private String mText = "";
+
+        public NodeMatcherBuilder setClassName(String className) {
+            mClassName = className;
+            return this;
+        }
+
+        public NodeMatcherBuilder setText(String text) {
+            mText = text;
+            return this;
+        }
+
+        public NodeMatcher build() {
+            NodeMatcher matcher = new NodeMatcher();
+            matcher.className = mClassName;
+            matcher.text = mText;
+            return matcher;
+        }
+    }
+
     @Test
     @SmallTest
     public void testAccessibilityServiceReceivesInitialEvent() throws Throwable {
@@ -246,9 +321,12 @@ public class WebContentsAccessibilityE2ETest {
         boolean actionRes =
                 getAccessibilityHelperService()
                         .performActionOnNode(
-                                "android.widget.Button",
-                                "Click Me",
-                                AccessibilityNodeInfoCompat.ACTION_ACCESSIBILITY_FOCUS);
+                                new NodeMatcherBuilder()
+                                        .setClassName("android.widget.Button")
+                                        .setText("Click Me")
+                                        .build(),
+                                AccessibilityNodeInfoCompat.ACTION_ACCESSIBILITY_FOCUS,
+                                /* arguments= */ null);
         Assert.assertTrue("Failed to perform accessibility focus action", actionRes);
 
         // Ask the service to wait for the event.
@@ -346,7 +424,7 @@ WebView focusable focused actions:[CLEAR_FOCUS, AX_FOCUS] bundle:[chromeRole="ro
         String expectedDump =
 """
 WebView focusable focused actions:[CLEAR_FOCUS, AX_FOCUS] bundle:[chromeRole="rootWebArea"] isInputFocusedViaFindFocus
-  TextView text:"Some selected text" viewIdResName:"p1" actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="paragraph"] extendedSelectionStart:5 extendedSelectionEnd:13
+  TextView text:"Some selected text" viewIdResName:"p1" actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="paragraph"] extendedSelectionStart:5 (text) extendedSelectionEnd:13 (text)
 """;
         Assert.assertEquals("Tree dump does not match expected value", expectedDump, treeDump);
     }
@@ -392,9 +470,12 @@ WebView focusable focused actions:[CLEAR_FOCUS, AX_FOCUS] bundle:[chromeRole="ro
         boolean actionRes =
                 getAccessibilityHelperService()
                         .performActionOnNode(
-                                "android.widget.Button",
-                                "Accessibility Focus",
-                                AccessibilityNodeInfoCompat.ACTION_ACCESSIBILITY_FOCUS);
+                                new NodeMatcherBuilder()
+                                        .setClassName("android.widget.Button")
+                                        .setText("Accessibility Focus")
+                                        .build(),
+                                AccessibilityNodeInfoCompat.ACTION_ACCESSIBILITY_FOCUS,
+                                /* arguments= */ null);
         Assert.assertTrue("Failed to perform accessibility focus action", actionRes);
 
         boolean axEventReceived =
@@ -430,9 +511,12 @@ WebView focusable focused actions:[CLEAR_FOCUS, AX_FOCUS] bundle:[chromeRole="ro
         actionRes =
                 getAccessibilityHelperService()
                         .performActionOnNode(
-                                "android.widget.Button",
-                                "Accessibility Focus",
-                                AccessibilityNodeInfoCompat.ACTION_ACCESSIBILITY_FOCUS);
+                                new NodeMatcherBuilder()
+                                        .setClassName("android.widget.Button")
+                                        .setText("Accessibility Focus")
+                                        .build(),
+                                AccessibilityNodeInfoCompat.ACTION_ACCESSIBILITY_FOCUS,
+                                /* arguments= */ null);
         Assert.assertTrue("Failed to perform accessibility focus action", actionRes);
 
         axEventReceived =
@@ -554,8 +638,8 @@ WebView focusable actions:[FOCUS, AX_FOCUS] bundle:[chromeRole="rootWebArea"]
   EditText text:"Line one\\nLink text node" clickable editable focusable focused multiLine textSelectionStart:9 textSelectionEnd:10 actions:[CLEAR_FOCUS, CLICK, AX_FOCUS, NEXT, PREVIOUS, COPY, PASTE, CUT, SET_SELECTION, SET_TEXT, IME_ENTER] bundle:[chromeRole="genericContainer", clickableScore="200"] isInputFocusedViaFindFocus extendedSelectionStart:9 extendedSelectionEnd:10
     TextView text:"Line one" editable actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="staticText", clickableScore="100"]
     View text:"\\n" editable actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="lineBreak", clickableScore="100"]
-    View text:"null" contentDescription:"Link text" viewIdResName:"link" clickable editable actions:[CLICK, AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="link", clickableScore="300", roleDescription="link", targetUrl="data:text/html;utf-8,%3Chtml%3E%3Cbody%3E%3Cdiv%20contenteditable%3E%0ALine%20one%3Cbr%3E%0A%3Ca%20id%3D%27link%27%20href%3D%27%23%27%3ELink%20text%3C%2Fa%3E%20node%0A%3C%2Fdiv%3E%3C%2Fbody%3E%3C%2Fhtml%3E%0A#"] extendedSelectionEnd:1
-      TextView text:"Link text" editable actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="staticText", clickableScore="100"] extendedSelectionStart:0
+    View text:"null" contentDescription:"Link text" viewIdResName:"link" clickable editable actions:[CLICK, AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="link", clickableScore="300", roleDescription="link", targetUrl="data:text/html;utf-8,%3Chtml%3E%3Cbody%3E%3Cdiv%20contenteditable%3E%0ALine%20one%3Cbr%3E%0A%3Ca%20id%3D%27link%27%20href%3D%27%23%27%3ELink%20text%3C%2Fa%3E%20node%0A%3C%2Fdiv%3E%3C%2Fbody%3E%3C%2Fhtml%3E%0A#"] extendedSelectionEnd:1 (child)
+      TextView text:"Link text" editable actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="staticText", clickableScore="100"] extendedSelectionStart:0 (text)
     TextView text:" node" editable actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="staticText", clickableScore="100"]
 """;
         Assert.assertEquals("Tree dump does not match expected value", expectedDump, treeDump);
@@ -608,6 +692,7 @@ WebView focusable actions:[FOCUS, AX_FOCUS] bundle:[chromeRole="rootWebArea"]
     @Test
     @SmallTest
     @MinAndroidSdkLevel(Build.VERSION_CODES.UPSIDE_DOWN_CAKE) // API Level 34
+    @DisabledTest(message = "https://crbug.com/508702929")
     public void fireGeneratedEvent_ariaInvalidChangesToFalse_firesContentInvalid()
             throws Throwable {
         // Create an HTML document where there is an input element and an element containing
@@ -703,5 +788,96 @@ WebView focusable actions:[FOCUS, AX_FOCUS] bundle:[chromeRole="rootWebArea"]
             params.timeoutMs = mTimeoutMs;
             return params;
         }
+    }
+
+    @Test
+    @SmallTest
+    @MinAndroidSdkLevel(Build.VERSION_CODES.BAKLAVA)
+    @EnableFeatures({ContentFeatureList.ACCESSIBILITY_EXTENDED_SELECTION})
+    public void testExtendedSelection() throws Throwable {
+        Assume.assumeTrue(
+                "Requires Android 16 QPR2 (36.1) or higher",
+                Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1);
+
+        String html =
+                """
+                <p id="p1">Paragraph1</p>
+                <button>Button</button>
+                <p id="p2">Paragraph2</p>
+                """;
+        mActivityTestRule.launchContentShellWithUrl(UrlUtils.encodeHtmlDataUri(html));
+
+        // Initialize the Mockito mock for WebContentsAccessibilityImpl.
+        initializeMockWebContentsAccessibility();
+
+        // Wait for the page to load and for the service to receive a content change.
+        waitForPageLoadAndInitialContentChange();
+
+        // Find nodes.
+        int rootVvid =
+                mActivityTestRule.waitForNodeMatching(sClassNameMatcher, "android.webkit.WebView");
+        int paragraph1Vvid =
+                mActivityTestRule.waitForNodeMatching(sViewIdResourceNameMatcher, "p1");
+        int paragraph2Vvid =
+                mActivityTestRule.waitForNodeMatching(sViewIdResourceNameMatcher, "p2");
+
+        Bundle args =
+                createSelectionArgs(
+                        paragraph1Vvid, 0, OFFSET_TYPE_TEXT, paragraph2Vvid, 5, OFFSET_TYPE_TEXT);
+
+        boolean actionRes =
+                getAccessibilityHelperService()
+                        .performActionOnNode(
+                                new NodeMatcherBuilder()
+                                        .setClassName("android.webkit.WebView")
+                                        .build(),
+                                AccessibilityNodeInfoCompat.AccessibilityActionCompat
+                                        .ACTION_SET_EXTENDED_SELECTION
+                                        .getId(),
+                                args);
+        Assert.assertTrue("Failed to perform set extended selection action", actionRes);
+
+        // Verify Mockito interaction on mWcax.
+        Mockito.verify(mActivityTestRule.mWcax)
+                .performAction(
+                        Mockito.eq(rootVvid),
+                        Mockito.eq(
+                                AccessibilityNodeInfoCompat.AccessibilityActionCompat
+                                        .ACTION_SET_EXTENDED_SELECTION
+                                        .getId()),
+                        Mockito.any());
+
+        // Verify the selection is applied correctly on the native side by retrieving it.
+        org.chromium.base.test.util.CriteriaHelper.pollUiThread(
+                () -> {
+                    org.chromium.base.test.util.Criteria.checkThat(
+                            mActivityTestRule.mWcax.getExtendedSelection(rootVvid),
+                            org.hamcrest.Matchers.notNullValue());
+                });
+
+        Object[] selectionResult =
+                org.chromium.base.ThreadUtils.runOnUiThreadBlocking(
+                        () -> mActivityTestRule.mWcax.getExtendedSelection(rootVvid));
+        Assert.assertNotNull("Extended selection should not be null", selectionResult);
+
+        AccessibilityNodeInfoCompat startNode =
+                (AccessibilityNodeInfoCompat)
+                        selectionResult[WebContentsAccessibilityImpl.EXT_SEL_START_NODE];
+        int startOffset = (int) selectionResult[WebContentsAccessibilityImpl.EXT_SEL_START_OFFSET];
+        int startOffsetType =
+                (int) selectionResult[WebContentsAccessibilityImpl.EXT_SEL_START_OFFSET_TYPE];
+        AccessibilityNodeInfoCompat endNode =
+                (AccessibilityNodeInfoCompat)
+                        selectionResult[WebContentsAccessibilityImpl.EXT_SEL_END_NODE];
+        int endOffset = (int) selectionResult[WebContentsAccessibilityImpl.EXT_SEL_END_OFFSET];
+        int endOffsetType =
+                (int) selectionResult[WebContentsAccessibilityImpl.EXT_SEL_END_OFFSET_TYPE];
+
+        Assert.assertEquals("Start offset should be 0", 0, startOffset);
+        Assert.assertEquals("End offset should be 5", 5, endOffset);
+        Assert.assertEquals("Start offset type should be text", OFFSET_TYPE_TEXT, startOffsetType);
+        Assert.assertEquals("End offset type should be text", OFFSET_TYPE_TEXT, endOffsetType);
+        Assert.assertEquals("Paragraph1", startNode.getText().toString());
+        Assert.assertEquals("Paragraph2", endNode.getText().toString());
     }
 }

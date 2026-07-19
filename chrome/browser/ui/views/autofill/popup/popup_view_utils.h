@@ -11,6 +11,7 @@
 #include "base/containers/span.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/browser/ui/popup_open_enums.h"
+#include "components/autofill/core/common/aliases.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/views/bubble/bubble_border.h"
 #include "ui/views/bubble/bubble_border_arrow_utils.h"
@@ -168,6 +169,18 @@ bool PopupMayExceedContentAreaBounds(content::WebContents* web_contents);
 // suggestions.
 bool IsExpandableSuggestionType(SuggestionType type);
 
+// Returns whether a suggestion of `type` is auto-selected by default.
+bool IsSuggestionTypeAutoselected(SuggestionType type);
+
+// Returns whether the first suggestion in the popup should be auto-selected.
+//
+// This is determined by:
+// - Either auto-selection is enabled on the product/trigger-source level.
+// - Or the first suggestion type itself is explicitly auto-selected by default.
+bool ShouldAutoselectFirstSuggestion(
+    AutoselectFirstSuggestion trigger_source_autoselect,
+    std::optional<SuggestionType> first_suggestion_type);
+
 // Returns bounds of a display that has most intersection with element_bounds.
 // If no display data is available (e.g display::Screen::Get() == nullptr)
 // returns std::nullopt.
@@ -185,8 +198,27 @@ gfx::Rect IntersectWithDisplayBounds(const gfx::Rect& element_bounds);
 // This is typically used to prevent Use-After-Free (UAF) vulnerabilities on
 // Windows when firing platform accessibility events (e.g., focus or selection
 // changes).
+// Note that when `view` is `this`, the return value must be handled and must be
+// propagated:
+//
+// [[nodiscard]] bool PopupBaseView::Foo() {
+//   if (!TrackAndRun(this, callable)) {
+//     return false;
+//   }
+//   DoSomethingElse();
+// }
+//
+// // You may only drop the return value if you can guarantee that nothing
+// // accesses `this` or members of `this` after calling `Bar();`.
+// [[nodiscard]] bool PopupBaseView::Bar() {
+//   if (!Foo()) { return false; }
+//   DoSomethingElse();
+//   return true;
+// }
+//
+// TODO(crbug.com/524084900): Migrate to a more robust pattern.
 template <typename... Callables>
-bool TrackAndRun(views::View* view, Callables&&... callbacks) {
+[[nodiscard]] bool TrackAndRun(views::View* view, Callables&&... callbacks) {
   CHECK(view);
   views::ViewTracker tracker(view);
   bool alive = true;

@@ -17,6 +17,8 @@
 #include "net/http/http_request_headers.h"
 #include "net/http/http_response_headers.h"
 #include "net/http/http_status_code.h"
+#include "net/http/http_util.h"
+#include "services/network/public/cpp/cors/cors.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "url/gurl.h"
@@ -95,6 +97,17 @@ bool IsRequestHeaderSafe(std::string_view key, std::string_view value) {
   if (base::StartsWith(key, "Proxy-", base::CompareCase::INSENSITIVE_ASCII))
     return false;
 
+  if (base::EqualsCaseInsensitiveASCII(key, "X-HTTP-Method") ||
+      base::EqualsCaseInsensitiveASCII(key, "X-HTTP-Method-Override") ||
+      base::EqualsCaseInsensitiveASCII(key, "X-Method-Override")) {
+    net::HttpUtil::ValuesIterator method_iterator(value, ',');
+    while (method_iterator.GetNext()) {
+      if (cors::IsForbiddenMethod(method_iterator.value())) {
+        return false;
+      }
+    }
+  }
+
   return true;
 }
 
@@ -109,7 +122,8 @@ bool AreRequestHeadersSafe(const net::HttpRequestHeaders& request_headers) {
   return true;
 }
 
-bool ContainsForbiddenSecurityHeader(net::HttpRequestHeaders& headers) {
+bool ContainsForbiddenSecurityHeader(net::HttpRequestHeaders& headers,
+                                     std::string* out_forbidden_header_name) {
   static const bool enabled =
       base::FeatureList::IsEnabled(features::kRestrictForbiddenSecurityHeaders);
   if (!enabled) {
@@ -190,6 +204,9 @@ bool ContainsForbiddenSecurityHeader(net::HttpRequestHeaders& headers) {
     if (base::StartsWith(it.name(), "Sec-",
                          base::CompareCase::INSENSITIVE_ASCII)) {
       if (!sanitize_and_check_security_header(it.name(), it.value())) {
+        if (out_forbidden_header_name) {
+          *out_forbidden_header_name = std::string(it.name());
+        }
         return true;
       }
     }

@@ -31,7 +31,6 @@ build_webui("build") {
   css_files = [
     "aim_app.css",
     "app.css",
-    "full_app.css",
     "omnibox_composebox.css",
     "omnibox_popup_searchbox.css",
     "omnibox_popup_shared_style.css",
@@ -41,6 +40,7 @@ build_webui("build") {
     "//third_party/lit/v3_0:build_ts",
     "//ui/webui/resources/cr_components/color_change_listener:build_ts",
     "//ui/webui/resources/cr_components/composebox:build_ts",
+    "//ui/webui/resources/cr_components/localized_link:build_ts",
     "//ui/webui/resources/cr_components/search:build_ts",
     "//ui/webui/resources/cr_components/searchbox:build_ts",
     "//ui/webui/resources/cr_elements:build_ts",

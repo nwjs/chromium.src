@@ -8,6 +8,7 @@
 
 #include "base/metrics/histogram_functions.h"
 #include "base/scoped_observation.h"
+#include "base/task/single_thread_task_runner.h"
 #include "chrome/browser/digital_credentials/digital_identity_interstitial_closed_reason.h"
 #include "chrome/browser/ui/views/extensions/security_dialog_tracker.h"
 #include "chrome/grit/generated_resources.h"
@@ -74,7 +75,7 @@ DigitalIdentitySafetyInterstitialControllerDesktop::ShowInterstitial(
   interstitial_type_ = interstitial_type;
   callback_ = std::move(callback);
 
-  ShowInterstitialImpl(web_contents, /*was_request_aborted=*/false);
+  ShowInterstitialImpl(/*was_request_aborted=*/false);
   return base::BindOnce(
       &DigitalIdentitySafetyInterstitialControllerDesktop::Abort,
       weak_ptr_factory_.GetWeakPtr());
@@ -86,12 +87,14 @@ void DigitalIdentitySafetyInterstitialControllerDesktop::Abort() {
   }
 
   dialog_widget_->CloseWithReason(views::Widget::ClosedReason::kUnspecified);
-  ShowInterstitialImpl(*web_contents_, /*was_request_aborted*/ true);
+  ShowInterstitialImpl(/*was_request_aborted=*/true);
 }
 
 void DigitalIdentitySafetyInterstitialControllerDesktop::ShowInterstitialImpl(
-    content::WebContents& web_contents,
     bool was_request_aborted) {
+  if (!web_contents_) {
+    return;
+  }
   int body_resource_id = 0;
   int negative_button_label_resource_id = 0;
   switch (interstitial_type_) {
@@ -169,16 +172,24 @@ void DigitalIdentitySafetyInterstitialControllerDesktop::ShowInterstitialImpl(
             formatted_origin)));
   }
   dialog_widget_ = constrained_window::ShowWebModal(
-      dialog_model_builder.Build(), &web_contents);
+      dialog_model_builder.Build(), web_contents_.get());
   extensions::SecurityDialogTracker::GetInstance()->AddSecurityDialog(
       dialog_widget_);
 
+  // ShowWebModal() can synchronously drop fullscreen mode. On macOS, this
+  // can spin a nested run loop that processes a tab close, potentially
+  // destroying the WebContents. Check liveness before observing it.
+  if (!web_contents_) {
+    return;
+  }
   close_on_navigation_observer_ = std::make_unique<CloseOnNavigationObserver>();
-  close_on_navigation_observer_->Observe(web_contents);
+  close_on_navigation_observer_->Observe(*web_contents_);
 }
 
 void DigitalIdentitySafetyInterstitialControllerDesktop::OnDialogClosed(
     DigitalIdentityInterstitialClosedReason closed_reason) {
+  dialog_widget_ = nullptr;
+
   if (!callback_) {
     return;
   }
@@ -191,8 +202,13 @@ void DigitalIdentitySafetyInterstitialControllerDesktop::OnDialogClosed(
   base::UmaHistogramEnumeration(
       "Blink.DigitalIdentityRequest.InterstitialClosedReason", closed_reason);
 
-  std::move(callback_).Run(
-      closed_reason == DigitalIdentityInterstitialClosedReason::kOkButton
-          ? RequestStatusForMetrics::kSuccess
-          : RequestStatusForMetrics::kErrorUserDeclined);
+  // Run async to ensure it's impossible to tear down the controller while our
+  // caller may still be using it.
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE,
+      base::BindOnce(
+          std::move(callback_),
+          closed_reason == DigitalIdentityInterstitialClosedReason::kOkButton
+              ? RequestStatusForMetrics::kSuccess
+              : RequestStatusForMetrics::kErrorUserDeclined));
 }

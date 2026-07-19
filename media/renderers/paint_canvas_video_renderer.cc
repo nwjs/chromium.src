@@ -34,6 +34,7 @@
 #include "cc/paint/paint_canvas.h"
 #include "cc/paint/paint_flags.h"
 #include "cc/paint/paint_image_builder.h"
+#include "cc/paint/texture_backing.h"
 #include "components/viz/common/gpu/raster_context_provider.h"
 #include "components/viz/common/resources/shared_image_format.h"
 #include "gpu/GLES2/gl2extchromium.h"
@@ -211,7 +212,7 @@ void SynchronizeVideoFrameRead(
     scoped_refptr<VideoFrame> video_frame,
     gpu::raster::RasterInterface* ri,
     gpu::ContextSupport* context_support,
-    std::unique_ptr<gpu::RasterScopedAccess> ri_access = nullptr) {
+    std::unique_ptr<gpu::RasterScopedAccess> ri_access) {
   WaitAndReplaceSyncTokenClient client(ri, std::move(ri_access));
   video_frame->UpdateReleaseSyncToken(&client);
   if (!video_frame->metadata().read_lock_fences_enabled) {
@@ -604,7 +605,8 @@ class VideoImageGenerator : public cc::PaintImageGenerator {
   VideoImageGenerator() = delete;
 
   explicit VideoImageGenerator(scoped_refptr<VideoFrame> frame)
-      : cc::PaintImageGenerator(GetVideoImageGeneratorSkImageInfo(frame)),
+      : cc::PaintImageGenerator(GetVideoImageGeneratorSkImageInfo(frame),
+                                frame->hdr_metadata()),
         frame_(std::move(frame)) {
     DCHECK(!frame_->HasSharedImage());
   }
@@ -742,10 +744,55 @@ class VideoTextureBacking : public cc::TextureBacking {
     sync_token_ = shared_image_->creation_sync_token();
   }
 
+  VideoTextureBacking(VideoTextureBacking&& other)
+      : sk_image_info_(std::move(other.sk_image_info_)),
+        shared_image_(std::move(other.shared_image_)),
+        sync_token_(other.sync_token_),
+        acquired_(true) {
+    if (other.ri_access_) {
+      sync_token_ =
+          gpu::RasterScopedAccess::EndAccess(std::move(other.ri_access_));
+    }
+    other.raster_context_provider_ = nullptr;
+    other.sync_token_.Clear();
+  }
+
+  void Bind(scoped_refptr<cc::TextureBackingContext> context) override {
+    CHECK(!acquired_ || !raster_context_provider_);
+    // If this has not been passed across threads then binding is unnecessary.
+    if (!acquired_) {
+      return;
+    }
+
+    scoped_refptr<viz::RasterContextProvider> raster_context_provider;
+    if (context) {
+      auto* wrapper =
+          static_cast<viz::RasterContextProviderWrapper*>(context.get());
+      raster_context_provider = wrapper->provider();
+    }
+    if (raster_context_provider == raster_context_provider_) {
+      return;
+    }
+    raster_context_provider_ = std::move(raster_context_provider);
+    if (raster_context_provider_) {
+      BeginAccess();
+    }
+  }
+
+  void Unbind() override {
+    if (acquired_) {
+      clear_access();
+      raster_context_provider_ = nullptr;
+    }
+  }
+
   ~VideoTextureBacking() override {
-    gpu::SyncToken sync_token =
-        gpu::RasterScopedAccess::EndAccess(std::move(ri_access_));
-    shared_image_->UpdateDestructionSyncToken(sync_token);
+    CHECK(!acquired_ || !ri_access_);
+    if (ri_access_) {
+      gpu::SyncToken sync_token =
+          gpu::RasterScopedAccess::EndAccess(std::move(ri_access_));
+      shared_image_->UpdateDestructionSyncToken(sync_token);
+    }
   }
 
   const SkImageInfo& GetSkImageInfo() override { return sk_image_info_; }
@@ -758,15 +805,18 @@ class VideoTextureBacking : public cc::TextureBacking {
     return raster_context_provider_;
   }
 
-  void BeginAccess(gpu::raster::RasterInterface* ri) {
+  void BeginAccess() {
+    CHECK(raster_context_provider_);
     CHECK(!ri_access_);
+    auto* ri = raster_context_provider_->RasterInterface();
     ri_access_ =
         shared_image_->BeginRasterAccess(ri, sync_token_, /*readonly=*/true);
   }
 
   void clear_access() {
-    CHECK(ri_access_);
-    sync_token_ = gpu::RasterScopedAccess::EndAccess(std::move(ri_access_));
+    if (ri_access_) {
+      sync_token_ = gpu::RasterScopedAccess::EndAccess(std::move(ri_access_));
+    }
   }
 
   sk_sp<SkImage> GetSkImageViaReadback() override {
@@ -786,6 +836,7 @@ class VideoTextureBacking : public cc::TextureBacking {
                   size_t dst_row_bytes,
                   int src_x,
                   int src_y) override {
+    CHECK(raster_context_provider_);
     gpu::raster::RasterInterface* ri =
         raster_context_provider_->RasterInterface();
     return ri->ReadbackImagePixels(shared_image_->mailbox(), dst_info,
@@ -808,6 +859,7 @@ class VideoTextureBacking : public cc::TextureBacking {
 
   std::unique_ptr<gpu::RasterScopedAccess> ri_access_;
   gpu::SyncToken sync_token_;
+  bool acquired_ = false;
 };
 
 PaintCanvasVideoRenderer::PaintCanvasVideoRenderer()
@@ -831,10 +883,6 @@ void PaintCanvasVideoRenderer::Paint(
       DLOG(ERROR)
           << "Can't render textured frames w/o viz::RasterContextProvider";
       return;  // Unable to get/create a shared main thread context.
-    }
-    if (params.force_pixel_readback) {
-      video_frame = media::ReadbackTextureBackedFrameToMemorySync(
-          *video_frame, raster_context_provider->RasterInterface());
     }
   }
 
@@ -876,6 +924,17 @@ void PaintCanvasVideoRenderer::Paint(
     image = cc::PaintImageBuilder::WithCopy(image)
                 .set_reinterpret_as_srgb(true)
                 .TakePaintImage();
+  }
+
+  if (params.acquire_texture_backing && cache_->texture_backing) {
+    cc::PaintImage::ContentId content_id =
+        image.GetContentIdForFrame(cc::PaintImage::kDefaultFrameIndex);
+    image = cc::PaintImageBuilder::WithCopy(image)
+                .set_texture_backing(sk_make_sp<VideoTextureBacking>(
+                                         std::move(*cache_->texture_backing)),
+                                     content_id)
+                .TakePaintImage();
+    ResetCache();
   }
   DCHECK(image);
 
@@ -1207,8 +1266,8 @@ void PaintCanvasVideoRenderer::SynchronizeVideoFrameRead(
     scoped_refptr<VideoFrame> video_frame,
     gpu::gles2::GLES2Interface* gl,
     gpu::ContextSupport* context_support,
-    std::unique_ptr<gpu::RasterScopedAccess> ri_access) {
-  WaitAndReplaceSyncTokenClient client(gl, std::move(ri_access));
+    base::OnceCallback<gpu::SyncToken()> sync_callback) {
+  WaitAndReplaceSyncTokenClient client(gl, std::move(sync_callback));
   video_frame->UpdateReleaseSyncToken(&client);
   if (!video_frame->metadata().read_lock_fences_enabled) {
     return;
@@ -1464,14 +1523,19 @@ bool PaintCanvasVideoRenderer::CopyVideoFrameYUVDataToGLTexture(
 
   // On the destination GL context, do a copy (with cropping) into the
   // destination texture.
-  rgb_sync_token = destination_gl->CopySharedImageToGLTextureViaTextureCopy(
-      video_frame->visible_rect(), rgb_shared_image.get(),
-      post_conversion_sync_token, target, texture, internal_format, format,
-      type, level, dst_alpha_type, dst_origin);
+  destination_gl->BindTexture(target, texture);
+  destination_gl->TexImage2D(
+      target, level, internal_format, video_frame->visible_rect().width(),
+      video_frame->visible_rect().height(), 0, format, type, nullptr);
+  base::OnceCallback<gpu::SyncToken()> sync_callback =
+      destination_gl->CopySharedImageToGLTextureViaTextureCopy(
+          video_frame->visible_rect(), rgb_shared_image.get(),
+          post_conversion_sync_token, target, texture, internal_format, format,
+          type, level, dst_alpha_type, dst_origin);
 
   // Update the rgb sync token to be waited upon based on gles tasks performed
   // earlier.
-  rgb_si_cache->UpdateSyncToken(rgb_sync_token);
+  rgb_si_cache->UpdateSyncToken(std::move(sync_callback).Run());
 
   // video_frame->UpdateReleaseSyncToken is not necessary since the video frame
   // data we used was CPU-side to begin with. If there were any textures, we
@@ -1597,7 +1661,8 @@ bool PaintCanvasVideoRenderer::UpdateLastImage(
       cc::PaintImageBuilder::WithDefault()
           .set_id(renderer_stable_id_)
           .set_animation_type(cc::PaintImage::AnimationType::kVideo)
-          .set_completion_state(cc::PaintImage::CompletionState::kDone);
+          .set_completion_state(cc::PaintImage::CompletionState::kDone)
+          .set_hdr_metadata(video_frame->hdr_metadata());
 
   // Generate a new image.
   // Note: Skia will hold onto |video_frame| via |video_generator| only when
@@ -1644,7 +1709,7 @@ bool PaintCanvasVideoRenderer::UpdateLastImage(
 
     paint_image_builder.set_texture_backing(cache_->texture_backing,
                                             cc::PaintImage::GetNextContentId());
-    cache_->texture_backing->BeginAccess(ri);
+    cache_->texture_backing->BeginAccess();
   } else {
     cache_.emplace(
         video_frame->unique_id(),

@@ -415,6 +415,7 @@ source_set("browser_tests") {
     "cloud/cloud_policy_manager_browsertest.cc",
     "cloud/device_management_service_browsertest.cc",
     "test/accessibility_policy_browsertest.cc",
+    "test/default_sensors_setting_policy_handler_browsertest.cc",
   ]
 
   data_deps = [ "//components/policy:policy_templates" ]
@@ -555,9 +556,11 @@ source_set("browser_tests") {
       "test/browser_dynamic_code_blocked_win_browsertest.cc",
       "test/locale_policy_browsertest.cc",
       "test/printing_lpac_sandbox_enabled_win_browsertest.cc",
+      "test/process_isolation_enabled_browsertest.cc",
       "test/renderer_app_container_enabled_win_browsertest.cc",
       "test/restrict_core_sharing_policy_browsertest.cc",
     ]
+    deps += [ "//chrome/browser/win:isolated_browser_support" ]
   }
 
   if (is_win || is_linux) {
@@ -651,6 +654,11 @@ source_set("unit_tests") {
       "//components/session_manager/test:test_support",
     ]
   }
+
+  if (enable_extensions) {
+    sources += [ "chrome_extension_policy_migrator_unittest.cc" ]
+    deps += [ ":policy_migrator" ]
+  }
 }
 
 source_set("policy") {
@@ -668,12 +676,14 @@ source_set("policy") {
     "cloud/user_fm_registration_token_uploader.h",
     "cloud/user_fm_registration_token_uploader_factory.h",
     "configuration_policy_handler_list_factory.h",
+    "default_sensors_setting_policy_handler.h",
     "developer_tools_policy_checker.h",
     "developer_tools_policy_checker_factory.h",
     "developer_tools_policy_handler.h",
     "device_management_service_configuration.h",
     "dm_token_utils.h",
     "homepage_location_policy_handler.h",
+    "isolate_origins_policy_handler.h",
     "javascript_policy_handler.h",
     "local_network_access_ip_address_space_overrides_policy_handler.h",
     "messaging_layer/public/report_client.h",
@@ -813,10 +823,6 @@ source_set("policy") {
 
   if (is_win) {
     public += [ "browser_dm_token_storage_win.h" ]
-
-    if (is_chrome_branded) {
-      public += [ "status_provider/updater_status_and_value_provider.h" ]
-    }
   }
 
   if (is_mac) {
@@ -877,12 +883,14 @@ source_set("impl") {
     "cloud/user_fm_registration_token_uploader.cc",
     "cloud/user_fm_registration_token_uploader_factory.cc",
     "configuration_policy_handler_list_factory.cc",
+    "default_sensors_setting_policy_handler.cc",
     "developer_tools_policy_checker.cc",
     "developer_tools_policy_checker_factory.cc",
     "developer_tools_policy_handler.cc",
     "device_management_service_configuration.cc",
     "dm_token_utils.cc",
     "homepage_location_policy_handler.cc",
+    "isolate_origins_policy_handler.cc",
     "javascript_policy_handler.cc",
     "local_network_access_ip_address_space_overrides_policy_handler.cc",
     "messaging_layer/public/report_client.cc",
@@ -926,6 +934,7 @@ source_set("impl") {
     ":policy_util",
     "//chrome/browser:browser_features",
     "//chrome/browser:browser_process_platform_part",
+    "//chrome/browser/bookmarks",
     "//chrome/browser/browsing_data",
     "//chrome/browser/contextual_tasks",
     "//chrome/browser/download",
@@ -965,6 +974,7 @@ source_set("impl") {
     "//components/embedder_support",
     "//components/embedder_support:user_agent",
     "//components/enterprise/browser/data_region",
+    "//components/enterprise/net",
     "//components/enterprise/network_header_injection/core:policy",
     "//components/feed/core/shared_prefs:feed_shared_prefs",
     "//components/history/core/common",
@@ -987,11 +997,13 @@ source_set("impl") {
     "//components/reporting/util:status_macros",
     "//components/reporting/util:task_runner_context",
     "//components/safe_browsing/core/common:safe_browsing_policy_handler",
+    "//components/site_isolation",
     "//components/spellcheck:buildflags",
     "//components/spellcheck/browser",
     "//components/unified_consent",
     "//components/user_manager",
     "//components/variations/service",
+    "//services/device/public/cpp:device_features",
   ]
 
   if (enable_extensions_core) {
@@ -1007,7 +1019,11 @@ source_set("impl") {
     ]
   }
 
-  if (enterprise_client_certificates) {
+  # These targets back browser (machine) scope provisioning via Chrome Browser
+  # Cloud Management (BrowserDMTokenStorage / BrowserCloudManagementDelegate),
+  # which does not exist on ChromeOS even though enterprise_client_certificates
+  # is enabled there.
+  if (enterprise_client_certificates && !is_chromeos) {
     deps += [
       "//chrome/browser/enterprise/connectors/device_trust/key_management/browser",
       "//components/enterprise/client_certificates/core:management_delegate",
@@ -1071,6 +1087,7 @@ source_set("impl") {
         "cloud/user_policy_signin_service.cc",
         "file_selection_dialogs_policy_handler.cc",
       ]
+      deps += [ "//chrome/browser/enterprise:browser_launch_reporting" ]
     }
   }
 
@@ -1117,6 +1134,7 @@ source_set("impl") {
       "//chrome/browser/ash/wallpaper_handlers",
       "//chrome/browser/chromeos/reporting",
       "//chrome/browser/nearby_sharing/common",
+      "//chrome/browser/ui/webui/certificate_manager",
       "//chromeos/ash/components/demo_mode",
       "//chromeos/ash/components/install_attributes",
       "//chromeos/ash/components/policy/policy_blocklist_service",
@@ -1148,15 +1166,28 @@ source_set("impl") {
       "//chrome/browser/google",
       "//chrome/credential_provider/common:common_constants",
     ]
-
-    if (is_chrome_branded) {
-      sources += [ "status_provider/updater_status_and_value_provider.cc" ]
-    }
   }
 
   if (is_mac) {
     sources += [ "browser_dm_token_storage_mac.mm" ]
     deps += [ "//chrome/browser:app_controller_mac" ]
+  }
+
+  if (is_win || is_mac) {
+    sources += [
+      "status_provider/updater_status_and_value_provider.cc",
+      "status_provider/updater_status_and_value_provider.h",
+    ]
+    deps += [
+      "//chrome/browser/google",
+      "//chrome/browser/updater",
+    ]
+    if (is_win) {
+      sources += [ "status_provider/updater_status_and_value_provider_win.cc" ]
+    }
+    if (is_mac) {
+      sources += [ "status_provider/updater_status_and_value_provider_mac.cc" ]
+    }
   }
 
   if (is_linux || is_win || is_mac || is_chromeos) {

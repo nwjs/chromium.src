@@ -9,11 +9,13 @@ import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.MeasureSpec;
+import android.view.View.OnLayoutChangeListener;
 import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
 import android.widget.FrameLayout;
 
 import androidx.annotation.IntDef;
+import androidx.annotation.Px;
 import androidx.annotation.VisibleForTesting;
 import androidx.coordinatorlayout.widget.CoordinatorLayout;
 import androidx.core.view.WindowInsetsAnimationCompat;
@@ -29,6 +31,12 @@ import org.chromium.chrome.browser.browser_controls.BrowserControlsSizer;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.Observer;
 import org.chromium.chrome.browser.omnibox.LocationBar;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.SheetState;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.StateChangeReason;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
+import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
 import org.chromium.components.browser_ui.widget.TouchEventObserver;
 import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.KeyboardVisibilityDelegate.KeyboardVisibilityListener;
@@ -36,6 +44,7 @@ import org.chromium.ui.base.LocalizationUtils;
 import org.chromium.ui.base.ViewUtils;
 import org.chromium.ui.insets.InsetObserver;
 import org.chromium.ui.insets.InsetObserver.WindowInsetsAnimationListener;
+import org.chromium.ui.util.CommonOnLayoutChangeListeners;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -88,7 +97,8 @@ public class MiniOriginBarController implements Observer {
         MiniOriginEvent.CONTROLS_POSITION_BECAME_TOP,
         MiniOriginEvent.CONTROLS_POSITION_BECAME_BOTTOM,
         MiniOriginEvent.ACCESSORY_SHEET_APPEARED,
-        MiniOriginEvent.ACCESSORY_SHEET_DISAPPEARED
+        MiniOriginEvent.ACCESSORY_SHEET_DISAPPEARED,
+        MiniOriginEvent.COBROWSE_SHEET_OPEN_CHANGED
     })
     @Retention(RetentionPolicy.SOURCE)
     @interface MiniOriginEvent {
@@ -103,10 +113,12 @@ public class MiniOriginBarController implements Observer {
         int CONTROLS_POSITION_BECAME_BOTTOM = 8;
         int ACCESSORY_SHEET_APPEARED = 9;
         int ACCESSORY_SHEET_DISAPPEARED = 10;
+        int COBROWSE_SHEET_OPEN_CHANGED = 11;
     }
 
     private final LocationBar mLocationBar;
     private final FormFieldFocusedSupplier mIsFormFieldFocusedSupplier;
+    private final BottomSheetController mBottomSheetController;
     private final KeyboardVisibilityDelegate mKeyboardVisibilityDelegate;
     private final Callback<Boolean> mIsFormFieldFocusedObserver;
     private final KeyboardVisibilityListener mKeyboardVisibilityObserver;
@@ -122,7 +134,8 @@ public class MiniOriginBarController implements Observer {
     private final TouchEventObserver mTouchEventObserver;
     private final InsetObserver mInsetObserver;
     private final BooleanSupplier mIsOmniboxFocusedSupplier;
-    private final int mDefaultLocationBarRightPadding;
+    private final @Px int mDefaultLocationBarRightPadding;
+    private final @Px int mMiniOriginBarHeight;
     // The starting horizontal position of the location bar when the mini origin bar is in its
     // least-minimized state.
     private float mStartingLocationBarX;
@@ -130,6 +143,10 @@ public class MiniOriginBarController implements Observer {
     // fully-minimized state.
     private float mFinalLocationBarTranslationX;
     private boolean mShowingMiniOriginBar;
+    private boolean mIsCobrowseSheetOpen;
+    private final BottomSheetObserver mBottomSheetObserver;
+    private final OnLayoutChangeListener mLayoutChangeListener;
+    private float mMinimizationProgress;
 
     /**
      * @param locationBar LocationBar instance used to change the presentation of e.g. the UrlBar
@@ -144,6 +161,7 @@ public class MiniOriginBarController implements Observer {
     public MiniOriginBarController(
             LocationBar locationBar,
             FormFieldFocusedSupplier isFormFieldFocusedSupplier,
+            BottomSheetController bottomSheetController,
             KeyboardVisibilityDelegate keyboardVisibilityDelegate,
             Context context,
             ControlContainer controlContainer,
@@ -163,6 +181,10 @@ public class MiniOriginBarController implements Observer {
         mIsKeyboardAccessorySheetShowing = isKeyboardAccessorySheetShowing;
         mInsetObserver = insetObserver;
         mIsOmniboxFocusedSupplier = isOmniboxFocusedSupplier;
+        mBottomSheetController = bottomSheetController;
+
+        mMiniOriginBarHeight =
+                mContext.getResources().getDimensionPixelSize(R.dimen.mini_origin_bar_height);
         mDefaultLocationBarRightPadding = mLocationBar.getContainerView().getPaddingRight();
         mDefaultLocationBarLayoutParams =
                 (FrameLayout.LayoutParams) mLocationBar.getContainerView().getLayoutParams();
@@ -184,9 +206,7 @@ public class MiniOriginBarController implements Observer {
                         this::updateAnimationProgress,
                         this::waitingForImeAnimationToStart,
                         new Handler(),
-                        controlContainer.getToolbarHeight()
-                                - mContext.getResources()
-                                        .getDimensionPixelSize(R.dimen.mini_origin_bar_height));
+                        controlContainer.getToolbarHeight() - mMiniOriginBarHeight);
         mInsetObserver.addWindowInsetsAnimationListener(mWindowInsetsAnimationListener);
 
         mIsFormFieldFocusedObserver =
@@ -234,6 +254,34 @@ public class MiniOriginBarController implements Observer {
                                         : MiniOriginEvent.ACCESSORY_SHEET_DISAPPEARED);
         mIsKeyboardAccessorySheetShowing.addSyncObserverAndPostIfNonNull(
                 mAccessorySheetShowingObserver);
+
+        mIsCobrowseSheetOpen = isCobrowseSheetOpen();
+        mBottomSheetObserver =
+                new EmptyBottomSheetObserver() {
+                    @Override
+                    public void onSheetContentChanged(@Nullable BottomSheetContent newContent) {
+                        updateCobrowseSheetOpen();
+                    }
+
+                    @Override
+                    public void onSheetStateChanged(
+                            @SheetState int newState, @StateChangeReason int reason) {
+                        updateCobrowseSheetOpen();
+                    }
+
+                    private void updateCobrowseSheetOpen() {
+                        boolean isOpen = isCobrowseSheetOpen();
+                        if (isOpen != mIsCobrowseSheetOpen) {
+                            mIsCobrowseSheetOpen = isOpen;
+                            updateMiniOriginBarState(MiniOriginEvent.COBROWSE_SHEET_OPEN_CHANGED);
+                        }
+                    }
+                };
+        mBottomSheetController.addObserver(mBottomSheetObserver);
+
+        mLayoutChangeListener =
+                CommonOnLayoutChangeListeners.createBoundsChangedListener(this::recomputeLayouts);
+        mControlContainer.getView().addOnLayoutChangeListener(mLayoutChangeListener);
     }
 
     private void updateMiniOriginBarState(@MiniOriginEvent int event) {
@@ -288,14 +336,12 @@ public class MiniOriginBarController implements Observer {
         mSuppressToolbarSceneLayerSupplier.set(true);
         mControlContainer.toggleLocationBarOnlyMode(true);
 
-        int newLocationBarHeight =
-                mContext.getResources().getDimensionPixelSize(R.dimen.mini_origin_bar_height);
         mControlContainer.mutateLayoutParams().height =
-                newLocationBarHeight
+                mMiniOriginBarHeight
                         + mContext.getResources()
                                 .getDimensionPixelSize(R.dimen.toolbar_hairline_height);
         var minifiedLayoutParams =
-                new CoordinatorLayout.LayoutParams(LayoutParams.WRAP_CONTENT, newLocationBarHeight);
+                new CoordinatorLayout.LayoutParams(LayoutParams.WRAP_CONTENT, mMiniOriginBarHeight);
         minifiedLayoutParams.gravity = Gravity.CENTER_VERTICAL;
 
         var locationBarView = mLocationBar.getContainerView();
@@ -307,10 +353,17 @@ public class MiniOriginBarController implements Observer {
                 locationBarRightPadding,
                 locationBarView.getPaddingBottom());
 
+        recomputeLayouts();
+    }
+
+    private void recomputeLayouts() {
+        if (!mShowingMiniOriginBar) return;
+
+        var locationBarView = mLocationBar.getContainerView();
         var controlContainerWidth = mControlContainer.getView().getWidth();
         locationBarView.measure(
                 MeasureSpec.makeMeasureSpec(controlContainerWidth, MeasureSpec.AT_MOST),
-                MeasureSpec.makeMeasureSpec(newLocationBarHeight, MeasureSpec.AT_MOST));
+                MeasureSpec.makeMeasureSpec(mMiniOriginBarHeight, MeasureSpec.AT_MOST));
 
         boolean isRtl = LocalizationUtils.isLayoutRtl();
         int viewWidth = locationBarView.getMeasuredWidth();
@@ -322,6 +375,8 @@ public class MiniOriginBarController implements Observer {
         // The final x coordinate of the left edge that centers it horizontally.
         float targetAbsoluteLeftX = (controlContainerWidth - finalLocationBarWidth) / 2f;
         mFinalLocationBarTranslationX = targetAbsoluteLeftX - baseLayoutLeftX;
+
+        applyCurrentMinimizationProgress();
     }
 
     private void hideMiniOriginBar() {
@@ -353,6 +408,8 @@ public class MiniOriginBarController implements Observer {
         mBrowserControlsSizer.removeObserver(this);
         mInsetObserver.removeWindowInsetsAnimationListener(mWindowInsetsAnimationListener);
         mWindowInsetsAnimationListener.destroy();
+        mBottomSheetController.removeObserver(mBottomSheetObserver);
+        mControlContainer.getView().removeOnLayoutChangeListener(mLayoutChangeListener);
     }
 
     @Override
@@ -369,6 +426,17 @@ public class MiniOriginBarController implements Observer {
                         || mMiniOriginBarState == MiniOriginState.SHOWING);
     }
 
+    private boolean isCobrowseSheetOpen() {
+        BottomSheetContent content = mBottomSheetController.getCurrentSheetContent();
+        if (content == null
+                || content.getPriority() != BottomSheetContent.ContentPriority.COBROWSE) {
+            return false;
+        }
+        int state = mBottomSheetController.getSheetState();
+        return state == BottomSheetController.SheetState.HALF
+                || state == BottomSheetController.SheetState.FULL;
+    }
+
     /**
      * Gets the next state of the mini origin bar considering current state and an event. This logic
      * assumes that: 1. Form field focus changes precede the associated keyboard visibility change
@@ -378,7 +446,7 @@ public class MiniOriginBarController implements Observer {
     private @MiniOriginState int getNewMiniOriginState(@MiniOriginEvent int miniOriginEvent) {
         switch (mMiniOriginBarState) {
             case MiniOriginState.NOT_READY -> {
-                if (mIsFormFieldFocusedSupplier.get()
+                if ((mIsFormFieldFocusedSupplier.get() || mIsCobrowseSheetOpen)
                         && mBrowserControlsSizer.getControlsPosition() == ControlsPosition.BOTTOM
                         && !mIsOmniboxFocusedSupplier.getAsBoolean()) {
                     return isKeyboardShowing() ? MiniOriginState.SHOWING : MiniOriginState.READY;
@@ -388,13 +456,13 @@ public class MiniOriginBarController implements Observer {
             case MiniOriginState.READY -> {
                 return switch (miniOriginEvent) {
                     case MiniOriginEvent.FORM_FIELD_LOST_FOCUS,
-                            MiniOriginEvent.CONTROLS_POSITION_BECAME_TOP -> MiniOriginState
-                            .NOT_READY;
+                            MiniOriginEvent.CONTROLS_POSITION_BECAME_TOP ->
+                            MiniOriginState.NOT_READY;
                     case MiniOriginEvent.KEYBOARD_ANIMATION_PREPARED -> MiniOriginState.ANIMATING;
                     case MiniOriginEvent.KEYBOARD_APPEARED ->
-                    // Skip our animation if we get a keyboard appearance event before the animation
-                    // prepare signal.
-                    MiniOriginState.SHOWING;
+                            // Skip our animation if we get a keyboard appearance event before the
+                            // animation prepare signal.
+                            MiniOriginState.SHOWING;
                     default -> MiniOriginState.READY;
                 };
             }
@@ -422,7 +490,8 @@ public class MiniOriginBarController implements Observer {
                 return switch (miniOriginEvent) {
                     case MiniOriginEvent.ACCESSORY_SHEET_APPEARED ->
                             MiniOriginState.SHOWING_WITH_ACCESSORY_SHEET;
-                    case MiniOriginEvent.FORM_FIELD_LOST_FOCUS ->
+                    case MiniOriginEvent.FORM_FIELD_LOST_FOCUS,
+                            MiniOriginEvent.COBROWSE_SHEET_OPEN_CHANGED ->
                             isKeyboardShowing()
                                     ? MiniOriginState.SHOWING
                                     : MiniOriginState.NOT_READY;
@@ -471,13 +540,18 @@ public class MiniOriginBarController implements Observer {
     }
 
     private void setMinimizationProgress(float minimizationProgress) {
+        mMinimizationProgress = minimizationProgress;
+        applyCurrentMinimizationProgress();
+    }
+
+    private void applyCurrentMinimizationProgress() {
         float translationX =
                 mStartingLocationBarX
-                        + minimizationProgress
+                        + mMinimizationProgress
                                 * (mFinalLocationBarTranslationX - mStartingLocationBarX);
         mLocationBar.getContainerView().setTranslationX(translationX);
 
-        float scale = 1.0f - minimizationProgress / LOCATION_BAR_SCALE_DENOMINATOR;
+        float scale = 1.0f - mMinimizationProgress / LOCATION_BAR_SCALE_DENOMINATOR;
         mLocationBar.getContainerView().setScaleX(scale);
         mLocationBar.getContainerView().setScaleY(scale);
         mLocationBar.getContainerView().setPivotY(mLocationBar.getUrlBarHeight() / 2);

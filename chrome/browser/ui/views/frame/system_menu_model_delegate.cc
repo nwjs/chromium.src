@@ -15,7 +15,6 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
-#include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_metrics.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -66,9 +65,6 @@ bool SystemMenuModelDelegate::IsCommandIdEnabled(int command_id) const {
     return chromeos::MoveToDesksMenuDelegate::ShouldShowMoveToDesksMenu();
   }
 #endif
-  if (command_id == IDC_TAB_SEARCH_TOGGLE_PIN) {
-    return base::FeatureList::IsEnabled(tabs::kHorizontalTabStripComboButton);
-  }
   // Disable the glic toggle pin if it is showing and glic is not enabled.
   if (command_id == IDC_GLIC_TOGGLE_PIN) {
     return glic::GlicEnabling::IsEnabledForProfile(browser_->profile());
@@ -99,7 +95,7 @@ bool SystemMenuModelDelegate::IsCommandIdEnabled(int command_id) const {
 
 bool SystemMenuModelDelegate::IsCommandIdVisible(int command_id) const {
 #if BUILDFLAG(IS_LINUX)
-  bool is_maximized = browser_->window()->IsMaximized();
+  bool is_maximized = browser_->GetWindow()->IsMaximized();
   switch (command_id) {
     case IDC_MAXIMIZE_WINDOW:
       return !is_maximized;
@@ -112,9 +108,6 @@ bool SystemMenuModelDelegate::IsCommandIdVisible(int command_id) const {
     return chromeos::MoveToDesksMenuDelegate::ShouldShowMoveToDesksMenu();
   }
 #endif
-  if (command_id == IDC_TAB_SEARCH_TOGGLE_PIN) {
-    return base::FeatureList::IsEnabled(tabs::kHorizontalTabStripComboButton);
-  }
   if (command_id == IDC_GLIC_TOGGLE_PIN) {
     return glic::GlicEnabling::IsEnabledForProfile(browser_->profile());
   }
@@ -148,12 +141,18 @@ std::u16string SystemMenuModelDelegate::GetLabelForCommandId(
         DCHECK(trs);
         trs->LoadTabsFromLastSession();
         if (!trs->entries().empty()) {
-          if (trs->entries().front()->type ==
-              sessions::tab_restore::Type::WINDOW) {
-            string_id = IDS_REOPEN_WINDOW;
-          } else if (trs->entries().front()->type ==
-                     sessions::tab_restore::Type::GROUP) {
-            string_id = IDS_REOPEN_GROUP;
+          switch (trs->entries().front()->type) {
+            case sessions::tab_restore::Type::WINDOW:
+              string_id = IDS_REOPEN_WINDOW;
+              break;
+            case sessions::tab_restore::Type::GROUP:
+              string_id = IDS_REOPEN_GROUP;
+              break;
+            case sessions::tab_restore::Type::SPLIT:
+              string_id = IDS_REOPEN_SPLIT;
+              break;
+            case sessions::tab_restore::Type::TAB:
+              break;
           }
         }
       }
@@ -223,14 +222,12 @@ void SystemMenuModelDelegate::ExecuteCommand(int command_id, int event_flags) {
       break;
     }
     case IDC_TAB_SEARCH_TOGGLE_PIN: {
-      if (base::FeatureList::IsEnabled(tabs::kHorizontalTabStripComboButton)) {
-        PrefService* prefs = browser_->profile()->GetPrefs();
-        const bool is_pinned =
-            prefs->GetBoolean(prefs::kTabSearchPinnedToTabstrip);
-        base::RecordAction(base::UserMetricsAction(
-            is_pinned ? "SystemContextMenu_TabSearch_Unpinned"
-                      : "SystemContextMenu_TabSearch_Pinned"));
-      }
+      PrefService* prefs = browser_->profile()->GetPrefs();
+      const bool is_pinned =
+          prefs->GetBoolean(prefs::kTabSearchPinnedToTabstrip);
+      base::RecordAction(base::UserMetricsAction(
+          is_pinned ? "SystemContextMenu_TabSearch_Unpinned"
+                    : "SystemContextMenu_TabSearch_Pinned"));
       break;
     }
   }

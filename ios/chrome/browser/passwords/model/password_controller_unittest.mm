@@ -30,6 +30,7 @@
 #import "components/autofill/ios/browser/test_autofill_client_ios.h"
 #import "components/autofill/ios/common/field_data_manager_factory_ios.h"
 #import "components/autofill/ios/form_util/form_activity_params.h"
+#import "components/autofill/ios/form_util/form_activity_tab_helper.h"
 #import "components/password_manager/core/browser/leak_detection/mock_leak_detection_check_factory.h"
 #import "components/password_manager/core/browser/password_form_manager.h"
 #import "components/password_manager/core/browser/password_form_metrics_recorder.h"
@@ -134,7 +135,11 @@ class MockPasswordManagerClient
               PromptUserToSaveOrUpdatePassword,
               (std::unique_ptr<PasswordFormManagerForUI>, bool),
               (override));
-  MOCK_METHOD(bool, IsSavingAndFillingEnabled, (const GURL&), (const override));
+
+  MOCK_METHOD(bool,
+              IsSavingAndFillingEnabled,
+              (const url::Origin&, base::optional_ref<const GURL>),
+              (const, override));
 
   PrefService* GetPrefs() const override { return prefs_; }
 
@@ -150,8 +155,7 @@ class MockPasswordManagerClient
  private:
   mutable FakeNetworkContext network_context_;
   raw_ptr<PrefService> const prefs_;
-  const raw_ptr<password_manager::PasswordStoreInterface, DanglingUntriaged>
-      store_;
+  const raw_ptr<password_manager::PasswordStoreInterface> store_;
 };
 
 // Creates PasswordController with the given `pref_service`, `web_state` and a
@@ -299,6 +303,8 @@ class PasswordControllerTest : public PlatformTest {
 
     passwordController_ = CreatePasswordController(
         profile_->GetPrefs(), web_state(), store_.get(), &weak_client_);
+    autofill::FormActivityTabHelper::GetOrCreateForWebState(web_state())
+        ->SetForceSubmittedByUserForTesting(true);
     passwordController_.passwordManager->set_leak_factory(
         std::make_unique<
             NiceMock<password_manager::MockLeakDetectionCheckFactory>>());
@@ -517,6 +523,7 @@ class PasswordControllerTest : public PlatformTest {
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
   TestProfileManagerIOS profile_manager_;
   raw_ptr<ProfileIOS> profile_;
+  scoped_refptr<password_manager::MockPasswordStoreInterface> store_;
   std::unique_ptr<web::WebState> web_state_;
   std::unique_ptr<autofill::TestAutofillClientIOS> autofill_client_;
 
@@ -526,12 +533,10 @@ class PasswordControllerTest : public PlatformTest {
   // FormInputAccessoryMediatorfor testing.
   FormInputAccessoryMediator* accessoryMediator_;
 
-  scoped_refptr<password_manager::MockPasswordStoreInterface> store_;
-
   // PasswordController for testing.
   PasswordController* passwordController_;
 
-  raw_ptr<MockPasswordManagerClient> weak_client_;
+  raw_ptr<MockPasswordManagerClient> weak_client_ = nullptr;
 };
 
 struct FindPasswordFormTestData {
@@ -1309,6 +1314,8 @@ class PasswordControllerTestSimple : public PlatformTest {
 
     passwordController_ = CreatePasswordController(&pref_service_, &web_state_,
                                                    store_.get(), &weak_client_);
+    autofill::FormActivityTabHelper::GetOrCreateForWebState(&web_state_)
+        ->SetForceSubmittedByUserForTesting(true);
     passwordController_.passwordManager->set_leak_factory(
         std::make_unique<
             NiceMock<password_manager::MockLeakDetectionCheckFactory>>());
@@ -1325,12 +1332,12 @@ class PasswordControllerTestSimple : public PlatformTest {
 
   sync_preferences::TestingPrefServiceSyncable pref_service_;
   std::unique_ptr<TestProfileIOS> profile_;
+  scoped_refptr<password_manager::MockPasswordStoreInterface> store_;
   web::FakeWebState web_state_;
   std::unique_ptr<autofill::TestAutofillClientIOS> autofill_client_;
   PasswordController* passwordController_;
-  scoped_refptr<password_manager::MockPasswordStoreInterface> store_;
-  raw_ptr<MockPasswordManagerClient> weak_client_;
-  raw_ptr<web::FakeWebFramesManager> web_frames_manager_;
+  raw_ptr<MockPasswordManagerClient> weak_client_ = nullptr;
+  raw_ptr<web::FakeWebFramesManager> web_frames_manager_ = nullptr;
 };
 
 TEST_F(PasswordControllerTestSimple, SaveOnNonHTMLLandingPage) {
@@ -1409,65 +1416,8 @@ TEST_F(PasswordControllerTest, SendingToStoreDynamicallyAddedFormsOnFocus) {
   }));
 }
 
-// Tests that a touchend event from a button which contains in a password form
-// works as a submission indicator for this password form.
-TEST_F(PasswordControllerTest, TouchendAsSubmissionIndicator) {
-  ON_CALL(*store_, GetLogins)
-      .WillByDefault(WithArg<1>(InvokeEmptyConsumerWithForms(store_.get())));
-  const auto kHtml = std::to_array<std::string_view>(
-      {"<html><body>"
-       "<form name='login_form' id='login_form'>"
-       "  <input type='text' name='username'>"
-       "  <input type='password' name='password'>"
-       "  <button id='submit_button' value='Submit'>"
-       "</form>"
-       "</body></html>",
-       "<html><body>"
-       "<form name='login_form' id='login_form'>"
-       "  <input type='text' name='username'>"
-       "  <input type='password' name='password'>"
-       "  <button id='back' value='Back'>"
-       "  <button id='submit_button' type='submit' value='Submit'>"
-       "</form>"
-       "</body></html>"});
-
-  for (const std::string_view html : kHtml) {
-    LoadHtml(SysUTF8ToNSString(html));
-    WaitForFormManagersCreation();
-
-    std::unique_ptr<PasswordFormManagerForUI> form_manager_to_save;
-    EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePassword)
-        .WillOnce(MoveArgAndReturn<0>(&form_manager_to_save, true));
-
-    ExecuteJavaScript(
-        @"document.getElementsByName('username')[0].value = 'user1';"
-         "document.getElementsByName('password')[0].value = 'password1';"
-         "var e = new UIEvent('touchend');"
-         "document.getElementById('submit_button').dispatchEvent(e);");
-    LoadHtmlWithRendererInitiatedNavigation(
-        @"<html><body>Success</body></html>");
-
-    auto& form_manager_check = form_manager_to_save;
-    ASSERT_TRUE(WaitUntilConditionOrTimeout(kWaitForActionTimeout, ^bool() {
-      return form_manager_check != nullptr;
-    }));
-
-    EXPECT_EQ("https://chromium.test/",
-              form_manager_to_save->GetPendingCredentials().signon_realm);
-    EXPECT_EQ(u"user1",
-              form_manager_to_save->GetPendingCredentials().username_value);
-    EXPECT_EQ(u"password1",
-              form_manager_to_save->GetPendingCredentials().password_value);
-
-    auto* form_manager =
-        static_cast<PasswordFormManager*>(form_manager_to_save.get());
-    EXPECT_TRUE(form_manager->is_submitted());
-    EXPECT_FALSE(form_manager->IsPasswordUpdate());
-  }
-}
-
-// Tests that a touchend event from a button which contains in a password form
-// works as a submission indicator for this password form.
+// Tests that password credentials are correctly captured and prompted for
+// saving when a form is submitted from within a same-origin iframe.
 TEST_F(PasswordControllerTest, SavingFromSameOriginIframe) {
   ON_CALL(*store_, GetLogins)
       .WillByDefault(WithArg<1>(InvokeEmptyConsumerWithForms(store_.get())));
@@ -2091,7 +2041,6 @@ TEST_F(PasswordControllerTest, PasswordMetricsNoSavedCredentials) {
     std::unique_ptr<PasswordFormManagerForUI> form_manager_to_save;
     EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePassword)
         .WillOnce(MoveArgAndReturn<0>(&form_manager_to_save, false));
-    ;
 
     ExecuteJavaScript(
         @"document.getElementsByName('username')[0].value = 'user';"

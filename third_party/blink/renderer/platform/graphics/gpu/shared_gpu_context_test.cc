@@ -153,7 +153,7 @@ TEST_F(BadSharedGpuContextTest, AccelerateImageBufferSurfaceCreationFails) {
   std::unique_ptr<CanvasNon2DResourceProviderSharedImage> resource_provider =
       CanvasNon2DResourceProviderSharedImage::Create(
           gfx::Size(10, 10), GetN32FormatForCanvas(), kPremul_SkAlphaType,
-          gfx::ColorSpace::CreateSRGB(),
+          gfx::ColorSpace::CreateSRGB(), gfx::HDRMetadata(),
           SharedGpuContext::ContextProviderWrapper(),
           gpu::SharedImageUsageSet());
   EXPECT_FALSE(resource_provider);
@@ -179,11 +179,11 @@ TEST_F(SharedGpuContextTest, AccelerateImageBufferSurfaceAutoRecovery) {
   std::unique_ptr<CanvasNon2DResourceProviderSharedImage> resource_provider =
       CanvasNon2DResourceProviderSharedImage::Create(
           gfx::Size(10, 10), GetN32FormatForCanvas(), kPremul_SkAlphaType,
-          gfx::ColorSpace::CreateSRGB(),
+          gfx::ColorSpace::CreateSRGB(), gfx::HDRMetadata(),
           SharedGpuContext::ContextProviderWrapper(),
           gpu::SharedImageUsageSet());
   EXPECT_TRUE(resource_provider && resource_provider->IsValid());
-  EXPECT_TRUE(resource_provider->IsAccelerated());
+  EXPECT_FALSE(resource_provider->IsSoftware());
   EXPECT_TRUE(SharedGpuContext::IsValidWithoutRestoringForTesting());
 }
 

@@ -51,9 +51,8 @@ const CGFloat kHorizontalSpacingToAlignWithItems = 16.0;
 
 #pragma mark CollectionViewItem
 
-- (void)configureHeaderFooterView:(TableViewLinkHeaderFooterView*)headerFooter
-                       withStyler:(ChromeTableViewStyler*)styler {
-  [super configureHeaderFooterView:headerFooter withStyler:styler];
+- (void)configureHeaderFooterView:(TableViewLinkHeaderFooterView*)headerFooter {
+  [super configureHeaderFooterView:headerFooter];
 
   if ([self.urls count] != 0) {
     headerFooter.urls = self.urls;
@@ -212,7 +211,7 @@ const CGFloat kHorizontalSpacingToAlignWithItems = 16.0;
 
 - (UIAction*)textView:(UITextView*)textView
     primaryActionForTextItem:(UITextItem*)textItem
-               defaultAction:(UIAction*)defaultAction API_AVAILABLE(ios(17.0)) {
+               defaultAction:(UIAction*)defaultAction {
   DCHECK(self.textView == textView);
   CrURL* crurl = [[CrURL alloc] initWithNSURL:textItem.link];
   DCHECK(crurl.gurl.is_valid());

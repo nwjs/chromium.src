@@ -7,7 +7,9 @@
 #include "base/strings/stringprintf.h"
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "content/public/test/browser_test.h"
+#include "content/public/test/browser_test_utils.h"
 #include "extensions/buildflags/buildflags.h"
+#include "extensions/common/switches.h"
 #include "extensions/test/extension_test_message_listener.h"
 #include "extensions/test/result_catcher.h"
 #include "extensions/test/test_extension_dir.h"
@@ -36,6 +38,7 @@ constexpr char kManifest[] =
 // TODO(devlin): Investigate using WebContentsConsoleObserver to watch for
 // specific errors / patterns.
 constexpr char kExpectedFailureMessage[] = "Failed 1 of 1 tests";
+constexpr char kExpectedFailureMessageOneOfTwoTests[] = "Failed 1 of 2 tests";
 
 }  // namespace
 
@@ -741,6 +744,304 @@ IN_PROC_BROWSER_TEST_F(TestAPITest, RunTestsSuccessiveAwaits) {
   EXPECT_TRUE(result_catcher.GetNextResult());
 }
 
+// Verifies that `chrome.test.assertThrows` succeeds when the passed function
+// throws an error that matches the expectations, using the signature
+// `assertThrows(fn, expectedError?, message?)`.
+IN_PROC_BROWSER_TEST_F(TestAPITest, AssertThrows_Success_NoArguments) {
+  ResultCatcher result_catcher;
+  static constexpr char kBackgroundJs[] =
+      R"(chrome.test.runTests([
+           /**
+            * Tests that assertThrows succeeds when the function throws and
+            * the error matches the expected value (or no expected value is
+            * provided).
+            */
+           function testAssertThrowsSuccessNoArguments() {
+             // Assert that an error is thrown (without error matching).
+             chrome.test.assertThrows(() => {
+               throw new Error('foo');
+             });
+
+             // Assert that the thrown error message matches the expected
+             // string.
+             chrome.test.assertThrows(() => {
+               throw new Error('foo');
+             }, 'foo');
+
+             // Assert that the thrown error message matches the expected
+             // RegExp.
+             chrome.test.assertThrows(() => {
+               throw new Error('foo');
+             }, /fo+/);
+
+             chrome.test.succeed();
+           }
+         ]);)";
+
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
+  EXPECT_TRUE(result_catcher.GetNextResult());
+}
+
+// Verifies that `chrome.test.assertThrows` succeeds when using arrow functions
+// to wrap function calls that require arguments.
+IN_PROC_BROWSER_TEST_F(TestAPITest, AssertThrows_Success_WithArrowFunctions) {
+  ResultCatcher result_catcher;
+  static constexpr char kBackgroundJs[] =
+      R"(chrome.test.runTests([
+           /**
+            * Tests that assertThrows succeeds when wrapping function calls that
+            * require arguments inside arrow functions.
+            */
+           function testAssertThrowsSuccessWithArrowFunctions() {
+             const obj = {
+               func: function(a, b) {
+                 if (a + b > 10) throw new Error('too big');
+               }
+             };
+             chrome.test.assertThrows(() => obj.func(5, 6), 'too big');
+             chrome.test.assertThrows(() => obj.func(5, 6), /too+/);
+             chrome.test.succeed();
+           }
+         ]);)";
+
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
+  EXPECT_TRUE(result_catcher.GetNextResult());
+}
+
+// Verifies that `chrome.test.assertThrows` succeeds when using `bind`
+// to wrap function calls that require arguments.
+IN_PROC_BROWSER_TEST_F(TestAPITest, AssertThrows_Success_WithBind) {
+  ResultCatcher result_catcher;
+  static constexpr char kBackgroundJs[] =
+      R"(chrome.test.runTests([
+           /**
+            * Tests `assertThrows` succeeds with `bind` and args.
+            */
+           function testAssertThrowsSuccessWithBind() {
+             const obj = {
+               func: function(a, b) {
+                 if (a + b > 10) throw new Error('too big');
+               }
+             };
+             // Verify `assertThrows` succeeds with exact string match.
+             chrome.test.assertThrows(obj.func.bind(obj, 5, 6), 'too big');
+             // Verify `assertThrows` succeeds with regex match.
+             chrome.test.assertThrows(obj.func.bind(obj, 5, 6), /too+/);
+             chrome.test.succeed();
+           }
+         ]);)";
+
+  // Load the test extension and verify all tests succeed.
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
+  EXPECT_TRUE(result_catcher.GetNextResult());
+}
+
+// Verifies that `chrome.test.assertThrows` fails when the passed function
+// does not throw any error.
+IN_PROC_BROWSER_TEST_F(TestAPITest, AssertThrows_Failure_NoThrow) {
+  ResultCatcher result_catcher;
+  static constexpr char kBackgroundJs[] =
+      R"(chrome.test.runTests([
+           /**
+            * Tests that assertThrows fails when the function does not throw.
+            */
+           function testAssertThrowsFailure() {
+             // This should fail because the function does not throw.
+             chrome.test.assertThrows(() => {});
+           }
+         ]);)";
+
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
+  EXPECT_FALSE(result_catcher.GetNextResult());
+  EXPECT_EQ(kExpectedFailureMessage, result_catcher.message());
+}
+
+// Verifies that `chrome.test.assertThrows` fails when the passed function
+// throws an error that does not match the expected error.
+IN_PROC_BROWSER_TEST_F(TestAPITest, AssertThrows_Failure_WrongError) {
+  ResultCatcher result_catcher;
+  static constexpr char kBackgroundJs[] =
+      R"(chrome.test.runTests([
+           /**
+            * Tests that assertThrows fails when the thrown error doesn't match
+            * the expected error.
+            */
+           function testAssertThrowsFailure() {
+             // This should fail because 'foo' does not match 'bar'.
+             chrome.test.assertThrows(() => { throw new Error('foo'); }, 'bar');
+           }
+         ]);)";
+
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
+  EXPECT_FALSE(result_catcher.GetNextResult());
+  EXPECT_EQ(kExpectedFailureMessage, result_catcher.message());
+}
+
+// Verifies that `chrome.test.assertThrows` aborts the test execution
+// immediately when the assertion fails because the function did not throw.
+IN_PROC_BROWSER_TEST_F(TestAPITest, AssertThrows_Failure_Aborts) {
+  ResultCatcher result_catcher;
+  // Set up a listener for a message that should not be sent if the test aborts.
+  ExtensionTestMessageListener listener("reached_end");
+  static constexpr char kBackgroundJs[] =
+      R"(chrome.test.runTests([
+           /**
+            * Tests that assertThrows aborts test execution immediately upon
+            * failure.
+            */
+           function testAssertThrowsFailureAborts() {
+             // This assertion should fail and abort.
+             chrome.test.assertThrows(() => {});
+             // This should not be reached.
+             chrome.test.sendMessage('reached_end');
+           }
+         ]);)";
+
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
+  EXPECT_FALSE(result_catcher.GetNextResult());
+  // Verify that the message was not sent, confirming immediate abort.
+  EXPECT_FALSE(listener.was_satisfied());
+}
+
+// Verifies that `chrome.test.assertThrows` outputs the custom error message
+// when the assertion fails.
+IN_PROC_BROWSER_TEST_F(TestAPITest, AssertThrows_Failure_CustomMessage) {
+  ResultCatcher result_catcher;
+  static constexpr char kBackgroundJs[] =
+      R"(chrome.test.runTests([
+           /**
+            * Tests `assertThrows` includes custom message on failure.
+            */
+           function testAssertThrowsFailureCustomMessage() {
+             // Intercept `chrome.test.fail` to capture failure messages.
+             const originalFail = chrome.test.fail;
+             let failureMessage = '';
+             chrome.test.fail = function(message) {
+               failureMessage = message;
+             };
+
+             // Verify failure message when the function does not throw.
+             chrome.test.assertThrows(
+                 () => {}, /* expectedError */ 'expected error',
+                 /* message */ 'Custom failure message 1');
+             chrome.test.assertEq(
+                 'Custom failure message 1\nDid not throw error: () => {}',
+                 failureMessage);
+
+             // Verify failure message when the function throws the wrong error.
+             chrome.test.assertThrows(
+                 () => { throw new Error('actual'); },
+                 /* expectedError */ 'expected',
+                 /* message */ 'Custom failure message 2');
+             chrome.test.assertEq(
+                 'Custom failure message 2\n' +
+                     'Expected error: "expected", actual: "actual"',
+                 failureMessage);
+
+             // Restore the original failure handler and succeed the test.
+             chrome.test.fail = originalFail;
+             chrome.test.succeed();
+           }
+         ]);)";
+
+  // Load the test extension and verify all tests succeed.
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
+  EXPECT_TRUE(result_catcher.GetNextResult());
+}
+
+// Verifies that `chrome.test.assertThrows` succeeds when the function throws
+// falsy values (like `null` or `undefined`), both with and without
+// `expectedError` matching.
+IN_PROC_BROWSER_TEST_F(TestAPITest, AssertThrows_Success_FalsyValues) {
+  ResultCatcher result_catcher;
+  static constexpr char kBackgroundJs[] =
+      R"(chrome.test.runTests([
+           /**
+            * Tests that `assertThrows` succeeds when the function throws `null`
+            * or `undefined`, and that these can be matched against their
+            * `string` representations.
+            */
+           function testAssertThrowsSuccessFalsyValues() {
+             // Assert that `assertThrows` succeeds when throwing `null` without
+             // `expectedError`.
+             chrome.test.assertThrows(() => {
+               throw null;
+             });
+             // Assert that `assertThrows` succeeds when throwing `null` and
+             // matching against `string` 'null'.
+             chrome.test.assertThrows(() => {
+               throw null;
+             }, 'null');
+
+             // Assert that `assertThrows` succeeds when throwing `undefined`
+             // without `expectedError`.
+             chrome.test.assertThrows(() => {
+               throw undefined;
+             });
+             // Assert that `assertThrows` succeeds when throwing `undefined`
+             // and matching against `string` 'undefined'.
+             chrome.test.assertThrows(() => {
+               throw undefined;
+             }, 'undefined');
+
+             chrome.test.succeed();
+           }
+         ]);)";
+
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
+  EXPECT_TRUE(result_catcher.GetNextResult());
+}
+
+// Verifies that `chrome.test.assertThrows` succeeds when the function throws
+// non-`Error` objects (like `string`s or plain `Object`s), and that they can be
+// matched using `string`s and `RegExp`s.
+IN_PROC_BROWSER_TEST_F(TestAPITest, AssertThrows_Success_NonErrorObjects) {
+  ResultCatcher result_catcher;
+  static constexpr char kBackgroundJs[] =
+      R"(chrome.test.runTests([
+           /**
+            * Tests that `assertThrows` succeeds when the function throws a
+            * `string` or a plain `Object`, and that they can be matched using
+            * `string`s and `RegExp`s.
+            */
+           function testAssertThrowsSuccessNonErrorObjects() {
+             // Assert that `assertThrows` succeeds when throwing a `string` and
+             // matching against `string`.
+             chrome.test.assertThrows(() => {
+               throw 'custom error';
+             }, 'custom error');
+             // Assert that `assertThrows` succeeds when throwing a `string` and
+             // matching against `RegExp`.
+             chrome.test.assertThrows(() => {
+               throw 'custom error';
+             }, /custom.*/);
+
+             // Assert that `assertThrows` succeeds when throwing a plain
+             // `Object` with `message` property and matching against `string`.
+             chrome.test.assertThrows(() => {
+               throw {message: 'custom object error'};
+             }, 'custom object error');
+             // Assert that `assertThrows` succeeds when throwing a plain
+             // `Object` with `message` property and matching against `RegExp`.
+             chrome.test.assertThrows(() => {
+               throw {message: 'custom object error'};
+             }, /custom.*error/);
+
+             // Assert that `assertThrows` succeeds when throwing a plain
+             // `Object` without `message` property, it should be converted to
+             // `string` '[object Object]'.
+             chrome.test.assertThrows(() => {
+               throw {foo: 'bar'};
+             }, '[object Object]');
+
+             chrome.test.succeed();
+           }
+         ]);)";
+
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
+  EXPECT_TRUE(result_catcher.GetNextResult());
+}
+
 // Note: these enums are the same, but are distinct for type safety and so they
 // self-document when used to construct test cases.
 enum class StandardizedOutcome {
@@ -759,11 +1060,12 @@ enum class NonstandardizedOutcome {
 class TestStandardizedAPITest : public TestAPITest,
                                 public testing::WithParamInterface<bool> {
  protected:
-  std::string SetUseStandardizedApiBehaviorForTesting(
-      bool standardized_behavior_enabled) const {
-    return base::StringPrintf(
-        "chrome.test.setUseStandardizedApiBehaviorForTesting(%s);",
-        standardized_behavior_enabled ? "true" : "false");
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    TestAPITest::SetUpCommandLine(command_line);
+    if (GetParam()) {
+      command_line->AppendSwitch(
+          switches::kExtensionTestApiStandardizedBehavior);
+    }
   }
 };
 
@@ -771,8 +1073,6 @@ class TestStandardizedAPITest : public TestAPITest,
 // Object.is() more extensively.
 IN_PROC_BROWSER_TEST_P(TestStandardizedAPITest, assertEq) {
   bool standardized_behavior_enabled = GetParam();
-  std::string set_api_behavior =
-      SetUseStandardizedApiBehaviorForTesting(standardized_behavior_enabled);
 
   struct {
     std::string title;
@@ -808,15 +1108,30 @@ IN_PROC_BROWSER_TEST_P(TestStandardizedAPITest, assertEq) {
   for (const auto& c : cases) {
     SCOPED_TRACE(base::StringPrintf("Case: %s", c.title.c_str()));
     ResultCatcher result_catcher;
-    std::string script = base::StringPrintf(
-        R"(%s
-           chrome.test.runTests([
-             function test() {
-               %s
-               chrome.test.succeed();
-             }
-           ]);)",
-        set_api_behavior.c_str(), c.test_case.c_str());
+    // When `standardized_behavior_enabled` is true, the test relies on implicit
+    // passing (returning undefined or a resolved Promise) and calling the JS
+    // API `chrome.test.succeed()` is disallowed and will fail the test.
+    // Otherwise, we must explicitly call `chrome.test.succeed()` to signal
+    // pass.
+    std::string script;
+    if (standardized_behavior_enabled) {
+      script = base::StringPrintf(
+          R"(chrome.test.runTests([
+               function test() {
+                 %s
+               }
+             ]);)",
+          c.test_case.c_str());
+    } else {
+      script = base::StringPrintf(
+          R"(chrome.test.runTests([
+               function test() {
+                 %s
+                 chrome.test.succeed();
+               }
+             ]);)",
+          c.test_case.c_str());
+    }
 
     ASSERT_TRUE(LoadExtensionWithScript(script.c_str()));
 
@@ -836,5 +1151,469 @@ IN_PROC_BROWSER_TEST_P(TestStandardizedAPITest, assertEq) {
 }
 
 INSTANTIATE_TEST_SUITE_P(All, TestStandardizedAPITest, testing::Bool());
+
+using TestStandardizedImplicitTestPassing = TestStandardizedAPITest;
+
+// Verifies that a synchronous test with a passing assertion passes.
+IN_PROC_BROWSER_TEST_P(TestStandardizedImplicitTestPassing,
+                       SyncAssertion_Pass) {
+  ResultCatcher result_catcher;
+  constexpr char kBackgroundJs[] =
+      R"(
+         chrome.test.runTests([
+           function syncPass() {
+             chrome.test.assertTrue(true);
+           }
+         ]);)";
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
+  EXPECT_TRUE(result_catcher.GetNextResult());
+}
+
+// Verifies that a synchronous test returning undefined passes.
+IN_PROC_BROWSER_TEST_P(TestStandardizedImplicitTestPassing,
+                       SyncUndefinedReturn_Pass) {
+  ResultCatcher result_catcher;
+  constexpr char kBackgroundJs[] =
+      R"(
+         chrome.test.runTests([
+           function syncUndefinedPass() {}
+         ]);)";
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
+  EXPECT_TRUE(result_catcher.GetNextResult());
+}
+
+// Verifies that a synchronous test with a failing assertion fails.
+IN_PROC_BROWSER_TEST_P(TestStandardizedImplicitTestPassing,
+                       SyncAssertion_Fail) {
+  ResultCatcher result_catcher;
+  constexpr char kBackgroundJs[] =
+      R"(
+         chrome.test.runTests([
+           function syncFail() {
+             chrome.test.assertTrue(false);
+           }
+         ]);)";
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
+  EXPECT_FALSE(result_catcher.GetNextResult());
+  EXPECT_EQ(kExpectedFailureMessage, result_catcher.message());
+}
+
+// Verifies that a test returning a resolved Promise passes.
+IN_PROC_BROWSER_TEST_P(TestStandardizedImplicitTestPassing,
+                       PromiseResolve_Pass) {
+  ResultCatcher result_catcher;
+  constexpr char kBackgroundJs[] =
+      R"(
+         chrome.test.runTests([
+           async function promisePass() {
+             chrome.test.assertTrue(true);
+           }
+         ]);)";
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
+  EXPECT_TRUE(result_catcher.GetNextResult());
+}
+
+// Verifies that a test returning a Promise that fails an assertion fails.
+IN_PROC_BROWSER_TEST_P(TestStandardizedImplicitTestPassing,
+                       PromiseAssertionFail_Fail) {
+  ResultCatcher result_catcher;
+  constexpr char kBackgroundJs[] =
+      R"(
+         chrome.test.runTests([
+           async function promiseFail() {
+             chrome.test.assertTrue(false);
+           }
+         ]);)";
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
+  EXPECT_FALSE(result_catcher.GetNextResult());
+  EXPECT_EQ(kExpectedFailureMessage, result_catcher.message());
+}
+
+// Verifies that a test returning a rejected Promise fails.
+IN_PROC_BROWSER_TEST_P(TestStandardizedImplicitTestPassing,
+                       PromiseReject_Fail) {
+  ResultCatcher result_catcher;
+  constexpr char kBackgroundJs[] =
+      R"(
+         chrome.test.runTests([
+           async function promiseReject() {
+             throw new Error('Rejected');
+           }
+         ]);)";
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
+  EXPECT_FALSE(result_catcher.GetNextResult());
+  EXPECT_EQ(kExpectedFailureMessage, result_catcher.message());
+}
+
+// Verifies that the test suite fails when a synchronous test case throws
+// an uncaught error (first of two tests).
+IN_PROC_BROWSER_TEST_P(TestStandardizedImplicitTestPassing,
+                       SyncThrowFirst_Fail) {
+  ResultCatcher result_catcher;
+  constexpr char kBackgroundJs[] =
+      R"(
+         chrome.test.runTests([
+           function syncError() {
+             throw new Error('fail');
+           },
+           function syncPass() {}
+         ]);)";
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
+  EXPECT_FALSE(result_catcher.GetNextResult());
+  EXPECT_EQ(kExpectedFailureMessageOneOfTwoTests, result_catcher.message());
+}
+
+// Verifies that the test suite fails when a synchronous test case throws
+// an uncaught error (second of two tests).
+IN_PROC_BROWSER_TEST_P(TestStandardizedImplicitTestPassing,
+                       SyncThrowSecond_Fail) {
+  ResultCatcher result_catcher;
+  constexpr char kBackgroundJs[] =
+      R"(
+         chrome.test.runTests([
+           function syncPass() {},
+           function syncError() {
+             throw new Error('fail');
+           },
+         ]);)";
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
+  EXPECT_FALSE(result_catcher.GetNextResult());
+  EXPECT_EQ(kExpectedFailureMessageOneOfTwoTests, result_catcher.message());
+}
+
+// Verifies that a synchronous test fails if it returns a non-undefined value.
+IN_PROC_BROWSER_TEST_P(TestStandardizedImplicitTestPassing,
+                       SyncReturnsValue_Fail) {
+  ResultCatcher result_catcher;
+  constexpr char kBackgroundJs[] =
+      R"(
+         chrome.test.runTests([
+           function syncReturnsValue() {
+             return 'some string';
+           }
+         ]);)";
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
+  EXPECT_FALSE(result_catcher.GetNextResult());
+  EXPECT_EQ(kExpectedFailureMessage, result_catcher.message());
+}
+
+// Verifies that a test returning a Promise that resolves asynchronously passes.
+IN_PROC_BROWSER_TEST_P(TestStandardizedImplicitTestPassing,
+                       PromiseAsyncResolve_Pass) {
+  ResultCatcher result_catcher;
+  constexpr char kBackgroundJs[] =
+      R"(
+         chrome.test.runTests([
+           async function promisePass() {
+             await Promise.resolve();
+             chrome.test.assertTrue(true);
+           }
+         ]);)";
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
+  EXPECT_TRUE(result_catcher.GetNextResult());
+}
+
+// Verifies that a test returning a Promise that rejects asynchronously fails.
+IN_PROC_BROWSER_TEST_P(TestStandardizedImplicitTestPassing,
+                       PromiseAsyncReject_Fail) {
+  ResultCatcher result_catcher;
+  constexpr char kBackgroundJs[] =
+      R"(
+         chrome.test.runTests([
+           async function promiseReject() {
+             await Promise.resolve();
+             throw new Error('Rejected Async');
+           }
+         ]);)";
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
+  EXPECT_FALSE(result_catcher.GetNextResult());
+  EXPECT_EQ(kExpectedFailureMessage, result_catcher.message());
+}
+
+// Verifies that calling chrome.test.succeed() explicitly fails the test.
+IN_PROC_BROWSER_TEST_P(TestStandardizedImplicitTestPassing,
+                       ExplicitSucceed_Fail) {
+  ResultCatcher result_catcher;
+  constexpr char kBackgroundJs[] =
+      R"(
+         chrome.test.runTests([
+           function syncPass() {
+             chrome.test.succeed();
+           }
+         ]);)";
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
+  EXPECT_FALSE(result_catcher.GetNextResult());
+  EXPECT_EQ(kExpectedFailureMessage, result_catcher.message());
+}
+
+// Verifies that calling chrome.test.fail() explicitly fails the test.
+IN_PROC_BROWSER_TEST_P(TestStandardizedImplicitTestPassing, ExplicitFail_Fail) {
+  ResultCatcher result_catcher;
+  constexpr char kBackgroundJs[] =
+      R"(
+         chrome.test.runTests([
+           function syncFail() {
+             chrome.test.fail('some message');
+           }
+         ]);)";
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
+  EXPECT_FALSE(result_catcher.GetNextResult());
+  EXPECT_EQ(kExpectedFailureMessage, result_catcher.message());
+}
+
+// Verifies that a synchronous test fails if it returns undefined but has
+// pending callbacks.
+IN_PROC_BROWSER_TEST_P(TestStandardizedImplicitTestPassing,
+                       SyncPendingCallbacks_Fail) {
+  ResultCatcher result_catcher;
+  constexpr char kBackgroundJs[] =
+      R"(
+         chrome.test.runTests([
+           function syncPendingCallbacks() {
+             // We use chrome.test.sendMessage here as an example of an API
+             // that takes a callback (wrapped in callbackPass to increment
+             // pendingCallbacks), but we are not testing sendMessage behavior.
+             chrome.test.sendMessage('ping',
+                 chrome.test.callbackPass(() => {}));
+           }
+         ]);)";
+  ASSERT_TRUE(LoadExtensionWithScript(kBackgroundJs));
+  EXPECT_FALSE(result_catcher.GetNextResult());
+  EXPECT_EQ(kExpectedFailureMessage, result_catcher.message());
+}
+
+// We only test with the standardized behavior on because non-standardized
+// testing behavior is already thoroughly covered by other test cases.
+INSTANTIATE_TEST_SUITE_P(All,
+                         TestStandardizedImplicitTestPassing,
+                         testing::Values(true));
+
+class TestHarnessEventsBrowserTest : public TestAPITest {
+ protected:
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    TestAPITest::SetUpCommandLine(command_line);
+    // Enabled the `chrome.test` API on web pages.
+    command_line->AppendSwitch(switches::kExtensionTestApiOnWebPages);
+  }
+
+  // This script registers listeners for `onTestStarted` and `onTestFinished`
+  // and asserts that they fire in the correct order and with the expected
+  // arguments. It runs a single test named `test_name` that succeeds.
+  std::string GetTestScript(const std::string& test_name) {
+    return base::StringPrintf(
+        R"(
+           // Setup the listeners before running the test.
+           // We use a counter instead of a boolean to ensure that
+           // `chrome.test.onTestStarted` is only fired once. This prevents
+           // regressions where the browser sends the event back to the source
+           // process (which should be excluded via
+           // `extensions::Event::exclude_process_id`).
+           let onTestStartedFiredCount = 0;
+           chrome.test.onTestStarted.addListener((info) => {
+             if (info.testName === '%s') {
+               onTestStartedFiredCount++;
+             }
+           });
+
+           const finishedListener = (info) => {
+             // Skip unknown test finished events.
+             if (info.testName !== '%s') {
+               return;
+             }
+             if (info.result === false) {
+               // The test already failed, don't call chrome.test.fail() again
+               // to avoid infinite recursion.
+               return;
+             }
+             if (onTestStartedFiredCount === 1 &&
+                 info.remainingTests === 0 &&
+                 info.assertionDescription === '%s PASS') {
+               // Send message indicating we successfully received the finished
+               // event for this test.
+               chrome.test.sendMessage('finished:' + info.testName);
+             } else {
+               chrome.test.fail('Unexpected info: ' + JSON.stringify(info) +
+                                ', onTestStartedFiredCount: ' +
+                                onTestStartedFiredCount);
+             }
+           };
+           chrome.test.onTestFinished.addListener(finishedListener);
+
+           // Run the test. The test passing means that the `onTestStarted`
+           // event fired. `onTestFinished` is confirmed when it runs and sends
+           // a message back to the test C++.
+           chrome.test.runTests([
+             function %s() {
+               // Assert that `chrome.test.onTestStarted` fired exactly once.
+               // If it fired more than once, it likely means the exclusion
+               // logic in browser-side `extensions::EventRouter` failed.
+               chrome.test.assertEq(1, onTestStartedFiredCount);
+               chrome.test.succeed();
+             }
+           ]);)",
+        test_name.c_str(), test_name.c_str(), test_name.c_str(),
+        test_name.c_str());
+  }
+};
+
+// Tests that `chrome.test.onTestStarted` and `chrome.test.onTestFinished` fire
+// in the same script context where `chrome.test.runTests` is called.
+IN_PROC_BROWSER_TEST_F(TestHarnessEventsBrowserTest, SameContext) {
+  ResultCatcher result_catcher;
+
+  // We will use ExtensionTestMessageListener to verify `onTestFinished` fires.
+  // `onTestStarted` is confirmed to have run when the test case succeeds.
+  // The JS will send "finished:<testName>".
+  ExtensionTestMessageListener bg_listener("finished:backgroundTest");
+  ExtensionTestMessageListener cs_listener("finished:contentScriptTest");
+  ExtensionTestMessageListener page_listener("finished:pageTest");
+  ExtensionTestMessageListener web_listener("finished:webPageTest");
+
+  // Define the extension and web page tests.
+  constexpr char kTestManifest[] =
+      R"({
+           "name": "test extension",
+           "version": "1.0",
+           "manifest_version": 3,
+           "background": { "service_worker": "background.js" },
+           "content_scripts": [{
+             "matches": ["http://*/*"],
+             "js": ["content_script.js"]
+           }]
+         })";
+
+  TestExtensionDir test_dir;
+  test_dir.WriteManifest(kTestManifest);
+  std::string background_js = GetTestScript("backgroundTest");
+  test_dir.WriteFile(FILE_PATH_LITERAL("background.js"), background_js);
+  std::string content_script_js = GetTestScript("contentScriptTest");
+  test_dir.WriteFile(FILE_PATH_LITERAL("content_script.js"), content_script_js);
+  constexpr char kPageHtml[] = R"(<script src="page.js"></script>)";
+  test_dir.WriteFile(FILE_PATH_LITERAL("page.html"), kPageHtml);
+  std::string page_js = GetTestScript("pageTest");
+  test_dir.WriteFile(FILE_PATH_LITERAL("page.js"), page_js);
+
+  // Start embedded test server for the web page test.
+  ASSERT_TRUE(StartEmbeddedTestServer());
+
+  // Load the extension which runs the background script test.
+  const Extension* extension = LoadExtension(test_dir.UnpackedPath());
+  ASSERT_TRUE(extension);
+  EXPECT_TRUE(result_catcher.GetNextResult()) << result_catcher.message();
+  EXPECT_TRUE(bg_listener.WaitUntilSatisfied());
+
+  // Navigate to a web page. This will trigger the content script test.
+  GURL url = embedded_test_server()->GetURL("/title1.html");
+  ASSERT_TRUE(NavigateToURL(GetActiveWebContents(), url));
+  EXPECT_TRUE(result_catcher.GetNextResult()) << result_catcher.message();
+  EXPECT_TRUE(cs_listener.WaitUntilSatisfied());
+
+  // Navigate to an extension page to run the test.
+  GURL ext_url = extension->GetResourceURL("page.html");
+  ASSERT_TRUE(NavigateToURL(GetActiveWebContents(), ext_url));
+  EXPECT_TRUE(result_catcher.GetNextResult()) << result_catcher.message();
+  EXPECT_TRUE(page_listener.WaitUntilSatisfied());
+
+  // Navigate to a non-extension web page to run the web page context test.
+  GURL web_url = embedded_test_server()->GetURL("/extensions/test_file.html");
+  ASSERT_TRUE(NavigateToURL(GetActiveWebContents(), web_url));
+  std::string web_page_js = GetTestScript("webPageTest");
+  ASSERT_TRUE(content::ExecJs(GetActiveWebContents(), web_page_js));
+  EXPECT_TRUE(result_catcher.GetNextResult()) << result_catcher.message();
+  EXPECT_TRUE(web_listener.WaitUntilSatisfied());
+}
+
+// Tests that `chrome.test.onTestStarted` and `chrome.test.onTestFinished`
+// events are broadcast to other listening script contexts outside of the script
+// context that called `chrome.test.runTests`. In this case the script context
+// that calls `chrome.test.runTests` is an extension background script and the
+// broadcasted-to listening script context is a non-extension web page.
+IN_PROC_BROWSER_TEST_F(TestHarnessEventsBrowserTest, CrossContextEvents) {
+  ResultCatcher result_catcher;
+
+  // Set up listeners for messages from the web page.
+  // The web page will send `webpage_started` when it receives the
+  // `chrome.test.onTestStarted` event, and `webpage_finished_success` when it
+  // receives the `chrome.test.onTestFinished` event for the expected test.
+  ExtensionTestMessageListener web_ready_listener("webpage_ready");
+  ExtensionTestMessageListener web_listener_test_started_success(
+      "webpage_test_started:testSuccess");
+  ExtensionTestMessageListener web_listener_test_started_failure(
+      "webpage_test_started:testFailure");
+  ExtensionTestMessageListener web_listener_test_finished_success(
+      "webpage_finished_success:testSuccess");
+  ExtensionTestMessageListener web_listener_test_finished_failure(
+      "webpage_finished_failure:testFailure");
+
+  // Start the embedded test server to serve the web page.
+  ASSERT_TRUE(StartEmbeddedTestServer());
+
+  // Navigate to a non-extension web page.
+  GURL web_url = embedded_test_server()->GetURL("/extensions/test_file.html");
+  ASSERT_TRUE(NavigateToURL(GetActiveWebContents(), web_url));
+
+  // Register test started and finished listeners on the web page. We verify
+  // that these listeners are triggered by the test run in the extension
+  // background script context.
+  constexpr char kWebPageSetupJs[] = R"(
+    chrome.test.onTestStarted.addListener((info) => {
+      chrome.test.sendMessage(`webpage_test_started:${info.testName}`);
+    });
+    chrome.test.onTestFinished.addListener((info) => {
+      if (info.result === true) {
+        chrome.test.sendMessage(`webpage_finished_success:${info.testName}`);
+      } else {
+        chrome.test.sendMessage(`webpage_finished_failure:${info.testName}`);
+      }
+    });
+
+    chrome.test.sendMessage('webpage_ready');
+  )";
+  ASSERT_TRUE(content::ExecJs(GetActiveWebContents(), kWebPageSetupJs));
+  EXPECT_TRUE(web_ready_listener.WaitUntilSatisfied());
+
+  // Define the extension that will run the test.
+  constexpr char kExtensionManifest[] =
+      R"({
+           "name": "test extension",
+           "version": "1.0",
+           "manifest_version": 3,
+           "background": { "service_worker": "background.js" }
+         })";
+
+  TestExtensionDir test_dir;
+  test_dir.WriteManifest(kExtensionManifest);
+  // The background script will run a successful and then a failing test to test
+  // both event pathways.
+  constexpr char kBackgroundJs[] = R"(
+    chrome.test.runTests([
+      function testSuccess() {
+        chrome.test.succeed();
+      },
+      function testFailure() {
+        chrome.test.fail();
+      }
+    ]);
+  )";
+  test_dir.WriteFile(FILE_PATH_LITERAL("background.js"), kBackgroundJs);
+
+  // Load the extension, which automatically starts running the tests in the
+  // service worker context.
+  const Extension* extension = LoadExtension(test_dir.UnpackedPath());
+  ASSERT_TRUE(extension);
+
+  // Wait for the extension test to finish and verify. One test fails so we
+  // expect false here.
+  EXPECT_FALSE(result_catcher.GetNextResult()) << result_catcher.message();
+
+  // Verify that the web page listeners were fired. We should see that the web
+  // page loaded, it's listeners saw two started tests, then two finished tests
+  // (one successful one failure).
+  EXPECT_TRUE(web_ready_listener.WaitUntilSatisfied());
+  EXPECT_TRUE(web_listener_test_started_success.WaitUntilSatisfied());
+  EXPECT_TRUE(web_listener_test_started_failure.WaitUntilSatisfied());
+  EXPECT_TRUE(web_listener_test_finished_success.WaitUntilSatisfied());
+  EXPECT_TRUE(web_listener_test_finished_failure.WaitUntilSatisfied());
+}
 
 }  // namespace extensions

@@ -258,9 +258,6 @@ StatusOr<DomStorageDatabase::Metadata> LocalStorageSqlite::ReadAllMetadata() {
 }
 
 DbStatus LocalStorageSqlite::PutMetadata(Metadata metadata) {
-  // Local storage does not record the next map id in SQLite.
-  CHECK(!metadata.next_map_id);
-
   sql::Transaction transaction(database_.get());
   RETURN_STATUS_ON_ERROR(transaction.Begin());
 

@@ -78,6 +78,11 @@ message SendTabToSelfSpecifics {
   // sender.
   // New in M148.
   optional int64 opened_time_windows_epoch_micros = 14;
+
+  // Time (in microseconds since the Windows epoch) when the entry was activated
+  // on the target device. Set by the receiving device and synced to the server.
+  // New in M151.
+  optional int64 activated_time_windows_epoch_micros = 16;
 }
 
 message PageContext {
@@ -244,7 +249,6 @@ message FormField {
   // bytes of the SHA-1 digest of the concatenated string:
   // field_name&field_control_type
   optional uint32 field_signature = 7;
-  // TODO(crbug.com/485145029): Add regression tests for signature fields.
   repeated AutofillFieldType autofill_types = 8;
 }
 

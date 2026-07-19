@@ -819,7 +819,7 @@ SkiaOutputSurfaceImplOnGpu::CreateSharedImageRepresentationSkia(
       gpu::SharedImageInfo(format, size, color_space, kTopLeft_GrSurfaceOrigin,
                            kPremul_SkAlphaType,
                            CopyOutputResult::kDefaultSharedImageUsage,
-                           std::string(debug_label)),
+                           debug_label),
       gpu::kNullSurfaceHandle);
   if (!result) {
     DLOG(ERROR) << "Failed to create shared image.";
@@ -827,7 +827,8 @@ SkiaOutputSurfaceImplOnGpu::CreateSharedImageRepresentationSkia(
   }
 
   auto representation = dependency_->GetSharedImageManager()->ProduceSkia(
-      mailbox, context_state_->memory_type_tracker(), context_state_);
+      mailbox, context_state_->memory_type_tracker(), context_state_,
+      /*required_usages=*/{});
   shared_image_factory_->DestroySharedImage(mailbox);
 
   return representation;
@@ -972,7 +973,8 @@ void SkiaOutputSurfaceImplOnGpu::CopyOutputRGBAInTexture(
         request->blit_request().shared_image()->mailbox();
 
     representation = dependency_->GetSharedImageManager()->ProduceSkia(
-        mailbox, context_state_->memory_type_tracker(), context_state_);
+        mailbox, context_state_->memory_type_tracker(), context_state_,
+        /*required_usages=*/{gpu::SHARED_IMAGE_USAGE_DISPLAY_WRITE});
   } else {
     auto plane_format =
         request->result_format() == CopyOutputRequest::ResultFormat::RGBA
@@ -1240,7 +1242,8 @@ bool SkiaOutputSurfaceImplOnGpu::CreateDestinationImageIfNeededAndBeginAccess(
         request->blit_request().shared_image()->mailbox();
 
     representation = dependency_->GetSharedImageManager()->ProduceSkia(
-        mailbox, context_state_->memory_type_tracker(), context_state_);
+        mailbox, context_state_->memory_type_tracker(), context_state_,
+        /*required_usages=*/{gpu::SHARED_IMAGE_USAGE_DISPLAY_WRITE});
   } else {
     representation = CreateSharedImageRepresentationSkia(
         MultiPlaneFormat::kNV12, intermediate_dst_size, color_space,
@@ -1892,10 +1895,6 @@ void SkiaOutputSurfaceImplOnGpu::ScheduleOverlays(
 void SkiaOutputSurfaceImplOnGpu::SetVSyncDisplayID(int64_t display_id,
                                                    bool force_update) {
   output_device_->SetVSyncDisplayID(display_id, force_update);
-}
-
-void SkiaOutputSurfaceImplOnGpu::RefreshRateChangedOnSameDisplay() {
-  output_device_->RefreshRateChangedOnSameDisplay();
 }
 
 #if BUILDFLAG(IS_ANDROID)

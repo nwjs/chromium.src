@@ -46,6 +46,7 @@
 #include "components/webapps/isolated_web_apps/types/source.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/isolated_web_apps_policy.h"
+#include "content/public/browser/storage_partition.h"
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
@@ -555,6 +556,7 @@ void IsolatedWebAppDevInstallManager::ReportInstallationResult(
     LOG(ERROR) << "Isolated Web App command line installation failed: "
                << result.error();
   }
+  last_installation_result_ = result;
   on_report_installation_result_.Run(std::move(result));
 }
 
@@ -584,8 +586,9 @@ void IsolatedWebAppDevInstallManager::DownloadWebBundleToFile(
     std::optional<web_package::SignedWebBundleId> expected_bundle_id,
     ScopedTempWebBundleFile bundle) {
   base::FilePath path = bundle.path();
-  auto downloader = std::make_unique<IsolatedWebAppDownloader>(
-      profile()->GetURLLoaderFactory());
+  auto downloader = IsolatedWebAppDownloader::Create(
+      profile()->GetURLLoaderFactory(),
+      profile()->GetDefaultStoragePartition()->GetNetworkContext());
   auto* downloader_ptr = downloader.get();
   base::OnceClosure downloader_keep_alive =
       base::DoNothingWithBoundArgs(std::move(downloader));

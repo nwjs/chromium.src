@@ -8,6 +8,9 @@
 #include <string_view>
 
 #include "build/build_config.h"
+#include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/render_process_host.h"
+#include "content/public/browser/web_contents.h"
 #include "headless/lib/browser/headless_browser_context_impl.h"
 #include "headless/lib/browser/headless_browser_impl.h"
 #include "headless/lib/browser/headless_web_contents_impl.h"
@@ -107,8 +110,20 @@ Response TargetHandler::CreateTarget(
     }
 
     // Create a hidden target.
-    HeadlessWebContentsImpl* web_contents_impl = HeadlessWebContentsImpl::From(
-        context->CreateWebContentsBuilder().SetInitialURL(gurl).Build());
+    HeadlessWebContentsImpl* web_contents_impl =
+        HeadlessWebContentsImpl::From(context->CreateWebContents(gurl));
+    if (!web_contents_impl) {
+      return Response::ServerError("Failed to create web contents");
+    }
+
+    // Mark the process used so IsSuitableHost() rejects it for sites that
+    // require a dedicated process. (Mirrors content::HiddenTargetManager, which
+    // the headless embedder layer bypasses by handling Target.createTarget
+    // itself.)
+    web_contents_impl->web_contents()
+        ->GetPrimaryMainFrame()
+        ->GetProcess()
+        ->SetIsUsed();
 
     *out_target_id = content::DevToolsAgentHost::GetOrCreateFor(
                          web_contents_impl->web_contents())
@@ -127,14 +142,16 @@ Response TargetHandler::CreateTarget(
   const HeadlessWindowState target_window_state =
       headless_window_state.value_or(HeadlessWindowState::kNormal);
 
-  HeadlessWebContentsImpl* web_contents_impl = HeadlessWebContentsImpl::From(
-      context->CreateWebContentsBuilder()
-          .SetInitialURL(gurl)
-          .SetWindowBounds(target_window_bounds)
-          .SetWindowState(target_window_state)
-          .SetEnableBeginFrameControl(
-              enable_begin_frame_control.value_or(false))
-          .Build());
+  HeadlessWebContents::CreateParams create_params(context, gurl);
+  create_params.window_bounds = target_window_bounds;
+  create_params.window_state = target_window_state;
+  create_params.enable_begin_frame_control =
+      enable_begin_frame_control.value_or(false);
+  HeadlessWebContentsImpl* web_contents_impl =
+      HeadlessWebContentsImpl::From(context->CreateWebContents(create_params));
+  if (!web_contents_impl) {
+    return Response::ServerError("Failed to create web contents");
+  }
 
   content::WebContents* wc = web_contents_impl->web_contents();
   auto devtools_agent_host =

@@ -173,7 +173,7 @@ class XRSession final : public EventTarget,
 
   const FrozenArray<IDLString>& enabledFeatures() const;
 
-  bool isSystemKeyboardSupported() const { return false; }
+  bool isSystemKeyboardSupported() const;
 
   uint16_t maxRenderLayers() const { return device_config_->max_render_layers; }
 
@@ -253,8 +253,8 @@ class XRSession final : public EventTarget,
   // available, the method returns nullopt.
   std::optional<ReferenceSpaceInformation> GetStationaryReferenceSpace() const;
 
-  int requestAnimationFrame(V8XRFrameRequestCallback* callback);
-  void cancelAnimationFrame(int id);
+  uint32_t requestAnimationFrame(V8XRFrameRequestCallback* callback);
+  void cancelAnimationFrame(uint32_t id);
 
   XRInputSourceArray* inputSources(ScriptState*) const;
 

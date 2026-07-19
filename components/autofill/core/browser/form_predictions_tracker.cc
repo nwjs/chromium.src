@@ -53,7 +53,8 @@ base::OnceClosure WrapAsTimeoutCallback(base::OnceClosure cb,
 
 }  // namespace
 
-FormPredictionsTracker::FormPredictionsTracker(AutofillClient* client) {
+FormPredictionsTracker::FormPredictionsTracker(AutofillClient* client)
+    : client_(client) {
   CHECK(client);
   autofill_managers_observation_.Observe(client);
 }
@@ -62,7 +63,8 @@ FormPredictionsTracker::~FormPredictionsTracker() = default;
 
 void FormPredictionsTracker::Wait(base::OnceClosure callback,
                                   base::TimeDelta timeout) {
-  if (!base::FeatureList::IsEnabled(
+  if (!client_->IsTabInActorMode() ||
+      !base::FeatureList::IsEnabled(
           features::kAutofillDelayApcForPredictions)) {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, std::move(callback));
@@ -100,8 +102,7 @@ void FormPredictionsTracker::OnAutofillManagerStateChanged(
     AutofillDriver::LifecycleState new_state) {
   if (new_state == AutofillDriver::LifecycleState::kPendingReset ||
       new_state == AutofillDriver::LifecycleState::kPendingDeletion) {
-    autofill::LocalFrameToken local_frame_token =
-        manager.driver().GetFrameToken();
+    LocalFrameToken local_frame_token = manager.driver().GetFrameToken();
     absl::erase_if(form_parsing_status_, [local_frame_token](const auto& pair) {
       return pair.first.frame_token == local_frame_token;
     });
@@ -144,8 +145,8 @@ void FormPredictionsTracker::OnAfterFormsSeen(
 }
 
 void FormPredictionsTracker::OnFieldTypesDetermined(
-    autofill::AutofillManager& manager,
-    autofill::FormGlobalId form_id,
+    AutofillManager& manager,
+    FormGlobalId form_id,
     FieldTypeSource source,
     bool small_forms_were_parsed) {
   if (!small_forms_were_parsed) {

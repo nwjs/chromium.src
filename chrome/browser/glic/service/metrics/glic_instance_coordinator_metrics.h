@@ -13,9 +13,6 @@
 #include "base/memory/raw_ptr.h"
 #include "base/timer/timer.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
-#include "components/prefs/pref_change_registrar.h"
-
-class PrefService;
 
 namespace content {
 class WebContents;
@@ -25,6 +22,7 @@ namespace glic {
 
 class Host;
 class GlicInstance;
+class GlicInstanceImpl;
 
 // LINT.IfChange(GlicSwitchConversationTarget)
 enum class GlicSwitchConversationTarget {
@@ -55,10 +53,10 @@ class GlicInstanceCoordinatorMetrics {
     virtual int GetVisibleInstanceCount() const = 0;
     virtual std::vector<glic::mojom::ConversationInfoPtr>
     GetRecentlyActiveConversations(size_t limit) = 0;
+    virtual std::vector<GlicInstanceImpl*> GetInstances() = 0;
   };
 
-  explicit GlicInstanceCoordinatorMetrics(DataProvider* data_provider,
-                                          PrefService* pref_service);
+  explicit GlicInstanceCoordinatorMetrics(DataProvider* data_provider);
   ~GlicInstanceCoordinatorMetrics();
 
   // Starts periodic recording of memory metrics.
@@ -74,12 +72,26 @@ class GlicInstanceCoordinatorMetrics {
       const std::optional<std::string>& target_instance_conversation_id,
       raw_ptr<GlicInstance> active_instance);
 
+  // Called when activating a tab with a conversation to record candidate count.
+  void RecordActivateTabCandidateTabCount(size_t count);
+
   // Called on memory pressure events to record memory footprint metrics.
   void OnMemoryPressure(base::MemoryPressureLevel level);
 
   // Called periodically to record memory footprint metrics using the averaging
   // and totals scheme.
   void RecordPeriodicMemoryMetrics();
+
+  // Records the total number of Glic instances alive when a new instance is
+  // created.
+  void RecordCountOnCreation();
+
+  // Records the number of awake Glic instances when WebUI contents are created.
+  void RecordCountAwakeOnContentsCreated();
+
+  // Records the number of actuating Glic instances when an actor task is
+  // created.
+  void RecordCountActuatingOnTaskCreation();
 
  private:
   // Helper to calculate currently visible instances using
@@ -100,8 +112,6 @@ class GlicInstanceCoordinatorMetrics {
   // suffix.
   void RecordMemoryFootprint(std::string_view suffix);
 
-  void OnPinningPrefChanged();
-
   const raw_ptr<DataProvider> data_provider_;
 
   // Tracks the start time of a "Concurrent Visibility" period, which is a
@@ -115,9 +125,6 @@ class GlicInstanceCoordinatorMetrics {
   std::optional<std::string> active_conversation_id_;
 
   base::RepeatingTimer memory_metrics_timer_;
-
-  PrefChangeRegistrar pref_registrar_;
-  bool is_pinned_ = false;
 };
 
 }  // namespace glic

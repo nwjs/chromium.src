@@ -6,7 +6,8 @@
 
 #include <unicode/utf16.h>
 
-#include "base/compiler_specific.h"
+#include <algorithm>
+
 #include "third_party/blink/renderer/core/layout/geometry/writing_mode_converter.h"
 #include "third_party/blink/renderer/core/layout/inline/fragment_item.h"
 #include "third_party/blink/renderer/core/layout/inline/inline_cursor.h"
@@ -20,19 +21,23 @@ namespace blink {
 
 namespace {
 
+// Returns true if `offset` points into the middle of a surrogate pair, i.e.
+// between a leading and a trailing surrogate. Surrogate pairs only exist in
+// 16-bit strings, so 8-bit text is never split.
+bool IsInsideSurrogatePair(StringView string, unsigned offset) {
+  if (string.Is8Bit() || offset == 0 || offset >= string.length()) {
+    return false;
+  }
+  auto code_units = string.Span16();
+  return U16_IS_TRAIL(code_units[offset]) && U16_IS_LEAD(code_units[offset - 1]);
+}
+
 unsigned AdjustCodeUnitStartOffset(StringView string, unsigned offset) {
-  return (U16_IS_TRAIL(UNSAFE_TODO(string[offset])) && offset > 0 &&
-          U16_IS_LEAD(UNSAFE_TODO(string[offset - 1])))
-             ? offset - 1
-             : offset;
+  return IsInsideSurrogatePair(string, offset) ? offset - 1 : offset;
 }
 
 unsigned AdjustCodeUnitEndOffset(StringView string, unsigned offset) {
-  return (offset < string.length() &&
-          U16_IS_TRAIL(UNSAFE_BUFFERS(string[offset])) && offset > 0 &&
-          U16_IS_LEAD(UNSAFE_BUFFERS(string[offset - 1])))
-             ? offset + 1
-             : offset;
+  return IsInsideSurrogatePair(string, offset) ? offset + 1 : offset;
 }
 
 std::tuple<Vector<const FragmentItem*>, const FragmentItems*>
@@ -78,10 +83,10 @@ FragmentItemsInLogicalOrder(const LayoutObject& query_root) {
   auto items_tuple = FragmentItemsInVisualOrder(query_root);
   auto& item_list = std::get<0>(items_tuple);
   // Sort |item_list| in the logical order.
-  std::sort(item_list.begin(), item_list.end(),
-            [](const FragmentItem* a, const FragmentItem* b) {
-              return a->StartOffset() < b->StartOffset();
-            });
+  std::ranges::sort(item_list,
+                    [](const FragmentItem* a, const FragmentItem* b) {
+                      return a->StartOffset() < b->StartOffset();
+                    });
   return items_tuple;
 }
 
@@ -315,10 +320,10 @@ int SvgTextQuery::CharacterNumberAtPosition(const gfx::PointF& position) const {
   }
 
   // Count code units before |hit_item|.
-  std::sort(item_list.begin(), item_list.end(),
-            [](const FragmentItem* a, const FragmentItem* b) {
-              return a->StartOffset() < b->StartOffset();
-            });
+  std::ranges::sort(item_list,
+                    [](const FragmentItem* a, const FragmentItem* b) {
+                      return a->StartOffset() < b->StartOffset();
+                    });
   unsigned addressable_code_unit_count = 0;
   for (const auto* item : item_list) {
     if (item == hit_item) {

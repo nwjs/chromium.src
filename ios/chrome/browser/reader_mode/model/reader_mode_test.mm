@@ -13,6 +13,8 @@
 #import "components/dom_distiller/core/extraction_utils.h"
 #import "components/feature_engagement/test/mock_tracker.h"
 #import "components/language/ios/browser/language_detection_java_script_feature.h"
+#import "components/optimization_guide/proto/hints.pb.h"
+#import "components/sync/test/test_sync_service.h"
 #import "components/translate/core/browser/translate_pref_names.h"
 #import "ios/chrome/browser/dom_distiller/model/distiller_service_factory.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
@@ -29,6 +31,8 @@
 #import "ios/chrome/browser/safe_browsing/model/safe_browsing_client_factory.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_source_tab_helper.h"
+#import "ios/chrome/browser/sync/model/sync_service_factory.h"
+#import "ios/chrome/browser/sync/model/test_sync_service_utils.h"
 #import "ios/components/security_interstitials/safe_browsing/fake_safe_browsing_client.h"
 #import "ios/web/public/js_messaging/web_frame.h"
 #import "ios/web/public/js_messaging/web_frames_manager.h"
@@ -71,6 +75,8 @@ void ReaderModeTest::SetUp() {
   builder.AddTestingFactory(
       feature_engagement::TrackerFactory::GetInstance(),
       base::BindRepeating(&BuildFeatureEngagementMockTracker));
+  builder.AddTestingFactory(SyncServiceFactory::GetInstance(),
+                            base::BindRepeating(&CreateTestSyncService));
   profile_ = std::move(builder).Build();
 
   // Ensure that kOfferTranslateEnabled is enabled.
@@ -132,7 +138,8 @@ void ReaderModeTest::LoadWebpage(web::FakeWebState* web_state,
 void ReaderModeTest::SetReaderModeState(web::FakeWebState* web_state,
                                         const GURL& url,
                                         ReaderModeHeuristicResult result,
-                                        std::string distilled_content) {
+                                        std::string distilled_content,
+                                        bool mock_opt_guide) {
   // Set up the fake web frame to return a custom result after executing
   // the heuristic Javascript callback.
   auto main_frame = web::FakeWebFrame::CreateMainWebFrame(url);
@@ -175,6 +182,19 @@ void ReaderModeTest::SetReaderModeState(web::FakeWebState* web_state,
                           weak_ptr_factory_.GetWeakPtr(),
                           web_state->GetWeakPtr(), web_frame->AsWeakPtr(),
                           result));
+
+  if (mock_opt_guide && IsReaderModeOptimizationGuideEligibilityAvailable() &&
+      result == ReaderModeHeuristicResult::kReaderModeEligible) {
+    OptimizationGuideService* optimization_guide_service =
+        OptimizationGuideServiceFactory::GetForProfile(profile());
+    if (optimization_guide_service) {
+      optimization_guide::proto::Any any_metadata;
+      optimization_guide::OptimizationMetadata metadata;
+      metadata.set_any_metadata(any_metadata);
+      optimization_guide_service->AddHintForTesting(
+          url, optimization_guide::proto::READER_MODE_ELIGIBLE, metadata);
+    }
+  }
 }
 
 void ReaderModeTest::WaitForPageLoadDelayAndRunUntilIdle() {
@@ -192,11 +212,10 @@ bool ReaderModeTest::WaitForAvailableReaderModeContentInWebState(
   constexpr base::TimeDelta timeout =
       base::test::ios::kWaitForJSCompletionTimeout +
       base::test::ios::kWaitForPageLoadTimeout;
-  return base::test::ios::WaitUntilConditionOrTimeout(
-      timeout, true, ^{
-        return ReaderModeTabHelper::FromWebState(web_state)
-                   ->GetReaderModeWebState() != nullptr;
-      });
+  return base::test::ios::WaitUntilConditionOrTimeout(timeout, true, ^{
+    return ReaderModeTabHelper::FromWebState(web_state)
+               ->GetReaderModeWebState() != nullptr;
+  });
 }
 
 void ReaderModeTest::OnDomFeaturesRetrieved(
@@ -224,6 +243,10 @@ void ReaderModeTest::AddReadabilityHeuristicResultToFrame(
       base::UTF8ToUTF16(dom_distiller::GetReadabilityTriggeringScript());
   switch (result) {
     case ReaderModeHeuristicResult::kReaderModeEligible:
+    case ReaderModeHeuristicResult::
+        kReaderModeNotEligibleOptimizationGuideIneligible:
+    case ReaderModeHeuristicResult::
+        kReaderModeNotEligibleOptimizationGuideUnknown:
       readability_heuristic_value_ = std::make_unique<base::Value>(true);
       break;
     case ReaderModeHeuristicResult::kMalformedResponse:
@@ -234,10 +257,6 @@ void ReaderModeTest::AddReadabilityHeuristicResultToFrame(
       break;
     case ReaderModeHeuristicResult::kReaderModeNotEligibleContentOnly:
     case ReaderModeHeuristicResult::kReaderModeNotEligibleContentLength:
-    case ReaderModeHeuristicResult::
-        kReaderModeNotEligibleOptimizationGuideIneligible:
-    case ReaderModeHeuristicResult::
-        kReaderModeNotEligibleOptimizationGuideUnknown:
       NOTREACHED();
   }
   web_frame->AddResultForExecutedJs(readability_heuristic_value_.get(),

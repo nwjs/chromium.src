@@ -34,3 +34,4 @@ class BuildPropsCodeSignConfig(CodeSignConfig):
     @property
     def base_bundle_id(self):
         return '@MAC_BUNDLE_ID@'
+

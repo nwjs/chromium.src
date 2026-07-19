@@ -43,6 +43,7 @@
 #include "chrome/browser/ui/views/page_action/page_action_icon_controller.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_loading_indicator_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_view_observer.h"
+#include "chrome/browser/ui/views/page_action/test_support/page_action_test_support.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -862,7 +863,9 @@ class SaveCardBubbleViewsFullFormBrowserTest
         BrowserView::GetBrowserViewForBrowser(GetBrowser(0));
     IconLabelBubbleView* icon;
     if (IsPageActionMigrationEnabled()) {
-      icon = browser_view->toolbar_button_provider()->GetPageActionView(
+      auto* provider = browser_view->toolbar_button_provider();
+      icon = page_actions::GetIconLabelBubbleViewForTesting(
+          provider->GetPageActionViewInterface(kActionShowPaymentsBubbleOrPage),
           kActionShowPaymentsBubbleOrPage);
     } else {
       icon = browser_view->toolbar_button_provider()->GetPageActionIconView(
@@ -894,7 +897,7 @@ class SaveCardBubbleViewsFullFormBrowserTest
   void HideAccountNameEmailProfile() {
     signin::IdentityManager* identity_manager =
         IdentityManagerFactory::GetForProfile(GetProfile(0));
-    autofill::test::HideAccountNameEmailProfile(
+    test::HideAccountNameEmailProfile(
         GetProfile(0)->GetPrefs(), identity_manager->FindExtendedAccountInfo(
                                        identity_manager->GetPrimaryAccountInfo(
                                            signin::ConsentLevel::kSignin)));
@@ -914,7 +917,7 @@ class SaveCardBubbleViewsFullFormBrowserTest
   bool is_icon_showing_ = false;
   bool is_bubble_showing_ = false;
 
-  std::unique_ptr<autofill::EventWaiter<DialogEvent>> event_waiter_;
+  std::unique_ptr<EventWaiter<DialogEvent>> event_waiter_;
   std::unique_ptr<views::AnyWidgetObserver> any_widget_observer_;
 
   test::AutofillBrowserTestEnvironment autofill_test_environment_;
@@ -1884,7 +1887,7 @@ IN_PROC_BROWSER_TEST_P(
 
   // Set now to next month. Setting test_clock will not affect the dropdown to
   // be selected, so selecting the current January will always be expired.
-  autofill::TestAutofillClock test_clock;
+  TestAutofillClock test_clock;
   test_clock.SetNow(base::Time::Now());
   test_clock.Advance(base::Days(40));
   // Selecting expired date will disable [Save] button.
@@ -1978,7 +1981,7 @@ IN_PROC_BROWSER_TEST_P(
   SetupSyncAndHideAccountNameEmailProfile();
   const base::Time kJune2017 =
       base::Time::FromSecondsSinceUnixEpoch(1497552271);
-  autofill::TestAutofillClock test_clock;
+  TestAutofillClock test_clock;
   test_clock.SetNow(kJune2017);
   // Fill form with a valid month but a passed year.
   FillFormWithSpecificExpirationDate("03", "2017");

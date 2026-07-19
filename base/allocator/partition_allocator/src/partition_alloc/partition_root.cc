@@ -5,6 +5,10 @@
 #pragma clang diagnostic ignored "-Wmisleading-indentation"
 #pragma clang diagnostic ignored "-Wunused-variable"
 
+// clang-format off
+#include "partition_alloc/internal/partition_root_internal.h"
+// clang-format on
+
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -14,7 +18,6 @@
 #include "partition_alloc/build_config.h"
 #include "partition_alloc/buildflags.h"
 #include "partition_alloc/in_slot_metadata.h"
-#include "partition_alloc/internal/partition_root_internal.h"
 #include "partition_alloc/oom.h"
 #include "partition_alloc/page_allocator.h"
 #include "partition_alloc/partition_address_space.h"
@@ -70,6 +73,10 @@ void RecordAllocOrFree(uintptr_t addr, size_t size) {
 }  // namespace partition_alloc::internal
 
 namespace partition_alloc {
+
+namespace {
+internal::Lock g_leak_size_map_lock;
+}  // namespace
 
 #if PA_CONFIG(USE_PARTITION_ROOT_ENUMERATOR)
 
@@ -235,9 +242,11 @@ void BeforeForkInParent() PA_NO_THREAD_SAFETY_ANALYSIS {
       internal::PartitionRootEnumerator::EnumerateOrder::kNormal);
 
   internal::ThreadCacheRegistry::GetLock().Acquire();
+  g_leak_size_map_lock.Acquire();
 }
 
 void ReleaseLocks(bool in_child) PA_NO_THREAD_SAFETY_ANALYSIS {
+  UnlockOrReinit(g_leak_size_map_lock, in_child);
   // In reverse order, even though there are no lock ordering dependencies.
   UnlockOrReinit(internal::ThreadCacheRegistry::GetLock(), in_child);
   internal::PartitionRootEnumerator::Instance().Enumerate(
@@ -1916,11 +1925,11 @@ internal::ThreadCache* PartitionRoot::thread_cache_for_testing() const {
 // every few seconds.
 void PartitionRoot::AdjustSlotSpanRing(int16_t ring_size,
                                        int dirty_bytes_shift) {
-  max_empty_slot_spans_dirty_bytes_shift_ = dirty_bytes_shift;
   // ShrinkEmptySlotSpansRing() will iterate through
   // kMaxEmptySlotSpanRingSize, so no need to free empty pages now.
   ::partition_alloc::internal::ScopedGuard guard{
       internal::PartitionRootLock(this)};
+  max_empty_slot_spans_dirty_bytes_shift_ = dirty_bytes_shift;
   global_empty_slot_span_ring_size_ = ring_size;
   if (global_empty_slot_span_ring_index_ >= ring_size) {
     global_empty_slot_span_ring_index_ = 0;
@@ -2023,6 +2032,13 @@ void PartitionRoot::CheckMetadataIntegrity(const void* ptr) {
 #endif  // PA_BUILDFLAG(USE_PARTITION_COOKIE)
 }
 
+PA_NOINLINE size_t
+PartitionRoot::GetSlotSizeForTesting(const void* object) const {
+  auto slot_start = internal::SlotStart::Unchecked(object).Untag();
+  auto* slot_span = SlotSpanMetadata::FromSlotStart(slot_start, this);
+  return slot_span->bucket->slot_size;
+}
+
 // static
 PA_NOINLINE PartitionRoot* PartitionRoot::GetRootFromAddress(void* object) {
   uintptr_t address = reinterpret_cast<uintptr_t>(UntagPtr(object));
@@ -2046,6 +2062,11 @@ PA_NOINLINE PartitionRoot* PartitionRoot::GetRootFromAddress(void* object) {
   return nullptr;
 }
 
+// static
+internal::Lock& PartitionRoot::GetLeakSizeMapLock() {
+  return g_leak_size_map_lock;
+}
+
 template <AllocFlags flags>
 PA_NOINLINE PA_MALLOC_FN void* PartitionRoot::AlignedAlloc(
     size_t alignment,
@@ -2059,6 +2080,7 @@ template <AllocFlags flags>
 PA_NOINLINE PA_MALLOC_FN void* PartitionRoot::AllocInline(
     size_t requested_size,
     const char* type_name) {
+  static_assert(!ContainsFlags(flags, AllocFlags::kAlignedAlloc));
   return AllocInternal<flags>(requested_size, internal::PartitionPageSize(),
                               type_name);
 }

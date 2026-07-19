@@ -282,6 +282,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceBrowserTest,
     // in chrome: using `BrowserContextKeyedServiceShutdownNotifierFactory`:
     // which does not yet have an implementation using `ProfileSelections`.
     "BrowserManagerService",
+    "ExtensionKeybindingRegistryShutdownNotifierFactory",
 #if BUILDFLAG(IS_CHROMEOS)
     "GalleryWatchManager",
     "MediaFileSystemRegistry",
@@ -290,6 +291,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceBrowserTest,
     "PermissionsUpdaterShutdownFactory",
     "PluginInfoHostImpl",
     "TurnSyncOnHelperShutdownNotifier",
+    "WebRequestProxyingWebTransport",
 
     // This service is needed to handle navigations in the Profile Picker.
     "ChromePolicyBlocklistService",
@@ -336,6 +338,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceBrowserTest,
     // in chrome: using `BrowserContextKeyedServiceShutdownNotifierFactory`:
     // which does not yet have an implementation using `ProfileSelections`.
     "BrowserManagerService",
+    "ExtensionKeybindingRegistryShutdownNotifierFactory",
 #if BUILDFLAG(IS_CHROMEOS)
     "GalleryWatchManager",
     "MediaFileSystemRegistry",
@@ -344,6 +347,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceBrowserTest,
     "PermissionsUpdaterShutdownFactory",
     "PluginInfoHostImpl",
     "TurnSyncOnHelperShutdownNotifier",
+    "WebRequestProxyingWebTransport",
 
     // Those services are needed to be able to display IPHs in the Profile
     // Picker.
@@ -406,9 +410,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
 #endif  // BUILDFLAG(IS_CHROMEOS)
     "BrowserManagerService",
     "BrowsingDataLifetimeManager",
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
-    "ChromeDeviceAuthenticator",
-#endif
+
     "ContextualSearchService",
     "ContextualTasksService",
     "ContextualTasksUiService",
@@ -421,7 +423,6 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
 #endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
     "ChromeEnterpriseRealTimeUrlLookupService",
 #if !BUILDFLAG(IS_ANDROID)
-    "ChromePasswordProtectionService",
 #if BUILDFLAG(IS_CHROMEOS)
     "AshPolicyBlocklistService",
 #else
@@ -433,6 +434,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
 #endif
     "DeveloperToolsPolicyChecker",
     "EnterpriseReportingPrivateEventRouter",
+    "ExtensionKeybindingRegistryShutdownNotifierFactory",
     "ExtensionNavigationRegistry",
     "ExtensionSystem",
     "ExtensionProtocolShutdownNotifierFactory",
@@ -452,9 +454,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     // TODO(crbug.com/374351946): Investigate if this is necessary on CrOS.
     "LiveTranslateController",
 #endif  // !BUILDFLAG(IS_CHROMEOS)
-#if !BUILDFLAG(IS_ANDROID)
-    "LookalikeUrlServiceFactory",
-#endif
+
     "MediaRouter",
     "MediaRouterUIService",
     "NotificationDisplayService",
@@ -470,6 +470,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "PrivacySandboxSettings",
     "ProcessManager",
     "ProfileNetworkContextService",
+    "ProtocolHandlersManager",
     "ProtocolHandlerRegistry",
     "ReadAnythingServiceFactory",
     "RealtimeReportingClient",
@@ -480,9 +481,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "ResumableUDPSocketManager",
     "RulesRegistryService",
     "SafeBrowsingPrivateEventRouter",
-#if !BUILDFLAG(IS_ANDROID)
-    "SafeSearch",
-#endif
+
 #if BUILDFLAG(IS_CHROMEOS)
     "SerialConnectionManager",
     "SerialPortManager",
@@ -598,6 +597,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "ActivityLog",
     "ActivityLogPrivateAPI",
     "AdvancedProtectionStatusManager",
+    "AiModeButtonService",
     "AimEligibilityService",
     "AlarmManager",
     "AnnouncementNotificationService",
@@ -694,6 +694,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
 #if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
     "ExtensionInstallEventRouter",
 #endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
+    "ExtensionKeybindingRegistryShutdownNotifierFactory",
     "ExtensionManagement",
     "ExtensionNavigationRegistry",
     "ExtensionPrefValueMap",
@@ -758,7 +759,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "ManagedConfigurationAPI",
     "ManagementAPI",
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-    "ManifestV2ExperimentManager",
+    "ManifestV2Handler",
 #endif
 #if BUILDFLAG(IS_CHROMEOS)
     "MediaGalleriesAPI",
@@ -766,9 +767,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "MediaRouter",
     "MediaRouterUIService",
     "MenuManager",
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-    "MimeHandlerRegistry",
-#endif
+
     "NavigationPredictorKeyedService",
     "NetworkingPrivateEventRouter",
     "NotificationDisplayService",
@@ -831,9 +830,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "RulesRegistryService",
     "RuntimeAPI",
     "SafeBrowsingMetricsCollector",
-#if !BUILDFLAG(IS_ANDROID)
-    "SafeBrowsingNetworkContextService",
-#endif
+
     "SafeBrowsingPrivateEventRouter",
     "SafeBrowsingTailoredSecurityService",
     "SearchEngineChoiceServiceFactory",

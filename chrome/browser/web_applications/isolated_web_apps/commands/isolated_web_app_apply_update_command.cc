@@ -30,13 +30,15 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/web_applications/callback_utils.h"
 #include "chrome/browser/web_applications/commands/web_app_command.h"
-#include "chrome/browser/web_applications/isolated_web_apps/commands/isolated_web_app_install_command_helper.h"
 #include "chrome/browser/web_applications/isolated_web_apps/install/non_installed_bundle_inspection_context.h"
-#include "chrome/browser/web_applications/isolated_web_apps/isolation_data.h"
 #include "chrome/browser/web_applications/isolated_web_apps/jobs/prepare_install_info_job.h"
+#include "chrome/browser/web_applications/isolated_web_apps/key_rotation_util.h"
 #include "chrome/browser/web_applications/isolated_web_apps/remove_isolated_web_app_data.h"
+#include "chrome/browser/web_applications/isolated_web_apps/storage_util.h"
+#include "chrome/browser/web_applications/isolated_web_apps/trust_and_signature_verifier.h"
 #include "chrome/browser/web_applications/jobs/finalize_update_job.h"
 #include "chrome/browser/web_applications/locks/app_lock.h"
+#include "chrome/browser/web_applications/model/isolation_data.h"
 #include "chrome/browser/web_applications/web_app.h"
 #include "chrome/browser/web_applications/web_app_command_manager.h"
 #include "chrome/browser/web_applications/web_app_install_finalizer.h"
@@ -53,17 +55,16 @@
 #include "components/webapps/isolated_web_apps/types/iwa_version.h"
 #include "components/webapps/isolated_web_apps/types/storage_location.h"
 #include "content/public/browser/browser_context.h"
-#include "content/public/browser/web_contents.h"
+#include "content/public/browser/storage_partition.h"
 
 namespace web_app {
 
 IsolatedWebAppApplyUpdateCommand::IsolatedWebAppApplyUpdateCommand(
     IsolatedWebAppUrlInfo url_info,
-    std::unique_ptr<content::WebContents> web_contents,
+    Profile& profile,
     std::unique_ptr<ScopedKeepAlive> optional_keep_alive,
     std::unique_ptr<ScopedProfileKeepAlive> optional_profile_keep_alive,
-    base::OnceCallback<void(IsolatedWebAppApplyUpdateCommandResult)> callback,
-    std::unique_ptr<IsolatedWebAppInstallCommandHelper> command_helper)
+    base::OnceCallback<void(IsolatedWebAppApplyUpdateCommandResult)> callback)
     : WebAppCommand<AppLock, IsolatedWebAppApplyUpdateCommandResult>(
           "IsolatedWebAppApplyUpdateCommand",
           AppLockDescription(url_info.app_id()),
@@ -71,13 +72,11 @@ IsolatedWebAppApplyUpdateCommand::IsolatedWebAppApplyUpdateCommand(
           base::unexpected(IsolatedWebAppApplyUpdateCommandError{
               .message = std::string("System is shutting down.")})),
       url_info_(std::move(url_info)),
-      web_contents_(std::move(web_contents)),
+      profile_(profile),
       optional_keep_alive_(std::move(optional_keep_alive)),
-      optional_profile_keep_alive_(std::move(optional_profile_keep_alive)),
-      command_helper_(std::move(command_helper)) {
-  CHECK(web_contents_ != nullptr);
+      optional_profile_keep_alive_(std::move(optional_profile_keep_alive)) {
   CHECK(optional_profile_keep_alive_ == nullptr ||
-        &profile() == optional_profile_keep_alive_->profile());
+        &profile_.get() == optional_profile_keep_alive_->profile());
 
   GetMutableDebugValue().Set("app_id", url_info_.app_id());
   GetMutableDebugValue().Set("origin", url_info_.origin().Serialize());
@@ -131,7 +130,8 @@ void IsolatedWebAppApplyUpdateCommand::CheckIfUpdateIsStillPending(
 
 void IsolatedWebAppApplyUpdateCommand::CheckTrustAndSignatures(
     base::OnceClosure next_step_callback) {
-  command_helper_->CheckTrustAndSignatures(
+  web_app::CheckTrustAndSignatures(
+      url_info_.web_bundle_id(),
       IwaSourceWithMode::FromStorageLocation(profile().GetPath(),
                                              pending_update_info().location),
       IwaUpdateOperation{}, &profile(),
@@ -177,8 +177,8 @@ void IsolatedWebAppApplyUpdateCommand::HandleKeyRotationOrDowngradeIfNecessary(
     // Downgrade: The candidate version is older than the current one.
     // Proceed with the update, but remove user data first to avoid
     // incompatibility.
-    web_app::RemoveIsolatedWebAppBrowsingData(&profile(), url_info_.origin(),
-                                              std::move(next_step_callback));
+    RemoveIsolatedWebAppBrowsingData(&profile(), url_info_.origin(),
+                                     std::move(next_step_callback));
   } else {
     // Same-version update: This is only allowed if it fulfills a required
     // key rotation.
@@ -198,7 +198,8 @@ void IsolatedWebAppApplyUpdateCommand::HandleKeyRotationOrDowngradeIfNecessary(
 
 void IsolatedWebAppApplyUpdateCommand::CreateStoragePartition(
     base::OnceClosure next_step_callback) {
-  command_helper_->CreateStoragePartitionIfNotPresent(profile());
+  profile().GetStoragePartition(url_info_.storage_partition_config(&profile()),
+                                /*can_create=*/true);
   std::move(next_step_callback).Run();
 }
 
@@ -209,8 +210,9 @@ void IsolatedWebAppApplyUpdateCommand::PrepareInstallInfo(
       profile(),
       IwaSourceWithMode::FromStorageLocation(profile().GetPath(),
                                              pending_update_info().location),
-      IwaUpdateOperation{}, pending_update_info().version, *web_contents_,
-      *command_helper_, lock_->web_contents_manager().CreateUrlLoader(),
+      IwaUpdateOperation{}, pending_update_info().version, url_info_,
+      lock_->web_contents_manager().CreateDataRetriever(),
+      lock_->web_contents_manager().CreateUrlLoader(),
       std::move(next_step_callback));
 }
 
@@ -304,9 +306,7 @@ void IsolatedWebAppApplyUpdateCommand::ReportSuccess() {
 }
 
 Profile& IsolatedWebAppApplyUpdateCommand::profile() {
-  CHECK(web_contents_);
-  CHECK(web_contents_->GetBrowserContext());
-  return *Profile::FromBrowserContext(web_contents_->GetBrowserContext());
+  return *profile_;
 }
 
 }  // namespace web_app

@@ -66,6 +66,7 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/metrics/field_trial.h"
@@ -2911,6 +2912,21 @@ void CookieMonster::DoCookieCallback(base::OnceClosure callback) {
   }
 
   std::move(callback).Run();
+}
+
+void CookieMonster::OnPreconnect(const GURL& url) {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  constexpr std::string_view kCookieOnPreconnectLoadCookie =
+      "Cookie.OnPreconnect.LoadCookie";
+  if (finished_fetching_all_cookies_) {
+    base::UmaHistogramBoolean(kCookieOnPreconnectLoadCookie, false);
+    return;
+  }
+  base::UmaHistogramBoolean(kCookieOnPreconnectLoadCookie, true);
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(&CookieMonster::DoCookieCallbackForHostOrDomain,
+                                weak_ptr_factory_.GetWeakPtr(),
+                                base::DoNothing(), std::string(url.host())));
 }
 
 void CookieMonster::DoCookieCallbackForURL(base::OnceClosure callback,

@@ -87,12 +87,13 @@ void ServiceWorkerHost::CompleteStartWorkerPreparation(
 void ServiceWorkerHost::CreateWebTransportConnector(
     mojo::PendingReceiver<blink::mojom::WebTransportConnector> receiver) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  // TODO(crbug.com/379869738) Remove GetUnsafeValue.
+  // TODO(crbug.com/379869738): Remove GetUnsafeValue.
   mojo::MakeSelfOwnedReceiver(
       std::make_unique<WebTransportConnectorImpl>(
           worker_process_id_.GetUnsafeValue(), /*frame=*/nullptr,
           version_->key().origin(), GetNetworkAnonymizationKey(),
-          version_->BuildClientSecurityState()->Clone()),
+          version_->BuildClientSecurityState()->Clone(),
+          version_->network_restrictions_id()),
       std::move(receiver));
 }
 
@@ -107,10 +108,7 @@ void ServiceWorkerHost::CreateWebSocketConnector(
                                            IPC::mojom::kRoutingIdNone),
           storage_key.origin(), storage_key.ToPartialNetIsolationInfo(),
           version_->BuildClientSecurityState()->Clone(),
-          // TODO(crbug.com/492462310): Pass network_restrictions_id so
-          // Connection-Allowlist is enforced for service worker WebSocket
-          // connections.
-          /*network_restrictions_id=*/std::nullopt),
+          version_->network_restrictions_id()),
       std::move(receiver));
 }
 

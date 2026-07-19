@@ -63,7 +63,7 @@ import org.chromium.components.browser_ui.settings.SettingsUtils;
 import org.chromium.components.browser_ui.settings.search.SettingsIndexData;
 import org.chromium.components.regional_capabilities.RegionalCapabilitiesService;
 import org.chromium.components.signin.AccountManagerFacadeProvider;
-import org.chromium.components.signin.base.CoreAccountInfo;
+import org.chromium.components.signin.base.AccountInfo;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.identitymanager.PrimaryAccountChangeEvent;
 import org.chromium.components.sync.BookmarksLimitExceededHelpClickedSource;
@@ -231,7 +231,7 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
         menu.clear();
         MenuItem help =
-                menu.add(Menu.NONE, R.id.menu_id_targeted_help, Menu.NONE, R.string.menu_help);
+                menu.add(Menu.NONE, R.id.menu_id_targeted_help, Menu.NONE, getHelpMenuStringRes());
         help.setIcon(R.drawable.ic_help_24dp);
     }
 
@@ -460,17 +460,16 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
      * this state.
      */
     private void updateSyncPreferences() {
-        String signedInAccountName =
-                CoreAccountInfo.getEmailFrom(getIdentityManager().getPrimaryAccountInfo());
+        @Nullable AccountInfo primaryAccount = getIdentityManager().getPrimaryAccountInfo();
         // May happen if account is removed from the device while this screen is shown.
-        if (signedInAccountName == null) {
+        if (primaryAccount == null) {
             finishCurrentSettings();
             return;
         }
 
         mGoogleActivityControls.setOnPreferenceClickListener(
                 SyncSettingsUtils.toOnClickListener(
-                        this, () -> onGoogleActivityControlsClicked(signedInAccountName)));
+                        this, () -> onGoogleActivityControlsClicked(primaryAccount.getEmail())));
 
         updateDataTypeState();
         updateEncryptionState();
@@ -697,7 +696,7 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
         if (mSyncService.isPassphraseRequiredForPreferredDataTypes()) {
             displayPassphraseDialog();
         } else if (mSyncService.isTrustedVaultKeyRequired()) {
-            CoreAccountInfo primaryAccountInfo = getIdentityManager().getPrimaryAccountInfo();
+            AccountInfo primaryAccountInfo = getIdentityManager().getPrimaryAccountInfo();
             if (primaryAccountInfo != null) {
                 SyncSettingsUtils.openTrustedVaultKeyRetrievalDialog(
                         this, primaryAccountInfo, REQUEST_CODE_TRUSTED_VAULT_KEY_RETRIEVAL);
@@ -791,8 +790,12 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
     }
 
     private void onErrorCardClicked(@UserActionableError int error) {
-        final CoreAccountInfo primaryAccountInfo = getIdentityManager().getPrimaryAccountInfo();
-        assert primaryAccountInfo != null;
+        final AccountInfo primaryAccountInfo = getIdentityManager().getPrimaryAccountInfo();
+        if (primaryAccountInfo == null) {
+            // Can happen in case of a race condition between a sign-out (because the primary
+            // account got removed from the device) and the user tapping the error card.
+            return;
+        }
 
         switch (error) {
             case UserActionableError.SIGN_IN_NEEDS_UPDATE:

@@ -482,6 +482,10 @@ NET_ERROR(PROXY_UNABLE_TO_CONNECT_TO_DESTINATION, -186)
 NET_ERROR(PROXY_DELEGATE_CANCELED_CONNECT_REQUEST, -187)
 NET_ERROR(PROXY_DELEGATE_CANCELED_CONNECT_RESPONSE, -188)
 
+// The control message was too large for the transport. (for example a UDP
+// message control data exceeds size threshold).
+NET_ERROR(CONTROL_MSG_TOO_BIG, -189)
+
 // Certificate error codes
 //
 // The values of certificate error codes must be consecutive.
@@ -1116,6 +1120,10 @@ NET_ERROR(DNS_REFUSED, -819)
 // - NOTIMP
 // - REFUSED
 NET_ERROR(DNS_OTHER_FAILURE, -820)
+
+// Declined to call DNS for a direct_only request of a hostname whose traffic
+// would be routed through a proxy.
+NET_ERROR(DNS_DIRECT_ONLY, -821)
 
 // The following errors are for mapped from a subset of invalid
 // storage::BlobStatus.

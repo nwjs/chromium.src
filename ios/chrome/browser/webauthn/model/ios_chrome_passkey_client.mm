@@ -24,6 +24,8 @@
 #import "components/webauthn/ios/ios_passkey_client_commands.h"
 #import "components/webauthn/ios/passkey_types.h"
 #import "ios/chrome/browser/credential_provider/model/credential_provider_buildflags.h"
+#import "ios/chrome/browser/device_reauth/model/reauthentication_service.h"
+#import "ios/chrome/browser/device_reauth/model/reauthentication_service_factory.h"
 #import "ios/chrome/browser/passwords/model/password_tab_helper.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list.h"
@@ -33,7 +35,10 @@
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/chrome/browser/webauthn/public/scoped_passkey_keychain_provider_override.h"
 #import "ios/chrome/common/credential_provider/passkey_keychain_provider_bridge.h"
+#import "ios/chrome/common/ui/reauthentication/reauthentication_protocol.h"
+#import "ios/chrome/grit/ios_strings.h"
 #import "ios/web/public/web_state.h"
+#import "ui/base/l10n/l10n_util.h"
 
 #if BUILDFLAG(IOS_CREDENTIAL_PROVIDER_ENABLED)
 #import "ios/chrome/browser/credential_provider/model/credential_provider_browser_agent.h"
@@ -43,25 +48,64 @@
 @interface IOSChromePasskeyClientBridgeDelegate
     : NSObject <PasskeyKeychainProviderBridgeDelegate>
 
-- (instancetype)initWithClient:(IOSChromePasskeyClient*)client;
+- (instancetype)initWithClient:(IOSChromePasskeyClient*)client
+                  reauthModule:(id<ReauthenticationProtocol>)reauthModule;
+
+- (void)setUserVerificationStatus:
+    (webauthn::PasskeyUserVerificationStatus)status;
+
+- (webauthn::PasskeyUserVerificationStatus)userVerificationStatus;
 
 @end
 
 @implementation IOSChromePasskeyClientBridgeDelegate {
   raw_ptr<IOSChromePasskeyClient> _client;
+  __weak id<ReauthenticationProtocol> _reauthModule;
+  webauthn::PasskeyUserVerificationStatus _userVerificationStatus;
 }
 
-- (instancetype)initWithClient:(IOSChromePasskeyClient*)client {
+- (instancetype)initWithClient:(IOSChromePasskeyClient*)client
+                  reauthModule:(id<ReauthenticationProtocol>)reauthModule {
   self = [super init];
   if (self) {
     _client = client;
+    _reauthModule = reauthModule;
   }
   return self;
 }
 
-- (void)performUserVerificationIfNeeded:(ProceduralBlock)completion {
-  // TODO(crbug.com/460485614): Implement user verification.
-  completion();
+- (void)setUserVerificationStatus:
+    (webauthn::PasskeyUserVerificationStatus)status {
+  _userVerificationStatus = status;
+  if (status == webauthn::PasskeyUserVerificationStatus::kRequired) {
+    [_reauthModule clearAuthValidity];
+  }
+}
+
+- (webauthn::PasskeyUserVerificationStatus)userVerificationStatus {
+  return _userVerificationStatus;
+}
+
+- (void)performUserVerificationIfNeeded:
+    (UserVerificationCompletionBlock)completion {
+  if (_userVerificationStatus !=
+      webauthn::PasskeyUserVerificationStatus::kRequired) {
+    completion(YES);
+    return;
+  }
+
+  if (![_reauthModule canAttemptReauth]) {
+    completion(NO);
+    return;
+  }
+  [_reauthModule
+      attemptReauthWithLocalizedReason:
+          l10n_util::GetNSString(IDS_IOS_PASSKEY_CREATION_START_REAUTH_REASON)
+                  canReusePreviousAuth:YES
+                               handler:^(ReauthenticationResult result) {
+                                 completion(result !=
+                                            ReauthenticationResult::kFailure);
+                               }];
 }
 
 - (void)showWelcomeScreenWithPurpose:
@@ -73,7 +117,7 @@
 }
 
 - (void)providerDidCompleteReauthentication {
-  // TODO(crbug.com/460485614): Handle that.
+  _userVerificationStatus = webauthn::PasskeyUserVerificationStatus::kCompleted;
 }
 
 @end
@@ -105,8 +149,12 @@ IOSChromePasskeyClient::GetPasskeyKeychainProviderBridge() {
         navigationItemTitleView:nil];
   }
 
-  bridge_delegate_ =
-      [[IOSChromePasskeyClientBridgeDelegate alloc] initWithClient:this];
+  id<ReauthenticationProtocol> reauthModule =
+      ReauthenticationServiceFactory::GetForProfile(profile_)
+          ->GetReauthModule();
+  bridge_delegate_ = [[IOSChromePasskeyClientBridgeDelegate alloc]
+      initWithClient:this
+        reauthModule:reauthModule];
   passkey_keychain_provider_bridge_.delegate = bridge_delegate_;
 
   return passkey_keychain_provider_bridge_;
@@ -121,26 +169,33 @@ id<IOSPasskeyClientCommands> IOSChromePasskeyClient::GetCommandHandler() const {
   return command_handler_;
 }
 
-bool IOSChromePasskeyClient::PerformUserVerification() {
-  // TODO(crbug.com/460484682): Perform user verification.
-  // See PasskeyKeychainProvider::Reauthenticate and ReauthenticationModule.
-  return false;
-}
+void IOSChromePasskeyClient::FetchKeys(
+    webauthn::ReauthenticatePurpose purpose,
+    webauthn::PasskeyUserVerificationStatus user_verification_status,
+    webauthn::FetchKeysCallback callback) {
+  IOSChromePasskeyClientBridgeDelegate* delegate =
+      base::apple::ObjCCast<IOSChromePasskeyClientBridgeDelegate>(
+          GetPasskeyKeychainProviderBridge().delegate);
 
-void IOSChromePasskeyClient::FetchKeys(webauthn::ReauthenticatePurpose purpose,
-                                       webauthn::KeysFetchedCallback callback) {
+  [delegate setUserVerificationStatus:user_verification_status];
+
   CoreAccountInfo account =
       IdentityManagerFactory::GetForProfile(profile_)->GetPrimaryAccountInfo(
           signin::ConsentLevel::kSignin);
 
   auto completion_block = base::CallbackToBlock(base::BindOnce(
       [](id<IOSPasskeyClientCommands> handler,
-         webauthn::KeysFetchedCallback inner_callback,
+         IOSChromePasskeyClientBridgeDelegate* delegate,
+         webauthn::FetchKeysCallback inner_callback,
          webauthn::SharedKeyList trusted_vault_keys, NSError* error) {
-        std::move(inner_callback).Run(std::move(trusted_vault_keys), error);
+        bool did_complete_uv =
+            [delegate userVerificationStatus] ==
+            webauthn::PasskeyUserVerificationStatus::kCompleted;
+        std::move(inner_callback)
+            .Run(std::move(trusted_vault_keys), did_complete_uv, error);
         [handler dismissPasskeyWelcomeScreen];
       },
-      command_handler_, std::move(callback)));
+      command_handler_, delegate, std::move(callback)));
   [GetPasskeyKeychainProviderBridge()
       fetchTrustedVaultKeysForGaia:account.gaia.ToNSString()
                         credential:nil
@@ -202,4 +257,11 @@ bool IOSChromePasskeyClient::IsGpmPasskeySavingEnabled() const {
     return false;
   }
   return true;
+}
+
+bool IOSChromePasskeyClient::IsBiometricsEnabled() const {
+  id<ReauthenticationProtocol> reauth_module =
+      ReauthenticationServiceFactory::GetForProfile(profile_)
+          ->GetReauthModule();
+  return [reauth_module canAttemptReauthWithBiometrics];
 }

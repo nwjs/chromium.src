@@ -439,7 +439,7 @@ Animation::Animation(ExecutionContext* execution_context,
       pending_finish_notification_(false),
       has_queued_microtask_(false),
       outdated_(false),
-      finished_(true),
+      inactive_(true),
       committed_finish_notification_(false),
       compositor_state_(nullptr),
       compositor_pending_(false),
@@ -886,7 +886,7 @@ bool Animation::PreCommit(
                 CalculateAnimationPlayState());
       TRACE_EVENT_INSTANT(
           AnimationTraceCategories(), "Animation",
-          perfetto::Track::FromPointer(this), "data",
+          perfetto::NamedTrack::FromPointer("blink::Animation", this), "data",
           [&](perfetto::TracedValue context) {
             inspector_animation_compositor_event::Data(
                 std::move(context), failure_reasons,
@@ -1039,7 +1039,8 @@ bool Animation::HasLowerCompositeOrdering(
   return animation1->SequenceNumber() < animation2->SequenceNumber();
 }
 
-void Animation::NotifyAnimationStartedAsync(base::TimeDelta monotonic_time) {
+void Animation::NotifyAnimationStartedAsync(base::TimeDelta monotonic_time,
+                                            Animation::AutoRewind auto_rewind) {
   DCHECK(compositor_state_);
   DCHECK(pending_play_);
 
@@ -1049,29 +1050,19 @@ void Animation::NotifyAnimationStartedAsync(base::TimeDelta monotonic_time) {
   compositor_state_->pending_action = CompositorAction::kStart;
   compositor_state_->start_time.reset();
 
-  // We need to store the hold time prior to its being cleared in NotifyReady.
-  // TODO(crbug.com/451238244): For now, we only get here if the animation was
-  // not already running. If it was already running, what we want to compute
-  // here is the current_time_to_match similar to CommitPendingPlay.
-  DCHECK(hold_time_);
-  base::TimeDelta cc_hold_time = ComputeCompositorHoldTime().value();
-
   AnimationTimeDelta ready_time =
       ANIMATION_TIME_DELTA_FROM_SECONDS(monotonic_animation_start_time) -
       TimelineInternal()->ZeroTime();
   NotifyReady(ready_time);
 
-  compositor_state_->hold_time = hold_time_;
-
   double playback_rate = EffectivePlaybackRate();
+
+  compositor_state_->hold_time = hold_time_;
+  compositor_state_->playback_rate = playback_rate;
+
   cc::Animation* cc_animation = GetCompositorAnimation()->CcAnimation();
-  // TODO(crbug.com/508229282): Add a static KeyframeModel function that
-  // computes start time given monotonic time, hold_time and playback rate and
-  // use it everywhere this calculation is done.
-  cc_animation->SetStartTime(base::TimeTicks() + monotonic_time -
-                             cc_hold_time / playback_rate);
-  cc_animation->SetHoldTime(std::nullopt);
-  cc_animation->SetRunState(cc::KeyframeModel::RunState::RUNNING);
+  cc_animation->PlayInternal(base::TimeTicks() + monotonic_time, auto_rewind,
+                             playback_rate);
 }
 
 void Animation::NotifyAnimationPausedAsync(base::TimeDelta monotonic_time) {
@@ -1305,6 +1296,18 @@ void Animation::setTimeline(AnimationTimeline* timeline) {
     // infinite.
     if (progress) {
       SetCurrentTimeInternal(progress.value() * EffectEnd());
+    }
+  }
+
+  if (!start_time_ && !hold_time_) {
+    // When switching from a scroll-timeline to a document timeline and play
+    // or pause-pending, we can have no start or hold time since previously
+    // waiting on an auto-aligned start time. Force a hold time by calling back
+    // into pause or play depending on the pending task.
+    if (pending_pause_) {
+      PauseInternal(ASSERT_NO_EXCEPTION);
+    } else if (pending_play_) {
+      PlayInternal(AutoRewind::kEnabled, ASSERT_NO_EXCEPTION);
     }
   }
 
@@ -1801,6 +1804,9 @@ void Animation::PlayInternal(AutoRewind auto_rewind,
   bool has_pending_ready_promise = false;
   bool has_finite_timeline =
       timeline_ && !timeline_->IsMonotonicallyIncreasing();
+  // TODO(crbug.com/451238244): Implement AutoRewind::kForced for
+  // blink::Animation.
+  DCHECK(auto_rewind != AutoRewind::kForced);
   bool enable_seek =
       auto_rewind == AutoRewind::kEnabled && !has_finite_timeline;
 
@@ -1924,7 +1930,7 @@ void Animation::PlayInternal(AutoRewind auto_rewind,
   pending_play_ = true;
 
   // Blink specific implementation details.
-  finished_ = false;
+  inactive_ = false;
   committed_finish_notification_ = false;
   SetOutdated();
 
@@ -1953,11 +1959,12 @@ void Animation::PlayInternal(AutoRewind auto_rewind,
 }
 
 void Animation::reverse(ExceptionState& exception_state) {
-  ReverseInternal(exception_state);
+  ReverseInternal(AutoRewind::kEnabled, exception_state);
 }
 
 // https://www.w3.org/TR/web-animations-1/#reversing-an-animation-section
-void Animation::ReverseInternal(ExceptionState& exception_state) {
+void Animation::ReverseInternal(AutoRewind auto_rewind,
+                                ExceptionState& exception_state) {
   // 1. If there is no timeline associated with animation, or the associated
   //    timeline is inactive throw an "InvalidStateError" DOMException and abort
   //    these steps.
@@ -1985,7 +1992,7 @@ void Animation::ReverseInternal(ExceptionState& exception_state) {
   //    If the steps to play an animation throw an exception, set animation’s
   //    pending playback rate to original pending playback rate and propagate
   //    the exception.
-  PlayInternal(AutoRewind::kEnabled, exception_state);
+  PlayInternal(auto_rewind, exception_state);
   if (exception_state.HadException())
     pending_playback_rate_ = original_pending_playback_rate;
 }
@@ -2048,7 +2055,7 @@ void Animation::UpdateFinishedState(UpdateType update_type,
   // for a new start time.
   if (timeline_ && timeline_->IsScrollTimeline() && pending_play_ &&
       auto_align_start_time_) {
-    finished_ = false;
+    inactive_ = false;
     pending_finish_notification_ = false;
     committed_finish_notification_ = false;
     return;
@@ -2133,12 +2140,12 @@ void Animation::UpdateFinishedState(UpdateType update_type,
     // Previously finished animation may restart so they should be added to
     // pending animations to make sure that a compositor animation is re-created
     // during future PreCommit.
-    if (finished_) {
+    if (inactive_) {
       SetCompositorPending(CompositorPendingReason::kPendingUpdate);
     }
     // 6. If not finished but the current finished promise is already resolved,
     //    create a new promise.
-    finished_ = pending_finish_notification_ = committed_finish_notification_ =
+    inactive_ = pending_finish_notification_ = committed_finish_notification_ =
         false;
     if (finished_promise_ &&
         finished_promise_->GetState() == AnimationPromise::kResolved) {
@@ -2226,6 +2233,7 @@ void Animation::updatePlaybackRate(double playback_rate,
     case V8AnimationPlayState::Enum::kIdle:
     case V8AnimationPlayState::Enum::kPaused:
       ApplyPendingPlaybackRate();
+      SetCompositorPending(CompositorPendingReason::kPendingUpdate);
       break;
 
     // 3c If previous play state is finished,
@@ -2360,11 +2368,11 @@ bool Animation::HasPendingActivity() const {
   return pending_finished_event_ || pending_cancelled_event_ ||
          pending_remove_event_ || has_pending_promise || can_trigger ||
          pending_finish_notification_ ||
-         (!finished_ && HasEventListeners(event_type_names::kFinish));
+         (!inactive_ && HasEventListeners(event_type_names::kFinish));
 }
 
 void Animation::ContextDestroyed() {
-  finished_ = true;
+  inactive_ = true;
   pending_finished_event_ = nullptr;
   pending_cancelled_event_ = nullptr;
   pending_remove_event_ = nullptr;
@@ -2493,7 +2501,7 @@ Animation::CheckCanStartAnimationOnCompositor(
       reasons |= CompositorAnimations::kInvalidAnimationOrEffect;
     }
     reasons |= keyframe_effect->CheckCanStartAnimationOnCompositor(
-        paint_artifact_compositor, playback_rate_,
+        paint_artifact_compositor, playback_rate_, start_reason,
         unsupported_properties_for_tracing);
   }
   return reasons;
@@ -2750,25 +2758,10 @@ void Animation::SetCompositorPending(CompositorPendingReason reason) {
     UpdateCompositedPaintStatus();
   }
 
-  if (RuntimeEnabledFeatures::
-          CompositedAnimationsCancelledAsynchronouslyEnabled()) {
-    if (compositor_state_ &&
-        (reason == CompositorPendingReason::kPendingCancel ||
-         reason == CompositorPendingReason::kPendingRestart)) {
-      compositor_state_->pending_action = CompositorAction::kCancel;
-    }
-  } else {
-    if (reason == CompositorPendingReason::kPendingCancel) {
-      CancelAnimationOnCompositor();
-      return;
-    }
-    if (reason == CompositorPendingReason::kPendingRestart) {
-      CancelAnimationOnCompositor();
-    }
-    if (!HasActiveAnimationsOnCompositor()) {
-      DestroyCompositorAnimation();
-      compositor_state_.reset();
-    }
+  if (compositor_state_ &&
+      (reason == CompositorPendingReason::kPendingCancel ||
+        reason == CompositorPendingReason::kPendingRestart)) {
+    compositor_state_->pending_action = CompositorAction::kCancel;
   }
 
   if (compositor_state_) {
@@ -3272,12 +3265,15 @@ bool Animation::Update(TimingUpdateReason reason) {
     // animation. This is known to occur when a retargeted transition is
     // finished before PreCommit has run the first time and a compositor state
     // has been created.
-    if (!finished_ && !HasActiveAnimationsOnCompositor()) {
+    if (!inactive_ && !HasActiveAnimationsOnCompositor()) {
       UpdateCompositedPaintStatus();
     }
 
-    if (reason == kTimingUpdateForAnimationFrame) {
-      finished_ = true;
+    // Animations linked to scroll-timelines remain active since a scroll update
+    // can effectively roll back time.
+    if (reason == kTimingUpdateForAnimationFrame &&
+        (idle || !timeline_ || timeline_->IsMonotonicallyIncreasing())) {
+      inactive_ = true;
     }
   }
 
@@ -3287,12 +3283,7 @@ bool Animation::Update(TimingUpdateReason reason) {
 
   DCHECK(!outdated_);
 
-  return !finished_ || TimeToEffectChange() ||
-         // Always return true for not idle animations attached to not
-         // monotonically increasing timelines even if the animation is
-         // finished. This is required to accommodate cases where timeline ticks
-         // back in time.
-         (!idle && timeline_ && !timeline_->IsMonotonicallyIncreasing());
+  return !inactive_ || TimeToEffectChange();
 }
 
 void Animation::QueueFinishedEvent() {
@@ -3323,7 +3314,7 @@ void Animation::EffectInvalidated() {
 }
 
 bool Animation::IsEventDispatchAllowed() const {
-  return (Paused() || start_time_) && !PausedForTrigger();
+  return Paused() || start_time_;
 }
 
 std::optional<AnimationTimeDelta> Animation::TimeToEffectChange() {
@@ -3679,25 +3670,26 @@ void Animation::NotifyProbe() {
                      new_play_state == V8AnimationPlayState::Enum::kRunning;
 
     if (!was_active && is_active) {
-      TRACE_EVENT_BEGIN(AnimationTraceCategories(), "Animation",
-                        perfetto::Track::FromPointer(this), "data",
-                        [&](perfetto::TracedValue context) {
-                          inspector_animation_event::Data(std::move(context),
-                                                          *this);
-                        });
+      TRACE_EVENT_BEGIN(
+          AnimationTraceCategories(), "Animation",
+          perfetto::NamedTrack::FromPointer("blink::Animation", this), "data",
+          [&](perfetto::TracedValue context) {
+            inspector_animation_event::Data(std::move(context), *this);
+          });
     } else if (was_active && !is_active) {
       TRACE_EVENT_END(
-          AnimationTraceCategories(), perfetto::Track::FromPointer(this),
+          AnimationTraceCategories(),
+          perfetto::NamedTrack::FromPointer("blink::Animation", this),
           "endData", [&](perfetto::TracedValue context) {
             inspector_animation_state_event::Data(std::move(context), *this);
           });
     } else {
-      TRACE_EVENT_INSTANT(AnimationTraceCategories(), "Animation",
-                          perfetto::Track::FromPointer(this), "data",
-                          [&](perfetto::TracedValue context) {
-                            inspector_animation_state_event::Data(
-                                std::move(context), *this);
-                          });
+      TRACE_EVENT_INSTANT(
+          AnimationTraceCategories(), "Animation",
+          perfetto::NamedTrack::FromPointer("blink::Animation", this), "data",
+          [&](perfetto::TracedValue context) {
+            inspector_animation_state_event::Data(std::move(context), *this);
+          });
     }
   }
 }

@@ -141,6 +141,21 @@ enum class GeminiClientMode {
   kTranscribing,
 };
 
+// Reasons why the Gemini client is in the dormant mode.
+// This needs to stay in sync with GCRGeminiDormantReason.
+enum class GeminiDormantReason {
+  kUnknown = 0,
+  kInterruptedByExternalAudio,
+  kLowVolumeInBackground,
+  kLowVolumeInForeground,
+  kInactivityTimeout,
+  kLongInteractionTimeout,
+  kMovedToBackgroundWhenMicOff,
+  kUserStop,
+  kUserPause,
+  kServerPause,
+};
+
 // Enum representing the Gemini view mode.
 // This needs to stay in sync with GMNGeminiViewMode in the SDK.
 enum class GeminiViewMode {
@@ -194,6 +209,10 @@ bool IsProtectedUrl(std::string url);
 // Updates the page context of the floaty.
 void UpdatePageContext(GeminiPageContext* gemini_page_context);
 
+// Updates the floaty's active page context and shared tabs, if any.
+void UpdateActivePageContext(GeminiPageContext* gemini_page_context,
+                             NSArray<GeminiPageContext*>* shared_tabs);
+
 // Returns the Gemini settings that the user is eligible for.
 NSArray<GeminiSettingsMetadata*>* GetEligibleSettings(
     AuthenticationService* auth_service);
@@ -243,6 +262,10 @@ bool IsLiveStopButtonHidden();
 // Sets and gets the number of caption lines in Gemini Live mode.
 void SetLiveCaptionsNumberOfLines(int number_of_lines);
 int GetLiveCaptionsNumberOfLines();
+
+// Returns the view controller for the Gemini floaty.
+UIViewController* GetFloatyViewControllerWithConfiguration(
+    GeminiConfiguration* gemini_configuration);
 
 }  // namespace ios::provider
 

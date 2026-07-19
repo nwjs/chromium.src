@@ -17,6 +17,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
+#include "build/android_buildflags.h"
 #include "build/build_config.h"
 #include "components/omnibox/browser/actions/contextual_search_action.h"
 #include "components/omnibox/browser/autocomplete_controller.h"
@@ -386,7 +387,8 @@ TEST_F(AutocompleteControllerTest, CompanyEntityImageNotRemoved) {
 }
 
 // Desktop has some special handling for bare '@' inputs.
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#if !(BUILDFLAG(IS_IOS) || \
+      (BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_DESKTOP_ANDROID)))
 TEST_F(AutocompleteControllerTest, FilterMatchesForInstantKeywordWithBareAt) {
   SetAutocompleteMatches({
       CreateSearchMatch(u"@"),
@@ -2029,7 +2031,7 @@ TEST_F(AutocompleteControllerTest, UpdateResult_ForceAllowedToBeDefault) {
     auto enabled_config = set_feature(true);
     EXPECT_THAT(controller_.SimulateCleanAutocompletePass({
                     CreateSearchMatch("search", true, 200),
-                    CreateKeywordHintMatch("keyword", 1000),
+                    CreateSearchMatch("keyword", false, 1000),
                 }),
                 testing::ElementsAreArray({
                     "search",
@@ -3329,4 +3331,80 @@ TEST_F(AutocompleteControllerTest, IncludesSmartComposeStatsInAdditionalStats) {
   EXPECT_EQ(
       search_terms_args.searchbox_stats.smart_compose_stats().shown_length(),
       4);
+}
+
+TEST_F(AutocompleteControllerTest, PersistsExperimentStatsV2InSession) {
+  // Inject zero suggest provider to supply fake experiment stats.
+  scoped_refptr<ZeroSuggestProvider> zero_suggest_provider =
+      base::MakeRefCounted<ZeroSuggestProvider>(provider_client(),
+                                                &controller_);
+  controller_.providers_.push_back(zero_suggest_provider);
+  controller_.zero_suggest_provider_ = zero_suggest_provider.get();
+
+  omnibox::metrics::ChromeSearchboxStats::ExperimentStatsV2 stat;
+  stat.set_type_int(12345);
+  stat.set_string_value("dummy:stat");
+  const_cast<SearchSuggestionParser::ExperimentStatsV2s&>(
+      zero_suggest_provider->experiment_stats_v2s())
+      .push_back(stat);
+
+  // Set initial matches (simulating zero-suggest run).
+  TemplateURLData turl_data;
+  turl_data.SetShortName(u"Search");
+  turl_data.SetKeyword(u"search");
+  turl_data.SetURL("https://google.com/search?q={searchTerms}");
+  controller_.template_url_service_->Add(
+      std::make_unique<TemplateURL>(turl_data));
+  AutocompleteMatch match(nullptr, 1100, false,
+                          AutocompleteMatchType::SEARCH_SUGGEST);
+  match.keyword = u"search";
+  match.destination_url = GURL("https://google.com/search?q=foo");
+  match.search_terms_args =
+      std::make_unique<TemplateURLRef::SearchTermsArgs>(u"foo");
+  SetAutocompleteMatches({match});
+
+  // This should populate session-level experiment stats and searchbox_stats.
+  UpdateSearchboxStats();
+
+  ASSERT_EQ(1U,
+            controller_.internal_result_.session().experiment_stats_v2s.size());
+  EXPECT_EQ(12345, controller_.internal_result_.session()
+                       .experiment_stats_v2s[0]
+                       .type_int());
+  EXPECT_EQ("dummy,stat", controller_.internal_result_.session()
+                              .experiment_stats_v2s[0]
+                              .string_value());
+
+  // Run another pass while the provider is still active, to verify that
+  // duplicates are not added to the session data.
+  UpdateSearchboxStats();
+  ASSERT_EQ(1U,
+            controller_.internal_result_.session().experiment_stats_v2s.size());
+
+  // Now, simulate the user typing (which clobbers/stops zero suggest provider).
+  zero_suggest_provider->Stop(AutocompleteStopReason::kClobbered);
+  ASSERT_TRUE(zero_suggest_provider->experiment_stats_v2s().empty());
+
+  // Run another autocomplete pass (e.g. typing query "foo").
+  AutocompleteMatch typed_match(nullptr, 1100, false,
+                                AutocompleteMatchType::SEARCH_SUGGEST);
+  typed_match.keyword = u"search";
+  typed_match.destination_url = GURL("https://google.com/search?q=foo");
+  typed_match.search_terms_args =
+      std::make_unique<TemplateURLRef::SearchTermsArgs>(u"foo");
+  SetAutocompleteMatches({typed_match});
+
+  UpdateSearchboxStats();
+
+  // The session data should still persist the stats.
+  ASSERT_EQ(1U,
+            controller_.internal_result_.session().experiment_stats_v2s.size());
+
+  // And the final searchbox_stats of the match should contain the persisted
+  // stats.
+  const auto& stats = controller_.internal_result_.match_at(0)
+                          ->search_terms_args->searchbox_stats;
+  ASSERT_EQ(1, stats.experiment_stats_v2_size());
+  EXPECT_EQ(12345, stats.experiment_stats_v2(0).type_int());
+  EXPECT_EQ("dummy,stat", stats.experiment_stats_v2(0).string_value());
 }

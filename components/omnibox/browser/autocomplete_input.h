@@ -18,6 +18,7 @@
 #include "third_party/metrics_proto/omnibox_event.pb.h"
 #include "third_party/metrics_proto/omnibox_focus_type.pb.h"
 #include "third_party/metrics_proto/omnibox_input_type.pb.h"
+#include "third_party/omnibox_proto/suggest_inventory.pb.h"
 #include "third_party/omnibox_proto/tool_mode.pb.h"
 #include "third_party/perfetto/include/perfetto/tracing/traced_value_forward.h"
 #include "url/gurl.h"
@@ -293,16 +294,6 @@ class AutocompleteInput {
     prevent_inline_autocomplete_ = prevent_inline_autocomplete;
   }
 
-  // Returns whether, given an input string consisting solely of a substituting
-  // keyword, we should score it like a non-substituting keyword.
-  bool prefer_keyword() const { return prefer_keyword_; }
-  // |prefer_keyword| should be true when the keyword UI is onscreen; this
-  // will bias the autocomplete result set toward the keyword provider when
-  // the input string is a bare keyword.
-  void set_prefer_keyword(bool prefer_keyword) {
-    prefer_keyword_ = prefer_keyword;
-  }
-
   // Returns whether this input is allowed to be treated as an exact
   // keyword match.  If not, the default result is guaranteed not to be a
   // keyword search, even if the input is "<keyword> <search string>".
@@ -315,7 +306,7 @@ class AutocompleteInput {
     allow_exact_keyword_match_ = allow_exact_keyword_match;
   }
 
-  // Provides public read-only access to whether the user entered keyword mode.
+  // Whether the user entered keyword mode.
   bool in_keyword_mode() const { return in_keyword_mode_; }
 
   // Set by the edit model or driver of autocompletion to inform autocomplete
@@ -378,6 +369,14 @@ class AutocompleteInput {
 
   void set_input_state(const omnibox::InputState& input_state) {
     input_state_ = input_state;
+  }
+
+  omnibox::SuggestInventory suggest_inventory() const {
+    return suggest_inventory_;
+  }
+
+  void set_suggest_inventory(omnibox::SuggestInventory suggest_inventory) {
+    suggest_inventory_ = suggest_inventory;
   }
   std::u16string context_tab_title() const { return context_tab_title_; }
 
@@ -446,7 +445,6 @@ class AutocompleteInput {
   GURL canonicalized_url_;
   std::string desired_tld_;
   bool prevent_inline_autocomplete_;
-  bool prefer_keyword_;
   bool allow_exact_keyword_match_;
   bool in_keyword_mode_;
   bool omit_asynchronous_matches_;
@@ -460,6 +458,11 @@ class AutocompleteInput {
   // Input state. This is specifically the primitive state, with regards to
   // the tools and models that may be selected.
   omnibox::InputState input_state_;
+
+  // The suggest inventory to be sent as query parameters in the suggest
+  // requests.
+  omnibox::SuggestInventory suggest_inventory_ =
+      omnibox::SuggestInventory::SUGGEST_INVENTORY_DEFAULT;
 
   // Flags for OmniboxDefaultNavigationsToHttps feature.
   bool should_use_https_as_default_scheme_;

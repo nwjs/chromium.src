@@ -10,9 +10,11 @@
 #include "base/functional/bind.h"
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_service_factory.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_utils.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
 #include "chrome/browser/ui/page_action/page_action_controller.h"
 #include "chrome/browser/ui/side_panel/side_panel_entry_id.h"
 #include "chrome/browser/ui/side_panel/side_panel_entry_key.h"
@@ -20,6 +22,7 @@
 #include "chrome/browser/ui/side_panel/side_panel_registry.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
+#include "chrome/common/webui_url_constants.h"
 #include "components/contextual_tasks/public/contextual_task.h"
 #include "components/contextual_tasks/public/contextual_tasks_service.h"
 #include "components/contextual_tasks/public/features.h"
@@ -27,6 +30,15 @@
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/sessions/core/session_id.h"
 #include "components/tabs/public/tab_interface.h"
+#include "content/public/browser/page.h"
+#include "content/public/common/url_constants.h"
+
+namespace {
+bool IsContextualTasksPage(const GURL& url) {
+  return url.SchemeIs(content::kChromeUIScheme) &&
+         url.host() == chrome::kChromeUIContextualTasksHost;
+}
+}  // namespace
 
 DEFINE_USER_DATA(ContextualTasksEphemeralButtonController);
 
@@ -60,6 +72,10 @@ ContextualTasksEphemeralButtonController::
                                     OnAimEligibilityResponseChanged,
                                 base::Unretained(this)));
   }
+  if (auto* pinned_model = PinnedToolbarActionsModel::Get(profile)) {
+    pinned_toolbar_observation_.Observe(pinned_model);
+  }
+  UpdateActiveTabObservation();
 }
 
 ContextualTasksEphemeralButtonController::
@@ -97,6 +113,9 @@ void ContextualTasksEphemeralButtonController::OnTaskRemoved(
 void ContextualTasksEphemeralButtonController::OnWillBeDestroyed() {
   should_update_visibility_callbacks_.Notify(false);
   contextual_task_observation_.Reset();
+  pinned_toolbar_observation_.Reset();
+  tab_discard_subscription_ = base::CallbackListSubscription();
+  Observe(nullptr);
 }
 
 void ContextualTasksEphemeralButtonController::OnTaskAssociatedToTab(
@@ -148,7 +167,7 @@ void ContextualTasksEphemeralButtonController::OnEntryWillHide(
 
 void ContextualTasksEphemeralButtonController::OnEntryHideCancelled(
     SidePanelEntry* entry) {
-  if (contextual_tasks::kShowEntryPoint.Get() !=
+  if (contextual_tasks::kShowEntryPoint.Get() ==
       contextual_tasks::EntryPointOption::kToolbarEphemeralBranded) {
     is_hiding_contextual_tasks_panel_ = false;
     is_contextual_tasks_panel_open_ = true;
@@ -158,12 +177,16 @@ void ContextualTasksEphemeralButtonController::OnEntryHideCancelled(
 
 void ContextualTasksEphemeralButtonController::OnEntryHidden(
     SidePanelEntry* entry) {
-  if (contextual_tasks::kShowEntryPoint.Get() !=
+  if (contextual_tasks::kShowEntryPoint.Get() ==
       contextual_tasks::EntryPointOption::kToolbarEphemeralBranded) {
     is_hiding_contextual_tasks_panel_ = false;
     is_contextual_tasks_panel_open_ = false;
     MaybeNotifyVisibilityShouldChange();
   }
+}
+
+void ContextualTasksEphemeralButtonController::OnActionsChanged() {
+  MaybeNotifyVisibilityShouldChange();
 }
 
 base::CallbackListSubscription
@@ -178,6 +201,17 @@ bool ContextualTasksEphemeralButtonController::ShouldShowEphemeralButton() {
       browser_window_interface_->GetActiveTabInterface();
 
   if (!tab_interface) {
+    return false;
+  }
+
+  if (contextual_tasks::GetEffectivePinState(
+          browser_window_interface_->GetProfile())) {
+    return false;
+  }
+
+  if (contextual_tasks::kShowEntryPoint.Get() ==
+          contextual_tasks::EntryPointOption::kToolbarEphemeralBranded &&
+      IsContextualTasksPage(tab_interface->GetURL())) {
     return false;
   }
 
@@ -237,10 +271,46 @@ bool ContextualTasksEphemeralButtonController::IsActiveTabAssociatedToTask() {
 
 void ContextualTasksEphemeralButtonController::OnActiveTabChange(
     BrowserWindowInterface* browser_window_interface) {
+  UpdateActiveTabObservation();
   MaybeNotifyVisibilityShouldChange();
 }
 
 void ContextualTasksEphemeralButtonController::
     MaybeNotifyVisibilityShouldChange() {
   should_update_visibility_callbacks_.Notify(ShouldShowEphemeralButton());
+}
+
+void ContextualTasksEphemeralButtonController::PrimaryPageChanged(
+    content::Page& page) {
+  if (contextual_tasks::kShowEntryPoint.Get() ==
+      contextual_tasks::EntryPointOption::kToolbarEphemeralBranded) {
+    MaybeNotifyVisibilityShouldChange();
+  }
+}
+
+void ContextualTasksEphemeralButtonController::UpdateActiveTabObservation() {
+  if (contextual_tasks::kShowEntryPoint.Get() !=
+      contextual_tasks::EntryPointOption::kToolbarEphemeralBranded) {
+    return;
+  }
+  tabs::TabInterface* const active_tab =
+      browser_window_interface_->GetActiveTabInterface();
+  if (active_tab) {
+    Observe(active_tab->GetContents());
+    tab_discard_subscription_ =
+        active_tab->RegisterWillDiscardContents(base::BindRepeating(
+            &ContextualTasksEphemeralButtonController::OnTabDiscarded,
+            base::Unretained(this)));
+  } else {
+    Observe(nullptr);
+    tab_discard_subscription_ = base::CallbackListSubscription();
+  }
+}
+
+void ContextualTasksEphemeralButtonController::OnTabDiscarded(
+    tabs::TabInterface* tab,
+    content::WebContents* old_contents,
+    content::WebContents* new_contents) {
+  Observe(new_contents);
+  MaybeNotifyVisibilityShouldChange();
 }

@@ -28,7 +28,7 @@ cargo_crate("lib") {
   cargo_pkg_name = "smallvec"
   cargo_pkg_description = "'Small vector' optimization: store up to a small number of items on the stack"
   cargo_pkg_repository = "https://github.com/servo/rust-smallvec"
-  cargo_pkg_version = "1.15.1"
+  cargo_pkg_version = "1.15.2"
 
   allow_unsafe = true
 
@@ -36,11 +36,6 @@ cargo_crate("lib") {
     "const_generics",
     "const_new",
   ]
-
-  # Only for usage from third-party crates. Add the crate to
-  # //third_party/rust/chromium_crates_io/Cargo.toml to use
-  # it from first-party code.
-  visibility = [ "//third_party/rust/*" ]
 
   #####################################################################
   # Tweaking which GN `config`s apply to this target.

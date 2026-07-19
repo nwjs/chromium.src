@@ -17,6 +17,7 @@ import android.graphics.Rect;
 import android.view.View;
 
 import androidx.annotation.VisibleForTesting;
+import androidx.fragment.app.FragmentActivity;
 
 import org.chromium.base.lifetime.Destroyable;
 import org.chromium.base.metrics.RecordUserAction;
@@ -31,6 +32,7 @@ import org.chromium.chrome.browser.RecentlyClosedEntriesManager;
 import org.chromium.chrome.browser.app.download.home.DownloadPage;
 import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.bookmarks.BookmarkPage;
+import org.chromium.chrome.browser.bricks.BricksPage;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsMarginAdapter;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -50,7 +52,10 @@ import org.chromium.chrome.browser.ntp.RecentTabsPage;
 import org.chromium.chrome.browser.pdf.PdfFragmentViewTrackerImpl;
 import org.chromium.chrome.browser.pdf.PdfInfo;
 import org.chromium.chrome.browser.pdf.PdfPage;
+import org.chromium.chrome.browser.printing.PrintHelper;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.settings.SettingsPage;
+import org.chromium.chrome.browser.settings.SettingsPageFragmentDelegateImpl;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
@@ -413,6 +418,35 @@ public class NativePageFactory {
                     pdfFragmentViewTracker);
         }
 
+        protected NativePage buildBricksPage(Tab tab, String url) {
+            return new BricksPage(
+                    new TabShim(
+                            tab,
+                            mBrowserControlsManager,
+                            mTabModelSelector,
+                            mEdgeToEdgeControllerSupplier));
+        }
+
+        protected NativePage buildSettingsPage(Tab tab) {
+            assert ChromeFeatureList.isEnabled(ChromeFeatureList.SETTINGS_IN_TAB);
+            return new SettingsPage(
+                    mActivity,
+                    tab.getProfile(),
+                    new TabShim(
+                            tab,
+                            mBrowserControlsManager,
+                            mTabModelSelector,
+                            mEdgeToEdgeControllerSupplier),
+                    new SettingsPageFragmentDelegateImpl(
+                            mActivity,
+                            tab.getProfile(),
+                            mWindowAndroid,
+                            mActivityResultTracker,
+                            mSnackbarManagerSupplier.get(),
+                            mBottomSheetController,
+                            mModalDialogManagerSupplier.get()));
+        }
+
         private @Nullable IncognitoNtpMetrics createIncognitoNtpMetrics() {
             if (ChromeFeatureList.sRecordIncognitoNtpTimeToFirstNavigationMetric.isEnabled()) {
                 return new IncognitoNtpMetrics();
@@ -482,9 +516,16 @@ public class NativePageFactory {
                 assumeNonNull(pdfInfo);
                 if (mPdfFragmentViewTracker == null) {
                     mPdfFragmentViewTracker =
-                            new PdfFragmentViewTrackerImpl(mTabModelSelector, mActivity);
+                            new PdfFragmentViewTrackerImpl(
+                                    mTabModelSelector, (FragmentActivity) mActivity);
                 }
                 page = getBuilder().buildPdfPage(tab, url, pdfInfo, mPdfFragmentViewTracker);
+                break;
+            case NativePageType.BRICKS:
+                page = getBuilder().buildBricksPage(tab, url);
+                break;
+            case NativePageType.SETTINGS:
+                page = getBuilder().buildSettingsPage(tab);
                 break;
             default:
                 assert false;
@@ -656,6 +697,11 @@ public class NativePageFactory {
         public EdgeToEdgePadAdjuster createEdgeToEdgePadAdjuster(View view) {
             return EdgeToEdgeControllerFactory.createForViewAndObserveSupplier(
                     view, mEdgeToEdgeControllerSupplier);
+        }
+
+        @Override
+        public void print() {
+            PrintHelper.printTab(mTab);
         }
     }
 

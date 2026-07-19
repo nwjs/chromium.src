@@ -12,6 +12,7 @@
 #include "net/base/cronet_buildflags.h"
 #include "net/disk_cache/buildflags.h"
 #include "net/net_buildflags.h"
+#include "net/socket/tcp_connect_job.h"
 #include "net/third_party/quiche/src/quiche/quic/core/quic_constants.h"
 
 #if BUILDFLAG(IS_APPLE)
@@ -35,8 +36,8 @@ BASE_FEATURE(kAsyncRetryOnTooManyConnectionErrors,
 
 BASE_FEATURE(kAvoidH2Reprioritization, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kCapReferrerToOriginOnCrossOrigin,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kDeriveConnectionTypeFromCapabilities,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAsyncDns,
 #if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_ANDROID) || \
@@ -46,6 +47,12 @@ BASE_FEATURE(kAsyncDns,
              base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 );
+
+BASE_FEATURE(kOptimisticDnsForTcp, base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<bool> kUseStaleConnectorsForOptimisticDns{
+    &kOptimisticDnsForTcp, "use_stale_connectors", false};
+
+BASE_FEATURE(kAddressSorterConnectCache, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kDnsTransactionDynamicTimeouts, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -91,9 +98,19 @@ BASE_FEATURE(kHappyEyeballsV2, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kHappyEyeballsV3, base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kAdjustIPv6FallbackTime, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kIPv6FallbackTime,
+                   &kAdjustIPv6FallbackTime,
+                   "fallback_time",
+                   TcpConnectJob::kIPv6FallbackTime);
+
 BASE_FEATURE(kHttpCacheZstdDecompression, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kHttpCacheZstdCompression, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kRendererAccessibleHttpCache, base::FEATURE_DISABLED_BY_DEFAULT);
 
 const base::FeatureParam<int> kAlternativePortForGloballyReachableCheck{
     &kUseAlternativePortForGloballyReachableCheck,
@@ -129,6 +146,9 @@ const base::FeatureParam<base::TimeDelta>
     kEffectiveConnectionTypeRecomputationInterval{
         &kNetworkQualityEstimator,
         "EffectiveConnectionTypeRecomputationInterval", base::Seconds(10)};
+
+BASE_FEATURE(kOnlyParseFirstContentDisposition,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSplitCacheByIncludeCredentials,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -214,19 +234,6 @@ BASE_FEATURE(kCookieSameSiteConsidersRedirectChain,
 
 BASE_FEATURE(kAllowSameSiteNoneCookiesInSandbox,
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kWaitForFirstPartySetsInit, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Controls the maximum time duration an outermost frame navigation should be
-// deferred by RWS initialization.
-extern const base::FeatureParam<base::TimeDelta>
-    kWaitForFirstPartySetsInitNavigationThrottleTimeout{
-        &kWaitForFirstPartySetsInit,
-        "kWaitForFirstPartySetsInitNavigationThrottleTimeout",
-        base::Seconds(0)};
-
-BASE_FEATURE(kRequestStorageAccessNoCorsRequired,
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kStaticKeyPinningEnforcement, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -482,11 +489,6 @@ BASE_FEATURE_PARAM(int,
                    "SqlDiskCacheOptimisticWriteBufferSize",
                    32 * 1024 * 1024);
 BASE_FEATURE_PARAM(bool,
-                   kSqlDiskCachePreloadDatabase,
-                   &kDiskCacheBackendExperiment,
-                   "SqlDiskCachePreloadDatabase",
-                   false);
-BASE_FEATURE_PARAM(bool,
                    kSqlDiskCacheWalMode,
                    &kDiskCacheBackendExperiment,
                    "SqlDiskCacheWalMode",
@@ -652,9 +654,11 @@ BASE_FEATURE_PARAM(double,
                    0.2);
 
 BASE_FEATURE(kTcpSocketPoolLimitRandomizationForProxy,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kNetTaskScheduler, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kNetTaskSchedulerHostResolver, base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE_PARAM(bool,
                    kNetTaskSchedulerHttpProxyConnectJob,
                    &kNetTaskScheduler,
@@ -812,9 +816,6 @@ BASE_FEATURE(kUseQuicProxiesWithoutWaitingForConnectResponse,
 BASE_FEATURE(kEnableBootstrapIPRandomizationForDoh,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kUseLockFreeX509Verification, base::FEATURE_DISABLED_BY_DEFAULT);
-
-
 #if BUILDFLAG(IS_APPLE)
 BASE_FEATURE(kUseNSURLDataForGURLConversion, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_APPLE)
@@ -829,6 +830,8 @@ BASE_FEATURE(kSQLitePersistentCookieStoreEarlyInit,
 
 const base::FeatureParam<bool> kSQLitePersistentCookieStoreEarlyInitCheckDisk{
     &kSQLitePersistentCookieStoreEarlyInit, "check_disk", true};
+
+BASE_FEATURE(kEarlyCookieLoadOnPreconnect, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kEnableErrorCodePropagationForPreconnect,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -901,5 +904,14 @@ BASE_FEATURE_ENUM_PARAM(base::TaskPriority,
                         &kNoVarySearchCacheLoadOnSeparateTaskRunner,
                         base::TaskPriority::BEST_EFFORT,
                         &kNoVarySearchCacheLoadOnSeparateTaskRunnerOptions);
+
+BASE_FEATURE(kTestRootStore, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kCacheCertVerification, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE_PARAM(int,
+                   kCacheCertVerificationTtlSecs,
+                   &kCacheCertVerification,
+                   1800);
 
 }  // namespace net::features

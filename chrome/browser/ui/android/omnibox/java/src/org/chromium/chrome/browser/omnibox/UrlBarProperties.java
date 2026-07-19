@@ -4,7 +4,6 @@
 
 package org.chromium.chrome.browser.omnibox;
 
-import android.util.Range;
 import android.view.ActionMode;
 import android.view.View;
 
@@ -14,7 +13,9 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.omnibox.UrlBar.ScrollType;
 import org.chromium.chrome.browser.omnibox.UrlBar.UrlBarDelegate;
 import org.chromium.chrome.browser.omnibox.UrlBar.UrlBarTextContextMenuDelegate;
+import org.chromium.components.omnibox.TextSelection;
 import org.chromium.ui.modelutil.PropertyKey;
+import org.chromium.ui.modelutil.PropertyModel.ReadableObjectPropertyKey;
 import org.chromium.ui.modelutil.PropertyModel.WritableBooleanPropertyKey;
 import org.chromium.ui.modelutil.PropertyModel.WritableIntPropertyKey;
 import org.chromium.ui.modelutil.PropertyModel.WritableObjectPropertyKey;
@@ -39,7 +40,7 @@ class UrlBarProperties {
         public int scrollToIndex;
 
         /** Specifies how the text should be selected in the focused state. */
-        public final Range<Integer> selection;
+        public final TextSelection selection;
 
         public final boolean originChanged;
 
@@ -48,7 +49,7 @@ class UrlBarProperties {
                 CharSequence textForAutofillServices,
                 @ScrollType int scrollType,
                 int scrollToIndex,
-                Range<Integer> selection,
+                TextSelection selection,
                 boolean originChanged) {
             this.text = text;
             this.textForAutofillServices = textForAutofillServices;
@@ -62,12 +63,11 @@ class UrlBarProperties {
         public String toString() {
             return String.format(
                     Locale.US,
-                    "%s: text: %s; scrollType: %d; selectionState: [%d-%d)",
+                    "%s: text: %s; scrollType: %d; selectionState: %s",
                     getClass().getSimpleName(),
                     text,
                     scrollType,
-                    selection.getLower(),
-                    selection.getUpper());
+                    selection);
         }
     }
 
@@ -113,6 +113,10 @@ class UrlBarProperties {
         }
     }
 
+    /** String to append to the end of the URL bar text during talkback readout. */
+    public static final WritableObjectPropertyKey<String> ACCESSIBILITY_WARNING =
+            new WritableObjectPropertyKey<>();
+
     /** The callback for contextual action modes (cut, copy, etc...). */
     public static final WritableObjectPropertyKey<ActionMode.Callback> ACTION_MODE_CALLBACK =
             new WritableObjectPropertyKey<>();
@@ -133,8 +137,8 @@ class UrlBarProperties {
             new WritableObjectPropertyKey<>();
 
     /** The callback to be notified on focus changes. */
-    public static final WritableObjectPropertyKey<Callback<Boolean>> FOCUS_CHANGE_CALLBACK =
-            new WritableObjectPropertyKey<>();
+    public static final ReadableObjectPropertyKey<Callback<UrlBarFocusChangeInfo>>
+            FOCUS_CHANGE_CALLBACK = new ReadableObjectPropertyKey<>();
 
     /** Specifies whether suggestions are showing below the URL bar. */
     public static final WritableBooleanPropertyKey HAS_URL_SUGGESTIONS =
@@ -174,9 +178,6 @@ class UrlBarProperties {
     public static final WritableBooleanPropertyKey SELECT_ALL_ON_FOCUS =
             new WritableBooleanPropertyKey();
 
-    /** Whether the cursor should be shown in the view. */
-    public static final WritableBooleanPropertyKey SHOW_CURSOR = new WritableBooleanPropertyKey();
-
     /** Whether the hint text should be shown in the view. */
     public static final WritableBooleanPropertyKey SHOW_HINT_TEXT =
             new WritableBooleanPropertyKey();
@@ -210,6 +211,7 @@ class UrlBarProperties {
 
     public static final PropertyKey[] ALL_KEYS =
             new PropertyKey[] {
+                ACCESSIBILITY_WARNING,
                 ACTION_MODE_CALLBACK,
                 ALLOW_FOCUS,
                 ALLOW_MULTILINE_INPUT,
@@ -225,7 +227,6 @@ class UrlBarProperties {
                 MANAGE_SEARCH_ENGINES_CALLBACK,
                 RICH_TEXT_CHANGE_LISTENER,
                 SELECT_ALL_ON_FOCUS,
-                SHOW_CURSOR,
                 SHOW_HINT_TEXT,
                 TEXT_CHANGE_LISTENER,
                 TEXT_COLOR,

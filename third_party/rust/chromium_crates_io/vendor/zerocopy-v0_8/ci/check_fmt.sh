@@ -9,6 +9,7 @@
 # those terms.
 
 set -eo pipefail
+cd "$(dirname "$0")/.."
 
 if [[ "$1" == "--fix" ]]; then
     FMT_FLAGS=""
@@ -16,5 +17,8 @@ else
     FMT_FLAGS="--check"
 fi
 
-find . -iname '*.rs' -type f -not -path './target/*' -not -iname '*.expected.rs' -not -path './vendor/*' -not -path './tools/vendor/*' -not -path './tools/hermes/*' -print0 | xargs -0 --no-run-if-empty ./cargo.sh +nightly fmt $FMT_FLAGS -- >&2
-find ./tools/hermes -iname '*.rs' -type f -not -path './tools/hermes/target/*' -not -iname '*.expected.rs' -not -path './tools/hermes/tests/fixtures/*' -not -path './tools/hermes/tests/ui/*' -print0 | xargs -0 --no-run-if-empty ./cargo.sh +nightly fmt $FMT_FLAGS --manifest-path tools/hermes/Cargo.toml -- >&2
+find . -iname '*.rs' -type f    \
+    -not -path './target/*'     \
+    -not -iname '*.expected.rs' \
+    -not -path './vendor/*'     \
+    -print0 | xargs -0 --no-run-if-empty ./cargo.sh +nightly fmt $FMT_FLAGS -- >&2

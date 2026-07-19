@@ -8,6 +8,7 @@
 #import <UIKit/UIKit.h>
 
 #import "base/ios/block_types.h"
+#import "components/signin/public/base/signin_deep_link_payload.h"
 #import "components/signin/public/base/signin_metrics.h"
 #import "ios/chrome/browser/authentication/ui_bundled/change_profile_continuation_provider.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/buggy_authentication_view_owner.h"
@@ -192,6 +193,9 @@ class PrefRegistrySyncable;
                                                 accessPoint:
                                                     (signin_metrics::
                                                          AccessPoint)accessPoint
+                                       confirmChangeProfile:
+                                           (SigninChangeProfileConfirmationBlock)
+                                               confirmChangeProfile
                                        prepareChangeProfile:
                                            (ProceduralBlock)prepareChangeProfile
                                        continuationProvider:
@@ -246,16 +250,11 @@ class PrefRegistrySyncable;
                                             browser:(Browser*)browser
                                selectedAccountEmail:
                                    (NSString*)selectedAccountEmail
-                                     screenProvider:
-                                         (ScreenProvider*)screenProvider
-                                       contextStyle:
-                                           (SigninContextStyle)contextStyle
-                                        accessPoint:
-                                            (signin_metrics::AccessPoint)
-                                                accessPoint
                   changeProfileContinuationProvider:
                       (const ChangeProfileContinuationProvider&)
-                          changeProfileContinuationProvider;
+                          changeProfileContinuationProvider
+                                 externalEntryPoint:(signin::ExternalEntryPoint)
+                                                        externalEntryPoint;
 
 // ChromeCoordinator.
 - (void)start NS_REQUIRES_SUPER;

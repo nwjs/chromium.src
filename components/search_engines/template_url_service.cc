@@ -1232,7 +1232,7 @@ bool TemplateURLService::ResetPlayAPISearchEngine(
   if (CanMakeDefault(new_play_api_turl_ptr)) {
     SetUserSelectedDefaultSearchProvider(
         new_play_api_turl_ptr,
-        search_engines::ChoiceMadeLocation::kChoiceScreen);
+        search_engines::ChoiceMadeLocation::kDeviceChoiceImport);
   }
 
   CHECK(default_search_provider_);
@@ -2850,6 +2850,13 @@ bool TemplateURLService::Update(TemplateURL* existing_turl,
       ProcessTemplateURLChange(FROM_HERE, existing_turl,
                                syncer::SyncChange::ACTION_UPDATE);
     }
+
+    if (!applying_default_search_engine_change_ &&
+        GetDefaultSearchProvider() == existing_turl &&
+        default_search_provider_source_ == DefaultSearchManager::FROM_USER) {
+      default_search_manager_.SetUserSelectedDefaultSearchEngine(
+          existing_turl->data());
+    }
   }
 
   return true;
@@ -3129,8 +3136,6 @@ void TemplateURLService::ApplyEnterpriseSearchChanges(
   CHECK(loaded_);
 
   Scoper scoper(this);
-
-  LogSearchPolicyConflict(policy_search_engines);
 
   base::flat_set<std::u16string> new_keywords;
   std::ranges::transform(
@@ -3734,45 +3739,3 @@ void TemplateURLService::AddOverriddenKeywordForTemplateURL(
   }
 }
 
-void TemplateURLService::LogSearchPolicyConflict(
-    const TemplateURLService::OwnedTemplateURLVector& policy_search_engines) {
-  if (policy_search_engines.empty()) {
-    // No need to record conflict histograms if the SearchSettings policy
-    // doesn't create any search engine.
-    return;
-  }
-
-  bool has_conflict_with_featured = false;
-  bool has_conflict_with_non_featured = false;
-  for (const auto& policy_turl : policy_search_engines) {
-    const std::u16string& keyword = policy_turl->keyword();
-    CHECK(!keyword.empty());
-
-    const auto match_range = keyword_to_turl_.equal_range(keyword);
-    bool conflicts_with_active =
-        std::any_of(match_range.first, match_range.second,
-                    [](const KeywordToTURL::value_type& entry) {
-                      return !entry.second->CreatedByPolicy() &&
-                             !entry.second->safe_for_autoreplace();
-                    });
-    SearchPolicyConflictType type =
-        conflicts_with_active
-            ? (policy_turl->featured_by_policy()
-                   ? SearchPolicyConflictType::kWithFeatured
-                   : SearchPolicyConflictType::kWithNonFeatured)
-            : SearchPolicyConflictType::kNone;
-    base::UmaHistogramEnumeration(kSearchPolicyConflictCountHistogramName,
-                                  type);
-
-    has_conflict_with_featured |=
-        type == SearchPolicyConflictType::kWithFeatured;
-    has_conflict_with_non_featured |=
-        type == SearchPolicyConflictType::kWithNonFeatured;
-  }
-
-  base::UmaHistogramBoolean(kSearchPolicyHasConflictWithFeaturedHistogramName,
-                            has_conflict_with_featured);
-  base::UmaHistogramBoolean(
-      kSearchPolicyHasConflictWithNonFeaturedHistogramName,
-      has_conflict_with_non_featured);
-}

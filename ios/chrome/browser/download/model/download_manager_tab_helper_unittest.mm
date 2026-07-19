@@ -15,6 +15,7 @@
 #import "base/test/scoped_feature_list.h"
 #import "components/policy/core/common/policy_pref_names.h"
 #import "components/prefs/testing_pref_service.h"
+#import "components/sync/test/test_sync_service.h"
 #import "download_manager_tab_helper.h"
 #import "ios/chrome/browser/download/model/download_directory_util.h"
 #import "ios/chrome/browser/drive/model/drive_policy.h"
@@ -34,6 +35,8 @@
 #import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity_manager.h"
+#import "ios/chrome/browser/sync/model/sync_service_factory.h"
+#import "ios/chrome/browser/sync/model/test_sync_service_utils.h"
 #import "ios/chrome/test/fakes/fake_download_manager_tab_helper_delegate.h"
 #import "ios/chrome/test/fakes/fake_enterprise_commands_handler.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
@@ -88,6 +91,8 @@ class DownloadManagerTabHelperTest : public PlatformTest {
         AuthenticationServiceFactory::GetInstance(),
         AuthenticationServiceFactory::GetFactoryWithDelegate(
             std::make_unique<FakeAuthenticationServiceDelegate>()));
+    builder.AddTestingFactory(SyncServiceFactory::GetInstance(),
+                              base::BindRepeating(&CreateTestSyncService));
     profile_ = std::move(builder).Build();
 
     browser_ = std::make_unique<TestBrowser>(profile_.get());
@@ -128,6 +133,12 @@ class DownloadManagerTabHelperTest : public PlatformTest {
 
   bool has_content_analysis_info() {
     return !!tab_helper()->content_analysis_info_;
+  }
+
+  void MaybeMoveDownloadToDownloadsDirectory(
+      base::WeakPtr<web::DownloadTask> task,
+      bool should_proceed) {
+    tab_helper()->MaybeMoveDownloadToDownloadsDirectory(task, should_proceed);
   }
 
   // Creates a fake download task associated with `web_state_`.
@@ -304,99 +315,6 @@ TEST_F(DownloadManagerTabHelperTest, HasDownloadTask) {
   EXPECT_FALSE(tab_helper()->has_download_task());
 }
 
-// Tests that download is restricted for a visible web state when the download
-// restrictions policy is enabled and the Save to Drive policy is disabled. The
-// test verifies that the delegate state remains nil. Additionally, the test
-// checks that a snackbar is displayed to the user.
-TEST_F(DownloadManagerTabHelperTest, DownloadRestrictedForVisibleWebState) {
-  SignIn();
-  PrefService* pref_service = profile_.get()->GetPrefs();
-  pref_service->SetInteger(
-      policy::policy_prefs::kDownloadRestrictions,
-      static_cast<int>(policy::DownloadRestriction::ALL_FILES));
-  pref_service->SetInteger(
-      prefs::kIosSaveToDriveDownloadManagerPolicySettings,
-      static_cast<int>(SaveToDrivePolicySettings::kDisabled));
-
-  web_state_->WasShown();
-  id mock_snackbar_command_handler_ =
-      OCMProtocolMock(@protocol(SnackbarCommands));
-
-  OCMExpect([mock_snackbar_command_handler_ showSnackbarWithMessage:[OCMArg any]
-                                                         buttonText:[OCMArg any]
-                                                      messageAction:nil
-                                                   completionAction:nil]);
-  ASSERT_FALSE(delegate_.state);
-  std::unique_ptr<web::FakeDownloadTask> task =
-      CreateFakeDownloadTask(GURL(kUrl), kMimeType);
-  tab_helper()->SetSnackbarHandler(mock_snackbar_command_handler_);
-  tab_helper()->SetCurrentDownload(std::move(task));
-  ASSERT_FALSE(delegate_.state);
-  EXPECT_OCMOCK_VERIFY(mock_snackbar_command_handler_);
-}
-
-// Tests that download is restricted for a visible web state when the download
-// restrictions policy is enabled and browser is incognito. The test verifies
-// that the delegate state remains nil. Additionally, the test checks
-// that a snackbar is displayed to the user.
-TEST_F(DownloadManagerTabHelperTest,
-       DownloadRestrictedAndIncognitoForVisibleWebState) {
-  web_state_->SetBrowserState(profile_->GetOffTheRecordProfile());
-  SignIn();
-  PrefService* pref_service = profile_.get()->GetPrefs();
-  pref_service->SetInteger(
-      policy::policy_prefs::kDownloadRestrictions,
-      static_cast<int>(policy::DownloadRestriction::ALL_FILES));
-  pref_service->SetInteger(
-      prefs::kIosSaveToDriveDownloadManagerPolicySettings,
-      static_cast<int>(SaveToDrivePolicySettings::kEnabled));
-  web_state_->WasShown();
-  id mock_snackbar_command_handler_ =
-      OCMProtocolMock(@protocol(SnackbarCommands));
-
-  OCMExpect([mock_snackbar_command_handler_ showSnackbarWithMessage:[OCMArg any]
-                                                         buttonText:[OCMArg any]
-                                                      messageAction:nil
-                                                   completionAction:nil]);
-  ASSERT_FALSE(delegate_.state);
-  std::unique_ptr<web::FakeDownloadTask> task =
-      CreateFakeDownloadTask(GURL(kUrl), kMimeType);
-  tab_helper()->SetSnackbarHandler(mock_snackbar_command_handler_);
-  tab_helper()->SetCurrentDownload(std::move(task));
-  ASSERT_FALSE(delegate_.state);
-  EXPECT_OCMOCK_VERIFY(mock_snackbar_command_handler_);
-}
-
-// Tests that download is not restricted for a visible web state when the
-// download restrictions policy is enabled but the Save to Drive policy is also
-// enable. The test verifies that the delegate state is set. Additionally, the
-// test checks that a snackbar is not displayed to the user.
-TEST_F(DownloadManagerTabHelperTest, NoDownloadRestrictionForVisibleWebState) {
-  SignIn();
-  PrefService* pref_service = profile_.get()->GetPrefs();
-  pref_service->SetInteger(
-      policy::policy_prefs::kDownloadRestrictions,
-      static_cast<int>(policy::DownloadRestriction::ALL_FILES));
-  pref_service->SetInteger(
-      prefs::kIosSaveToDriveDownloadManagerPolicySettings,
-      static_cast<int>(SaveToDrivePolicySettings::kEnabled));
-  web_state_->WasShown();
-  id mock_snackbar_command_handler_ =
-      OCMProtocolMock(@protocol(SnackbarCommands));
-
-  OCMReject([mock_snackbar_command_handler_ showSnackbarWithMessage:[OCMArg any]
-                                                         buttonText:[OCMArg any]
-                                                      messageAction:nil
-                                                   completionAction:nil]);
-  ASSERT_FALSE(delegate_.state);
-  std::unique_ptr<web::FakeDownloadTask> task =
-      CreateFakeDownloadTask(GURL(kUrl), kMimeType);
-  tab_helper()->SetSnackbarHandler(mock_snackbar_command_handler_);
-  tab_helper()->SetCurrentDownload(std::move(task));
-  ASSERT_TRUE(delegate_.state);
-  EXPECT_OCMOCK_VERIFY(mock_snackbar_command_handler_);
-}
-
 // Tests that after a download task is complete, it finishes by moving the file.
 // This verifies that when the feature is disabled, the scan result is SUCCESS
 // and it proceeds without a warning dialog.
@@ -537,4 +455,72 @@ TEST_F(DownloadManagerTabHelperTest, DownloadCompleteNotifiesDelegate) {
   }));
 
   EXPECT_FALSE(tab_helper()->IsScannerProcessing());
+}
+
+// Tests that a scan completion callback bound to a previous download is ignored
+// once that download has been replaced by a new one.
+TEST_F(DownloadManagerTabHelperTest,
+       StaleScanCallbackIgnoredAfterDownloadReplaced) {
+  web_state_->WasShown();
+
+  // Set the first download as the current task.
+  std::unique_ptr<web::FakeDownloadTask> first_task =
+      CreateFakeDownloadTask(GURL(kUrl), kMimeType);
+  first_task->SetDone(true);
+  base::WeakPtr<web::DownloadTask> first_task_weak = first_task->GetWeakPtr();
+  tab_helper()->SetCurrentDownload(std::move(first_task));
+
+  // Replace the first download with a second one.
+  std::unique_ptr<web::FakeDownloadTask> second_task =
+      CreateFakeDownloadTask(GURL(kUrl), kMimeType);
+  web::FakeDownloadTask* second_task_ptr = second_task.get();
+  second_task_ptr->SetIdentifier(@"second_id");
+  second_task_ptr->SetGeneratedFileName(base::FilePath("second.txt"));
+  tab_helper()->SetCurrentDownload(std::move(second_task));
+  ASSERT_EQ(second_task_ptr, tab_helper()->GetActiveDownloadTask());
+  ASSERT_TRUE(tab_helper()->GetDownloadTaskFinalFilePath().empty());
+
+  // Simulate the scan completion callback for the first download arriving with
+  // `shouldProceed` set to true. The second download must not be affected.
+  MaybeMoveDownloadToDownloadsDirectory(first_task_weak, true);
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return tab_helper()->GetDownloadTaskFinalFilePath().empty() &&
+           tab_helper()->GetActiveDownloadTask() == second_task_ptr;
+  }));
+  EXPECT_TRUE(tab_helper()->GetDownloadTaskFinalFilePath().empty());
+  EXPECT_EQ(second_task_ptr, tab_helper()->GetActiveDownloadTask());
+
+  // Simulate the scan completion callback for the first download arriving with
+  // `shouldProceed` set to false. The second download must not be cleaned up.
+  MaybeMoveDownloadToDownloadsDirectory(first_task_weak, false);
+  EXPECT_EQ(second_task_ptr, tab_helper()->GetActiveDownloadTask());
+}
+
+// Tests that a scan completion callback bound to a previous download is ignored
+// once the current download has been cleared.
+TEST_F(DownloadManagerTabHelperTest,
+       StaleScanCallbackIgnoredAfterDownloadCleared) {
+  web_state_->WasShown();
+
+  // Set a download as the current task.
+  std::unique_ptr<web::FakeDownloadTask> task =
+      CreateFakeDownloadTask(GURL(kUrl), kMimeType);
+  task->SetDone(true);
+  base::WeakPtr<web::DownloadTask> task_weak = task->GetWeakPtr();
+  tab_helper()->SetCurrentDownload(std::move(task));
+
+  // Clear the current download.
+  tab_helper()->CleanupCurrentDownload();
+  ASSERT_EQ(nullptr, tab_helper()->GetActiveDownloadTask());
+
+  // Simulate the scan completion callback arriving with `shouldProceed` set to
+  // true. It must be ignored and not cause crashes or unexpected state.
+  MaybeMoveDownloadToDownloadsDirectory(task_weak, true);
+  EXPECT_EQ(nullptr, tab_helper()->GetActiveDownloadTask());
+  EXPECT_TRUE(tab_helper()->GetDownloadTaskFinalFilePath().empty());
+
+  // Simulate the scan completion callback arriving with `shouldProceed` set to
+  // false. It must be ignored.
+  MaybeMoveDownloadToDownloadsDirectory(task_weak, false);
+  EXPECT_EQ(nullptr, tab_helper()->GetActiveDownloadTask());
 }

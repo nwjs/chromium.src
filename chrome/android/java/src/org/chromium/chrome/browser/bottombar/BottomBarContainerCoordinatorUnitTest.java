@@ -31,23 +31,33 @@ import org.robolectric.annotation.Config;
 
 import org.chromium.base.Callback;
 import org.chromium.base.supplier.ObservableSuppliers;
+import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.supplier.SettableNullableObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.RobolectricUtil;
 import org.chromium.chrome.browser.browser_controls.BottomControlsStacker.LayerScrollBehavior;
+import org.chromium.chrome.browser.glic.GlicEnabling;
+import org.chromium.chrome.browser.glic.GlicKeyedService;
+import org.chromium.chrome.browser.glic.GlicKeyedServiceFactory;
+import org.chromium.chrome.browser.layouts.LayoutStateProvider;
+import org.chromium.chrome.browser.omaha.UpdateMenuItemHelper;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.theme.ThemeColorProvider;
 import org.chromium.chrome.browser.toolbar.bottom.BottomControlsCoordinator.BottomControlsVisibilityController;
+import org.chromium.chrome.browser.toolbar.menu_button.MenuUiState;
 import org.chromium.chrome.browser.ui.actions.ActionId;
 import org.chromium.chrome.browser.ui.actions.ActionRegistry;
+import org.chromium.chrome.browser.ui.appmenu.AppMenuCoordinator;
 import org.chromium.chrome.browser.ui.bottombar.BottomBar;
 import org.chromium.chrome.browser.ui.bottombar.BottomBarHostManager.Host;
 import org.chromium.chrome.browser.ui.bottombar.BottomBarUtils;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
-import org.chromium.chrome.browser.user_education.UserEducationHelper;
+import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.ui.base.TestActivity;
+import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modelutil.PropertyModel;
 
 /** Unit tests for {@link BottomBarContainerCoordinator}. */
@@ -66,7 +76,11 @@ public class BottomBarContainerCoordinatorUnitTest {
     @Mock private ThemeColorProvider mThemeColorProvider;
     @Mock private ActionRegistry mActionRegistry;
     @Mock private Profile mProfile;
-    @Mock private UserEducationHelper mUserEducationHelper;
+    @Mock private ModalDialogManager mModalDialogManager;
+    @Mock private UpdateMenuItemHelper mUpdateMenuItemHelper;
+    @Mock private GlicKeyedService mGlicKeyedService;
+    @Mock private TemplateUrlService mTemplateUrlService;
+    @Mock private LayoutStateProvider mLayoutStateProvider;
 
     private final SettableNullableObservableSupplier<Tab> mTabSupplier =
             ObservableSuppliers.createNullable();
@@ -79,12 +93,21 @@ public class BottomBarContainerCoordinatorUnitTest {
     private FrameLayout mBottomBarContainer;
     private SettableNonNullObservableSupplier<Boolean> mHomepageEnabledSupplier;
     private SettableNonNullObservableSupplier<Boolean> mOmniboxFocusStateSupplier;
+    private SettableNonNullObservableSupplier<ModalDialogManager> mModalDialogManagerSupplier;
     private BottomBarContainerCoordinator mCoordinator;
 
     @Before
     public void setUp() {
         mTabSupplier.set(null);
         when(mActionRegistry.get(anyInt())).thenReturn(mActionSupplier);
+        when(mProfile.getOriginalProfile()).thenReturn(mProfile);
+        UpdateMenuItemHelper.setInstanceForTesting(mUpdateMenuItemHelper);
+        when(mUpdateMenuItemHelper.getUiState()).thenReturn(new MenuUiState());
+        GlicKeyedServiceFactory.setForTesting(mGlicKeyedService);
+        GlicEnabling.setEnabledForTesting(false);
+        TemplateUrlServiceFactory.setInstanceForTesting(mTemplateUrlService);
+        when(mTemplateUrlService.isDefaultSearchEngineGoogle()).thenReturn(true);
+
         mActivityScenarioRule
                 .getScenario()
                 .onActivity(
@@ -93,18 +116,22 @@ public class BottomBarContainerCoordinatorUnitTest {
                             mBottomBarContainer = new FrameLayout(mActivity);
                             mHomepageEnabledSupplier = ObservableSuppliers.createNonNull(true);
                             mOmniboxFocusStateSupplier = ObservableSuppliers.createNonNull(false);
+                            mModalDialogManagerSupplier =
+                                    ObservableSuppliers.createNonNull(mModalDialogManager);
                             mProfileSupplier.set(mProfile);
                             mCoordinator =
                                     new BottomBarContainerCoordinator(
                                             mBottomBarContainer,
-                                            mUserEducationHelper,
                                             mRequestLayerUpdateCallback,
                                             mActionRegistry,
                                             mTabSupplier,
                                             mThemeColorProvider,
                                             mHomepageEnabledSupplier,
                                             mProfileSupplier,
-                                            mOmniboxFocusStateSupplier);
+                                            mOmniboxFocusStateSupplier,
+                                            mModalDialogManagerSupplier,
+                                            new OneshotSupplierImpl<AppMenuCoordinator>(),
+                                            mLayoutStateProvider);
                         });
     }
 

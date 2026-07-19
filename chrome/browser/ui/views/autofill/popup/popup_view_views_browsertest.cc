@@ -144,7 +144,7 @@ std::vector<Suggestion> CreatePasswordSuggestions(
   suggestions.back().icon = Suggestion::Icon::kGlobe;
   suggestions.back().acceptability = acceptability;
 
-  suggestions.emplace_back(autofill::SuggestionType::kSeparator);
+  suggestions.emplace_back(SuggestionType::kSeparator);
 
   suggestions.emplace_back(
       l10n_util::GetStringUTF16(IDS_PASSWORD_MANAGER_MANAGE_PASSWORDS),
@@ -353,26 +353,6 @@ IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest,
                        InvokeUi_AutofillProfile_Selected_Profile) {
   PrepareSuggestions(CreateAutofillProfileSuggestions());
   PrepareSelectedCell(CellIndex{0, CellType::kContent});
-  ShowAndVerifyUi();
-}
-
-IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest,
-                       InvokeUi_AutofillProfile_Selected_Content_WithSubpoup) {
-  std::vector<Suggestion> suggestions = CreateAutofillProfileSuggestions();
-  suggestions[0].children = CreateAutofillProfileSuggestions();
-
-  PrepareSuggestions(std::move(suggestions));
-  PrepareSelectedCell(CellIndex{0, CellType::kContent});
-  ShowAndVerifyUi();
-}
-
-IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest,
-                       InvokeUi_AutofillProfile_Selected_Control_WithSubpoup) {
-  std::vector<Suggestion> suggestions = CreateAutofillProfileSuggestions();
-  suggestions[0].children = CreateAutofillProfileSuggestions();
-
-  PrepareSuggestions(std::move(suggestions));
-  PrepareSelectedCell(CellIndex{0, CellType::kControl});
   ShowAndVerifyUi();
 }
 

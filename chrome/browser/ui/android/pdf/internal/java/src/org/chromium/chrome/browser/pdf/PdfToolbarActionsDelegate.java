@@ -24,6 +24,13 @@ public interface PdfToolbarActionsDelegate {
     void changeZoomLevel(float zoomLevel);
 
     /**
+     * Sets the edit mode of the PDF toolbar.
+     *
+     * @param editMode Whether to enable edit mode.
+     */
+    void setEditMode(boolean editMode);
+
+    /**
      * Toggles between "fit to page height" and "fit to page width" modes.
      *
      * @param fitToPageHeight Whether to fit to page height or fit to page width.
@@ -45,6 +52,19 @@ public interface PdfToolbarActionsDelegate {
     /** Downloads the PDF document. */
     void download();
 
-    /** Rotates the PDF document. */
-    void rotate();
+    /** Triggers printing for the PDF document. */
+    void print();
+
+
+
+    /** Shows the document properties dialog. */
+    void showDocumentProperties();
+
+    /**
+     * Called when the visibility of the page navigation and edit button changes.
+     *
+     * @param visible Whether the page navigation and edit button are visible.
+     */
+    void onPageNavAndEditVisibilityChanged(boolean visible);
 }
+

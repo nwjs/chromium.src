@@ -4,15 +4,18 @@
 
 #include "components/contextual_tasks/public/features.h"
 
+#include <optional>
 #include <string>
 #include <vector>
 
+#include "base/check.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/no_destructor.h"
 #include "base/rand_util.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "build/buildflag.h"
+#include "ui/base/device_form_factor.h"
 
 namespace {
 // Allow runtime override of the forced embedded page host.
@@ -20,6 +23,10 @@ std::string& GetForcedEmbeddedPageHostOverrideString() {
   static base::NoDestructor<std::string> override_string;
   return *override_string;
 }
+
+// Allows tests to override the conditions for having sticky conversation.
+std::optional<bool> g_sticky_conversation_enabled_override;
+
 }  // namespace
 
 namespace contextual_tasks {
@@ -77,6 +84,9 @@ BASE_FEATURE(kEnableNotifyZeroStateRenderedCapability,
 BASE_FEATURE(kContextualTasksSendFullVersionListEnabled,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kContextualTasksSendContextualInputUploadType,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kContextualTasksUrlRedirectToAimUrl,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -93,6 +103,8 @@ BASE_FEATURE(kContextualTasksEnableFileHint, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kContextualTasksComposeboxJumpFix,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kContextualTasksComposeboxFork, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables the use of a rounded clip-path for the composebox.
 BASE_FEATURE(kContextualTasksRoundedClipPath, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -133,13 +145,80 @@ BASE_FEATURE(kContextualTasksJavaFusebox, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kContextualTasksOverrideShowBottomSheetOnLargeScreen,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kAimTriggeredThreadLinks, base::FEATURE_DISABLED_BY_DEFAULT);
+// Enables prefetching of cookies for contextual tasks.
+BASE_FEATURE(kContextualTasksCookiePrefetch, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kAimTriggeredThreadLinks, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kContextualTasksWindowTracking, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kContextualTasksUploadChunking, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kContextualTasksEnableSpatialModelToolbarLayout,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kContextualTasksRearchitecture, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kContextualTasksEnableStickyConversation,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 bool GetIsContextualTasksPdfCitationsEnabled() {
   return base::FeatureList::IsEnabled(kContextualTasksPdfCitations);
 }
 
 bool GetIsContextualTasksLazyFetchClusterInfoEnabled() {
   return base::FeatureList::IsEnabled(kContextualTasksLazyFetchClusterInfo);
+}
+
+bool GetIsContextualTasksWindowTrackingEnabled() {
+  return base::FeatureList::IsEnabled(kContextualTasksWindowTracking);
+}
+
+bool GetIsContextualTasksUploadChunkingEnabled() {
+  return base::FeatureList::IsEnabled(kContextualTasksUploadChunking);
+}
+
+bool GetContextualTasksSpatialModelToolbarLayoutEnabled() {
+  return base::FeatureList::IsEnabled(
+      kContextualTasksEnableSpatialModelToolbarLayout);
+}
+
+bool IsStickyConversationEnabled() {
+  if (g_sticky_conversation_enabled_override.has_value()) {
+    return *g_sticky_conversation_enabled_override;
+  }
+  return base::FeatureList::IsEnabled(
+             kContextualTasksEnableStickyConversation) &&
+         ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_PHONE;
+}
+
+ScopedStickyConversationEnabledForTesting::
+    ScopedStickyConversationEnabledForTesting(bool enabled) {
+  CHECK(!g_sticky_conversation_enabled_override.has_value());
+  g_sticky_conversation_enabled_override = enabled;
+}
+
+ScopedStickyConversationEnabledForTesting::
+    ~ScopedStickyConversationEnabledForTesting() {
+  g_sticky_conversation_enabled_override.reset();
+}
+
+const base::FeatureParam<OverflowMenuItems>::Option
+    kContextualTasksSpatialModelToolbarLayoutOverflowItemsOptions[] = {
+        {OverflowMenuItems::kAllItems, "all-items"},
+        {OverflowMenuItems::kAllWithoutNewThread, "all-without-new-thread"},
+};
+
+const base::FeatureParam<OverflowMenuItems>
+    kContextualTasksSpatialModelToolbarLayoutOverflowItems(
+        &kContextualTasksEnableSpatialModelToolbarLayout,
+        "overflow-items",
+        OverflowMenuItems::kAllWithoutNewThread,
+        &kContextualTasksSpatialModelToolbarLayoutOverflowItemsOptions);
+
+bool GetContextualTasksSpatialModelToolbarLayoutNewThreadInOverflow() {
+  return kContextualTasksSpatialModelToolbarLayoutOverflowItems.Get() ==
+         OverflowMenuItems::kAllItems;
 }
 
 const base::FeatureParam<bool> kContextualTasksLockAndUnlockInputCapability(
@@ -161,11 +240,6 @@ const base::FeatureParam<bool> kContextualTasksEnableCookieSync(
     &kContextualTasks,
     "ContextualTasksEnableCookieSync",
     true);
-
-const base::FeatureParam<bool> kContextualTasksEnableCookiePrefetch(
-    &kContextualTasks,
-    "ContextualTasksEnableCookiePrefetch",
-    false);
 
 const base::FeatureParam<bool> kOnlyUseTitlesForSimilarity(
     &kContextualTasksContext,
@@ -271,6 +345,13 @@ const base::FeatureParam<double> kContextualTasksContextLoggingSampleRate{
     &kContextualTasksContextLogging, "ContextualTasksContextLoggingSampleRate",
     1.0};
 
+const base::FeatureParam<bool> kSendContextualInputUploadTypeInSearchUrl{
+    &kContextualTasksSendContextualInputUploadType, "send_in_search_url", true};
+
+const base::FeatureParam<bool> kSendContextualInputUploadTypeInAimRequest{
+    &kContextualTasksSendContextualInputUploadType, "send_in_aim_request",
+    true};
+
 // Enables tab auto-chip for contextual tasks.
 const base::FeatureParam<bool> kContextualTasksTabAutoSuggestionChipEnabled(
     &kContextualTasks,
@@ -297,8 +378,6 @@ const base::FeatureParam<std::string> kContextualTasksSignInDomains{
 
 constexpr base::FeatureParam<EntryPointOption>::Option kEntryPointOptions[] = {
     {EntryPointOption::kNoEntryPoint, "no-entry-point"},
-    {EntryPointOption::kToolbarRevisit, "toolbar-revisit"},
-    {EntryPointOption::kToolbarPermanent, "toolbar-permanent"},
     {EntryPointOption::kToolbarEphemeralBranded, "toolbar-ephemeral-branded"}};
 
 const base::FeatureParam<EntryPointOption> kShowEntryPoint(
@@ -337,8 +416,11 @@ const base::FeatureParam<bool> kForceGscInTabMode(
 // Version 2.2: Added UI fixes for NLM.
 // Version 2.3: UI fixes for transitions from search results.
 // Version 2.4: Adds ability to hideInput/restoreInput
+// Version 2.5: Support for link click post messages and window.open calls from
+//              AIM.
+// Version 2.6: Add inverted quote and follow up injected input icons.
 const base::FeatureParam<std::string> kContextualTasksUserAgentSuffix{
-    &kContextualTasks, "contextual-tasks-user-agent-suffix", "Cobrowsing/2.4"};
+    &kContextualTasks, "contextual-tasks-user-agent-suffix", "Cobrowsing/2.6"};
 
 const base::FeatureParam<std::string> kContextualTasksOAuthScopes{
     &kContextualTasksExtraOauthScopes, "ContextualTasksOAuthScopes", ""};
@@ -383,6 +465,11 @@ const base::FeatureParam<int> kContextualTasksOnboardingTooltipImpressionDelay(
     &kContextualTasksShowOnboardingTooltip,
     "ContextualTasksOnboardingTooltipImpressionDelay",
     3000);
+
+const base::FeatureParam<int> kContextualTasksNumSessionsBeforeRequestPinPromo(
+    &kContextualTasks,
+    "ContextualTasksPinPromoSessionDelay",
+    2);
 
 const base::FeatureParam<bool> kEnableContextualTasksSmartCompose(
     &kContextualTasks,
@@ -451,6 +538,10 @@ int ContextualTasksInactiveSidePanelKeepInCacheMinutes() {
 
 bool IsContextualTasksPinButtonInToolbarEnabled() {
   return base::FeatureList::IsEnabled(kEnableContextualTasksPinButtonInToolbar);
+}
+
+int GetContextualTasksNumSessionsBeforeRequestPinPromo() {
+  return kContextualTasksNumSessionsBeforeRequestPinPromo.Get();
 }
 
 bool GetIsProtectedPageErrorEnabled() {
@@ -539,7 +630,7 @@ const base::FeatureParam<std::string>
 
 const base::FeatureParam<int> kContextualTasksNextboxMaxFileSize{
     &kContextualTasksContextMenu, "ContextualTasksNextboxMaxFileSize",
-    20 * 1024 * 1024};
+    100 * 1024 * 1024};
 
 bool GetIsContextualTasksSuggestionsEnabled() {
   return base::FeatureList::IsEnabled(kContextualTasksSuggestionsEnabled);
@@ -620,7 +711,7 @@ bool ShouldEnableCookieSync() {
 }
 
 bool ShouldEnableCookiePrefetch() {
-  return kContextualTasksEnableCookiePrefetch.Get();
+  return base::FeatureList::IsEnabled(kContextualTasksCookiePrefetch);
 }
 
 bool ShouldEnableLockAndUnlockInputCapability() {
@@ -686,6 +777,33 @@ const char kContextualTasksOverrideShowBottomSheetOnLargeScreenName[] =
 const char kContextualTasksOverrideShowBottomSheetOnLargeScreenDescription[] =
     "Enables overriding side panel to show Bottom Sheet on large screens for "
     "contextual tasks.";
+
+const char kContextualTasksCookiePrefetchName[] =
+    "Contextual Tasks Cookie Prefetch";
+const char kContextualTasksCookiePrefetchDescription[] =
+    "Enables prefetching of cookies for contextual tasks.";
+
+const char kEnableContextualTasksPinButtonInToolbarName[] =
+    "Contextual Tasks Pin Button In Toolbar";
+const char kEnableContextualTasksPinButtonInToolbarDescription[] =
+    "Enables the pin button in the toolbar for contextual tasks.";
+
+const char kContextualTasksHideMenuOnAiPageName[] =
+    "Contextual Tasks Hide Menu On AI Page";
+const char kContextualTasksHideMenuOnAiPageDescription[] =
+    "Hides the 3-dot (overflow) menu when viewing an AI page in the side "
+    "panel. The menu is still shown for lens flows.";
+
+const char kContextualTasksEnableSpatialModelToolbarLayoutName[] =
+    "Contextual Tasks Enable Spatial Model Toolbar Layout";
+const char kContextualTasksEnableSpatialModelToolbarLayoutDescription[] =
+    "Enables the spatial model toolbar layout for contextual tasks.";
+
+const char kContextualTasksRearchitectureName[] =
+    "Contextual Tasks Rearchitecture";
+const char kContextualTasksRearchitectureDescription[] =
+    "Enables composebox embedded in AIM main frame, new auth,"
+    " and new side panel and ghost loader for contextual tasks.";
 
 }  // namespace flag_descriptions
 

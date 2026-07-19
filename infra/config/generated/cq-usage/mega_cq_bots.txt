@@ -14,6 +14,7 @@ chromium/try/android-15-tablet-landscape-x64-rel
 chromium/try/android-15-tablet-x64-rel
 chromium/try/android-15-x64-rel
 chromium/try/android-16-x64-dbg
+chromium/try/android-16-x64-leakcanary-rel
 chromium/try/android-16-x64-rel
 chromium/try/android-arm-compile-dbg
 chromium/try/android-arm64-compile-dbg
@@ -64,8 +65,6 @@ chromium/try/chromeos-amd64-generic-asan-rel
 chromium/try/chromeos-amd64-generic-cfi-thin-lto-rel
 chromium/try/chromeos-amd64-generic-dbg
 chromium/try/chromeos-amd64-generic-rel
-chromium/try/chromeos-amd64-generic-rel-gtest
-chromium/try/chromeos-amd64-generic-rel-gtest-and-tast
 chromium/try/chromeos-arm-generic-dbg
 chromium/try/chromeos-arm-generic-rel
 chromium/try/chromeos-arm64-generic-rel
@@ -92,7 +91,6 @@ chromium/try/linux-asan-dbg
 chromium/try/linux-asan-media-rel
 chromium/try/linux-asan-media-v8-arm-rel
 chromium/try/linux-asan-rel
-chromium/try/linux-asan-v8-arm-dbg
 chromium/try/linux-asan-v8-arm-rel
 chromium/try/linux-bfcache-rel
 chromium/try/linux-blink-asan-rel
@@ -156,8 +154,6 @@ chromium/try/mac-no-initial-webui-rel
 chromium/try/mac-official
 chromium/try/mac-rel
 chromium/try/mac-x64-compile-dbg
-chromium/try/mac12-arm64-rel
-chromium/try/mac12-tests
 chromium/try/mac13-arm64-rel
 chromium/try/mac13-tests
 chromium/try/mac14-arm64-rel
@@ -184,3 +180,4 @@ chromium/try/win32-official
 chromium/try/win_chromium_compile_dbg_ng
 chromium/try/win_chromium_compile_rel_ng
 chromium/try/win_chromium_x64_rel_ng
+chromium/try/windows-no-initial-webui-rel

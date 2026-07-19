@@ -24,8 +24,7 @@ bytes = "1"
 chrono = "0.4.43"
 cxx = "1"
 fend-core = "1"
-font-types = "0.11.3"
-harfrust = "0.8.2"
+font-types = "0.12.0"
 hex = "0.4"
 hmac-sha256 = "1.1.12"
 indexmap = "2.12.1"
@@ -45,8 +44,10 @@ rustc-demangle-capi = "0.1"
 serde = "1.0.219"
 serde_json = "1.0.149"
 shared-brotli-patch-decoder = "0.1.3"
-skrifa = "0.42.1"
+skrifa = "0.43.2"
 small_ctor = "0.1"
+# third-party/harfbuzz/BUILD.gn's HarfRust targets need a dependency to smallvec.
+smallvec = "1"
 static_assertions = "1"
 xml = "1.3.0"
 
@@ -65,6 +66,10 @@ features = ["nightly"]  # For optimized aarch64 implementation.
 [dependencies.cxxbridge-cmd]
 version = "1"
 artifact = "bin"
+
+[dependencies.harfrust]
+version = "0.10.0"
+features = ["experimental_font_api"]
 
 [dependencies.icu_casemap]
 version = "2.2.0"
@@ -124,7 +129,7 @@ version = "0.8.1"
 default-features = false
 
 [dependencies.read-fonts]
-version = "0.39.2"
+version = "0.40.2"
 features = ["agl"]
 
 [dependencies.rustfft]
@@ -137,6 +142,10 @@ version = "6.4.1"
 package = "serde_json_lenient"
 version = "0.2"
 features = ["unbounded_depth", "float_roundtrip"]
+
+[dependencies.sfv]
+version = "0.15.0"
+default-features = false
 
 [dependencies.strum]
 version = "0.28.0"

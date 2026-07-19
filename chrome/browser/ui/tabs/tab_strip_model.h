@@ -61,6 +61,7 @@ class SplitTabData;
 class SplitTabVisualData;
 enum class SplitTabLayout;
 enum class SplitTabCreatedSource;
+enum class SplitTabOrientationChangeSource;
 }  // namespace split_tabs
 
 namespace tabs {
@@ -504,12 +505,9 @@ class TabStripModel {
   // Returns true if the tab at |index| is in the foreground.
   bool IsTabInForeground(int index) const;
 
-  // Returns true if the tab at |index| is allowed to be closed.
-  bool IsTabClosable(int index) const;
-
-  // Returns true if the tab corresponding to |contents| is allowed to be
+  // Returns true if the tab corresponding to |tab| is allowed to be
   // closed.
-  bool IsTabClosable(const content::WebContents* contents) const;
+  bool IsTabClosable(const tabs::TabInterface* tab) const;
 
   split_tabs::SplitTabData* GetSplitData(split_tabs::SplitTabId split_id) const;
 
@@ -520,18 +518,11 @@ class TabStripModel {
 
   bool ContainsSplit(split_tabs::SplitTabId split_id) const;
 
-  // Returns true if the active tab is split.
-  bool IsActiveTabSplit() const;
-
   std::optional<split_tabs::SplitTabId> GetSplitForTab(int index) const;
 
   // Returns the group that contains the tab at |index|, or nullopt if the tab
   // index is invalid or not grouped.
   std::optional<tab_groups::TabGroupId> GetTabGroupForTab(int index) const;
-
-  // Returns the TabGroupId of the active tab if it belongs to a group, or
-  // nullopt if ungrouped.
-  std::optional<tab_groups::TabGroupId> GetActiveTabGroupId() const;
 
   // If a tab inserted at |index| would be within a tab group, return that
   // group's ID. Otherwise, return nullopt. If |index| points to the first tab
@@ -625,8 +616,11 @@ class TabStripModel {
                                    int destination_index);
 
   // Updates the layout for the tabs with `split_id` and notifies observers.
-  void UpdateSplitLayout(split_tabs::SplitTabId split_id,
-                         split_tabs::SplitTabLayout tab_layout);
+  void UpdateSplitLayout(
+      split_tabs::SplitTabId split_id,
+      split_tabs::SplitTabLayout tab_layout,
+      std::optional<split_tabs::SplitTabOrientationChangeSource> source =
+          std::nullopt);
 
   // Updates the ratio for the tabs with `split_id` and notifies observers.
   void UpdateSplitRatio(split_tabs::SplitTabId split_id,
@@ -727,8 +721,6 @@ class TabStripModel {
   // Gets the root of the tab strip model. Used to traverse the tab topology.
   const tabs::TabCollection* Root() const;
 
-  const tabs::TabCollection* GetRootForTesting() const;
-
   // Finds the group id for a tab collection. Note that this API can be error
   // prone. Make sure to read and understand the potential problems with
   // relying on group id.
@@ -773,12 +765,6 @@ class TabStripModel {
     CommandGoBack,
     CommandCloseAllTabs,
     CommandToggleVertical,
-    // TODO(b/489122337): Remove deprecated command.
-    CommandGlicShareLimit,
-    // TODO(b/489122337): Remove deprecated command.
-    CommandGlicStartShare,
-    // TODO(b/489122337): Remove deprecated command.
-    CommandGlicStopShare,
     CommandGlicShare,
     CommandGlicCreateNewChat,
     CommandGlicSwitchToRecentConversation,
@@ -1380,9 +1366,6 @@ class TabStripModel {
 
   // Takes the |selection| change and decides whether to forget the openers.
   void OnActiveTabChanged(const TabStripSelectionChange& selection);
-
-  // Checks if policy allows a tab to be closed.
-  bool PolicyAllowsTabClosing(content::WebContents* contents) const;
 
   // Determine where to shift selection after a tab or collection is closed.
   std::optional<int> DetermineNewSelectedIndex(

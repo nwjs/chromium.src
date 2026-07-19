@@ -20,7 +20,11 @@
 
 #if BUILDFLAG(WEBNN_USE_TFLITE) || BUILDFLAG(WEBNN_USE_LITERT)
 #include "services/webnn/host/weights_file_creator_impl.h"
-#include "services/webnn/public/cpp/in_process_context_provider.h"
+#include "services/webnn/public/cpp/in_process_context_provider.h"  // nogncheck
+#endif
+
+#if BUILDFLAG(IS_WIN)
+#include "services/webnn/public/cpp/ep_device_info.h"
 #endif
 
 namespace webnn::test {
@@ -170,9 +174,11 @@ void FakeGpuHostForTesting::EnsureWebNNExecutionProvidersReady(
 void FakeGpuHostForTesting::RequestWebNNCompilerContext(
     webnn::mojom::CreateContextOptionsPtr context_options,
     const webnn::ContextProperties& context_properties,
-    base::flat_map<std::string, webnn::mojom::EpPackageInfoPtr> ep_package_info,
-    RequestWebNNCompilerContextCallback callback) {
-  std::move(callback).Run(mojo::NullRemote(), mojo::NullReceiver());
+    const webnn::EpDeviceInfo& target_device,
+    mojo::PendingReceiver<webnn::mojom::WebNNCompilerContext>
+        compiler_context_receiver,
+    mojo::PendingRemote<webnn::mojom::WebNNModelLoader> model_loader_remote) {
+  // No-op for testing; drop the endpoints so the peer endpoints disconnect.
 }
 #endif
 

@@ -373,7 +373,6 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuViewBrowserTest,
   // Profile Menu should show on the result of the first request.
   ASSERT_NO_FATAL_FAILURE(WaitForMenuToBeActive(profile_menu_view()));
   ASSERT_TRUE(coordinator->IsShowing());
-
   // Fire second local data return - this should be a no-op.
   batch_upload_test_helper().FireReturnDescriptionRequest();
   // Profile menu should still be shown.
@@ -1310,7 +1309,6 @@ class ProfileMenuViewBookmarksLimitExceededTest
   ProfileMenuViewBookmarksLimitExceededTest() : SyncTest(SINGLE_CLIENT) {
     scoped_feature_list_.InitWithFeatures(
         /*enabled_features=*/{
-            syncer::kSyncShowBookmarksLimitExceededError,
             // This is needed to be able to test bookmarks in transport-mode.
             syncer::kReplaceSyncPromosWithSignInPromos},
         /*disabled_features=*/{});
@@ -1342,7 +1340,7 @@ class ProfileMenuViewBookmarksLimitExceededTest
   void EnableSync() {
     ASSERT_TRUE(SetupSync());
     SetTargetBrowser(GetBrowser(0));
-    GetBrowser(0)->window()->Show();
+    GetBrowser(0)->GetWindow()->Show();
     ProfileAttributesEntry* entry =
         g_browser_process->profile_manager()
             ->GetProfileAttributesStorage()
@@ -1430,6 +1428,34 @@ PROFILE_MENU_CLICK_TEST(kActionableItems_SingleProfileWithCustomName,
   profiles::UpdateProfileName(browser()->profile(), u"Custom name");
   RunTest();
 }
+
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+constexpr std::array kActionableItems_SingleProfileWithCrossDevicePromo = {
+    ProfileMenuViewBase::ActionableItem::kHistorySyncButton,
+    ProfileMenuViewBase::ActionableItem::kSigninOnPhoneButton,
+    ProfileMenuViewBase::ActionableItem::kAutofillSettingsButton,
+    ProfileMenuViewBase::ActionableItem::kManageGoogleAccountButton,
+    ProfileMenuViewBase::ActionableItem::kEditProfileButton,
+    ProfileMenuViewBase::ActionableItem::kAccountSettingsButton,
+    ProfileMenuViewBase::ActionableItem::kSignoutButton,
+    ProfileMenuViewBase::ActionableItem::kAddNewProfileButton,
+    ProfileMenuViewBase::ActionableItem::kGuestProfileButton,
+    ProfileMenuViewBase::ActionableItem::kManageProfilesButton,
+    ProfileMenuViewBase::ActionableItem::kHistorySyncButton};
+
+PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
+    kActionableItems_SingleProfileWithCrossDevicePromo,
+    ProfileMenuClickTest_SingleProfileWithCrossDevicePromo,
+    /*enabled_features=*/
+    (std::vector<base::test::FeatureRef>{
+        switches::kCrossDeviceSigninFromDesktop,
+        syncer::kReplaceSyncPromosWithSignInPromos}),
+    /*disabled_features=*/{}) {
+  profiles::UpdateProfileName(browser()->profile(), u"Custom name");
+  ASSERT_TRUE(sync_harness()->SignInNoWaitForCompletion());
+  RunTest();
+}
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 // List of actionable items in the correct order as they appear in the menu. If
 // a new button is added to the menu, it should also be added to this list.

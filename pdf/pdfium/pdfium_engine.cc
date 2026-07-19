@@ -51,6 +51,7 @@
 #include "pdf/loader/url_loader.h"
 #include "pdf/loader/url_loader_wrapper_impl.h"
 #include "pdf/page_character_index.h"
+#include "pdf/page_orientation.h"
 #include "pdf/pdf_accessibility_constants.h"
 #include "pdf/pdf_caret.h"
 #include "pdf/pdf_features.h"
@@ -161,6 +162,8 @@ constexpr int kMaxPasswordTries = 3;
 
 constexpr base::TimeDelta kTouchLongPressTimeout = base::Milliseconds(300);
 
+constexpr size_t kMinCharsForMeaningfulText = 100;
+
 #if BUILDFLAG(ENABLE_PDF_INK2)
 constexpr int kMinTextboxId = 0;
 constexpr int kMaxTextboxId = std::numeric_limits<int>::max();
@@ -170,18 +173,24 @@ constexpr int kMaxTextboxId = std::numeric_limits<int>::max();
 void AddMetadataToTextObject(FPDF_DOCUMENT doc,
                              FPDF_PAGEOBJECT text_object,
                              FPDF_PAGEOBJECTMARK mark,
+                             int textbox_id,
                              const InkTextBoxAttributes& attributes) {
+  CHECK(FPDFPageObjMark_SetIntParam(doc, text_object, mark, "TextboxId",
+                                    textbox_id));
   CHECK(FPDFPageObjMark_SetIntParam(doc, text_object, mark, "Version",
                                     kInkTextAnnotationVersion));
 
+  gfx::RectF bounds = attributes.rect;
+  bounds.Scale(kUnitConversionFactorPixelsToPoints);
+
   CHECK(FPDFPageObjMark_SetFloatParam(doc, text_object, mark, "BoundsX",
-                                      attributes.rect.x()));
+                                      bounds.x()));
   CHECK(FPDFPageObjMark_SetFloatParam(doc, text_object, mark, "BoundsY",
-                                      attributes.rect.y()));
+                                      bounds.y()));
   CHECK(FPDFPageObjMark_SetFloatParam(doc, text_object, mark, "BoundsWidth",
-                                      attributes.rect.width()));
+                                      bounds.width()));
   CHECK(FPDFPageObjMark_SetFloatParam(doc, text_object, mark, "BoundsHeight",
-                                      attributes.rect.height()));
+                                      bounds.height()));
 
   CHECK(FPDFPageObjMark_SetIntParam(doc, text_object, mark, "Typeface",
                                     static_cast<int>(attributes.typeface)));
@@ -239,7 +248,6 @@ FS_MATRIX CalculateTextObjectOriginTransform(
     const InkTextInfo& item,
     double pdf_zoom,
     const InkTextBoxAttributes& attributes,
-    PageOrientation current_orientation,
     float ascent) {
   gfx::RectF text_run_textbox_rect = item.location;
   text_run_textbox_rect.InvScale(pdf_zoom);
@@ -251,7 +259,8 @@ FS_MATRIX CalculateTextObjectOriginTransform(
   }
 
   const int total_rotations =
-      GetClockwiseRotationSteps(current_orientation) + attributes.orientation;
+      GetClockwiseRotationSteps(attributes.viewport_orientation) +
+      attributes.orientation;
   gfx::PointF canonical_text_run_origin = CalculateCanonicalTextRunOrigin(
       text_run_textbox_rect, canonical_textbox_size, total_rotations);
 
@@ -701,27 +710,6 @@ void ParamsTransformPageToScreen(unsigned long view_fit_type,
 }
 
 #if BUILDFLAG(ENABLE_PDF_INK2)
-class ScopedPageObjectDeactivator {
- public:
-  explicit ScopedPageObjectDeactivator(
-      std::vector<FPDF_PAGEOBJECT> page_objects)
-      : page_objects_(std::move(page_objects)) {
-    for (FPDF_PAGEOBJECT page_object : page_objects_) {
-      bool result = FPDFPageObj_SetIsActive(page_object, /*active=*/false);
-      CHECK(result);
-    }
-  }
-  ~ScopedPageObjectDeactivator() {
-    for (FPDF_PAGEOBJECT page_object : page_objects_) {
-      bool result = FPDFPageObj_SetIsActive(page_object, /*active=*/true);
-      CHECK(result);
-    }
-  }
-
- private:
-  std::vector<FPDF_PAGEOBJECT> page_objects_;
-};
-
 // TODO(crbug.com/482060888): Remove this once SkData::MakeFromStream() is able
 // to do this itself.
 sk_sp<const SkData> MakeDataAvoidingCopy(SkStreamAsset* stream) {
@@ -1102,12 +1090,19 @@ void PDFiumEngine::AppendPage(PDFiumEngine* engine, int index) {
 }
 
 std::vector<uint8_t> PDFiumEngine::GetSaveData() {
+  FPDF_DWORD save_flags = 0;
 #if BUILDFLAG(ENABLE_PDF_INK2)
   RegenerateContents();
+
+  // Iterating through `ink_text_data_` will give a more accurate answer, but
+  // this is probably good enough.
+  if (!ink_text_data_.empty() && !font_map_.empty()) {
+    save_flags |= FPDF_SUBSET_NEW_FONTS;
+  }
 #endif
 
   PDFiumMemBufferFileWrite output_file_write;
-  if (!FPDF_SaveAsCopy(doc(), &output_file_write, 0)) {
+  if (!FPDF_SaveAsCopy(doc(), &output_file_write, save_flags)) {
     return std::vector<uint8_t>();
   }
   return output_file_write.TakeBuffer();
@@ -1701,10 +1696,7 @@ std::unique_ptr<AccessibilityStructureElement> PDFiumEngine::GetStructureTree()
   auto structure_tree_root = std::make_unique<AccessibilityStructureElement>();
   structure_tree_root->type = PdfTagType::kDocument;
   structure_tree_root->children.reserve(pages_.size());
-  structure_tree_root->language =
-      base::UTF16ToUTF8(CallPDFiumWideStringBufferApi(
-          base::BindRepeating(&FPDFCatalog_GetLanguage, doc()),
-          /*check_expected_size=*/true));
+  structure_tree_root->language = GetDocumentLanguage(doc());
 
   for (const std::unique_ptr<PDFiumPage>& page : pages_) {
     auto page_structure = page->GetStructureTree();
@@ -5098,6 +5090,33 @@ void PDFiumEngine::MaybeUnloadPage(int page_index) {
 }
 #endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 
+bool PDFiumEngine::HasMeaningfulText() const {
+  if (!document_loaded_) {
+    return false;
+  }
+
+  size_t total_char_count = 0;
+
+  for (const auto& page : pages_) {
+#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
+    // PDFium determines the character count, but pages requiring Searchify
+    // are bypassed via `page->IsPageSearchified()`. Since Searchify only
+    // processes textless pages, these are assigned a count of zero.
+    int page_char_count = page->IsPageSearchified() ? 0 : page->GetCharCount();
+#else   // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
+    int page_char_count = page->GetCharCount();
+#endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
+    if (page_char_count > 0) {
+      total_char_count += static_cast<size_t>(page_char_count);
+      if (total_char_count >= kMinCharsForMeaningfulText) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 void PDFiumEngine::UpdateLinkUnderCursor(const std::string& target_url) {
   client_->SetLinkUnderCursor(target_url);
 }
@@ -5124,11 +5143,6 @@ void PDFiumEngine::RequestThumbnail(int page_index,
   // being progressively painted. Otherwise, wait for progressive painting to
   // finish.
   if (!GetProgressiveIndex(page_index).has_value()) {
-#if BUILDFLAG(ENABLE_PDF_INK2)
-    ScopedPageObjectDeactivator deactivator(
-        GetActiveInkPageObjectsForPage(page_index));
-#endif
-
     pages_[page_index]->RequestThumbnail(device_pixel_ratio,
                                          std::move(send_callback));
     return;
@@ -5246,6 +5260,7 @@ void PDFiumEngine::DiscardText(InkTextId id) {
 void PDFiumEngine::DrawText(int page_index,
                             InkTextId id,
                             base::span<const InkTextInfo> text_info,
+                            float ascent,
                             double pdf_zoom,
                             const InkTextBoxAttributes& attributes) {
   std::vector<gfx::Rect> canceled_rects = CancelPaints();
@@ -5261,19 +5276,15 @@ void PDFiumEngine::DrawText(int page_index,
   const SkColor color = attributes.color;
   const float pdf_font_size =
       CSSFontSizeToPdfFontSize(attributes.css_font_size);
-  const int textbox_id = GetNextTextboxId();
+
+  ascent /= pdf_zoom;
 
   std::vector<FPDF_PAGEOBJECT> page_objects;
   page_objects.reserve(text_info.size());
+  FPDF_PAGEOBJECTMARK mark = nullptr;
   for (const InkTextInfo& item : text_info) {
     FPDF_FONT font = GetAddedFont(item.font_id);
     CHECK(font);
-
-    // TODO(crbug.com/502083480): This baseline alignment isn't exactly right.
-    // Blink actually uses the primary font ascent for alignment. Also Blink
-    // uses a special platform-specific rounded number.
-    float ascent;
-    CHECK(FPDFFont_GetAscent(font, attributes.css_font_size, &ascent));
 
     ScopedFPDFPageObject text_object(
         FPDFPageObj_CreateTextObj(doc(), font, pdf_font_size));
@@ -5285,6 +5296,22 @@ void PDFiumEngine::DrawText(int page_index,
                                    /*A=*/255));
     CHECK(FPDFText_SetCharcodes(text_object.get(), item.glyphs.data(),
                                 item.glyphs.size()));
+
+    if (item.is_synthetic_bold) {
+      // This matches `SK_OUTLINE_EMBOLDEN_DIVISOR` in Skia.
+      static constexpr float kOutlineEmboldenDivisor = 24.0f;
+      // This matches Skia synthetic bold logic.
+      CHECK(FPDFTextObj_SetTextRenderMode(text_object.get(),
+                                          FPDF_TEXTRENDERMODE_FILL_STROKE));
+      CHECK(FPDFPageObj_SetStrokeColor(text_object.get(),
+                                       /*R=*/SkColorGetR(color),
+                                       /*G=*/SkColorGetG(color),
+                                       /*B=*/SkColorGetB(color),
+                                       /*A=*/255));
+      CHECK(FPDFPageObj_SetStrokeWidth(
+          text_object.get(), pdf_font_size / kOutlineEmboldenDivisor));
+      CHECK(FPDFPageObj_SetLineJoin(text_object.get(), FPDF_LINEJOIN_MITER));
+    }
 
     if (item.glyph_positions.size() > 1) {
       std::vector<float> positions;
@@ -5299,23 +5326,40 @@ void PDFiumEngine::DrawText(int page_index,
                                   positions.size()));
     }
 
-    FS_MATRIX text_origin_matrix = CalculateTextObjectOriginTransform(
-        item, pdf_zoom, attributes, GetCurrentOrientation(), ascent);
+    if (item.is_synthetic_italic) {
+      // This matches `-SK_Scalar1 / 4` in Blink and Skia code. The value is
+      // positive because the PDF coordinate system has a bottom-left origin,
+      // instead of a top-left screen origin.
+      static constexpr float kSkew = 0.25f;
+      const FS_MATRIX skew_matrix{1.0f, 0.0f, kSkew, 1.0f, 0.0f, 0.0f};
+      // This matches Skia synthetic italic logic.
+      CHECK(FPDFPageObj_TransformF(text_object.get(), &skew_matrix));
+    }
+
+    FS_MATRIX text_origin_matrix =
+        CalculateTextObjectOriginTransform(item, pdf_zoom, attributes, ascent);
     // Local translation must be applied before the textbox's global transform
     // to ensure correct rotation/scaling of the offset.
     CHECK(FPDFPageObj_TransformF(text_object.get(), &text_origin_matrix));
     CHECK(FPDFPageObj_TransformF(text_object.get(), &textbox_matrix));
 
-    FPDF_PAGEOBJECTMARK mark =
-        FPDFPageObj_AddMark(text_object.get(), kInkTextAnnotationIdentifierKey);
-    CHECK(mark);
-    CHECK(FPDFPageObjMark_SetIntParam(doc(), text_object.get(), mark,
-                                      "TextboxId", textbox_id));
-
     if (&item == &text_info.front()) {
-      // Only apply metadata to the first text object in the textbox. Other
-      // text objects in the textbox can be identified by the TextboxId.
-      AddMetadataToTextObject(doc(), text_object.get(), mark, attributes);
+      mark = FPDFPageObj_AddMark(text_object.get(),
+                                 kInkTextAnnotationIdentifierKey);
+      CHECK(mark);
+      AddMetadataToTextObject(doc(), text_object.get(), mark,
+                              GetNextTextboxId(), attributes);
+    } else {
+      CHECK(mark);
+      CHECK(FPDFPageObj_AddExistingMark(text_object.get(), mark));
+    }
+
+    if (!base::IsStringASCII(item.text)) {
+      FPDF_PAGEOBJECTMARK span = FPDFPageObj_AddMark(text_object.get(), "Span");
+      CHECK(span);
+      std::vector<unsigned char> blob = ToUTF16BEBlob(item.text);
+      FPDFPageObjMark_SetBlobParam(doc(), text_object.get(), span, "ActualText",
+                                   blob.data(), blob.size());
     }
 
     CHECK(FPDFPage_InsertObject(page, text_object.release()));
@@ -5344,37 +5388,17 @@ void PDFiumEngine::DrawText(int page_index,
   }
 }
 
-void PDFiumEngine::UpdateTextActiveAndInvalidate(InkTextId id, bool active) {
-  auto it = ink_text_data_.find(id);
-  CHECK(it != ink_text_data_.end());
-
-  int page_index = it->second.page_index;
-  PDFiumPage* pdfium_page = GetPage(page_index);
-  CHECK(pdfium_page);
-  FPDF_PAGE page = pdfium_page->GetPage();
-  CHECK(page);
-
-  gfx::Rect invalidate_rect;
-  for (FPDF_PAGEOBJECT page_object : it->second.page_objects) {
-    bool result = FPDFPageObj_SetIsActive(page_object, active);
-    CHECK(result);
-
-    std::optional<PdfRect> rect = GetPageObjectBounds(page_object);
-    CHECK(rect.has_value());
-    invalidate_rect.Union(pdfium_page->PageToScreen(GetVisibleRect().origin(),
-                                                    current_zoom_, rect.value(),
-                                                    GetCurrentOrientation()));
+void PDFiumEngine::UpdateTextActiveAndInvalidate(TextId id, bool active) {
+  if (std::holds_alternative<InkTextId>(id)) {
+    auto it = ink_text_data_.find(std::get<InkTextId>(id));
+    CHECK(it != ink_text_data_.end());
+    UpdateTextActiveAndInvalidateHelper(it->second, active);
+    return;
   }
 
-  if (!invalidate_rect.IsEmpty()) {
-    // Expand the invalidation rect to account for any rounding errors that may
-    // have occurred.
-    invalidate_rect.Outset(1);
-    client_->Invalidate(invalidate_rect);
-  }
-
-  ink_edited_pages_needing_regeneration_.insert(page_index);
-  GetPage(page_index)->ReloadTextPage();
+  auto it = loaded_ink_text_data_.find(std::get<InkLoadedTextId>(id));
+  CHECK(it != loaded_ink_text_data_.end());
+  UpdateTextActiveAndInvalidateHelper(it->second, active);
 }
 
 gfx::Size PDFiumEngine::GetThumbnailSize(int page_index,
@@ -5508,8 +5532,7 @@ PDFiumEngine::LoadV2InkPathsForPage(int page_index) {
   return page_shape_map;
 }
 
-DocumentInkTextBoxesMap PDFiumEngine::LoadTextAnnotationsFromPdf(
-    GenerateTextIdCallback generate_text_id_callback) {
+DocumentInkTextBoxesMap PDFiumEngine::LoadTextAnnotationsFromPdf() {
   DocumentInkTextBoxesMap document_textboxes;
   for (size_t i = 0; i < pages_.size(); ++i) {
     PDFiumPage* page = pages_[i].get();
@@ -5523,10 +5546,10 @@ DocumentInkTextBoxesMap PDFiumEngine::LoadTextAnnotationsFromPdf(
     page_textboxes.reserve(page_results.size());
 
     for (auto& result : page_results) {
-      InkTextId ink_text_id = generate_text_id_callback.Run();
-      result.textbox.ink_text_id = ink_text_id;
-      ink_text_data_.insert(
-          {ink_text_id, InkTextData(i, std::move(result.text_objects))});
+      InkLoadedTextId loaded_text_id(next_ink_loaded_text_id_++);
+      result.textbox.ink_loaded_text_id = loaded_text_id;
+      loaded_ink_text_data_.insert(
+          {loaded_text_id, InkTextData(i, std::move(result.text_objects))});
       page_textboxes.push_back(std::move(result.textbox));
 
       // Note that the textbox IDs in the PDF are ONLY used for grouping
@@ -5614,27 +5637,6 @@ void PDFiumEngine::OnTextOrLinkAreaClick(const gfx::PointF& point,
   OnTextOrLinkAreaClickInternal(GetPointData(point), click_count);
 }
 
-std::vector<FPDF_PAGEOBJECT> PDFiumEngine::GetActiveInkPageObjectsForPage(
-    int page_index) const {
-  std::vector<FPDF_PAGEOBJECT> active_page_objects;
-  for (const auto& it : ink_stroke_data_) {
-    const InkStrokeData& datum = it.second;
-    if (datum.page_index != page_index) {
-      continue;
-    }
-
-    for (FPDF_PAGEOBJECT page_object : datum.page_objects) {
-      FPDF_BOOL active = false;
-      bool result = FPDFPageObj_GetIsActive(page_object, &active);
-      CHECK(result);
-      if (active) {
-        active_page_objects.push_back(page_object);
-      }
-    }
-  }
-  return active_page_objects;
-}
-
 int PDFiumEngine::GetNextTextboxId() {
   while (true) {
     int candidate = next_textbox_id_;
@@ -5659,9 +5661,45 @@ bool PDFiumEngine::PageStillHasEdits(int page_index) const {
                              [page_index](const auto& it) {
                                return it.second.page_index == page_index;
                              }) ||
-         std::ranges::any_of(ink_text_data_, [page_index](const auto& it) {
-           return it.second.page_index == page_index;
-         });
+         std::ranges::any_of(ink_text_data_,
+                             [page_index](const auto& it) {
+                               return it.second.page_index == page_index;
+                             }) ||
+         std::ranges::any_of(loaded_ink_text_data_,
+                             [page_index](const auto& it) {
+                               return it.second.page_index == page_index;
+                             });
+}
+
+void PDFiumEngine::UpdateTextActiveAndInvalidateHelper(InkTextData& data,
+                                                       bool active) {
+  int page_index = data.page_index;
+  PDFiumPage* pdfium_page = GetPage(page_index);
+  CHECK(pdfium_page);
+  FPDF_PAGE page = pdfium_page->GetPage();
+  CHECK(page);
+
+  gfx::Rect invalidate_rect;
+  for (FPDF_PAGEOBJECT page_object : data.page_objects) {
+    bool result = FPDFPageObj_SetIsActive(page_object, active);
+    CHECK(result);
+
+    std::optional<PdfRect> rect = GetPageObjectBounds(page_object);
+    CHECK(rect.has_value());
+    invalidate_rect.Union(pdfium_page->PageToScreen(GetVisibleRect().origin(),
+                                                    current_zoom_, rect.value(),
+                                                    GetCurrentOrientation()));
+  }
+
+  if (!invalidate_rect.IsEmpty()) {
+    // Expand the invalidation rect to account for any rounding errors that may
+    // have occurred.
+    invalidate_rect.Outset(1);
+    client_->Invalidate(invalidate_rect);
+  }
+
+  ink_edited_pages_needing_regeneration_.insert(page_index);
+  GetPage(page_index)->ReloadTextPage();
 }
 
 PDFiumEngine::InkStrokeData::InkStrokeData(

@@ -9,11 +9,12 @@ import type {WebuiBrowserAppElement} from './app.js';
 export function getHtml(this: WebuiBrowserAppElement) {
   // clang-format off
   return html`<!--_html_template_start_-->
-<div class="activeFrame" id="rootContainer">
+<div id="rootContainer">
   <div id="topContainer">
     <div class="titlebarDiv" @mousedown="${this.onTabDragMousedown_}">
       <div class="tabstripDiv" style="margin-left:${this.tabStripInset_}px">
         <webui-browser-tab-strip id="tabstrip"
+            ?inactive-frame="${this.inactive_}"
             @tab-activated="${this.onTabActivated_}"
             @tab-added="${this.onTabAdded_}"
             @tab-closed="${this.onTabClosed_}"
@@ -60,13 +61,15 @@ export function getHtml(this: WebuiBrowserAppElement) {
       </div>
       <webui-browser-extensions-bar id="extensionsBar">
       </webui-browser-extensions-bar>
+      <cr-icon-button id="bookmarksButton" iron-icon="webui-browser:bookmark"
+        @click="${this.onBookmarksClick_}"></cr-icon-button>
       <cr-icon-button id="avatarButton" iron-icon="cr:person"
         @click="${this.onAvatarClick_}"></cr-icon-button>
       <cr-icon-button id="appMenuButton" iron-icon="cr:more-vert"
         title="$i18n{appMenuTooltip}"
         @click="${this.onAppMenuClick_}"></cr-icon-button>
     </div>
-    <webui-browser-bookmark-bar id="bookmarkBar">
+    <webui-browser-bookmark-bar id="bookmarkBar" hidden>
     </webui-browser-bookmark-bar>
   </div>
   <div id="main">

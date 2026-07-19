@@ -18,6 +18,7 @@ import static org.robolectric.Shadows.shadowOf;
 
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 
 import androidx.annotation.DrawableRes;
 import androidx.test.filters.SmallTest;
@@ -55,6 +56,7 @@ import org.chromium.components.metrics.OmniboxEventProtos.OmniboxEventProto.Page
 import org.chromium.components.omnibox.AutocompleteInput;
 import org.chromium.components.omnibox.AutocompleteMatch;
 import org.chromium.components.omnibox.AutocompleteMatchBuilder;
+import org.chromium.components.omnibox.DocumentType;
 import org.chromium.components.omnibox.OmniboxFeatureList;
 import org.chromium.components.omnibox.OmniboxSuggestionType;
 import org.chromium.components.omnibox.SuggestTemplateInfoProto.SuggestTemplateInfo;
@@ -81,6 +83,7 @@ public class BasicSuggestionProcessorUnitTest {
     private static final @DrawableRes int ICON_MAGNIFIER = R.drawable.ic_suggestion_magnifier;
     private static final @DrawableRes int ICON_TRENDS = R.drawable.trending_up_black_24dp;
     private static final @DrawableRes int ICON_VOICE = R.drawable.ic_mic_white_24dp;
+    private static final @DrawableRes int ICON_DRIVE_LOGO = R.drawable.ic_drive_logo_24dp;
     private static final @DrawableRes int ICON_FAVICON = 0; // Favicons do not come from resources.
 
     private static final Map<Integer, String> ICON_TYPE_NAMES;
@@ -92,6 +95,7 @@ public class BasicSuggestionProcessorUnitTest {
         map.put(ICON_GLOBE, "GLOBE");
         map.put(ICON_MAGNIFIER, "MAGNIFIER");
         map.put(ICON_VOICE, "VOICE");
+        map.put(ICON_DRIVE_LOGO, "DRIVE_LOGO");
         map.put(ICON_FAVICON, "FAVICON");
         ICON_TYPE_NAMES = map;
     }
@@ -256,7 +260,7 @@ public class BasicSuggestionProcessorUnitTest {
             {OmniboxSuggestionType.SEARCH_OTHER_ENGINE, ICON_MAGNIFIER},
             {OmniboxSuggestionType.NAVSUGGEST_PERSONALIZED, ICON_MAGNIFIER},
             {OmniboxSuggestionType.VOICE_SUGGEST, ICON_VOICE},
-            {OmniboxSuggestionType.DOCUMENT_SUGGESTION, ICON_MAGNIFIER},
+            {OmniboxSuggestionType.DOCUMENT_SUGGESTION, ICON_DRIVE_LOGO},
         };
 
         mProcessor.onNativeInitialized();
@@ -287,7 +291,7 @@ public class BasicSuggestionProcessorUnitTest {
             {OmniboxSuggestionType.SEARCH_OTHER_ENGINE, ICON_GLOBE},
             {OmniboxSuggestionType.NAVSUGGEST_PERSONALIZED, ICON_GLOBE},
             {OmniboxSuggestionType.VOICE_SUGGEST, ICON_GLOBE},
-            {OmniboxSuggestionType.DOCUMENT_SUGGESTION, ICON_GLOBE},
+            {OmniboxSuggestionType.DOCUMENT_SUGGESTION, ICON_DRIVE_LOGO},
         };
 
         mProcessor.onNativeInitialized();
@@ -318,7 +322,7 @@ public class BasicSuggestionProcessorUnitTest {
             {OmniboxSuggestionType.SEARCH_OTHER_ENGINE, ICON_BOOKMARK},
             {OmniboxSuggestionType.NAVSUGGEST_PERSONALIZED, ICON_BOOKMARK},
             {OmniboxSuggestionType.VOICE_SUGGEST, ICON_BOOKMARK},
-            {OmniboxSuggestionType.DOCUMENT_SUGGESTION, ICON_BOOKMARK},
+            {OmniboxSuggestionType.DOCUMENT_SUGGESTION, ICON_DRIVE_LOGO},
         };
 
         mIsBookmarked.mState = true;
@@ -431,14 +435,17 @@ public class BasicSuggestionProcessorUnitTest {
     @Test
     @SmallTest
     public void suggestionFavicons_showFaviconWhenAvailable() {
-        final ArgumentCaptor<Callback<Bitmap>> callback = MockitoHelper.callbackCaptor();
+        final ArgumentCaptor<Callback<Drawable>> callback = MockitoHelper.callbackCaptor();
         mProcessor.onNativeInitialized();
         createUrlSuggestion(OmniboxSuggestionType.URL_WHAT_YOU_TYPED, "");
         OmniboxDrawableState icon1 = mModel.get(BaseSuggestionViewProperties.ICON);
         assertNotNull(icon1);
 
         verify(mImageSupplier).fetchFavicon(eq(mSuggestion.getUrl()), callback.capture());
-        callback.getValue().onResult(mBitmap);
+        callback.getValue()
+                .onResult(
+                        new BitmapDrawable(
+                                ContextUtils.getApplicationContext().getResources(), mBitmap));
         OmniboxDrawableState icon2 = mModel.get(BaseSuggestionViewProperties.ICON);
         assertNotNull(icon2);
 
@@ -467,8 +474,40 @@ public class BasicSuggestionProcessorUnitTest {
 
     @Test
     @SmallTest
+    public void suggestionIcons_documentSuggestionBrandingIcons() {
+        mProcessor.onNativeInitialized();
+        int[][] testCases = {
+            {DocumentType.DRIVE_DOCS, R.drawable.ic_drive_docs_24dp},
+            {DocumentType.DRIVE_FORMS, R.drawable.ic_drive_forms_24dp},
+            {DocumentType.DRIVE_SHEETS, R.drawable.ic_drive_sheets_24dp},
+            {DocumentType.DRIVE_SLIDES, R.drawable.ic_drive_slides_24dp},
+            {DocumentType.DRIVE_IMAGE, R.drawable.ic_drive_image_colored_24dp},
+            {DocumentType.DRIVE_PDF, R.drawable.ic_attach_pdf_24dp},
+            {DocumentType.DRIVE_VIDEO, R.drawable.ic_drive_video_colored_24dp},
+            {DocumentType.DRIVE_FOLDER, R.drawable.ic_drive_folder_colored_24dp},
+            {DocumentType.DRIVE_OTHER, R.drawable.ic_drive_logo_24dp},
+            {DocumentType.NONE, R.drawable.ic_drive_logo_24dp},
+        };
+
+        for (int[] testCase : testCases) {
+            mSuggestion =
+                    createSuggestionBuilder(OmniboxSuggestionType.DOCUMENT_SUGGESTION, "Doc")
+                            .setDocumentType(testCase[0])
+                            .build();
+            mModel = mProcessor.createModel();
+            mProcessor.populateModel(mInput, mSuggestion, mModel, 0);
+
+            OmniboxDrawableState sds = mModel.get(BaseSuggestionViewProperties.ICON);
+            @DrawableRes int actualIconRes = shadowOf(sds.drawable).getCreatedFromResId();
+            assertEquals(testCase[1], actualIconRes);
+            assertFalse(sds.allowTint);
+        }
+    }
+
+    @Test
+    @SmallTest
     public void suggestionFavicons_doNotReplaceFallbackIconWhenNoFaviconIsAvailable() {
-        final ArgumentCaptor<Callback<Bitmap>> callback = MockitoHelper.callbackCaptor();
+        final ArgumentCaptor<Callback<Drawable>> callback = MockitoHelper.callbackCaptor();
         mProcessor.onNativeInitialized();
         createUrlSuggestion(OmniboxSuggestionType.URL_WHAT_YOU_TYPED, "");
         OmniboxDrawableState icon1 = mModel.get(BaseSuggestionViewProperties.ICON);
@@ -559,7 +598,7 @@ public class BasicSuggestionProcessorUnitTest {
     @Test
     @SmallTest
     @EnableFeatures(OmniboxFeatureList.OMNIBOX_ITEM_DECORATION)
-    public void accessibilityAnnouncements_groupedSuggestions() {
+    public void accessibilityAnnouncements_groupedSearchSuggestions() {
         mProcessor.onNativeInitialized();
         mSuggestion =
                 createSuggestionBuilder(OmniboxSuggestionType.SEARCH_SUGGEST, "Google")
@@ -576,7 +615,34 @@ public class BasicSuggestionProcessorUnitTest {
         mProcessor.populateModel(mInput, mSuggestion, mModel, 0);
 
         String expectedAnnouncement =
-                "Google, Technology corporation, 2 of 5 in the group Trending Searches.";
+                "Google, Technology corporation. Search. 2 of 5 in the group Trending"
+                        + " Searches.";
+        assertEquals(
+                expectedAnnouncement, mModel.get(SuggestionViewProperties.CONTENT_DESCRIPTION));
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(OmniboxFeatureList.OMNIBOX_ITEM_DECORATION)
+    public void accessibilityAnnouncements_groupedAiModeSuggestions() {
+        mProcessor.onNativeInitialized();
+        mSuggestion =
+                createSuggestionBuilder(OmniboxSuggestionType.SEARCH_SUGGEST, "Gemini")
+                        .setSuggestionKind(
+                                org.chromium.components.omnibox.OmniboxSuggestionKind.CONVERSATION)
+                        .setDescription("AI Mode")
+                        .build();
+        mModel = mProcessor.createModel();
+        mProcessor.populateModel(mInput, mSuggestion, mModel, 0);
+
+        mModel.set(SuggestionCommonProperties.HEADER_TITLE, "AI Suggestions");
+        mModel.set(SuggestionCommonProperties.INDEX_IN_GROUP, 2);
+        mModel.set(SuggestionCommonProperties.TOTAL_IN_GROUP, 4);
+
+        mProcessor.populateModel(mInput, mSuggestion, mModel, 0);
+
+        String expectedAnnouncement =
+                "Gemini, AI Mode. Conversation. 3 of 4 in the group AI Suggestions.";
         assertEquals(
                 expectedAnnouncement, mModel.get(SuggestionViewProperties.CONTENT_DESCRIPTION));
     }

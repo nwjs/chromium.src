@@ -52,8 +52,10 @@ export class ContextualEntrypointAndMenuElement extends
       // Public properties
       // =========================================================================
       fileNum: {type: Number},
+      nonTabFileNum: {type: Number},
       showContextMenuDescription: {type: Boolean},
       smartTabSharingActive: {type: Boolean},
+      smartTabSharingVisible: {type: Boolean},
       hasImageFiles: {
         reflect: true,
         type: Boolean,
@@ -71,6 +73,7 @@ export class ContextualEntrypointAndMenuElement extends
       energyEffectAnimationEnabled: {type: Boolean, reflect: true},
       disableFallbackGlifAnimation: {type: Boolean},
       recentTabId: {type: Number},
+      shareTabsFlyoutOpen: {type: Boolean},
 
       // =========================================================================
       // Protected properties
@@ -84,8 +87,10 @@ export class ContextualEntrypointAndMenuElement extends
   }
 
   accessor fileNum: number = 0;
+  accessor nonTabFileNum: number = 0;
   accessor showContextMenuDescription: boolean = false;
   accessor smartTabSharingActive: boolean = false;
+  accessor smartTabSharingVisible: boolean = false;
   accessor disabledTabIds: Map<number, UnguessableToken> = new Map();
   accessor aimThreadRestoredTabs: TabInfo[] = [];
   accessor tabSuggestions: TabInfo[] = [];
@@ -95,6 +100,7 @@ export class ContextualEntrypointAndMenuElement extends
   accessor uploadButtonDisabled: boolean = false;
   accessor sharedTabs: TabInfo[] = [];
   accessor recentTabId: number|null = null;
+  accessor shareTabsFlyoutOpen: boolean = false;
 
   accessor hasImageFiles: boolean = false;
   accessor searchboxLayoutMode: string = '';

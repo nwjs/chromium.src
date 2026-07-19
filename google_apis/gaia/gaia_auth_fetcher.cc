@@ -380,9 +380,8 @@ void GaiaAuthFetcher::StartRevokeOAuth2Token(const std::string& auth_token) {
             "This feature cannot be disabled in settings, but if the user "
             "signs out of Chrome, this request would not be made."
           chrome_policy {
-            SigninAllowed {
-              policy_options {mode: MANDATORY}
-              SigninAllowed: false
+            BrowserSignin {
+              BrowserSignin: 0
             }
           }
         })");
@@ -446,9 +445,8 @@ void GaiaAuthFetcher::StartAuthCodeForOAuth2TokenExchangeWithDeviceId(
             "This feature cannot be disabled in settings, but if the user "
             "signs out of Chrome, this request would not be made."
           chrome_policy {
-            SigninAllowed {
-              policy_options {mode: MANDATORY}
-              SigninAllowed: false
+            BrowserSignin {
+              BrowserSignin: 0
             }
           }
         })");
@@ -486,9 +484,8 @@ void GaiaAuthFetcher::StartListAccounts() {
             "This feature cannot be disabled in settings, but if the user "
             "signs out of Chrome, this request would not be made."
           chrome_policy {
-            SigninAllowed {
-              policy_options {mode: MANDATORY}
-              SigninAllowed: false
+            BrowserSignin {
+              BrowserSignin: 0
             }
           }
         })");
@@ -555,6 +552,21 @@ void GaiaAuthFetcher::StartOAuthMultilogin(
       break;
   }
 
+  constexpr std::string_view kYoutubeCookieBindingModeParameter =
+      "yt_cookie_binding";
+  switch (cookie_binding_params.youtube_mode) {
+    case gaia::MultiloginCookieBindingParams::Mode::kDisabled:
+      break;
+    case gaia::MultiloginCookieBindingParams::Mode::kEnabledUnenforced:
+      url = net::AppendQueryParameter(url, kYoutubeCookieBindingModeParameter,
+                                      "1");
+      break;
+    case gaia::MultiloginCookieBindingParams::Mode::kEnabledEnforced:
+      url = net::AppendQueryParameter(url, kYoutubeCookieBindingModeParameter,
+                                      "2");
+      break;
+  }
+
   oauth_multilogin_cookie_decryptor_ = std::move(cookie_decryptor);
   standard_device_bound_session_credentials_ =
       cookie_binding_params.standard_device_bound_session_credentials;
@@ -582,8 +594,8 @@ void GaiaAuthFetcher::StartOAuthMultilogin(
             "This feature cannot be disabled in settings, but if the user "
             "signs out of Chrome, this request would not be made."
           chrome_policy {
-            SigninAllowed {
-              SigninAllowed: false
+            BrowserSignin {
+              BrowserSignin: 0
             }
           }
         })");
@@ -618,9 +630,8 @@ void GaiaAuthFetcher::StartLogOut() {
             "This feature cannot be disabled in settings, but if the user "
             "signs out of Chrome, this request would not be made."
           chrome_policy {
-            SigninAllowed {
-              policy_options {mode: MANDATORY}
-              SigninAllowed: false
+            BrowserSignin {
+              BrowserSignin: 0
             }
           }
         })");
@@ -673,9 +684,8 @@ void GaiaAuthFetcher::StartCreateReAuthProofTokenForParent(
             "This feature cannot be disabled in settings, but if the user "
             "signs out of Chrome, this request would not be made."
           chrome_policy {
-            SigninAllowed {
-              policy_options {mode: MANDATORY}
-              SigninAllowed: false
+            BrowserSignin {
+              BrowserSignin: 0
             }
           }
         })"));
@@ -714,9 +724,8 @@ void GaiaAuthFetcher::StartGetCheckConnectionInfo() {
             "This feature cannot be disabled in settings, but if the user "
             "signs out of Chrome, this request would not be made."
           chrome_policy {
-            SigninAllowed {
-              policy_options {mode: MANDATORY}
-              SigninAllowed: false
+            BrowserSignin {
+              BrowserSignin: 0
             }
           }
         })");

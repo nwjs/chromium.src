@@ -151,7 +151,33 @@ void AnimationTrigger::PerformPause(Animation& animation,
 
 void AnimationTrigger::PerformReplay(Animation& animation,
                                      base::TimeTicks monotonic_time) {
-  animation.Play(monotonic_time, Animation::ForcePlayRewind::kEnabled);
+  animation.Play(monotonic_time, Animation::AutoRewind::kForced);
+}
+
+void AnimationTrigger::PerformPlayOnce(Animation& animation,
+                                       base::TimeTicks monotonic_time) {
+  if (animation.IsFinished()) {
+    return;
+  }
+  animation.Play(monotonic_time);
+}
+
+void AnimationTrigger::PerformPlayForwards(Animation& animation,
+                                           base::TimeTicks monotonic_time) {
+  if (animation.GetPlaybackRate() > 0) {
+    animation.Play(monotonic_time, Animation::AutoRewind::kDisabled);
+  } else {
+    animation.Reverse(monotonic_time, Animation::AutoRewind::kDisabled);
+  }
+}
+
+void AnimationTrigger::PerformPlayBackwards(Animation& animation,
+                                            base::TimeTicks monotonic_time) {
+  if (animation.GetPlaybackRate() < 0) {
+    animation.Play(monotonic_time, Animation::AutoRewind::kDisabled);
+  } else {
+    animation.Reverse(monotonic_time, Animation::AutoRewind::kDisabled);
+  }
 }
 
 void AnimationTrigger::PerformBehavior(Animation& animation,
@@ -168,11 +194,18 @@ void AnimationTrigger::PerformBehavior(Animation& animation,
       PerformReplay(animation, monotonic_time);
       break;
     case Behavior::kPlayOnce:
+      PerformPlayOnce(animation, monotonic_time);
+      break;
     case Behavior::kPlayForwards:
+      PerformPlayForwards(animation, monotonic_time);
+      break;
     case Behavior::kPlayBackwards:
+      PerformPlayBackwards(animation, monotonic_time);
+      break;
     case Behavior::kReset:
-      // TODO(crbug.com/451238244): Implement these behaviors.
-      NOTREACHED();
+      // TODO(crbug.com/451238244): Reset is not supported on the compositor
+      // thread yet and is handled on the main thread.
+      break;
     case Behavior::kNone:
       break;
   }

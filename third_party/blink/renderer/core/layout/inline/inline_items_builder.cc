@@ -642,7 +642,9 @@ void InlineItemsBuilderTemplate<MappingBuilder>::AppendText(
   }
 
   const wtf_size_t estimated_length = text_.length() + string.length();
-  if (estimated_length > text_.Capacity()) {
+  // Don't reserve on the first append, as it will reallocate the string buffer
+  // causing duplication.
+  if (!text_.empty() && estimated_length > text_.Capacity()) {
     // The reallocations may occur very frequently for large text such as log
     // files. We use a more aggressive expansion strategy, the same as
     // |Vector::ExpandCapacity| does for |Vector|s with inline storage.
@@ -1518,6 +1520,10 @@ void InlineItemsBuilderTemplate<MappingBuilder>::EnterBlock(
                      uchar::kPopDirectionalFormatting);
   }
 
+  if (style->GetTextEmphasisMark() != TextEmphasisMark::kNone) {
+    has_text_emphasis_ = true;
+  }
+
   if (style->IsDisplayListItem() && style->ListStyleType()) {
     is_block_level_ = false;
   }
@@ -1562,6 +1568,10 @@ void InlineItemsBuilderTemplate<MappingBuilder>::EnterInline(
                          uchar::kPopDirectionalFormatting);
         break;
     }
+  }
+
+  if (style->GetTextEmphasisMark() != TextEmphasisMark::kNone) {
+    has_text_emphasis_ = true;
   }
 
   has_ruby_ = has_ruby_ || node->IsInlineRubyText();
@@ -1741,6 +1751,7 @@ void InlineItemsBuilderTemplate<MappingBuilder>::DidFinishCollectInlines(
   data->has_out_of_flow_positioned_ = has_out_of_flow_positioned_;
   data->has_initial_letter_box_ = has_initial_letter_box_;
   data->has_ruby_ = has_ruby_;
+  data->has_text_emphasis_ = has_text_emphasis_;
   data->is_block_level_ = IsBlockLevel();
   data->changes_may_affect_earlier_lines_ = HasUnicodeBidiPlainText();
   data->is_bisect_line_break_disabled_ = is_bisect_line_break_disabled_;

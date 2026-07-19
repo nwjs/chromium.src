@@ -43,7 +43,6 @@
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/grid/grid_view_controller_mutator.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/grid/group_grid_cell.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_context_menu/tab_context_menu_provider.h"
-#import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/transitions/legacy_grid_transition_layout.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/transitions/tab_grid_transition_item.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/transitions/tab_grid_transition_layout.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_group_item.h"
@@ -485,56 +484,6 @@ typedef NS_ENUM(NSInteger, DragEntrySide) {
   _contentInsets = contentInsets;
 }
 
-- (LegacyGridTransitionLayout*)legacyTransitionLayout {
-  [self.collectionView layoutIfNeeded];
-  NSMutableArray<LegacyGridTransitionItem*>* items =
-      [[NSMutableArray alloc] init];
-  LegacyGridTransitionActiveItem* activeItem;
-  LegacyGridTransitionItem* selectionItem;
-  NSInteger tabSectionIndex = [self.diffableDataSource
-      indexForSectionIdentifier:kGridOpenTabsSectionIdentifier];
-  for (NSIndexPath* path in self.collectionView.indexPathsForVisibleItems) {
-    if (path.section != tabSectionIndex) {
-      continue;
-    }
-    UICollectionViewCell* collectionViewCell =
-        [self.collectionView cellForItemAtIndexPath:path];
-    if (![collectionViewCell isKindOfClass:[GridCell class]]) {
-      continue;
-    }
-    GridCell* cell = ObjCCastStrict<GridCell>(collectionViewCell);
-    UICollectionViewLayoutAttributes* attributes =
-        [self.collectionView layoutAttributesForItemAtIndexPath:path];
-    // Normalize frame to window coordinates. The attributes class applies this
-    // change to the other properties such as center, bounds, etc.
-    attributes.frame = [self.collectionView convertRect:attributes.frame
-                                                 toView:nil];
-    if ([cell.itemIdentifier isEqual:self.selectedItemIdentifier]) {
-      GridTransitionCell* activeCell =
-          [GridTransitionCell transitionCellFromCell:cell];
-      activeItem =
-          [LegacyGridTransitionActiveItem itemWithCell:activeCell
-                                                center:attributes.center
-                                                  size:attributes.size];
-      // NTP items need to be animated differently.
-      if (IsUrlNtp(cell.itemIdentifier.tabSwitcherItem.URL)) {
-        activeItem.shouldUseBVCSnapshot = YES;
-      }
-      selectionItem = [LegacyGridTransitionItem
-          itemWithCell:[GridCell transitionSelectionCellFromCell:cell]
-                center:attributes.center];
-    } else {
-      UIView* cellSnapshot = [cell snapshotViewAfterScreenUpdates:YES];
-      LegacyGridTransitionItem* item =
-          [LegacyGridTransitionItem itemWithCell:cellSnapshot
-                                          center:attributes.center];
-      [items addObject:item];
-    }
-  }
-  return [LegacyGridTransitionLayout layoutWithInactiveItems:items
-                                                  activeItem:activeItem
-                                               selectionItem:selectionItem];
-}
 
 - (TabGridTransitionLayout*)transitionLayout {
   return [TabGridTransitionLayout
@@ -696,6 +645,19 @@ typedef NS_ENUM(NSInteger, DragEntrySide) {
 
   return [self.menuProvider contextMenuConfigurationForTabCell:cell
                                                   menuScenario:scenario];
+}
+
+- (void)collectionView:(UICollectionView*)collectionView
+    willEndContextMenuInteractionWithConfiguration:
+        (UIContextMenuConfiguration*)configuration
+                                          animator:
+                                              (id<UIContextMenuInteractionAnimating>)
+                                                  animator {
+  self.activeContextMenuAnimator = animator;
+  __weak __typeof(self) weakSelf = self;
+  [animator addCompletion:^{
+    weakSelf.activeContextMenuAnimator = nil;
+  }];
 }
 
 - (void)collectionView:(UICollectionView*)collectionView
@@ -1201,6 +1163,14 @@ typedef NS_ENUM(NSInteger, DragEntrySide) {
 
 - (void)populateItems:(NSArray<GridItemIdentifier*>*)items
     selectedItemIdentifier:(GridItemIdentifier*)selectedItemIdentifier {
+  [self populateItems:items
+      selectedItemIdentifier:selectedItemIdentifier
+                  completion:nil];
+}
+
+- (void)populateItems:(NSArray<GridItemIdentifier*>*)items
+    selectedItemIdentifier:(GridItemIdentifier*)selectedItemIdentifier
+                completion:(void (^)(void))completion {
   CHECK(!HasDuplicateGroupsAndTabsIdentifiers(items));
   // Call self.view to ensure that the collection view is created.
   [self view];
@@ -1229,7 +1199,7 @@ typedef NS_ENUM(NSInteger, DragEntrySide) {
   [snapshot reconfigureItemsWithIdentifiers:items];
   [self.diffableDataSource applySnapshot:snapshot
                     animatingDifferences:YES
-                              completion:nil];
+                              completion:completion];
 
   [self updateSelectedCollectionViewItemRingAndBringIntoView:NO];
   [self updateVisibleCellIdentifiers];
@@ -1368,8 +1338,32 @@ typedef NS_ENUM(NSInteger, DragEntrySide) {
 }
 
 - (void)bringItemIntoView:(GridItemIdentifier*)item animated:(BOOL)animated {
+  // Scrolling in UICollectionView can be flaky in tests due to layout race
+  // conditions. We attempt to scroll synchronously for immediate visual
+  // feedback. We also scroll asynchronously as a fallback to ensure scrolling
+  // happens after pending layout updates are processed.
+  [self scrollToItem:item animated:animated];
+
+  __weak __typeof(self) weakSelf = self;
+  dispatch_async(dispatch_get_main_queue(), ^{
+    if (!weakSelf || weakSelf.collectionView.isTracking) {
+      return;
+    }
+    [weakSelf scrollToItem:item animated:animated];
+  });
+}
+
+// Helper to scroll to `item` if it is not already visible.
+- (void)scrollToItem:(GridItemIdentifier*)item animated:(BOOL)animated {
   NSIndexPath* indexPath =
       [self.diffableDataSource indexPathForItemIdentifier:item];
+  if (!indexPath) {
+    return;
+  }
+  if ([self.collectionView.indexPathsForVisibleItems
+          containsObject:indexPath]) {
+    return;
+  }
   [self.collectionView
       scrollToItemAtIndexPath:indexPath
              atScrollPosition:UICollectionViewScrollPositionCenteredVertically
@@ -1792,13 +1786,7 @@ typedef NS_ENUM(NSInteger, DragEntrySide) {
   cell.delegate = self;
   cell.theme = self.theme;
   cell.itemIdentifier = groupItemIdentifier;
-  // TODO(crbug.com/481997646): Cleanup this groupColor flow once feature hits
-  // stable.
-  if (!IsTabGroupColorOnSurfaceEnabled()) {
-    cell.groupColor = item.groupColor;
-  } else {
-    cell.tabGroupColorPalette = item.tabGroupColorPalette;
-  }
+  cell.tabGroupColorPalette = item.tabGroupColorPalette;
   cell.tabsCount = item.numberOfTabsInGroup;
   cell.title = item.title;
   cell.accessibilityIdentifier = GroupGridCellAccessibilityIdentifier(index);

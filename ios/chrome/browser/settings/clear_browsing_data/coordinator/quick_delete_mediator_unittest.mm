@@ -21,6 +21,7 @@
 #import "components/search_engines/template_url.h"
 #import "components/search_engines/template_url_service.h"
 #import "components/strings/grit/components_strings.h"
+#import "components/sync/test/test_sync_service.h"
 #import "ios/chrome/browser/browsing_data/model/browsing_data_remover_factory.h"
 #import "ios/chrome/browser/browsing_data/model/tabs_counter.h"
 #import "ios/chrome/browser/discover_feed/model/discover_feed_service_factory.h"
@@ -44,6 +45,8 @@
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity_manager.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
+#import "ios/chrome/browser/sync/model/sync_service_factory.h"
+#import "ios/chrome/browser/sync/model/test_sync_service_utils.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
 #import "ios/web/public/test/web_task_environment.h"
@@ -72,6 +75,8 @@ class QuickDeleteMediatorTest : public PlatformTest {
         AuthenticationServiceFactory::GetInstance(),
         AuthenticationServiceFactory::GetFactoryWithDelegate(
             std::make_unique<FakeAuthenticationServiceDelegate>()));
+    builder.AddTestingFactory(SyncServiceFactory::GetInstance(),
+                              base::BindRepeating(&CreateTestSyncService));
     profile_ = std::move(builder).Build();
 
     auth_service_ = AuthenticationServiceFactory::GetForProfile(profile_.get());
@@ -194,9 +199,8 @@ class QuickDeleteMediatorTest : public PlatformTest {
         history_service_,
         browsing_data::HistoryCounter::GetUpdatedWebHistoryServiceCallback(),
         nullptr);
-    // Initialize the counter in advanced tab so the correct pref name is
-    // returned.
-    history_counter.Init(prefs(), browsing_data::ClearBrowsingDataTab::ADVANCED,
+
+    history_counter.Init(prefs(),
                          browsing_data::BrowsingDataCounter::ResultCallback());
     const browsing_data::HistoryCounter::HistoryResult historyResult(
         &history_counter, num_unique_domains, false, false, "google.com");
@@ -301,7 +305,12 @@ TEST_F(QuickDeleteMediatorTest, TestBrowsingHistorySummary) {
   // Trigger the callback for data types not in test. The summary is only
   // dispatches if all counters have returned.
   TriggerUpdateUICallbackForTabsResults(0);
-  TriggerUpdateUICallbackForPasswordsResults(0);
+  // TODO(crbug.com/463402932): Clean up once the
+  // kPasswordRemovalFromDeleteBrowsingData feature flag has been enabled on
+  // stable 100% for a month.
+  if (!IsPasswordRemovalFromDeleteBrowsingDataEnabled()) {
+    TriggerUpdateUICallbackForPasswordsResults(0);
+  }
   TriggerUpdateUICallbackForAutofillResults(0, 0, 0);
 
   // clang-format off
@@ -329,10 +338,8 @@ TEST_F(QuickDeleteMediatorTest, TestBrowsingHistorySummary) {
       history_service_,
       browsing_data::HistoryCounter::GetUpdatedWebHistoryServiceCallback(),
       nullptr);
-  // Initialize the counter in advanced tab so the correct pref name is
-  // returned.
-  counter.Init(prefs(), browsing_data::ClearBrowsingDataTab::ADVANCED,
-               browsing_data::BrowsingDataCounter::ResultCallback());
+
+  counter.Init(prefs(), browsing_data::BrowsingDataCounter::ResultCallback());
 
   for (const TestCase& test_case : kTestCases) {
     const browsing_data::HistoryCounter::HistoryResult result(
@@ -360,7 +367,12 @@ TEST_F(QuickDeleteMediatorTest, TestTabsSummary) {
   // Trigger the callback for data types not in test. The summary is only
   // dispatches if all counters have returned.
   TriggerUpdateUICallbackForHistoryResults(0);
-  TriggerUpdateUICallbackForPasswordsResults(0);
+  // TODO(crbug.com/463402932): Clean up once the
+  // kPasswordRemovalFromDeleteBrowsingData feature flag has been enabled on
+  // stable 100% for a month.
+  if (!IsPasswordRemovalFromDeleteBrowsingDataEnabled()) {
+    TriggerUpdateUICallbackForPasswordsResults(0);
+  }
   TriggerUpdateUICallbackForAutofillResults(0, 0, 0);
 
   // clang-format off
@@ -483,7 +495,12 @@ TEST_F(QuickDeleteMediatorTest, TestAddressesSummary) {
   // dispatches if all counters have returned.
   TriggerUpdateUICallbackForTabsResults(0);
   TriggerUpdateUICallbackForHistoryResults(0);
-  TriggerUpdateUICallbackForPasswordsResults(0);
+  // TODO(crbug.com/463402932): Clean up once the
+  // kPasswordRemovalFromDeleteBrowsingData feature flag has been enabled on
+  // stable 100% for a month.
+  if (!IsPasswordRemovalFromDeleteBrowsingDataEnabled()) {
+    TriggerUpdateUICallbackForPasswordsResults(0);
+  }
 
   // clang-format off
   const struct TestCase {
@@ -639,6 +656,8 @@ TEST_F(QuickDeleteMediatorTest, TestSuggestionsSummary) {
 
 TEST_F(QuickDeleteMediatorTest,
        TestBrowsingHistorySummaryWithPasswordsUnselected) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(kPasswordRemovalFromDeleteBrowsingData);
   // Select browsing history for deletion, but not passwords.
   prefs()->SetBoolean(browsing_data::prefs::kDeleteBrowsingHistory, true);
 

@@ -153,12 +153,19 @@ OpenXrGraphicsBinding::GetProjectionViews(
 }
 
 const void* OpenXrGraphicsBinding::GetFlipLayerLayout() const {
+  if (!base_layer_) {
+    return nullptr;
+  }
+  return GetFlipLayerLayout(*base_layer_);
+}
+
+const void* OpenXrGraphicsBinding::GetFlipLayerLayout(
+    OpenXrCompositionLayer& layer) const {
   // If we don't need to flip the image, then we have nothing to do here.
   // If we do need to flip the image and `fb_composition_layer_ext_enabled_`
   // is false, we have already flipped the image during
   // `GetProjectionViews`.
-  if (!ShouldFlipSubmittedImage(*base_layer_) ||
-      !fb_composition_layer_ext_enabled_) {
+  if (!ShouldFlipSubmittedImage(layer) || !fb_composition_layer_ext_enabled_) {
     return nullptr;
   }
   return &y_flip_layer_layout_;
@@ -199,14 +206,14 @@ std::unique_ptr<OpenXrLayers> OpenXrGraphicsBinding::GetLayersForViewConfig(
     if (layer_it == layers_.end()) {
       continue;
     }
-    if (layer_it->second->type() == OpenXrCompositionLayer::Type::kProjection) {
-      openxr_layers->AddCompositionLayer(
-          openxr, *layer_it->second,
-          GetProjectionViews(view_config, *layer_it->second),
-          GetFlipLayerLayout());
+    OpenXrCompositionLayer& layer = *layer_it->second;
+    if (layer.type() == OpenXrCompositionLayer::Type::kProjection) {
+      openxr_layers->AddCompositionLayer(openxr, layer,
+                                         GetProjectionViews(view_config, layer),
+                                         GetFlipLayerLayout(layer));
     } else {
-      openxr_layers->AddCompositionLayer(openxr, *layer_it->second, {},
-                                         GetFlipLayerLayout());
+      openxr_layers->AddCompositionLayer(openxr, layer, {},
+                                         GetFlipLayerLayout(layer));
     }
   }
   if (ShouldRenderBaseLayer()) {
@@ -374,6 +381,36 @@ void OpenXrGraphicsBinding::PopulateSharedImageData(
     layers.push_back(std::move(layer_data));
   }
   frame_data.composition_layers_data = std::move(layers);
+}
+
+std::vector<scoped_refptr<gpu::ClientSharedImage>>
+OpenXrGraphicsBinding::EndSharedImagesExport(
+    const std::vector<device::mojom::XRLayerUpdatePtr>& layers,
+    std::vector<gpu::SyncToken>& out_sync_tokens) {
+  std::vector<scoped_refptr<gpu::ClientSharedImage>> shared_images;
+
+  if (layers_sequence_.empty()) {
+    if (base_layer_) {
+      CHECK_EQ(layers.size(), 1u);
+      shared_images.emplace_back(
+          base_layer_->GetActiveSwapchainImage()->shared_image);
+      out_sync_tokens.emplace_back(shared_images.back()->EndExport(
+          std::move(layers[0]->shared_image_export_result)));
+    }
+  } else {
+    for (auto& layer : layers) {
+      LayerId layer_id = layer->layer_id;
+      auto layer_it = layers_.find(layer_id);
+      if (layer_it != layers_.end()) {
+        auto shared_image =
+            layer_it->second->GetActiveSwapchainImage()->shared_image;
+        out_sync_tokens.emplace_back(shared_image->EndExport(
+            std::move(layer->shared_image_export_result)));
+        shared_images.push_back(std::move(shared_image));
+      }
+    }
+  }
+  return shared_images;
 }
 
 bool OpenXrGraphicsBinding::Render(

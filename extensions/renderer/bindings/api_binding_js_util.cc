@@ -42,6 +42,8 @@ gin::ObjectTemplateBuilder APIBindingJSUtil::GetObjectTemplateBuilder(
       .SetMethod("sendRequestSync", &APIBindingJSUtil::SendRequestSync)
       .SetMethod("registerEventArgumentMassager",
                  &APIBindingJSUtil::RegisterEventArgumentMassager)
+      .SetMethod("registerEventDispatchHandler",
+                 &APIBindingJSUtil::RegisterEventDispatchHandler)
       .SetMethod("createCustomEvent", &APIBindingJSUtil::CreateCustomEvent)
       .SetMethod("createCustomDeclarativeEvent",
                  &APIBindingJSUtil::CreateCustomDeclarativeEvent)
@@ -158,6 +160,18 @@ void APIBindingJSUtil::RegisterEventArgumentMassager(
   v8::Local<v8::Context> context = arguments->GetHolderCreationContext();
 
   event_handler_->RegisterArgumentMassager(context, event_name, massager);
+}
+
+void APIBindingJSUtil::RegisterEventDispatchHandler(
+    gin::Arguments* arguments,
+    const std::string& event_name,
+    v8::Local<v8::Function> dispatch_handler) {
+  v8::Isolate* isolate = arguments->isolate();
+  v8::HandleScope handle_scope(isolate);
+  v8::Local<v8::Context> context = arguments->GetHolderCreationContext();
+
+  event_handler_->RegisterEventDispatchHandler(context, event_name,
+                                               dispatch_handler);
 }
 
 void APIBindingJSUtil::CreateCustomEvent(gin::Arguments* arguments,

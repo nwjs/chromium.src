@@ -39,6 +39,13 @@ TEST(HeaderUtilTest, IsRequestHeaderSafe) {
       {"Proxy-Foo", "bar", false},
       {"PrOxY-FoO", "bar", false},
 
+      {"X-HTTP-Method-Override", "TRACE", false},
+      {"x-http-method-override", "trAcE", false},
+      {"X-HTTP-Method-Override", "GET", true},
+      {"X-HTTP-Method-Override", "GET, TRACE", false},
+      {"X-HTTP-Method", "TRACK", false},
+      {"X-Method-Override", "CONNECT", false},
+
       {"dnt", "1", true},
   };
 
@@ -79,6 +86,13 @@ TEST(HeaderUtilTest, AreRequestHeadersSafe) {
        "Basic Zm9vOmJhcg==", false},
       {"Proxy-Foo", "bar", false},
       {"PrOxY-FoO", "bar", false},
+
+      {"X-HTTP-Method-Override", "TRACE", false},
+      {"x-http-method-override", "trAcE", false},
+      {"X-HTTP-Method-Override", "GET", true},
+      {"X-HTTP-Method-Override", "GET, TRACE", false},
+      {"X-HTTP-Method", "TRACK", false},
+      {"X-Method-Override", "CONNECT", false},
 
       {"dnt", "1", true},
   };
@@ -202,7 +216,9 @@ TEST(HeaderUtilTest, ContainsForbiddenSecurityHeader) {
 
   // Forbidden Sec- header
   headers.SetHeader("Sec-Invalid", "value");
-  EXPECT_TRUE(ContainsForbiddenSecurityHeader(headers));
+  std::string forbidden_header_name;
+  EXPECT_TRUE(ContainsForbiddenSecurityHeader(headers, &forbidden_header_name));
+  EXPECT_EQ(forbidden_header_name, "Sec-Invalid");
 
   // Sec-Fetch- headers should be forbidden by default
   net::HttpRequestHeaders fetch_headers;

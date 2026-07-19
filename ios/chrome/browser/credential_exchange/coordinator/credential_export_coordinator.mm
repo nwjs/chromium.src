@@ -27,6 +27,7 @@
 #import "ios/chrome/browser/favicon/model/ios_chrome_favicon_loader_factory.h"
 #import "ios/chrome/browser/passwords/password_exporter/coordinator/password_export_handler.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/create_password_manager_title_view.h"
+#import "ios/chrome/browser/settings/ui_bundled/password/password_utils.h"
 #import "ios/chrome/browser/shared/coordinator/alert/alert_coordinator.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
@@ -122,10 +123,12 @@
 
 #pragma mark - PasskeyKeychainProviderBridgeDelegate
 
-- (void)performUserVerificationIfNeeded:(ProceduralBlock)completion {
+- (void)performUserVerificationIfNeeded:
+    (UserVerificationCompletionBlock)completion {
   if (![_reauthModule canAttemptReauth]) {
     // This should not happen, as credential export is accessible from password
     // manager, which requires to have a passcode / biometrics set up.
+    completion(NO);
     [self showErrorAlert];
     return;
   }
@@ -135,10 +138,8 @@
           l10n_util::GetNSString(IDS_IOS_EXPORT_PASSWORDS_AND_PASSKEYS)
                   canReusePreviousAuth:YES
                                handler:^(ReauthenticationResult result) {
-                                 if (result !=
-                                     ReauthenticationResult::kFailure) {
-                                   completion();
-                                 }
+                                 completion(result !=
+                                            ReauthenticationResult::kFailure);
                                }];
 }
 
@@ -269,30 +270,14 @@
 }
 
 - (void)showSetPasscodeForPasswordExportDialog {
-  UIAlertController* alertController = [UIAlertController
-      alertControllerWithTitle:l10n_util::GetNSString(
-                                   IDS_IOS_SETTINGS_SET_UP_SCREENLOCK_TITLE)
-                       message:
-                           l10n_util::GetNSString(
-                               IDS_IOS_SETTINGS_EXPORT_PASSWORDS_SET_UP_SCREENLOCK_CONTENT)
-                preferredStyle:UIAlertControllerStyleAlert];
-
   __weak __typeof(self) weakSelf = self;
-  UIAlertAction* learnAction = [UIAlertAction
-      actionWithTitle:l10n_util::GetNSString(
-                          IDS_IOS_SETTINGS_SET_UP_SCREENLOCK_LEARN_HOW)
-                style:UIAlertActionStyleDefault
-              handler:^(UIAlertAction*) {
-                [weakSelf showPasscodeHelp];
-              }];
-  [alertController addAction:learnAction];
-  UIAlertAction* okAction =
-      [UIAlertAction actionWithTitle:l10n_util::GetNSString(IDS_OK)
-                               style:UIAlertActionStyleDefault
-                             handler:nil];
-  [alertController addAction:okAction];
-  alertController.preferredAction = okAction;
-  [self presentViewControllerForExportFlow:alertController];
+  UIAlertController* alert = password_manager::CreateSetUpScreenLockAlert(
+      l10n_util::GetNSString(
+          IDS_IOS_SETTINGS_EXPORT_PASSWORDS_SET_UP_SCREENLOCK_CONTENT),
+      ^{
+        [weakSelf showPasscodeHelp];
+      });
+  [self presentViewControllerForExportFlow:alert];
 }
 
 #pragma mark - Private

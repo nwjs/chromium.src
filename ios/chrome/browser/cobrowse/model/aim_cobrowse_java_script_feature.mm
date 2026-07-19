@@ -7,6 +7,7 @@
 #import "base/base64.h"
 #import "base/strings/utf_string_conversions.h"
 #import "base/values.h"
+#import "components/search_engines/util.h"
 #import "ios/chrome/browser/cobrowse/model/assistant_aim_tab_helper.h"
 #import "ios/web/public/js_messaging/script_message.h"
 #import "ios/web/public/js_messaging/web_frame.h"
@@ -76,10 +77,15 @@ void AimCobrowseJavaScriptFeature::ScriptMessageReceived(
   if (!message.is_main_frame()) {
     return;
   }
-  if (!message.body() || !message.body()->is_dict()) {
+  std::optional<GURL> request_url = message.request_url();
+  if (!request_url ||
+      (!IsAimURL(*request_url) && !IsAimZeroStateURL(*request_url))) {
     return;
   }
-  const base::DictValue& dict = message.body()->GetDict();
+  if (!message.legacy_body() || !message.legacy_body()->is_dict()) {
+    return;
+  }
+  const base::DictValue& dict = message.legacy_body()->GetDict();
   const std::string* base64_message = dict.FindString("message");
   if (!base64_message) {
     return;

@@ -30,6 +30,7 @@
 #include "chrome/browser/password_manager/factories/profile_password_store_factory.h"
 #include "chrome/browser/password_manager/password_change_service_factory.h"
 #include "chrome/browser/signin/signin_promo_util.h"
+#include "chrome/browser/sync/sync_ui_util.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/autofill/bubble_manager.h"
 #include "chrome/browser/ui/browser_actions.h"
@@ -100,6 +101,7 @@
 #include "components/user_education/common/feature_promo/feature_promo_controller.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents.h"
+#include "ui/actions/actions.h"
 #include "ui/base/l10n/l10n_util.h"
 
 #if BUILDFLAG(IS_WIN)
@@ -212,6 +214,7 @@ ManagePasswordsUIController::~ManagePasswordsUIController() = default;
 
 void ManagePasswordsUIController::OnPasswordSubmitted(
     std::unique_ptr<PasswordFormManagerForUI> form_manager) {
+  save_password_after_trusted_vault_error_resolution_ = false;
   bool password_change_ongoing = IsPasswordChangeOngoing();
 
   if (!password_change_ongoing) {
@@ -250,6 +253,7 @@ void ManagePasswordsUIController::OnPasswordSubmitted(
 
 void ManagePasswordsUIController::OnUpdatePasswordSubmitted(
     std::unique_ptr<PasswordFormManagerForUI> form_manager) {
+  save_password_after_trusted_vault_error_resolution_ = false;
   DestroyPopups();
   save_fallback_timer_.Stop();
   passwords_data_.OnUpdatePassword(std::move(form_manager));
@@ -415,6 +419,7 @@ void ManagePasswordsUIController::OnPromptEnableAutoSignin() {
 void ManagePasswordsUIController::OnAutomaticPasswordSave(
     std::unique_ptr<PasswordFormManagerForUI> form_manager,
     bool is_update_confirmation) {
+  save_password_after_trusted_vault_error_resolution_ = false;
   DestroyPopups();
   save_fallback_timer_.Stop();
   auto ui_state =
@@ -1249,11 +1254,17 @@ void ManagePasswordsUIController::UpdateBubbleAndIconVisibility() {
   if (!tab_interface) {
     return;
   }
-  auto* const tab_features = tab_interface->GetTabFeatures();
-  CHECK(tab_features);
+  tabs::TabFeatures* const tab_features = tab_interface->GetTabFeatures();
+  // During tab teardown, TabFeatures is destroyed before WebContents.
+  // Destroying other tab features (like ReadAnything) can trigger
+  // visibility changes on the WebContents, which calls this method
+  // when TabFeatures is already gone.
+  if (!tab_features) {
+    return;
+  }
   // Retrieve the controller responsible for managing the page action's
   // visibility and state.
-  auto* const controller =
+  ManagePasswordsPageActionController* const controller =
       tab_features->manage_passwords_page_action_controller();
   // Get the action item associated with the passwords UI.
   actions::ActionItem* passwords_action_item =
@@ -1267,16 +1278,13 @@ void ManagePasswordsUIController::UpdatePasswordIconAndBubbleState(
     ManagePasswordsPageActionController* controller,
     actions::ActionItem* passwords_action_item) {
   password_manager::ui::State state = GetState();
-  const bool is_blocklisted = IsExplicitlyBlocklisted();
-  // If the UI state or blocklist status has changed since the last update,
+  // If the UI state has changed since the last update,
   // close the current bubble to ensure that the UI reflects the new state.
-  if (state != last_page_action_state_ ||
-      is_blocklisted != last_page_action_is_blocklisted_) {
+  if (state != last_page_action_state_) {
     PasswordBubbleViewBase::CloseCurrentBubble();
   }
-  // Update the last known state and blocklist status.
+  // Update the last known state.
   last_page_action_state_ = state;
-  last_page_action_is_blocklisted_ = is_blocklisted;
   // Determine whether the bubble should be shown automatically based on
   // current conditions.
   const bool show_bubble =
@@ -1297,10 +1305,9 @@ void ManagePasswordsUIController::UpdatePasswordIconAndBubbleState(
     state = password_manager::ui::INACTIVE_STATE;
   }
 
-  // Update the visibility of the page action based on the current state,
-  // blocklist status, and the passwords action item.
-  controller->UpdateVisibility(state, is_blocklisted, *this,
-                               *passwords_action_item);
+  // Update the visibility of the page action based on the current state
+  // and the passwords action item.
+  controller->UpdateVisibility(state, *this, *passwords_action_item);
 
   if (show_bubble) {
     PasswordBubbleViewBase::CloseCurrentBubble();
@@ -1368,6 +1375,7 @@ void ManagePasswordsUIController::PrimaryPageChanged(content::Page& page) {
   }
 
   // Otherwise, reset the password manager.
+  save_password_after_trusted_vault_error_resolution_ = false;
   DestroyPopups();
   ClearPopUpFlagForBubble();
   passwords_data_.OnInactive();
@@ -1376,6 +1384,14 @@ void ManagePasswordsUIController::PrimaryPageChanged(content::Page& page) {
 
 void ManagePasswordsUIController::OnVisibilityChanged(
     content::Visibility visibility) {
+  // The page action icon (and its pinned toolbar button) is shared at the
+  // window level. When this tab becomes visible, we must push our tab-specific
+  // state to the shared icon/action item to ensure it correctly reflects our
+  // state (e.g. clearing any highlights from a previously active tab).
+  if (visibility == content::Visibility::VISIBLE) {
+    UpdateBubbleAndIconVisibility();
+  }
+
   if (base::FeatureList::IsEnabled(
           autofill::features::kAutofillShowBubblesBasedOnPriorities)) {
     // BubbleManager will handle the effects of tab changes.
@@ -1571,6 +1587,64 @@ void ManagePasswordsUIController::OnMouseExited() {
 
 bool ManagePasswordsUIController::IsMouseHovered() const {
   return is_mouse_hovered_;
+}
+
+void ManagePasswordsUIController::StartTrustedVaultErrorResolutionFlow() {
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+          web_contents());
+  OpenTabForSyncKeyRetrieval(
+      browser,
+      // TODO(crbug.com/484367376): Introduce a dedicated enum entry for
+      // indicating that the user action corresponds to the in-flow recovery.
+      trusted_vault::TrustedVaultUserActionTriggerForUMA::kProfileMenu);
+}
+
+void ManagePasswordsUIController::
+    SavePasswordAfterTrustedVaultErrorResolution() {
+  if (IsSavingBlockedByTrustedVaultError()) {
+    // Defer saving the password until the password store error is fixed.
+    save_password_after_trusted_vault_error_resolution_ = true;
+    return;
+  }
+  // No trusted vault errors, so we can save the password immediately.
+  save_password_after_trusted_vault_error_resolution_ = false;
+  if (PasswordFormManagerForUI* form_manager = passwords_data_.form_manager()) {
+    password_manager::PasswordForm pending_credentials =
+        form_manager->GetPendingCredentials();
+    SavePassword(pending_credentials.username_value,
+                 pending_credentials.password_value);
+    // SavePassword() sets bubble_status_ to SHOWN_PENDING_ICON_UPDATE.
+    // However, since the bubble was already closed when we started the error
+    // resolution flow, we must reset it to NOT_SHOWN.
+    bubble_status_ = BubbleStatus::NOT_SHOWN;
+    UpdateBubbleAndIconVisibility();
+  }
+}
+
+bool ManagePasswordsUIController::IsSavingBlockedByTrustedVaultError() const {
+  if (password_manager::PasswordFormManagerForUI* form_manager =
+          passwords_data_.form_manager()) {
+    return password_manager_util::IsSavingBlockedByTrustedVaultError(
+        passwords_data_.client(), form_manager);
+  }
+  return false;
+}
+void ManagePasswordsUIController::OnErrorStateChanged(
+    password_manager::PasswordStoreInterface* /*store*/,
+    password_manager::ActionableError new_state) {
+  if (base::FeatureList::IsEnabled(
+          password_manager::features::kPasswordSaveInContextErrorResolution)) {
+    if (save_password_after_trusted_vault_error_resolution_ &&
+        new_state == password_manager::ActionableError::kNoError) {
+      SavePasswordAfterTrustedVaultErrorResolution();
+    }
+    // If the error state of the store changed, the safest option is to hide the
+    // bubble to avoid showing stale UI.
+    if (IsShowingBubble()) {
+      HideBubble(/*initiated_by_bubble_manager=*/false);
+    }
+  }
 }
 
 void ManagePasswordsUIController::QueueOrShowBubble(bool user_action) {

@@ -8,14 +8,16 @@ import 'chrome://resources/cr_elements/icons.html.js';
 import './searched_label.js';
 import '/strings.m.js';
 
+import {browserProxyFactory} from 'chrome://resources/cr_components/history/foreign_sessions.mojom-webui.js';
 import type {CrCollapseElement} from 'chrome://resources/cr_elements/cr_collapse/cr_collapse.js';
 import {FocusRow} from 'chrome://resources/js/focus_row.js';
 import {getFaviconForPageURL} from 'chrome://resources/js/icon.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
+import type {ClickModifiers} from 'chrome://resources/mojo/ui/base/mojom/window_open_disposition.mojom-webui.js';
 
-import {BrowserServiceImpl} from './browser_service.js';
+import {BrowserProxyImpl} from './browser_proxy.js';
 import {SYNCED_TABS_HISTOGRAM_NAME, SyncedTabsHistogram} from './constants.js';
 import type {ForeignSessionTab} from './externs.js';
 import {getCss} from './synced_device_card.css.js';
@@ -114,13 +116,20 @@ export class HistorySyncedDeviceCardElement extends CrLitElement {
 
   /** Open a single synced tab. */
   protected onLinkClick_(e: MouseEvent) {
-    const browserService = BrowserServiceImpl.getInstance();
-    browserService.recordHistogram(
+    BrowserProxyImpl.getInstance().recordHistogram(
         SYNCED_TABS_HISTOGRAM_NAME, SyncedTabsHistogram.LINK_CLICKED,
         SyncedTabsHistogram.LIMIT);
-    browserService.openForeignSessionTab(
+    const modifiers: ClickModifiers = {
+      middleButton: e.button === 1,
+      altKey: e.altKey,
+      ctrlKey: e.ctrlKey,
+      metaKey: e.metaKey,
+      shiftKey: e.shiftKey,
+    };
+    browserProxyFactory.getInstance().handler.openForeignSessionTab(
         this.sessionTag,
-        Number((e.currentTarget as HTMLElement).dataset['sessionId']), e);
+        Number((e.currentTarget as HTMLElement).dataset['sessionId']),
+        modifiers);
     e.preventDefault();
   }
 
@@ -141,7 +150,7 @@ export class HistorySyncedDeviceCardElement extends CrLitElement {
     const histogramValue = this.opened ? SyncedTabsHistogram.COLLAPSE_SESSION :
                                          SyncedTabsHistogram.EXPAND_SESSION;
 
-    BrowserServiceImpl.getInstance().recordHistogram(
+    BrowserProxyImpl.getInstance().recordHistogram(
         SYNCED_TABS_HISTOGRAM_NAME, histogramValue, SyncedTabsHistogram.LIMIT);
 
     this.opened = !this.opened;
@@ -195,7 +204,7 @@ export class HistorySyncedDeviceCardElement extends CrLitElement {
   }
 
   protected onLinkContextmenu_() {
-    BrowserServiceImpl.getInstance().recordHistogram(
+    BrowserProxyImpl.getInstance().recordHistogram(
         SYNCED_TABS_HISTOGRAM_NAME, SyncedTabsHistogram.LINK_RIGHT_CLICKED,
         SyncedTabsHistogram.LIMIT);
   }

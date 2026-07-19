@@ -11,8 +11,8 @@
 #include "base/memory/raw_ptr.h"
 #include "base/scoped_observation.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_panel_controller.h"
+#include "chrome/browser/ui/immersive/immersive_mode_controller.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
-#include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_button.h"
 #include "components/prefs/pref_member.h"
 #include "ui/base/interaction/element_identifier.h"
@@ -32,7 +32,6 @@ class ContextualTasksButton
   METADATA_HEADER(ContextualTasksButton, ToolbarButton)
 
  public:
-  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kContextualTasksToolbarButton);
   explicit ContextualTasksButton(
       BrowserWindowInterface* browser_window_interface);
   ~ContextualTasksButton() override;
@@ -59,7 +58,6 @@ class ContextualTasksButton
 
  private:
   void OnButtonPress();
-  void OnPinStateChanged();
   void OnSidePanelAlignmentChanged();
   void OnShouldUpdateVisibility(bool should_show);
   void OnEligibilityChange(bool is_eligible);
@@ -67,7 +65,6 @@ class ContextualTasksButton
   void UpdateDropShadowLayerBounds();
   ui::ImageModel GetButtonImage();
 
-  BooleanPrefMember pin_state_;
   BooleanPrefMember side_panel_alignment_;
   base::CallbackListSubscription should_update_visibility_subscription_;
   base::CallbackListSubscription eligibility_change_subscription_;

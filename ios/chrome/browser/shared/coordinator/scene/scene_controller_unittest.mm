@@ -9,6 +9,7 @@
 #import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/identity_manager/identity_test_utils.h"
 #import "components/supervised_user/test_support/kids_chrome_management_test_utils.h"
+#import "components/sync/test/test_sync_service.h"
 #import "components/variations/scoped_variations_ids_provider.h"
 #import "components/variations/variations_ids_provider.h"
 #import "ios/chrome/app/profile/profile_init_stage.h"
@@ -38,6 +39,7 @@
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/gemini_commands.h"
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
@@ -46,6 +48,9 @@
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/chrome/browser/signin/model/identity_test_environment_browser_state_adaptor.h"
 #import "ios/chrome/browser/sync/model/send_tab_to_self_sync_service_factory.h"
+#import "ios/chrome/browser/sync/model/sync_service_factory.h"
+#import "ios/chrome/browser/sync/model/test_sync_service_utils.h"
+#import "ios/chrome/browser/url_loading/model/url_loading_params.h"
 #import "ios/chrome/common/ui/reauthentication/reauthentication_module.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
 #import "ios/public/provider/chrome/browser/user_feedback/user_feedback_data.h"
@@ -56,6 +61,7 @@
 #import "testing/gtest_mac.h"
 #import "testing/platform_test.h"
 #import "third_party/ocmock/OCMock/OCMock.h"
+#import "ui/base/page_transition_types.h"
 
 @interface InternalFakeSceneController : SceneController
 // Browser and ProfileIOS used to mock the currentInterface.
@@ -78,8 +84,7 @@
 
 - (void)dismissModalsAndMaybeOpenSelectedTabInMode:
             (ApplicationModeForTabOpening)targetMode
-                                 withUrlLoadParams:
-                                     (const UrlLoadParams&)urlLoadParams
+                                 withUrlLoadParams:(UrlLoadParams)urlLoadParams
                                     dismissOmnibox:(BOOL)dismissOmnibox
                                         completion:(ProceduralBlock)completion {
   _applicationMode = targetMode;
@@ -141,6 +146,8 @@ class SceneControllerTest : public PlatformTest {
     builder.AddTestingFactory(
         tab_groups::TabGroupSyncServiceFactory::GetInstance(),
         tab_groups::TabGroupSyncServiceFactory::GetDefaultFactory());
+    builder.AddTestingFactory(SyncServiceFactory::GetInstance(),
+                              base::BindRepeating(&CreateTestSyncService));
     profile_ = std::move(builder).Build();
 
     browser_ = std::make_unique<TestBrowser>(profile_.get(), scene_state_);
@@ -152,11 +159,14 @@ class SceneControllerTest : public PlatformTest {
 
     mock_scene_handler_ = OCMProtocolMock(@protocol(SceneCommands));
     mock_settings_handler_ = OCMProtocolMock(@protocol(SettingsCommands));
+    mock_gemini_handler_ = OCMProtocolMock(@protocol(GeminiCommands));
     CommandDispatcher* dispatcher = browser_->GetCommandDispatcher();
     [dispatcher startDispatchingToTarget:mock_scene_handler_
                              forProtocol:@protocol(SceneCommands)];
     [dispatcher startDispatchingToTarget:mock_settings_handler_
                              forProtocol:@protocol(SettingsCommands)];
+    [dispatcher startDispatchingToTarget:mock_gemini_handler_
+                             forProtocol:@protocol(GeminiCommands)];
 
     LayoutGuideSceneAgent* layout_guide_scene_agent =
         [[LayoutGuideSceneAgent alloc] init];
@@ -166,11 +176,12 @@ class SceneControllerTest : public PlatformTest {
         initWithReauthModule:[[ReauthenticationModule alloc] init]];
     [scene_state_ addAgent:reauth_agent];
 
-    scene_controller_.browserLifecycleManager = [[BrowserLifecycleManager alloc]
-         initWithProfile:profile_.get()
-              sceneState:scene_state_
-           sceneEndpoint:mock_scene_handler_
-        settingsEndpoint:mock_settings_handler_];
+    scene_controller_.browserLifecycleManager =
+        [[BrowserLifecycleManager alloc] initWithProfile:profile_.get()
+                                              sceneState:scene_state_
+                                           sceneEndpoint:mock_scene_handler_
+                                        settingsEndpoint:mock_settings_handler_
+                                          geminiEndpoint:mock_gemini_handler_];
     [scene_controller_
             .browserLifecycleManager createMainCoordinatorAndInterface];
 
@@ -238,6 +249,7 @@ class SceneControllerTest : public PlatformTest {
   InternalFakeSceneController* scene_controller_;
   id mock_scene_handler_;
   id mock_settings_handler_;
+  id mock_gemini_handler_;
   SceneState* scene_state_;
   ProfileState* profile_state_;
   id fake_scene_;
@@ -250,6 +262,31 @@ class SceneControllerTest : public PlatformTest {
 // fresh open in new window coming from ios dock. 'Dock' is considered the
 // default when the new window opening request is external to chrome and
 // unknown.
+
+// Tests that `UpdateParamsForDinoGame` correctly updates the page transition
+// type to PAGE_TRANSITION_AUTO_BOOKMARK for dino game URLs (chrome://dino),
+// while leaving other URLs unaffected.
+TEST_F(SceneControllerTest, TestUpdateParamsForDinoGame) {
+  UrlLoadParams params = UrlLoadParams::InNewTab(GURL("chrome://dino"));
+  params.from_widget_or_siri = true;
+  params = UpdateParamsForDinoGame(params);
+  EXPECT_TRUE(ui::PageTransitionCoreTypeIs(params.web_params.transition_type,
+                                           ui::PAGE_TRANSITION_AUTO_BOOKMARK));
+
+  UrlLoadParams normal_params =
+      UrlLoadParams::InNewTab(GURL("https://google.com"));
+  normal_params.from_widget_or_siri = true;
+  normal_params = UpdateParamsForDinoGame(normal_params);
+  EXPECT_TRUE(ui::PageTransitionCoreTypeIs(
+      normal_params.web_params.transition_type, ui::PAGE_TRANSITION_LINK));
+
+  UrlLoadParams not_allowed_params =
+      UrlLoadParams::InNewTab(GURL("chrome://dino"));
+  not_allowed_params.from_widget_or_siri = false;
+  not_allowed_params = UpdateParamsForDinoGame(not_allowed_params);
+  EXPECT_TRUE(ui::PageTransitionCoreTypeIs(
+      not_allowed_params.web_params.transition_type, ui::PAGE_TRANSITION_LINK));
+}
 
 // Tests that scene controller correctly handles an external intent to
 // OpenIncognitoSearch.

@@ -249,7 +249,13 @@ IN_PROC_BROWSER_TEST_F(FormControlsBrowserTest, MAYBE_DarkModeTextSelection) {
           /* screenshot_height */ 40);
 }
 
-IN_PROC_BROWSER_TEST_F(FormControlsBrowserTest, Input) {
+// TODO(crbug.com/528094656): Re-enable once Fuchsia baselines are updated.
+#if BUILDFLAG(IS_FUCHSIA)
+#define MAYBE_Input DISABLED_Input
+#else
+#define MAYBE_Input Input
+#endif
+IN_PROC_BROWSER_TEST_F(FormControlsBrowserTest, MAYBE_Input) {
   if (SkipTestForOldAndroidVersions())
     return;
 

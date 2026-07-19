@@ -65,7 +65,9 @@ ui::ColorId GetRowColor(actor::ActorTask::State state,
   return ui::kColorMenuIcon;
 }
 
-std::u16string GetRowSubtitle(actor::ActorTask::State state, bool has_tab) {
+std::u16string GetRowSubtitle(actor::ActorTask::State state,
+                              bool has_tab,
+                              glic::mojom::FeatureMode feature_mode) {
   if (!has_tab) {
     return l10n_util::GetStringUTF16(
         IDS_ACTOR_TASK_LIST_BUBBLE_ROW_TAB_CLOSED_SUBTITLE);
@@ -75,6 +77,10 @@ std::u16string GetRowSubtitle(actor::ActorTask::State state, bool has_tab) {
         IDS_ACTOR_TASK_LIST_BUBBLE_ROW_CHECK_TASK_SUBTITLE);
   }
   if (state == actor::ActorTask::State::kFinished) {
+    if (feature_mode == glic::mojom::FeatureMode::kExperimentalTriggering) {
+      return l10n_util::GetStringUTF16(
+          IDS_EXPERIMENTAL_TRIGGERING_TASK_LIST_BUBBLE_ROW_COMPLETED_TASK_SUBTITLE);
+    }
     return l10n_util::GetStringUTF16(
         IDS_ACTOR_TASK_LIST_BUBBLE_ROW_COMPLETED_TASK_SUBTITLE);
   } else if (state == actor::ActorTask::State::kFailed) {
@@ -95,7 +101,8 @@ ActorTaskListBubbleRowButton::ActorTaskListBubbleRowButton(
     actor::ActorTask::State state,
     std::u16string title_text,
     bool requires_processing,
-    bool has_tab)
+    bool has_tab,
+    glic::mojom::FeatureMode feature_mode)
     : has_tab_(has_tab), requires_processing_(requires_processing) {
   SetCallback(std::move(on_row_clicked));
   SetNotifyEnterExitOnChild(true);
@@ -144,20 +151,24 @@ ActorTaskListBubbleRowButton::ActorTaskListBubbleRowButton(
       std::make_unique<views::Label>(title_text));
   title_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   title_->SetTextStyle(views::style::STYLE_BODY_3_MEDIUM);
+  title_->SetSubpixelRenderingEnabled(false);
 
-  subtitle_ = labels_container->AddChildView(
-      std::make_unique<views::Label>(GetRowSubtitle(state, has_tab)));
+  subtitle_ = labels_container->AddChildView(std::make_unique<views::Label>(
+      GetRowSubtitle(state, has_tab, feature_mode)));
   subtitle_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   subtitle_->SetTextStyle(views::style::STYLE_BODY_5);
   subtitle_->SetEnabledColor(GetRowColor(state, has_tab, requires_processing));
+  subtitle_->SetSubpixelRenderingEnabled(false);
 
   redirect_icon_ = AddChildView(views::CreateVectorImageButtonWithNativeTheme(
       base::BindRepeating(&ActorTaskListBubbleRowButton::OnRedirectIconPressed,
                           base::Unretained(this)),
-      features::IsRoundedIconsEnabled() ? vector_icons::kOpenInNewIcon
+      features::IsRoundedIconsEnabled() ? vector_icons::kOpenInNewFlippableIcon
                                         : vector_icons::kLaunchOldIcon,
       kRedirectIconSize, ui::kColorMenuIcon, ui::kColorMenuIcon,
       ui::kColorMenuIcon));
+  redirect_icon_->SetTooltipText(
+      l10n_util::GetStringUTF16(IDS_TAB_SEARCH_A11Y_OPEN_TAB));
 
   // Set the preferred size on the button directly to accommodate the circle
   // highlight

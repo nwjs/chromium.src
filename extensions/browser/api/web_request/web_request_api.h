@@ -29,6 +29,7 @@
 #include "content/public/common/child_process_id.h"
 #include "extensions/browser/api/declarative_webrequest/request_stage.h"
 #include "extensions/browser/api/web_request/extension_web_request_event_router.h"
+#include "extensions/browser/api/web_request/web_request_event_router_factory.h"
 #include "extensions/browser/api/web_request/web_request_permissions.h"
 #include "extensions/browser/browser_context_keyed_api_factory.h"
 #include "extensions/browser/event_router.h"
@@ -124,12 +125,8 @@ class WebRequestAPI : public BrowserContextKeyedAPI,
     //
     // Each Proxy may be responsible for multiple requests, but any given
     // request identified by `id` must be associated with only a single proxy.
-    //
-    // Returns true on success, or false if `id` is already associated with a
-    // proxy.
-    [[nodiscard]] bool AssociateProxyWithRequestId(
-        Proxy* proxy,
-        const content::GlobalRequestID& id);
+    void AssociateProxyWithRequestId(Proxy* proxy,
+                                     const content::GlobalRequestID& id);
 
     // Disassociates `proxy` with `id`. `proxy` must already be registered
     // within this ProxySet.
@@ -264,7 +261,8 @@ class WebRequestAPI : public BrowserContextKeyedAPI,
       const net::SiteForCookies& site_for_cookies,
       const std::optional<std::string>& user_agent,
       mojo::PendingRemote<network::mojom::WebSocketHandshakeClient>
-          handshake_client);
+          handshake_client,
+      mojo::PendingRemote<network::mojom::TrustedHeaderClient> header_client);
 
   // Starts proxying WebTransport handshake.
   void ProxyWebTransport(
@@ -408,6 +406,23 @@ class WebRequestAPI : public BrowserContextKeyedAPI,
   bool may_have_proxies_;
 
   base::WeakPtrFactory<WebRequestAPI> weak_factory_{this};
+};
+
+template <>
+struct BrowserContextFactoryDependencies<WebRequestAPI> {
+  static void DeclareFactoryDependencies(
+      BrowserContextKeyedAPIFactory<WebRequestAPI>* factory) {
+    // Restore the default dependency on the ExtensionSystemFactory that is
+    // otherwise lost when explicitly specializing this template.
+    if (ExtensionsBrowserClient::Get()) {
+      factory->DependsOn(
+          ExtensionsBrowserClient::Get()->GetExtensionSystemFactory());
+    }
+
+    // Ensure the EventRouter outlives the WebRequestAPI so that proxies can
+    // safely broadcast network errors during profile teardown.
+    factory->DependsOn(WebRequestEventRouterFactory::GetInstance());
+  }
 };
 
 class WebRequestInternalFunction : public ExtensionFunction {

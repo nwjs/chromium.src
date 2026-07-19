@@ -89,6 +89,13 @@ export declare interface AdditionalContextPart {
   tabContext?: TabContextResult;
   region?: CapturedRegion;
   pendingRegion?: PendingCapturedRegion;
+  parentConversationMetadata?: ParentConversationMetadata;
+}
+
+/** Metadata of the parent conversation. */
+export declare interface ParentConversationMetadata {
+  conversationId?: string;
+  conversationTitle?: string;
 }
 
 /** Payload for Universal Cart invocation. */
@@ -136,6 +143,8 @@ export declare interface InvokeOptions {
   zssConfig?: ZssConfig;
   /** Source-specific payload for the invocation. */
   payload?: InvocationPayload;
+  /** The ID of the tab to actuate on, if actuationTarget is kTargetSurface. */
+  actuationTabId?: string;
 }
 
 /** An update sent from the web client to the host. */
@@ -359,6 +368,15 @@ export declare interface GlicBrowserHost {
    */
   getContextForActorFromTab?
     (tabId: string, options: TabContextOptions): Promise<TabContextResult>;
+
+  /**
+   * Retrieves raw image bytes, MIME type, and metadata for an image node from
+   * the tab associated with `tabId`.
+   *
+   * @throws {Error} on failure.
+   */
+  getImageBytesFromTab?(tabId: string, documentId: string, domNodeId: number):
+      Promise<ImageBytesResult>;
 
   /**
    * Sets the maximum number of supported pinned tabs. Should not be called
@@ -589,6 +607,14 @@ export declare interface GlicBrowserHost {
    * created tab. If that's needed, we can add another function that does it.
    */
   createTab?(url: string, options: CreateTabOptions): Promise<TabData>;
+
+  /**
+   * Activates an existing tab matching the exact url or the wildcard pattern in
+   * options (if provided) across browser windows, or creates a new tab if no
+   * matching tab is found.
+   */
+  activateTabWithUrl?
+      (exactUrl: string, options?: ActivateTabOptions): Promise<TabData>;
 
   /**
    * Opens a tab with the glic settings page, optionally highlighting a specific
@@ -1077,6 +1103,12 @@ export declare interface GlicBrowserHost {
     (): Observable<SelectAutofillSuggestionsDialogRequest>;
 
   /**
+   * Returns an observable that emits when the browser wants the web client to
+   * show a Gmail OTP opt-in dialog.
+   */
+  selectGmailOtpOptInRequestHandler?(): Observable<GmailOtpOptInRequest>;
+
+  /**
    * Switches to a use a different instance that shows the conversation
    * represented by the provided id. If `info` is not provided, a new instance
    * will be created with an empty conversation. When a new conversation is
@@ -1230,6 +1262,20 @@ export declare interface CreateTabOptions {
   openInBackground?: boolean;
   /** The windowId of the window where the new tab should be created at. */
   windowId?: string;
+}
+
+/** Holds optional parameters for `GlicBrowserHost#activateTabWithUrl`. */
+export declare interface ActivateTabOptions {
+  /**
+   * Wildcard pattern (using '*' and '?') matched against tab URLs. If empty or
+   * undefined, wildcard matching is not performed.
+   */
+  pattern?: string;
+  /**
+   * The windowId of the window where the tab should be created if no matching
+   * tab is found.
+   */
+  fallbackWindowId?: string;
 }
 
 /** Holds optional parameters for `GlicBrowserHost#createActorTab`. */
@@ -1695,6 +1741,12 @@ export declare interface TabContextResult {
    */
   viewportScreenshot?: Screenshot;
   /**
+   * Serialized optimization_guide.proto.ScreenshotInfo from
+   * common_quality_data.proto. Provided if viewportScreenshot was requested and
+   * layout metadata is available.
+   */
+  screenshotInfo?: ReadableStream<Uint8Array>;
+  /**
    * PDF document data. Provided if requested, and the top level document in the
    * focused tab is a PDF.
    */
@@ -1956,6 +2008,30 @@ export declare interface Screenshot {
   mimeType: string;
   /** Image annotations for this screenshot. */
   originAnnotations: ImageOriginAnnotations;
+}
+
+/**
+ * Metadata about an image on the page.
+ */
+export declare interface ImageInfo {
+  /** The accessible name or descriptive caption of the image. */
+  caption?: string;
+  /** The origin of the page or document containing the image source. */
+  sourceOrigin?: string;
+  /** The URL source location of the image. It is empty if not available. */
+  url: string;
+  /** The image encoding format represented as a MIME type. */
+  mimeType?: string;
+}
+
+/**
+ * Result of retrieving image bytes.
+ */
+export declare interface ImageBytesResult {
+  /** Raw encoded image bytes. */
+  bytes: ArrayBuffer;
+  /** Metadata about the image. */
+  imageInfo: ImageInfo;
 }
 
 /**
@@ -2588,6 +2664,21 @@ export declare interface SelectAutofillSuggestionsDialogResponse {
   selectedSuggestions: FormFillingResponse[];
 }
 
+export declare interface GmailOtpOptInRequest {
+  // ID of the actor's task.
+  taskId: number;
+
+  // The WebClient must call this function to respond back to the browser when
+  // the dialog is closed.
+  onDialogClosed(response: GmailOtpOptInResponse): void;
+}
+
+export declare interface GmailOtpOptInResponse {
+  // True if the user clicked the opt-in button, false if they
+  // cancelled/closed it.
+  permissionGranted: boolean;
+}
+
 //
 // Types used in presubmit check.
 //
@@ -3045,6 +3136,7 @@ export enum InvocationSource {
   // User clicked on text selection widget.
   TEXT_SELECTION_WIDGET = 25,
   // Automatic summarization upon opening.
+  // Deprecated.
   ZERO_STATE_AUTO_SUMMARIZE = 26,
   // From the universal cart.
   UNIVERSAL_CART = 27,
@@ -3077,6 +3169,11 @@ export enum ActuationTarget {
   CURRENT_TAB = 2,
   // Forces actuation in a new tab.
   NEW_TAB = 3,
+  // Forces actuation on the target surface, if the surface is a valid tab.
+  // Note: kTargetSurface can be different than kCurrentTab if the target
+  // surface is not the foregrounded tab. This option has no effect if the
+  // surface does not resolve to a valid tab.
+  TARGET_SURFACE = 4,
 }
 
 ///////////////////////////////////////////////
@@ -3142,6 +3239,7 @@ export enum AdditionalContextSource {
   REGION_SELECTION = 1,
   TEXT_SELECTION = 3,
   WEB_DRAG_DROP = 4,
+  EXPERIMENTAL_TRIGGERING = 5,
 }
 
 ///////////////////////////////////////////////

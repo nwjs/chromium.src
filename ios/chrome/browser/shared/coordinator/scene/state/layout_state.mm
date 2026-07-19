@@ -8,6 +8,7 @@
 
 #import "base/ios/crb_protocol_observers.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
+#import "ios/chrome/common/ui/util/ui_util.h"
 
 namespace {
 
@@ -87,11 +88,13 @@ UIInterfaceOrientation GetTargetInterfaceOrientation(
   return self;
 }
 
-- (void)setContainedLayoutActive:(BOOL)active {
+#pragma mark - PassKey Setters
+
+- (void)setContainedLayoutActive:(BOOL)active
+                    scenePassKey:(LayoutStateScenePassKey)passKey {
   if (_containedLayoutActive == active) {
     return;
   }
-
   [_observers layoutState:self
       willChangeContainedLayout:active
       withTransitionCoordinator:nil];
@@ -99,7 +102,64 @@ UIInterfaceOrientation GetTargetInterfaceOrientation(
 }
 
 - (void)setContainedLayoutActive:(BOOL)active
-       withTransitionCoordinator:(id<LayoutTransitionCoordinating>)coordinator {
+                assistantPassKey:(LayoutStateAssistantPassKey)passKey {
+  if (_containedLayoutActive == active) {
+    return;
+  }
+  [_observers layoutState:self
+      willChangeContainedLayout:active
+      withTransitionCoordinator:nil];
+  _containedLayoutActive = active;
+}
+
+- (void)setContainedLayoutSupported:(BOOL)supported
+                            passKey:(LayoutStateScenePassKey)passKey {
+  if (_containedLayoutSupported == supported) {
+    return;
+  }
+  _containedLayoutSupported = supported;
+  [_observers layoutState:self didChangeContainedLayoutSupported:supported];
+}
+
+- (void)setWindowedMode:(BOOL)windowedMode
+                passKey:(LayoutStateScenePassKey)passKey {
+  if (_windowedMode == windowedMode) {
+    return;
+  }
+  _windowedMode = windowedMode;
+  [_observers layoutState:self didChangeWindowedMode:windowedMode];
+}
+
+- (void)setAssistantContainerCutoutRadius:(CGFloat)radius
+                                  passKey:(LayoutStateAssistantPassKey)passKey {
+  if (_assistantContainerCutoutRadius == radius) {
+    return;
+  }
+  _assistantContainerCutoutRadius = radius;
+  [_observers layoutState:self didChangeAssistantContainerCutoutRadius:radius];
+}
+
+- (void)setToolbarPosition:(ToolbarPosition)position
+                   passKey:(LayoutStateToolbarPassKey)passKey {
+  if (_toolbarPosition == position) {
+    return;
+  }
+  _toolbarPosition = position;
+  [_observers layoutState:self didChangeToolbarPosition:position];
+}
+
+- (void)setAppBarPosition:(AppBarPosition)position
+                  passKey:(LayoutStateScenePassKey)passKey {
+  if (_appBarPosition == position) {
+    return;
+  }
+  _appBarPosition = position;
+  [_observers layoutState:self didChangeAppBarPosition:position];
+}
+
+- (void)setContainedLayoutActive:(BOOL)active
+       withTransitionCoordinator:(id<LayoutTransitionCoordinating>)coordinator
+                    scenePassKey:(LayoutStateScenePassKey)passKey {
   if (_containedLayoutActive == active) {
     return;
   }
@@ -111,36 +171,33 @@ UIInterfaceOrientation GetTargetInterfaceOrientation(
   _containedLayoutActive = active;
 }
 
-- (void)setContainedLayoutSupported:(BOOL)containedLayoutSupported {
-  if (_containedLayoutSupported == containedLayoutSupported) {
+- (void)setContainedLayoutActive:(BOOL)active
+       withTransitionCoordinator:(id<LayoutTransitionCoordinating>)coordinator
+                assistantPassKey:(LayoutStateAssistantPassKey)passKey {
+  if (_containedLayoutActive == active) {
     return;
   }
-  _containedLayoutSupported = containedLayoutSupported;
+
   [_observers layoutState:self
-      didChangeContainedLayoutSupported:containedLayoutSupported];
+      willChangeContainedLayout:active
+      withTransitionCoordinator:coordinator];
+
+  _containedLayoutActive = active;
 }
 
-- (void)setWindowedMode:(BOOL)windowedMode {
-  if (_windowedMode == windowedMode) {
-    return;
-  }
-  _windowedMode = windowedMode;
-  [_observers layoutState:self didChangeWindowedMode:windowedMode];
-}
-
-- (void)setAppBarPosition:(AppBarPosition)appBarPosition {
-  if (_appBarPosition == appBarPosition) {
-    return;
-  }
-  _appBarPosition = appBarPosition;
-  [_observers layoutState:self didChangeAppBarPosition:appBarPosition];
-}
+#pragma mark - Public
 
 - (void)updateAppBarPositionWithView:(UIView*)view
                          coordinator:(id<UIViewControllerTransitionCoordinator>)
-                                         coordinator {
-  self.appBarPosition = [self calculateAppBarPositionWithView:view
-                                                  coordinator:coordinator];
+                                         coordinator
+                             passKey:(LayoutStateScenePassKey)passKey {
+  AppBarPosition position = [self calculateAppBarPositionWithView:view
+                                                      coordinator:coordinator];
+  if (_appBarPosition == position) {
+    return;
+  }
+  _appBarPosition = position;
+  [_observers layoutState:self didChangeAppBarPosition:position];
 }
 
 - (void)addObserver:(id<LayoutStateObserver>)observer {
@@ -163,7 +220,7 @@ UIInterfaceOrientation GetTargetInterfaceOrientation(
     return AppBarPosition::kNone;
   }
 
-  if (CanShowTabStrip(view)) {
+  if (IsRegularXRegularSizeClass(view)) {
     return AppBarPosition::kNone;
   }
 

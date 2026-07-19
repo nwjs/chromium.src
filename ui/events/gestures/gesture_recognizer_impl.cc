@@ -315,13 +315,8 @@ bool GestureRecognizerImpl::ProcessTouchEventPreDispatch(
 
 void GestureRecognizerImpl::SetupTargets(const TouchEvent& event,
                                          GestureConsumer* target) {
-  if (event.type() == ui::EventType::kTouchReleased ||
-      event.type() == ui::EventType::kTouchCancelled ||
-      event.type() == ui::EventType::kTouchPressed) {
-    event_to_gesture_provider_[event.unique_event_id()] =
-        GetGestureProviderForConsumer(target);
-  }
-
+  event_to_gesture_provider_[event.unique_event_id()] =
+      GetGestureProviderForConsumer(target);
   if (event.type() == ui::EventType::kTouchReleased ||
       event.type() == ui::EventType::kTouchCancelled) {
     touch_id_target_.erase(event.pointer_details().id);
@@ -358,9 +353,12 @@ GestureRecognizer::Gestures GestureRecognizerImpl::AckTouchEvent(
   } else {
     gesture_provider = GetGestureProviderForConsumer(consumer);
   }
+  base::WeakPtr<GestureProviderAura> weak_provider =
+      gesture_provider->GetWeakPtr();
   gesture_provider->OnTouchEventAck(unique_event_id, result != ER_UNHANDLED,
                                     is_source_touch_event_set_blocking);
-  return gesture_provider->GetAndResetPendingGestures();
+  return weak_provider ? weak_provider->GetAndResetPendingGestures()
+                       : Gestures();
 }
 
 void GestureRecognizerImpl::CancelActiveTouchesExceptImpl(

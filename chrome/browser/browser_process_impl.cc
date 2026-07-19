@@ -175,7 +175,6 @@
 #include "components/os_crypt/async/browser/dpapi_key_provider.h"
 #elif BUILDFLAG(IS_MAC)
 #include "chrome/browser/chrome_browser_main_mac.h"
-#include "chrome/browser/media/webrtc/system_media_capture_permissions_stats_mac.h"
 #endif
 
 #if BUILDFLAG(IS_WIN)
@@ -491,11 +490,25 @@ void BrowserProcessImpl::Init() {
       base::BindRepeating(&metrics::ApplyMetricsReportingPolicy));
 
 #if BUILDFLAG(IS_WIN)
-  // Pref state is taken from the trusted process isolation state during browser
-  // startup, and reset during each startup. This ensures that even if the pref
-  // has been modified on disk, it cannot be used to force a transition from
-  // isolated to un-isolated.
-  local_state()->ClearPref(prefs::kProcessIsolationEnabled);
+  // If the user pref on disk differs from the actual trusted state, it means
+  // either the registry was modified out-of-band, or the untrusted JSON was
+  // tampered with. In either case, the user pref is untrusted. Clear it to
+  // prevent an attacker from bypassing the trusted state when there is no
+  // policy.
+  const base::Value* user_value =
+      local_state()->GetUserPrefValue(prefs::kProcessIsolationEnabled);
+  if (user_value &&
+      user_value->GetIfBool().value_or(false) != chrome::IsIsolationEnabled()) {
+    local_state()->ClearPref(prefs::kProcessIsolationEnabled);
+  }
+
+  // After potentially clearing the untrusted user value, if the effective value
+  // of the pref (which now comes from policies, or a trusted user value, or
+  // default) differs from the actual state, queue a state update.
+  if (local_state()->GetBoolean(prefs::kProcessIsolationEnabled) !=
+      chrome::IsIsolationEnabled()) {
+    UpdateProcessIsolationState();
+  }
   pref_change_registrar_.Add(
       prefs::kProcessIsolationEnabled,
       base::BindRepeating(&BrowserProcessImpl::UpdateProcessIsolationState,
@@ -504,10 +517,6 @@ void BrowserProcessImpl::Init() {
 
   DCHECK(!webrtc_event_log_manager_);
   webrtc_event_log_manager_ = WebRtcEventLogManager::CreateSingletonInstance();
-
-#if BUILDFLAG(IS_MAC)
-  system_media_permissions::LogSystemMediaPermissionsStartupStats();
-#endif
 
 #if BUILDFLAG(IS_ANDROID)
   webauthn::WebAuthnClientAndroid::SetClient(
@@ -697,6 +706,10 @@ void BrowserProcessImpl::StartTearDown() {
 
   // This expects to be destroyed before the task scheduler is torn down.
   SystemNetworkContextManager::DeleteInstance();
+
+  if (component_updater_) {
+    component_updater_->Stop();
+  }
 
   // The ApplicationBreadcrumbsLogger logs a shutdown event via a task when it
   // is destroyed, so it should be destroyed before the task scheduler is torn
@@ -1410,7 +1423,7 @@ BrowserProcessImpl::component_updater() {
     return component_updater_.get();
   }
 
-  if (!BrowserThread::CurrentlyOn(BrowserThread::UI)) {
+  if (!BrowserThread::CurrentlyOn(BrowserThread::UI) || tearing_down_) {
     return nullptr;
   }
 
@@ -1555,7 +1568,7 @@ void BrowserProcessImpl::PreMainMessageLoopRun() {
 
   providers.emplace_back(std::make_pair(
       // Note: 15 is chosen to be higher than the 10 precedence above for
-      // DPAPI. This ensures that when the the provider is enabled for
+      // DPAPI. This ensures that when the provider is enabled for
       // encryption, the App-Bound encryption key is used and not the DPAPI
       // one.
       /*precedence=*/15u,

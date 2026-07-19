@@ -26,13 +26,14 @@ public class AutofillSuggestion {
     private final @SuggestionType int mSuggestionType;
     private final boolean mIsDeletable;
     private final boolean mApplyDeactivatedStyle;
+    private final boolean mIsLoading;
     private final @Nullable String mFeatureForIph;
     private final @Nullable String mIphDescriptionText;
     private final @Nullable GURL mCustomIconUrl;
-    private final boolean mShowLoadingOnAcceptance;
     private final @Nullable Payload mPayload;
 
-    public sealed interface Payload permits AutofillProfilePayload, PaymentsPayload {}
+    public sealed interface Payload
+            permits AutofillAiPayload, AutofillProfilePayload, PaymentsPayload {}
 
     /**
      * Constructs a Autofill suggestion container. Use the {@link AutofillSuggestion.Builder}
@@ -46,6 +47,7 @@ public class AutofillSuggestion {
      * @param suggestionType The type of suggestion.
      * @param isDeletable Whether the item can be deleted by the user.
      * @param applyDeactivatedStyle Whether to apply deactivated style to the suggestion.
+     * @param isLoading Whether the suggestion is in a loading state.
      * @param featureForIph The IPH feature for the autofill suggestion. If present, it'll be
      *     attempted to be shown in the keyboard accessory.
      * @param customIconUrl The {@link GURL} for the custom icon, if any.
@@ -64,10 +66,10 @@ public class AutofillSuggestion {
             @SuggestionType int suggestionType,
             boolean isDeletable,
             boolean applyDeactivatedStyle,
+            boolean isLoading,
             @Nullable String featureForIph,
             @Nullable String iphDescriptionText,
             @Nullable GURL customIconUrl,
-            boolean showLoadingOnAcceptance,
             @Nullable Payload payload) {
         mLabel = label;
         mSecondaryLabel = secondaryLabel;
@@ -78,10 +80,10 @@ public class AutofillSuggestion {
         mSuggestionType = suggestionType;
         mIsDeletable = isDeletable;
         mApplyDeactivatedStyle = applyDeactivatedStyle;
+        mIsLoading = isLoading;
         mFeatureForIph = featureForIph;
         mIphDescriptionText = iphDescriptionText;
         mCustomIconUrl = customIconUrl;
-        mShowLoadingOnAcceptance = showLoadingOnAcceptance;
         mPayload = payload;
     }
 
@@ -126,6 +128,10 @@ public class AutofillSuggestion {
         return mApplyDeactivatedStyle;
     }
 
+    public boolean isLoading() {
+        return mIsLoading;
+    }
+
     public @Nullable String getFeatureForIph() {
         return mFeatureForIph;
     }
@@ -143,7 +149,15 @@ public class AutofillSuggestion {
      * fetch from the server).
      */
     public boolean showLoadingOnAcceptance() {
-        return mShowLoadingOnAcceptance;
+        AutofillAiPayload aiPayload = getAutofillAiPayload();
+        return aiPayload != null && aiPayload.requiresServerFetch();
+    }
+
+    public @Nullable AutofillAiPayload getAutofillAiPayload() {
+        if (mPayload instanceof AutofillAiPayload) {
+            return (AutofillAiPayload) mPayload;
+        }
+        return null;
     }
 
     public @Nullable AutofillProfilePayload getAutofillProfilePayload() {
@@ -176,10 +190,10 @@ public class AutofillSuggestion {
                 && this.mSuggestionType == other.mSuggestionType
                 && this.mIsDeletable == other.mIsDeletable
                 && this.mApplyDeactivatedStyle == other.mApplyDeactivatedStyle
+                && this.mIsLoading == other.mIsLoading
                 && Objects.equals(this.mFeatureForIph, other.mFeatureForIph)
                 && Objects.equals(this.mIphDescriptionText, other.mIphDescriptionText)
                 && Objects.equals(this.mCustomIconUrl, other.mCustomIconUrl)
-                && this.mShowLoadingOnAcceptance == other.mShowLoadingOnAcceptance
                 && Objects.equals(this.mPayload, other.mPayload);
     }
 
@@ -194,10 +208,10 @@ public class AutofillSuggestion {
                 this.mSuggestionType,
                 this.mIsDeletable,
                 this.mApplyDeactivatedStyle,
+                this.mIsLoading,
                 this.mFeatureForIph,
                 this.mIphDescriptionText,
                 this.mCustomIconUrl,
-                this.mShowLoadingOnAcceptance,
                 this.mPayload);
     }
 
@@ -207,6 +221,7 @@ public class AutofillSuggestion {
         private @Nullable GURL mCustomIconUrl;
         private boolean mIsDeletable;
         private boolean mApplyDeactivatedStyle;
+        private boolean mIsLoading;
         private @Nullable String mFeatureForIph;
         private @Nullable String mIphDescriptionText;
         private @Nullable String mLabel;
@@ -215,7 +230,6 @@ public class AutofillSuggestion {
         private @Nullable String mSecondarySubLabel;
         private @Nullable String mVoiceOver;
         private int mSuggestionType;
-        private boolean mShowLoadingOnAcceptance;
         private @Nullable Payload mPayload;
 
         public Builder setIconId(int iconId) {
@@ -235,6 +249,11 @@ public class AutofillSuggestion {
 
         public Builder setApplyDeactivatedStyle(boolean applyDeactivatedStyle) {
             this.mApplyDeactivatedStyle = applyDeactivatedStyle;
+            return this;
+        }
+
+        public Builder setIsLoading(boolean isLoading) {
+            this.mIsLoading = isLoading;
             return this;
         }
 
@@ -278,11 +297,6 @@ public class AutofillSuggestion {
             return this;
         }
 
-        public Builder setShowLoadingOnAcceptance(boolean showLoadingOnAcceptance) {
-            this.mShowLoadingOnAcceptance = showLoadingOnAcceptance;
-            return this;
-        }
-
         public Builder setPayload(Payload payload) {
             this.mPayload = payload;
             return this;
@@ -303,10 +317,10 @@ public class AutofillSuggestion {
                     mSuggestionType,
                     mIsDeletable,
                     mApplyDeactivatedStyle,
+                    mIsLoading,
                     mFeatureForIph,
                     mIphDescriptionText,
                     mCustomIconUrl,
-                    mShowLoadingOnAcceptance,
                     mPayload);
         }
     }

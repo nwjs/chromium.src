@@ -5,7 +5,11 @@
 #ifndef COMPONENTS_VIZ_SERVICE_SURFACES_SURFACE_OBSERVER_H_
 #define COMPONENTS_VIZ_SERVICE_SURFACES_SURFACE_OBSERVER_H_
 
+#include <vector>
+
+#include "base/observer_list_types.h"
 #include "components/viz/service/viz_service_export.h"
+#include "ui/latency/latency_info.h"
 
 namespace viz {
 
@@ -15,9 +19,9 @@ class SurfaceInfo;
 struct BeginFrameAck;
 struct BeginFrameArgs;
 
-class VIZ_SERVICE_EXPORT SurfaceObserver {
+class VIZ_SERVICE_EXPORT SurfaceObserver : public base::CheckedObserver {
  public:
-  virtual ~SurfaceObserver() = default;
+  ~SurfaceObserver() override = default;
 
   // Called when a CompositorFrame with a new SurfaceId activates for the first
   // time.
@@ -53,9 +57,11 @@ class VIZ_SERVICE_EXPORT SurfaceObserver {
     // No change to the interaction state (e.g. `CopyOutputRequest` submission).
     kNoChange,
   };
-  virtual bool OnSurfaceDamaged(const SurfaceId& surface_id,
-                                const BeginFrameAck& ack,
-                                HandleInteraction handle_interaction);
+  virtual bool OnSurfaceDamaged(
+      const SurfaceId& surface_id,
+      const BeginFrameAck& ack,
+      HandleInteraction handle_interaction,
+      const std::vector<ui::LatencyInfo>& latency_info);
 
   // Called when a Surface's CompositorFrame producer has received a BeginFrame
   // and, thus, is expected to produce damage soon.

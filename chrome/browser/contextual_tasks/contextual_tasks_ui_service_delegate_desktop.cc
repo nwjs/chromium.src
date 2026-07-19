@@ -16,7 +16,7 @@ namespace contextual_tasks {
 
 ContextualTasksUiServiceDelegateDesktop::
     ContextualTasksUiServiceDelegateDesktop(Profile* profile)
-    : ContextualTasksUiServiceDelegate() {}
+    : ContextualTasksUiServiceDelegate(), profile_(profile) {}
 
 ContextualTasksUiServiceDelegateDesktop::
     ~ContextualTasksUiServiceDelegateDesktop() = default;
@@ -48,5 +48,8 @@ void ContextualTasksUiServiceDelegateDesktop::OnTaskChanged(
     BrowserWindowInterface* browser_window_interface,
     const std::optional<base::Uuid>& old_task_id,
     const std::optional<base::Uuid>& new_task_id) {}
+
+void ContextualTasksUiServiceDelegateDesktop::StartPlatformVoiceRecognition(
+    BrowserWindowInterface* browser_window_interface) {}
 
 }  // namespace contextual_tasks

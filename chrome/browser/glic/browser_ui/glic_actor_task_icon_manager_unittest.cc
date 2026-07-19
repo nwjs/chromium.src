@@ -38,7 +38,7 @@ class MockTaskNudgeStateChangeSubscriber {
 // mock.
 class MockTaskListBubbleChangeSubscriber {
  public:
-  MOCK_METHOD(void, OnStateChanged, ());
+  MOCK_METHOD(void, OnStateChanged, (bool is_start_notification));
 };
 
 class GlicActorTaskIconManagerTest : public testing::Test,
@@ -159,7 +159,7 @@ TEST_F(GlicActorTaskIconManagerTest,
                   /*show_bubble=*/true,
                   ActorTaskNudgeState{
                       .text = ActorTaskNudgeState::Text::kNeedsAttention}));
-  EXPECT_CALL(mock_bubble_subscriber_, OnStateChanged());
+  EXPECT_CALL(mock_bubble_subscriber_, OnStateChanged(false));
 
   TaskId task_id_1 = actor_service()->CreateTaskForTesting();
   actor_service()->PauseTaskForTesting(task_id_1, /*from_actor=*/true);
@@ -178,7 +178,7 @@ TEST_F(GlicActorTaskIconManagerTest,
                   /*show_bubble=*/true,
                   ActorTaskNudgeState{
                       .text = ActorTaskNudgeState::Text::kNeedsAttention}));
-  EXPECT_CALL(mock_bubble_subscriber_, OnStateChanged());
+  EXPECT_CALL(mock_bubble_subscriber_, OnStateChanged(false));
   EXPECT_CALL(
       mock_nudge_subscriber_,
       OnStateChanged(
@@ -201,7 +201,7 @@ TEST_F(GlicActorTaskIconManagerTest,
 
 TEST_F(GlicActorTaskIconManagerTest,
        MultipleTasksNeedAttentionNudgeShowsMultipleTasksText) {
-  EXPECT_CALL(mock_bubble_subscriber_, OnStateChanged()).Times(2);
+  EXPECT_CALL(mock_bubble_subscriber_, OnStateChanged(false)).Times(2);
 
   TaskId task_id_1 = actor_service()->CreateTaskForTesting();
   TaskId task_id_2 = actor_service()->CreateTaskForTesting();
@@ -337,7 +337,7 @@ TEST_F(GlicActorTaskIconManagerTest, TransientTaskDoesNotShowBubble) {
       OnStateChanged(/*show_bubble=*/true,
                      Field(&ActorTaskNudgeState::text,
                            ActorTaskNudgeState::Text::kNeedsAttention)));
-  EXPECT_CALL(mock_bubble_subscriber_, OnStateChanged());
+  EXPECT_CALL(mock_bubble_subscriber_, OnStateChanged(false));
   actor_service()->PauseTaskForTesting(task_id, /*from_actor=*/true);
   manager()->UpdateTaskIconComponents(task_id);
 
@@ -346,7 +346,7 @@ TEST_F(GlicActorTaskIconManagerTest, TransientTaskDoesNotShowBubble) {
               OnStateChanged(/*show_bubble=*/false,
                              Field(&ActorTaskNudgeState::text,
                                    ActorTaskNudgeState::Text::kCompleteTasks)));
-  EXPECT_CALL(mock_bubble_subscriber_, OnStateChanged()).Times(0);
+  EXPECT_CALL(mock_bubble_subscriber_, OnStateChanged(testing::_)).Times(0);
   actor_service()->StopTaskForTesting(
       task_id, actor::ActorTask::StoppedReason::kTaskComplete);
   manager()->UpdateTaskIconComponents(task_id);
@@ -405,7 +405,7 @@ TEST_F(GlicActorTaskIconManagerTest,
               OnStateChanged(/*show_bubble=*/false,
                              Field(&ActorTaskNudgeState::text,
                                    ActorTaskNudgeState::Text::kDefault)));
-  EXPECT_CALL(mock_bubble_subscriber_, OnStateChanged()).Times(0);
+  EXPECT_CALL(mock_bubble_subscriber_, OnStateChanged(testing::_)).Times(0);
   actor_service()->StopTaskForTesting(
       task_id, actor::ActorTask::StoppedReason::kTaskComplete);
   manager()->UpdateTaskIconComponents(task_id);
@@ -424,7 +424,7 @@ TEST_F(GlicActorTaskIconManagerTest,
               OnStateChanged(/*show_bubble=*/true,
                              Field(&ActorTaskNudgeState::text,
                                    ActorTaskNudgeState::Text::kCompleteTasks)));
-  EXPECT_CALL(mock_bubble_subscriber_, OnStateChanged()).Times(2);
+  EXPECT_CALL(mock_bubble_subscriber_, OnStateChanged(false)).Times(2);
   actor_service()->StopTaskForTesting(
       task_id, actor::ActorTask::StoppedReason::kTaskComplete);
   manager()->UpdateTaskIconComponents(task_id);
@@ -449,6 +449,91 @@ TEST_F(GlicActorTaskIconManagerTest,
       actor::ActorTask::State::kFailed,
       actor::ActorTask::TaskDuration::kDefault,
       glic::mojom::FeatureMode::kExperimentalTriggering));
+}
+
+TEST_F(GlicActorTaskIconManagerTest, HasActiveExperimentalTask) {
+  EXPECT_FALSE(manager()->HasActiveExperimentalTask());
+
+  TaskId task_id =
+      actor_service()->CreateExperimentalTriggeringTaskForTesting();
+  actor_service()->GetTask(task_id)->SetState(actor::ActorTask::State::kActing);
+  actor_service()->GetActorUiStateManager()->OnUiEvent(
+      actor::ui::TaskStateChanged(task_id, actor::ActorTask::State::kActing));
+  manager()->UpdateTaskIconComponents(task_id);
+  EXPECT_TRUE(manager()->HasActiveExperimentalTask());
+
+  actor_service()->StopTaskForTesting(
+      task_id, actor::ActorTask::StoppedReason::kTaskComplete);
+  manager()->UpdateTaskIconComponents(task_id);
+  EXPECT_FALSE(manager()->HasActiveExperimentalTask());
+}
+
+TEST_F(GlicActorTaskIconManagerTest, RequiresTaskProcessing_FeatureModeRules) {
+  // Experimental Triggering task in kActing state should return true.
+  EXPECT_TRUE(GlicActorTaskIconManager::RequiresTaskProcessing(
+      actor::ActorTask::State::kActing,
+      glic::mojom::FeatureMode::kExperimentalTriggering));
+
+  // Non-Experimental Triggering task in kActing state should return false.
+  EXPECT_FALSE(GlicActorTaskIconManager::RequiresTaskProcessing(
+      actor::ActorTask::State::kActing,
+      glic::mojom::FeatureMode::kUnspecified));
+
+  // Experimental Triggering task in kCreated state should return false.
+  EXPECT_FALSE(GlicActorTaskIconManager::RequiresTaskProcessing(
+      actor::ActorTask::State::kCreated,
+      glic::mojom::FeatureMode::kExperimentalTriggering));
+
+  // Non-Experimental Triggering task that needs attention should return true.
+  EXPECT_TRUE(GlicActorTaskIconManager::RequiresTaskProcessing(
+      actor::ActorTask::State::kWaitingOnUser,
+      glic::mojom::FeatureMode::kUnspecified));
+}
+
+TEST_F(GlicActorTaskIconManagerTest,
+       ExperimentalTriggeringTaskShowsNudgeOnlyOnFirstTurn) {
+  TaskId task_id =
+      actor_service()->CreateExperimentalTriggeringTaskForTesting();
+  actor::ActorTask* task = actor_service()->GetTask(task_id);
+
+  // Turn 1 starts: state transitions to kActing.
+  task->SetState(actor::ActorTask::State::kActing);
+
+  EXPECT_CALL(mock_nudge_subscriber_,
+              OnStateChanged(/*show_bubble=*/true,
+                             Field(&ActorTaskNudgeState::text,
+                                   ActorTaskNudgeState::Text::kDefault)));
+  EXPECT_CALL(mock_bubble_subscriber_, OnStateChanged(true)).Times(1);
+
+  manager()->UpdateTaskIconComponents(task_id);
+
+  EXPECT_TRUE(manager()->actor_task_list_bubble_rows().at(task_id));
+
+  // Turn 1 ends: state transitions to kReflecting.
+  testing::Mock::VerifyAndClearExpectations(&mock_nudge_subscriber_);
+  testing::Mock::VerifyAndClearExpectations(&mock_bubble_subscriber_);
+
+  task->SetState(actor::ActorTask::State::kReflecting);
+
+  EXPECT_CALL(mock_nudge_subscriber_, OnStateChanged(testing::_, testing::_))
+      .Times(0);
+  EXPECT_CALL(mock_bubble_subscriber_, OnStateChanged(testing::_)).Times(0);
+
+  manager()->UpdateTaskIconComponents(task_id);
+
+  EXPECT_TRUE(manager()->actor_task_list_bubble_rows().at(task_id));
+
+  // Turn 2 starts: state transitions to kActing again.
+  testing::Mock::VerifyAndClearExpectations(&mock_nudge_subscriber_);
+  testing::Mock::VerifyAndClearExpectations(&mock_bubble_subscriber_);
+
+  task->SetState(actor::ActorTask::State::kActing);
+
+  EXPECT_CALL(mock_nudge_subscriber_, OnStateChanged(testing::_, testing::_))
+      .Times(0);
+  EXPECT_CALL(mock_bubble_subscriber_, OnStateChanged(testing::_)).Times(0);
+
+  manager()->UpdateTaskIconComponents(task_id);
 }
 
 }  // namespace glic

@@ -16,11 +16,11 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/types/optional_util.h"
 #include "base/uuid.h"
-#include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/loader/navigation_url_loader_impl.h"
 #include "content/browser/preloading/prefetch/prefetch_features.h"
 #include "content/browser/renderer_host/frame_tree_node.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
+#include "content/browser/security/cpsp/child_process_security_policy_impl.h"
 #include "content/browser/service_worker/service_worker_container_host.h"
 #include "content/browser/service_worker/service_worker_context_core.h"
 #include "content/browser/service_worker/service_worker_security_utils.h"
@@ -34,6 +34,7 @@
 #include "content/public/common/origin_util.h"
 #include "mojo/public/cpp/bindings/remote_set.h"
 #include "net/base/url_util.h"
+#include "services/network/public/cpp/constants.h"
 #include "services/network/public/cpp/single_request_url_loader_factory.h"
 #include "services/network/public/cpp/url_loader_factory_builder.h"
 #include "services/network/public/cpp/wrapper_shared_url_loader_factory.h"
@@ -713,7 +714,7 @@ void ServiceWorkerClient::SetControllerRegistration(
   if (controller_registration) {
     CHECK(IsEligibleForServiceWorkerController());
     CHECK(controller_registration->active_version());
-    // TODO(https://crbug.com/497761255): CHECK-exclusion: Convert to CHECK once
+    // TODO(https://crbug.com/526540644): CHECK-exclusion: Convert to CHECK once
     // we are sure this isn't hit.
     DCHECK(IsMatchingRegistration(controller_registration.get()));
   }
@@ -1266,7 +1267,8 @@ scoped_refptr<network::SharedURLLoaderFactory>
 ServiceWorkerClient::CreateNetworkURLLoaderFactory(
     CreateNetworkURLLoaderFactoryType type,
     StoragePartitionImpl* storage_partition,
-    const network::ResourceRequest& resource_request) {
+    const network::ResourceRequest& resource_request,
+    const base::UnguessableToken& network_restrictions_id) {
   CHECK(!is_response_committed());
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
@@ -1294,6 +1296,14 @@ ServiceWorkerClient::CreateNetworkURLLoaderFactory(
       // may wish to support asynchronous decisions using
       // |URLLoaderRequestInterceptor| in the same fashion that they are used
       // for navigation requests.
+      //
+      // Note: Currently we skip passing `network_restrictions_id` here because
+      // intercepted requests (such as Search Prefetch) are normally served
+      // locally by the embedder or are only relevant to behavior triggered
+      // outside the frame, like the omnibox. In the future, if an intercepted
+      // request may trigger a new request on behalf of a specific context, we
+      // need to ensure that the `network_restrictions_id` of that context is
+      // provided.
       if (ContentBrowserClient::URLLoaderRequestHandler embedder_url_loader_handler =
               GetContentClient()
                   ->browser()
@@ -1362,7 +1372,7 @@ ServiceWorkerClient::CreateNetworkURLLoaderFactory(
           // TODO(crbug.com/390003764): Consider whether/how to apply devtools
           // cookies setting overrides for a service worker.
           /*devtools_cookie_overrides=*/std::nullopt,
-          /*cookie_overrides=*/std::nullopt));
+          /*cookie_overrides=*/std::nullopt, network_restrictions_id));
 }
 
 // If a blob URL is used for a SharedWorker script's URL, a controller will be

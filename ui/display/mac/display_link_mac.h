@@ -18,6 +18,7 @@ class ImageTransportSurfaceOverlayMacTest;
 
 namespace viz {
 class ExternalBeginFrameSourceMacTest;
+class MockDisplayLinkMac;
 }
 
 namespace ui {
@@ -54,6 +55,7 @@ class DISPLAY_EXPORT VSyncCallbackMac {
   friend class ExternalDisplayLinkMac;
   friend struct MetalObjCState;
   friend struct ObjCState;
+  friend class viz::MockDisplayLinkMac;
 
   friend class gpu::ImageTransportSurfaceOverlayMacTest;
   friend class viz::ExternalBeginFrameSourceMacTest;
@@ -105,18 +107,6 @@ class DISPLAY_EXPORT DisplayLinkMac : public base::RefCounted<DisplayLinkMac> {
 
   static bool SupportsDisplayLinkMacInBrowser();
 
-  // CADisplayLink is not designed for multi-process use and can become
-  // non-functional in the GPU process following a power state change or a
-  // system refresh rate update.
-  //
-  // To handle this, CADisplayLinkMac is used in the GPU process by default,
-  // but if it becomes invalidated, the system falls back to creating a
-  // CADisplayLink in the Browser process, accessed via ExternalDisplayLinkMac.
-  //
-  // Returns true if the display link instance is still valid after a power
-  // event or refresh rate change.
-  virtual bool NotifyEventAndCheckValidity();
-
   // Register an observer callback.
   // * The specified callback will be called at every VSync tick, until the
   //   returned VSyncCallbackMac object is destroyed.
@@ -130,6 +120,8 @@ class DISPLAY_EXPORT DisplayLinkMac : public base::RefCounted<DisplayLinkMac> {
       PresentationCallbackMac::Callback callback);
 
   // Get the panel/monitor refresh interval
+  static base::TimeDelta GetScreenDefaultRefreshInterval(
+      int64_t vsync_display_id);
   virtual base::TimeDelta GetRefreshInterval() const = 0;
   virtual void GetRefreshIntervalRange(base::TimeDelta& min_interval,
                                        base::TimeDelta& max_interval,

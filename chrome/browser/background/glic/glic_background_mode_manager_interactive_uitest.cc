@@ -11,7 +11,7 @@
 #include "chrome/browser/background/glic/glic_background_mode_manager.h"
 #include "chrome/browser/background/glic/glic_launcher_configuration.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/glic/fre/glic_fre_controller.h"
+#include "chrome/browser/glic/common/local_hotkey_manager.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
@@ -30,6 +30,7 @@
 #include "components/keep_alive_registry/keep_alive_registry.h"
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/prefs/pref_service.h"
+#include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_base.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -166,7 +167,8 @@ IN_PROC_BROWSER_TEST_F(GlicBackgroundModeManagerUiTest,
                                                true);
   GlicBackgroundModeManager* const manager =
       g_browser_process->GetFeatures()->glic_background_mode_manager();
-  EXPECT_EQ(GlicLauncherConfiguration::GetDefaultHotkey(),
+  EXPECT_EQ(LocalHotkeyManager::GetDefaultAccelerator(
+                LocalHotkeyManager::Command::kPanelToggle),
             manager->RegisteredHotkeyForTesting().at(static_cast<size_t>(
                 GlicBackgroundModeManager::HotkeyIndex::kPanelKey)));
 
@@ -276,8 +278,8 @@ IN_PROC_BROWSER_TEST_F(GlicBackgroundModeManagerUiTest, HotkeyPressed) {
   GlicBackgroundModeManager* const manager =
       g_browser_process->GetFeatures()->glic_background_mode_manager();
 
-  ui::Accelerator default_hotkey =
-      GlicLauncherConfiguration::GetDefaultHotkey();
+  ui::Accelerator default_hotkey = LocalHotkeyManager::GetDefaultAccelerator(
+      LocalHotkeyManager::Command::kPanelToggle);
   EXPECT_EQ(default_hotkey,
             manager->RegisteredHotkeyForTesting().at(static_cast<size_t>(
                 GlicBackgroundModeManager::HotkeyIndex::kPanelKey)));
@@ -303,6 +305,10 @@ IN_PROC_BROWSER_TEST_F(GlicBackgroundModeManagerUiTest, HotkeyPressed) {
 // session.
 #if !BUILDFLAG(IS_CHROMEOS)
 IN_PROC_BROWSER_TEST_F(GlicBackgroundModeManagerUiTest, DeleteEligibleProfile) {
+  // TODO(crbug.com/527717763): Re-enable this test
+  if (!base::FeatureList::IsEnabled(features::kInitialWebUI)) {
+    GTEST_SKIP() << "InitialWebUI is disabled.";
+  }
   GlicBackgroundModeManager* const background_mode_manager =
       g_browser_process->GetFeatures()->glic_background_mode_manager();
   g_browser_process->local_state()->SetBoolean(prefs::kGlicLauncherEnabled,
@@ -334,7 +340,8 @@ IN_PROC_BROWSER_TEST_F(GlicBackgroundModeManagerUiTest, DeleteEligibleProfile) {
   GlicKeyedService* const second_keyed_service =
       GlicKeyedServiceFactory::GetGlicKeyedService(second_browser->profile());
   EXPECT_FALSE(second_keyed_service->enabling().HasConsented());
-  second_keyed_service->fre_controller().AcceptFre(/*handler=*/nullptr);
+  ::glic::SetFRECompletion(second_browser->profile(),
+                           prefs::FreStatus::kCompleted);
   EXPECT_TRUE(second_keyed_service->enabling().HasConsented());
   EXPECT_TRUE(background_mode_manager->IsInBackgroundModeForTesting());
 }

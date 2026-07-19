@@ -35,35 +35,60 @@ std::u16string FormatDate(const personal_context::proto::Date& date) {
                                               date.month(), date.day()));
 }
 
-std::u16string FormatTimestamp(
-    const personal_context::proto::Timestamp& timestamp) {
-  if (timestamp.seconds() == 0) {
+base::Time FormatDateTimeAsTime(
+    const personal_context::proto::DateTime& datetime) {
+  base::Time::Exploded exploded = {
+      .year = datetime.year(),
+      .month = datetime.month(),
+      .day_of_month = datetime.day(),
+      .hour = datetime.hours(),
+      .minute = datetime.minutes(),
+      .second = datetime.seconds(),
+      .millisecond = datetime.nanos() / 1000000,
+  };
+  base::Time time;
+  if (!base::Time::FromUTCExploded(exploded, &time)) {
+    return base::Time();
+  }
+  if (datetime.has_utc_offset()) {
+    time -= base::Seconds(datetime.utc_offset().seconds());
+  }
+  return time;
+}
+
+std::u16string FormatDateTimeAsDate(
+    const personal_context::proto::DateTime& datetime) {
+  if (datetime.year() <= 0 || datetime.month() <= 0 || datetime.day() <= 0) {
     return u"";
   }
-  base::Time time = base::Time::FromSecondsSinceUnixEpoch(timestamp.seconds());
-  base::Time::Exploded exploded;
-  time.UTCExplode(&exploded);
   return base::UTF8ToUTF16(base::StringPrintf(
-      "%04d-%02d-%02d", exploded.year, exploded.month, exploded.day_of_month));
+      "%04d-%02d-%02d", datetime.year(), datetime.month(), datetime.day()));
 }
 
 void AddAttribute(AttributeTypeName type,
                   const std::u16string& value,
-                  std::vector<AttributeInstance>& attributes) {
+                  std::vector<AttributeInstance>& attributes,
+                  std::optional<AttributeInstance::MarkAsMaskedPasskey>
+                      passkey = std::nullopt) {
   if (value.empty()) {
     return;
   }
   AttributeInstance attribute{AttributeType(type)};
   attribute.SetRawInfo(attribute.type().field_type(), value,
                        VerificationStatus::kNoStatus);
+  if (passkey) {
+    attribute.mark_as_masked(*passkey);
+  }
   attribute.FinalizeInfo();
   attributes.push_back(std::move(attribute));
 }
 
 void AddStringAttribute(AttributeTypeName type,
                         std::string_view value,
-                        std::vector<AttributeInstance>& attributes) {
-  AddAttribute(type, base::UTF8ToUTF16(value), attributes);
+                        std::vector<AttributeInstance>& attributes,
+                        std::optional<AttributeInstance::MarkAsMaskedPasskey>
+                            passkey = std::nullopt) {
+  AddAttribute(type, base::UTF8ToUTF16(value), attributes, passkey);
 }
 
 EntityInstance CreateEntityInstance(EntityTypeName type_name,
@@ -84,11 +109,11 @@ EntityInstance CreateEntityInstance(EntityTypeName type_name,
 }
 
 EntityInstance PersonalContextPassportToEntityInstance(
-    const personal_context::proto::Passport& passport) {
+    const personal_context::proto::Passport& passport,
+    std::optional<AttributeInstance::MarkAsMaskedPasskey> passkey) {
   std::vector<AttributeInstance> attributes;
   AddStringAttribute(kPassportName, passport.name(), attributes);
-  // TODO(crbug.com/516721244): Set this as a masked attribute.
-  AddStringAttribute(kPassportNumber, passport.number(), attributes);
+  AddStringAttribute(kPassportNumber, passport.number(), attributes, passkey);
   AddStringAttribute(kPassportCountry, passport.issuing_country(), attributes);
   if (passport.has_expiration_date()) {
     AddAttribute(kPassportExpirationDate,
@@ -103,11 +128,11 @@ EntityInstance PersonalContextPassportToEntityInstance(
 }
 
 EntityInstance PersonalContextDriversLicenseToEntityInstance(
-    const personal_context::proto::DriversLicense& dl) {
+    const personal_context::proto::DriversLicense& dl,
+    std::optional<AttributeInstance::MarkAsMaskedPasskey> passkey) {
   std::vector<AttributeInstance> attributes;
   AddStringAttribute(kDriversLicenseName, dl.name(), attributes);
-  // TODO(crbug.com/516721244): Set this as a masked attribute.
-  AddStringAttribute(kDriversLicenseNumber, dl.number(), attributes);
+  AddStringAttribute(kDriversLicenseNumber, dl.number(), attributes, passkey);
   AddStringAttribute(kDriversLicenseState, dl.state(), attributes);
   if (dl.has_expiration_date()) {
     AddAttribute(kDriversLicenseExpirationDate,
@@ -123,11 +148,11 @@ EntityInstance PersonalContextDriversLicenseToEntityInstance(
 }
 
 EntityInstance PersonalContextNationalIdToEntityInstance(
-    const personal_context::proto::NationalId& nid) {
+    const personal_context::proto::NationalId& nid,
+    std::optional<AttributeInstance::MarkAsMaskedPasskey> passkey) {
   std::vector<AttributeInstance> attributes;
   AddStringAttribute(kNationalIdCardName, nid.name(), attributes);
-  // TODO(crbug.com/516721244): Set this as a masked attribute.
-  AddStringAttribute(kNationalIdCardNumber, nid.number(), attributes);
+  AddStringAttribute(kNationalIdCardNumber, nid.number(), attributes, passkey);
   AddStringAttribute(kNationalIdCardCountry, nid.issuing_country(), attributes);
   if (nid.has_expiration_date()) {
     AddAttribute(kNationalIdCardExpirationDate,
@@ -161,10 +186,11 @@ EntityInstance PersonalContextFlightReservationToEntityInstance(
   std::string frecency_override = "";
   if (flight.has_departure_time()) {
     AddAttribute(kFlightReservationDepartureDate,
-                 FormatTimestamp(flight.departure_time()), attributes);
-    base::Time departure_time = base::Time::FromSecondsSinceUnixEpoch(
-        flight.departure_time().seconds());
-    frecency_override = base::TimeFormatAsIso8601(departure_time);
+                 FormatDateTimeAsDate(flight.departure_time()), attributes);
+    base::Time departure_time = FormatDateTimeAsTime(flight.departure_time());
+    if (!departure_time.is_null()) {
+      frecency_override = base::TimeFormatAsIso8601(departure_time);
+    }
   }
 
   return CreateEntityInstance(EntityTypeName::kFlightReservation,
@@ -196,8 +222,8 @@ EntityInstance PersonalContextOrderToEntityInstance(
   AddStringAttribute(kOrderAccount, order.account(), attributes);
   AddStringAttribute(kOrderMerchantName, order.merchant_name(), attributes);
   AddStringAttribute(kOrderMerchantDomain, order.merchant_domain(), attributes);
-  if (order.has_order_time()) {
-    AddAttribute(kOrderDate, FormatTimestamp(order.order_time()), attributes);
+  if (order.has_order_date()) {
+    AddAttribute(kOrderDate, FormatDate(order.order_date()), attributes);
   }
   if (order.product_names_size() > 0) {
     std::vector<std::string> products(order.product_names().begin(),
@@ -217,9 +243,8 @@ EntityInstance PersonalContextShipmentToEntityInstance(
   AddStringAttribute(kShipmentCarrierName, shipment.carrier_name(), attributes);
   AddStringAttribute(kShipmentCarrierDomain, shipment.carrier_domain(),
                      attributes);
-  if (shipment.has_estimated_delivery_time()) {
-    AddAttribute(kShipmentEstimatedDeliveryDate,
-                 FormatTimestamp(shipment.estimated_delivery_time()),
+  if (shipment.has_ship_date()) {
+    AddAttribute(kShipmentShippedDate, FormatDate(shipment.ship_date()),
                  attributes);
   }
   if (shipment.associated_order_ids_size() > 0) {
@@ -235,15 +260,22 @@ EntityInstance PersonalContextShipmentToEntityInstance(
 }  // namespace
 
 std::optional<EntityInstance> PersonalContextEntityToEntityInstance(
-    const personal_context::proto::Entity& entity) {
+    const personal_context::proto::Entity& entity,
+    bool is_masked) {
+  std::optional<AttributeInstance::MarkAsMaskedPasskey> passkey;
+  if (is_masked) {
+    passkey.emplace(AttributeInstance::MarkAsMaskedPasskey());
+  }
   switch (entity.entity_case()) {
     case personal_context::proto::Entity::kPassport:
-      return PersonalContextPassportToEntityInstance(entity.passport());
+      return PersonalContextPassportToEntityInstance(entity.passport(),
+                                                     passkey);
     case personal_context::proto::Entity::kDriversLicense:
       return PersonalContextDriversLicenseToEntityInstance(
-          entity.drivers_license());
+          entity.drivers_license(), passkey);
     case personal_context::proto::Entity::kNationalId:
-      return PersonalContextNationalIdToEntityInstance(entity.national_id());
+      return PersonalContextNationalIdToEntityInstance(entity.national_id(),
+                                                       passkey);
     case personal_context::proto::Entity::kFlightReservation:
       return PersonalContextFlightReservationToEntityInstance(
           entity.flight_reservation());
@@ -253,6 +285,8 @@ std::optional<EntityInstance> PersonalContextEntityToEntityInstance(
       return PersonalContextOrderToEntityInstance(entity.order());
     case personal_context::proto::Entity::kShipment:
       return PersonalContextShipmentToEntityInstance(entity.shipment());
+    case personal_context::proto::Entity::kSensitivePiiPresence:
+      return std::nullopt;
     case personal_context::proto::Entity::ENTITY_NOT_SET:
       NOTREACHED();
   }
@@ -279,6 +313,29 @@ AutofillEntityTypeToPersonalContextEntityType(EntityType type) {
     case EntityTypeName::kRedressNumber:
       // These entities are not supported by personal context.
       return personal_context::proto::EntityType::UNSPECIFIED;
+  }
+}
+
+std::optional<EntityType> ToEntityType(
+    personal_context::proto::Entity::EntityCase entity_case) {
+  switch (entity_case) {
+    case personal_context::proto::Entity::kPassport:
+      return EntityType(EntityTypeName::kPassport);
+    case personal_context::proto::Entity::kDriversLicense:
+      return EntityType(EntityTypeName::kDriversLicense);
+    case personal_context::proto::Entity::kNationalId:
+      return EntityType(EntityTypeName::kNationalIdCard);
+    case personal_context::proto::Entity::kFlightReservation:
+      return EntityType(EntityTypeName::kFlightReservation);
+    case personal_context::proto::Entity::kVehicle:
+      return EntityType(EntityTypeName::kVehicle);
+    case personal_context::proto::Entity::kOrder:
+      return EntityType(EntityTypeName::kOrder);
+    case personal_context::proto::Entity::kShipment:
+      return EntityType(EntityTypeName::kShipment);
+    case personal_context::proto::Entity::kSensitivePiiPresence:
+    case personal_context::proto::Entity::ENTITY_NOT_SET:
+      return std::nullopt;
   }
 }
 

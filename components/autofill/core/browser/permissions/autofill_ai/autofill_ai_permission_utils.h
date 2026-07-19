@@ -12,10 +12,19 @@
 #include "components/autofill/core/browser/country_type.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 
+class GURL;
 class PrefService;
 
 namespace signin {
 class IdentityManager;
+}
+
+namespace personal_context {
+enum class PersonalContextEnablementState;
+}
+
+namespace subscription_eligibility {
+class SubscriptionEligibilityService;
 }
 
 namespace syncer {
@@ -73,13 +82,11 @@ enum class AutofillAiAction {
   // Whether the user should see a promotion to allow Wallet to share data with
   // Chrome.
   kWalletDataSharingPromotion,
-  // When true autofill AI will offer personalized suggestions.
-  // TODO(crbug.com/503319530): Correctly implement this action, it is currently
-  // hardcoded to false.
-  kAccessibilityAnnotatorInfraAvailable,
-  // Returns true if the entity type supports accessibility annotation data.
-  kTypeSupportsAccessibilityAnnotatorData,
-  kMaxValue = kTypeSupportsAccessibilityAnnotatorData,
+  // Whether ambient autofill is enabled.
+  kAmbientAutofill,
+  // Returns true if the entity type supports personal context data.
+  kTypeSupportsAmbientAutofillData,
+  kMaxValue = kTypeSupportsAmbientAutofillData,
 };
 
 // Opt-in status for the AutofillAI feature.
@@ -109,8 +116,8 @@ enum class AutofillAiOptInStatus {
 // - Account state (sign-in status).
 // - Whether the `action` can be performed for the `entity_type`.
 //   `entity_type` is only considered to kFilling, kIphForOptIn, kImport,
-//   kImportToWallet, kTypeSupportsAccessibilityAnnotatorData and must be
-//   non-empty in these cases.
+//   kImportToWallet, kTypeSupportsAmbientAutofillData and must be non-empty in
+//   these cases.
 // - Miscellaneous state (OTR, locale, GeoIP).
 //
 // See go/forms-ai:permissions for more detail.
@@ -131,6 +138,10 @@ bool MayPerformAutofillAiAction(
     bool is_wallet_public_pass_storage_enabled,
     bool is_off_the_record,
     const GeoIpCountryCode& country_code,
+    const subscription_eligibility::SubscriptionEligibilityService*
+        subscription_service,
+    personal_context::PersonalContextEnablementState
+        personal_context_enablement_state,
     AutofillAiAction action,
     std::optional<EntityType> entity_type = std::nullopt,
     std::string* debug_message = nullptr);
@@ -172,14 +183,16 @@ bool SetAutofillAiOptInStatus(
     bool is_wallet_public_pass_storage_enabled,
     bool is_off_the_record,
     const GeoIpCountryCode& country_code,
+    const subscription_eligibility::SubscriptionEligibilityService*
+        subscription_service,
+    personal_context::PersonalContextEnablementState
+        personal_context_enablement_state,
     AutofillAiOptInStatus opt_in_status);
 
-// Returns whether the user has ever explicitly opted in or out of Autofill AI.
-//
-// This is only intended to be used during migration from local to synced prefs.
-[[nodiscard]] bool HasSetLocalAutofillAiOptInStatus(
-    const PrefService* prefs,
-    const signin::IdentityManager* identity_manager);
+// Returns true if `entity_type` is blocked by enterprise policy on `url`.
+bool IsAutofillAiEntityTypeBlockedByPolicy(const AutofillClient& client,
+                                           const GURL& url,
+                                           EntityType entity_type);
 
 // Checks whether Autofill AI is disabled by enterprise policy.
 [[nodiscard]] bool IsAutofillAiDisabledByEnterprisePolicy(

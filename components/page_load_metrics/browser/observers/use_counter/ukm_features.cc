@@ -104,6 +104,7 @@ UseCounterMetricsRecorder::GetAllowedUkmFeatures() {
           WebFeature::kDownloadPrePolicyCheck,
           WebFeature::kDownloadPostPolicyCheck,
           WebFeature::kDownloadInAdFrame,
+          WebFeature::kDownloadFromAdScript,
           WebFeature::kDownloadInSandbox,
           WebFeature::kDownloadWithoutUserGesture,
           WebFeature::kLazyLoadFrameLoadingAttributeLazy,
@@ -392,8 +393,6 @@ UseCounterMetricsRecorder::GetAllowedUkmFeatures() {
           WebFeature::kSpeculationRulesHeader,
           WebFeature::kGeolocationGetCurrentPosition,
           WebFeature::kGeolocationWatchPosition,
-          WebFeature::
-              kServiceWorkerStaticRouter_RaceNetworkAndFetchHandlerImprovement,
           WebFeature::kStorageAccessAPI_requestStorageAccessFor_Method,
           WebFeature::kSharedWorkerScriptUnderServiceWorkerControlIsBlob,
           WebFeature::kCSSEnvironmentVariable_SafeAreaInsetBottom_FastPath,
@@ -467,6 +466,7 @@ UseCounterMetricsRecorder::GetAllowedUkmFeatures() {
           WebFeature::kWebRTCLocalNetworkAccessLocalToLoopback,
           WebFeature::kWebSocketStreamConstructor,
           WebFeature::kHistoryGoBackWouldSkipAd,
+          WebFeature::kHistoryGoBackWouldSkipSameOriginAd,
           WebFeature::kHistoryGoForwardWouldSkipAd,
           WebFeature::kHistoryGoBackWouldNotSkipAdDueToSameOriginExclusion,
           WebFeature::kHistoryGoForwardWouldNotSkipAdDueToSameOriginExclusion,
@@ -481,6 +481,13 @@ UseCounterMetricsRecorder::GetAllowedUkmFeatures() {
           WebFeature::kCredentialsGetImmediateMediationWithWebAuthnOnly,
           WebFeature::kCredentialsGetImmediateMediationWithWebAuthnAndPasswords,
           WebFeature::kPreventSvgFilterPaint,
+          WebFeature::kWebSpeechSttAvailable,
+          WebFeature::kWebSpeechSttStart,
+          WebFeature::kWebSpeechSttResultRetrieved,
+          WebFeature::kWebSpeechSttError,
+          WebFeature::kWebSpeechTtsSynthesize,
+          WebFeature::kWebSpeechTtsSuccess,
+          WebFeature::kWebSpeechTtsError,
           // NOTE: before adding new use counters here, verify in UMA that
           // their emissions are very rare, e.g. <1% of page loads.
       }));

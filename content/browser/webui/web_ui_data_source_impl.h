@@ -95,7 +95,7 @@ class CONTENT_EXPORT WebUIDataSourceImpl : public URLDataSourceImpl,
                                   bool from_js_module);
 
   // Protected for testing.
-  virtual const base::DictValue* GetLocalizedStrings() const;
+  const base::DictValue& GetLocalizedStringsForTesting() const;
 
   // Protected for testing.
   int URLToIdrOrDefault(const GURL& url) const;
@@ -157,6 +157,8 @@ class CONTENT_EXPORT WebUIDataSourceImpl : public URLDataSourceImpl,
 
   // Supported scheme if not one of the default supported schemes.
   std::optional<std::string> supported_scheme_;
+
+  mutable bool resources_frozen_ = false;
 };
 
 }  // namespace content

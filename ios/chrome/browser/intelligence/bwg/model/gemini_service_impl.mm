@@ -40,11 +40,9 @@ GeminiServiceImpl::GeminiServiceImpl(
   identity_manager_observation_.Observe(identity_manager_);
   pref_service_ = pref_service;
 
-  if (IsAskGeminiChipEnabled()) {
-    optimization_guide_ = optimization_guide;
-    optimization_guide_->RegisterOptimizationTypes(
-        {optimization_guide::proto::GLIC_CONTEXTUAL_CUEING});
-  }
+  optimization_guide_ = optimization_guide;
+  optimization_guide_->RegisterOptimizationTypes(
+      {optimization_guide::proto::GLIC_CONTEXTUAL_CUEING});
 
   if (IsZeroStateSuggestionsEnabled()) {
     optimization_guide_ = optimization_guide;
@@ -64,6 +62,14 @@ void GeminiServiceImpl::Shutdown() {
 }
 
 #pragma mark - Public
+
+void GeminiServiceImpl::AddObserver(GeminiService::Observer* observer) {
+  observers_.AddObserver(observer);
+}
+
+void GeminiServiceImpl::RemoveObserver(GeminiService::Observer* observer) {
+  observers_.RemoveObserver(observer);
+}
 
 bool GeminiServiceImpl::IsProfileEligibleForGemini() {
   return !GeminiIneligibilityForProfile().has_value();
@@ -107,7 +113,7 @@ GeminiServiceImpl::GeminiIneligibilityForProfile() {
   RecordGeminiIneligibilityReasons(ineligibility_reasons);
   RecordGeminiEligibility(is_eligible);
   if (is_eligible) {
-    LogFREState();
+    LogFirstRunState();
     return std::nullopt;
   }
 
@@ -141,7 +147,7 @@ void GeminiServiceImpl::OnRefreshTokenUpdatedForAccount(
 
 void GeminiServiceImpl::CheckGeminiEnterpriseEligibility() {
   if (tests_hook::DisableGeminiEligibilityCheck()) {
-    is_disabled_by_gemini_policy_ = false;
+    SetIsDisabledByGeminiPolicy(false);
     return;
   }
 
@@ -152,13 +158,13 @@ void GeminiServiceImpl::CheckGeminiEnterpriseEligibility() {
   // No way to know if the user is blocked by Gemini Enterprise policy if the
   // auth service is null.
   if (!auth_service_) {
-    is_disabled_by_gemini_policy_ = true;
+    SetIsDisabledByGeminiPolicy(true);
     return;
   }
 
   eligibility_weak_ptr_factory_.InvalidateWeakPtrs();
 
-  is_disabled_by_gemini_policy_ = std::nullopt;
+  SetIsDisabledByGeminiPolicy(std::nullopt);
 
   ios::provider::CheckGeminiEligibility(
       auth_service_, base::CallbackToBlock(base::BindOnce(
@@ -187,17 +193,28 @@ void GeminiServiceImpl::ClearConsentPref() {
   pref_service_->ClearPref(prefs::kIOSGeminiLiveIntroPlayed);
 }
 
-void GeminiServiceImpl::LogFREState() {
-  gemini::FREState state = gemini::CurrentFREState(pref_service_);
-  if (!last_logged_fre_state_.has_value() ||
-      last_logged_fre_state_.value() != state) {
-    RecordGeminiFREState(state);
-    last_logged_fre_state_ = state;
+void GeminiServiceImpl::LogFirstRunState() {
+  gemini::FirstRunState state = gemini::CurrentFirstRunState(pref_service_);
+  if (!last_logged_first_run_state_.has_value() ||
+      last_logged_first_run_state_.value() != state) {
+    RecordGeminiFirstRunState(state);
+    last_logged_first_run_state_ = state;
   }
 }
 
 void GeminiServiceImpl::OnGeminiEligibilityResult(bool eligible) {
-  is_disabled_by_gemini_policy_ = !eligible;
+  SetIsDisabledByGeminiPolicy(!eligible);
+}
+
+void GeminiServiceImpl::SetIsDisabledByGeminiPolicy(
+    std::optional<bool> disabled) {
+  if (is_disabled_by_gemini_policy_ == disabled) {
+    return;
+  }
+  is_disabled_by_gemini_policy_ = disabled;
+  for (auto& observer : observers_) {
+    observer.OnGeminiEligibilityChanged();
+  }
 }
 
 AccountInfo GeminiServiceImpl::PrimaryAccountInfo() const {

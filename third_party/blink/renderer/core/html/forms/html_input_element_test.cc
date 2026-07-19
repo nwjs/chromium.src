@@ -10,10 +10,13 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_keyboard_event_init.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_wheel_event_init.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/events/keyboard_event.h"
+#include "third_party/blink/renderer/core/events/wheel_event.h"
 #include "third_party/blink/renderer/core/fileapi/file_list.h"
+#include "third_party/blink/renderer/core/frame/event_handler_registry.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
@@ -21,11 +24,14 @@
 #include "third_party/blink/renderer/core/html/forms/file_input_type.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_option_element.h"
+#include "third_party/blink/renderer/core/html/forms/spin_button_element.h"
 #include "third_party/blink/renderer/core/html/html_body_element.h"
 #include "third_party/blink/renderer/core/html/html_html_element.h"
+#include "third_party/blink/renderer/core/html/shadow/shadow_element_names.h"
 #include "third_party/blink/renderer/core/input_type_names.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/loader/empty_clients.h"
+#include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/core/testing/null_execution_context.h"
 #include "third_party/blink/renderer/core/testing/page_test_base.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
@@ -613,6 +619,141 @@ TEST_F(HTMLInputElementTest,
   input.setType(input_type_names::kText);
   GetDocument().UpdateStyleAndLayoutTree();
   EXPECT_TRUE(input.GetTrackedElementSubRect(tracking_feature));
+}
+
+TEST_F(HTMLInputElementTest, SpinButtonWheelBlocks) {
+  GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(
+      "<input id=test type=number min=0 max=2 value=1>");
+  GetDocument().UpdateStyleAndLayoutTree();
+
+  auto& input = TestElement();
+  input.Focus();
+  auto* shadow_root = input.UserAgentShadowRoot();
+  ASSERT_TRUE(shadow_root);
+  auto* spin_button = DynamicTo<SpinButtonElement>(
+      shadow_root->getElementById(shadow_element_names::kIdSpinButton));
+  ASSERT_TRUE(spin_button);
+
+  EventHandlerRegistry& registry =
+      GetDocument().GetFrame()->GetEventHandlerRegistry();
+  const auto* targets =
+      registry.EventHandlerTargets(EventHandlerRegistry::kWheelEventBlocking);
+  EXPECT_TRUE(targets->Contains(&input));
+
+  // Wheel event to step up (value goes from 1 to 2).
+  WheelEventInit* init = WheelEventInit::Create();
+  init->setWheelDeltaY(120);
+  WheelEvent* event = WheelEvent::Create(event_type_names::kWheel, init);
+  spin_button->ForwardEvent(*event);
+  EXPECT_TRUE(event->DefaultHandled());
+  EXPECT_EQ("2", input.Value());
+
+  // Wheel event to step up again (value cannot change, already at max 2).
+  WheelEvent* event2 = WheelEvent::Create(event_type_names::kWheel, init);
+  spin_button->ForwardEvent(*event2);
+  EXPECT_TRUE(event2->DefaultHandled());
+  EXPECT_EQ("2", input.Value());
+
+  // Changing input type to 'text' should unregister it from
+  // kWheelEventBlocking.
+  input.setType(input_type_names::kText);
+  GetDocument().UpdateStyleAndLayoutTree();
+  EXPECT_FALSE(targets->Contains(&input));
+
+  // Changing input type back to 'number' should re-register it (since it is
+  // still focused).
+  input.setType(input_type_names::kNumber);
+  GetDocument().UpdateStyleAndLayoutTree();
+  EXPECT_TRUE(targets->Contains(&input));
+
+  // Blurring the input should unregister it.
+  input.blur();
+  EXPECT_FALSE(targets->Contains(&input));
+
+  // Focusing the input should re-register it.
+  input.Focus();
+  EXPECT_TRUE(targets->Contains(&input));
+
+  // Making the input read-only should unregister it.
+  input.SetBooleanAttribute(html_names::kReadonlyAttr, true);
+  EXPECT_FALSE(targets->Contains(&input));
+
+  // Making the input read-write should re-register it.
+  input.SetBooleanAttribute(html_names::kReadonlyAttr, false);
+  EXPECT_TRUE(targets->Contains(&input));
+
+  // Removing the input from the DOM (triggering DetachLayoutTree) should
+  // unregister it.
+  input.remove();
+  EXPECT_FALSE(targets->Contains(&input));
+}
+
+TEST_F(HTMLInputElementTest, SuggestedValueFontFamilyIsGeneric) {
+  GetDocument().body()->SetInnerHTMLWithoutTrustedTypes("<input id=test>");
+  HTMLInputElement& input = TestElement();
+  UpdateAllLifecyclePhasesForTest();
+
+  input.SetSuggestedValue("preview");
+  UpdateAllLifecyclePhasesForTest();
+
+  HTMLElement* placeholder = input.PlaceholderElement();
+  ASSERT_TRUE(placeholder);
+  const ComputedStyle* style = placeholder->GetComputedStyle();
+  ASSERT_TRUE(style);
+  EXPECT_TRUE(style->GetFontDescription().Family().FamilyIsGeneric());
+}
+
+TEST_F(HTMLInputElementTest, EmailVerificationIndicator) {
+  // Case 1: EmailVerificationStatusIndicator is disabled.
+  {
+    ScopedEmailVerificationProtocolForTest scoped_protocol(true);
+    ScopedEmailVerificationStatusIndicatorForTest scoped_indicator(false);
+    GetDocument().documentElement()->SetInnerHTMLWithoutTrustedTypes(
+        "<input id=test type=email>");
+    GetDocument().UpdateStyleAndLayoutTree();
+    HTMLInputElement& input = TestElement();
+
+    // Shadow tree shouldn't contain the indicator.
+    Element* indicator =
+        input.UserAgentShadowRoot()
+            ? input.UserAgentShadowRoot()->getElementById(
+                  shadow_element_names::kIdEmailVerificationIndicator)
+            : nullptr;
+    EXPECT_FALSE(indicator);
+  }
+
+  // Case 2: Both features are enabled.
+  {
+    ScopedEmailVerificationProtocolForTest scoped_protocol(true);
+    ScopedEmailVerificationStatusIndicatorForTest scoped_indicator(true);
+    GetDocument().documentElement()->SetInnerHTMLWithoutTrustedTypes(
+        "<input id=test type=email>");
+    GetDocument().UpdateStyleAndLayoutTree();
+    HTMLInputElement& input = TestElement();
+
+    // Shadow tree should contain the indicator.
+    Element* indicator =
+        input.UserAgentShadowRoot()
+            ? input.UserAgentShadowRoot()->getElementById(
+                  shadow_element_names::kIdEmailVerificationIndicator)
+            : nullptr;
+    ASSERT_TRUE(indicator);
+
+    // Default state should be none (represented by null or "none").
+    String initial_state = indicator->getAttribute(AtomicString("data-state"));
+    EXPECT_TRUE(initial_state.IsNull() || initial_state == "none");
+
+    // Setting state to verified.
+    input.SetEmailVerificationState(EmailVerificationState::kVerified);
+    EXPECT_EQ(input.GetEmailVerificationState(),
+              EmailVerificationState::kVerified);
+    EXPECT_EQ(indicator->getAttribute(AtomicString("data-state")), "verified");
+
+    // Setting state to none.
+    input.SetEmailVerificationState(EmailVerificationState::kNone);
+    EXPECT_EQ(input.GetEmailVerificationState(), EmailVerificationState::kNone);
+    EXPECT_EQ(indicator->getAttribute(AtomicString("data-state")), "none");
+  }
 }
 
 }  // namespace blink

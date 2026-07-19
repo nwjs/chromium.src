@@ -108,6 +108,12 @@ class NET_EXPORT_PRIVATE QuicProxyDatagramClientSocket
   int Read(IOBuffer* buf,
            int buf_len,
            CompletionOnceCallback callback) override;
+  base::expected<DatagramsMetadata, Error> ReadMultiple(
+      IOBuffer* buf,
+      size_t buf_len,
+      size_t maximum_packet_size,
+      base::OnceCallback<void(base::expected<DatagramsMetadata, Error>)>
+          callback) override;
   int Write(IOBuffer* buf,
             int buf_len,
             CompletionOnceCallback callback,
@@ -194,8 +200,6 @@ class NET_EXPORT_PRIVATE QuicProxyDatagramClientSocket
   // a buffer, allowing datagrams to be stored when received and processed
   // asynchronously at a later time.
   std::queue<std::string> datagrams_;
-  // Visitor on stream is registered to receive HTTP/3 datagrams.
-  bool datagram_visitor_registered_ = false;
 
   // Tracks whether the CONNECT-UDP request has been sent (even if response not
   // received yet).

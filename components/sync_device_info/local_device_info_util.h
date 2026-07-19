@@ -32,6 +32,8 @@ struct LocalDeviceNameInfo {
   // Unique hardware class string which details the
   // HW combination of a CrOS device. Empty on non-CrOS devices.
   std::string full_hardware_class;
+  // The android.os.Build.FINGERPRINT. Populated on Android.
+  std::optional<std::string> android_build_fingerprint;
 };
 
 DeviceInfo::DeviceType GetLocalDeviceType();
@@ -42,6 +44,9 @@ DeviceInfo::FormFactor GetLocalDeviceFormFactor();
 
 // Returns the personalizable device name. This may contain
 // personally-identifiable information - e.g. Alex's MacbookPro.
+// Note that this may not actually be a personalized name on all platforms
+// (e.g. Android and iOS may return the model name or a generic string due to
+// privacy or permission restrictions).
 std::string GetPersonalizableDeviceNameBlocking();
 
 void GetLocalDeviceNameInfo(

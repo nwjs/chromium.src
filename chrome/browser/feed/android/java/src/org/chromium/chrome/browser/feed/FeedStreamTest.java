@@ -19,6 +19,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.robolectric.shadows.ShadowLooper.runUiThreadTasksIncludingDelayedTasks;
 
 import android.app.Activity;
 import android.util.TypedValue;
@@ -50,6 +51,9 @@ import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.chrome.browser.feed.v2.FeedUserActionType;
+import org.chromium.chrome.browser.feedback.FeedbackPolicyManager;
+import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncher;
+import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncherFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
@@ -73,7 +77,9 @@ import org.chromium.ui.test.util.MockitoHelper;
 import org.chromium.url.JUnitTestGURLs;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 
 /** Unit tests for {@link FeedStream}. */
@@ -90,6 +96,8 @@ public class FeedStreamTest {
     private static final OpenUrlOptions DEFAULT_OPEN_URL_OPTIONS = new OpenUrlOptions() {};
 
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
+    @Mock private FeedbackPolicyManager mFeedbackPolicyManager;
+    @Mock private HelpAndFeedbackLauncher mHelpAndFeedbackLauncher;
     private ActivityController<Activity> mActivityController;
     private Activity mActivity;
     private RecyclerView mRecyclerView;
@@ -120,7 +128,6 @@ public class FeedStreamTest {
     @Mock private FeedActionDelegate mActionDelegate;
 
     @Captor private ArgumentCaptor<LoadUrlParams> mLoadUrlParamsCaptor;
-    @Mock private FeedContentFirstLoadWatcher mFeedContentFirstLoadWatcher;
     @Mock private Stream.StreamsMediator mStreamsMediator;
     // Enable the Features class, so we can call code which checks to see if features are enabled
     // without crashing.
@@ -158,6 +165,9 @@ public class FeedStreamTest {
         FeedServiceBridgeJni.setInstanceForTesting(mFeedServiceBridgeJniMock);
         FeedReliabilityLoggingBridgeJni.setInstanceForTesting(mFeedReliabilityLoggingBridgeJniMock);
         ProfileManager.setLastUsedProfileForTesting(mProfileMock);
+        FeedbackPolicyManager.setInstanceForTesting(mFeedbackPolicyManager);
+        when(mFeedbackPolicyManager.isUserFeedbackAllowed()).thenReturn(true);
+        HelpAndFeedbackLauncherFactory.setInstanceForTesting(mHelpAndFeedbackLauncher);
 
         when(mFeedServiceBridgeJniMock.getLoadMoreTriggerLookahead())
                 .thenReturn(LOAD_MORE_TRIGGER_LOOKAHEAD);
@@ -174,7 +184,6 @@ public class FeedStreamTest {
                         mShareDelegateSupplier,
                         /* streamKind= */ StreamKind.FOR_YOU,
                         mActionDelegate,
-                        mFeedContentFirstLoadWatcher,
                         mStreamsMediator,
                         new FeedSurfaceRendererBridgeFactory());
         mRecyclerView = new RecyclerView(mActivity);
@@ -257,7 +266,6 @@ public class FeedStreamTest {
         assertEquals(2, mContentManager.getItemCount());
         assertEquals(HEADER_PREFIX + "0", mContentManager.getContent(0).getKey());
         assertEquals(1, mContentManager.findContentPositionByKey("Spacer"));
-        verify(mFeedContentFirstLoadWatcher).nonNativeContentLoaded(anyInt());
     }
 
     @Test
@@ -855,6 +863,45 @@ public class FeedStreamTest {
 
         handler.triggerManualRefresh();
         verify(mStreamsMediator).refreshStream();
+    }
+
+    @Test
+    public void testSendFeedback_PolicyEnabled() {
+        when(mFeedbackPolicyManager.isUserFeedbackAllowed()).thenReturn(true);
+        bindToView();
+        FeedStream.FeedActionsHandlerImpl handler =
+                (FeedStream.FeedActionsHandlerImpl)
+                        mContentManager.getContextValues(0).get(FeedActionsHandler.KEY);
+
+        Map<String, String> data = new HashMap<>();
+        data.put("Card URL", "http://example.com");
+        handler.sendFeedback(data);
+
+        runUiThreadTasksIncludingDelayedTasks();
+
+        verify(mHelpAndFeedbackLauncher)
+                .showFeedback(
+                        eq(mActivity),
+                        eq("http://example.com"),
+                        eq("com.google.chrome.feed.USER_INITIATED_FEEDBACK_REPORT"),
+                        eq(data));
+    }
+
+    @Test
+    public void testSendFeedback_PolicyDisabled() {
+        when(mFeedbackPolicyManager.isUserFeedbackAllowed()).thenReturn(false);
+        bindToView();
+        FeedStream.FeedActionsHandlerImpl handler =
+                (FeedStream.FeedActionsHandlerImpl)
+                        mContentManager.getContextValues(0).get(FeedActionsHandler.KEY);
+
+        Map<String, String> data = new HashMap<>();
+        data.put("Card URL", "http://example.com");
+        handler.sendFeedback(data);
+
+        runUiThreadTasksIncludingDelayedTasks();
+
+        verify(mHelpAndFeedbackLauncher, never()).showFeedback(any(), any(), any(), any());
     }
 
     private int getLoadMoreTriggerScrollDistance() {

@@ -59,6 +59,7 @@
 #include "third_party/blink/renderer/core/dom/focus_params.h"
 #include "third_party/blink/renderer/core/dom/layout_tree_builder_traversal.h"
 #include "third_party/blink/renderer/core/dom/node.h"
+#include "third_party/blink/renderer/core/dom/node_lists_node_data.h"
 #include "third_party/blink/renderer/core/dom/processing_instruction.h"
 #include "third_party/blink/renderer/core/dom/pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
@@ -74,7 +75,9 @@
 #include "third_party/blink/renderer/core/html/fenced_frame/document_fenced_frames.h"
 #include "third_party/blink/renderer/core/html/fenced_frame/html_fenced_frame_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_button_element.h"
+#include "third_party/blink/renderer/core/html/forms/html_form_control_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
+#include "third_party/blink/renderer/core/html/html_collection.h"
 #include "third_party/blink/renderer/core/html/html_document.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/html/html_frame_owner_element.h"
@@ -303,6 +306,8 @@ protocol::DOM::PseudoType InspectorDOMAgent::ProtocolPseudoElementType(
       return protocol::DOM::PseudoTypeEnum::PermissionIcon;
     case kPseudoIdPickerSelect:
       return protocol::DOM::PseudoTypeEnum::Picker;
+    case kPseudoIdSelectListbox:
+      return protocol::DOM::PseudoTypeEnum::SelectListbox;
     case kPseudoIdViewTransition:
       return protocol::DOM::PseudoTypeEnum::ViewTransition;
     case kPseudoIdViewTransitionGroup:
@@ -317,6 +322,10 @@ protocol::DOM::PseudoType InspectorDOMAgent::ProtocolPseudoElementType(
       return protocol::DOM::PseudoTypeEnum::ViewTransitionOld;
     case kPseudoIdOverscrollAreaParent:
       return protocol::DOM::PseudoTypeEnum::OverscrollAreaParent;
+    case kPseudoIdOverscrollBackdrop:
+      return protocol::DOM::PseudoTypeEnum::OverscrollBackdrop;
+    case kPseudoIdSkeleton:
+      return protocol::DOM::PseudoTypeEnum::Skeleton;
     case kAfterLastInternalPseudoId:
     case kPseudoIdNone:
     case kPseudoIdInvalid:
@@ -437,6 +446,21 @@ PseudoId InspectorDOMAgent::ProtocolPseudoTypeToPseudoId(
   if (type == protocol::DOM::PseudoTypeEnum::Picker) {
     return kPseudoIdPickerSelect;
   }
+  if (type == protocol::DOM::PseudoTypeEnum::SelectListbox) {
+    return kPseudoIdSelectListbox;
+  }
+  if (type == protocol::DOM::PseudoTypeEnum::ExpandIcon) {
+    return kPseudoIdExpandIcon;
+  }
+  if (type == protocol::DOM::PseudoTypeEnum::PickerIcon) {
+    return kPseudoIdPickerIcon;
+  }
+  if (type == protocol::DOM::PseudoTypeEnum::InterestButton) {
+    return kPseudoIdInterestButton;
+  }
+  if (type == protocol::DOM::PseudoTypeEnum::OverscrollBackdrop) {
+    return kPseudoIdOverscrollBackdrop;
+  }
   NOTREACHED();
 }
 
@@ -483,18 +507,33 @@ void InspectorDOMAgent::RemoveDOMListener(DOMListener* listener) {
 }
 
 void InspectorDOMAgent::NotifyDidAddDocument(Document* document) {
-  for (DOMListener* listener : dom_listeners_)
+  ForEachDOMListener([document](const Member<DOMListener>& listener) {
     listener->DidAddDocument(document);
+  });
 }
 
 void InspectorDOMAgent::NotifyWillRemoveDOMNode(Node* node) {
-  for (DOMListener* listener : dom_listeners_)
+  ForEachDOMListener([node](const Member<DOMListener>& listener) {
     listener->WillRemoveDOMNode(node);
+  });
 }
 
 void InspectorDOMAgent::NotifyDidModifyDOMAttr(Element* element) {
-  for (DOMListener* listener : dom_listeners_)
+  ForEachDOMListener([element](const Member<DOMListener>& listener) {
     listener->DidModifyDOMAttr(element);
+  });
+}
+
+void InspectorDOMAgent::ForEachDOMListener(
+    base::FunctionRef<void(const Member<DOMListener>&)> callback) {
+  // Notifying listeners may pause in debugger and thus cause all kinds of
+  // side effects, including adding/removing listeners, so make a copy.
+  HeapHashSet<Member<DOMListener>> copy(dom_listeners_);
+  for (const Member<DOMListener>& listener : copy) {
+    if (dom_listeners_.Contains(listener)) {
+      callback(listener);
+    }
+  }
 }
 
 void InspectorDOMAgent::SetDocument(Document* doc) {
@@ -1284,7 +1323,7 @@ protocol::Response InspectorDOMAgent::getOuterHTML(
           ? ShadowRootInclusion::Behavior::kIncludeAllShadowRootsForInspector
           : ShadowRootInclusion::Behavior::kOnlyProvidedShadowRoots};
   *outer_html =
-      CreateMarkup(node, kIncludeNode, kDoNotResolveURLs, shadow_roots);
+      CreateMarkup(node, kIncludeNode, ResolveUrls::kNone, shadow_roots);
   return protocol::Response::Success();
 }
 
@@ -2048,10 +2087,10 @@ protocol::Response InspectorDOMAgent::getAnchorElement(
         AtomicString(anchor_specifier.value()),
         &querying_object->GetDocument()));
   } else {
-    const StylePositionAnchor& position_anchor =
-        box->StyleRef().PositionAnchor();
+    const DefaultAnchorData default_anchor_data =
+        box->StyleRef().GetDefaultAnchorData();
     using Type = StylePositionAnchor::Type;
-    switch (position_anchor.GetType()) {
+    switch (default_anchor_data.GetType()) {
       case Type::kNone:
         target_object = nullptr;
         break;
@@ -2059,8 +2098,10 @@ protocol::Response InspectorDOMAgent::getAnchorElement(
         target_object = box->AcceptableImplicitAnchor();
         break;
       case Type::kName:
-        target_object = box->FindTargetAnchor(position_anchor.GetName());
+        target_object = box->FindTargetAnchor(default_anchor_data.GetName());
         break;
+      case Type::kNormal:
+        NOTREACHED();
     }
   }
 
@@ -2071,6 +2112,40 @@ protocol::Response InspectorDOMAgent::getAnchorElement(
     }
   }
   return protocol::Response::Success();
+}
+
+static Element* FindEstimatedPopoverInvoker(
+    InspectorDOMAgent* agent,
+    HTMLElement* element,
+    std::optional<int> invoker_node_id) {
+  if (invoker_node_id.has_value()) {
+    Node* invoker_node = nullptr;
+    agent->AssertNode(std::nullopt, invoker_node_id.value(), std::nullopt,
+                      invoker_node);
+    return DynamicTo<Element>(invoker_node);
+  }
+
+  HTMLCollection* invokers =
+      element->GetTreeScope().RootNode().PopoverInvokers();
+  for (unsigned i = 0; i < invokers->length(); ++i) {
+    auto* potential_invoker =
+        DynamicTo<HTMLFormControlElement>(invokers->item(i));
+    if (potential_invoker &&
+        potential_invoker->popoverTargetElement().popover == element) {
+      return potential_invoker;
+    }
+  }
+
+  HTMLCollection* command_invokers =
+      element->GetTreeScope().RootNode().CommandInvokers();
+  for (unsigned i = 0; i < command_invokers->length(); ++i) {
+    auto* potential_invoker = To<HTMLElement>(command_invokers->item(i));
+    if (potential_invoker->commandForElement() == element) {
+      return potential_invoker;
+    }
+  }
+
+  return nullptr;
 }
 
 static void HidePopover(Node* node) {
@@ -2094,6 +2169,7 @@ void InspectorDOMAgent::ReleaseForcedPopovers() {
 protocol::Response InspectorDOMAgent::forceShowPopover(
     int node_id,
     bool enable,
+    std::optional<int> invoker_node_id,
     std::unique_ptr<protocol::Array<int>>* out_node_ids) {
   if (!base::FeatureList::IsEnabled(features::kDevToolsAllowPopoverForcing)) {
     return protocol::Response::ServerError("Feature is not enabled");
@@ -2121,8 +2197,12 @@ protocol::Response InspectorDOMAgent::forceShowPopover(
 
     bool should_open = forced_popovers_.insert(node).is_new_entry;
     if (should_open && !element->popoverOpen()) {
-      element->ShowPopoverInternal(/*invoker=*/nullptr,
-                                   /*exception_state=*/nullptr);
+      Element* invoker =
+          FindEstimatedPopoverInvoker(this, element, invoker_node_id);
+      if (invoker_node_id.has_value() && !invoker) {
+        return protocol::Response::InvalidParams("invoker id not found");
+      }
+      element->ShowPopoverInternal(invoker, /*exception_state=*/nullptr);
     }
   }
   return protocol::Response::Success();

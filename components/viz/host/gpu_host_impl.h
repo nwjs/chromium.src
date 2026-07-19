@@ -47,7 +47,6 @@
 
 #if BUILDFLAG(IS_WIN)
 #include "services/viz/privileged/mojom/gl/info_collection_gpu_service.mojom.h"
-#include "services/webnn/public/cpp/context_properties.h"
 #include "services/webnn/public/mojom/ep_package_info.mojom.h"
 #include "services/webnn/public/mojom/webnn_context_provider.mojom.h"
 #include "ui/gfx/mojom/dxgi_info.mojom.h"
@@ -61,6 +60,13 @@ namespace gpu {
 class GpuDiskCacheFactory;
 class GpuDiskCache;
 }  // namespace gpu
+
+#if BUILDFLAG(IS_WIN)
+namespace webnn {
+struct ContextProperties;
+struct EpDeviceInfo;
+}  // namespace webnn
+#endif
 
 namespace viz {
 
@@ -115,14 +121,14 @@ class VIZ_HOST_EXPORT GpuHostImpl : public mojom::GpuHost,
 #if BUILDFLAG(IS_WIN)
     // Requests the Browser to create a CompilerContext in the Compiler
     // process, launching it first if needed.
-    using RequestWebNNCompilerContextCallback =
-        mojom::GpuHost::RequestWebNNCompilerContextCallback;
     virtual void RequestWebNNCompilerContext(
         webnn::mojom::CreateContextOptionsPtr context_options,
         const webnn::ContextProperties& context_properties,
-        base::flat_map<std::string, webnn::mojom::EpPackageInfoPtr>
-            ep_package_info,
-        RequestWebNNCompilerContextCallback callback);
+        const webnn::EpDeviceInfo& target_device,
+        mojo::PendingReceiver<webnn::mojom::WebNNCompilerContext>
+            compiler_context_receiver,
+        mojo::PendingRemote<webnn::mojom::WebNNModelLoader>
+            model_loader_remote);
 #endif
 
    protected:
@@ -311,9 +317,11 @@ class VIZ_HOST_EXPORT GpuHostImpl : public mojom::GpuHost,
   void RequestWebNNCompilerContext(
       webnn::mojom::CreateContextOptionsPtr context_options,
       const webnn::ContextProperties& context_properties,
-      base::flat_map<std::string, webnn::mojom::EpPackageInfoPtr>
-          ep_package_info,
-      RequestWebNNCompilerContextCallback callback) override;
+      const webnn::EpDeviceInfo& target_device,
+      mojo::PendingReceiver<webnn::mojom::WebNNCompilerContext>
+          compiler_context_receiver,
+      mojo::PendingRemote<webnn::mojom::WebNNModelLoader> model_loader_remote)
+      override;
 #endif
   void CreateWebNNWeightsFile(CreateWebNNWeightsFileCallback cb) override;
 
@@ -386,6 +394,9 @@ class VIZ_HOST_EXPORT GpuHostImpl : public mojom::GpuHost,
   // Signal that the GPU process is ready to accept persistent cache files. They
   // should be forwarded as soon as they are loaded.
   bool send_persistent_cache_files_to_service_ = false;
+
+  // This is only set in GpuHostImpl::DidInitialize().
+  std::optional<bool> gpu_uses_graphite_;
 
   SEQUENCE_CHECKER(sequence_checker_);
 

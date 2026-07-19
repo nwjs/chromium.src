@@ -14,7 +14,7 @@
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/permissions/features.h"
 #include "components/permissions/permission_request_enums.h"
-#include "components/permissions/permission_uma_util.h"
+#include "components/permissions/permission_uma_constants.h"
 #include "components/permissions/permissions_client.h"
 #include "components/permissions/resolvers/permission_prompt_options.h"
 
@@ -117,7 +117,7 @@ class ChromePermissionsClient : public permissions::PermissionsClient {
       const GURL& embedding_origin) override;
   std::optional<GURL> GetEmbeddingOriginOverride(
       const GURL& requesting_origin,
-      content::WebContents* web_contents) override;
+      content::RenderFrameHost* render_frame_host) override;
 
   bool IsFromNewTabPage(content::WebContents* web_contents,
                         const GURL& requester,

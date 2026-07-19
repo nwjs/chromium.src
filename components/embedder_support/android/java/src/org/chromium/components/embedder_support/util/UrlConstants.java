@@ -76,6 +76,7 @@ public class UrlConstants {
 
     public static final String HISTORY_HOST = "history";
     public static final String SETTINGS_HOST = "settings";
+    public static final String SETTINGS_URL = "chrome-native://settings/";
 
     public static final String LAUNCHPAD_HOST = "apps";
     public static final String LAUNCHPAD_URL = "chrome://apps/";
@@ -138,6 +139,9 @@ public class UrlConstants {
 
     public static final String MANAGEMENT_HOST = "management";
     public static final String MANAGEMENT_URL = "chrome://management/";
+
+    public static final String BRICKS_HOST = "bricks";
+    public static final String BRICKS_URL = "chrome://bricks/";
 
     /* Host and url used for PDF native pages. */
     public static final String PDF_HOST = "pdf";

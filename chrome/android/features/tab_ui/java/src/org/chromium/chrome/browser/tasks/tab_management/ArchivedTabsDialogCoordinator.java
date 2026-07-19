@@ -16,7 +16,6 @@ import android.app.Activity;
 import android.content.Context;
 import android.text.SpannableString;
 import android.text.Spanned;
-import android.text.style.ForegroundColorSpan;
 import android.util.Size;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -51,6 +50,7 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabArchiveSettings;
 import org.chromium.chrome.browser.tab_ui.OnTabSelectingListener;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
+import org.chromium.chrome.browser.tab_ui.TabListMode;
 import org.chromium.chrome.browser.tab_ui.TabSwitcherUtils;
 import org.chromium.chrome.browser.tabmodel.TabClosureParams;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
@@ -59,7 +59,6 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelectorBase;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.tasks.tab_management.TabActionButtonData.TabActionButtonType;
 import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator.TabListItemSizeChangedObserver;
-import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator.TabListMode;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator.CreationMode;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator.NavigationProvider;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator.TabListEditorController;
@@ -93,6 +92,7 @@ import org.chromium.ui.interpolators.Interpolators;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modelutil.LayoutViewBuilder;
 import org.chromium.ui.modelutil.PropertyModel;
+import org.chromium.ui.text.ChromeClickableSpan;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -957,7 +957,7 @@ public class ArchivedTabsDialogCoordinator implements SnackbarManager.SnackbarMa
         if (mIphMessagePropertyModel == null) return;
         mIphMessagePropertyModel.set(
                 MessageCardViewProperties.DESCRIPTION_TEXT,
-                getIphDescription(mActivity, mTabArchiveSettings));
+                getIphDescription(mActivity, mTabArchiveSettings, (view) -> onIphReviewClicked()));
     }
 
     private void refreshArchivedTabList() {
@@ -973,9 +973,20 @@ public class ArchivedTabsDialogCoordinator implements SnackbarManager.SnackbarMa
         }
     }
 
+    /**
+     * Returns the IPH (In-Product Help) description text. The description includes a clickable span
+     * that links to the archived tabs settings page.
+     *
+     * @param context The {@link Context} used for resource and color resolution.
+     * @param tabArchiveSettings The settings manager for tab archiving.
+     * @param onClickCallback The callback to be notified when the settings link is clicked.
+     * @return A {@link CharSequence} containing the formatted IPH description.
+     */
     @VisibleForTesting
     public static CharSequence getIphDescription(
-            Context context, TabArchiveSettings tabArchiveSettings) {
+            Context context,
+            TabArchiveSettings tabArchiveSettings,
+            Callback<View> onClickCallback) {
         int archiveTimeDeltaDays = tabArchiveSettings.getArchiveTimeDeltaDays();
         int autoDeleteTimeDeltaMonths = tabArchiveSettings.getAutoDeleteTimeDeltaMonths();
         String settingsTitle =
@@ -993,13 +1004,12 @@ public class ArchivedTabsDialogCoordinator implements SnackbarManager.SnackbarMa
                         iphCardSubtitleRes, archiveTimeDeltaDays, autoDeleteTitle, settingsTitle);
 
         SpannableString ss = new SpannableString(description);
-        ForegroundColorSpan fcs =
-                new ForegroundColorSpan(SemanticColorUtils.getDefaultTextColorAccent1(context));
-        ss.setSpan(
-                fcs,
-                description.indexOf(settingsTitle),
-                description.indexOf(settingsTitle) + settingsTitle.length(),
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        int start = description.indexOf(settingsTitle);
+        int end = start + settingsTitle.length();
+        ChromeClickableSpan clickableSpan =
+                new ChromeClickableSpan(
+                        SemanticColorUtils.getDefaultTextColorAccent1(context), onClickCallback);
+        ss.setSpan(clickableSpan, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         return ss;
     }
 

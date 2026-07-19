@@ -88,7 +88,7 @@ def main(ctx, **kwargs) -> int:
   if config.builder and not (config.run_changed or config.run_related
                              or config.files or config.name or config.target):
     display_utr_help()
-    return 0
+    ctx.exit(0)
 
   if config.out_dir:
     constants.SetOutputDirectory(config.out_dir)
@@ -160,6 +160,9 @@ def main(ctx, **kwargs) -> int:
         file_finder.FindMatchingTestFiles(f, use_remote_search,
                                           config.path_index))
 
+  web_test_files = {f for f in filenames if file_finder.IsWebTestFile(f)}
+  gn_files = [f for f in filenames if f not in web_test_files]
+
   if config.target:
     targets = [t.removeprefix('//') for t in config.target]
     used_cache = False
@@ -167,12 +170,9 @@ def main(ctx, **kwargs) -> int:
     if not filenames and not direct_suites:
       command.ExitWithMessage('No associated test files found.')
 
-    targets = []
-    used_cache = False
-    if filenames:
-      targets, used_cache = target_finder.FindTestTargets(
-          target_cache, out_dir, filenames, config.run_all, config.run_changed
-          or config.run_related, config.target_index, config.files)
+    targets, used_cache = target_finder.FindTestTargets(
+        target_cache, out_dir, filenames, config.run_all, config.run_changed
+        or config.run_related, config.target_index, config.files)
 
   # Add any direct suites
   for suite in direct_suites:
@@ -181,14 +181,15 @@ def main(ctx, **kwargs) -> int:
       targets.append(target_name)
 
   if not current_gtest_filter and not config.suite:
-    current_gtest_filter = filters.BuildTestFilter(filenames, config.line)
+    if gn_files:
+      current_gtest_filter = filters.BuildTestFilter(gn_files, config.line)
 
-  if not current_gtest_filter and not config.suite:
+  if not current_gtest_filter and not config.suite and gn_files:
     command.ExitWithMessage('Failed to derive a gtest filter')
 
   pref_mapping_filter: str | None = config.test_policy_to_pref_mappings_filter
   if not pref_mapping_filter:
-    pref_mapping_filter = filters.BuildPrefMappingTestFilter(filenames)
+    pref_mapping_filter = filters.BuildPrefMappingTestFilter(gn_files)
 
   assert targets
 
@@ -218,28 +219,30 @@ def main(ctx, **kwargs) -> int:
                                  used_cache, out_dir)
 
   if not build_ok:
-    return 1
+    ctx.exit(1)
 
   if config.builder:
-    return run_utr_tests(config, out_dir, targets)
+    ctx.exit(run_utr_tests(config, out_dir, targets))
 
-  return test_executor.RunTestTargets(out_dir,
-                                      targets,
-                                      current_gtest_filter,
-                                      pref_mapping_filter,
-                                      config.extras,
-                                      config.dry_run,
-                                      config.no_try_android_wrappers,
-                                      config.no_fast_local_dev,
-                                      config.no_single_variant,
-                                      is_suite=config.suite,
-                                      gemini=config.gemini)
+  ctx.exit(
+      test_executor.RunTestTargets(out_dir,
+                                   targets,
+                                   current_gtest_filter,
+                                   pref_mapping_filter,
+                                   config.extras,
+                                   config.dry_run,
+                                   config.no_try_android_wrappers,
+                                   config.no_fast_local_dev,
+                                   config.no_single_variant,
+                                   is_suite=config.suite,
+                                   gemini=config.gemini,
+                                   web_test_files=web_test_files))
 
 if __name__ == '__main__':
   telemetry.telemetry.initialize('chromium.tools.autotest')
 
   try:
-    sys.exit(main(prog_name='tools/autotest.py'))
+    main(prog_name='tools/autotest.py')
   except (AutotestError, CommandError) as e:
     print(e, file=sys.stderr)
     sys.exit(1)

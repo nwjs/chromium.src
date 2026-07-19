@@ -114,6 +114,18 @@ std::optional<std::string> MaybeGetBadMessageStringForManifest(
       }
     }
 
+    if (manifest.note_taking && manifest.note_taking->new_note_url.is_valid() &&
+        !document_origin.IsSameOriginWith(manifest.note_taking->new_note_url)) {
+      return "Manifest note_taking new_note_url must be same-origin with the "
+             "document.";
+    }
+
+    if (manifest.lock_screen && manifest.lock_screen->start_url.is_valid() &&
+        !document_origin.IsSameOriginWith(manifest.lock_screen->start_url)) {
+      return "Manifest lock_screen start_url must be same-origin with the "
+             "document.";
+    }
+
     net::SchemefulSite document_site(document_origin);
     for (const auto& migrate_from : manifest.migrate_from) {
       if (!document_site.IsSameSiteWith(migrate_from->id)) {
@@ -192,6 +204,15 @@ void ManifestManagerHost::BindObserver(
 
 void ManifestManagerHost::GetManifest(GetManifestCallback callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  if (page().GetMainDocument().GetLastCommittedURL().SchemeIs(
+          url::kAboutScheme)) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(std::move(callback),
+                       blink::mojom::ManifestRequestResult::kNoManifestAllowed,
+                       GURL(), blink::mojom::Manifest::New()));
+    return;
+  }
   auto& manifest_manager = GetManifestManager();
   int request_id = callbacks_.Add(
       std::make_unique<GetManifestCallback>(std::move(callback)));
@@ -228,6 +249,14 @@ base::CallbackListSubscription ManifestManagerHost::GetAllSpecifiedManifests(
 
 void ManifestManagerHost::RequestManifestDebugInfo(
     blink::mojom::ManifestManager::RequestManifestDebugInfoCallback callback) {
+  if (page().GetMainDocument().GetLastCommittedURL().SchemeIs(
+          url::kAboutScheme)) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(std::move(callback), GURL(),
+                                  blink::mojom::Manifest::New(),
+                                  blink::mojom::ManifestDebugInfo::New()));
+    return;
+  }
   GetManifestManager().RequestManifestDebugInfo(std::move(callback));
 }
 
@@ -374,6 +403,10 @@ void ManifestManagerHost::ManifestUrlChanged(const GURL& manifest_url) {
 }
 
 void ManifestManagerHost::MaybeFetchManifestForSubscriptions() {
+  if (page().GetMainDocument().GetLastCommittedURL().SchemeIs(
+          url::kAboutScheme)) {
+    return;
+  }
   bool is_manifest_fetch_in_progress =
       current_fetching_manifest_url_.has_value() &&
       current_fetching_manifest_url_ == page().GetManifestUrl();

@@ -220,6 +220,21 @@ String ContentSecurityPolicy::StripURLForUseInReport(
   return CSPStripURL(url).GetString();
 }
 
+// static
+bool ContentSecurityPolicy::ContainsDanglingMarkupSignal(
+    const String& attribute_name,
+    const String& attribute_value) {
+  static const char kScriptString[] = "<SCRIPT";
+  static const char kStyleString[] = "<STYLE";
+  static const char kLinkString[] = "<LINK";
+  return attribute_name.FindIgnoringAsciiCase(kScriptString) != kNotFound ||
+         attribute_name.FindIgnoringAsciiCase(kStyleString) != kNotFound ||
+         attribute_name.FindIgnoringAsciiCase(kLinkString) != kNotFound ||
+         attribute_value.FindIgnoringAsciiCase(kScriptString) != kNotFound ||
+         attribute_value.FindIgnoringAsciiCase(kStyleString) != kNotFound ||
+         attribute_value.FindIgnoringAsciiCase(kLinkString) != kNotFound;
+}
+
 bool ContentSecurityPolicy::IsNonceableElement(const Element* element) {
   if (element->nonce().IsNull())
     return false;
@@ -238,18 +253,8 @@ bool ContentSecurityPolicy::IsNonceableElement(const Element* element) {
     nonceable = false;
 
   if (nonceable) {
-    static const char kScriptString[] = "<SCRIPT";
-    static const char kStyleString[] = "<STYLE";
-    static const char kLinkString[] = "<LINK";
     for (const Attribute& attr : element->Attributes()) {
-      const AtomicString& name = attr.LocalName();
-      const AtomicString& value = attr.Value();
-      if (name.FindIgnoringAsciiCase(kScriptString) != kNotFound ||
-          name.FindIgnoringAsciiCase(kStyleString) != kNotFound ||
-          name.FindIgnoringAsciiCase(kLinkString) != kNotFound ||
-          value.FindIgnoringAsciiCase(kScriptString) != kNotFound ||
-          value.FindIgnoringAsciiCase(kStyleString) != kNotFound ||
-          value.FindIgnoringAsciiCase(kLinkString) != kNotFound) {
+      if (ContainsDanglingMarkupSignal(attr.LocalName(), attr.Value())) {
         nonceable = false;
         break;
       }
@@ -756,7 +761,10 @@ void ContentSecurityPolicy::AddHashReportIfNeeded(
       }
 
       CSPHashReportBody* body = MakeGarbageCollected<CSPHashReportBody>(
-          url, integrity_hash, "subresource", "script");
+          StripURLForUseInReport(
+              window->GetContentSecurityPolicyDelegate().GetSecurityOrigin(),
+              KURL(url), CSPDirectiveName::DefaultSrc),
+          integrity_hash, "subresource", "script");
       Report* report_to_queue = MakeGarbageCollected<Report>(
           ReportType::kCSPHash,
           StripURLForUseInReport(
@@ -806,9 +814,10 @@ std::optional<CSPDirectiveName> GetDirectiveTypeFromRequestContextType(
     case mojom::blink::RequestContextType::FETCH:
     case mojom::blink::RequestContextType::JSON:
     case mojom::blink::RequestContextType::PING:
-    case mojom::blink::RequestContextType::XML_HTTP_REQUEST:
     case mojom::blink::RequestContextType::SUBRESOURCE:
     case mojom::blink::RequestContextType::SUBRESOURCE_WEBBUNDLE:
+    case mojom::blink::RequestContextType::TEXT:
+    case mojom::blink::RequestContextType::XML_HTTP_REQUEST:
       return CSPDirectiveName::ConnectSrc;
 
     case mojom::blink::RequestContextType::EMBED:

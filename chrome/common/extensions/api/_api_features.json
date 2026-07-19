@@ -96,6 +96,11 @@
       "chrome://extensions/*"
     ]
   }],
+  "contextualTasksPrivate": {
+    "contexts": ["privileged_extension"],
+    "dependencies": ["permission:contextualTasksPrivate"],
+    "feature_flag": "ApiContextualTasksPrivate"
+  },
   "experimentalActor": {
     "contexts": ["privileged_extension"],
     "dependencies": ["permission:experimentalActor"]
@@ -279,7 +284,8 @@
       "chrome://os-settings/*",
       "chrome://parent-access/*",
       "chrome://password-change/*",
-      "chrome://lock-reauth/*"
+      "chrome://lock-reauth/*",
+      "chrome://skills/*"
     ]
   }, {
     "internal": true,
@@ -424,6 +430,10 @@
   "devtools.panels": {
     "nocompile": true,
     "dependencies": ["manifest:devtools_page"],
+    "contexts": ["privileged_extension"]
+  },
+  "dictationPrivate": {
+    "dependencies": ["permission:dictationPrivate"],
     "contexts": ["privileged_extension"]
   },
   "documentScan": {
@@ -779,14 +789,6 @@
   "mdns": {
     "dependencies": ["permission:mdns"],
     "contexts": ["privileged_extension"]
-  },
-  "mimeHandlerViewGuestInternal": {
-    "internal": true,
-    "contexts": "all",
-    "channel": "stable",
-    "matches": ["<all_urls>"],
-    // "desktop_android" is not supported.
-    "platforms": ["chromeos", "linux", "mac", "win"]
   },
   "notifications": {
     "dependencies": ["permission:notifications"],

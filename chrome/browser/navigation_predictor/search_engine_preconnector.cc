@@ -30,6 +30,8 @@
 #include "mojo/public/cpp/bindings/remote.h"
 #include "net/base/features.h"
 #include "net/base/reconnect_notifier.h"
+#include "net/socket/next_proto.h"
+#include "services/network/public/cpp/constants.h"
 
 namespace {
 
@@ -219,14 +221,16 @@ void SearchEnginePreconnector::PreconnectDSE() {
   DCHECK(ShouldBeEnabledForOffTheRecord() ||
          !browser_context_->IsOffTheRecord());
   DCHECK(!timer_.IsRunning());
-  if (!base::FeatureList::IsEnabled(features::kPreconnectToSearch))
+  if (!base::FeatureList::IsEnabled(features::kPreconnectToSearch)) {
     return;
+  }
 
   // Don't preconnect unless the user allows search suggestions.
   if (!Profile::FromBrowserContext(browser_context_)
            ->GetPrefs()
-           ->GetBoolean(prefs::kSearchSuggestEnabled))
+           ->GetBoolean(prefs::kSearchSuggestEnabled)) {
     return;
+  }
 
   GURL preconnect_url = GetDefaultSearchEngineOriginURL();
   if (preconnect_url.GetScheme() != url::kHttpScheme &&
@@ -276,13 +280,13 @@ void SearchEnginePreconnector::PreconnectDSE() {
         net::NetworkAnonymizationKey::CreateSameSite(std::move(schemeful_site));
 
     // Preconnection initiated by search engine is out of scope of connection
-    // allowlist, so there is no `network_restrictions_id`.
+    // allowlist, so there is no-op `network_restrictions_id`.
     // See https://wicg.github.io/connection-allowlists/#threat-model.
     GetPreconnectManager().StartPreconnectUrl(
         preconnect_url, /*allow_credentials=*/true, network_anonymziation_key,
         predictors::kSearchEnginePreconnectTrafficAnnotation,
         /*storage_partition_config=*/nullptr,
-        /*network_restrictions_id=*/std::nullopt, std::move(keepalive_config),
+        network::GetNoOpNetworkRestrictionsId(), std::move(keepalive_config),
         std::move(observer));
   }
 
@@ -299,11 +303,13 @@ void SearchEnginePreconnector::PreconnectDSE() {
 GURL SearchEnginePreconnector::GetDefaultSearchEngineOriginURL() const {
   auto* template_service = TemplateURLServiceFactory::GetForProfile(
       Profile::FromBrowserContext(browser_context_));
-  if (!template_service)
+  if (!template_service) {
     return GURL();
+  }
   const auto* search_provider = template_service->GetDefaultSearchProvider();
-  if (!search_provider || !search_provider->data().preconnect_to_search_url)
+  if (!search_provider || !search_provider->data().preconnect_to_search_url) {
     return GURL();
+  }
   return search_provider->GenerateSearchURL({}).DeprecatedGetOriginAsURL();
 }
 
@@ -420,6 +426,22 @@ void SearchEnginePreconnector::OnWebContentsVisibilityChanged(
 bool SearchEnginePreconnector::IsPreconnectEnabled() {
   return predictors::IsPreconnectAllowed(
       Profile::FromBrowserContext(browser_context_));
+}
+
+void SearchEnginePreconnector::OnConnectionEstablished(
+    const net::ConnectionChangeNotifier::EstablishedConnectionInfo& info) {
+  base::UmaHistogramEnumeration(
+      "NavigationPredictor.SearchEnginePreconnector.SessionEstablished."
+      "ConnectionInfo",
+      info.connection_info);
+  base::UmaHistogramTimes(
+      "NavigationPredictor.SearchEnginePreconnector.SessionEstablished."
+      "ConnectionSetupTime",
+      info.connection_setup_time);
+  base::UmaHistogramEnumeration(
+      "NavigationPredictor.SearchEnginePreconnector.SessionEstablished."
+      "Initiator",
+      info.initiator);
 }
 
 void SearchEnginePreconnector::OnSessionClosed(

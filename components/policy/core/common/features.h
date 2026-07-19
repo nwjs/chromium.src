@@ -33,6 +33,9 @@ POLICY_EXPORT BASE_DECLARE_FEATURE(kUseCECFlagInPolicyData);
 // Enables policy initialization for signed-in users in new entry points.
 POLICY_EXPORT BASE_DECLARE_FEATURE(
     kInitializePoliciesForSignedInUserInNewEntryPoints);
+
+// Controls whether to use active admins to calculate the enterprise info.
+POLICY_EXPORT BASE_DECLARE_FEATURE(kAndroidUseAdminsForEnterpriseInfo);
 #endif
 
 // Enables a configurable delay for policy registration.
@@ -69,12 +72,21 @@ POLICY_EXPORT BASE_DECLARE_FEATURE(kUseManagementServiceForSensitivePolicies);
 POLICY_EXPORT BASE_DECLARE_FEATURE(
     kBypassURLBlocklistWildcardForInternalChromeUrls);
 
+// Modifies behavior of policies utilizing URLBlocklistManager.
+// When enabled, downgrades the match level to neutral if the URL is allowed by
+// the wildcard '*' in the allowlist.
+POLICY_EXPORT BASE_DECLARE_FEATURE(kDowngradeURLAllowlistWildcardToNeutral);
+
 // Enables the mojo version of the page handler for chrome://policy.
 POLICY_EXPORT BASE_DECLARE_FEATURE(kPolicyPageMojoMigration);
 
 // If enabled, device signals collection disclaimer will be shown during signin
 // for profiles created before the profile flow with disclaimer was released.
 POLICY_EXPORT BASE_DECLARE_FEATURE(kDeviceSignalsBackfillDisclaimer);
+
+// When enabled, URLs in the general blocklist are still blocked in incognito
+// even if they are in the incognito allowlist.
+POLICY_EXPORT BASE_DECLARE_FEATURE(kURLBlocklistOverridesIncognitoAllowlist);
 
 }  // namespace policy::features
 

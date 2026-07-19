@@ -447,6 +447,9 @@ public class Features {
     // Profile.preconnect
     public static final String PRECONNECT = "PRECONNECT";
 
+    // Profile.enqueuePreconnect
+    public static final String ENQUEUE_PRECONNECT = "ENQUEUE_PRECONNECT";
+
     // WebSettingsCompat#setHyperlinkContextMenuItems
     public static final String HYPERLINK_CONTEXT_MENU_ITEMS = "HYPERLINK_CONTEXT_MENU_ITEMS";
 
@@ -478,12 +481,19 @@ public class Features {
     public static final String NAVIGATION_GET_WEB_RESOURCE_ERROR =
             "NAVIGATION_GET_WEB_RESOURCE_ERROR";
 
-    // WebViewSettings.setIgnoreDuplicateNavEnabled
-    // WebViewSettings.getIgnoreDuplicateNavEnabled
-    // WebViewSettings.setIgnoreDuplicateNavThreshold
-    // WebViewSettings.getIgnoreDuplicateNavThreshold
-    public static final String IGNORE_DUPLICATE_NAV = "IGNORE_DUPLICATE_NAV";
 
     // WebViewCompat.navigate
     public static final String WEBVIEW_NAVIGATE_V1 = "WEBVIEW_NAVIGATE_V1";
+
+    // WebSettingsCompat.setDownloadFaviconsEnabled
+    // WebSettingsCompat.getDownloadFaviconsEnabled
+    public static final String DOWNLOAD_FAVICONS_ENABLED = "DOWNLOAD_FAVICONS_ENABLED";
+
+    // Profile.getHttpCache
+    // HttpCache.getDefaultQuotaBytes
+    // HttpCache.isUsingDefaultQuota
+    // HttpCache.useDefaultQuota
+    // HttpCache.getQuotaBytes
+    // HttpCache.setQuotaBytes
+    public static final String HTTP_CACHE_MANAGER = "HTTP_CACHE_MANAGER";
 }

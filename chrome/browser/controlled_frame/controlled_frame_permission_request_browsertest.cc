@@ -13,6 +13,7 @@
 #include "base/test/values_test_util.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_content_browser_client.h"
+#include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/controlled_frame/controlled_frame_permission_request_test_base.h"
 #include "chrome/browser/hid/chrome_hid_delegate.h"
 #include "chrome/browser/hid/hid_chooser_context_factory.h"
@@ -20,8 +21,11 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/hid/hid_chooser_controller.h"
 #include "chrome/common/pref_names.h"
+#include "components/content_settings/core/browser/host_content_settings_map.h"
+#include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/download/public/common/download_item.h"
+#include "components/guest_view/browser/guest_view_manager.h"
 #include "components/permissions/mock_chooser_controller_view.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/download_manager.h"
@@ -31,11 +35,13 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/download_test_observer.h"
+#include "extensions/browser/guest_view/web_view/web_view_permission_helper.h"
 #include "extensions/common/extension_features.h"
 #include "services/device/public/cpp/test/fake_hid_manager.h"
 #include "services/device/public/cpp/test/scoped_geolocation_overrider.h"
 #include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom-forward.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/features.h"
 
 using testing::Contains;
 using testing::StartsWith;
@@ -505,6 +511,314 @@ IN_PROC_BROWSER_TEST_P(ControlledFramePermissionRequestWebHidTest,
 
   EXPECT_EQ("SUCCESS: NO_DEVICES",
             content::EvalJs(controlled_frame, kTestScript).ExtractString());
+}
+
+class ControlledFramePermissionStatusLeakTest : public ControlledFrameTestBase {
+ protected:
+  void SetPermission(const GURL& url,
+                     ContentSettingsType type,
+                     ContentSetting setting) {
+    HostContentSettingsMapFactory::GetForProfile(profile())
+        ->SetContentSettingDefaultScope(url, url, type, setting);
+  }
+
+  std::string QueryPermission(content::RenderFrameHost* frame,
+                              const std::string& name) {
+    return content::EvalJs(frame, content::JsReplace(R"(
+      navigator.permissions.query({name: $1}).then(r => r.state);
+    )",
+                                                     name))
+        .ExtractString();
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(ControlledFramePermissionStatusLeakTest,
+                       PermissionsStatusDoNotLeak) {
+  GURL guest_url =
+      embedded_https_test_server().GetURL("guest.com", "/empty.html");
+  url::Origin guest_origin = url::Origin::Create(guest_url);
+
+  // Set profile-wide permissions for the guest origin.
+  SetPermission(guest_url, ContentSettingsType::MEDIASTREAM_CAMERA,
+                CONTENT_SETTING_ALLOW);
+  SetPermission(guest_url, ContentSettingsType::MEDIASTREAM_MIC,
+                CONTENT_SETTING_BLOCK);
+  SetPermission(guest_url, ContentSettingsType::GEOLOCATION,
+                CONTENT_SETTING_ALLOW);
+  SetPermission(guest_url, ContentSettingsType::CLIPBOARD_READ_WRITE,
+                CONTENT_SETTING_ALLOW);
+
+  // Install and open IWA, then create ControlledFrame pointing to the guest
+  // origin.
+  auto [app_frame, controlled_frame] =
+      InstallAndOpenIwaThenCreateControlledFrame(
+          /*controlled_frame_host_name=*/"guest.com", "/empty.html");
+  ASSERT_TRUE(app_frame);
+  ASSERT_TRUE(controlled_frame);
+  ASSERT_EQ(controlled_frame->GetLastCommittedOrigin(), guest_origin);
+
+  // Geolocation (control case, already overridden to ASK, should return
+  // "prompt")
+  EXPECT_EQ("prompt", QueryPermission(controlled_frame, "geolocation"));
+
+  // Camera, Microphone and Clipboard should also be isolated and return
+  // "prompt". Before the fix, these will leak.
+  EXPECT_EQ("prompt", QueryPermission(controlled_frame, "camera"));
+  EXPECT_EQ("prompt", QueryPermission(controlled_frame, "microphone"));
+  EXPECT_EQ("prompt", QueryPermission(controlled_frame, "clipboard-read"));
+}
+
+class ControlledFramePermissionRequestPEPCTest
+    : public ControlledFramePermissionRequestTest {
+ public:
+  ControlledFramePermissionRequestPEPCTest() {
+    feature_list_.InitWithFeatures(
+        {blink::features::kUserMediaElement,
+         blink::features::kUserMediaElementLegacy,
+         blink::features::kBypassPepcSecurityForTesting},
+        {});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_P(ControlledFramePermissionRequestPEPCTest, Camera) {
+  PermissionRequestTestCase test_case;
+  test_case.test_script = R"(
+    (async function() {
+      const pepc = document.createElement('usermedia');
+      pepc.type = 'camera';
+      pepc.setConstraints({video: {}});
+      document.body.appendChild(pepc);
+
+      const status = await navigator.permissions.query({name: 'camera'});
+
+      if (status.state !== 'prompt') {
+        // If the permission state is already 'granted' or 'denied', the PEPC
+        // <usermedia> element is not active (either in no-op or disabled state)
+        // and clicking it will not trigger a prompt. We bypass the click and
+        // verify the aggregate state using standard getUserMedia instead.
+        try {
+          const stream =
+              await navigator.mediaDevices.getUserMedia({video: true});
+          return (stream.getVideoTracks().length > 0) ? 'SUCCESS' : 'FAIL';
+        } catch (err) {
+          return 'FAIL';
+        }
+      }
+
+      // Wait for two animation frames to ensure the PEPC element is fully laid
+      // out and rendered by the browser before we simulate the click.
+      // Programmatic clicks on unrendered elements are ignored by Blink's
+      // security engine.
+      await new Promise((resolve) => {
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(resolve);
+        });
+      });
+
+      const promise = new Promise((resolve) => {
+        pepc.addEventListener('promptaction', () => {
+          resolve(pepc.matches(':granted') ? 'SUCCESS' : 'FAIL');
+        });
+      });
+
+      pepc.click();
+      return await promise;
+    })();
+  )";
+  test_case.permission_name = "media";
+  test_case.policy_features.insert(
+      {network::mojom::PermissionsPolicyFeature::kCamera});
+  test_case.content_settings_type.insert(
+      {ContentSettingsType::MEDIASTREAM_CAMERA});
+
+  PermissionRequestTestParam test_param = GetParam();
+  VerifyEnabledPermission(test_case, test_param);
+}
+
+IN_PROC_BROWSER_TEST_P(ControlledFramePermissionRequestPEPCTest, Microphone) {
+  PermissionRequestTestCase test_case;
+  test_case.test_script = R"(
+    (async function() {
+      const pepc = document.createElement('usermedia');
+      pepc.type = 'microphone';
+      pepc.setConstraints({audio: {}});
+      document.body.appendChild(pepc);
+
+      const status = await navigator.permissions.query({name: 'microphone'});
+
+      if (status.state !== 'prompt') {
+        // If the permission state is already 'granted' or 'denied', the PEPC
+        // <usermedia> element is not active (either in no-op or disabled state)
+        // and clicking it will not trigger a prompt. We bypass the click and
+        // verify the aggregate state using standard getUserMedia instead.
+        try {
+          const stream =
+              await navigator.mediaDevices.getUserMedia({audio: true});
+          return (stream.getAudioTracks().length > 0) ? 'SUCCESS' : 'FAIL';
+        } catch (err) {
+          return 'FAIL';
+        }
+      }
+
+      // Wait for two animation frames to ensure the PEPC element is fully laid
+      // out and rendered by the browser before we simulate the click.
+      // Programmatic clicks on unrendered elements are ignored by Blink's
+      // security engine.
+      await new Promise((resolve) => {
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(resolve);
+        });
+      });
+
+      const promise = new Promise((resolve) => {
+        pepc.addEventListener('promptaction', () => {
+          resolve(pepc.matches(':granted') ? 'SUCCESS' : 'FAIL');
+        });
+      });
+
+      pepc.click();
+      return await promise;
+    })();
+  )";
+  test_case.permission_name = "media";
+  test_case.policy_features.insert(
+      {network::mojom::PermissionsPolicyFeature::kMicrophone});
+  test_case.content_settings_type.insert(
+      {ContentSettingsType::MEDIASTREAM_MIC});
+
+  PermissionRequestTestParam test_param = GetParam();
+  VerifyEnabledPermission(test_case, test_param);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    ControlledFramePEPC,
+    ControlledFramePermissionRequestPEPCTest,
+    testing::ValuesIn(GetDefaultPermissionRequestTestParams()),
+    [](const testing::TestParamInfo<PermissionRequestTestParam>& info) {
+      return info.param.name;
+    });
+
+class ControlledFrameUnattachedGuestPermissionRequestTest
+    : public ControlledFrameTestBase {
+ public:
+  void SetUpOnMainThread() override {
+    embedded_https_test_server().ServeFilesFromSourceDirectory(
+        GetChromeTestDataDir().AppendASCII("web_apps/simple_isolated_app"));
+    ControlledFrameTestBase::SetUpOnMainThread();
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(ControlledFrameUnattachedGuestPermissionRequestTest,
+                       UnattachedNewWindowGuestDeniesPolicyGatedPermissions) {
+  auto [app_frame, controlled_frame] =
+      InstallAndOpenIwaThenCreateControlledFrame(
+          /*controlled_frame_host_name=*/std::nullopt,
+          "/controlled_frame.html");
+
+  // Trigger window.open and prevent default in newwindow event.
+  // This keeps the guest unattached.
+  auto test_script = content::JsReplace(
+      R"(
+(async function() {
+  return new Promise((resolve) => {
+    const frame = document.getElementsByTagName('controlledframe')[0];
+    frame.addEventListener('newwindow', (e) => {
+      e.preventDefault();
+      resolve('SUCCESS');
+    });
+    frame.executeScript({code: 'window.open($1);'});
+  });
+})();
+      )",
+      embedded_https_test_server().GetURL("/index.html"));
+
+  ASSERT_EQ("SUCCESS", content::EvalJs(app_frame, test_script));
+
+  // Find the unattached guest in C++.
+  content::BrowserContext* browser_context = app_frame->GetBrowserContext();
+  guest_view::GuestViewManager* manager =
+      guest_view::GuestViewManager::FromBrowserContext(browser_context);
+  ASSERT_TRUE(manager);
+
+  content::WebContents* guest_contents = nullptr;
+  content::WebContents* owner_contents =
+      content::WebContents::FromRenderFrameHost(app_frame);
+  manager->ForEachUnattachedGuestContents(
+      owner_contents,
+      [&guest_contents](content::WebContents* unattached_contents) {
+        guest_contents = unattached_contents;
+      });
+  ASSERT_TRUE(guest_contents);
+
+  auto* permission_helper =
+      extensions::WebViewPermissionHelper::FromRenderFrameHost(
+          guest_contents->GetPrimaryMainFrame());
+  ASSERT_TRUE(permission_helper);
+
+  GURL requesting_frame_url("https://attacker.test");
+  url::Origin requesting_origin = url::Origin::Create(requesting_frame_url);
+
+  // Test Geolocation
+  {
+    base::test::TestFuture<bool> future;
+    permission_helper->RequestGeolocationPermission(
+        requesting_frame_url, /*user_gesture=*/true, future.GetCallback());
+    EXPECT_FALSE(future.Get());
+  }
+
+  // Test HID
+  {
+    base::test::TestFuture<bool> future;
+    permission_helper->RequestHidPermission(requesting_frame_url,
+                                            future.GetCallback());
+    EXPECT_FALSE(future.Get());
+  }
+
+  // Test Fullscreen
+  {
+    base::test::TestFuture<bool, const std::string&> future;
+    permission_helper->RequestFullscreenPermission(requesting_origin,
+                                                   future.GetCallback());
+    auto [allowed, user_input] = future.Get();
+    EXPECT_FALSE(allowed);
+  }
+
+  // Test Clipboard Read/Write
+  {
+    base::test::TestFuture<bool> future;
+    permission_helper->RequestClipboardReadWritePermission(
+        requesting_frame_url, /*user_gesture=*/true, future.GetCallback());
+    EXPECT_FALSE(future.Get());
+  }
+
+  // Test Clipboard Sanitized Write
+  {
+    base::test::TestFuture<bool> future;
+    permission_helper->RequestClipboardSanitizedWritePermission(
+        requesting_frame_url, future.GetCallback());
+    EXPECT_FALSE(future.Get());
+  }
+
+  // Test Media (Camera)
+  {
+    base::test::TestFuture<bool> future;
+    permission_helper->RequestMediaPermission(
+        ContentSettingsType::MEDIASTREAM_CAMERA, requesting_frame_url,
+        /*user_gesture=*/true, future.GetCallback());
+    EXPECT_FALSE(future.Get());
+  }
+
+  // Test Media (Microphone)
+  {
+    base::test::TestFuture<bool> future;
+    permission_helper->RequestMediaPermission(
+        ContentSettingsType::MEDIASTREAM_MIC, requesting_frame_url,
+        /*user_gesture=*/true, future.GetCallback());
+    EXPECT_FALSE(future.Get());
+  }
 }
 
 }  // namespace controlled_frame

@@ -82,7 +82,7 @@ aggregate_vector_icons("omnibox_vector_icons") {
     "offline_pin_filled.icon",
     "offline_pin_old.icon",
     "page_chrome_refresh_old.icon",
-    "page_info.icon",
+    "page_info_custom.icon",
     "price_tracking_disabled_old.icon",
     "product_chrome_refresh_old.icon",
     "product_old.icon",
@@ -151,6 +151,9 @@ proto_library("partner_location_descriptor_proto") {
 }
 
 static_library("browser") {
+  _configs = configs
+  configs = []
+  configs = [ "//third_party/tflite:tflite_shim_config" ] + _configs
   sources = [
     "actions/contextual_search_action.cc",
     "actions/contextual_search_action.h",
@@ -285,6 +288,7 @@ static_library("browser") {
     "omnibox_log.h",
     "omnibox_logging_utils.cc",
     "omnibox_logging_utils.h",
+    "omnibox_metrics_constants.h",
     "omnibox_metrics_provider.cc",
     "omnibox_metrics_provider.h",
     "omnibox_navigation_observer.h",
@@ -389,7 +393,6 @@ static_library("browser") {
     "//components/omnibox/resources:omnibox_pedal_synonyms",
     "//components/saved_tab_groups/public",
     "//components/security_state/core",
-    "//services/data_decoder/public/cpp",
     "//third_party/metrics_proto",
     "//third_party/omnibox_proto",
     "//third_party/tflite",
@@ -400,6 +403,7 @@ static_library("browser") {
   ]
 
   deps = [
+    "//build:android_buildflags",
     "//build:branding_buildflags",
     "//components/bookmarks/browser",
     "//components/component_updater",
@@ -655,6 +659,7 @@ if (is_android) {
       "android/java/src/org/chromium/components/omnibox/AutocompleteRequestType.java",
       "android/java/src/org/chromium/components/omnibox/AutocompleteResult.java",
       "android/java/src/org/chromium/components/omnibox/OmniboxFocusReason.java",
+      "android/java/src/org/chromium/components/omnibox/TextSelection.java",
       "android/java/src/org/chromium/components/omnibox/ToolModeUtils.java",
       "android/java/src/org/chromium/components/omnibox/action/OmniboxAction.java",
       "android/java/src/org/chromium/components/omnibox/action/OmniboxActionDelegate.java",
@@ -674,6 +679,7 @@ if (is_android) {
       "//components/embedder_support/android:util_java",
       "//components/omnibox/common:features_java",
       "//components/saved_tab_groups/public:java",
+      "//components/search_engines/android:java",
       "//components/security_state/core:security_state_enums_java",
       "//third_party/android_deps:protobuf_lite_runtime_java",
       "//third_party/androidx:androidx_annotation_annotation_java",
@@ -735,6 +741,7 @@ if (is_android) {
     ]
     deps = [
       "//components/omnibox/browser:browser_java",
+      "//components/search_engines/android:java",
       "//third_party/android_deps:protobuf_lite_runtime_java",
       "//third_party/androidx:androidx_annotation_annotation_java",
       "//third_party/androidx:androidx_collection_collection_java",
@@ -949,6 +956,7 @@ source_set("unit_tests") {
     ":unit_tests_bundle_data",
     "//base",
     "//base/test:test_support",
+    "//build:android_buildflags",
     "//build:blink_buildflags",
     "//components/bookmarks/browser",
     "//components/bookmarks/test",
@@ -1081,10 +1089,6 @@ fuzzer_test("search_suggestion_parser_fuzzer") {
 
 mojom("mojo_bindings") {
   sources = [ "omnibox.mojom" ]
-  if (!is_ios) {
-    sources += [ "searchbox.mojom" ]
-  }
-
   webui_module_path = "chrome://resources/mojo/components/omnibox/browser"
 
   public_deps = [
@@ -1094,4 +1098,23 @@ mojom("mojo_bindings") {
     "//ui/gfx/mojom",
     "//url/mojom:url_mojom_gurl",
   ]
+
+  cpp_typemaps = []
+
+  if (!is_ios) {
+    sources += [ "searchbox.mojom" ]
+    cpp_typemaps += [
+      {
+        types = [
+          {
+            mojom = "searchbox.mojom.SuggestInventory"
+            cpp = "::omnibox::SuggestInventory"
+          },
+        ]
+        traits_headers = [ "searchbox_mojom_traits.h" ]
+        traits_sources = [ "searchbox_mojom_traits.cc" ]
+        traits_deps = [ "//third_party/omnibox_proto" ]
+      },
+    ]
+  }
 }

@@ -54,6 +54,7 @@ class WebRequestProxyingWebSocket
           handshake_client,
       bool has_extra_headers,
       bool has_security_info,
+      mojo::PendingRemote<network::mojom::TrustedHeaderClient> header_client,
       int process_id,
       int render_frame_id,
       content::BrowserContext* browser_context,
@@ -86,7 +87,8 @@ class WebRequestProxyingWebSocket
                       OnAuthRequiredCallback callback) override;
 
   // network::mojom::TrustedHeaderClient methods:
-  void OnBeforeSendHeaders(const net::HttpRequestHeaders& headers,
+  void OnBeforeSendHeaders(const GURL& request_url,
+                           const net::HttpRequestHeaders& headers,
                            OnBeforeSendHeadersCallback callback) override;
   void OnHeadersReceived(const std::string& headers,
                          const net::IPEndPoint& endpoint,
@@ -105,6 +107,7 @@ class WebRequestProxyingWebSocket
           handshake_client,
       bool has_extra_headers,
       bool has_security_info,
+      mojo::PendingRemote<network::mojom::TrustedHeaderClient> header_client,
       int process_id,
       int render_frame_id,
       WebRequestAPI::RequestIDGenerator* request_id_generator,
@@ -148,6 +151,8 @@ class WebRequestProxyingWebSocket
       receiver_as_auth_handler_{this};
   mojo::Receiver<network::mojom::TrustedHeaderClient>
       receiver_as_header_client_{this};
+  mojo::PendingRemote<network::mojom::TrustedHeaderClient> header_client_;
+  mojo::Remote<network::mojom::TrustedHeaderClient> forwarding_header_client_;
 
   net::HttpRequestHeaders request_headers_;
   network::mojom::URLResponseHeadPtr response_;

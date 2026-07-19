@@ -6,13 +6,13 @@ import {TrackedElementManager} from '//resources/js/tracked_element/tracked_elem
 import {ensureTransitionEndEvent} from '//resources/js/util.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
+import {LhsChipIdentifier, PermissionAction, PermissionChipTheme, PermissionPromptStyle} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
+import type {PermissionChipState} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 
 import {BrowserProxyImpl} from './browser_proxy.js';
 import {getCss} from './permission_chip.css.js';
 import {getHtml} from './permission_chip.html.js';
 import {BUTTON_LEFT} from './toolbar_button.js';
-import {LhsChipIdentifier, PermissionAction, PermissionChipTheme, PermissionPromptStyle} from './toolbar_ui_api_data_model.mojom-webui.js';
-import type {PermissionChipState} from './toolbar_ui_api_data_model.mojom-webui.js';
 
 export class PermissionChipElement extends CrLitElement {
   static get is() {
@@ -30,10 +30,12 @@ export class PermissionChipElement extends CrLitElement {
   static override get properties() {
     return {
       chipState: {type: Object},
+      hasDivider: {type: Boolean, attribute: 'has-divider', reflect: true},
     };
   }
 
   accessor chipState: PermissionChipState|null = null;
+  accessor hasDivider: boolean = false;
 
   private isFullyCollapsed_: boolean = true;
   private trackedElementManager_: TrackedElementManager;
@@ -234,29 +236,41 @@ export class PermissionChipElement extends CrLitElement {
     }
 
     let iconName = '';
+    // TODO(crbug.com/502598627): This maps new rounded icon names and old names
+    // to the same pre-canned SVG, which means it doesn't actually support
+    // rounded icons. We will need to add the rounded SVGs and update this
+    // mapping if we want to support them in the future.
     switch (this.chipState.iconName) {
-      case 'kLocationOnChromeRefreshIcon':
+      case 'kLocationOnIcon':
+      case 'kLocationOnChromeRefreshOldIcon':
         iconName = 'location_on_chrome_refresh';
         break;
-      case 'kLocationOffChromeRefreshIcon':
+      case 'kLocationOffIcon':
+      case 'kLocationOffChromeRefreshOldIcon':
         iconName = 'location_off_chrome_refresh';
         break;
-      case 'kVideocamChromeRefreshIcon':
+      case 'kVideocamIcon':
+      case 'kVideocamChromeRefreshOldIcon':
         iconName = 'videocam_chrome_refresh';
         break;
-      case 'kVideocamOffChromeRefreshIcon':
+      case 'kVideocamOffIcon':
+      case 'kVideocamOffChromeRefreshOldIcon':
         iconName = 'videocam_off_chrome_refresh';
         break;
-      case 'kMicChromeRefreshIcon':
+      case 'kMicIcon':
+      case 'kMicChromeRefreshOldIcon':
         iconName = 'mic_chrome_refresh';
         break;
-      case 'kMicOffChromeRefreshIcon':
+      case 'kMicOffIcon':
+      case 'kMicOffChromeRefreshOldIcon':
         iconName = 'mic_off_chrome_refresh';
         break;
-      case 'kNotificationsChromeRefreshIcon':
+      case 'kNotificationsIcon':
+      case 'kNotificationsChromeRefreshOldIcon':
         iconName = 'notifications_chrome_refresh';
         break;
-      case 'kNotificationsOffChromeRefreshIcon':
+      case 'kNotificationsOffIcon':
+      case 'kNotificationsOffChromeRefreshOldIcon':
         iconName = 'notifications_off_chrome_refresh';
         break;
       default:

@@ -61,6 +61,7 @@
 #include "components/safe_browsing/core/common/safebrowsing_referral_methods.h"
 #include "components/search_engines/search_engines_switches.h"
 #include "components/signin/public/base/consent_level.h"
+#include "components/version_info/version_info.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/common/constants.h"
@@ -75,6 +76,8 @@
 #include "ash/constants/webui_url_constants.h"
 #include "ash/webui/settings/public/constants/routes_util.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
+#include "chrome/browser/ui/settings_window_manager_chromeos.h"
+#include "chromeos/ash/experiences/settings_ui/settings_app_manager.h"
 #else
 #include "chrome/browser/ui/signin/signin_view_controller.h"
 #endif
@@ -82,19 +85,11 @@
 #if !BUILDFLAG(IS_ANDROID)
 #include "base/metrics/histogram_functions.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
+#include "chrome/browser/web_applications/web_app_utils.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
-#endif
-
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-#include "chrome/browser/web_applications/web_app_utils.h"
-#endif
-
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS)
 #include "components/webapps/isolated_web_apps/scheme.h"
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
-        // BUILDFLAG(IS_CHROMEOS)
+#endif  //! BUILDFLAG(IS_ANDROID)
 
 using base::UserMetricsAction;
 
@@ -241,6 +236,7 @@ std::string GenerateContentSettingsExceptionsSubPage(ContentSettingsType type) {
           {ContentSettingsType::WEB_PRINTING, "webPrinting"},
           {ContentSettingsType::AUTO_PICTURE_IN_PICTURE,
            "autoPictureInPicture"},
+          {ContentSettingsType::INLINE_CUE_MENU, "inlineCueMenu"},
       });
 
   const std::string_view* override =
@@ -340,9 +336,7 @@ void ShowHistory(BrowserWindowInterface* browser,
   // disclaimer bubble should show up. This also updates the behavior of history
   // keyboard shortcts in Incognito.
   if (browser->GetProfile()->IsOffTheRecord()) {
-    browser->GetBrowserForMigrationOnly()
-        ->window()
-        ->ShowIncognitoHistoryDisclaimerDialog();
+    BrowserWindow::FromBrowser(browser)->ShowIncognitoHistoryDisclaimerDialog();
     return;
   }
 
@@ -373,7 +367,7 @@ void ShowDownloads(BrowserWindowInterface* browser) {
 #if !BUILDFLAG(IS_CHROMEOS)
   // Hide the download bubble if it is showing, to avoid redundancy with the
   // chrome://downloads page we are about to open.
-  auto* browser_window = browser->GetBrowserForMigrationOnly()->window();
+  auto* browser_window = BrowserWindow::FromBrowser(browser);
   if (browser_window && browser_window->GetDownloadBubbleUIController() &&
       browser_window->GetDownloadBubbleUIController()
           ->GetDownloadDisplayController()) {
@@ -419,6 +413,16 @@ void LaunchReleaseNotes(Profile* profile, apps::LaunchSource source) {
 #endif
 }
 
+void ShowChromeEnterpriseReleaseNotes(BrowserWindowInterface* browser) {
+  std::string url = base::StrCat(
+      {"https://chromeenterprise.google/resources/release-notes/",
+       "?utm_source=release-notes-chrome-enterprise",
+       "&utm_medium=release-notes",
+       "&utm_campaign=release-notes-chrome-enterprise",
+       "&utm_term=release-notes-m", version_info::GetMajorVersionNumber()});
+  ShowSingletonTab(browser, GURL(url));
+}
+
 void ShowBetaForum(BrowserWindowInterface* browser) {
   ShowSingletonTab(browser, GURL(kChromeBetaForumURL));
 }
@@ -440,7 +444,7 @@ GURL GetHistoryUrl(std::string_view sub_page) {
 bool IsTrustedPopupWindowWithScheme(const BrowserWindowInterface* browser,
                                     const std::string& scheme) {
   if (browser->GetType() == BrowserWindowInterface::Type::TYPE_NORMAL ||
-      !browser->GetBrowserForMigrationOnly()->is_trusted_source()) {
+      !WindowFeatureController::From(browser)->IsTrustedSource()) {
     return false;
   }
   if (scheme.empty()) {  // Any trusted popup window
@@ -703,19 +707,23 @@ void ShowSharedTabGroupActivity(Profile* profile) {
                    GURL(data_sharing::features::kActivityLogsURL.Get()));
 }
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#if !BUILDFLAG(IS_ANDROID)
 void ShowWebAppSettingsImpl(BrowserWindowInterface* browser,
                             Profile* profile,
                             const std::string& app_id,
                             web_app::AppSettingsPageEntryPoint entry_point) {
   base::UmaHistogramEnumeration(
       web_app::kAppSettingsPageEntryPointsHistogramName, entry_point);
-
+#if BUILDFLAG(IS_CHROMEOS)
+  chrome::SettingsWindowManager::GetInstance()->ShowOSSettings(
+      profile, ash::SettingsAppManager::CreateAppManagementPagePath(app_id));
+#else
   const GURL link_destination(chrome::kChromeUIWebAppSettingsURL + app_id);
   NavigateParams params(profile, link_destination, ui::PAGE_TRANSITION_TYPED);
   params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
   params.browser = browser;
   Navigate(&params);
+#endif  // BUILDFLAG(IS_CHROMEOS)
 }
 
 void ShowWebAppSettings(BrowserWindowInterface* browser,
@@ -729,6 +737,6 @@ void ShowWebAppSettings(Profile* profile,
                         web_app::AppSettingsPageEntryPoint entry_point) {
   ShowWebAppSettingsImpl(/*browser=*/nullptr, profile, app_id, entry_point);
 }
-#endif
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 }  // namespace chrome

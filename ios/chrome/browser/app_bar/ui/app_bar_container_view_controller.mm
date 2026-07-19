@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/app_bar/ui/app_bar_container_view_controller.h"
 
+#import <algorithm>
+
 #import "ios/chrome/browser/app_bar/ui/app_bar_constants.h"
 #import "ios/chrome/browser/app_bar/ui/app_bar_container_view.h"
 #import "ios/chrome/browser/app_bar/ui/app_bar_container_view_delegate.h"
@@ -12,6 +14,7 @@
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_animator.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/layout_state.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/ui/util/layout_constants.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 
 @interface AppBarContainerViewController () <AppBarContainerViewDelegate,
@@ -23,10 +26,6 @@
   AppBarViewController* _appBar;
   // The last fullscreen progress value received.
   CGFloat _fullscreenProgress;
-}
-
-- (void)dealloc {
-  [_layoutState removeObserver:self];
 }
 
 - (void)setLayoutState:(LayoutState*)layoutState {
@@ -43,6 +42,17 @@
 
 - (void)layoutState:(LayoutState*)layoutState
     didChangeAppBarPosition:(AppBarPosition)appBarPosition {
+  [self updateLayout];
+}
+
+- (void)layoutState:(LayoutState*)layoutState
+    didChangeAssistantContainerCutoutRadius:
+        (CGFloat)assistantContainerCutoutRadius {
+  [self updateCutoutRadius:assistantContainerCutoutRadius];
+}
+
+- (void)layoutState:(LayoutState*)layoutState
+    didChangeToolbarPosition:(ToolbarPosition)toolbarPosition {
   [self updateLayout];
 }
 
@@ -93,15 +103,15 @@
   switch (position) {
     case AppBarPosition::kBottom:
       agent->AddObscuredInsetRange(UIRectEdgeBottom, kAppBarHeightFullscreen,
-                                   kAppBarHeight);
+                                   AppBarHeightPortrait());
       break;
     case AppBarPosition::kLeft:
-      agent->AddObscuredInsetRange(UIRectEdgeLeft, kAppBarHeight,
-                                   kAppBarHeight);
+      agent->AddObscuredInsetRange(UIRectEdgeLeft, AppBarHeightLandscape(),
+                                   AppBarHeightLandscape());
       break;
     case AppBarPosition::kRight:
-      agent->AddObscuredInsetRange(UIRectEdgeRight, kAppBarHeight,
-                                   kAppBarHeight);
+      agent->AddObscuredInsetRange(UIRectEdgeRight, AppBarHeightLandscape(),
+                                   AppBarHeightLandscape());
       break;
     case AppBarPosition::kNone:
       break;
@@ -115,7 +125,8 @@
       _fullscreenProgress = agent->bottom_progress();
       CGFloat currentHeight =
           kAppBarHeightFullscreen +
-          (kAppBarHeight - kAppBarHeightFullscreen) * agent->bottom_progress();
+          (AppBarHeightPortrait() - kAppBarHeightFullscreen) *
+              agent->bottom_progress();
       agent->AddObscuredInset(UIRectEdgeBottom, currentHeight);
       [self updateLayout];
       // If this is inside an animation, layout immediately.
@@ -125,10 +136,10 @@
       break;
     }
     case AppBarPosition::kLeft:
-      agent->AddObscuredInset(UIRectEdgeLeft, kAppBarHeight);
+      agent->AddObscuredInset(UIRectEdgeLeft, AppBarHeightLandscape());
       break;
     case AppBarPosition::kRight:
-      agent->AddObscuredInset(UIRectEdgeRight, kAppBarHeight);
+      agent->AddObscuredInset(UIRectEdgeRight, AppBarHeightLandscape());
       break;
     case AppBarPosition::kNone:
       break;
@@ -166,12 +177,21 @@
       break;
   }
 
-  // The App Bar should always be fully visible in landscape orientation.
-  CGFloat fullscreenProgress =
-      position == AppBarPosition::kBottom ? _fullscreenProgress : 1.0;
   self.view.transform = CGAffineTransformMakeRotation(angle);
-  self.view.fullscreenProgress = fullscreenProgress;
+  self.view.fullscreenProgress = _fullscreenProgress;
+  self.view.appBarPosition = position;
   [_appBar updateForAngle:-angle];
+  [self updateCutoutRadius:self.layoutState.assistantContainerCutoutRadius];
+}
+
+- (void)updateCutoutRadius:(CGFloat)cutoutRadius {
+  CGFloat clampedRadius = kAppBarCornerRadius;
+  if (self.layoutState.appBarPosition == AppBarPosition::kBottom &&
+      self.layoutState.toolbarPosition == ToolbarPosition::kTop) {
+    clampedRadius =
+        std::clamp(cutoutRadius, kAppBarCornerRadius, kAppBarCornerRadiusMax);
+  }
+  [_appBar updateCornerRadius:clampedRadius];
 }
 
 @end

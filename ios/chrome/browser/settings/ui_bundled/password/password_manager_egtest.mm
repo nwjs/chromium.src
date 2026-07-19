@@ -1806,8 +1806,7 @@ void OpenPasswordManagerWidgetPromoInstructions() {
         performAction:grey_tap()];
     [[EarlGrey selectElementWithMatcher:NavigationBarBackButton()]
         performAction:grey_tap()];
-    [[EarlGrey selectElementWithMatcher:SettingsDoneButton()]
-        performAction:grey_tap()];
+    [ChromeEarlGrey waitForAndTapButton:SettingsDoneButton()];
   }
 }
 
@@ -2424,8 +2423,7 @@ void OpenPasswordManagerWidgetPromoInstructions() {
 }
 
 // Checks interaction with an info button for a hidden passkey.
-// TODO(crbug.com/442428665): Test is flaky on physical phone devices.
-- (void)MAYBE_testTappingInfoButtonForHiddenPasskey {
+- (void)testTappingInfoButtonForHiddenPasskey {
   SaveHiddenPasskeyToStore();
 
   OpenPasswordManager();

@@ -33,6 +33,11 @@ using SyncPresenterCompletionCallback = ProceduralBlock;
 // Asks the presenter to display the sync encryption passphrase UI.
 - (void)showSyncPassphraseSettings;
 
+// Asks the presenter to display the sync encryption passphrase UI.
+// `completion` is executed after the UI is dismissed.
+- (void)showSyncPassphraseSettingsWithDismissalCompletion:
+    (SyncPresenterCompletionCallback)completion;
+
 // Presents the Google services settings.
 - (void)showGoogleServicesSettings;
 
@@ -59,7 +64,6 @@ using SyncPresenterCompletionCallback = ProceduralBlock;
                                                     completion:
                                                         (SyncPresenterCompletionCallback)
                                                             completion;
-;
 
 // Presents the help center article for the bookmarks limit exceeded error.
 - (void)showBookmarksLimitExceededHelp;

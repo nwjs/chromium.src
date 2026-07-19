@@ -173,6 +173,11 @@ IOSPasswordManagerDriver::GetPasswordAutofillManager() {
   return nullptr;
 }
 
+autofill::PasswordManagerDelegate*
+IOSPasswordManagerDriver::GetPasswordManagerDelegate() {
+  return nullptr;
+}
+
 bool IOSPasswordManagerDriver::IsDirectChildOfPrimaryMainFrame() const {
   NOTREACHED();
 }
@@ -198,7 +203,7 @@ const GURL& IOSPasswordManagerDriver::GetLastCommittedURL() const {
 }
 
 const url::Origin& IOSPasswordManagerDriver::GetLastCommittedOrigin() const {
-  NOTREACHED();
+  return security_origin_;
 }
 
 bool IOSPasswordManagerDriver::HasCrossOriginAncestor() const {

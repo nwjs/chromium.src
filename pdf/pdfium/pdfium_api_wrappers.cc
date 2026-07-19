@@ -16,10 +16,12 @@
 #include "base/containers/span.h"
 #include "base/numerics/checked_math.h"
 #include "base/numerics/safe_conversions.h"
+#include "base/strings/utf_string_conversions.h"
 #include "pdf/pdf_rect.h"
 #include "pdf/pdfium/pdfium_api_string_buffer_adapter.h"
 #include "printing/units.h"
 #include "third_party/pdfium/public/cpp/fpdf_scopers.h"
+#include "third_party/pdfium/public/fpdf_catalog.h"
 #include "third_party/pdfium/public/fpdf_edit.h"
 #include "third_party/pdfium/public/fpdfview.h"
 #include "ui/gfx/geometry/rect.h"
@@ -253,6 +255,25 @@ std::optional<std::u16string> GetPageObjectMarkStringParam(
   return value;
 }
 
+std::optional<std::vector<unsigned char>> GetPageObjectMarkBlobParam(
+    FPDF_PAGEOBJECTMARK mark,
+    const std::string& key) {
+  // FPDFPageObjMark_GetParamBlobValue() naturally handles null `mark` inputs,
+  // so no explicit check.
+  unsigned long buflen = 0;
+  if (!FPDFPageObjMark_GetParamBlobValue(mark, key.c_str(), nullptr, 0,
+                                         &buflen) ||
+      buflen == 0) {
+    return std::nullopt;
+  }
+  std::vector<unsigned char> value(buflen);
+  unsigned long actual_buflen = 0;
+  CHECK(FPDFPageObjMark_GetParamBlobValue(mark, key.c_str(), value.data(),
+                                          buflen, &actual_buflen));
+  CHECK_EQ(actual_buflen, buflen);
+  return value;
+}
+
 std::optional<PdfRect> GetTextCharBox(FPDF_TEXTPAGE text_page, int index) {
   double left;
   double right;
@@ -365,5 +386,11 @@ bool RenderPageToDC(FPDF_PAGE page,
   return true;
 }
 #endif  // BUILDFLAG(IS_WIN)
+
+std::string GetDocumentLanguage(FPDF_DOCUMENT document) {
+  return base::UTF16ToUTF8(CallPDFiumWideStringBufferApi(
+      base::BindRepeating(&FPDFCatalog_GetLanguage, document),
+      /*check_expected_size=*/true));
+}
 
 }  // namespace chrome_pdf

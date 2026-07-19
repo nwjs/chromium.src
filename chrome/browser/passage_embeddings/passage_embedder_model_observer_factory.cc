@@ -4,6 +4,10 @@
 
 #include "chrome/browser/passage_embeddings/passage_embedder_model_observer_factory.h"
 
+#include <algorithm>
+
+#include "base/byte_size.h"
+#include "base/system/sys_info.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/history_embeddings/history_embeddings_utils.h"
 #include "chrome/browser/optimization_guide/model_execution/optimization_guide_global_state.h"
@@ -15,6 +19,7 @@
 #include "components/keyed_service/core/service_access_type.h"
 #include "components/passage_embeddings/core/passage_embedder_model_observer.h"
 #include "components/passage_embeddings/core/passage_embeddings_features.h"
+#include "components/passage_embeddings/core/passage_embeddings_service_controller.h"
 #include "components/permissions/features.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -62,6 +67,15 @@ PassageEmbedderModelObserverFactory::BuildServiceInstanceForBrowserContext(
     return nullptr;
   }
 
+#if BUILDFLAG(IS_ANDROID)
+  // Restrict Android to "higher-end" devices.
+  if (base::SysInfo::AmountOfTotalPhysicalMemory() <
+      base::MiBU(static_cast<uint32_t>(
+          std::max(0, kPassageEmbedderMinRequiredRamMb.Get())))) {
+    return nullptr;
+  }
+#endif  // BUILDFLAG(IS_ANDROID)
+
 #if BUILDFLAG(IS_CHROMEOS)
   if (!base::FeatureList::IsEnabled(
           chromeos::features::kFeatureManagementPassageEmbedder)) {
@@ -79,9 +93,9 @@ PassageEmbedderModelObserverFactory::BuildServiceInstanceForBrowserContext(
 
   return std::make_unique<PassageEmbedderModelObserver>(
       global_state_service
-          ? &global_state_service->GetGlobalState().prediction_manager()
+          ? &global_state_service->GetGlobalState().model_provider()
           : nullptr,
-      ChromePassageEmbeddingsServiceController::Get());
+      passage_embeddings::GetChromePassageEmbeddingsServiceController());
 }
 
 }  // namespace passage_embeddings

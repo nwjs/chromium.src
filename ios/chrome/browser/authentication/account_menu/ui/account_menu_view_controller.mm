@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/authentication/account_menu/ui/account_menu_view_controller.h"
 
+#import <cmath>
+
 #import "base/apple/foundation_util.h"
 #import "base/check.h"
 #import "base/check_op.h"
@@ -32,9 +34,14 @@
 #import "ios/chrome/common/ui/table_view/table_view_cells_constants.h"
 #import "ios/chrome/common/ui/util/image_util.h"
 #import "ios/chrome/grit/ios_strings.h"
+#import "ui/base/device_form_factor.h"
 #import "ui/base/l10n/l10n_util.h"
 
 namespace {
+
+// This height is used only if there is an issue with
+// self.tableView.contentSize.height. See crbug.com/499988947.
+constexpr CGFloat kViewControllerDefaultPreferredHeight = 200;
 
 // The margin between the cell and the sheet.
 constexpr CGFloat kSideMargins = 16.;
@@ -198,6 +205,11 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
   [self.tableView layoutIfNeeded];
 
   CGFloat height = self.tableView.contentSize.height;
+  if (!std::isfinite(height) || height <= 0) {
+    // To avoid crash with crbug.com/499988947, if the height is not valid, the
+    // preferred height is set at 200px.
+    height = kViewControllerDefaultPreferredHeight;
+  }
   CGFloat width = self.tableView.frame.size.width;
   self.preferredContentSize = CGSize(width, height);
 }
@@ -309,8 +321,7 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
 
 // Decides if the Close button should be shown.
 - (BOOL)shouldShowCloseButton {
-  UIUserInterfaceIdiom idiom = [[UIDevice currentDevice] userInterfaceIdiom];
-  return idiom == UIUserInterfaceIdiomPhone ||
+  return ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_PHONE ||
          self.presentingViewController.traitCollection.horizontalSizeClass ==
              UIUserInterfaceSizeClassCompact;
 }

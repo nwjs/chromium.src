@@ -26,6 +26,7 @@
 #include "extensions/browser/api/web_request/web_request_api_helpers.h"
 #include "extensions/browser/extension_event_histogram_value.h"
 #include "extensions/buildflags/buildflags.h"
+#include "extensions/common/api/web_request/web_request_filter_constants.h"
 #include "extensions/common/extension_id.h"
 #include "extensions/common/url_pattern_set.h"
 #include "net/base/completion_once_callback.h"
@@ -50,12 +51,6 @@ enum class WebRequestResourceType : uint8_t;
 class WebRequestRulesRegistry;
 class WebRequestEventDetails;
 struct WebRequestInfo;
-
-inline constexpr int kWebRequestFilterValidSchemes =
-    URLPattern::SCHEME_HTTP | URLPattern::SCHEME_HTTPS |
-    URLPattern::SCHEME_FTP | URLPattern::SCHEME_FILE |
-    URLPattern::SCHEME_EXTENSION | URLPattern::SCHEME_WS |
-    URLPattern::SCHEME_WSS | URLPattern::SCHEME_UUID_IN_PACKAGE;
 
 class WebRequestEventRouter : public KeyedService {
  public:
@@ -358,6 +353,10 @@ class WebRequestEventRouter : public KeyedService {
       content::BrowserContext* browser_context) {
     return HasAnyExtraHeadersListenerImpl(browser_context);
   }
+  bool HasAnySecurityInfoListenerForTesting(
+      content::BrowserContext* browser_context) {
+    return HasAnySecurityInfoListenerImpl(browser_context);
+  }
 
   // Updates active listeners in tests that do not need process-specific
   // matching.
@@ -437,21 +436,6 @@ class WebRequestEventRouter : public KeyedService {
 
     ~EventListener();
 
-    // Deserializes a listener from a persisted dictionary value into its
-    // inactive (lazy) state. Returns nullptr on failure and sets `error`.
-    // TODO(crbug.com/474558883): remove once migration to EventRouter mechanism
-    // is complete.
-    static std::unique_ptr<EventListener> InitFromInactiveListenerValue(
-        const base::DictValue& value,
-        const ExtensionId& extension_id,
-        content::BrowserContext* context,
-        std::string* error);
-
-    // Serializes a listener for persistence.
-    // TODO(crbug.com/474558883): remove once migration to EventRouter mechanism
-    // is complete.
-    base::DictValue ToInactiveListenerValue() const;
-
     bool HasExtraHeaders() const {
       using extension_web_request_api_helpers::ExtraInfoSpec;
       return extra_info_spec & ExtraInfoSpec::EXTRA_HEADERS;
@@ -481,6 +465,11 @@ class WebRequestEventRouter : public KeyedService {
   using Listeners = std::vector<std::unique_ptr<EventListener>>;
   using ListenerMap = std::map<std::string, Listeners>;
   using BlockedRequestMap = std::map<uint64_t, BlockedRequest>;
+
+  enum class ListenerCountUpdate {
+    kIncrement,
+    kAlreadyCounted,
+  };
 
   class SignaledRequestIDTracker {
    public:
@@ -581,12 +570,11 @@ class WebRequestEventRouter : public KeyedService {
       int worker_thread_id,
       int64_t service_worker_version_id);
 
-  // Adds a listener to the inactive (lazy) listeners list for the specified
-  // context and event. Updates global listener counts (like extra headers and
-  // security info) if applicable.
-  void AddLazyListener(content::BrowserContext* browser_context,
-                       const std::string& event_name,
-                       std::unique_ptr<EventListener> listener);
+  // Adds `listener` to `listeners` and updates listener counts if needed.
+  void AddListenerToList(content::BrowserContext* browser_context,
+                         Listeners& listeners,
+                         std::unique_ptr<EventListener> listener,
+                         ListenerCountUpdate count_update);
 
   // Removes a lazy listener registration. This affects both the provided
   // `original_context` and any incognito context associated with it.
@@ -604,11 +592,21 @@ class WebRequestEventRouter : public KeyedService {
       std::optional<content::ChildProcessId> render_process_id,
       std::optional<int> worker_thread_id,
       std::optional<int64_t> service_worker_version_id,
-      BrowserContextID browser_context_id);
+      BrowserContextID browser_context_id,
+      const std::optional<base::DictValue>& filter_value = std::nullopt,
+      std::optional<int> extra_info_spec = std::nullopt);
+
+  // Replaces inactive listeners for the same extension id and sub-event name.
+  // Returns the number of exact registration matches preserved.
+  size_t ReplaceInactiveListeners(Listeners& inactive_listeners,
+                                  const ExtensionId& extension_id,
+                                  const std::string& sub_event_name,
+                                  BrowserContextID browser_context_id,
+                                  EventListener& replacement_listener);
 
   // Cleans up for a listener being removed, unblocking any requests and
   // updating counts as appropriate.
-  void CleanUpForListener(const EventListener& listener,
+  void CleanUpForListener(EventListener& listener,
                           ListenerUpdateType removal_type);
 
   // Ensures that future callbacks for `request` are ignored so that it can be

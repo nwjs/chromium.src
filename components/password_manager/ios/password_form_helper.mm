@@ -8,6 +8,7 @@
 
 #import "base/debug/crash_logging.h"
 #import "base/debug/dump_without_crashing.h"
+#import "base/feature_list.h"
 #import "base/functional/bind.h"
 #import "base/memory/raw_ptr.h"
 #import "base/metrics/histogram_functions.h"
@@ -21,6 +22,7 @@
 #import "components/autofill/core/common/password_form_fill_data.h"
 #import "components/autofill/core/common/unique_ids.h"
 #import "components/autofill/ios/browser/autofill_util.h"
+#import "components/autofill/ios/common/features.h"
 #import "components/autofill/ios/common/field_data_manager_factory_ios.h"
 #import "components/password_manager/ios/account_select_fill_data.h"
 #import "components/password_manager/ios/ios_password_manager_driver.h"
@@ -131,13 +133,28 @@ const char kHostFrameKey[] = "host_frame";
                           inFrame:(web::WebFrame*)frame
                    perfectFilling:(BOOL)perfectFilling {
   DCHECK_EQ(_webState, webState);
+  if (!hasUserGesture &&
+      base::FeatureList::IsEnabled(
+          kAutofillRejectFormSubmissionsWithoutUserGesture)) {
+    base::UmaHistogramEnumeration(
+        "PasswordManager.iOS.FormSubmission.BlockedReason",
+        autofill::SubmissionBlockedReason::kNoUserGesture);
+    return;
+  }
+
   GURL pageURL = webState->GetLastCommittedURL();
   if (!frame->GetSecurityOrigin().IsSameOriginWith(pageURL)) {
     // Passwords is only supported on main frame and iframes with the same
     // origin.
+    base::UmaHistogramEnumeration(
+        "PasswordManager.iOS.FormSubmission.BlockedReason",
+        autofill::SubmissionBlockedReason::kCrossOriginFrame);
     return;
   }
   if (!self.delegate) {
+    base::UmaHistogramEnumeration(
+        "PasswordManager.iOS.FormSubmission.BlockedReason",
+        autofill::SubmissionBlockedReason::kNoDelegate);
     return;
   }
 
@@ -385,13 +402,17 @@ const char kHostFrameKey[] = "host_frame";
     return HandleSubmittedFormStatus::kRejectedNoDelegate;
   }
 
+  if (!message.is_user_interacting()) {
+    return HandleSubmittedFormStatus::kRejectedNoUserInteraction;
+  }
+
   std::optional<GURL> pageURL = _webState->GetLastCommittedURLIfTrusted();
   if (!pageURL) {
     return HandleSubmittedFormStatus::kRejectedNoTrustedUrl;
   }
 
   web::WebFrame* frame = nullptr;
-  base::Value* body = message.body();
+  base::Value* body = message.legacy_body();
 
   if (!body->is_dict()) {
     // Don't handle the message if it isn't of dictionary type. The renderer

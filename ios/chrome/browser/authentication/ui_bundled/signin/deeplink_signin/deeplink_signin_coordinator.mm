@@ -7,57 +7,63 @@
 #import <UIKit/UIKit.h>
 
 #import "base/notreached.h"
+#import "base/strings/sys_string_conversions.h"
 #import "components/signin/public/base/consent_level.h"
+#import "components/signin/public/base/signin_deep_link_metrics.h"
+#import "components/signin/public/base/signin_deep_link_payload.h"
+#import "components/signin/public/identity_manager/identity_manager.h"
 #import "ios/chrome/browser/authentication/ui_bundled/fullscreen_signin/coordinator/fullscreen_signin_coordinator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/fullscreen_signin/coordinator/fullscreen_signin_coordinator_delegate.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_coordinator+protected.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin/signin_screen_provider.h"
 #import "ios/chrome/browser/screen/ui_bundled/screen_provider.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
+#import "ios/chrome/browser/shared/ui/util/identity_snackbar/identity_snackbar_utils.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h"
+#import "ios/chrome/browser/signin/model/identity_manager_factory.h"
+#import "ios/chrome/grit/ios_strings.h"
+#import "ui/base/l10n/l10n_util.h"
 
 @interface DeeplinkSigninCoordinator () <FullscreenSigninCoordinatorDelegate>
 @end
 
 @implementation DeeplinkSigninCoordinator {
   NSString* _selectedAccountEmail;
-  SigninContextStyle _contextStyle;
-  signin_metrics::AccessPoint _accessPoint;
   ChangeProfileContinuationProvider _changeProfileContinuationProvider;
   id<SystemIdentity> _selectedIdentity;
   ChromeCoordinator* _childCoordinator;
-  ScreenProvider* _screenProvider;
   raw_ptr<ChromeAccountManagerService> _accountManagerService;
+  signin::ExternalEntryPoint _externalEntryPoint;
 }
 
-- (instancetype)
-           initWithBaseViewController:(UIViewController*)viewController
-                              browser:(Browser*)browser
-                 selectedAccountEmail:(NSString*)selectedAccountEmail
-                       screenProvider:(ScreenProvider*)screenProvider
-                         contextStyle:(SigninContextStyle)contextStyle
-                          accessPoint:(signin_metrics::AccessPoint)accessPoint
-    changeProfileContinuationProvider:(const ChangeProfileContinuationProvider&)
-                                          changeProfileContinuationProvider {
-  CHECK(selectedAccountEmail && selectedAccountEmail.length != 0);
+- (instancetype)initWithBaseViewController:(UIViewController*)viewController
+                                   browser:(Browser*)browser
+                      selectedAccountEmail:(NSString*)selectedAccountEmail
+         changeProfileContinuationProvider:
+             (const ChangeProfileContinuationProvider&)
+                 changeProfileContinuationProvider
+                        externalEntryPoint:
+                            (signin::ExternalEntryPoint)externalEntryPoint {
+  CHECK(selectedAccountEmail.length);
   DCHECK_EQ(browser->type(), Browser::Type::kRegular);
-  self = [super initWithBaseViewController:viewController
-                                   browser:browser
-                              contextStyle:contextStyle
-                               accessPoint:accessPoint];
+
+  self = [super
+      initWithBaseViewController:viewController
+                         browser:browser
+                    contextStyle:SigninContextStyle::kDeeplinkSignin
+                     accessPoint:signin_metrics::AccessPoint::kDeepLinkDefault];
 
   if (self) {
     CHECK_EQ(browser->type(), Browser::Type::kRegular);
     CHECK(changeProfileContinuationProvider);
     _selectedAccountEmail = selectedAccountEmail;
-    _screenProvider = screenProvider;
-    _contextStyle = contextStyle;
-    _accessPoint = accessPoint;
     _changeProfileContinuationProvider = changeProfileContinuationProvider;
+    _externalEntryPoint = externalEntryPoint;
   }
   return self;
 }
@@ -70,28 +76,72 @@
 
 - (void)start {
   [super start];
+
   _accountManagerService =
       ChromeAccountManagerServiceFactory::GetForProfile(self.profile);
-
   _selectedIdentity = _accountManagerService->GetIdentityOnDeviceWithEmail(
       _selectedAccountEmail);
+
+  AuthenticationService* authService =
+      AuthenticationServiceFactory::GetForProfile(self.profile);
+  id<SystemIdentity> primaryIdentity = authService->GetPrimaryIdentity();
+
+  signin::IdentityManager* identityManager =
+      IdentityManagerFactory::GetForProfile(self.profile);
+  int accountsCount =
+      static_cast<int>(identityManager->GetAccountsWithRefreshTokens().size());
+  signin_metrics::RecordInitialAccountsNumber(_externalEntryPoint,
+                                              accountsCount);
+
   if (!_selectedIdentity) {
     // Provided email doesn't exist on device.
+    signin_metrics::CrossDeviceInitialState initialState =
+        primaryIdentity
+            ? signin_metrics::CrossDeviceInitialState::
+                  kSignedInWithDifferentAccountTargetAccountNotOnDevice
+            : signin_metrics::CrossDeviceInitialState::
+                  kSignedOutTargetAccountNotOnDevice;
+    signin_metrics::RecordInitialState(_externalEntryPoint, initialState);
     [self startAddAccountFlow];
-  } else {
+  } else if (!primaryIdentity ||
+             primaryIdentity.gaiaId != _selectedIdentity.gaiaId) {
+    signin_metrics::CrossDeviceInitialState initialState =
+        !primaryIdentity
+            ? signin_metrics::CrossDeviceInitialState::
+                  kSignedOutTargetAccountOnDevice
+            : signin_metrics::CrossDeviceInitialState::
+                  kSignedInWithDifferentAccountTargetAccountOnDevice;
+    signin_metrics::RecordInitialState(_externalEntryPoint, initialState);
     [self startSigninFlow];
+  } else {
+    signin_metrics::RecordInitialState(
+        _externalEntryPoint,
+        signin_metrics::CrossDeviceInitialState::kSignedInWithTargetAccount);
+    [self showAlreadySignedInSnackbarAndFinish];
   }
 }
 
-- (void)stop {
+- (void)stopAnimated:(BOOL)animated {
   [self stopChildCoordinator];
-  _screenProvider = nil;
   _changeProfileContinuationProvider.Reset();
   _accountManagerService = nullptr;
-  [super stop];
+  [super stopAnimated:animated];
 }
 
 #pragma mark - Private
+
+- (void)showAlreadySignedInSnackbarAndFinish {
+  NSString* name = _selectedIdentity.userGivenName.length > 0
+                       ? _selectedIdentity.userGivenName
+                       : _selectedIdentity.userEmail;
+  TriggerSigninConfirmationSnackbarWithCustomTitle(
+      _selectedIdentity, self.browser,
+      l10n_util::GetNSStringF(
+          IDS_IOS_DEEPLINK_SIGNIN_ALREADY_SIGNED_IN_DESCRIPTION,
+          base::SysNSStringToUTF16(name)));
+  [self runCompletionWithSigninResult:SigninCoordinatorResultSuccess
+                   completionIdentity:_selectedIdentity];
+}
 
 - (void)startAddAccountFlow {
   CHECK(!_childCoordinator);
@@ -99,8 +149,8 @@
   SigninCoordinator* addAccountCoordinator = [SigninCoordinator
       addAccountCoordinatorWithBaseViewController:self.baseViewController
                                           browser:self.browser
-                                     contextStyle:_contextStyle
-                                      accessPoint:_accessPoint
+                                     contextStyle:self.contextStyle
+                                      accessPoint:self.accessPoint
                                    prefilledEmail:_selectedAccountEmail
                              continuationProvider:
                                  _changeProfileContinuationProvider];
@@ -124,12 +174,13 @@
       [[FullscreenSigninCoordinator alloc]
                  initWithBaseViewController:self.baseViewController
                                     browser:self.browser
-                             screenProvider:_screenProvider
-                               contextStyle:_contextStyle
-                                accessPoint:_accessPoint
+                             screenProvider:[[SigninScreenProvider alloc] init]
+                               contextStyle:self.contextStyle
+                                accessPoint:self.accessPoint
           changeProfileContinuationProvider:_changeProfileContinuationProvider];
   coordinator.delegate = self;
   coordinator.identity = _selectedIdentity;
+  coordinator.canSwitchAccount = YES;
   _childCoordinator = coordinator;
   [_childCoordinator start];
 }
@@ -171,10 +222,9 @@
 #pragma mark - NSObject
 
 - (NSString*)description {
-  return [NSString
-      stringWithFormat:@"<%@: %p, screenProvider: %p, childCoordinator: %p>",
-                       self.class.description, self, _screenProvider,
-                       _childCoordinator];
+  return [NSString stringWithFormat:@"<%@: %p, childCoordinator: %p>",
+                                    self.class.description, self,
+                                    _childCoordinator];
 }
 
 @end

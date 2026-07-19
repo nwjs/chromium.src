@@ -48,11 +48,7 @@ if (enable_printing) {
     }
 
     if (is_chromeos) {
-      public += [ "local_printer_utils_chromeos.h" ]
-      public_deps += [
-        "//chromeos/crosapi/mojom",
-        "//chromeos/printing",
-      ]
+      public_deps += [ "//chromeos/crosapi/mojom" ]
     }
 
     if (enable_oop_printing) {
@@ -172,10 +168,6 @@ if (enable_printing) {
       sources += [ "printer_manager_dialog_mac.cc" ]
     }
 
-    if (is_chromeos) {
-      sources += [ "local_printer_utils_chromeos.cc" ]
-    }
-
     if (is_linux) {
       sources += [ "printer_manager_dialog_linux.cc" ]
     }
@@ -221,6 +213,7 @@ if (enable_printing) {
         "//chrome/browser/pdf:pdf_pref_names",
         "//chrome/browser/task_manager",
         "//chrome/browser/ui/webui",
+        "//chrome/browser/ui/webui/print_preview",
         "//components/cloud_devices/common",
         "//components/guest_view/browser",
         "//components/pref_registry",
@@ -261,5 +254,142 @@ if (enable_printing) {
     } else {
       sources += [ "print_view_manager_basic.cc" ]
     }
+  }
+
+  source_set("unit_tests") {
+    testonly = true
+
+    sources = [ "print_job_unittest.cc" ]
+
+    deps = [
+      ":printing",
+      "//base",
+      "//content/public/browser",
+      "//content/test:test_support",
+      "//printing",
+      "//printing:test_support",
+      "//printing/backend",
+      "//printing/mojom",
+      "//testing/gtest",
+    ]
+
+    if (enable_print_preview) {
+      sources += [
+        "print_preview_sticky_settings_unittest.cc",
+        "print_view_manager_unittest.cc",
+      ]
+      deps += [
+        ":test_support",
+        "//chrome/browser/ui",
+        "//chrome/browser/ui/webui/print_preview:unit_tests",
+        "//chrome/test:test_support",
+        "//components/printing/common",
+      ]
+    } else {
+      sources += [ "print_view_manager_basic_unittest.cc" ]
+      deps += [ "//chrome/test:test_support" ]
+    }
+
+    if (enable_oop_printing) {
+      sources += [ "print_backend_service_manager_unittest.cc" ]
+      deps += [ "//chrome/services/printing/public/mojom" ]
+    }
+  }
+
+  if (!is_android) {
+    source_set("browser_tests") {
+      testonly = true
+
+      defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+
+      sources = []
+
+      deps = [
+        ":printing",
+        "//base",
+        "//chrome/common:constants",
+        "//chrome/test:test_support",
+        "//chrome/test:test_support_ui",
+        "//content/public/browser",
+        "//content/test:test_support",
+        "//printing",
+        "//testing/gtest",
+      ]
+
+      if (is_win) {
+        sources += [ "pdf_to_emf_converter_browsertest.cc" ]
+      }
+
+      if (is_chromeos && use_cups) {
+        sources += [ "web_api/web_printing_browsertest.cc" ]
+        deps += [
+          "//chrome/browser/chromeos/printing",
+          "//chrome/browser/content_settings:content_settings_factory",
+          "//chrome/browser/web_applications",
+          "//chrome/browser/web_applications:web_applications_test_support",
+          "//components/content_settings/core/browser",
+          "//printing/backend",
+        ]
+      }
+
+      if (enable_oop_printing) {
+        sources += [ "print_backend_browsertest.cc" ]
+        deps += [
+          "//chrome/browser",
+          "//chrome/services/printing:lib",
+          "//chrome/services/printing/public/mojom",
+          "//components/printing/browser",
+          "//components/printing/common:mojo_interfaces",
+          "//mojo/public/cpp/bindings",
+          "//printing:test_support",
+          "//printing/backend",
+          "//printing/backend:test_support",
+        ]
+      }
+
+      if (enable_print_preview) {
+        sources += [ "pwg_raster_converter_browsertest.cc" ]
+      }
+
+      if (enable_pdf) {
+        sources += [ "pdf_nup_converter_client_browsertest.cc" ]
+        deps += [
+          "//chrome/browser/ui",
+          "//pdf",
+        ]
+      }
+    }
+  }
+}
+
+if (enable_print_preview) {
+  source_set("test_support") {
+    testonly = true
+
+    sources = [
+      "print_preview_test.cc",
+      "print_preview_test.h",
+      "test_print_preview_observer.cc",
+      "test_print_preview_observer.h",
+    ]
+
+    public_deps = [
+      "//chrome/browser/ui/webui/print_preview",
+      "//chrome/test:test_support",
+    ]
+
+    deps = [
+      ":printing",
+      "//base",
+      "//chrome/browser",
+      "//chrome/browser:test_support",
+      "//chrome/browser/ui",
+      "//chrome/services/printing/public/mojom",
+      "//content/public/browser",
+      "//content/test:test_support",
+      "//mojo/public/cpp/bindings",
+      "//printing/backend:test_support",
+      "//printing/buildflags",
+    ]
   }
 }

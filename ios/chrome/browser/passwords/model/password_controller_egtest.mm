@@ -41,7 +41,7 @@
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey_ui.h"
 #import "ios/chrome/test/earl_grey/chrome_matchers.h"
-#import "ios/chrome/test/earl_grey/web_http_server_chrome_test_case.h"
+#import "ios/chrome/test/earl_grey/chrome_test_case.h"
 #import "ios/testing/earl_grey/earl_grey_test.h"
 #import "ios/testing/earl_grey/matchers.h"
 #import "net/base/apple/url_conversions.h"
@@ -180,7 +180,7 @@ void LoginOnUff() {
 
 }  // namespace
 
-@interface PasswordControllerEGTest : WebHttpServerChromeTestCase
+@interface PasswordControllerEGTest : ChromeTestCase
 @end
 
 @implementation PasswordControllerEGTest {
@@ -267,7 +267,10 @@ void LoginOnUff() {
   }
 
   if ([self isRunningTest:@selector(testSavePromptAppearsOnFormSubmission)] ||
-      [self isRunningTest:@selector(testUpdatePromptAppearsOnFormSubmission)]) {
+      [self isRunningTest:@selector(testUpdatePromptAppearsOnFormSubmission)] ||
+      [self isRunningTest:@selector(
+                              testSyntheticTouchendOnBtnElementIsIgnored)] ||
+      [self isRunningTest:@selector(testProgrammaticSubmissionFails)]) {
     // These tests need a badge.
     config.features_disabled.push_back(kAutofillBadgeRemoval);
   }
@@ -365,6 +368,52 @@ void LoginOnUff() {
 
   int credentialsCount = [PasswordManagerAppInterface storedCredentialsCount];
   GREYAssertEqual(1, credentialsCount, @"Wrong number of stored credentials.");
+}
+
+// Tests that a synthetic touchend event on a <button> embedded in a password
+// form is ignored and does not act as a submission indicator.
+- (void)testSyntheticTouchendOnBtnElementIsIgnored {
+  [self loadLoginPage];
+
+  // Simulate user interacting with fields to trigger a capture of credentials.
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
+      performAction:chrome_test_util::TapWebElementWithId(kFormUsername)];
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
+      performAction:chrome_test_util::TapWebElementWithId(kFormPassword)];
+
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
+      performAction:chrome_test_util::TapWebElementWithId("submit_button")];
+
+  // Wait until the save password prompt becomes visible.
+  [ChromeEarlGrey
+      waitForUIElementToAppearWithMatcher:
+          PasswordInfobarLabels(IDS_IOS_PASSWORD_MANAGER_SAVE_PASSWORD_PROMPT)];
+}
+
+// Tests that programmatic submission without a trusted user interaction state
+// fails and does not offer to save passwords.
+- (void)testProgrammaticSubmissionFails {
+  [self loadLoginPage];
+
+  NSString* script =
+      @"document.getElementById('un').value = 'user1';"
+      @"document.getElementById('pw').value = 'password1';"
+      @"var e = new UIEvent('touchend');"
+      @"document.getElementById('submit_button').dispatchEvent(e);";
+  [ChromeEarlGrey evaluateJavaScriptForSideEffect:script];
+
+  // Allow some time for any potential infobar to appear.
+  base::test::ios::SpinRunLoopWithMinDelay(base::Seconds(1));
+
+  // Verify that the save password infobar does not appear.
+  [[EarlGrey
+      selectElementWithMatcher:
+          PasswordInfobarLabels(IDS_IOS_PASSWORD_MANAGER_SAVE_PASSWORD_PROMPT)]
+      assertWithMatcher:grey_notVisible()];
+
+  // Verify no credentials were stored.
+  int credentialsCount = [PasswordManagerAppInterface storedCredentialsCount];
+  GREYAssertEqual(0, credentialsCount, @"Credentials should not be stored.");
 }
 
 // Tests that update password prompt is shown on submitting the new password

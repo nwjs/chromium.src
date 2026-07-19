@@ -13,7 +13,7 @@
 #include "base/logging.h"
 #include "base/strings/stringprintf.h"
 #include "chrome/browser/ash/login/startup_utils.h"
-#include "chrome/browser/metrics/cros_pre_consent_metrics_manager.h"
+#include "chrome/browser/metrics/cros_pre_choice_metrics_manager.h"
 #include "chrome/browser/ui/webui/ash/login/guest_tos_screen_handler.h"
 #include "components/application_locale_storage/application_locale_storage.h"
 #include "components/prefs/pref_service.h"
@@ -102,14 +102,14 @@ void GuestTosScreen::OnUserAction(const base::ListValue& args) {
 }
 
 void GuestTosScreen::OnAccept(bool enable_usage_stats) {
-  // Disable pre-consent metrics for guest as guest has expressed consent. This
-  // is critical as crash_reportor is depending on the disable operation of
-  // CrOSPreConsentMetricsManager to end pre-consent stage.
-  if (metrics::CrOSPreConsentMetricsManager::Get()) {
-    metrics::CrOSPreConsentMetricsManager::Get()->Disable();
+  // Disable pre-choice metrics for guest as guest has expressed choice. This
+  // is critical as crash_reporter is depending on the disable operation of
+  // CrOSPreChoiceMetricsManager to end pre-choice stage.
+  if (metrics::CrOSPreChoiceMetricsManager::Get()) {
+    metrics::CrOSPreChoiceMetricsManager::Get()->Disable();
   }
 
-  // Store guest consent to local state so that correct metrics consent can be
+  // Store guest choice to local state so that correct metrics choice can be
   // loaded after browser restart.
   local_state_->SetBoolean(prefs::kOobeGuestMetricsEnabled, enable_usage_stats);
   local_state_->CommitPendingWrite(

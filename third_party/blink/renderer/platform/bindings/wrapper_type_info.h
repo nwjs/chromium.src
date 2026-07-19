@@ -106,6 +106,12 @@ static_assert(static_cast<uint16_t>(kLastScriptWrappableTag) <
               "disjoint. If they overlap, then the gin:Wrappable range should "
               "be moved backwards");
 
+static_assert(
+    static_cast<uint16_t>(gin::kLastPointerTag) <
+        static_cast<uint16_t>(v8::CppHeapPointerTag::kFirstV8InternalTag),
+    "The tag range of gin::Wrappable and v8-internal tags should be "
+    "disjoint.");
+
 static_assert(static_cast<std::underlying_type_t<v8::CppHeapPointerTag>>(
                   CppHeapExternalTag::kLastTag) < kScriptWrappableStartTag);
 
@@ -113,9 +119,9 @@ constexpr v8::CppHeapPointerTagRange kScriptWrappableTagRange(
     static_cast<v8::CppHeapPointerTag>(kScriptWrappableStartTag),
     kLastScriptWrappableTag);
 
-constexpr v8::CppHeapPointerTagRange kScriptWrappableOrGinWrappableTagRange(
-    static_cast<v8::CppHeapPointerTag>(kScriptWrappableStartTag),
-    static_cast<v8::CppHeapPointerTag>(gin::kLastPointerTag));
+static_assert(
+    v8::kObjectWrappableTagRange.Contains(kScriptWrappableTagRange),
+    "ScriptWrappable tag range must be within kObjectWrappableTagRange");
 
 // This struct provides a way to store a bunch of information that is helpful
 // when unwrapping v8 objects. Each v8 bindings class has exactly one static
@@ -231,7 +237,7 @@ inline ScriptWrappable* ToAnyScriptWrappable(
 inline v8::Object::Wrappable* ToAnyWrappable(v8::Isolate* isolate,
                                              v8::Local<v8::Object> wrapper) {
   return v8::Object::Unwrap<v8::Object::Wrappable>(
-      isolate, wrapper, kScriptWrappableOrGinWrappableTagRange);
+      isolate, wrapper, v8::kObjectWrappableTagRange);
 }
 
 inline ScriptWrappable* ToAnyScriptWrappable(v8::Isolate* isolate,

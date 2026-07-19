@@ -3,6 +3,12 @@
 // found in the LICENSE file.
 
 private enum MojoStrings {
+    /// Profiles declare this method, a wrapper method around `getRemote` that follows
+    /// the Singleton pattern, in `codePrefix`. This method ensures: (1) `getRemote`
+    /// is only called once, and (2) the remote is saved to a global variable so it
+    /// can be closed at the end of the program.
+    static let getOrCreatePrimaryRemote = "getOrCreatePrimaryRemote"
+
     static let credentialManager = "blink.mojom.CredentialManager"
     static let credentialManagerRemote = "blink.mojom.CredentialManagerRemote"
     static let credentialManagerRemoteWrapper = "CredentialManagerRemoteWrapper"
@@ -16,8 +22,7 @@ extension ILType {
     // CredentialManager
     fileprivate static let jsCredentialManager: ILType = .object(
         ofGroup: MojoStrings.credentialManager,
-        withProperties: ["$interfaceName"],
-        withMethods: ["getRemote"])
+        withProperties: ["$interfaceName"])
     fileprivate static let jsCredentialManagerRemote: ILType = .object(
         ofGroup: MojoStrings.credentialManagerRemote, withProperties: ["$"],
         withMethods: ["preventSilentAccess", "store", "get"])
@@ -39,88 +44,72 @@ extension ILType {
         withProperties: ["type", "id", "name", "icon", "password", "federation"])
 }
 
-private let credentialManager = ObjectGroup(
-    name: MojoStrings.credentialManager,
-    instanceType: .jsCredentialManager,
-    properties: [
-        "$interfaceName": .string
-    ],
-    methods: [
-        "getRemote": [] => .jsCredentialManagerRemote
-    ]
-)
+extension ObjectGroup {
+    fileprivate static let credentialManager = ObjectGroup(
+        name: MojoStrings.credentialManager,
+        instanceType: .jsCredentialManager,
+        properties: [
+            "$interfaceName": .string
+        ],
+        methods: [:]
+    )
 
-private let credentialManagerRemote = ObjectGroup(
-    name: MojoStrings.credentialManagerRemote,
-    instanceType: .jsCredentialManagerRemote,
-    properties: [
-        "$": .jsCredentialManagerRemoteWrapper
-    ],
-    methods: [
-        "preventSilentAccess": [] => .jsPromise,
-        "store": [.plain(.jsCredentialInfo)] => .jsPromise,
-        "get": [
-            .plain(.jsCredentialMediationRequirement), .boolean, .plain(.jsUrlArray),
-        ] => .jsPromise,
-    ]
-)
+    fileprivate static let credentialManagerRemote = ObjectGroup(
+        name: MojoStrings.credentialManagerRemote,
+        instanceType: .jsCredentialManagerRemote,
+        properties: [
+            "$": .jsCredentialManagerRemoteWrapper
+        ],
+        methods: [
+            "preventSilentAccess": [] => .jsPromise,
+            "store": [.plain(.jsCredentialInfo)] => .jsPromise,
+            "get": [
+                .plain(.jsCredentialMediationRequirement), .boolean, .plain(.jsUrlArray),
+            ] => .jsPromise,
+        ]
+    )
 
-private let credentialManagerRemoteWrapper = ObjectGroup(
-    name: MojoStrings.credentialManagerRemoteWrapper,
-    instanceType: .jsCredentialManagerRemoteWrapper,
-    properties: [:],
-    methods: [
-        "close": [] => .undefined,
-        "isBound": [] => .boolean,
-    ]
-)
+    fileprivate static let credentialManagerRemoteWrapper = ObjectGroup(
+        name: MojoStrings.credentialManagerRemoteWrapper,
+        instanceType: .jsCredentialManagerRemoteWrapper,
+        properties: [:],
+        methods: [
+            "close": [] => .undefined,
+            "isBound": [] => .boolean,
+        ]
+    )
 
-private let credentialInfo = ObjectGroup(
-    name: MojoStrings.credentialInfo,
-    instanceType: .jsCredentialInfo,
-    properties: [
-        "type": .jsCredentialType,
-        "id": .jsString16,
-        "name": .jsString16,
-        "icon": .jsUrl,
-        "password": .jsString16,
-        "federation": .jsSchemeHostPort,
-    ],
-    methods: [:]
-)
+    fileprivate static let credentialInfo = ObjectGroup(
+        name: MojoStrings.credentialInfo,
+        instanceType: .jsCredentialInfo,
+        properties: [
+            "type": .jsCredentialType,
+            "id": .jsString16,
+            "name": .jsString16,
+            "icon": .jsUrl,
+            "password": .jsString16,
+            "federation": .jsSchemeHostPort,
+        ],
+        methods: [:]
+    )
+}
 
 private let mojoBuiltins: [String: ILType] = [
+    MojoStrings.getOrCreatePrimaryRemote: .function([] => .jsCredentialManagerRemote),
+
     MojoStrings.credentialManager: .jsCredentialManager,
-    CommonMojoStrings.string16: .jsString16Constructor,
-    CommonMojoStrings.url: .jsUrlConstructor,
-    CommonMojoStrings.schemeHostPort: .jsSchemeHostPortConstructor,
     MojoStrings.credentialInfo: .constructor(
         [
             .plain(.jsCredentialType),
-            .plain(.jsString16),
-            .plain(.jsString16),
+            .either(.jsString16, .undefined),
+            .either(.jsString16, .undefined),
             .plain(.jsUrl),
-            .plain(.jsString16),
+            .either(.jsString16, .undefined),
             .plain(.jsSchemeHostPort),
         ]
             => .jsCredentialInfo
     ),
 ]
-
-// Program Template to force Mojo usage
-private let MojoCredentialManagerFuzzer = ProgramTemplate(
-    "MojoCredentialManagerFuzzer"
-) { b in
-    b.buildPrefix()
-
-    // Get the CredentialManager remote
-    let managerStatic = b.createNamedVariable(
-        forBuiltin: MojoStrings.credentialManager)
-    b.callMethod("getRemote", on: managerStatic, withArgs: [])
-
-    // Generate random code to use the objects further
-    b.build(n: 50)
-}
 
 private func isTargetObject(type: ILType) -> Bool {
     guard type.Is(.object()), let group = type.group else { return false }
@@ -143,9 +132,8 @@ private let MojoMethodCallGenerator = CodeGenerator("MojoMethodCallGenerator") {
 
     // If we can't find a Mojo object in scope, create the credential manager remote
     guard let obj = targetVar else {
-        let managerStatic = b.createNamedVariable(
-            forBuiltin: MojoStrings.credentialManager)
-        b.callMethod("getRemote", on: managerStatic, withArgs: [])
+        let getRemoteFunc = b.createNamedVariable(forBuiltin: MojoStrings.getOrCreatePrimaryRemote)
+        b.callFunction(getRemoteFunc, withArgs: [])
         return
     }
 
@@ -180,7 +168,7 @@ private let MojoUrlArrayGenerator = CodeGenerator(
     "MojoUrlArrayGenerator", inputs: .required(.jsUrl), produces: [.jsUrlArray]
 ) {
     b, url in
-    b.createArray(with: [url], elementGroupName: ObjectGroup.urlGroup.name)
+    b.createArray(with: [url], elementGroupName: ObjectGroup.url.name)
 }
 
 private let keepGenerators = [
@@ -201,8 +189,16 @@ let mojoCredentialManagerProfile = Profile(
     ],
     maxExecsBeforeRespawn: 1000,
     timeout: Timeout.interval(11000, 11000),
-    codePrefix: "",
-    codeSuffix: "",
+    codePrefix: """
+        let globalRemote = null;
+        function getOrCreatePrimaryRemote() {
+            if (!globalRemote) {
+                globalRemote = blink.mojom.CredentialManager.getRemote();
+            }
+            return globalRemote;
+        }
+        """,
+    codeSuffix: "if (globalRemote) {globalRemote.$.close()}",
     ecmaVersion: v8Profile.ecmaVersion,
     startupTests: [
         ("fuzzilli('FUZZILLI_PRINT', 'test')", .shouldSucceed),
@@ -212,33 +208,23 @@ let mojoCredentialManagerProfile = Profile(
         ),
     ] + v8Profile.startupTests,
     additionalCodeGenerators: [
-        (MojoMethodCallGenerator, 70),
-        (MojoPropertyRetrievalGenerator, 50),
-        (MojoString16Generator, 5),
-        (MojoUrlGenerator, 5),
-        (MojoUrlArrayGenerator, 5),
-        (MojoSchemeHostPortGenerator, 5),
-    ],
-    additionalProgramTemplates: WeightedList([
-        // Heavily bias Fuzzilli to use the ProgramTemplate that establishes a Mojo connection.
-        (MojoCredentialManagerFuzzer, 1000)
-    ]),
+        (MojoMethodCallGenerator, 10000),
+        (MojoPropertyRetrievalGenerator, 10000),
+        (MojoUrlArrayGenerator, 1),
+    ] + commonMojoCodeGenerators,
+    additionalProgramTemplates: WeightedList([]),
     disabledCodeGenerators: mojoDisabledGenerators,
     disabledMutators: v8Profile.disabledMutators,
-    additionalBuiltins: mojoBuiltins,
+    additionalBuiltins: mojoBuiltins.merging(commonMojoBuiltins) { (existing, _) in existing },
     additionalObjectGroups: [
-        credentialManager,
-        credentialManagerRemote,
-        credentialManagerRemoteWrapper,
-        ObjectGroup.int16Element,
-        ObjectGroup.string16,
-        ObjectGroup.urlGroup,
-        ObjectGroup.schemeHostPort,
-        credentialInfo,
-    ],
+        .credentialManager,
+        .credentialManagerRemote,
+        .credentialManagerRemoteWrapper,
+        .credentialInfo,
+    ] + commonMojoObjectGroups,
     additionalEnumerations: [
         .jsCredentialType, .jsCredentialMediationRequirement,
-    ],
-    additionalOptionsBags: [],
+    ] + commonMojoEnumerations,
+    additionalOptionsBags: [] + commonMojoOptionsBags,
     optionalPostProcessor: nil
 )

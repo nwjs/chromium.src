@@ -5,6 +5,7 @@
 module toolbar_ui_api.mojom;
 
 import "components/browser_apis/ui_controllers/toolbar/toolbar_ui_api_data_model.mojom";
+import "components/browser_apis/ui_controllers/toolbar/icon_handle.mojom";
 import "components/content_settings/core/common/content_settings_types.mojom";
 import "ui/base/dragdrop/mojom/drag_drop_types.mojom";
 import "ui/base/mojom/menu_source_type.mojom";
@@ -21,6 +22,10 @@ interface ToolbarUIObserver {
   OnNavigationControlsStateChanged(
     array<IconUpdate> icons,
     NavigationControlsState state);
+
+  // Called to focus an element in the WebUI, with `target` specifying
+  // which one.
+  OnFocusRequested(FocusRequestTarget target);
 };
 
 struct InitialState {
@@ -56,6 +61,16 @@ interface ToolbarUIService {
 
   // Displays the bubble, anchored to the URL bar, that corresponds to `type`.
   ShowContentSettingsBubble(ContentSettingImageType type)
+      => result<mojo_base.mojom.Empty, mojo_base.mojom.Error>;
+
+  // Called after an interaction with the icon, with `trigger` specifying
+  // the input modality.
+  OnPageActionClick(PageActionId action_id, PageActionTrigger trigger)
+      => result<mojo_base.mojom.Empty, mojo_base.mojom.Error>;
+
+  // Called after the chip show / hide transition completes (called after the
+  // animation, if there was one).
+  OnPageActionChipShowingChanged(PageActionId action_id)
       => result<mojo_base.mojom.Empty, mojo_base.mojom.Error>;
 
   // Invoke the pinned toolbar action for `action_id`. It's expected that the
@@ -104,4 +119,16 @@ interface ToolbarUIService {
 
   // Shows the avatar menu bubble.
   ShowAvatarMenu() => result<mojo_base.mojom.Empty, mojo_base.mojom.Error>;
+
+  // Notifies the browser of the hover state of the avatar button.
+  SetAvatarButtonHovered(bool hovered) =>
+    result<mojo_base.mojom.Empty, mojo_base.mojom.Error>;
+
+  // Notifies the browser of the focus state of the avatar button.
+  SetAvatarButtonFocused(bool focused) =>
+    result<mojo_base.mojom.Empty, mojo_base.mojom.Error>;
+
+  // Notifies the browser that the avatar button's IPH promo state has changed.
+  SetAvatarButtonIphPromoShowing(bool showing) =>
+    result<mojo_base.mojom.Empty, mojo_base.mojom.Error>;
 };

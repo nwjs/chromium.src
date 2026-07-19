@@ -1302,13 +1302,14 @@ LoadState SpdySession::GetLoadState() const {
 
 int SpdySession::GetRemoteEndpoint(IPEndPoint* endpoint) {
   int rv = GetPeerAddress(endpoint);
+  base::UmaHistogramSparse("Net.SpdySession.GetRemoteEndpointResult", -rv);
   if (rv == ERR_SOCKET_NOT_CONNECTED &&
       base::FeatureList::IsEnabled(
           features::kDrainSpdySessionSynchronouslyOnRemoteEndpointDisconnect)) {
     // If the underlying socket is disconnected, proactively drain the session.
     // This ensures the session is immediately removed from the SpdySessionPool
     // before a caller (like HttpNetworkTransaction) can attempt to reuse it.
-    DoDrainSession(ERR_CONNECTION_CLOSED, "Remote endpoint disconnected");
+    DoDrainSessionAsync(ERR_CONNECTION_CLOSED, "Remote endpoint disconnected");
   }
   return rv;
 }

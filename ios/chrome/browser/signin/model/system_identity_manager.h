@@ -137,7 +137,7 @@ class SystemIdentityManager {
   // completes.
   using FetchCapabilitiesCompletion = base::OnceClosure;
 
-  // Callback invoked when `HandleMDMNotification` completes. Is is invoked
+  // Callback invoked when `HandleMDMNotification` completes. It is invoked
   // with a boolean indicating whether the device is blocked or not.
   using HandleMDMCallback = base::OnceCallback<void(bool)>;
 
@@ -209,7 +209,7 @@ class SystemIdentityManager {
   // Creates a new SystemIdentityInteractionManager instance.
   virtual id<SystemIdentityInteractionManager> CreateInteractionManager() = 0;
 
-  // Iterates over all known identities, sortted by the ordering used in
+  // Iterates over all known identities, sorted by the ordering used in
   // account manager, which is typically based on the keychain ordering
   // of the accounts.
   virtual void IterateOverIdentities(IdentityIteratorCallback callback) = 0;
@@ -288,14 +288,17 @@ class SystemIdentityManager {
                                  FetchCapabilitiesCallback callback) = 0;
 
   // Asynchronously returns the capabilities for `identity`.
-  // `completion` is called once all capabilities in `names` are fetched or have
-  // failed. `partial_callback` is called multiple times as a subset of
-  // capabilities in `names` are fetched.
+  // * `partial_callback` is called multiple times as a subset of capabilities
+  // in `names` are fetched.
+  // * `completion` is called once after all capabilities in `names` are fetched
+  // or the fetch has failed. No more calls to `partial_callback` are expected
+  // after `completion` is called.
+  // TODO(crbug.com/517899430): Have `completion` as the last parameter.
   virtual void FetchCapabilitiesWithPartial(
       id<SystemIdentity> identity,
       const std::vector<std::string>& names,
       FetchCapabilitiesCompletion completion,
-      FetchPartialCapabilitiesCallback partial_callback);
+      FetchPartialCapabilitiesCallback partial_callback) = 0;
 
   // Registers the provider for building external privacy context.
   virtual void RegisterExternalPrivacyContextProvider(

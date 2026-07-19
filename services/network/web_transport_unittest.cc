@@ -32,6 +32,7 @@
 #include "net/url_request/url_request_context.h"
 #include "services/network/network_context.h"
 #include "services/network/network_service.h"
+#include "services/network/public/cpp/constants.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/mojom/client_security_state.mojom.h"
 #include "services/network/public/mojom/ip_address_space.mojom.h"
@@ -376,8 +377,11 @@ class WebTransportTest : public testing::TestWithParam<std::string_view> {
     network_context_->CreateWebTransport(
         url, origin, key, std::move(fingerprints), application_protocols,
         mojom::WebTransportCongestionControl::kDefault,
+        /*anticipated_concurrent_incoming_unidirectional_streams=*/std::nullopt,
+        /*anticipated_concurrent_incoming_bidirectional_streams=*/std::nullopt,
         std::move(handshake_client), std::move(url_loader_network_observer),
-        std::move(client_security_state));
+        std::move(client_security_state),
+        network::GetTestNetworkRestrictionsId());
   }
 
   void CreateWebTransport(
@@ -750,7 +754,8 @@ TEST_F(WebTransportTest, EchoOnUnidirectionalStreams) {
   bool stream_created;
   transport_remote->CreateStream(
       std::move(readable_for_outgoing),
-      /*writable=*/{}, base::BindLambdaForTesting([&](bool b, uint32_t id) {
+      /*writable=*/{}, /*priority=*/nullptr,
+      base::BindLambdaForTesting([&](bool b, uint32_t id) {
         stream_created = b;
         stream_id = id;
         run_loop_for_stream_creation.Quit();
@@ -827,6 +832,7 @@ TEST_F(WebTransportTest, DeleteClientWithStreamsOpen) {
     transport_remote->CreateStream(
         std::move(readable_for_outgoing),
         /*writable=*/{},
+        /*priority=*/nullptr,
         base::BindLambdaForTesting([&](bool b, uint32_t /*id*/) {
           stream_created = b;
           run_loop_for_stream_creation.Quit();
@@ -881,6 +887,7 @@ TEST_F(WebTransportTest, DISABLED_EchoOnBidirectionalStream) {
   bool stream_created;
   transport_remote->CreateStream(
       std::move(readable_for_outgoing), std::move(writable_for_incoming),
+      /*priority=*/nullptr,
       base::BindLambdaForTesting([&](bool b, uint32_t id) {
         stream_created = b;
         stream_id = id;

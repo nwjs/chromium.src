@@ -17,7 +17,7 @@
 
 #include "base/atomicops.h"
 #include "base/base_export.h"
-#include "base/functional/callback.h"
+#include "base/functional/callback_forward.h"
 #include "base/strings/durable_string_view.h"
 #include "base/time/time.h"
 #include "base/values.h"
@@ -102,6 +102,12 @@ class BASE_EXPORT HistogramBase {
     // Indicates that the histogram should be collected by PUMA, and its type is
     // PUMA for Regional Capabilities.
     kPumaRcTargetedHistogramFlag = 0x80,
+
+    // Indicates that single-sample optimization is disabled for this histogram.
+    // This is used for histograms logged on paths that cannot tolerate lazy
+    // memory allocation (e.g., lock metrics recording) and must have all memory
+    // allocated upfront during histogram creation.
+    kDisableSingleSampleOptimizationFlag = 0x100,
   };
 
   // Histogram data inconsistency types.
@@ -114,6 +120,16 @@ class BASE_EXPORT HistogramBase {
 
     NEVER_EXCEEDED_VALUE = 0x10,
   };
+
+  // Create or find existing histogram that matches the pickled info.
+  // The `mapper` callback is invoked with the original histogram name. It can
+  // return a new name to rename the histogram, the original name to keep it,
+  // or an empty string to drop the histogram entirely. This allows renaming
+  // metrics during deserialization, e.g., adding prefixes based on process
+  // type.
+  // Returns nullptr if the pickled data has problems.
+  static HistogramBase* DeserializeInfo(base::PickleIterator* iter,
+                                        HistogramBase::NameMapper mapper);
 
   // Construct the base histogram. The name is not copied; it's up to the
   // caller to ensure that it lives at least as long as this object.
@@ -138,7 +154,7 @@ class BASE_EXPORT HistogramBase {
 
   // Operations with Flags enum.
   int32_t flags() const { return flags_.load(std::memory_order_relaxed); }
-  void SetFlags(int32_t flags);
+  virtual void SetFlags(int32_t flags);
   void ClearFlags(int32_t flags);
   bool HasFlags(int32_t flags) const;
 
@@ -327,16 +343,6 @@ class BASE_EXPORT HistogramBase {
   // Additional information about the histogram.
   std::atomic<uint16_t> flags_{0};
 };
-
-// Create or find existing histogram that matches the pickled info.
-// The `mapper` callback is invoked with the original histogram name. It can
-// return a new name to rename the histogram, the original name to keep it,
-// or an empty string to drop the histogram entirely. This allows renaming
-// metrics during deserialization, e.g., adding prefixes based on process type.
-// Returns NULL if the pickled data has problems.
-BASE_EXPORT HistogramBase* DeserializeHistogramInfo(
-    base::PickleIterator* iter,
-    HistogramBase::NameMapper mapper);
 
 }  // namespace base
 

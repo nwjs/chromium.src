@@ -40,6 +40,7 @@
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
 #include "base/trace_event/memory_dump_manager.h"
+#include "build/android_buildflags.h"
 #include "build/build_config.h"
 #include "components/history_embeddings/core/history_embeddings_features.h"
 #include "components/lens/lens_features.h"
@@ -117,14 +118,14 @@
 
 #include "components/omnibox/browser/autocomplete_scoring_model_service.h"
 
-constexpr bool kIsDesktop = !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS);
-
 namespace {
-
 
 using ScoringSignals = ::metrics::OmniboxScoringSignals;
 using ProviderType = AutocompleteProvider::Type;
 
+constexpr bool kIsDesktop =
+    !(BUILDFLAG(IS_IOS) ||
+      (BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_DESKTOP_ANDROID)));
 constexpr bool is_android = !!BUILDFLAG(IS_ANDROID);
 
 void RecordMlScoreCoverage(size_t matches_with_non_null_scores,
@@ -310,7 +311,7 @@ bool ShouldPreserveLastDefaultMatch(
   // Don't preserve default in keyword mode to avoid e.g. the 'google.com'
   // suggestion being preserved and kicking the user out of keyword mode when
   // they type 'google.com  '.
-  if (input.prefer_keyword()) {
+  if (input.in_keyword_mode()) {
     return false;
   }
 
@@ -1014,7 +1015,6 @@ void AutocompleteController::SetSmartComposeStats(
   smart_compose_stats_ = stats;
 }
 
-
 void AutocompleteController::SetMatchDestinationURL(
     AutocompleteMatch* match) const {
   TRACE_EVENT0("omnibox", "AutocompleteController::SetMatchDestinationURL");
@@ -1581,13 +1581,17 @@ void AutocompleteController::AggregateNewMatches() {
       continue;
     }
 
-    // Append the new matches and conditionally set a swap bit. This logic
-    // was previously within `AppendMatches` but here is the only place
-    // where it's still needed, and even this should ideally be cleaned up.
+    // Append the new matches and conditionally set a swap bit. This logic was
+    // previously within `AppendMatches` but here is the only place where it's
+    // still needed, and even this should ideally be cleaned up.
     size_t match_index = internal_result_.size();
     internal_result_.AppendMatches(provider->matches());
     for (; match_index < internal_result_.size(); match_index++) {
       AutocompleteMatch* match = internal_result_.match_at(match_index);
+      // `associated_keyword` should only be written in
+      // `AutocompleteController::UpdateAssociatedKeywords()`, and not in
+      // individual providers.
+      CHECK(match->associated_keyword.empty());
       if (!match->description.empty() &&
           !AutocompleteMatch::IsSearchType(match->type) &&
           match->type != AutocompleteMatchType::DOCUMENT_SUGGESTION) {
@@ -2087,11 +2091,15 @@ void AutocompleteController::UpdateSearchboxStats(AutocompleteResult* result) {
       // suggestion type/subtype pairs to be delimited with commas instead.
       std::string value = experiment_stat_v2.string_value();
       std::replace(value.begin(), value.end(), ':', ',');
-      auto* reported_experiment_stats_v2 =
-          searchbox_stats.add_experiment_stats_v2();
-      reported_experiment_stats_v2->set_type_int(experiment_stat_v2.type_int());
-      reported_experiment_stats_v2->set_string_value(value);
+      omnibox::metrics::ChromeSearchboxStats::ExperimentStatsV2 stat =
+          experiment_stat_v2;
+      stat.set_string_value(value);
+      result->add_experiment_stat_v2_in_session(stat);
     }
+  }
+  for (const auto& experiment_stat_v2 :
+       result->experiment_stats_v2s_in_session()) {
+    *searchbox_stats.add_experiment_stats_v2() = experiment_stat_v2;
   }
 
   // Go over all matches and set searchbox stats if the match supports it.
@@ -2217,8 +2225,7 @@ void AutocompleteController::NotifyChanged() {
   // Will log metrics for how many matches changed. Will also log timing metrics
   // for the current request if it's complete; otherwise, will just update
   // timestamps of when the last update changed any or the default suggestion.
-  metrics_.OnNotifyChanged(last_result_for_logging_,
-                           internal_result_.GetMatchDedupComparators());
+  metrics_.OnNotifyChanged(last_result_for_logging_, internal_result_);
 
   // Swap matches from `internal_result_` to `published_result_` and copy them
   // back from `published_result_` to `internal_result_`. This allows

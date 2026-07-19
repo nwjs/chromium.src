@@ -162,14 +162,18 @@ void MediaSessionAndroid::MediaSessionPositionChanged(
   }
 }
 
-void MediaSessionAndroid::Resume(JNIEnv* env) {
+void MediaSessionAndroid::Resume(
+    JNIEnv* env,
+    media_session::mojom::MediaSession::SuspendType suspend_type) {
   DCHECK(media_session_);
-  media_session_->Resume(MediaSession::SuspendType::kUI);
+  media_session_->Resume(suspend_type);
 }
 
-void MediaSessionAndroid::Suspend(JNIEnv* env) {
+void MediaSessionAndroid::Suspend(
+    JNIEnv* env,
+    media_session::mojom::MediaSession::SuspendType suspend_type) {
   DCHECK(media_session_);
-  media_session_->Suspend(MediaSession::SuspendType::kUI);
+  media_session_->Suspend(suspend_type);
 }
 
 void MediaSessionAndroid::Stop(JNIEnv* env) {

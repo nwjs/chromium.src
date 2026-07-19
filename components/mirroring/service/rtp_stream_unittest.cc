@@ -95,21 +95,9 @@ class MockVideoSender : public media::cast::VideoSender {
               InsertRawVideoFrame,
               (scoped_refptr<media::VideoFrame>, base::TimeTicks),
               (override));
-  MOCK_METHOD(int, GetEncoderBitrate, (), (const, override));
+  MOCK_METHOD(uint32_t, GetEncoderBitrate, (), (const, override));
   MOCK_METHOD(double, GetEncoderUtilization, (), (const, override));
   MOCK_METHOD(double, GetLossiness, (), (const, override));
-  MOCK_METHOD(int, GetFramesInserted, (), (const, override));
-  MOCK_METHOD(int, GetFramesDropped, (), (const, override));
-};
-
-class MockAudioSender : public media::cast::AudioSender {
- public:
-  MockAudioSender() = default;
-  MOCK_METHOD(void,
-              InsertAudio,
-              (std::unique_ptr<media::AudioBus>, base::TimeTicks),
-              (override));
-  MOCK_METHOD(int, GetEncoderBitrate, (), (const, override));
   MOCK_METHOD(int, GetFramesInserted, (), (const, override));
   MOCK_METHOD(int, GetFramesDropped, (), (const, override));
 };
@@ -214,23 +202,6 @@ TEST_F(RtpStreamTest, VideoStreamTimerRestartsWhenFramesDeliveredAgain) {
   client_.SetVideoRtpStream(nullptr);
 }
 
-// Test the audio streaming pipeline.
-TEST_F(RtpStreamTest, AudioStreaming) {
-  // Create audio data.
-  const base::TimeDelta kDuration = base::Milliseconds(10);
-  media::cast::FrameSenderConfig audio_config =
-      media::cast::GetDefaultAudioSenderConfig();
-  std::unique_ptr<media::AudioBus> audio_bus =
-      TestAudioBusFactory(audio_config.channels, audio_config.rtp_timebase,
-                          TestAudioBusFactory::kMiddleANoteFreq, 0.5f)
-          .NextAudioBus(kDuration);
-
-  auto audio_sender = std::make_unique<MockAudioSender>();
-  EXPECT_CALL(*audio_sender, InsertAudio(_, _)).Times(1);
-  AudioRtpStream audio_stream(std::move(audio_sender), client_.GetWeakPtr());
-  audio_stream.InsertAudio(std::move(audio_bus), testing_clock_.NowTicks());
-}
-
 TEST_F(RtpStreamTest, VideoGetStats) {
   auto video_sender = std::make_unique<MockVideoSender>();
   EXPECT_CALL(*video_sender, GetEncoderBitrate())
@@ -251,19 +222,6 @@ TEST_F(RtpStreamTest, VideoGetStats) {
   EXPECT_EQ(stats.FindDouble("LOSSINESS").value_or(0.0), 10.0);
   EXPECT_EQ(stats.FindInt("FRAMES_INSERTED").value_or(0), 100);
   EXPECT_EQ(stats.FindInt("FRAMES_DROPPED").value_or(0), 5);
-}
-
-TEST_F(RtpStreamTest, AudioGetStats) {
-  auto audio_sender = std::make_unique<MockAudioSender>();
-  EXPECT_CALL(*audio_sender, GetFramesInserted())
-      .WillOnce(testing::Return(200));
-  EXPECT_CALL(*audio_sender, GetFramesDropped()).WillOnce(testing::Return(10));
-
-  AudioRtpStream audio_stream(std::move(audio_sender), client_.GetWeakPtr());
-
-  base::DictValue stats = audio_stream.GetStats();
-  EXPECT_EQ(stats.FindInt("FRAMES_INSERTED").value_or(0), 200);
-  EXPECT_EQ(stats.FindInt("FRAMES_DROPPED").value_or(0), 10);
 }
 
 }  // namespace mirroring

@@ -15,11 +15,11 @@
 #include "base/task/cancelable_task_tracker.h"
 #include "chrome/browser/actor/tools/tool.h"
 #include "chrome/browser/actor/tools/tool_callbacks.h"
-#include "chrome/browser/password_manager/actor_login/actor_login_quality_logger.h"
-#include "chrome/browser/password_manager/actor_login/actor_login_service.h"
 #include "chrome/common/actor_webui.mojom-forward.h"
 #include "components/actor/core/shared_types.h"
 #include "components/actor/public/mojom/actor_types.mojom-forward.h"
+#include "components/password_manager/core/browser/actor_login/actor_login_quality_logger.h"
+#include "components/password_manager/core/browser/actor_login/actor_login_service.h"
 #include "components/tabs/public/tab_interface.h"
 
 class GURL;
@@ -55,9 +55,6 @@ class AttemptLoginTool : public Tool {
                               ToolCallback callback) const override;
   tabs::TabHandle GetTargetTab() const override;
 
-  static mojom::ActionResultCode LoginResultToActorResult(
-      actor_login::LoginStatusResult login_result);
-
  private:
   void OnGetCredentials(actor_login::CredentialsOrError credentials);
   void FetchIcons();
@@ -89,6 +86,9 @@ class AttemptLoginTool : public Tool {
   void MaybeRetryCredentialNeedingFocus();
 
   actor_login::ActorLoginService& GetActorLoginService();
+  actor_login::FrameFillingStartedCallback GetFrameFillingStartedCallback(
+      tabs::TabInterface* tab,
+      const actor_login::Credential& credential);
 
   // Holds the credentials after they are returned from the login service. The
   // credentials are cleared after the login attempt is made.

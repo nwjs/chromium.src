@@ -42,6 +42,8 @@ class WebUIReadOnlyOmnibox : public OmniboxView {
     virtual ~UpdatePropagator();
     virtual void PropagateOmniboxUpdate(
         toolbar_ui_api::mojom::OmniboxViewStatePtr update) = 0;
+    virtual void PropagateFocusRequest(
+        toolbar_ui_api::mojom::FocusRequestTarget target) = 0;
   };
 
   // Both parameters must outlive `this`.
@@ -101,6 +103,9 @@ class WebUIReadOnlyOmnibox : public OmniboxView {
 
   toolbar_ui_api::mojom::OmniboxViewStatePtr ComputeMojoState() const;
 
+  // Requests focus with particular omnibox-related target
+  void SetFocusWithTarget(toolbar_ui_api::mojom::FocusRequestTarget target);
+
  private:
   void RequestUpdateWebUI();
   void ResetFormatting();
@@ -112,6 +117,8 @@ class WebUIReadOnlyOmnibox : public OmniboxView {
       const toolbar_ui_api::mojom::OmniboxActionTextInput& text_input);
   base::expected<std::monostate, mojo_base::mojom::ErrorPtr> OnKey(
       const toolbar_ui_api::mojom::OmniboxActionKey& key);
+  base::expected<std::monostate, mojo_base::mojom::ErrorPtr> OnMouse(
+      const toolbar_ui_api::mojom::OmniboxActionMouse& mouse);
 
   ui::DomKey LookupAndCacheDomKey(std::string_view key_str);
 
@@ -131,6 +138,9 @@ class WebUIReadOnlyOmnibox : public OmniboxView {
 
   // Inline completion suggested by auto-complete.
   std::u16string inline_autocompletion_;
+
+  // An additional description for what's being displayed.
+  std::u16string additional_text_;
 
   // Rich text formatting for `text`.
   gfx::BreakList<bool> text_strike_through_;

@@ -55,7 +55,7 @@ class ControllableTestEmbedder : public passage_embeddings::TestEmbedder {
       passage_embeddings::PassagePriority priority,
       std::vector<std::string> passages,
       ComputePassagesEmbeddingsCallback callback) override {
-    TaskId id = next_task_id_++;
+    uint64_t id = next_job_id_++;
     callbacks_.emplace(id, std::move(callback));
     passages_.emplace(std::move(passages));
     return Job(GetWeakPtr(), id);
@@ -63,9 +63,8 @@ class ControllableTestEmbedder : public passage_embeddings::TestEmbedder {
 
   void FireNextCallback(passage_embeddings::ComputeEmbeddingsStatus status) {
     ASSERT_FALSE(callbacks_.empty());
-    std::pair<passage_embeddings::Embedder::TaskId,
-              ComputePassagesEmbeddingsCallback>
-        callback_info = std::move(callbacks_.front());
+    std::pair<uint64_t, ComputePassagesEmbeddingsCallback> callback_info =
+        std::move(callbacks_.front());
     std::vector<std::string> passages = std::move(passages_.front());
     callbacks_.pop();
     passages_.pop();
@@ -80,10 +79,8 @@ class ControllableTestEmbedder : public passage_embeddings::TestEmbedder {
   }
 
  private:
-  passage_embeddings::Embedder::TaskId next_task_id_ = 1;
-  std::queue<std::pair<passage_embeddings::Embedder::TaskId,
-                       ComputePassagesEmbeddingsCallback>>
-      callbacks_;
+  uint64_t next_job_id_ = 1;
+  std::queue<std::pair<uint64_t, ComputePassagesEmbeddingsCallback>> callbacks_;
   std::queue<std::vector<std::string>> passages_;
 };
 
@@ -108,7 +105,7 @@ class ActiveQueryTest : public content::RenderViewHostTestHarness {
   }
 
   ActiveQuery::SearchablePage CreateSearchablePage(
-      std::string text_content = "keyword passage",
+      std::string text_content = "keyword passage with enough words",
       bool eligible = true) {
     test_docs_.push_back(CreateTestWebContents());
     return ActiveQuery::SearchablePage(test_docs_.back()->GetPrimaryPage(),
@@ -165,7 +162,7 @@ TEST_F(ActiveQueryTest, PageEmbeddingFails) {
 
   std::vector<ScoredPassage> results = future.Take();
   ASSERT_THAT(results, SizeIs(1));
-  EXPECT_EQ(u"keyword passage", results[0].passage);
+  EXPECT_EQ(u"keyword passage with enough words", results[0].passage);
 }
 
 // Test that ActiveQuery falls back to keyword matching if the query embedding
@@ -186,7 +183,7 @@ TEST_F(ActiveQueryTest, QueryEmbeddingFails) {
 
   std::vector<ScoredPassage> results = future.Take();
   ASSERT_THAT(results, SizeIs(1));
-  EXPECT_EQ(u"keyword passage", results[0].passage);
+  EXPECT_EQ(u"keyword passage with enough words", results[0].passage);
 }
 
 // Test that ActiveQuery can aggregate results from multiple documents
@@ -254,7 +251,8 @@ TEST_F(ActiveQueryTest, MultipleDocuments_PartialFailure) {
   // matching fallback (Page 2).
   EXPECT_THAT(future.Get(),
               ElementsAre(Field(&ScoredPassage::passage, u"semantic passage"),
-                          Field(&ScoredPassage::passage, u"keyword passage")));
+                          Field(&ScoredPassage::passage,
+                                u"keyword passage with enough words")));
 }
 
 // Test that ActiveQuery correctly truncates and sorts the final results based
@@ -339,10 +337,12 @@ TEST_F(ActiveQueryTest, DuplicateQuery) {
   // This query searches both Page 1 and Page 2. Note that we create "dupe"
   // handles to the same underlying raw pages.
   std::vector<ActiveQuery::SearchablePage> pages2;
-  ActiveQuery::SearchablePage page1dupe(*raw_page1,
-                           *CreateExtractionResult("keyword passage", true));
-  ActiveQuery::SearchablePage page2dupe(*raw_page2,
-                           *CreateExtractionResult("keyword passage", true));
+  ActiveQuery::SearchablePage page1dupe(
+      *raw_page1,
+      *CreateExtractionResult("keyword passage with enough words", true));
+  ActiveQuery::SearchablePage page2dupe(
+      *raw_page2,
+      *CreateExtractionResult("keyword passage with enough words", true));
   pages2.push_back(std::move(page1dupe));
   pages2.push_back(std::move(page2dupe));
   ActiveQuery query2(u"A", std::move(pages2), future2.GetCallback(),

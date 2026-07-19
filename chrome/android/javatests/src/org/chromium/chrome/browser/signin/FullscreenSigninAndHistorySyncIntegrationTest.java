@@ -55,7 +55,6 @@ import org.chromium.base.test.BaseActivityTestRule;
 import org.chromium.base.test.util.ApplicationTestUtils;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.DisableIf;
-import org.chromium.base.test.util.DisableLeakChecks;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features;
@@ -69,7 +68,6 @@ import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.ui.signin.ForcedSigninStatusProvider;
 import org.chromium.chrome.browser.ui.signin.FullscreenSigninAndHistorySyncConfig;
-import org.chromium.chrome.browser.ui.signin.SigninAndHistorySyncCoordinator;
 import org.chromium.chrome.browser.ui.signin.SigninUtils;
 import org.chromium.chrome.browser.ui.signin.fullscreen_signin.FullscreenSigninMediator;
 import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncConfig;
@@ -102,7 +100,6 @@ import org.chromium.ui.test.util.ViewUtils;
 @DoNotBatch(reason = "This test relies on native initialization")
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @Restriction({GmsCoreVersionRestriction.RESTRICTION_TYPE_VERSION_GE_20W02})
-@DisableLeakChecks("crbug.com/512492723 (SigninManagerImpl)")
 public class FullscreenSigninAndHistorySyncIntegrationTest {
     @Rule
     public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
@@ -792,12 +789,12 @@ public class FullscreenSigninAndHistorySyncIntegrationTest {
         when(mHistorySyncHelperMock.shouldDisplayHistorySync()).thenReturn(true);
         // Create a config which only uses non-default resource values to test customization.
         FullscreenSigninAndHistorySyncConfig config =
-                new FullscreenSigninAndHistorySyncConfig.Builder(
+                FullscreenSigninAndHistorySyncConfig.builder(
                                 "custom title",
                                 "custom subtitle",
                                 "custom dismiss",
-                                "custom hystory sync title",
-                                "custom hystory sync subtitle")
+                                "custom history sync title",
+                                "custom history sync subtitle")
                         .signinLogoId(R.drawable.ic_globe_24dp)
                         .build();
         launchActivity(/* shouldReplaceProgressBars= */ true, config);
@@ -894,10 +891,7 @@ public class FullscreenSigninAndHistorySyncIntegrationTest {
         mSigninTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
         mSigninTestRule.addAccount(TestAccounts.ACCOUNT2);
         FullscreenSigninAndHistorySyncConfig config =
-                getDefaultConfigBuilder()
-                        .selectedAccountEmail(TestAccounts.ACCOUNT2.getEmail())
-                        .signinFlow(SigninAndHistorySyncCoordinator.SigninFlow.SWITCH_ACCOUNT)
-                        .build();
+                getSwitchAccountConfigBuilder(TestAccounts.ACCOUNT2.getEmail()).build();
 
         launchActivity(/* shouldReplaceProgressBars= */ true, config);
 
@@ -920,10 +914,7 @@ public class FullscreenSigninAndHistorySyncIntegrationTest {
         mSigninTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
         mSigninTestRule.addAccount(TestAccounts.ACCOUNT2);
         FullscreenSigninAndHistorySyncConfig config =
-                getDefaultConfigBuilder()
-                        .selectedAccountEmail(TestAccounts.ACCOUNT2.getEmail())
-                        .signinFlow(SigninAndHistorySyncCoordinator.SigninFlow.SWITCH_ACCOUNT)
-                        .build();
+                getSwitchAccountConfigBuilder(TestAccounts.ACCOUNT2.getEmail()).build();
 
         launchActivity(/* shouldReplaceProgressBars= */ true, config);
 
@@ -990,7 +981,18 @@ public class FullscreenSigninAndHistorySyncIntegrationTest {
     }
 
     private FullscreenSigninAndHistorySyncConfig.Builder getDefaultConfigBuilder() {
-        return new FullscreenSigninAndHistorySyncConfig.Builder(
-                "title", "subtitle", "dismiss", "hystory sync title", "hystory sync subtitle");
+        return FullscreenSigninAndHistorySyncConfig.builder(
+                "title", "subtitle", "dismiss", "history sync title", "history sync subtitle");
+    }
+
+    private FullscreenSigninAndHistorySyncConfig.Builder getSwitchAccountConfigBuilder(
+            String selectedAccountEmail) {
+        return FullscreenSigninAndHistorySyncConfig.builderForSwitchAccountFlow(
+                "title",
+                "subtitle",
+                "dismiss",
+                "history sync title",
+                "history sync subtitle",
+                selectedAccountEmail);
     }
 }

@@ -2,6 +2,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+assert(
+    !is_android,
+    "Ink in //third_party/ink is not supported on Android. Use //third_party/androidx/third_party/ink instead.")
+
 config("public_config") {
   include_dirs = [ "//third_party/ink/src" ]
 }
@@ -24,6 +28,8 @@ source_set("ink") {
     "src/ink/brush/color_function.h",
     "src/ink/brush/easing_function.cc",
     "src/ink/brush/easing_function.h",
+    "src/ink/brush/stock_brushes.cc",
+    "src/ink/brush/stock_brushes.h",
     "src/ink/color/color.cc",
     "src/ink/color/color.h",
     "src/ink/color/color_space.cc",

@@ -16,6 +16,7 @@
 #include "third_party/blink/renderer/core/dom/events/event_listener.h"
 #include "third_party/blink/renderer/core/event_type_names.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
+#include "third_party/blink/renderer/core/html/html_permission_element_test_helper.h"
 #include "third_party/blink/renderer/core/html/html_user_media_element.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/testing/page_test_base.h"
@@ -23,9 +24,20 @@
 #include "third_party/blink/renderer/modules/mediastream/media_stream.h"
 #include "third_party/blink/renderer/modules/mediastream/user_media_element_constraints.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/testing_platform_support.h"
+#include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
 
 namespace blink {
+
+class TestEventListener : public NativeEventListener {
+ public:
+  void Invoke(ExecutionContext*, Event* event) override { fired_ = true; }
+  bool fired() const { return fired_; }
+
+ private:
+  bool fired_ = false;
+};
 
 class UserMediaRequestProviderImplTest : public PageTestBase {
  public:
@@ -42,7 +54,6 @@ TEST_F(UserMediaRequestProviderImplTest, StartRequestEarlyExitNoClient) {
   auto* provider = UserMediaRequestProvider::From(*GetDocument().domWindow());
 
   auto* element = MakeGarbageCollected<HTMLUserMediaElement>(GetDocument());
-  element->setAttribute(html_names::kTypeAttr, AtomicString("camera"));
 
   HTMLMediaStreamConstraints* constraints = HTMLMediaStreamConstraints::Create();
   constraints->setVideo(MediaTrackConstraintSet::Create());
@@ -59,13 +70,13 @@ TEST_F(UserMediaRequestProviderImplTest, StartRequestActiveStreamExists) {
   auto* provider = UserMediaRequestProvider::From(*GetDocument().domWindow());
 
   auto* element = MakeGarbageCollected<HTMLUserMediaElement>(GetDocument());
-  element->setAttribute(html_names::kTypeAttr, AtomicString("camera"));
 
   HTMLMediaStreamConstraints* constraints = HTMLMediaStreamConstraints::Create();
   constraints->setVideo(MediaTrackConstraintSet::Create());
   UserMediaElementConstraints::setConstraints(*element, constraints);
 
   auto* stream = MediaStream::Create(GetDocument().GetExecutionContext());
+  stream->Descriptor()->SetActive(true);
   HTMLUserMediaElementMediaStream::From(*element).SetMediaStream(stream);
 
   provider->StartRequest(element, element->GetPermissionDescriptors());
@@ -80,6 +91,12 @@ TEST_F(UserMediaRequestProviderImplTest, CallbacksOnSuccessWithStream) {
   auto* callbacks =
       MakeGarbageCollected<UserMediaRequestProviderCallbacks>(element);
 
+  // Set up event listeners
+  auto* stream_listener = MakeGarbageCollected<TestEventListener>();
+  auto* error_listener = MakeGarbageCollected<TestEventListener>();
+  element->addEventListener(event_type_names::kStream, stream_listener);
+  element->addEventListener(event_type_names::kError, error_listener);
+
   EXPECT_EQ(HTMLUserMediaElementMediaStream::stream(*element), nullptr);
 
   auto* stream = MediaStream::Create(GetDocument().GetExecutionContext());
@@ -89,16 +106,14 @@ TEST_F(UserMediaRequestProviderImplTest, CallbacksOnSuccessWithStream) {
 
   // The stream should have been set on the element.
   EXPECT_EQ(HTMLUserMediaElementMediaStream::stream(*element), stream);
+
+  test::RunPendingTasks();
+
+  // Verify events
+  EXPECT_TRUE(stream_listener->fired());
+  EXPECT_FALSE(error_listener->fired());
 }
 
-class TestEventListener : public NativeEventListener {
- public:
-  void Invoke(ExecutionContext*, Event* event) override { fired_ = true; }
-  bool fired() const { return fired_; }
-
- private:
-  bool fired_ = false;
-};
 
 TEST_F(UserMediaRequestProviderImplTest, CallbacksOnError) {
   V8TestingScope scope;
@@ -106,32 +121,70 @@ TEST_F(UserMediaRequestProviderImplTest, CallbacksOnError) {
   auto* callbacks =
       MakeGarbageCollected<UserMediaRequestProviderCallbacks>(element);
 
-  // Set up event listener
-  auto* listener = MakeGarbageCollected<TestEventListener>();
-  element->addEventListener(event_type_names::kStream, listener);
+  // Set up event listeners
+  auto* error_listener = MakeGarbageCollected<TestEventListener>();
+  auto* stream_listener = MakeGarbageCollected<TestEventListener>();
+  element->addEventListener(event_type_names::kError, error_listener);
+  element->addEventListener(event_type_names::kStream, stream_listener);
 
-  EXPECT_TRUE(HTMLUserMediaElementMediaStream::error(scope.GetScriptState(), *element).IsNull());
+  EXPECT_FALSE(element->error());
 
   DOMException* dom_exception =
       DOMException::Create("Some error message", "NotFoundError");
   V8MediaStreamError* error =
       MakeGarbageCollected<V8UnionDOMExceptionOrOverconstrainedError>(
           dom_exception);
-  callbacks->OnError(nullptr, error, nullptr, UserMediaRequestResult());
+  callbacks->OnError(nullptr, error, nullptr,
+                     UserMediaRequestResult::kNotFoundError);
 
-  // Check that the event was fired and the error was set
-  EXPECT_TRUE(listener->fired());
-  ScriptValue stored_error = HTMLUserMediaElementMediaStream::error(scope.GetScriptState(), *element);
-  EXPECT_FALSE(stored_error.IsEmpty());
-  EXPECT_TRUE(stored_error.V8Value()->IsObject());
-  EXPECT_EQ(ToCoreString(scope.GetIsolate(), stored_error.V8Value()
-                                                 .As<v8::Object>()
-                                                 ->Get(scope.GetContext(),
-                                                       V8String(scope.GetIsolate(),
-                                                                "name"))
-                                                 .ToLocalChecked()
-                                                 .As<v8::String>()),
-            "NotFoundError");
+  test::RunPendingTasks();
+
+  // Check that the error event was fired and the stream event was not
+  EXPECT_TRUE(error_listener->fired());
+  EXPECT_FALSE(stream_listener->fired());
+
+  DOMException* stored_error = element->error();
+  ASSERT_TRUE(stored_error);
+  EXPECT_EQ(stored_error->name(), "NotFoundError");
+  EXPECT_EQ(stored_error->message(), "Some error message");
+}
+
+TEST_F(UserMediaRequestProviderImplTest, CallbacksOnCancel) {
+  V8TestingScope scope;
+  auto* element = MakeGarbageCollected<HTMLUserMediaElement>(GetDocument());
+  auto* callbacks =
+      MakeGarbageCollected<UserMediaRequestProviderCallbacks>(element);
+
+  // Set up event listeners
+  auto* cancel_listener = MakeGarbageCollected<TestEventListener>();
+  auto* error_listener = MakeGarbageCollected<TestEventListener>();
+  auto* stream_listener = MakeGarbageCollected<TestEventListener>();
+  element->addEventListener(event_type_names::kCancel, cancel_listener);
+  element->addEventListener(event_type_names::kError, error_listener);
+  element->addEventListener(event_type_names::kStream, stream_listener);
+
+  EXPECT_FALSE(element->error());
+
+  DOMException* dom_exception =
+      DOMException::Create("User denied", "NotAllowedError");
+  V8MediaStreamError* error =
+      MakeGarbageCollected<V8UnionDOMExceptionOrOverconstrainedError>(
+          dom_exception);
+  callbacks->OnError(nullptr, error, nullptr,
+                     UserMediaRequestResult::kNotAllowedByUserError);
+
+  test::RunPendingTasks();
+
+  // Check that the cancel event was fired and others were not
+  EXPECT_TRUE(cancel_listener->fired());
+  EXPECT_FALSE(error_listener->fired());
+  EXPECT_FALSE(stream_listener->fired());
+
+  // Cancel event should set the error attribute on the element
+  DOMException* stored_error = element->error();
+  ASSERT_TRUE(stored_error);
+  EXPECT_EQ(stored_error->name(), "NotAllowedError");
+  EXPECT_EQ(stored_error->message(), "User denied");
 }
 
 TEST_F(UserMediaRequestProviderImplTest, StartRequestNoConstraintsError) {
@@ -139,35 +192,30 @@ TEST_F(UserMediaRequestProviderImplTest, StartRequestNoConstraintsError) {
   auto* provider = UserMediaRequestProvider::From(*GetDocument().domWindow());
 
   auto* element = MakeGarbageCollected<HTMLUserMediaElement>(GetDocument());
-  element->setAttribute(html_names::kTypeAttr, AtomicString("camera microphone"));
 
-  HTMLMediaStreamConstraints* constraints = HTMLMediaStreamConstraints::Create();
-  UserMediaElementConstraints::setConstraints(*element, constraints);
+  // Set up event listeners
+  auto* error_listener = MakeGarbageCollected<TestEventListener>();
+  auto* stream_listener = MakeGarbageCollected<TestEventListener>();
+  element->addEventListener(event_type_names::kError, error_listener);
+  element->addEventListener(event_type_names::kStream, stream_listener);
 
-  // Set up event listener
-  auto* listener = MakeGarbageCollected<TestEventListener>();
-  element->addEventListener(event_type_names::kStream, listener);
+  Vector<mojom::blink::PermissionDescriptorPtr> descriptors;
+  auto descriptor = mojom::blink::PermissionDescriptor::New();
+  descriptor->name = mojom::blink::PermissionName::VIDEO_CAPTURE;
+  descriptors.push_back(std::move(descriptor));
 
-  provider->StartRequest(element, element->GetPermissionDescriptors());
+  provider->StartRequest(element, descriptors);
 
-  EXPECT_TRUE(listener->fired());
-  ScriptValue stored_error = HTMLUserMediaElementMediaStream::error(scope.GetScriptState(), *element);
-  EXPECT_FALSE(stored_error.IsEmpty());
-  EXPECT_TRUE(stored_error.V8Value()->IsObject());
+  test::RunPendingTasks();
 
-  v8::Local<v8::Object> error_obj = stored_error.V8Value().As<v8::Object>();
-  EXPECT_EQ(ToCoreString(scope.GetIsolate(), error_obj->Get(scope.GetContext(),
-                                                       V8String(scope.GetIsolate(),
-                                                                "name"))
-                                                 .ToLocalChecked()
-                                                 .As<v8::String>()),
-            "TypeError");
-  EXPECT_EQ(ToCoreString(scope.GetIsolate(), error_obj->Get(scope.GetContext(),
-                                                       V8String(scope.GetIsolate(),
-                                                                "message"))
-                                                 .ToLocalChecked()
-                                                 .As<v8::String>()),
-            "No constraints set");
+  // Verify events
+  EXPECT_TRUE(error_listener->fired());
+  EXPECT_FALSE(stream_listener->fired());
+
+  DOMException* stored_error = element->error();
+  ASSERT_TRUE(stored_error);
+  EXPECT_EQ(stored_error->name(), "NotSupportedError");
+  EXPECT_EQ(stored_error->message(), "No constraints set");
 }
 
 }  // namespace blink

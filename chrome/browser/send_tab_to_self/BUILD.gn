@@ -4,7 +4,6 @@
 
 source_set("send_tab_to_self") {
   sources = [
-    "receiving_ui_handler.h",
     "send_tab_to_self_client_service.h",
     "send_tab_to_self_client_service_factory.h",
     "send_tab_to_self_page_handler.h",
@@ -73,11 +72,13 @@ source_set("unit_tests") {
 
   if (is_android) {
     sources += [
+      "../android/send_tab_to_self/android_notification_handler_test_util.cc",
       "../android/send_tab_to_self/android_notification_handler_unittest.cc",
     ]
     deps += [
       "//chrome/browser/android/send_tab_to_self",
       "//chrome/browser/ui/android/tab_model:test_support",
+      "//components/tabs:test_support",
     ]
   } else {
     sources += [ "send_tab_to_self_client_service_unittest.cc" ]
@@ -90,6 +91,7 @@ if (is_android) {
     defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
     sources = [
       "../android/send_tab_to_self/android_notification_handler_browsertest.cc",
+      "../android/send_tab_to_self/android_notification_handler_test_util.cc",
     ]
     deps = [
       ":send_tab_to_self",

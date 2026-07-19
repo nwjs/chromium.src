@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.actor;
 
+import static org.chromium.build.NullUtil.assumeNonNull;
+
 import android.app.Notification;
 import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
@@ -18,6 +20,7 @@ import org.chromium.base.Log;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 
@@ -59,6 +62,7 @@ public class ActorForegroundServiceManager implements ActorKeyedService.Observer
 
     @Nullable private ActorKeyedService mKeyedService;
     @Nullable private ActorNotificationService mNotificationService;
+    @Nullable private ActorTaskTimeoutManager mTimeoutManager;
     private final ActorForegroundServiceController mServiceController;
     private int mPinnedNotificationId = INVALID_NOTIFICATION_ID;
     @Nullable private Notification mPinnedNotification;
@@ -67,11 +71,6 @@ public class ActorForegroundServiceManager implements ActorKeyedService.Observer
     private @Nullable Runnable mStopCallbackForTesting;
 
     private final ProfileManager.Observer mProfileObserver;
-
-    /** Returns the singleton instance. */
-    public static @Nullable ActorForegroundServiceManager getInstance() {
-        return sInstance;
-    }
 
     /** Initializes the manager and starts observing profile changes. */
     public static void initialize() {
@@ -125,10 +124,20 @@ public class ActorForegroundServiceManager implements ActorKeyedService.Observer
             if (mNotificationService == null) {
                 mNotificationService = new ActorNotificationService(mKeyedService);
             }
+            if (mTimeoutManager == null
+                    && ChromeFeatureList.isEnabled(ChromeFeatureList.ANDROID_ACTOR_TASK_TIMEOUT)) {
+                mTimeoutManager = new ActorTaskTimeoutManager(mKeyedService, this);
+            }
         } else {
             mNotificationService = null;
+            mTimeoutManager = null;
         }
         processTaskUpdateQueue();
+    }
+
+    private boolean isTimeoutManagerEnabled() {
+        return ChromeFeatureList.isEnabled(ChromeFeatureList.ANDROID_ACTOR_TASK_TIMEOUT)
+                && mTimeoutManager != null;
     }
 
     /** Called forcefully when the Profile is destroyed. */
@@ -141,12 +150,30 @@ public class ActorForegroundServiceManager implements ActorKeyedService.Observer
         }
     }
 
+    /**
+     * Updates the notification for the task and also process the task update queue.
+     *
+     * @param taskId The ID of the task.
+     * @param state The current state of the task.
+     */
+    public void refreshTaskUI(int taskId, @ActorTaskState int state) {
+        if (mNotificationService == null) return;
+        mNotificationService.updateNotificationForTask(
+                taskId, state, isActivityVisibleForTask(taskId), isWarningMode(taskId));
+        processTaskUpdateQueue();
+    }
+
+    private boolean isWarningMode(int taskId) {
+        return isTimeoutManagerEnabled() && assumeNonNull(mTimeoutManager).isWarningMode(taskId);
+    }
+
     // ActorKeyedService.Observer implementation
     @Override
     public void onTaskStateChanged(int taskId, @ActorTaskState int newState) {
-        if (mNotificationService == null || mKeyedService == null) return;
-        mNotificationService.updateNotificationForTask(
-                taskId, newState, isActivityVisibleForTask(taskId));
+        // ActorTaskTimeoutManager processes the state change first.
+        if (isTimeoutManagerEnabled()) {
+            assumeNonNull(mTimeoutManager).onTaskStateChanged(taskId, newState);
+        }
 
         // Any task that is not completed is considered active for the foreground service.
         if (!ActorUtils.isCompletedState(newState)) {
@@ -154,7 +181,8 @@ public class ActorForegroundServiceManager implements ActorKeyedService.Observer
         } else {
             mActiveTaskIds.remove(taskId);
         }
-        processTaskUpdateQueue();
+
+        refreshTaskUI(taskId, newState);
     }
 
     /**
@@ -165,26 +193,6 @@ public class ActorForegroundServiceManager implements ActorKeyedService.Observer
         if (mNotificationService == null) return false;
         ActorTask task = mNotificationService.getTask(taskId);
         return task != null && mServiceController.isActivityVisibleForTabs(task.getTabs());
-    }
-
-    /** Called when the Android task is removed (e.g. user swipes away the app). */
-    public void onAndroidTaskRemoved() {
-        if (mNotificationService == null || mKeyedService == null) return;
-
-        // Clear active task IDs first to prevent processTaskUpdateQueue from attempting
-        // updates during the shutdown loop.
-        mActiveTaskIds.clear();
-
-        // Explicitly stop all active tasks with SHUTDOWN reason. This ensures the backend performs
-        // cleanup and records metrics before the process potentially shuts down.
-        for (ActorTask task : mKeyedService.getActiveTasks()) {
-            mKeyedService.stopTask(task.getId(), StoppedReason.SHUTDOWN);
-        }
-
-        // Standard stop and unbind logic. This ensures stopForeground(REMOVE) and unbind are
-        // called,
-        // and importantly, the notification is reposted to ensure it's dismissable.
-        stopAndUnbindService();
     }
 
     /** Process the current task state and initiate any needed service actions. */
@@ -225,7 +233,9 @@ public class ActorForegroundServiceManager implements ActorKeyedService.Observer
                 int notificationId = currentTask.getId();
                 Notification notification =
                         mNotificationService.getForegroundNotification(
-                                currentTask, isActivityVisibleForTask(notificationId));
+                                currentTask,
+                                isActivityVisibleForTask(notificationId),
+                                isWarningMode(notificationId));
 
                 startOrUpdateForegroundService(notificationId, notification);
             }
@@ -236,7 +246,8 @@ public class ActorForegroundServiceManager implements ActorKeyedService.Observer
                 Notification notification =
                         mNotificationService.getCachedNotification(
                                 mPinnedNotificationId,
-                                isActivityVisibleForTask(mPinnedNotificationId));
+                                isActivityVisibleForTask(mPinnedNotificationId),
+                                isWarningMode(mPinnedNotificationId));
                 if (notification != null) {
                     startOrUpdateForegroundService(mPinnedNotificationId, notification);
                 }
@@ -374,5 +385,9 @@ public class ActorForegroundServiceManager implements ActorKeyedService.Observer
 
     void setKeyedServiceForTesting(ActorKeyedService service) {
         setKeyedService(service);
+    }
+
+    void setTimeoutManagerForTesting(ActorTaskTimeoutManager timeoutManager) {
+        mTimeoutManager = timeoutManager;
     }
 }

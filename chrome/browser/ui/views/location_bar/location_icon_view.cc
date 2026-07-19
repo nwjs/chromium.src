@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/views/location_bar/location_icon_view.h"
 
 #include "base/functional/bind.h"
+#include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
@@ -39,6 +40,7 @@
 #include "ui/base/ui_base_features.h"
 #include "ui/color/color_id.h"
 #include "ui/color/color_provider_utils.h"
+#include "ui/gfx/animation/tween.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/image/image_skia.h"
@@ -213,24 +215,36 @@ void LocationIconView::MaybeAnimateIcon(bool open) {
         icon.IsVectorIcon() &&
         icon.GetVectorIcon().vector_icon() ==
             (features::IsRoundedIconsEnabled()
-                 ? &omnibox::kPageInfoIcon
+                 ? &omnibox::kPageInfoCustomIcon
                  : &omnibox::kSecurePageInfoChromeRefreshOldIcon);
 
     if (!is_page_info_icon) {
       return;
     }
 
-    views::SingleAnimatedImageContainer::AnimationConfig config{
-        .direction =
-            views::SingleAnimatedImageContainer::AnimationDirection::kForward,
-        .end_behavior = open ? views::SingleAnimatedImageContainer::
-                                   AnimationEndBehavior::kPause
-                             : views::SingleAnimatedImageContainer::
-                                   AnimationEndBehavior::kReset};
-    animated_image_container().PlayAnimation(
-        {open ? IDR_PAGE_INFO_OPEN_LOTTIE : IDR_PAGE_INFO_CLOSE_LOTTIE,
-         GetForegroundColor()},
-        config);
+    views::SingleAnimatedImageContainer::AnimationDefinition definition;
+    definition.resource_id = IDR_PAGE_INFO_LOTTIE;
+    definition.color = GetForegroundColor();
+
+    views::SingleAnimatedImageContainer::AnimationConfig config;
+    config.tween = gfx::Tween::FAST_OUT_SLOW_IN_3;
+    config.duration = base::Milliseconds(150);
+    config.boundary = views::SingleAnimatedImageContainer::AnimationBoundary{
+        .start_offset = 0.33f, .end_offset = 0.66f};
+
+    if (open) {
+      definition.direction =
+          views::SingleAnimatedImageContainer::AnimationDirection::kForward;
+      definition.end_behavior =
+          views::SingleAnimatedImageContainer::AnimationEndBehavior::kPause;
+    } else {
+      definition.direction =
+          views::SingleAnimatedImageContainer::AnimationDirection::kBackward;
+      definition.end_behavior =
+          views::SingleAnimatedImageContainer::AnimationEndBehavior::kReset;
+    }
+
+    animated_image_container().PlayAnimation(definition, config);
   }
 }
 

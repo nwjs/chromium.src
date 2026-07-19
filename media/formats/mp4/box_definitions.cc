@@ -1442,6 +1442,18 @@ bool VideoSampleEntry::Parse(BoxReader* reader) {
     hdr_metadata = hdr_static_metadata;
   }
 
+  Stereoscopic3DVideo st3d;
+  if (reader->HasChild(&st3d)) {
+    RCHECK(reader->ReadChild(&st3d));
+    video_spatial_format.stereo_mode = st3d.mode;
+  }
+
+  SphericalVideo sv3d;
+  if (reader->HasChild(&sv3d)) {
+    RCHECK(reader->ReadChild(&sv3d));
+    video_spatial_format.projection_type = sv3d.projection.type;
+  }
+
   if (video_info.profile == VIDEO_CODEC_PROFILE_UNKNOWN) {
     MEDIA_LOG(ERROR, reader->media_log()) << "Unrecognized video codec profile";
     return false;
@@ -1741,7 +1753,7 @@ bool AC4SpecificBox::Parse(BoxReader* reader) {
 }
 #endif  // BUILDFLAG(ENABLE_PLATFORM_AC4_AUDIO)
 
-#if BUILDFLAG(ENABLE_PLATFORM_IAMF_AUDIO)
+#if BUILDFLAG(ENABLE_IAMF_AUDIO)
 enum IamfConfigObuType {
   // The following enum values are mapped to their respective Config OBU
   // values in the IAMF specification.
@@ -1861,7 +1873,7 @@ bool IamfSpecificBox::ReadLeb128Value(BufferReader* reader,
 
   return !error;
 }
-#endif  // BUILDFLAG(ENABLE_PLATFORM_IAMF_AUDIO)
+#endif  // BUILDFLAG(ENABLE_IAMF_AUDIO)
 
 AudioSampleEntry::AudioSampleEntry()
     : format(FOURCC_NULL),
@@ -1965,13 +1977,13 @@ bool AudioSampleEntry::Parse(BoxReader* reader) {
   }
 #endif  // BUILDFLAG(ENABLE_PLATFORM_AC4_AUDIO)
 
-#if BUILDFLAG(ENABLE_PLATFORM_IAMF_AUDIO)
+#if BUILDFLAG(ENABLE_IAMF_AUDIO)
   if (format == FOURCC_IAMF ||
       (format == FOURCC_ENCA && sinf.format.format == FOURCC_IAMF)) {
     RCHECK_MEDIA_LOGGED(reader->ReadChild(&iacb), reader->media_log(),
                         "Failure parsing IamfSpecificBox (iacb)");
   }
-#endif  // BUILDFLAG(ENABLE_PLATFORM_IAMF_AUDIO)
+#endif  // BUILDFLAG(ENABLE_IAMF_AUDIO)
 
   // Read the FLACSpecificBox, even if CENC is signalled.
   if (format == FOURCC_FLAC ||
@@ -2577,6 +2589,88 @@ SampleDependsOn IndependentAndDisposableSamples::sample_depends_on(
     return kSampleDependsOnUnknown;
 
   return sample_depends_on_[i];
+}
+
+Stereoscopic3DVideo::Stereoscopic3DVideo() = default;
+Stereoscopic3DVideo::Stereoscopic3DVideo(const Stereoscopic3DVideo& other) =
+    default;
+Stereoscopic3DVideo::~Stereoscopic3DVideo() = default;
+FourCC Stereoscopic3DVideo::BoxType() const {
+  return FOURCC_ST3D;
+}
+
+bool Stereoscopic3DVideo::Parse(BoxReader* reader) {
+  RCHECK(reader->ReadFullBoxHeader());
+  uint8_t raw_stereo_mode = 0;
+  RCHECK(reader->Read1(&raw_stereo_mode));
+  if (raw_stereo_mode == 1 /* kTopBottom */) {
+    mode = VideoStereoMode::kTopBottomLeftFirst;
+  } else if (raw_stereo_mode == 2 /* kLeftRight */) {
+    mode = VideoStereoMode::kSideBySideLeftFirst;
+  }
+  return true;
+}
+
+SphericalVideo::SphericalVideo() = default;
+SphericalVideo::SphericalVideo(const SphericalVideo& other) = default;
+SphericalVideo::~SphericalVideo() = default;
+FourCC SphericalVideo::BoxType() const {
+  return FOURCC_SV3D;
+}
+
+bool SphericalVideo::Parse(BoxReader* reader) {
+  RCHECK(reader->ScanChildren());
+
+  if (reader->HasChild(&projection)) {
+    RCHECK(reader->ReadChild(&projection));
+  }
+
+  return true;
+}
+
+Equirectangular::Equirectangular() = default;
+Equirectangular::Equirectangular(const Equirectangular& other) = default;
+Equirectangular::~Equirectangular() = default;
+FourCC Equirectangular::BoxType() const {
+  return FOURCC_EQUI;
+}
+
+bool Equirectangular::Parse(BoxReader* reader) {
+  RCHECK(reader->ReadFullBoxHeader());
+  RCHECK(reader->Read4(&bounds_top));
+  RCHECK(reader->Read4(&bounds_bottom));
+  RCHECK(reader->Read4(&bounds_left));
+  RCHECK(reader->Read4(&bounds_right));
+  return true;
+}
+
+Projection::Projection() = default;
+Projection::Projection(const Projection& other) = default;
+Projection::~Projection() = default;
+FourCC Projection::BoxType() const {
+  return FOURCC_PROJ;
+}
+
+bool Projection::Parse(BoxReader* reader) {
+  RCHECK(reader->ScanChildren());
+
+  Equirectangular equi;
+  if (reader->HasChild(&equi)) {
+    RCHECK(reader->ReadChild(&equi));
+    // Equirectangular projection bounds are 0.32 fixed-point values.
+    // A 180-degree video has approx 25% (0x40000000) cropped from both
+    // the left and right. We use a 18.75% (0x30000000) threshold to
+    // distinguish 180-degree from slightly cropped 360-degree video.
+    const uint32_t kEquirect180Threshold = 0x30000000;
+    if (equi.bounds_left >= kEquirect180Threshold &&
+        equi.bounds_right >= kEquirect180Threshold) {
+      type = VideoProjectionType::kEquirect180;
+    } else {
+      type = VideoProjectionType::kEquirect360;
+    }
+  }
+
+  return true;
 }
 
 }  // namespace mp4

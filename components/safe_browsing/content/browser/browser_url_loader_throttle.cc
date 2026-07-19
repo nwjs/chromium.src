@@ -14,6 +14,7 @@
 #include "base/trace_event/trace_event.h"
 #include "components/safe_browsing/buildflags.h"
 #include "components/safe_browsing/content/browser/async_check_tracker.h"
+#include "components/safe_browsing/content/browser/safe_browsing_navigation_observer.h"
 #include "components/safe_browsing/core/browser/hashprefix_realtime/hash_realtime_service.h"
 #include "components/safe_browsing/core/browser/realtime/url_lookup_service_base.h"
 #include "components/safe_browsing/core/browser/safe_browsing_url_checker_impl.h"
@@ -25,6 +26,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/url_constants.h"
+#include "net/base/ip_endpoint.h"
 #include "net/base/load_flags.h"
 #include "net/url_request/redirect_info.h"
 #include "services/network/public/cpp/resource_request.h"
@@ -156,7 +158,8 @@ BrowserURLLoaderThrottle::~BrowserURLLoaderThrottle() {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   if (deferred_) {
     TRACE_EVENT_END("safe_browsing", /* Deferred */
-                    perfetto::Track::FromPointer(this));
+                    perfetto::NamedTrack::FromPointer(
+                        "safe_browsing::BrowserURLLoaderThrottle", this));
   }
   if (was_async_faster_than_sync_.has_value()) {
     base::UmaHistogramBoolean(
@@ -173,6 +176,8 @@ void BrowserURLLoaderThrottle::WillStartRequest(
   DCHECK_EQ(0u, pending_sync_checks_);
   DCHECK_EQ(0u, pending_async_checks_);
   DCHECK(!blocked_);
+
+  current_url_ = request->url;
 
   base::UmaHistogramEnumeration(
       "SafeBrowsing.BrowserThrottle.RequestDestination", request->destination);
@@ -311,7 +316,7 @@ void BrowserURLLoaderThrottle::OnSkipCheckCompleteOnOriginalUrl(
 
 void BrowserURLLoaderThrottle::WillRedirectRequest(
     net::RedirectInfo* redirect_info,
-    const network::mojom::URLResponseHead& /* response_head */,
+    const network::mojom::URLResponseHead& response_head,
     bool* defer,
     network::HttpRequestHeadersUpdateParams* headers_update_params) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
@@ -327,6 +332,21 @@ void BrowserURLLoaderThrottle::WillRedirectRequest(
   if (skip_checks_) {
     return;
   }
+
+  // Make IP addresses from redirects available for later real-time URL checks.
+  if (!response_head.remote_endpoint.address().empty()) {
+    content::WebContents* web_contents = web_contents_getter_.Run();
+    if (web_contents) {
+      SafeBrowsingNavigationObserver* navigation_observer =
+          SafeBrowsingNavigationObserver::FromWebContents(web_contents);
+      if (navigation_observer) {
+        navigation_observer->RecordHostToIpMapping(
+            current_url_.GetHost(),
+            response_head.remote_endpoint.ToStringWithoutPort());
+      }
+    }
+  }
+  current_url_ = redirect_info->new_url;
 
   pending_sync_checks_++;
   if (async_sb_checker_) {
@@ -413,7 +433,8 @@ void BrowserURLLoaderThrottle::WillProcessResponse(
   defer_start_time_ = base::TimeTicks::Now();
   *defer = true;
   TRACE_EVENT_BEGIN("safe_browsing", "Deferred",
-                    perfetto::Track::FromPointer(this));
+                    perfetto::NamedTrack::FromPointer(
+                        "safe_browsing::BrowserURLLoaderThrottle", this));
 }
 
 const char* BrowserURLLoaderThrottle::NameForLoggingWillProcessResponse() {
@@ -474,7 +495,8 @@ void BrowserURLLoaderThrottle::OnCompleteSyncCheck(
     if (pending_sync_checks_ == 0 && deferred_) {
       deferred_ = false;
       TRACE_EVENT_END("safe_browsing", /* Deferred */
-                      perfetto::Track::FromPointer(this));
+                      perfetto::NamedTrack::FromPointer(
+                          "safe_browsing::BrowserURLLoaderThrottle", this));
       delegate_->Resume();
       MaybeTransferAsyncChecker();
     }

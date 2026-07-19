@@ -43,6 +43,7 @@
 
 #include "base/cancelable_callback.h"
 #include "base/memory/raw_ptr.h"
+#include "base/synchronization/lock.h"
 #include "base/threading/thread_checker.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
@@ -63,10 +64,13 @@
 
 namespace media {
 class AudioManagerApple;
+class AUCallbackProxy;
 
 class MEDIA_EXPORT AUAudioInputStream
     : public AgcAudioStream<AudioInputStream> {
  public:
+  using Error = AudioInputStream::AudioInputCallback::Error;
+
   // The ctor takes all the usual parameters, plus |manager| which is the
   // the audio manager who is creating this object.
   AUAudioInputStream(AudioManagerApple* manager,
@@ -111,6 +115,13 @@ class MEDIA_EXPORT AUAudioInputStream
   static void UpmixMonoToStereoInPlace(AudioBuffer* audio_buffer,
                                        int bytes_per_sample);
 
+  // Called by `data_callback_proxy_` on the real-time priority I/O thread from
+  // the audio unit.
+  OSStatus OnDataIsAvailable(AudioUnitRenderActionFlags* flags,
+                             const AudioTimeStamp* time_stamp,
+                             UInt32 bus_number,
+                             UInt32 number_of_frames);
+
  private:
   bool OpenAUHAL();
   bool OpenVoiceProcessingAU();
@@ -124,10 +135,6 @@ class MEDIA_EXPORT AUAudioInputStream
                                   UInt32 bus_number,
                                   UInt32 number_of_frames,
                                   AudioBufferList* io_data);
-  OSStatus OnDataIsAvailable(AudioUnitRenderActionFlags* flags,
-                             const AudioTimeStamp* time_stamp,
-                             UInt32 bus_number,
-                             UInt32 number_of_frames);
 
   // Pushes recorded data to consumer of the input audio stream.
   OSStatus Provide(UInt32 number_of_frames,
@@ -160,6 +167,11 @@ class MEDIA_EXPORT AUAudioInputStream
   void HandleError(OSStatus err,
                    const char* message,
                    const base::Location& location = FROM_HERE);
+  void HandleErrorAndNotify_Locked(Error error_code,
+                                   OSStatus err,
+                                   const char* message,
+                                   const base::Location& location = FROM_HERE)
+      EXCLUSIVE_LOCKS_REQUIRED(lock_);
 
   // Helper methods to set and get atomic |input_callback_is_active_|.
   void SetInputCallbackIsActive(bool active);
@@ -198,10 +210,10 @@ class MEDIA_EXPORT AUAudioInputStream
   // Stores the number of frames that we actually get callbacks for.
   // This may be different from what we ask for, so we use this for stats in
   // order to understand how often this happens and what are the typical values.
-  size_t number_of_frames_provided_ = 0;
+  size_t number_of_frames_provided_ GUARDED_BY(lock_) = 0;
 
   // Pointer to the object that will receive the recorded audio samples.
-  raw_ptr<AudioInputCallback> sink_ = nullptr;
+  raw_ptr<AudioInputCallback> sink_ GUARDED_BY(lock_) = nullptr;
 
   // Structure that holds the desired output format of the stream.
   // Note that, this format can differ from the device(=input) format.
@@ -230,7 +242,7 @@ class MEDIA_EXPORT AUAudioInputStream
   base::TimeDelta hardware_latency_;
 
   // FIFO used to accumulates recorded data.
-  media::AudioBlockFifo fifo_;
+  media::AudioBlockFifo fifo_ GUARDED_BY(lock_);
 
   // Used to defer Start() to workaround http://crbug.com/160920.
   base::CancelableOnceClosure deferred_start_cb_;
@@ -269,12 +281,22 @@ class MEDIA_EXPORT AUAudioInputStream
   AudioDeviceID output_device_id_for_aec_ = kAudioObjectUnknown;
 
   // Used to detect and report glitches.
-  GlitchHelper glitch_helper_;
+  GlitchHelper glitch_helper_ GUARDED_BY(lock_);
 
   AmplitudePeakDetector peak_detector_;
 
   // Callback to send statistics info.
   AudioManager::LogCallback log_callback_;
+
+  // Guards members accessed on the helper / audio thread.
+  base::Lock lock_;
+
+  // Set to true if stopping the AudioUnit fails. Used to leak
+  // `data_callback_proxy_`.
+  bool stop_failed_ = false;
+
+  // Proxy to intercept callbacks and allow safe leak on teardown failure.
+  std::unique_ptr<AUCallbackProxy> data_callback_proxy_;
 };
 
 }  // namespace media

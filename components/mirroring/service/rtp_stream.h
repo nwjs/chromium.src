@@ -26,7 +26,6 @@ class VideoFrame;
 
 namespace cast {
 class VideoSender;
-class AudioSender;
 }  // namespace cast
 
 }  // namespace media
@@ -105,46 +104,6 @@ class COMPONENT_EXPORT(MIRRORING_SERVICE) VideoRtpStream final {
   base::WeakPtrFactory<VideoRtpStream> weak_ptr_factory_{this};
 
   friend class RtpStreamTest;
-};
-
-// Receives audio data and submits the data to media::cast::AudioSender.
-// Note that this mostly calls through to the media::cast::VideoSender, and the
-// refresh frame logic could be factored out into a separate object.
-//
-// NOTE: This is a do-nothing wrapper over the underlying AudioSender.
-// TODO(issues.chromium.org/329781397): Remove unnecessary wrapper objects in
-// Chrome's implementation of the Cast sender.
-class COMPONENT_EXPORT(MIRRORING_SERVICE) AudioRtpStream final {
- public:
-  AudioRtpStream(std::unique_ptr<media::cast::AudioSender> audio_sender,
-                 base::WeakPtr<RtpStreamClient> client);
-
-  AudioRtpStream(const AudioRtpStream&) = delete;
-  AudioRtpStream& operator=(const AudioRtpStream&) = delete;
-
-  ~AudioRtpStream();
-
-  // Called by AudioCaptureClient when new audio data is available.
-  void InsertAudio(std::unique_ptr<media::AudioBus> audio_bus,
-                   base::TimeTicks estimated_capture_time);
-
-  void SetTargetPlayoutDelay(base::TimeDelta playout_delay);
-  base::TimeDelta GetTargetPlayoutDelay() const;
-
-  // Get the real time encoder bitrate usage. Note that not all encoders support
-  // changing the bitrate in realtime.
-  int GetEncoderBitrate() const;
-
-  base::DictValue GetStats() const;
-
-  base::WeakPtr<AudioRtpStream> AsWeakPtr() {
-    return weak_ptr_factory_.GetWeakPtr();
-  }
-
- private:
-  const std::unique_ptr<media::cast::AudioSender> audio_sender_;
-  const base::WeakPtr<RtpStreamClient> client_;
-  base::WeakPtrFactory<AudioRtpStream> weak_ptr_factory_{this};
 };
 
 }  // namespace mirroring

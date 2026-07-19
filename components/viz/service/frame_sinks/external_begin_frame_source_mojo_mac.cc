@@ -5,6 +5,7 @@
 #include "components/viz/service/frame_sinks/external_begin_frame_source_mojo_mac.h"
 
 #include <utility>
+#include <vector>
 
 #include "base/metrics/histogram_macros.h"
 #include "components/viz/common/frame_sinks/begin_frame_args.h"
@@ -25,6 +26,7 @@ ExternalBeginFrameSourceMojoMac::ExternalBeginFrameSourceMojoMac(
 
   receiver_.Bind(std::move(controller_receiver));
 
+  // Connect to VSyncProviderMac.
   ui::NeedsBeginFrameCB callback = base::BindRepeating(
       &ExternalBeginFrameSourceMojoMac::NeedsBeginFrameWithId,
       weak_factory_.GetWeakPtr());
@@ -43,8 +45,8 @@ void ExternalBeginFrameSourceMojoMac::IssueExternalVSync(
       base::TimeTicks::Now() - params.ipc_begin_timestamp;
   if (base::ShouldRecordSubsampledMetric(0.001)) {
     UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(
-        "Viz.BeginFrameSource.IPC.Latency", ipc_duration,
-        base::Microseconds(10), base::Milliseconds(34), 50);
+        "Viz.BeginFrameSource.IPC.LatencyUs2", ipc_duration,
+        base::Microseconds(10), base::Minutes(1), 50);
   }
 
   ui::VSyncParamsMac ui_params(true, params.timestamp, params.interval, true,

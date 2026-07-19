@@ -92,6 +92,9 @@ extern const wchar_t kRegDeveloperMode[];
 // associated account changes.
 extern const wchar_t kRegUpdateCredentialsOnChange[];
 
+// Enables modal dialogs for GCPW.
+extern const wchar_t kRegEnableGcpwModalDialog[];
+
 // Registry key that indicates account name for an unassociated Windows account
 // should be in shorter form.
 extern const wchar_t kRegUseShorterAccountName[];
@@ -245,13 +248,13 @@ void GetChildrenAtPath(const wchar_t* path,
 
 // Gets a specific account picture registry key in HKEY_LOCAL_MACHINE
 HRESULT GetAccountPictureRegString(const std::wstring& user_sid,
-                                   int image_size,
+                                   size_t image_size,
                                    wchar_t* value,
                                    ULONG* length);
 
 // Sets a specific account picture registry key in HKEY_LOCAL_MACHINE
 HRESULT SetAccountPictureRegString(const std::wstring& user_sid,
-                                   int image_size,
+                                   size_t image_size,
                                    const std::wstring& value);
 
 // Retrieves an identifier that is stored under

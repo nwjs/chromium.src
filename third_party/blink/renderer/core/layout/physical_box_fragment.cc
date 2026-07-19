@@ -804,9 +804,11 @@ gfx::Vector2d PhysicalBoxFragment::PixelSnappedOverscrollContentOffset() const {
   if (auto* tracker = To<Element>(GetLayoutObject()->GetNode())
                           ->GetOverscrollAreaTracker()) {
     for (const Element* element : tracker->DOMSortedElements()) {
-      offset += element->GetPseudoElement(kPseudoIdOverscrollAreaParent)
-                    ->GetLayoutBox()
-                    ->PixelSnappedScrolledContentOffset();
+      PseudoElement* pseudo =
+          element->GetPseudoElement(kPseudoIdOverscrollAreaParent);
+      if (LayoutBox* layout_box = pseudo->GetLayoutBox()) {
+        offset += layout_box->PixelSnappedScrolledContentOffset();
+      }
     }
   }
   return offset;
@@ -1551,7 +1553,8 @@ PositionWithAffinity PhysicalBoxFragment::PositionForPoint(
     }
   }
 
-  if (IsA<LayoutBlockFlow>(*layout_object_) &&
+  if (!RuntimeEnabledFeatures::PreventTextSelectionJumpEnabled() &&
+      IsA<LayoutBlockFlow>(*layout_object_) &&
       layout_object_->ChildrenInline()) {
     // Here |this| may have out-of-flow children without inline children, we
     // don't find closest child of |point| for out-of-flow children.

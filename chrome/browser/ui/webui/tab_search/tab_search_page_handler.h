@@ -75,6 +75,7 @@ class TabSearchPageHandler
 
   // tab_search::mojom::PageHandler:
   void CloseTab(int32_t tab_id) override;
+  void CloseTabs(const std::vector<int32_t>& tab_ids) override;
   void CloseWebUiTab() override;
   void GetProfileData(GetProfileDataCallback callback) override;
   void GetIsSplit(GetIsSplitCallback callback) override;
@@ -85,6 +86,10 @@ class TabSearchPageHandler
   void SaveRecentlyClosedExpandedPref(bool expanded) override;
   void StartTabGroupTutorial() override;
   void MaybeShowUI() override;
+  void GetRangesIgnoringCaseAndAccents(
+      const std::string& search_text,
+      const std::vector<std::string>& targets,
+      GetRangesIgnoringCaseAndAccentsCallback callback) override;
 
   // TabStripApiBatchedObserver:
   void OnTabEvents(

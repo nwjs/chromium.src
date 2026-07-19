@@ -7,7 +7,9 @@
 #include <vector>
 
 #include "base/compiler_specific.h"
+#include "base/files/file_path.h"
 #include "base/functional/bind.h"
+#include "base/logging.h"
 #include "base/task/thread_pool.h"
 #include "base/types/expected_macros.h"
 #include "mojo/public/cpp/base/big_buffer.h"
@@ -20,6 +22,7 @@
 #include "services/webnn/ort/ort_status.h"
 #include "services/webnn/ort/platform_functions_ort.h"
 #include "services/webnn/ort/scoped_ort_types.h"
+#include "services/webnn/public/cpp/ep_device_info.h"
 #include "services/webnn/webnn_constant_operand.h"
 #include "services/webnn/webnn_tensor_impl.h"
 
@@ -44,20 +47,28 @@ struct CompilerContextImplOrt::CompilationResult {
 
 // static
 std::unique_ptr<CompilerContextImplOrt> CompilerContextImplOrt::Create(
-    base::flat_map<std::string, mojom::EpPackageInfoPtr> ep_package_info,
+    const base::FilePath& ep_library_path,
+    const EpDeviceInfo& target_device,
     mojom::CreateContextOptionsPtr options,
     ContextProperties properties,
     mojo::PendingRemote<mojom::WebNNModelLoader> model_loader) {
-  auto env = Environment::GetOrCreateInstance(ep_package_info);
+  // TODO(crbug.com/502249078): Create the environment before sandbox lockdown.
+  auto env = Environment::GetOrCreateInstanceForCompiler(target_device.ep_name,
+                                                         ep_library_path);
   if (!env.has_value()) {
+    LOG(ERROR) << "[WebNN] Failed to create ONNX Runtime environment: "
+               << env.error();
     return nullptr;
   }
+
   return std::make_unique<CompilerContextImplOrt>(
-      std::move(env.value()), std::move(options), std::move(properties),
-      std::move(model_loader), base::PassKey<CompilerContextImplOrt>());
+      target_device, std::move(env.value()), std::move(options),
+      std::move(properties), std::move(model_loader),
+      base::PassKey<CompilerContextImplOrt>());
 }
 
 CompilerContextImplOrt::CompilerContextImplOrt(
+    const EpDeviceInfo& target_device,
     scoped_refptr<Environment> env,
     mojom::CreateContextOptionsPtr options,
     ContextProperties properties,
@@ -67,8 +78,7 @@ CompilerContextImplOrt::CompilerContextImplOrt(
       options_(std::move(options)),
       model_loader_(std::move(model_loader)),
       env_(std::move(env)) {
-  session_options_ =
-      SessionOptions::Create(WebnnToOrtDeviceType(options_->device), env_);
+  session_options_ = SessionOptions::Create(target_device, env_);
 
   model_loader_.set_disconnect_handler(
       base::BindOnce(&CompilerContextImplOrt::OnModelLoaderDisconnected,

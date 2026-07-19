@@ -31,7 +31,8 @@ class OmniboxPopupHandlerTest : public ChromeRenderViewHostTestHarness {
     omnibox_popup_ui_ = std::make_unique<OmniboxPopupUI>(&web_ui_);
     handler_ = std::make_unique<OmniboxPopupHandler>(
         mojo::PendingReceiver<omnibox_popup::mojom::PageHandler>(),
-        page_.BindAndGetRemote(), web_contents());
+        page_.BindAndGetRemote(), web_contents(),
+        /*controller=*/nullptr);
     embedder_ = std::make_unique<TestEmbedder>();
     handler_->set_embedder(embedder_->GetWeakPtr());
   }
@@ -63,11 +64,47 @@ TEST_F(OmniboxPopupHandlerTest, ShowContextMenu) {
   EXPECT_TRUE(embedder_->context_menu_shown());
 }
 
-TEST_F(OmniboxPopupHandlerTest, SetInputText) {
+TEST_F(OmniboxPopupHandlerTest, SetInputState) {
   std::string test_text = "test input";
-  EXPECT_CALL(page_, SetInputText(test_text));
-  handler_->SetInputText(test_text);
+  gfx::Range test_selection(1, 5);
+  std::string full_url = "test.com";
+  EXPECT_CALL(page_, SetInputState(testing::_))
+      .WillOnce([&](omnibox_popup::mojom::OmniboxInputStatePtr state) {
+        EXPECT_EQ(state->text, test_text);
+        EXPECT_EQ(state->selection, test_selection);
+        EXPECT_TRUE(state->user_input_in_progress);
+        EXPECT_EQ(state->full_url, full_url);
+        EXPECT_TRUE(state->is_focused);
+      });
+  handler_->SetInputState(test_text, test_selection,
+                          /*user_input_in_progress=*/true, full_url,
+                          /*is_focused=*/true);
   page_.FlushForTesting();
+}
+
+TEST_F(OmniboxPopupHandlerTest, OnSelectionChanged) {
+  gfx::Range test_selection(1, 5);
+  handler_->OnSelectionChanged(test_selection, 0);
+  EXPECT_EQ(handler_->latest_selection(), test_selection);
+}
+
+TEST_F(OmniboxPopupHandlerTest, OnSelectionChangedSequenceGuard) {
+  // Fresh handler has sequence number 0. A call with sequence 0 is accepted.
+  gfx::Range selection1(1, 5);
+  handler_->OnSelectionChanged(selection1, 0);
+  EXPECT_EQ(handler_->latest_selection(), selection1);
+
+  // `SetInputState increments the sequence number to 1.
+  handler_->SetInputState("test", gfx::Range(0, 0), false, "", true);
+
+  // A call with stale sequence number 0 should be discarded.
+  gfx::Range selection2(2, 6);
+  handler_->OnSelectionChanged(selection2, 0);
+  EXPECT_EQ(handler_->latest_selection(), gfx::Range(0, 0));
+
+  // A call with active sequence number 1 should be accepted.
+  handler_->OnSelectionChanged(selection2, 1);
+  EXPECT_EQ(handler_->latest_selection(), selection2);
 }
 
 }  // namespace

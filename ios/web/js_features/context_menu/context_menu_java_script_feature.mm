@@ -78,11 +78,11 @@ ContextMenuJavaScriptFeature::GetScriptMessageHandlerName() const {
 void ContextMenuJavaScriptFeature::ScriptMessageReceived(
     WebState* web_state,
     const ScriptMessage& message) {
-  if (!message.body()) {
+  if (!message.legacy_body()) {
     // Ignore malformed responses.
     return;
   }
-  const auto* dict = message.body()->GetIfDict();
+  const auto* dict = message.legacy_body()->GetIfDict();
   if (!dict) {
     // Ignore malformed responses.
     return;
@@ -104,11 +104,15 @@ void ContextMenuJavaScriptFeature::ScriptMessageReceived(
     return;
   }
 
-  web::ContextMenuParams params =
+  std::optional<web::ContextMenuParams> params =
       web::ContextMenuParamsFromElementDictionary(*dict);
-  params.is_main_frame = message.is_main_frame();
+  if (!params) {
+    return;
+  }
+  params->is_main_frame = message.is_main_frame();
+  params->frame_security_origin = message.security_origin();
 
-  std::move(callback).Run(*request_id, params);
+  std::move(callback).Run(*request_id, *params);
 }
 
 }  // namespace web

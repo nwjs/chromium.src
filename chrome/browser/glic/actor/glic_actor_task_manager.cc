@@ -165,7 +165,7 @@ GlicActorTaskManager::GlicActorTaskManager(
     actor::ActorKeyedService* actor_keyed_service,
     GlicActorPolicyChecker& actor_policy_checker,
     GlicInstanceMetrics* instance_metrics,
-    GlicSharingManager* sharing_manager,
+    GlicSharingManagerInternal* sharing_manager,
     Delegate* delegate)
     : profile_(profile),
       actor_keyed_service_(actor_keyed_service),
@@ -250,7 +250,10 @@ void GlicActorClientSession::CreateTask(
       &actor_policy_checker(), std::move(options), GetWeakPtr());
   CHECK(!current_task_id_.is_null());
 
-  manager_->SetActuating(true);
+  if (manager_->delegate_) {
+    manager_->delegate_->OnTaskIdChanged(current_task_id_.value());
+  }
+  manager_->MaybeNotifyActuatingChanged();
 
   actor_task_state_changed_subscription_ =
       actor_keyed_service().AddTaskStateChangedCallback(base::BindRepeating(
@@ -786,6 +789,11 @@ void GlicActorClientSession::ResumeActorTask(
             // TODO(b/380495633): Finalize and implement image annotations.
             glic::mojom::ImageOriginAnnotations::New());
 
+        if (page_context.screenshot_info.has_value()) {
+          glic_tab_context->screenshot_info =
+              mojo_base::ProtoWrapper(*page_context.screenshot_info);
+        }
+
         glic_tab_context->annotated_page_data = mojom::AnnotatedPageData::New();
         glic_tab_context->annotated_page_data->annotated_page_content =
             mojo_base::ProtoWrapper(
@@ -817,6 +825,36 @@ bool GlicActorClientSession::IsActuating() const {
 
 bool GlicActorTaskManager::IsActuating() const {
   return session_ && session_->IsActuating();
+}
+
+std::vector<tabs::TabInterface*> GlicActorTaskManager::GetLastActedTabs()
+    const {
+  std::vector<tabs::TabInterface*> target_tabs;
+  if (!session_) {
+    return target_tabs;
+  }
+  actor::TaskId task_id = session_->current_task_id();
+  if (task_id.is_null()) {
+    return target_tabs;
+  }
+  actor::ActorTask* task = actor_keyed_service_->GetTask(task_id);
+  if (!task) {
+    return target_tabs;
+  }
+  actor::ActorTask::TabHandleSet handle_set = task->GetLastActedTabs();
+  for (const auto& handle : handle_set) {
+    if (tabs::TabInterface* tab = handle.Get()) {
+      target_tabs.push_back(tab);
+    }
+  }
+  return target_tabs;
+}
+
+std::optional<int> GlicActorTaskManager::current_task_id() const {
+  if (session_ && !session_->current_task_id().is_null()) {
+    return session_->current_task_id().value();
+  }
+  return std::nullopt;
 }
 
 base::CallbackListSubscription
@@ -963,10 +1001,13 @@ void GlicActorClientSession::NotifyActorTaskStateChanged(
 
   if (task.IsCompleted()) {
     current_task_id_ = actor::TaskId();
+    if (manager_->delegate_) {
+      manager_->delegate_->OnTaskIdChanged(std::nullopt);
+    }
     attempted_reload_after_crash_ = false;
     reload_observer_.reset();
     actor_task_state_changed_subscription_.reset();
-    manager_->SetActuating(false);
+    manager_->MaybeNotifyActuatingChanged();
   }
 }
 
@@ -1018,21 +1059,27 @@ base::WeakPtr<GlicActorClientSession> GlicActorClientSession::GetWeakPtr() {
 
 void GlicActorTaskManager::UnbindSession() {
   session_.reset();
-  SetActuating(false);
+  MaybeNotifyActuatingChanged();
 }
 
-void GlicActorTaskManager::SetActuating(bool actuating) {
-  if (actuating_ == actuating) {
+void GlicActorTaskManager::MaybeNotifyActuatingChanged() {
+  const bool current_actuating_state = IsActuating();
+  if (last_notified_actuating_state_ == current_actuating_state) {
     return;
   }
-  actuating_ = actuating;
-  actuating_changed_callbacks_.Notify(actuating_);
+  last_notified_actuating_state_ = current_actuating_state;
+  actuating_changed_callbacks_.Notify(current_actuating_state);
 }
 
 void GlicActorClientSession::OnTabAddedToTask(
     actor::TaskId task_id,
     const tabs::TabInterface::Handle& tab_handle) {
   manager_->delegate_->OnTabAddedToTask(task_id, tab_handle);
+}
+
+void GlicActorClientSession::OnTaskTabsVisibilityChanged(actor::TaskId task_id,
+                                                         bool has_visible_tab) {
+  manager_->delegate_->OnTaskTabsVisibilityChanged(task_id, has_visible_tab);
 }
 
 void GlicActorClientSession::RequestToShowCredentialSelectionDialog(
@@ -1080,6 +1127,13 @@ void GlicActorClientSession::RequestToShowCredentialSelectionDialog(
 
   actor_client_->RequestToShowCredentialSelectionDialog(
       std::move(dialog_request), std::move(callback));
+}
+
+void GlicActorClientSession::RequestToShowGmailOtpOptInDialog(
+    actor::TaskId task_id,
+    actor::ActorTaskDelegate::GmailOtpOptInCallback callback) {
+  actor_client_->RequestToShowGmailOtpOptInDialog(task_id.value(),
+                                                  std::move(callback));
 }
 
 void GlicActorClientSession::RequestToShowUserConfirmationDialog(

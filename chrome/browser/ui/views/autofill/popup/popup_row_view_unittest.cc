@@ -82,7 +82,7 @@ class PopupRowViewTest : public ChromeViewsTestBase {
   void ShowView(int line_number,
                 bool has_control,
                 bool is_acceptable = true,
-                SuggestionType type = SuggestionType::kAddressEntry) {
+                SuggestionType type = SuggestionType::kPasswordEntry) {
     std::vector<Suggestion> suggestions(line_number + 1, Suggestion(type));
     suggestions[line_number].type = type;
     suggestions[line_number].acceptability =
@@ -447,6 +447,17 @@ TEST_F(PopupRowViewTest,
   EXPECT_CALL(controller(), ShouldIgnoreMouseObservedOutsideItemBoundsCheck())
       .WillOnce(Return(true));
   ShowView(/*line_number=*/0, /*has_control=*/false);
+
+  generator().MoveMouseTo(
+      row_view().GetContentView().GetBoundsInScreen().CenterPoint());
+  Paint();
+  EXPECT_CALL(controller(), AcceptSuggestion);
+  generator().ClickLeftButton();
+}
+
+TEST_F(PopupRowViewTest, DatalistEntriesDoNotIgnoreInitialHoverClick) {
+  ShowView(/*line_number=*/0, /*has_control=*/false,
+           /*is_acceptable=*/true, SuggestionType::kDatalistEntry);
 
   generator().MoveMouseTo(
       row_view().GetContentView().GetBoundsInScreen().CenterPoint());

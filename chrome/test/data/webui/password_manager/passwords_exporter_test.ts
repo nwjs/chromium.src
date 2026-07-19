@@ -5,15 +5,15 @@
 import 'chrome://password-manager/password_manager.js';
 
 import type {CrButtonElement, CrDialogElement, PasswordsExporterElement} from 'chrome://password-manager/password_manager.js';
-import {PasswordManagerImpl} from 'chrome://password-manager/password_manager.js';
+import {ExportPasswordsResult, ExportProgressStatus, PasswordManagerImpl} from 'chrome://password-manager/password_manager.js';
+import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import {assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {MockTimer} from 'chrome://webui-test/mock_timer.js';
+import {flushTasks} from 'chrome://webui-test/polymer_test_util.js';
 import {isVisible} from 'chrome://webui-test/test_util.js';
 
 import {TestPasswordManagerProxy} from './test_password_manager_proxy.js';
-
-const ExportProgressStatus = chrome.passwordsPrivate.ExportProgressStatus;
 
 // Checks the expected display of elements on PasswordsExporterElement creation.
 function verifyInitialUIState(exporter: PasswordsExporterElement) {
@@ -30,13 +30,12 @@ function clickExportPasswordsButton(exporter: PasswordsExporterElement) {
   flush();
 }
 
-function updateExportStatus(
-    passwordManager: TestPasswordManagerProxy,
-    progress: chrome.passwordsPrivate.PasswordExportProgress) {
-  const progressCallback =
-      passwordManager.listeners.passwordsFileExportProgressListener;
-  assertTrue(!!progressCallback);
-  progressCallback(progress);
+async function updateExportStatus(
+    passwordManager: TestPasswordManagerProxy, status: ExportProgressStatus,
+    folderName?: string) {
+  passwordManager.callbackRouterRemote.onPasswordsExportProgress(
+      status, folderName || null);
+  await passwordManager.callbackRouterRemote.$.flushForTesting();
 }
 
 suite('PasswordExporterTest', function() {
@@ -44,6 +43,7 @@ suite('PasswordExporterTest', function() {
   let passwordsExporter: PasswordsExporterElement;
 
   setup(function() {
+    loadTimeData.overrideValues({enablePasswordManagerMojoApi: true});
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     passwordManager = new TestPasswordManagerProxy();
     PasswordManagerImpl.setInstance(passwordManager);
@@ -61,8 +61,7 @@ suite('PasswordExporterTest', function() {
     clickExportPasswordsButton(passwordsExporter);
     await passwordManager.whenCalled('exportPasswords');
 
-    updateExportStatus(
-        passwordManager, {status: ExportProgressStatus.IN_PROGRESS});
+    await updateExportStatus(passwordManager, ExportProgressStatus.kInProgress);
     flush();
     assertTrue(
         isVisible(passwordsExporter.shadowRoot!.querySelector('.spinner')));
@@ -70,10 +69,7 @@ suite('PasswordExporterTest', function() {
     const successToast = passwordsExporter.$.exportSuccessToast;
     assertFalse(successToast.open);
 
-    updateExportStatus(passwordManager, {
-      status: ExportProgressStatus.SUCCEEDED,
-      filePath: 'usr/testfolder/testfile.csv',
-    });
+    await updateExportStatus(passwordManager, ExportProgressStatus.kSucceeded);
     flush();
     // On SUCCEEDED, the exporter UI is back to the initial state and the
     // success toast is shown.
@@ -84,7 +80,7 @@ suite('PasswordExporterTest', function() {
         successToast.querySelector<CrButtonElement>('#openInShellButton');
     assertTrue(!!openInShellButton);
     openInShellButton.click();
-    await passwordManager.whenCalled('showExportedFileInShell');
+    await passwordManager.whenCalled('showLastExportedFileInShell');
   });
 
   // The error view is shown when an error occurs.
@@ -92,12 +88,9 @@ suite('PasswordExporterTest', function() {
     clickExportPasswordsButton(passwordsExporter);
     await passwordManager.whenCalled('exportPasswords');
 
-    updateExportStatus(
-        passwordManager, {status: ExportProgressStatus.IN_PROGRESS});
-    updateExportStatus(passwordManager, {
-      status: ExportProgressStatus.FAILED_WRITE_FAILED,
-      folderName: 'tmp',
-    });
+    await updateExportStatus(passwordManager, ExportProgressStatus.kInProgress);
+    await updateExportStatus(
+        passwordManager, ExportProgressStatus.kFailedWrite, 'tmp');
     flush();
     const errorDialog =
         passwordsExporter.shadowRoot!.querySelector<CrDialogElement>(
@@ -123,12 +116,9 @@ suite('PasswordExporterTest', function() {
     clickExportPasswordsButton(passwordsExporter);
     await passwordManager.whenCalled('exportPasswords');
 
-    updateExportStatus(
-        passwordManager, {status: ExportProgressStatus.IN_PROGRESS});
-    updateExportStatus(passwordManager, {
-      status: ExportProgressStatus.FAILED_WRITE_FAILED,
-      folderName: 'tmp',
-    });
+    await updateExportStatus(passwordManager, ExportProgressStatus.kInProgress);
+    await updateExportStatus(
+        passwordManager, ExportProgressStatus.kFailedWrite, 'tmp');
     flush();
     // Test that the error dialog is shown.
     const errorDialog =
@@ -136,6 +126,7 @@ suite('PasswordExporterTest', function() {
             '#dialogError');
     assertTrue(!!errorDialog);
 
+    passwordManager.resetResolver('exportPasswords');
     // Test that clicking retry will start a new export.
     const tryAgainButton =
         errorDialog.querySelector<CrButtonElement>('#tryAgainButton');
@@ -143,6 +134,20 @@ suite('PasswordExporterTest', function() {
     tryAgainButton.click();
     flush();
 
-    await passwordManager.whenCalled('requestExportProgressStatus');
+    await passwordManager.whenCalled('exportPasswords');
+    mockTimer.uninstall();
+  });
+
+  test('exportFlowErrorInProgress', async function() {
+    passwordManager.setExportPasswordsResult(ExportPasswordsResult.kInProgress);
+
+    clickExportPasswordsButton(passwordsExporter);
+    await passwordManager.whenCalled('exportPasswords');
+
+    // Wait for the .then block to execute.
+    await flushTasks();
+
+    assertTrue(
+        isVisible(passwordsExporter.shadowRoot!.querySelector('.spinner')));
   });
 });

@@ -9,10 +9,12 @@
 
 #include "components/viz/common/surfaces/parent_local_surface_id_allocator.h"
 #include "content/common/content_export.h"
+#include "content/public/browser/immersive_playback_options.h"
 #include "content/public/browser/media_player_id.h"
 #include "content/public/browser/video_picture_in_picture_window_controller.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
+#include "media/base/video_spatial_format.h"
 #include "media/mojo/mojom/media_player.mojom.h"
 #include "mojo/public/cpp/bindings/pending_associated_remote.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -145,16 +147,17 @@ class CONTENT_EXPORT VideoPictureInPictureWindowControllerImpl
       bool show_play_pause_button,
       mojo::PendingRemote<blink::mojom::PictureInPictureSessionObserver>,
       const gfx::Rect& source_bounds,
-      blink::mojom::ImmersiveOptionsPtr immersive_options,
+      std::optional<content::ImmersiveOptions> immersive_options,
       mojo::PendingRemote<blink::mojom::PictureInPictureSession>*
           session_remote,
       gfx::Size* window_size);
 
-  using RequestImmersivePlaybackConfirmationCallback = base::OnceCallback<void(
-      blink::mojom::ImmersivePlaybackConfirmationResultPtr)>;
+  using RequestImmersivePlaybackConfirmationCallback =
+      base::OnceCallback<void(content::ImmersivePlaybackConfirmationResult)>;
 
   // Requests user confirmation to enter immersive Picture-in-Picture session.
   void RequestImmersivePlaybackConfirmation(
+      const content::ImmersiveOptions& default_options,
       RequestImmersivePlaybackConfirmationCallback callback);
 
   // Called by PictureInPictureServiceImpl when the service is about to be

@@ -59,6 +59,7 @@ import org.chromium.chrome.browser.keyboard_accessory.sheet_tabs.AccessorySheetT
 import org.chromium.chrome.browser.keyboard_accessory.sheet_tabs.AddressAccessorySheetCoordinator;
 import org.chromium.chrome.browser.keyboard_accessory.sheet_tabs.CreditCardAccessorySheetCoordinator;
 import org.chromium.chrome.browser.keyboard_accessory.sheet_tabs.PasswordAccessorySheetCoordinator;
+import org.chromium.chrome.browser.keyboard_accessory.utils.ManualFillingMetricsRecorder;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
@@ -72,6 +73,8 @@ import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.chrome.browser.util.ChromeAccessibilityUtil;
 import org.chromium.components.autofill.AutofillDelegate;
 import org.chromium.components.autofill.AutofillSuggestion;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent.ContentPriority;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.SheetState;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
@@ -119,6 +122,8 @@ class ManualFillingMediator
     private NonNullObservableSupplier<ViewportInsets> mApplicationViewportInsetTracker;
     private final SettableNonNullObservableSupplier<Integer> mBottomInsetSupplier =
             ObservableSuppliers.createNonNull(0);
+    private final SettableNonNullObservableSupplier<Boolean> mIsAccessoryRequestedSupplier =
+            ObservableSuppliers.createNonNull(false);
     private final ManualFillingStateCache mStateCache = new ManualFillingStateCache();
     private final HashSet<Tab> mObservedTabs = new HashSet<>();
     private KeyboardAccessoryCoordinator mKeyboardAccessory;
@@ -199,7 +204,19 @@ class ManualFillingMediator
             new EmptyBottomSheetObserver() {
                 @Override
                 public void onSheetStateChanged(@SheetState int newState, int reason) {
-                    mModel.set(SUPPRESSED_BY_BOTTOM_SHEET, newState != SheetState.HIDDEN);
+                    @Nullable BottomSheetContent currentContent =
+                            mBottomSheetController.getCurrentSheetContent();
+                    // TODO(crbug.com/505050661): Remove COBROWSE condition once modes is
+                    // implemented.
+                    boolean isCoBrowse =
+                            currentContent != null
+                                    && currentContent.getPriority() == ContentPriority.COBROWSE;
+
+                    // Only suppress the accessory if the sheet is open AND it is not a Co-Browse
+                    // sheet.
+                    mModel.set(
+                            SUPPRESSED_BY_BOTTOM_SHEET,
+                            newState != SheetState.HIDDEN && !isCoBrowse);
                 }
             };
 
@@ -217,6 +234,7 @@ class ManualFillingMediator
         assert mActivity != null;
         mWindowAndroid = windowAndroid;
         mKeyboardAccessory = keyboardAccessory;
+        mKeyboardAccessory.setAtMemoryCallback(this::onAtMemoryClicked);
         mBottomSheetController = sheetController;
         mIsContextualSearchOpened = isContextualSearchOpened;
         mSoftKeyboardDelegate = keyboardDelegate;
@@ -280,6 +298,10 @@ class ManualFillingMediator
 
     NonNullObservableSupplier<Integer> getBottomInsetSupplier() {
         return mBottomInsetSupplier;
+    }
+
+    NonNullObservableSupplier<Boolean> getIsAccessoryRequestedSupplier() {
+        return mIsAccessoryRequestedSupplier;
     }
 
     @Override
@@ -468,9 +490,13 @@ class ManualFillingMediator
         hideSoftKeyboard();
     }
 
-    void setAtMemoryCallback(Runnable callback) {
-        if (mKeyboardAccessory != null) {
-            mKeyboardAccessory.setAtMemoryCallback(callback);
+    private void onAtMemoryClicked() {
+        WebContents webContents = mActivity.getCurrentWebContents();
+        if (webContents != null && !webContents.isDestroyed()) {
+            ManualFillingMetricsRecorder.recordActionSelected(
+                    AccessoryAction.SHOW_AT_MEMORY_BOTTOMSHEET);
+            ManualFillingComponentBridge.onOptionSelectedForWebContents(
+                    webContents, AccessoryAction.SHOW_AT_MEMORY_BOTTOMSHEET);
         }
     }
 
@@ -526,6 +552,7 @@ class ManualFillingMediator
                     "ManualFillingMediator$KeyboardExtensionState",
                     getNameForState(mModel.get(KEYBOARD_EXTENSION_STATE)));
             transitionIntoState(mModel.get(KEYBOARD_EXTENSION_STATE));
+            mIsAccessoryRequestedSupplier.set(mModel.get(KEYBOARD_EXTENSION_STATE) != HIDDEN);
             return;
         } else if (property == SUPPRESSED_BY_BOTTOM_SHEET) {
             if (isInitialized() && mModel.get(SUPPRESSED_BY_BOTTOM_SHEET)) {
@@ -909,64 +936,80 @@ class ManualFillingMediator
         return (int) (MAXIMUM_BAR_WIDTH_PERCENTAGE * screenWidth);
     }
 
-    // TODO(crbug.com/469956054): Make this method more readable.
     private void updateStyleAndControlSpaceForState(int extensionState) {
         if (extensionState == WAITING_TO_REPLACE) return; // Don't change yet.
 
-        int newControlsOffset = 0;
-        if (isLargeFormFactor()
-                && ChromeFeatureList.isEnabled(
-                        ChromeFeatureList.AUTOFILL_ANDROID_DESKTOP_KEYBOARD_ACCESSORY_REVAMP)) {
-            if (requiresVisibleBar(extensionState)) {
-                mKeyboardAccessory.setStyle(
-                        KeyboardAccessoryStyle.createUndockedKeyboardAccessoryStyle(
-                                getHorizontalOffset(),
-                                getTopOffset(),
-                                getMaxWidth(),
-                                getNotchPositionForDynamicPositioning()));
-                mBottomInsetSupplier.set(0);
-                return;
-            }
-            if (requiresVisibleSheet(extensionState)
-                    && ChromeFeatureList.isEnabled(
+        boolean useUndockedLayout =
+                isLargeFormFactor()
+                        && ChromeFeatureList.isEnabled(
+                                ChromeFeatureList
+                                        .AUTOFILL_ANDROID_DESKTOP_KEYBOARD_ACCESSORY_REVAMP);
+
+        if (requiresVisibleSheet(extensionState)) {
+            boolean isDocked = !useUndockedLayout;
+            if (isDocked
+                    || ChromeFeatureList.isEnabled(
                             ChromeFeatureList
                                     .AUTOFILL_ANDROID_KEYBOARD_ACCESSORY_DYNAMIC_POSITIONING)) {
-                mAccessorySheet.setStyle(/* isDocked= */ false);
-                mBottomInsetSupplier.set(0);
-                return;
+                mAccessorySheet.setStyle(isDocked);
             }
         }
 
-        int newControlsHeight = 0;
         if (requiresVisibleBar(extensionState)) {
-            boolean isEdgeToEdgeActive = mEdgeToEdgeControllerSupplier.get() != null;
-            // TODO(crbug.com/41483806): Treat VirtualKeyboardMode.OVERLAYS_CONTENT like fullscreen?
-            if (mModel.get(IS_FULLSCREEN) // Hides UI and lets keyboard overlay webContents.
-                    // No need to set the controls height to 0 in edge-to-edge since the content
-                    // view will resize to account for the keyboard.
-                    && !isEdgeToEdgeActive) {
-                newControlsOffset = getKeyboardAndNavigationHeight();
-                // Don't resize the page because the keyboard does not doesn't do that either in
-                // fullscreen mode. It's overlaying the content and the accessory mimics that.
-                newControlsHeight = 0;
-            } else {
-                newControlsHeight = getBarHeightWithoutShadow();
+            mKeyboardAccessory.setStyle(getAccessoryStyle(extensionState, useUndockedLayout));
+        }
+
+        mBottomInsetSupplier.set(calculateControlsHeight(extensionState, useUndockedLayout));
+    }
+
+    private KeyboardAccessoryStyle getAccessoryStyle(
+            int extensionState, boolean useUndockedLayout) {
+        if (useUndockedLayout) {
+            return KeyboardAccessoryStyle.createUndockedKeyboardAccessoryStyle(
+                    getHorizontalOffset(),
+                    getTopOffset(),
+                    getMaxWidth(),
+                    getNotchPositionForDynamicPositioning());
+        }
+
+        int offset = 0;
+        if (isKeyboardOverlayingContent()) {
+            offset = getKeyboardAndNavigationHeight();
+        }
+        if (requiresVisibleSheet(extensionState)) {
+            offset += mAccessorySheet.getHeight();
+        }
+        return KeyboardAccessoryStyle.createDockedKeyboardAccessoryStyle(offset);
+    }
+
+    private int calculateControlsHeight(int extensionState, boolean useUndockedLayout) {
+        if (useUndockedLayout) {
+            return 0;
+        }
+
+        int inset = 0;
+        if (requiresVisibleBar(extensionState)) {
+            if (!isKeyboardOverlayingContent()) {
+                inset += getBarHeightWithoutShadow();
             }
         }
         if (requiresVisibleSheet(extensionState)) {
-            newControlsHeight +=
-                    mAccessorySheet.getHeight()
-                            - mActivity
-                                    .getResources()
-                                    .getDimensionPixelSize(R.dimen.toolbar_shadow_height);
-            newControlsOffset += mAccessorySheet.getHeight();
-            mAccessorySheet.setStyle(/* isDocked= */ true);
+            int shadowHeight =
+                    mActivity.getResources().getDimensionPixelSize(R.dimen.toolbar_shadow_height);
+            inset += (mAccessorySheet.getHeight() - shadowHeight);
         }
-        if (requiresVisibleBar(extensionState)) {
-            mKeyboardAccessory.setStyle(
-                    KeyboardAccessoryStyle.createDockedKeyboardAccessoryStyle(newControlsOffset));
-        }
-        mBottomInsetSupplier.set(newControlsHeight);
+        return inset;
+    }
+
+    // TODO(crbug.com/41483806): Treat VirtualKeyboardMode.OVERLAYS_CONTENT like fullscreen?
+    private boolean isKeyboardOverlayingContent() {
+        boolean isEdgeToEdgeActive = mEdgeToEdgeControllerSupplier.get() != null;
+        // Hides UI and lets keyboard overlay webContents.
+        // No need to set the controls height to 0 in edge-to-edge since the content
+        // view will resize to account for the keyboard.
+        // Don't resize the page because the keyboard doesn't do that either in
+        // fullscreen mode. It's overlaying the content and the accessory mimics that.
+        return mModel.get(IS_FULLSCREEN) && !isEdgeToEdgeActive;
     }
 
     private void onViewportInsetChanged(ViewportInsets newViewportInsets) {

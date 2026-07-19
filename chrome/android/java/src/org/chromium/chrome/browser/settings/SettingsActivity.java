@@ -55,6 +55,7 @@ import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchControllerFac
 import org.chromium.chrome.browser.back_press.BackPressHelper;
 import org.chromium.chrome.browser.back_press.BackPressHelper.OnKeyDownHandler;
 import org.chromium.chrome.browser.browser_controls.BrowserStateBrowserControlsVisibilityDelegate;
+import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncher;
 import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncherImpl;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.glic.GlicHelper;
@@ -437,8 +438,7 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
     }
 
     private void maybeCreateAppHeaderCoordinator(@Nullable Bundle savedInstanceState) {
-        if (!ChromeFeatureList.sSearchInSettings.isEnabled()
-                || Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
             return;
         }
 
@@ -540,32 +540,27 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
 
     @RequiresNonNull("mMultiColumnSettings")
     private void createMultiColumnTitleUpdater(@Nullable Bundle savedInstanceState) {
-        if (!ChromeFeatureList.sSearchInSettings.isEnabled()) {
-            createMultiColumTitleUpdaterInternal(
-                    savedInstanceState, findViewById(R.id.settings_detailed_pane_title));
-        } else {
-            getSupportFragmentManager()
-                    .registerFragmentLifecycleCallbacks(
-                            new FragmentManager.FragmentLifecycleCallbacks() {
+        getSupportFragmentManager()
+                .registerFragmentLifecycleCallbacks(
+                        new FragmentManager.FragmentLifecycleCallbacks() {
 
-                                @Override
-                                public void onFragmentViewCreated(
-                                        @NonNull FragmentManager fm,
-                                        @NonNull Fragment f,
-                                        @NonNull View v,
-                                        @Nullable Bundle savedFragmentState) {
-                                    assert mMultiColumnSettings != null;
+                            @Override
+                            public void onFragmentViewCreated(
+                                    @NonNull FragmentManager fm,
+                                    @NonNull Fragment f,
+                                    @NonNull View v,
+                                    @Nullable Bundle savedFragmentState) {
+                                assert mMultiColumnSettings != null;
 
-                                    // Pass the Activity's bundle, as the title updater state is
-                                    // tied to the activity lifecycle.
-                                    createMultiColumTitleUpdaterInternal(
-                                            savedInstanceState,
-                                            v.findViewById(R.id.settings_title_in_detailed_pane));
-                                    fm.unregisterFragmentLifecycleCallbacks(this);
-                                }
-                            },
-                            false);
-        }
+                                // Pass the Activity's bundle, as the title updater state is
+                                // tied to the activity lifecycle.
+                                createMultiColumTitleUpdaterInternal(
+                                        savedInstanceState,
+                                        v.findViewById(R.id.settings_title_in_detailed_pane));
+                                fm.unregisterFragmentLifecycleCallbacks(this);
+                            }
+                        },
+                        false);
     }
 
     @RequiresNonNull("mMultiColumnSettings")
@@ -584,8 +579,6 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
     }
 
     private void createSearchCoordinator(@Nullable Bundle savedState) {
-        if (!ChromeFeatureList.sSearchInSettings.isEnabled()) return;
-
         Callback<Integer> updateFirstVisibleTitle =
                 isMultiColumnSettingEnabled()
                         ? this::updateFirstVisibleTitle
@@ -681,6 +674,7 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
         if (recyclerView == null) return;
 
         ContainmentItemController controller = new ContainmentItemController(SettingsActivity.this);
+        if (isTwoColumnSettingsVisible()) controller.setHorizontalMargin(0);
         ContainmentItemDecoration itemDecoration = mItemDecorations.get(fragment);
         if (itemDecoration == null) {
             itemDecoration = new ContainmentItemDecoration(controller);
@@ -1027,7 +1021,7 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
                         Menu.NONE,
                         R.id.menu_id_general_help,
                         Menu.CATEGORY_SECONDARY,
-                        R.string.menu_help);
+                        HelpAndFeedbackLauncher.getHelpMenuStringRes());
         help.setIcon(
                 TraceEventVectorDrawableCompat.create(
                         getResources(), R.drawable.ic_help_24dp, getTheme()));
@@ -1312,6 +1306,9 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
                 Fragment fragment,
                 View view,
                 @Nullable Bundle savedInstanceState) {
+            int minGapPx =
+                    getResources().getDimensionPixelSize(R.dimen.settings_multi_column_pane_gap);
+            int paddingPx = (fragment instanceof MainSettings) ? 0 : minGapPx;
             if (fragment instanceof PreferenceFragmentCompat
                     || MAIN_FRAGMENT_TAG.equals(fragment.getTag())) {
                 // TODO(crbug.com/439911511): Have this logic in the same place as other layout
@@ -1325,7 +1322,8 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
                                         fragment.getView()
                                                 .getViewTreeObserver()
                                                 .removeOnGlobalLayoutListener(this);
-                                        WideDisplayPadding.apply(fragment, SettingsActivity.this);
+                                        WideDisplayPadding.apply(
+                                                fragment, SettingsActivity.this, paddingPx);
                                     }
                                 });
             }

@@ -132,7 +132,7 @@ class IdentityManagerObserverBridgeTest : public testing::Test {
 TEST_F(IdentityManagerObserverBridgeTest, TestOnPrimaryAccountChanged) {
   PrimaryAccountChangeEvent::State previous_state;
   PrimaryAccountChangeEvent::State current_state(account_info_,
-                                                 signin::ConsentLevel::kSync);
+                                                 signin::ConsentLevel::kSignin);
   PrimaryAccountChangeEvent event_details(
       previous_state, current_state, signin_metrics::AccessPoint::kStartPage);
   observer_bridge_.get()->OnPrimaryAccountChanged(event_details);
@@ -148,8 +148,8 @@ TEST_F(IdentityManagerObserverBridgeTest, TestOnPrimaryAccountChanged) {
 // Tests IdentityManagerObserverBridge::OnPrimaryAccountChanged(), with clear
 // event.
 TEST_F(IdentityManagerObserverBridgeTest, TestOnPrimaryAccountCleared) {
-  PrimaryAccountChangeEvent::State previous_state(account_info_,
-                                                  signin::ConsentLevel::kSync);
+  PrimaryAccountChangeEvent::State previous_state(
+      account_info_, signin::ConsentLevel::kSignin);
   PrimaryAccountChangeEvent::State current_state;
   PrimaryAccountChangeEvent event_details(
       previous_state, current_state, signin_metrics::ProfileSignout::kTest);
@@ -199,7 +199,7 @@ TEST_F(IdentityManagerObserverBridgeTest,
       CoreAccountId::FromGaiaId(signin::GetTestGaiaIdForEmail("1@mail.com"));
   signin::AccountsInCookieJarInfo accounts_in_cookie_jar_info(
       /*accounts_are_fresh=*/true, /*accounts=*/{signed_in_account});
-  GoogleServiceAuthError noError(GoogleServiceAuthError::State::NONE);
+  GoogleServiceAuthError noError = GoogleServiceAuthError::AuthErrorNone();
   observer_bridge_.get()->OnAccountsInCookieUpdated(accounts_in_cookie_jar_info,
                                                     noError);
   EXPECT_EQ(1, observer_bridge_delegate_.onAccountsInCookieUpdatedCount);

@@ -22,6 +22,7 @@
 #import "ios/chrome/browser/composebox/public/composebox_attachment_selection.h"
 #import "ios/chrome/browser/composebox/public/composebox_focus_params.h"
 #import "ios/chrome/browser/composebox/shared/coordinator/composebox_attachment_diff.h"
+#import "ios/chrome/browser/composebox/shared/coordinator/composebox_picker_drive_result.h"
 #import "ios/chrome/browser/composebox/shared/coordinator/composebox_picker_presenter.h"
 #import "ios/chrome/browser/composebox/shared/metrics/composebox_metrics_recorder.h"
 #import "ios/chrome/browser/composebox/ui/composebox_ui_input_state.h"
@@ -34,6 +35,7 @@
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_utils.h"
 #import "ios/web/public/web_state_id.h"
 #import "third_party/omnibox_proto/searchbox_config.pb.h"
+#import "ui/base/device_form_factor.h"
 
 namespace {
 
@@ -170,8 +172,7 @@ CGFloat const kSheetTopPadding = 40.0f;
   _viewController.sheetPresentationController
       .prefersEdgeAttachedInCompactHeight = YES;
 
-  if ([UIDevice currentDevice].userInterfaceIdiom ==
-      UIUserInterfaceIdiomPhone) {
+  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_PHONE) {
     _viewController.sheetPresentationController
         .widthFollowsPreferredContentSizeWhenEdgeAttached = YES;
   }
@@ -364,6 +365,11 @@ CGFloat const kSheetTopPadding = 40.0f;
   [_pickerPresenter presentTabPicker];
 }
 
+- (void)composeboxMenuMediatorDidRequestDriveFileSelection:
+    (ComposeboxMenuMediator*)mediator {
+  [_pickerPresenter presentDriveFilePicker];
+}
+
 #pragma mark - ComposeboxPickerPresenterDelegate
 
 - (void)composeboxPickerPresenter:(ComposeboxPickerPresenter*)presenter
@@ -404,12 +410,17 @@ CGFloat const kSheetTopPadding = 40.0f;
               cachedWebStateIDs:cachedWebStateIDs];
 }
 
-#pragma mark - ComposeboxPickerPresenterDataSource
-
-- (std::set<web::WebStateID>)allAttachedWebStateIDsForPresenter:
-    (ComposeboxPickerPresenter*)presenter {
-  return [_mediator allAttachedWebStateIDs];
+- (void)composeboxPickerPresenter:(ComposeboxPickerPresenter*)presenter
+                didPickDriveItems:
+                    (NSArray<ComposeboxPickerDriveResult*>*)results {
+  if (results.count == 0) {
+    return;
+  }
+  [_metricsRecorder recordDriveFilesAttached:results.count];
+  [_mediator processDriveItems:results];
 }
+
+#pragma mark - ComposeboxPickerPresenterDataSource
 
 - (std::set<web::WebStateID>)attachedWebStateIDsInCurrentContextForPresenter:
     (ComposeboxPickerPresenter*)presenter {

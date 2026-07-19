@@ -30,11 +30,14 @@
 #import "ios/chrome/browser/lens_overlay/ui/lens_overlay_entrypoint_view.h"
 #import "ios/chrome/browser/location_bar/ui_bundled/badges_container_view.h"
 #import "ios/chrome/browser/location_bar/ui_bundled/fakebox_buttons_snapshot_provider.h"
+#import "ios/chrome/browser/location_bar/ui_bundled/highlight_utils.h"
 #import "ios/chrome/browser/location_bar/ui_bundled/location_bar_constants.h"
 #import "ios/chrome/browser/location_bar/ui_bundled/location_bar_metrics.h"
 #import "ios/chrome/browser/location_bar/ui_bundled/location_bar_mutator.h"
 #import "ios/chrome/browser/location_bar/ui_bundled/location_bar_placeholder_type.h"
 #import "ios/chrome/browser/location_bar/ui_bundled/location_bar_steady_view.h"
+#import "ios/chrome/browser/menu/ui_bundled/action_factory.h"
+#import "ios/chrome/browser/menu/ui_bundled/menu_histograms.h"
 #import "ios/chrome/browser/omnibox/public/omnibox_constants.h"
 #import "ios/chrome/browser/omnibox/ui/text_field_view_containing.h"
 #import "ios/chrome/browser/orchestrator/ui_bundled/location_bar_offset_provider.h"
@@ -42,7 +45,7 @@
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/public/commands/activity_service_commands.h"
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
-#import "ios/chrome/browser/shared/public/commands/bwg_commands.h"
+#import "ios/chrome/browser/shared/public/commands/gemini_commands.h"
 #import "ios/chrome/browser/shared/public/commands/help_commands.h"
 #import "ios/chrome/browser/shared/public/commands/lens_commands.h"
 #import "ios/chrome/browser/shared/public/commands/lens_overlay_commands.h"
@@ -78,6 +81,9 @@ typedef NS_ENUM(int, TrailingButtonState) {
 // The scale factor of the steady view in fullscreen.
 const CGFloat kFullscreenScaleFactor = 0.87;
 
+// Spacing between the custom leading view (Gemini Live icon) and the URL label.
+const CGFloat kGeminiLiveIconToLabelSpacing = 8.0;
+
 // The size of the symbol image.
 const CGFloat kSymbolImagePointSize = 18.;
 
@@ -92,7 +98,24 @@ const CGFloat kShareIconBalancingHeightPadding = 1;
 // The minimum width of the plus button.
 const CGFloat kPlusButtonMinimumWidth = 44.0;
 
+// The point size of the Gemini Live symbol.
+const CGFloat kGeminiLiveSymbolPointSize = 10.0;
+
+// The size of the Gemini Live circle container.
+const CGFloat kGeminiLiveCircleSize = 20.0;
 }  // namespace
+
+// Helper view to maintain a round background.
+@interface RoundGeminiLiveView : UIView
+@end
+
+@implementation RoundGeminiLiveView
+- (void)layoutSubviews {
+  [super layoutSubviews];
+  self.layer.cornerRadius = self.bounds.size.height / 2.0;
+  self.clipsToBounds = YES;
+}
+@end
 
 @interface LocationBarViewController () <UIContextMenuInteractionDelegate,
                                          UIIndirectScribbleInteractionDelegate>
@@ -360,13 +383,66 @@ const CGFloat kPlusButtonMinimumWidth = 44.0;
   self.locationBarSteadyView.translatesAutoresizingMaskIntoConstraints = NO;
   AddSameConstraints(self.locationBarSteadyView, self.view);
 
+  if (IsGeminiLiveEnabled()) {
+    // Use the Gemini Live symbol.
+#if BUILDFLAG(IOS_USE_BRANDED_ASSETS)
+    UIImage* image = CustomSymbolWithPointSize(kGeminiLiveLogoSymbol,
+                                               kGeminiLiveSymbolPointSize);
+#else
+    UIImage* image =
+        DefaultSymbolWithPointSize(kWaveformSymbol, kGeminiLiveSymbolPointSize);
+#endif
+
+    // Create the round container view.
+    RoundGeminiLiveView* geminiBadgeContainer =
+        [[RoundGeminiLiveView alloc] init];
+    geminiBadgeContainer.translatesAutoresizingMaskIntoConstraints = NO;
+    geminiBadgeContainer.hidden = YES;
+
+    UIImageView* iconView = [[UIImageView alloc] initWithImage:image];
+    iconView.translatesAutoresizingMaskIntoConstraints = NO;
+
+    if (IsChromeNextIaEnabled()) {
+      UIView* gradientView = CreateIPHGradientView();
+      gradientView.translatesAutoresizingMaskIntoConstraints = NO;
+      [geminiBadgeContainer addSubview:gradientView];
+      AddSameConstraints(gradientView, geminiBadgeContainer);
+      ConfigureIPHImageStyleForImageView(iconView);
+    } else {
+      geminiBadgeContainer.backgroundColor =
+          [UIColor colorNamed:kStaticBlueColor];
+      iconView.tintColor = [UIColor whiteColor];
+    }
+
+    [geminiBadgeContainer addSubview:iconView];
+
+    // Force width to match height to keep it square/round.
+    [NSLayoutConstraint activateConstraints:@[
+      [geminiBadgeContainer.widthAnchor
+          constraintEqualToConstant:kGeminiLiveCircleSize],
+      [geminiBadgeContainer.heightAnchor
+          constraintEqualToConstant:kGeminiLiveCircleSize],
+      [iconView.centerXAnchor
+          constraintEqualToAnchor:geminiBadgeContainer.centerXAnchor],
+      [iconView.centerYAnchor
+          constraintEqualToAnchor:geminiBadgeContainer.centerYAnchor],
+    ]];
+
+    // Inject it directly next to the location label.
+    [self.locationBarSteadyView
+        addCustomLeadingView:geminiBadgeContainer
+                 targetWidth:kGeminiLiveCircleSize
+                     spacing:kGeminiLiveIconToLabelSpacing];
+  }
+
   [self updatePlaceholderView];
   [self updateTrailingButtonState];
   [self switchToEditing:NO];
 
-  [self registerForTraitChanges:
-            @[ UITraitHorizontalSizeClass.class, UITraitVerticalSizeClass.class ]
-                     withAction:@selector(updateTrailingButtonState)];
+  [self
+      registerForTraitChanges:
+          @[ UITraitHorizontalSizeClass.class, UITraitVerticalSizeClass.class ]
+                   withAction:@selector(updateTrailingButtonState)];
 
   [self registerForTraitChanges:@[ UITraitHorizontalSizeClass.class ]
                      withAction:@selector(sizeClassDidChange)];
@@ -919,6 +995,17 @@ const CGFloat kPlusButtonMinimumWidth = 44.0;
     [menuElements addObjectsFromArray:suggestedActions];
   }
 
+  if ([self.delegate locationBarCanSendTabToSelf]) {
+    ActionFactory* actionFactory = [[ActionFactory alloc]
+        initWithScenario:kMenuScenarioHistogramToolbarMenu];
+    UIAction* sendTabAction = [actionFactory actionToSendTabToSelfWithBlock:^{
+      dispatch_async(dispatch_get_main_queue(), ^{
+        [weakSelf.delegate locationBarSendTabToSelfTapped];
+      });
+    }];
+    [menuElements addObject:sendTabAction];
+  }
+
   std::optional<std::set<ClipboardContentType>> clipboard_content_types =
       ClipboardRecentContent::GetInstance()->GetCachedClipboardContentTypes();
 
@@ -1090,13 +1177,20 @@ const CGFloat kPlusButtonMinimumWidth = 44.0;
     willDisplayMenuForConfiguration:(UIContextMenuConfiguration*)configuration
                            animator:
                                (id<UIContextMenuInteractionAnimating>)animator {
-  if (!IsGeminiCopresenceEnabled()) {
-    return;
-  }
 
   [self.geminiHandler
       hideFloatyIfInvokedAnimated:YES
                        fromSource:gemini::FloatyUpdateSource::ContextMenu];
+}
+
+- (void)contextMenuInteraction:(UIContextMenuInteraction*)interaction
+       willEndForConfiguration:(UIContextMenuConfiguration*)configuration
+                      animator:(id<UIContextMenuInteractionAnimating>)animator {
+  self.activeContextMenuAnimator = animator;
+  __weak LocationBarViewController* weakSelf = self;
+  [animator addCompletion:^{
+    weakSelf.activeContextMenuAnimator = nil;
+  }];
 }
 
 - (BOOL)canPerformAction:(SEL)action withSender:(id)sender {
@@ -1321,6 +1415,11 @@ const CGFloat kPlusButtonMinimumWidth = 44.0;
   copyView.frame = self.locationBarSteadyView.frame;
 
   return copyView;
+}
+
+- (void)setCustomLeadingViewVisible:(BOOL)visible animated:(BOOL)animated {
+  [self.locationBarSteadyView updateCustomLeadingViewVisibility:visible
+                                                       animated:animated];
 }
 
 @end

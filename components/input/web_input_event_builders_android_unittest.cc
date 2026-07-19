@@ -9,11 +9,14 @@
 
 #include "base/android/jni_android.h"
 #include "base/android/scoped_java_ref.h"
+#include "base/test/scoped_feature_list.h"
+#include "base/time/time.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
 #include "ui/events/android/key_event_utils.h"
 #include "ui/events/android/motion_event_android_factory.h"
 #include "ui/events/android/motion_event_android_java.h"
+#include "ui/events/features.h"
 #include "ui/events/keycodes/dom/dom_code.h"
 #include "ui/events/keycodes/dom/dom_key.h"
 #include "ui/events/keycodes/dom/keycode_converter.h"
@@ -174,6 +177,38 @@ TEST(WebInputEventBuilderAndroidTest, DomKeySyntheticEvent) {
   EXPECT_EQ(ui::DomKey::UNIDENTIFIED, ui::DomKey(web_event.dom_key));
 }
 
+// Verifies that supplementary-plane code points (e.g. emojis or extra-plane
+// chars) are encoded as surrogate pairs in unmodified_text and text, matching
+// dom_key and avoiding truncation / narrowing.
+TEST(WebInputEventBuilderAndroidTest, SupplementaryPlaneTextVsDomKeyMatch) {
+  constexpr int kCodePoint = 0x1F600;  // U+1F600 GRINNING FACE
+
+  // Use the synthetic-event form (env=nullptr) so the test doesn't depend on a
+  // device KCM; |unicode_character| is supplied directly, mirroring what
+  // ImeAdapterImpl.sendKeyEvent forwards from KeyEvent.getUnicodeChar().
+  WebKeyboardEvent web_event = input::WebKeyboardEventBuilder::Build(
+      /*env=*/nullptr, /*android_key_event=*/nullptr,
+      WebKeyboardEvent::Type::kKeyDown, /*modifiers=*/0,
+      blink::WebInputEvent::GetStaticTimeStampForTests(),
+      /*keycode=*/AKEYCODE_A, /*scancode=*/0,
+      /*unicode_character=*/kCodePoint,
+      /*is_system_key=*/false);
+
+  // dom_key preserves the full 21-bit scalar -> JS event.key will be "😀".
+  EXPECT_EQ(ui::DomKey::FromCharacter(kCodePoint),
+            ui::DomKey(web_event.dom_key))
+      << "dom_key must hold the full code point";
+  std::string js_event_key =
+      ui::KeycodeConverter::DomKeyToKeyString(ui::DomKey(web_event.dom_key));
+  EXPECT_EQ("\xF0\x9F\x98\x80", js_event_key);  // UTF-8 of U+1F600
+
+  // text[] now holds the properly encoded UTF-16 surrogate pair.
+  std::u16string text(web_event.text.data());
+  EXPECT_EQ(2u, text.size()) << "text[] must hold the 2 surrogate code units";
+  EXPECT_EQ(std::u16string(u"\U0001F600"), text)
+      << "text[] must match the saved-password encoding (surrogate pair)";
+}
+
 // Testing new Android keycode introduced in API 24.
 TEST(WebInputEventBuilderAndroidTest, CutCopyPasteKey) {
   JNIEnv* env = AttachCurrentThread();
@@ -309,7 +344,7 @@ TEST(WebInputEventBuilderAndroidTest, WebMouseWheelEventScrollDirection) {
 }
 
 TEST(WebInputEventBuilderAndroidTest,
-     WebMouseWheelEventTrackpadScrollDirection) {
+     WebMouseWheelEventTouchpadScrollDirection_MouseSource) {
   constexpr int kEventTimeNs = 5'000'000;
   const base::TimeTicks event_time =
       base::TimeTicks() + base::Nanoseconds(kEventTimeNs);
@@ -318,7 +353,7 @@ TEST(WebInputEventBuilderAndroidTest,
   clock.SetNowTicks(event_time);
 
   const float kPixToDip = 0.5f;
-  // For Trackpad-as-Mouse (Source Mouse + Tool Finger), we expect "Natural"
+  // For Touchpad-as-Mouse (Source Mouse + Tool Finger), we expect "Natural"
   // behavior, where the content moves with the scroll direction. This matches
   // Android's default behavior for these inputs. Therefore, we pass the values
   // as-is without negation.
@@ -354,7 +389,7 @@ TEST(WebInputEventBuilderAndroidTest,
   WebMouseWheelEvent web_event =
       input::WebMouseWheelEventBuilder::Build(*motion_event);
 
-  // For Trackpad (Mouse Source + Finger Tool), horizontal scrolling is NOT
+  // For Touchpad (Mouse Source + Finger Tool), horizontal scrolling is NOT
   // negated.
   EXPECT_EQ(web_event.delta_x, kTicksX * kTickMultiplier * kPixToDip);
   EXPECT_EQ(web_event.wheel_ticks_x, kTicksX);
@@ -413,6 +448,76 @@ TEST(WebInputEventBuilderAndroidTest,
   EXPECT_EQ(web_event.delta_units,
             ui::ScrollGranularity::kScrollByPrecisePixel);
   EXPECT_EQ(web_event.TimeStamp(), event_time);
+}
+
+TEST(WebInputEventBuilderAndroidTest,
+     WebMouseWheelEventTouchpadDetectionFeature) {
+  const base::TimeTicks event_time = base::TimeTicks();
+  const float kPixToDip = 0.5f;
+  const float kTicksX = 10.0f;
+  const float kTicksY = 5.0f;
+  const float kTickMultiplier = 2.0f;
+
+  // Use ToolType::UNKNOWN to trigger the new detection logic.
+  ui::MotionEventAndroid::Pointer p0(0, 10.f, 20.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+                                     ui::MotionEventAndroid::GetAndroidToolType(
+                                         ui::MotionEvent::ToolType::UNKNOWN));
+
+  JNIEnv* env = AttachCurrentThread();
+  base::android::ScopedJavaLocalRef<jobject> obj =
+      JNI_MotionEvent::Java_MotionEvent_obtain(
+          env, /*downTime=*/0, /*eventTime=*/0, /*action=*/0, /*x=*/10.f,
+          /*y=*/20.f,
+          /*metaState=*/0);
+  JNI_MotionEvent::Java_MotionEvent_setSource(env, obj, AINPUT_SOURCE_MOUSE);
+  auto motion_event = ui::MotionEventAndroidFactory::CreateFromJava(
+      env, obj, kPixToDip, kTicksX, kTicksY, kTickMultiplier, event_time,
+      AMOTION_EVENT_ACTION_SCROLL,
+      /*pointer_count=*/1,
+      /*history_size=*/0,
+      /*action_index=*/-1,
+      /*android_action_button=*/0,
+      /*android_gesture_classification=*/0,
+      /*android_button_state=*/0,
+      /*raw_offset_x_pixels=*/0.f,
+      /*raw_offset_y_pixels=*/0.f,
+      /*for_touch_handle=*/false, &p0,
+      /*pointer1=*/nullptr);
+
+  {
+    base::test::ScopedFeatureList scoped_feature_list;
+    scoped_feature_list.InitAndDisableFeature(ui::kAndroidTouchpadDetection);
+    WebMouseWheelEvent web_event =
+        input::WebMouseWheelEventBuilder::Build(*motion_event);
+    EXPECT_EQ(web_event.delta_units, ui::ScrollGranularity::kScrollByPixel);
+  }
+
+  {
+    base::test::ScopedFeatureList scoped_feature_list;
+    scoped_feature_list.InitAndEnableFeature(ui::kAndroidTouchpadDetection);
+    WebMouseWheelEvent web_event =
+        input::WebMouseWheelEventBuilder::Build(*motion_event);
+    EXPECT_EQ(web_event.delta_units,
+              ui::ScrollGranularity::kScrollByPrecisePixel);
+
+    // Mouse is still recognized as not precise.
+    p0.tool_type = static_cast<int>(ui::MotionEvent::ToolType::MOUSE);
+    motion_event = ui::MotionEventAndroidFactory::CreateFromJava(
+        env, obj, kPixToDip, kTicksX, kTicksY, kTickMultiplier, event_time,
+        AMOTION_EVENT_ACTION_SCROLL,
+        /*pointer_count=*/1,
+        /*history_size=*/0,
+        /*action_index=*/-1,
+        /*android_action_button=*/0,
+        /*android_gesture_classification=*/0,
+        /*android_button_state=*/0,
+        /*raw_offset_x_pixels=*/0.f,
+        /*raw_offset_y_pixels=*/0.f,
+        /*for_touch_handle=*/false, &p0,
+        /*pointer1=*/nullptr);
+    web_event = input::WebMouseWheelEventBuilder::Build(*motion_event);
+    EXPECT_EQ(web_event.delta_units, ui::ScrollGranularity::kScrollByPixel);
+  }
 }
 
 // TODO(crbug.com/41353469): Add more tests for WebMouseEventBuilder

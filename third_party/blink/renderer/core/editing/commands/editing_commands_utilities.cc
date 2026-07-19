@@ -274,6 +274,15 @@ bool LineBreakExistsAtPosition(const Position& position) {
       position.AtFirstEditingPositionForNode())
     return true;
 
+  // Parent-anchored caret immediately after a <br>: equivalent to a caret
+  // anchored on the <br> itself. The VP path catches this implicitly via
+  // CreateVisiblePosition re-anchoring onto the <br>; on the raw-DOM path
+  // we have to detect the sibling explicitly.
+  if (RuntimeEnabledFeatures::EditingUseDomPositionApiEnabled() &&
+      IsA<HTMLBRElement>(position.ComputeNodeBeforePosition())) {
+    return true;
+  }
+
   if (!position.AnchorNode()->GetLayoutObject())
     return false;
 
@@ -365,8 +374,9 @@ Position LeadingCollapsibleWhitespacePosition(const Position& position,
 unsigned NumEnclosingMailBlockquotes(const Position& p) {
   unsigned num = 0;
   for (const Node* n = p.AnchorNode(); n; n = n->parentNode()) {
-    if (IsMailHTMLBlockquoteElement(n))
+    if (IsMailHtmlBlockquoteElement(n)) {
       num++;
+    }
   }
   return num;
 }
@@ -485,13 +495,13 @@ VisibleSelection SelectionForParagraphIteration(
           PreviousPositionOf(end_of_selection, kCannotCrossEditingBoundary);
       if (new_end.IsNotNull()) {
         new_selection = CreateVisibleSelection(
-            SelectionInDOMTree::Builder()
+            SelectionInDomTree::Builder()
                 .Collapse(start_of_selection.ToPositionWithAffinity())
                 .Extend(new_end.DeepEquivalent())
                 .Build());
       } else {
         new_selection = CreateVisibleSelection(
-            SelectionInDOMTree::Builder()
+            SelectionInDomTree::Builder()
                 .Collapse(start_of_selection.ToPositionWithAffinity())
                 .Build());
       }
@@ -509,13 +519,13 @@ VisibleSelection SelectionForParagraphIteration(
           NextPositionOf(start_of_selection, kCannotCrossEditingBoundary);
       if (new_start.IsNotNull()) {
         new_selection = CreateVisibleSelection(
-            SelectionInDOMTree::Builder()
+            SelectionInDomTree::Builder()
                 .Collapse(new_start.ToPositionWithAffinity())
                 .Extend(end_of_selection.DeepEquivalent())
                 .Build());
       } else {
         new_selection = CreateVisibleSelection(
-            SelectionInDOMTree::Builder()
+            SelectionInDomTree::Builder()
                 .Collapse(end_of_selection.ToPositionWithAffinity())
                 .Build());
       }
@@ -534,7 +544,7 @@ const String& NonBreakingSpaceString() {
 // TODO(tkent): This is a workaround of some crash bugs in the editing code,
 // which assumes a document has a valid HTML structure. We should make the
 // editing code more robust, and should remove this hack. crbug.com/580941.
-void TidyUpHTMLStructure(Document& document) {
+void TidyUpHtmlStructure(Document& document) {
   // IsEditable() needs up-to-date ComputedStyle.
   document.UpdateStyleAndLayoutTree();
   const bool needs_valid_structure =
@@ -656,12 +666,12 @@ void DispatchInputEventEditableContentChanged(
     DispatchInputEvent(end_root, input_type, data, is_composing, data_transfer);
 }
 
-SelectionInDOMTree CorrectedSelectionAfterCommand(
+SelectionInDomTree CorrectedSelectionAfterCommand(
     const SelectionForUndoStep& passed_selection,
     Document* document) {
   if (!passed_selection.Anchor().IsValidFor(*document) ||
       !passed_selection.Focus().IsValidFor(*document)) {
-    return SelectionInDOMTree();
+    return SelectionInDomTree();
   }
   if (RuntimeEnabledFeatures::RemoveVisibleSelectionInDOMSelectionEnabled()) {
     document->UpdateStyleAndLayout(DocumentUpdateReason::kEditing);
@@ -672,14 +682,14 @@ SelectionInDOMTree CorrectedSelectionAfterCommand(
 }
 
 void ChangeSelectionAfterCommand(LocalFrame* frame,
-                                 const SelectionInDOMTree& new_selection,
+                                 const SelectionInDomTree& new_selection,
                                  const SetSelectionOptions& options) {
   if (new_selection.IsNone())
     return;
   // See <rdar://problem/5729315> Some shouldChangeSelectedDOMRange contain
   // Ranges for selections that are no longer valid
   const bool selection_did_not_change_dom_position =
-      new_selection == frame->Selection().GetSelectionInDOMTree() &&
+      new_selection == frame->Selection().GetSelectionInDomTree() &&
       options.IsDirectional() == frame->Selection().IsDirectional();
   const bool handle_visible =
       frame->Selection().IsHandleVisible() && new_selection.IsRange();
@@ -702,7 +712,7 @@ void ChangeSelectionAfterCommand(LocalFrame* frame,
   if (!selection_did_not_change_dom_position)
     return;
   frame->Client()->DidChangeSelection(
-      !frame->Selection().GetSelectionInDOMTree().IsRange(),
+      !frame->Selection().GetSelectionInDomTree().IsRange(),
       blink::SyncCondition::kNotForced);
 }
 

@@ -560,8 +560,7 @@ TEST_P(DiceResponseHandlerParamTest,
   // Simulate GaiaAuthFetcher failure for initiator.
   GaiaAuthConsumer* consumer = signin_client_.GetAndClearConsumer();
   ASSERT_THAT(consumer, testing::NotNull());
-  consumer->OnClientOAuthFailure(
-      GoogleServiceAuthError(GoogleServiceAuthError::SERVICE_ERROR));
+  consumer->OnClientOAuthFailure(GoogleServiceAuthError::FromServiceError(""));
 
   // No more fetchers should be created.
   EXPECT_EQ(signin_client_.GetTestURLLoaderFactory()->NumPending(), 0);
@@ -616,8 +615,7 @@ TEST_P(DiceResponseHandlerParamTest,
   // Simulate failure for the first secondary account (account 0).
   consumer = signin_client_.GetAndClearConsumer();
   ASSERT_THAT(consumer, testing::NotNull());
-  consumer->OnClientOAuthFailure(
-      GoogleServiceAuthError(GoogleServiceAuthError::SERVICE_ERROR));
+  consumer->OnClientOAuthFailure(GoogleServiceAuthError::FromServiceError(""));
 
   // Simulate success for the remaining secondaries (if any).
   for (size_t i = 0; i < account_count - 2; ++i) {
@@ -648,6 +646,9 @@ TEST_P(DiceResponseHandlerParamTest,
 
 TEST_P(DiceResponseHandlerParamTest,
        SigninWithMtlsTokenBinding_PrimaryConnected) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      switches::kEnableMtlsTokenBinding);
+
   const size_t account_count = GetAccountCount();
   const int initiator_index = 0;
   DiceResponseParams dice_params = MakeDiceParams(
@@ -691,6 +692,7 @@ TEST_P(DiceResponseHandlerParamTest,
   // Check that the tokens have been inserted in the token service.
   for (const auto& id : account_ids) {
     EXPECT_TRUE(identity_manager()->HasAccountWithRefreshToken(id));
+    EXPECT_TRUE(identity_manager()->HasAccountWithRefreshTokenBoundToMtls(id));
   }
 }
 
@@ -2051,5 +2053,72 @@ TEST_F(DiceResponseHandlerTest, SignoutPrimaryAccountWithSignoutRestrictions) {
   // Check that the reconcilor was not blocked.
   EXPECT_EQ(0, reconcilor_blocked_count_);
   EXPECT_EQ(0, reconcilor_unblocked_count_);
+}
+
+// Verifies that if a background token fetch hangs, the session is still
+// guaranteed to complete and fire OnDiceSigninSessionComplete within the
+// timeout limit (10s + 1s scheduling leeway).
+TEST_F(DiceResponseHandlerTest,
+       MultipleAccounts_TokenFetchTimeoutFiresSessionComplete) {
+  const int account_count = 2;
+  const int initiator_index = 0;
+  DiceResponseParams dice_params = MakeDiceParams(
+      DiceAction::SIGNIN, account_count, /*eligible_for_token_binding=*/true,
+      /*mtls_token_binding=*/false, initiator_index);
+
+  auto* signin_info = dice_params.signin_info();
+  CoreAccountId initiator_account_id;
+  CoreAccountId secondary_account_id;
+
+  const auto& accounts = signin_info->accounts();
+  initiator_account_id = identity_manager()->PickAccountIdForAccount(
+      accounts[initiator_index].account_info.gaia_id,
+      accounts[initiator_index].account_info.email);
+  secondary_account_id = identity_manager()->PickAccountIdForAccount(
+      accounts[1].account_info.gaia_id, accounts[1].account_info.email);
+
+  dice_response_handler_->ProcessDiceHeader(
+      std::move(dice_params),
+      std::make_unique<TestProcessDiceHeaderDelegate>(this));
+
+  // Complete initiator fetcher successfully.
+  GaiaAuthConsumer* consumer_init = signin_client_.GetAndClearConsumer();
+  ASSERT_THAT(consumer_init, testing::NotNull());
+  consumer_init->OnClientOAuthSuccess(GaiaAuthConsumer::ClientOAuthResult(
+      "refresh_token_init", "access_token", /*expires_in_secs=*/10,
+      /*is_under_advanced_protection=*/false, /*is_bound_to_key=*/false));
+
+  // Now secondary fetcher (Bob) is running. We simulate it hanging (never
+  // returning). Retrieve and clear the secondary consumer from signin_client_
+  // to prevent a dangling pointer warning when the fetcher is destroyed on
+  // timeout.
+  GaiaAuthConsumer* consumer_sec = signin_client_.GetAndClearConsumer();
+  ASSERT_THAT(consumer_sec, testing::NotNull());
+
+  EXPECT_EQ(
+      1u, dice_response_handler_->GetPendingDiceTokenFetchersCountForTesting());
+  EXPECT_FALSE(session_complete_called_);
+
+  // Fast forward time by 9 seconds.
+  // The 10-second fetcher timeout has NOT fired yet!
+  task_environment_.FastForwardBy(base::Seconds(9));
+  EXPECT_FALSE(session_complete_called_);
+  EXPECT_EQ(
+      1u, dice_response_handler_->GetPendingDiceTokenFetchersCountForTesting());
+
+  // Fast forward time by 2 more seconds (11 seconds total).
+  // The 10-second timeout has fired!
+  task_environment_.FastForwardBy(base::Seconds(2));
+
+  // The fetcher timed out, so the session completed and fired the terminal
+  // signal.
+  EXPECT_TRUE(session_complete_called_);
+  EXPECT_EQ(
+      0u, dice_response_handler_->GetPendingDiceTokenFetchersCountForTesting());
+
+  // The secondary failed (timed out), but it is still passed in the completed
+  // list to be filtered out by the profile creator.
+  EXPECT_THAT(completed_secondary_accounts_,
+              testing::UnorderedElementsAre(secondary_account_id));
 }
 }  // namespace

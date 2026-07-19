@@ -1,7 +1,6 @@
 ci/ASAN Debug
 ci/ASAN Release
 ci/ASAN Release Media
-ci/ASan Debug (32-bit x86 with V8-ARM)
 ci/ASan Release (32-bit x86 with V8-ARM)
 ci/ASan Release Media (32-bit x86 with V8-ARM)
 ci/Centipede High End Upload Linux ASan
@@ -47,7 +46,6 @@ ci/Mac ASan 64 Builder
 ci/Mac ASan 64 Tests (1)
 ci/Mac Builder
 ci/Mac Builder (dbg)
-ci/Mac12 Tests
 ci/Mac13 Tests
 ci/Network Service Linux
 ci/TSAN Debug
@@ -123,7 +121,6 @@ ci/mac-arm64-on-arm64-rel
 ci/mac-arm64-rel
 ci/mac-no-initial-webui-rel
 ci/mac-official
-ci/mac12-arm64-rel-tests
 ci/mac13-arm64-rel-tests
 ci/mac14-arm64-rel-tests
 ci/mac15-arm64-rel-tests
@@ -138,3 +135,4 @@ ci/win-x64-libfuzzer-asan-rel-tests
 ci/win11-arm64-rel-tests
 ci/win32-archive-rel
 ci/win32-official
+ci/windows-no-initial-webui-rel

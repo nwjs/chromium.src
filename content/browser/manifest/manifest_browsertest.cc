@@ -74,6 +74,14 @@ class MockWebContentsDelegate : public WebContentsDelegate {
       PreloadingTriggerType trigger_type) override {
     return PreloadingEligibility::kEligible;
   }
+  WebContents* AddNewContents(
+      WebContents* source,
+      std::unique_ptr<WebContents> new_contents,
+      const GURL& target_url,
+      WindowOpenDisposition disposition,
+      const blink::mojom::WindowFeatures& window_features,
+      bool user_gesture,
+      bool* was_blocked) override;
 
  private:
   raw_ptr<ManifestBrowserTest> test_ = nullptr;
@@ -108,8 +116,12 @@ class ManifestBrowserTest : public ContentBrowserTest,
   }
 
   void GetManifestAndWait() {
-    shell()->web_contents()->GetPrimaryPage().GetManifest(base::BindOnce(
-        &ManifestBrowserTest::OnGetManifest, base::Unretained(this)));
+    GetManifestAndWait(shell()->web_contents()->GetPrimaryPage());
+  }
+
+  void GetManifestAndWait(Page& page) {
+    page.GetManifest(base::BindOnce(&ManifestBrowserTest::OnGetManifest,
+                                    base::Unretained(this)));
 
     message_loop_runner_ = new MessageLoopRunner();
     message_loop_runner_->Run();
@@ -169,7 +181,8 @@ class ManifestBrowserTest : public ContentBrowserTest,
   // WebContentsObserver:
   void DidUpdateFaviconURL(
       RenderFrameHost* rfh,
-      const std::vector<blink::mojom::FaviconURLPtr>& candidates) override {
+      const std::vector<blink::mojom::FaviconURLPtr>& candidates,
+      blink::mojom::FaviconUpdateReason reason) override {
     manifests_reported_when_favicon_url_updated_.push_back(
         reported_manifest_urls_.size());
   }
@@ -210,6 +223,19 @@ bool MockWebContentsDelegate::DidAddMessageToConsole(
     test_->OnReceivedConsoleError(message);
   }
   return false;
+}
+
+WebContents* MockWebContentsDelegate::AddNewContents(
+    WebContents* source,
+    std::unique_ptr<WebContents> new_contents,
+    const GURL& target_url,
+    WindowOpenDisposition disposition,
+    const blink::mojom::WindowFeatures& window_features,
+    bool user_gesture,
+    bool* was_blocked) {
+  return test_->shell()->AddNewContents(
+      source, std::move(new_contents), target_url, disposition, window_features,
+      user_gesture, was_blocked);
 }
 
 // If a page has no manifest, requesting a manifest should return the empty
@@ -890,6 +916,37 @@ IN_PROC_BROWSER_TEST_F(ManifestBrowserTest, UniqueOrigin) {
   EXPECT_EQ(0u, reported_manifest_urls().size());
 }
 
+IN_PROC_BROWSER_TEST_F(ManifestBrowserTest, AboutBlank) {
+  GURL test_url =
+      embedded_test_server()->GetURL("/manifest/sample-manifest.html");
+  ASSERT_TRUE(NavigateToURL(shell(), test_url));
+
+  ShellAddedObserver new_shell_observer;
+  ASSERT_TRUE(ExecJs(shell(),
+                     "var link = document.createElement('a');"
+                     "link.href = 'about:blank';"
+                     "link.target = '_blank';"
+                     "link.id = 'click_me';"
+                     "document.body.appendChild(link);"
+                     "link.click();"));
+
+  Shell* new_shell = new_shell_observer.GetShell();
+  WebContents* new_contents = new_shell->web_contents();
+  EXPECT_TRUE(WaitForLoadStop(new_contents));
+
+  // The new window should have about:blank URL but origin of the opener.
+  EXPECT_TRUE(new_contents->GetLastCommittedURL().IsAboutBlank());
+  EXPECT_EQ(
+      shell()->web_contents()->GetPrimaryMainFrame()->GetLastCommittedOrigin(),
+      new_contents->GetPrimaryMainFrame()->GetLastCommittedOrigin());
+  EXPECT_FALSE(
+      new_contents->GetPrimaryMainFrame()->GetLastCommittedOrigin().opaque());
+
+  GetManifestAndWait(new_contents->GetPrimaryPage());
+  EXPECT_TRUE(blink::IsEmptyManifest(manifest()));
+  EXPECT_TRUE(manifest_url().is_empty());
+}
+
 // This is testing the crash scenario encountered by https://crbug.com/1369363.
 // In it a GetManifest() request by WebAppInstallTask was interrupted by a page
 // navigation which destructed the internal ManifestManagerHost and forced the
@@ -1216,6 +1273,64 @@ IN_PROC_BROWSER_TEST_F(ManifestBrowserTest,
       bad_message_observer.WaitForBadMessage(),
       ::testing::StartsWith(
           "Manifest protocol_handlers must be same-origin with the document."));
+}
+
+IN_PROC_BROWSER_TEST_F(ManifestBrowserTest,
+                       BadMessage_NoteTakingNewNoteUrlCrossOrigin) {
+  const GURL test_url =
+      embedded_test_server()->GetURL("/manifest/empty-manifest.html");
+  ASSERT_TRUE(NavigateToURL(shell(), test_url));
+
+  ManifestManagerHost* host = ManifestManagerHost::GetOrCreateForPage(
+      shell()->web_contents()->GetPrimaryPage());
+
+  // Test that a cross-site note_taking new_note_url triggers a bad message.
+  mojo::FakeMessageDispatchContext fake_dispatch_context;
+  auto bad_manifest = blink::mojom::Manifest::New();
+  bad_manifest->start_url = test_url;
+  bad_manifest->id = test_url;
+  bad_manifest->scope = embedded_test_server()->GetURL("/manifest/");
+
+  blink::mojom::ManifestNoteTakingPtr note_taking =
+      blink::mojom::ManifestNoteTaking::New();
+  note_taking->new_note_url = GURL("https://evil.com");
+  bad_manifest->note_taking = std::move(note_taking);
+
+  mojo::test::BadMessageObserver bad_message_observer;
+  host->ValidateAndMaybeOverrideManifestForTesting(
+      blink::mojom::ManifestRequestResult::kSuccess, std::move(bad_manifest));
+  EXPECT_THAT(bad_message_observer.WaitForBadMessage(),
+              ::testing::StartsWith("Manifest note_taking new_note_url must be "
+                                    "same-origin with the document."));
+}
+
+IN_PROC_BROWSER_TEST_F(ManifestBrowserTest,
+                       BadMessage_LockScreenStartUrlCrossOrigin) {
+  const GURL test_url =
+      embedded_test_server()->GetURL("/manifest/empty-manifest.html");
+  ASSERT_TRUE(NavigateToURL(shell(), test_url));
+
+  ManifestManagerHost* host = ManifestManagerHost::GetOrCreateForPage(
+      shell()->web_contents()->GetPrimaryPage());
+
+  // Test that a cross-site lock_screen start_url triggers a bad message.
+  mojo::FakeMessageDispatchContext fake_dispatch_context;
+  auto bad_manifest = blink::mojom::Manifest::New();
+  bad_manifest->start_url = test_url;
+  bad_manifest->id = test_url;
+  bad_manifest->scope = embedded_test_server()->GetURL("/manifest/");
+
+  blink::mojom::ManifestLockScreenPtr lock_screen =
+      blink::mojom::ManifestLockScreen::New();
+  lock_screen->start_url = GURL("https://evil.com");
+  bad_manifest->lock_screen = std::move(lock_screen);
+
+  mojo::test::BadMessageObserver bad_message_observer;
+  host->ValidateAndMaybeOverrideManifestForTesting(
+      blink::mojom::ManifestRequestResult::kSuccess, std::move(bad_manifest));
+  EXPECT_THAT(bad_message_observer.WaitForBadMessage(),
+              ::testing::StartsWith("Manifest lock_screen start_url must be "
+                                    "same-origin with the document."));
 }
 
 // Tests that if a compromised renderer bypasses the manifest parser and sends

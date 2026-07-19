@@ -7,6 +7,7 @@
 #import <AuthenticationServices/AuthenticationServices.h>
 
 #import "ios/chrome/common/credential_provider/credential_store.h"
+#import "ios/chrome/common/credential_provider/net_util.h"
 #import "ios/chrome/credential_provider_extension/ui/credential_list_consumer.h"
 #import "ios/chrome/credential_provider_extension/ui/credential_list_ui_handler.h"
 #import "ios/chrome/credential_provider_extension/ui/credential_response_handler.h"
@@ -212,49 +213,42 @@
   return filteredCredentials;
 }
 
+// Returns `YES` if the password credential's registry controlled domain
+// matches the provided `requestedHost`.
+- (BOOL)passwordCredential:(id<Credential>)credential
+    matchesRegistryControlledDomain:(NSString*)requestedHost {
+  if (credential.registryControlledDomain.length == 0) {
+    return NO;
+  }
+  return credential_provider::SecureHostsMatch(
+      requestedHost, credential.registryControlledDomain);
+}
+
 // Returns `YES` if the provided `credential` matches at least one of the
 // `serviceIdentifiers`.
 - (BOOL)passwordCredential:(id<Credential>)credential
     matchesServiceIdentifiers:
         (NSArray<ASCredentialServiceIdentifier*>*)serviceIdentifiers {
   for (ASCredentialServiceIdentifier* serviceIdentifier in serviceIdentifiers) {
-    NSString* requestedHost = HostForServiceIdentifier(serviceIdentifier);
+    NSString* requestedHost =
+        credential_provider::HostForIdentifier(serviceIdentifier.identifier);
     if (!requestedHost) {
       continue;
     }
 
     // Try matching with registryControlledDomain if available.
-    if (credential.registryControlledDomain.length > 0) {
-      NSString* domainSuffix = [NSString
-          stringWithFormat:@".%@", credential.registryControlledDomain];
-      if ([requestedHost isEqualToString:credential.registryControlledDomain] ||
-          [requestedHost hasSuffix:domainSuffix]) {
-        return YES;
-      }
-    }
-
-    // Do not fall through to the NSURL-host fallback for android:// service
-    // identifiers. NSURL parses "android://<hash>@<package>" as a generic
-    // RFC 3986 URI and yields .host == <package>, which would let a web
-    // origin whose DNS name collides with the Java package name match an
-    // unrelated Android-app credential.
-    if ([credential.serviceIdentifier hasPrefix:@"android://"]) {
-      continue;
+    if ([self passwordCredential:credential
+            matchesRegistryControlledDomain:requestedHost]) {
+      return YES;
     }
 
     // Fallback to matching the parsed host of the credential's
     // serviceIdentifier.
-    NSURL* credURL = credential.serviceIdentifier
-                         ? [NSURL URLWithString:credential.serviceIdentifier]
-                         : nil;
-    NSString* credHost = credURL.host ?: credential.serviceIdentifier;
+    NSString* credHost =
+        credential_provider::HostForIdentifier(credential.serviceIdentifier);
 
-    if (credHost.length > 0) {
-      NSString* credDomainSuffix = [NSString stringWithFormat:@".%@", credHost];
-      if ([requestedHost isEqualToString:credHost] ||
-          [requestedHost hasSuffix:credDomainSuffix]) {
-        return YES;
-      }
+    if (credential_provider::SecureHostsMatch(requestedHost, credHost)) {
+      return YES;
     }
   }
   return NO;

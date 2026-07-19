@@ -12,7 +12,7 @@ import {assertEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 import {TestContextualTasksBrowserProxy} from './test_contextual_tasks_browser_proxy.js';
-import {fixtureUrl} from './test_utils.js';
+import {fixtureUrl} from './contextual_tasks_test_utils.js';
 
 suite('ContextualTasksWebviewTest', function() {
 
@@ -183,8 +183,12 @@ suite('ContextualTasksWebviewTest', function() {
     document.body.appendChild(appElement);
     await microtasksFinished();
 
-    const threadFrame = appElement.$.threadFrame as chrome.webviewTag.WebView;
+    const threadFrame = appElement.$.threadFrame;
     assertTrue(!!threadFrame, 'Thread frame not found');
+
+    if (!isFullWebView(threadFrame)) {
+      return;
+    }
 
     const completionPromise = new Promise<void>(resolve => {
       const listener = (details: any) => {

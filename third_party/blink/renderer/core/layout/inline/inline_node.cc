@@ -10,6 +10,7 @@
 #include "base/containers/adapters.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/not_fatal_until.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/trace_event/trace_event.h"
 #include "third_party/blink/renderer/core/dom/text_diff_range.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
@@ -266,7 +267,7 @@ class ReusingTextShaper final {
           return item->EndOffset() <= offset;
         });
     const wtf_size_t start_item_index =
-        std::distance(reusable_items_->begin(), start_item_iter);
+        CheckedDistance(reusable_items_->begin(), start_item_iter);
     for (const Member<InlineItem>& item_ptr :
          base::span{*reusable_items_}.subspan(start_item_index)) {
       const InlineItem& item = *item_ptr;
@@ -652,8 +653,10 @@ void InlineNode::PrepareLayoutIfNeeded() const {
 
   if (previous_data) {
     // previous_data is not used from now on but exists until GC happens, so it
-    // is better to eagerly clear HeapVector to improve memory utilization.
+    // is better to eagerly clear HeapVector and Strings to improve memory
+    // utilization.
     previous_data->items.clear();
+    previous_data->text_content = String();
   }
 }
 
@@ -741,8 +744,10 @@ class InlineNodeDataEditor final {
     DCHECK(offset_mapping);
     if (data_) {
       // data_ is not used from now on but exists until GC happens, so it is
-      // better to eagerly clear HeapVector to improve memory utilization.
+      // better to eagerly clear HeapVector and Strings to improve memory
+      // utilization.
       data_->items.clear();
+      data_->text_content = String();
     }
     data_ = block_flow_->TakeInlineNodeData();
     return data_;
@@ -1468,14 +1473,6 @@ bool InlineNode::IsNGShapeCacheAllowed(const String& text_content,
   //
   // Instead we cache using the raw text, and a restricted set of inline items.
   // This is to avoid caching bugs (e.g. scripts having Arabic joining).
-  //
-  // At the moment we just support:
-  //  - A single text-item.
-  unsigned previous_text_end_offset = 0u;
-  auto is_at_text_start = [&]() { return previous_text_end_offset == 0u; };
-  auto is_at_text_end = [&]() {
-    return previous_text_end_offset == text_content.length();
-  };
 
   // Don't hit the cache if we don't have any text.
   if (text_content.empty()) {
@@ -1483,6 +1480,7 @@ bool InlineNode::IsNGShapeCacheAllowed(const String& text_content,
   }
 
   const Font* font = override_font;
+  unsigned previous_text_end_offset = 0u;
 
   for (const auto& item : items) {
     switch (item->Type()) {
@@ -1492,15 +1490,6 @@ bool InlineNode::IsNGShapeCacheAllowed(const String& text_content,
         if (!font && item->Type() == InlineItem::kText) {
           font = &item->FontWithSvgScaling();
         }
-        if (!RuntimeEnabledFeatures::ExtendedShapeCacheEnabled()) {
-          // Only support a single text-item at the moment.
-          if (!is_at_text_start()) {
-            return false;
-          }
-          if (item->Type() == InlineItem::kControl) {
-            return false;
-          }
-        }
         if (previous_text_end_offset != item->StartOffset()) {
           return false;
         }
@@ -1508,17 +1497,11 @@ bool InlineNode::IsNGShapeCacheAllowed(const String& text_content,
         break;
       case InlineItem::kFloating:
       case InlineItem::kOutOfFlowPositioned:
-        if (!RuntimeEnabledFeatures::ExtendedShapeCacheEnabled()) {
-          return false;
-        }
         // Floats/OOF-positioned objects are transparent to shaping, and just
         // split the text similar to control items (resulting in multiple shape
         // calls with different start/end offsets).
         break;
       case InlineItem::kOpenTag:
-        if (!RuntimeEnabledFeatures::ExtendedShapeCacheEnabled()) {
-          return false;
-        }
         // As we get the font from the first item, we can allow an open tag if
         // its the first.
         if (item != items.front()) {
@@ -1526,9 +1509,6 @@ bool InlineNode::IsNGShapeCacheAllowed(const String& text_content,
         }
         break;
       case InlineItem::kCloseTag:
-        if (!RuntimeEnabledFeatures::ExtendedShapeCacheEnabled()) {
-          return false;
-        }
         // Similarly allow the a close tag if its the last.
         if (item != items.back()) {
           return false;
@@ -1547,7 +1527,7 @@ bool InlineNode::IsNGShapeCacheAllowed(const String& text_content,
   }
 
   // Only allow the cache if the text-item(s) matches the text-content.
-  if (!is_at_text_end()) {
+  if (previous_text_end_offset != text_content.length()) {
     return false;
   }
 
@@ -1556,16 +1536,9 @@ bool InlineNode::IsNGShapeCacheAllowed(const String& text_content,
     return false;
   }
 
-  if (RuntimeEnabledFeatures::ExtendedShapeCacheEnabled()) {
-    // Only allow the cache for features we can cache.
-    if (!font->HasSimpleFontFeatures()) [[unlikely]] {
-      return false;
-    }
-  } else {
-    // Only allow the cache for initial font features.
-    if (font->HasNonInitialFontFeatures()) [[unlikely]] {
-      return false;
-    }
+  // Only allow the cache for features we can cache.
+  if (!font->HasSimpleFontFeatures()) [[unlikely]] {
+    return false;
   }
 
   // We mutate the shape-result if there is spacing, it isn't safe to cache.
@@ -1836,7 +1809,6 @@ void InlineNode::ShapeTextForFirstLineIfNeeded(InlineNodeData* data) const {
   if (block_style == first_line_style)
     return;
 
-  auto* first_line_items = MakeGarbageCollected<InlineItemsData>();
   String text_content = data->text_content;
   bool needs_reshape = false;
   TextOffsetMap offset_map;
@@ -1864,6 +1836,10 @@ void InlineNode::ShapeTextForFirstLineIfNeeded(InlineNodeData* data) const {
       }
     }
   }
+  auto* first_line_items =
+      offset_map.IsEmpty()
+          ? MakeGarbageCollected<InlineItemsData>()
+          : MakeGarbageCollected<InlineItemsDataWithOffsetMap>();
   first_line_items->text_content = text_content;
 
   // Copy `InlineItems` and update their properties.
@@ -1897,6 +1873,10 @@ void InlineNode::ShapeTextForFirstLineIfNeeded(InlineNodeData* data) const {
   // Re-shape if the font is different.
   if (needs_reshape || FirstLineNeedsReshape(*first_line_style, *block_style))
     ShapeText(first_line_items);
+  if (auto* with_offset_map = DynamicTo<InlineItemsDataWithOffsetMap>(
+          first_line_items)) [[unlikely]] {
+    with_offset_map->offset_map = std::move(offset_map);
+  }
 
   data->first_line_items_ = first_line_items;
   // The score line breaker can't apply different styles by different line
@@ -1967,7 +1947,7 @@ template <typename CharType>
 String CreateTextContentForStickyImagesQuirk(
     base::span<const CharType> text,
     base::span<const Member<InlineItem>> items) {
-  StringBuffer<CharType> buffer(text.size());
+  StringBuffer<CharType> buffer(base::checked_cast<wtf_size_t>(text.size()));
   base::span<CharType> span = buffer.Span();
   span.copy_from(text);
   for (const Member<InlineItem>& item_ptr : items) {

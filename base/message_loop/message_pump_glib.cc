@@ -6,11 +6,11 @@
 
 #include <fcntl.h>
 #include <glib.h>
-#include <math.h>
 
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
 #include "base/message_loop/io_watcher.h"
+#include "base/message_loop/message_pump_wakeup_counter.h"
 #include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/posix/eintr_wrapper.h"
@@ -58,8 +58,8 @@ int GetTimeIntervalMilliseconds(TimeTicks next_task_time) {
 }
 
 bool RunningOnMainThread() {
-  auto pid = getpid();
-  auto tid = PlatformThread::CurrentId().raw();
+  pid_t pid = getpid();
+  pid_t tid = PlatformThread::CurrentId().raw();
   return pid > 0 && tid > 0 && pid == tid;
 }
 
@@ -160,7 +160,7 @@ bool RunningOnMainThread() {
 //     Then, considering nesting case B, |state_->do_work_depth| is incremented
 // during any Chrome work, to allow the pump to detect re-entrancy during a
 // chrome work item. This is required because `g_main_depth` is not incremented
-// in any `DoWork` call not occuring during `Dispatch()` (i.e. during
+// in any `DoWork` call not occurring during `Dispatch()` (i.e. during
 // `MessagePumpGlib::Run()`). In this case, a nested loop is recorded, and the
 // pump sets-and-clears scoped work items during Prepare, Check, and Dispatch. A
 // work item can never be active when control flow returns to GLib (i.e. on
@@ -286,7 +286,7 @@ class FdWatchImpl : public IOWatcher::FdWatch,
 // watch arbitrary file descriptors for I/O events.
 class IOWatcherImpl : public IOWatcher {
  public:
-  explicit IOWatcherImpl() : thread_(CurrentUIThread::Get()) {}
+  IOWatcherImpl() : thread_(CurrentUIThread::Get()) {}
 
   // IOWatcher:
   std::unique_ptr<IOWatcher::FdWatch> WatchFileDescriptorImpl(
@@ -365,10 +365,6 @@ void WorkSourceFinalize(GSource* source) {
   static_cast<WorkSource*>(source)->pump = nullptr;
 }
 
-// I wish these could be const, but g_source_new wants non-const.
-GSourceFuncs g_work_source_funcs = {WorkSourcePrepare, WorkSourceCheck,
-                                    WorkSourceDispatch, WorkSourceFinalize};
-
 struct ObserverSource : public GSource {
   raw_ptr<MessagePumpGlib> pump;
 };
@@ -390,9 +386,6 @@ void ObserverFinalize(GSource* source) {
   // Read the comment in `WorkSourceFinalize`, the issue is exactly the same.
   static_cast<ObserverSource*>(source)->pump = nullptr;
 }
-
-GSourceFuncs g_observer_funcs = {ObserverPrepare, ObserverCheck, nullptr,
-                                 ObserverFinalize};
 
 struct FdWatchSource : public GSource {
   raw_ptr<MessagePumpGlib> pump;
@@ -422,10 +415,6 @@ void FdWatchSourceFinalize(GSource* gsource) {
   source->pump = nullptr;
   source->controller = nullptr;
 }
-
-GSourceFuncs g_fd_watch_source_funcs = {
-    FdWatchSourcePrepare, FdWatchSourceCheck, FdWatchSourceDispatch,
-    FdWatchSourceFinalize};
 
 }  // namespace
 
@@ -486,13 +475,17 @@ MessagePumpGlib::MessagePumpGlib()
   wakeup_gpollfd_->fd = wakeup_pipe_read_;
   wakeup_gpollfd_->events = G_IO_IN;
 
+  static GSourceFuncs observer_funcs = {ObserverPrepare, ObserverCheck, nullptr,
+                                        ObserverFinalize};
   observer_source_ = std::unique_ptr<GSource, GSourceDeleter>(
-      g_source_new(&g_observer_funcs, sizeof(ObserverSource)));
+      g_source_new(&observer_funcs, sizeof(ObserverSource)));
   static_cast<ObserverSource*>(observer_source_.get())->pump = this;
   g_source_attach(observer_source_.get(), context_);
 
+  static GSourceFuncs work_funcs = {WorkSourcePrepare, WorkSourceCheck,
+                                    WorkSourceDispatch, WorkSourceFinalize};
   work_source_ = std::unique_ptr<GSource, GSourceDeleter>(
-      g_source_new(&g_work_source_funcs, sizeof(WorkSource)));
+      g_source_new(&work_funcs, sizeof(WorkSource)));
   static_cast<WorkSource*>(work_source_.get())->pump = this;
   g_source_add_poll(work_source_.get(), wakeup_gpollfd_.get());
   g_source_set_priority(work_source_.get(), kPriorityWork);
@@ -567,7 +560,10 @@ bool MessagePumpGlib::FdWatchController::InitOrUpdate(int fd,
   poll_fd_->events = event_flags;
   poll_fd_->revents = 0;
 
-  source_ = g_source_new(&g_fd_watch_source_funcs, sizeof(FdWatchSource));
+  static GSourceFuncs source_funcs = {FdWatchSourcePrepare, FdWatchSourceCheck,
+                                      FdWatchSourceDispatch,
+                                      FdWatchSourceFinalize};
+  source_ = g_source_new(&source_funcs, sizeof(FdWatchSource));
   DCHECK(source_);
   g_source_add_poll(source_, poll_fd_.get());
   g_source_set_can_recurse(source_, TRUE);
@@ -641,11 +637,9 @@ void MessagePumpGlib::HandleObserverPrepare() {
     // Contingency 1.1.2 detailed above
     NestIfRequired();
   }
-
-  return;
 }
 
-bool MessagePumpGlib::HandleObserverCheck() {
+gboolean MessagePumpGlib::HandleObserverCheck() {
   // |state_| may be null in tests.
   if (!state_) {
     return FALSE;
@@ -684,9 +678,9 @@ int MessagePumpGlib::HandlePrepare() {
   return next_wakeup_millis;
 }
 
-bool MessagePumpGlib::HandleCheck() {
+gboolean MessagePumpGlib::HandleCheck() {
   if (!state_) {  // state_ may be null during tests.
-    return false;
+    return FALSE;
   }
 
   // Ensure pump is awake.
@@ -714,20 +708,22 @@ bool MessagePumpGlib::HandleCheck() {
     // because HandleCheck() may be called without HandleDispatch being called
     // afterwards.
     state_->next_work_info = {TimeTicks()};
-    return true;
+    return TRUE;
   }
 
   // As described in the summary at the top : Check is a second-chance to
   // Prepare, verify whether we have work ready again.
   if (GetTimeIntervalMilliseconds(state_->next_work_info.delayed_run_time) ==
       0) {
-    return true;
+    return TRUE;
   }
 
-  return false;
+  return FALSE;
 }
 
 void MessagePumpGlib::HandleDispatch() {
+  MessagePumpWakeupCounter::GetForCurrentThread().RecordWakeup();
+
   // Contingency 3.2.1
   EnsureClearedScopedWorkItem();
 
@@ -853,6 +849,9 @@ bool MessagePumpGlib::HandleFdWatchDispatch(FdWatchController* controller) {
   const bool is_persistent = controller->is_persistent_;
   const bool can_write = flags & G_IO_OUT;
   const bool can_read = flags & G_IO_IN && (is_persistent || !can_write);
+
+  DCHECK(can_read || can_write);
+  MessagePumpWakeupCounter::GetForCurrentThread().RecordWakeup();
 
   if (can_read && can_write) {
     // In case both callbacks can be called, it's necessary to check that

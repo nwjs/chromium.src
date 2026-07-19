@@ -14,6 +14,7 @@
 #import "components/signin/public/base/signin_pref_names.h"
 #import "components/signin/public/identity_manager/identity_test_utils.h"
 #import "components/signin/public/identity_manager/primary_account_mutator.h"
+#import "components/sync/test/test_sync_service.h"
 #import "ios/chrome/browser/drive/model/drive_list.h"
 #import "ios/chrome/browser/drive/model/drive_service_factory.h"
 #import "ios/chrome/browser/drive/model/test_drive_file_downloader.h"
@@ -42,6 +43,7 @@
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/chrome/browser/signin/model/identity_test_environment_browser_state_adaptor.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
+#import "ios/chrome/browser/sync/model/test_sync_service_utils.h"
 #import "ios/chrome/browser/web/model/choose_file/choose_file_tab_helper.h"
 #import "ios/chrome/browser/web/model/choose_file/fake_choose_file_controller.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
@@ -109,6 +111,10 @@ constexpr char kFakeIconURL[] = "http://www.example.com/image";
     didActivateSearch:(BOOL)searchActivated {
 }
 
+- (void)mediator:(DriveFilePickerMediator*)mediator
+    didPickDriveItems:(const std::vector<DriveItem>&)driveItems {
+}
+
 @end
 
 // Fake drive file picker commands for `DriveFilePickerMediator`.
@@ -123,6 +129,11 @@ constexpr char kFakeIconURL[] = "http://www.example.com/image";
   self.hideDriveFilePickerCalled = YES;
 }
 - (void)setDriveFilePickerSelectedIdentity:(id<SystemIdentity>)identity {
+}
+- (void)showDriveFilePickerWithComposeboxDelegate:
+            (id<ComposeboxPickerPresenterDelegate>)delegate
+                               baseViewController:
+                                   (UIViewController*)baseViewController {
 }
 @end
 
@@ -239,6 +250,9 @@ constexpr char kFakeIconURL[] = "http://www.example.com/image";
 - (void)setAllowsMultipleSelection:(BOOL)allowsMultipleSelection {
 }
 
+- (void)setAccountButtonHidden:(BOOL)hidden {
+}
+
 @end
 
 // Test fixture for testing DriveFilePickerMediator class.
@@ -258,6 +272,8 @@ class DriveFilePickerMediatorTest : public PlatformTest {
         AuthenticationServiceFactory::GetInstance(),
         AuthenticationServiceFactory::GetFactoryWithDelegate(
             std::make_unique<FakeAuthenticationServiceDelegate>()));
+    builder.AddTestingFactory(SyncServiceFactory::GetInstance(),
+                              base::BindRepeating(&CreateTestSyncService));
     builder.AddTestingFactory(
         IdentityManagerFactory::GetInstance(),
         base::BindRepeating(IdentityTestEnvironmentBrowserStateAdaptor::
@@ -335,6 +351,7 @@ class DriveFilePickerMediatorTest : public PlatformTest {
              initWithWebState:web_state_.get()
                       options:DriveFilePickerOptions::Default()
                        isRoot:YES
+                forComposebox:NO
               identityManager:_identityManager
         authenticationService:auth_service_];
     mediator_.delegate = fake_delegate_;

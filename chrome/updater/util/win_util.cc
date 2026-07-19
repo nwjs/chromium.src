@@ -90,6 +90,7 @@
 #include "chrome/windows_services/service_program/scoped_client_impersonation.h"
 #include "components/crash/core/common/crash_key.h"
 #include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
+#include "third_party/abseil-cpp/absl/strings/str_format.h"
 
 // Linked from ntdll.lib.
 extern "C" LONG WINAPI RtlGetVersion(OSVERSIONINFOEX*);
@@ -301,6 +302,17 @@ std::optional<std::vector<std::wstring>> CommandLineToArgv(
          (::GetLastError() != ERROR_SERVICE_MARKED_FOR_DELETE);
 }
 
+// Replaces '\' with '_' in `app_id`. Useful for preventing subkey injection
+// when using AppIds as registry keys. It is not expected that any valid AppId
+// contains '\', and this is enforced during installation and registration.
+// TODO(crbug.com/522930760): It would be preferable to not permit invalid
+// AppIds in such contexts instead.
+std::wstring SanitizeAppId(const std::wstring& app_id) {
+  std::wstring sanitized_app_id;
+  base::ReplaceChars(app_id, L"\\", L"_", &sanitized_app_id);
+  return sanitized_app_id;
+}
+
 }  // namespace
 
 NamedObjectAttributes::NamedObjectAttributes(const std::wstring& name,
@@ -421,7 +433,7 @@ std::wstring GetAppClientsKey(const std::string& app_id) {
 }
 
 std::wstring GetAppClientsKey(const std::wstring& app_id) {
-  return base::StrCat({CLIENTS_KEY, app_id});
+  return base::StrCat({CLIENTS_KEY, SanitizeAppId(app_id)});
 }
 
 std::wstring GetAppClientStateKey(const std::string& app_id) {
@@ -429,7 +441,7 @@ std::wstring GetAppClientStateKey(const std::string& app_id) {
 }
 
 std::wstring GetAppClientStateKey(const std::wstring& app_id) {
-  return base::StrCat({CLIENT_STATE_KEY, app_id});
+  return base::StrCat({CLIENT_STATE_KEY, SanitizeAppId(app_id)});
 }
 
 std::wstring GetAppClientStateMediumKey(const std::string& app_id) {
@@ -437,7 +449,7 @@ std::wstring GetAppClientStateMediumKey(const std::string& app_id) {
 }
 
 std::wstring GetAppClientStateMediumKey(const std::wstring& app_id) {
-  return base::StrCat({CLIENT_STATE_MEDIUM_KEY, app_id});
+  return base::StrCat({CLIENT_STATE_MEDIUM_KEY, SanitizeAppId(app_id)});
 }
 
 std::wstring GetAppCohortKey(const std::string& app_id) {
@@ -560,10 +572,10 @@ std::string MemoryStatus() {
   MEMORYSTATUSEX memory_status = {};
   memory_status.dwLength = sizeof(memory_status);
   return ::GlobalMemoryStatusEx(&memory_status)
-             ? base::StringPrintf("available: %dM, total: %dM, phys: %dG",
-                                  memory_status.ullAvailPageFile / (1 << 20),
-                                  memory_status.ullTotalPageFile / (1 << 20),
-                                  1 + memory_status.ullTotalPhys / (1 << 30))
+             ? absl::StrFormat("available: %dM, total: %dM, phys: %dG",
+                               memory_status.ullAvailPageFile / (1 << 20),
+                               memory_status.ullTotalPageFile / (1 << 20),
+                               1 + memory_status.ullTotalPhys / (1 << 30))
              : std::string("n/a");
 }
 
@@ -1235,7 +1247,7 @@ std::wstring GetTextForSystemError(int error) {
   base::win::ScopedLocalAllocTyped<wchar_t> free_buffer(
       system_allocated_buffer);
   return chars_written > 0 ? system_allocated_buffer
-                           : base::UTF8ToWide(base::StringPrintf("%#x", error));
+                           : base::UTF8ToWide(absl::StrFormat("%#x", error));
 }
 
 bool MigrateLegacyUpdaters(
@@ -1340,7 +1352,6 @@ bool MigrateLegacyUpdaters(
 
   return true;
 }
-
 
 struct ScopedWtsConnectStateCloseTraits {
   static WTS_CONNECTSTATE_CLASS* InvalidValue() { return nullptr; }

@@ -89,6 +89,7 @@ class LayoutBlockFlow;
 class LayoutView;
 class LocalFrameView;
 class PaintLayer;
+class PhysicalBoxFragment;
 class StyleRequest;
 struct PaintInfo;
 struct PaintInvalidatorContext;
@@ -831,6 +832,8 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
     return node && node->IsPseudoElement();
   }
 
+  bool IsBackdropForOverscrollAreaParent() const;
+
   virtual bool IsBoxModelObject() const {
     NOT_DESTROYED();
     return false;
@@ -1053,7 +1056,6 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   bool IsButtonOrInputButton() const;
   bool IsInputButton() const;
   bool IsMenuList() const;
-  bool IsListBox() const;
 
   bool IsTablePart() const {
     NOT_DESTROYED();
@@ -2028,6 +2030,17 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   virtual void ClearFirstInlineFragmentItemIndex() { NOT_DESTROYED(); }
   virtual void SetFirstInlineFragmentItemIndex(wtf_size_t) { NOT_DESTROYED(); }
 
+  // Gap decorations can take a list format for its styles. When the container
+  // fragments, the order of those styles must be maintained. This method
+  // returns the index of the gap within the container's decoration style
+  // pattern within the stiched container given the provided fragment relative
+  // `gap_index`.
+  virtual wtf_size_t StitchedRowGapIndex(const PhysicalBoxFragment& fragment,
+                                         wtf_size_t gap_index) const {
+    NOT_DESTROYED();
+    return gap_index;
+  }
+
   void SetHasBoxDecorationBackground(bool);
 
   void SetHorizontalWritingMode(bool has_horizontal_writing_mode) {
@@ -2412,6 +2425,12 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   // integral size and the position has fractional values, the resultant
   // gfx::Rect can be larger than the integral size.
   gfx::Rect AbsoluteBoundingBoxRect(MapCoordinatesFlags = 0) const;
+
+  // Returns the absolute bounding box rect including ink overflow (such as CSS
+  // drop-shadow) of this unbounded element, mapped to absolute coordinates.
+  // This is a specialized API for unbounded elements that traverses document
+  // boundaries.
+  gfx::Rect AbsoluteBoundingBoxRectForUnboundedElement() const;
 
   // These two functions also handle inlines without content for which the
   // location of the result rect (which may be empty) should be the absolute

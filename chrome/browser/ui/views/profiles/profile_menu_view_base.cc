@@ -27,10 +27,12 @@
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/profiles/profile_colors_util.h"
+#include "chrome/browser/ui/profiles/profile_view_utils.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
 #include "chrome/browser/ui/views/controls/hover_button.h"
+#include "chrome/grit/browser_resources.h"
 #include "components/signin/public/base/signin_switches.h"
 #include "components/supervised_user/core/browser/family_link_user_capabilities.h"
 #include "third_party/skia/include/core/SkColor.h"
@@ -223,7 +225,12 @@ class AvatarImageView : public views::ImageView {
     DCHECK(!avatar_image_.IsEmpty());
     ui::ColorProvider* color_provider = GetColorProvider();
     CHECK(color_provider);
+    const bool is_ai_ring_enabled =
+        IsAiSubscriptionRingEnabled(&(root_view_->profile()));
+
     gfx::ImageSkia sized_avatar_image;
+    bool should_crop = true;
+
     if (has_dotted_ring_) {
       const int size_with_border = image_size_ + 2 * border_size_;
       sized_avatar_image = profiles::GetAvatarWithDottedRing(
@@ -232,6 +239,12 @@ class AvatarImageView : public views::ImageView {
       // Dotted ring avatar does not support a border, as the border is already
       // included with the dotted ring.
       CHECK_EQ(border_size_, 0);
+    } else if (is_ai_ring_enabled) {
+      // Keep the avatar's size identical with the no-ring case, the ring
+      // expands outwards.
+      sized_avatar_image =
+          AddAiRingToAvatar(avatar_image_, *color_provider, image_size_);
+      should_crop = false;
     } else {
       if (border_size_ > 0) {
         // Total image size is `image_size_ + 2 * border_size_`.
@@ -248,12 +261,16 @@ class AvatarImageView : public views::ImageView {
       sized_avatar_image = profiles::AddBackgroundToImage(sized_avatar_image,
                                                           GetBackgroundColor());
     }
-    gfx::Image circular_sized_avatar_image = profiles::GetSizedAvatarIcon(
-        gfx::Image(sized_avatar_image), sized_avatar_image.size().width(),
-        sized_avatar_image.size().height(),
-        profiles::AvatarShape::SHAPE_CIRCLE);
-    SetImage(ui::ImageModel::FromImageSkia(
-        *circular_sized_avatar_image.ToImageSkia()));
+
+    if (should_crop) {
+      gfx::Image circular_sized_avatar_image = profiles::GetSizedAvatarIcon(
+          gfx::Image(sized_avatar_image), sized_avatar_image.size().width(),
+          sized_avatar_image.size().height(),
+          profiles::AvatarShape::SHAPE_CIRCLE);
+      sized_avatar_image = *circular_sized_avatar_image.ToImageSkia();
+    }
+
+    SetImage(ui::ImageModel::FromImageSkia(sized_avatar_image));
   }
 
  private:
@@ -410,7 +427,7 @@ ProfileMenuViewBase::ProfileMenuViewBase(views::BubbleAnchor anchor_element,
   GetViewAccessibility().SetRole(ax::mojom::Role::kMenu);
 
   RegisterWindowClosingCallback(base::BindOnce(
-      &ProfileMenuViewBase::OnWindowClosing, base::Unretained(this)));
+      &ProfileMenuViewBase::OnWindowClosing, weak_factory_.GetWeakPtr()));
 
   SetBackground(views::CreateSolidBackground(kColorProfileMenuBackground));
 }

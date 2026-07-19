@@ -197,11 +197,10 @@ public class AwSettings {
     private String mDefaultVideoPosterUrl;
     private float mInitialPageScalePercent;
     private boolean mSpatialNavigationEnabled; // Default depends on device features.
+    private boolean mDownloadFaviconsEnabled = true;
     private boolean mEnableSupportedHardwareAcceleratedFeatures;
     private int mMixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW;
     private int mAttributionBehavior = AttributionBehavior.APP_SOURCE_AND_WEB_TRIGGER;
-    private boolean mIgnoreDuplicateNavEnabled;
-    private long mIgnoreDuplicateNavThresholdMs = -1;
 
     @SpeculativeLoadingAllowedFlags
     private int mSpeculativeLoadingAllowedFlags =
@@ -357,6 +356,11 @@ public class AwSettings {
         void updateSpeculativeLoadingAllowedLocked() {
             runOnUiThreadBlockingAndLocked(
                     AwSettings.this::updateSpeculativeLoadingAllowedOnUiThreadLocked);
+        }
+
+        void updateDownloadFaviconsEnabledLocked() {
+            runOnUiThreadBlockingAndLocked(
+                    AwSettings.this::updateDownloadFaviconsEnabledOnUiThreadLocked);
         }
 
         void updateBackForwardCacheEnabled() {
@@ -661,6 +665,32 @@ public class AwSettings {
         }
     }
 
+    /** Sets whether a navigation will attempt to download a Favicon */
+    public void setDownloadFaviconsEnabled(boolean enabled) {
+        if (TRACE) Log.i(TAG, "setDownloadFaviconsEnabled=" + enabled);
+        synchronized (mAwSettingsLock) {
+            if (!AwFeatureMap.isEnabled(AwFeatures.WEBVIEW_SET_DOWNLOAD_FAVICONS_ENABLED)) {
+                // no-op kill switch for setDownloadFaviconsEnabled
+                return;
+            }
+            mDownloadFaviconsEnabled = enabled;
+            mEventHandler.updateDownloadFaviconsEnabledLocked();
+        }
+    }
+
+    /** Returns whether a navigation will download a Favicon or not */
+    public boolean getDownloadFaviconsEnabled() {
+        synchronized (mAwSettingsLock) {
+            return AwSettingsJni.get().getShouldDownloadFaviconsOnNavigation(mNativeAwSettings);
+        }
+    }
+
+    @CalledByNative
+    private boolean getDownloadFaviconsEnabledLocked() {
+        assert Thread.holdsLock(mAwSettingsLock);
+        return mDownloadFaviconsEnabled;
+    }
+
     /** See {@link android.webkit.WebSettings#setAllowContentAccess}. */
     public void setAllowContentAccess(boolean allow) {
         if (TRACE) Log.i(TAG, "setAllowContentAccess=" + allow);
@@ -800,52 +830,6 @@ public class AwSettings {
     public boolean getGeolocationEnabled() {
         synchronized (mAwSettingsLock) {
             return mGeolocationEnabled;
-        }
-    }
-
-    /**
-     * Sets whether WebView should ignore duplicate navigations. A navigation is considered a
-     * duplicate if it matches the URL, method, and initiator of an ongoing navigation. This helps
-     * prevent unintended multiple navigations from rapid user interactions, such as double clicks.
-     *
-     * @param enable whether to ignore duplicate navigations.
-     */
-    public void setIgnoreDuplicateNavEnabled(boolean enable) {
-        synchronized (mAwSettingsLock) {
-            if (mIgnoreDuplicateNavEnabled != enable) {
-                mIgnoreDuplicateNavEnabled = enable;
-                mEventHandler.updateWebkitPreferencesLocked();
-            }
-        }
-    }
-
-    @CalledByNative
-    public boolean getIgnoreDuplicateNavEnabled() {
-        synchronized (mAwSettingsLock) {
-            return mIgnoreDuplicateNavEnabled;
-        }
-    }
-
-    /**
-     * Sets the threshold in milliseconds for ignoring duplicate navigations. This threshold is only
-     * applied if {@link #setIgnoreDuplicateNavEnabled(boolean)} is set to true. When enabled, a
-     * value of -1 indicates that the system default threshold (3 seconds) should be used.
-     *
-     * @param thresholdMs the threshold in milliseconds.
-     */
-    public void setIgnoreDuplicateNavThreshold(long thresholdMs) {
-        synchronized (mAwSettingsLock) {
-            if (mIgnoreDuplicateNavThresholdMs != thresholdMs) {
-                mIgnoreDuplicateNavThresholdMs = thresholdMs;
-                mEventHandler.updateWebkitPreferencesLocked();
-            }
-        }
-    }
-
-    @CalledByNative
-    public long getIgnoreDuplicateNavThreshold() {
-        synchronized (mAwSettingsLock) {
-            return mIgnoreDuplicateNavThresholdMs;
         }
     }
 
@@ -1970,6 +1954,10 @@ public class AwSettings {
         }
     }
 
+    public static void setShouldDownloadFaviconsGlobal() {
+        AwSettingsJni.get().setShouldDownloadFaviconsGlobal();
+    }
+
     @CalledByNative
     public long getBackForwardCacheSettingsTimeout() {
         synchronized (mAwSettingsLock) {
@@ -2009,7 +1997,6 @@ public class AwSettings {
     }
 
     public void setForceDarkMode(@ForceDarkMode int forceDarkMode) {
-        AwWebContentsMetricsRecorder.recordForceDarkModeAPIUsage(mContext, forceDarkMode);
         synchronized (mAwSettingsLock) {
             if (mForceDarkMode != forceDarkMode) {
                 mForceDarkMode = forceDarkMode;
@@ -2068,7 +2055,6 @@ public class AwSettings {
     }
 
     public void setForceDarkBehavior(@ForceDarkBehavior int forceDarkBehavior) {
-        AwWebContentsMetricsRecorder.recordForceDarkBehaviorAPIUsage(forceDarkBehavior);
         synchronized (mAwSettingsLock) {
             if (mForceDarkBehavior != forceDarkBehavior) {
                 mForceDarkBehavior = forceDarkBehavior;
@@ -2104,17 +2090,6 @@ public class AwSettings {
         return false;
     }
 
-    @CalledByNative
-    private boolean getIgnoreDuplicateNavEnabledLocked() {
-        assert Thread.holdsLock(mAwSettingsLock);
-        return mIgnoreDuplicateNavEnabled;
-    }
-
-    @CalledByNative
-    private long getIgnoreDuplicateNavThresholdLocked() {
-        assert Thread.holdsLock(mAwSettingsLock);
-        return mIgnoreDuplicateNavThresholdMs;
-    }
 
     public boolean getOffscreenPreRaster() {
         synchronized (mAwSettingsLock) {
@@ -2304,6 +2279,15 @@ public class AwSettings {
         if (mNativeAwSettings != 0) {
             AwSettingsJni.get()
                     .updateSpeculativeLoadingAllowedLocked(mNativeAwSettings, AwSettings.this);
+        }
+    }
+
+    private void updateDownloadFaviconsEnabledOnUiThreadLocked() {
+        assert mEventHandler.mHandler != null;
+        ThreadUtils.assertOnUiThread();
+        if (mNativeAwSettings != 0) {
+            AwSettingsJni.get()
+                    .updateDownloadFaviconsEnabledLocked(mNativeAwSettings, AwSettings.this);
         }
     }
 
@@ -2528,5 +2512,11 @@ public class AwSettings {
                 long nativeAwSettings, AwSettings caller);
 
         void updateGeolocationEnabledLocked(long nativeAwSettings, AwSettings caller);
+
+        void updateDownloadFaviconsEnabledLocked(long nativeAwSettings, AwSettings caller);
+
+        void setShouldDownloadFaviconsGlobal();
+
+        boolean getShouldDownloadFaviconsOnNavigation(long nativeAwSettings);
     }
 }

@@ -50,6 +50,7 @@ import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.Feature;
+import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.content_public.browser.MessagePayload;
@@ -317,6 +318,71 @@ public class AwSupervisedUserTest extends AwParameterizedTest {
     @Test
     @SmallTest
     @Feature({"AndroidWebView"})
+    public void testPrefetchDisallowedSiteIsBlocked() throws Throwable {
+        mActivityTestRule
+                .getAwSettingsOnUiThread(mAwContents)
+                .setSpeculativeLoadingAllowed(SpeculativeLoadingAllowedFlags.PRERENDER_ENABLED);
+
+        String matureUrl = setUpWebPage(MATURE_SITE_PATH, MATURE_SITE_TITLE, null);
+        String safeUrl = setUpWebPage(SAFE_SITE_PATH, SAFE_SITE_TITLE, null);
+
+        loadUrl(safeUrl);
+        assertPageTitle(SAFE_SITE_TITLE);
+
+        int callCount = mDelegate.getShouldBlockUrlHelper().getCallCount();
+        injectPrefetchSpeculationRules(matureUrl);
+
+        // Prefetch requests for disallowed URLs should be blocked before leaving the device.
+        mDelegate.getShouldBlockUrlHelper().waitForCallback(callCount);
+        Assert.assertNotNull(mDelegate.getLastCheckedUrl());
+        Assert.assertEquals(matureUrl, mDelegate.getLastCheckedUrl().getSpec());
+        Assert.assertEquals(
+                "The prefetch request should be blocked",
+                0,
+                mWebServer.getRequestCount(MATURE_SITE_PATH));
+
+        // Subsequent navigation to the prefetched URL should also be blocked.
+        loadUrl(matureUrl);
+        CriteriaHelper.pollInstrumentationThread(
+                () -> {
+                    Criteria.checkThat(
+                            mActivityTestRule.getTitleOnUiThread(mAwContents),
+                            Matchers.is(BLOCKED_SITE_TITLE));
+                });
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"AndroidWebView"})
+    public void testSafeSitesCanBePrefetched() throws Throwable {
+        mActivityTestRule
+                .getAwSettingsOnUiThread(mAwContents)
+                .setSpeculativeLoadingAllowed(SpeculativeLoadingAllowedFlags.PRERENDER_ENABLED);
+
+        String safePrefetchUrl = setUpWebPage("/safe_prefetch.html", "Safe Prefetch Site", null);
+        String safeUrl = setUpWebPage(SAFE_SITE_PATH, SAFE_SITE_TITLE, null);
+
+        loadUrl(safeUrl);
+        assertPageTitle(SAFE_SITE_TITLE);
+
+        injectPrefetchSpeculationRules(safePrefetchUrl);
+
+        // Verify prefetch request goes through.
+        CriteriaHelper.pollInstrumentationThread(
+                () -> {
+                    Criteria.checkThat(
+                            mWebServer.getRequestCount("/safe_prefetch.html"),
+                            Matchers.greaterThan(0));
+                });
+
+        // Verify we can navigate to it.
+        loadUrl(safePrefetchUrl);
+        assertPageTitle("Safe Prefetch Site");
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"AndroidWebView"})
     public void testSafeSitesCanBePrerendered() throws Throwable {
         final TestWebMessageListener prerenderStatusListener = new TestWebMessageListener();
         ThreadUtils.runOnUiThreadBlocking(
@@ -398,6 +464,21 @@ public class AwSupervisedUserTest extends AwParameterizedTest {
                 mAwContents, mContentsClient, speculationRules);
     }
 
+    private void injectPrefetchSpeculationRules(String url) throws Exception {
+        final String speculationRulesTemplate =
+                """
+                {
+                  const script = document.createElement('script');
+                  script.type = 'speculationrules';
+                  script.text = '{"prefetch": [{"source": "list", "urls": ["%s"]}]}';
+                  document.head.appendChild(script);
+                }
+                """;
+        final String speculationRules = String.format(speculationRulesTemplate, url);
+        mActivityTestRule.executeJavaScriptAndWaitForResult(
+                mAwContents, mContentsClient, speculationRules);
+    }
+
     private String setUpWebPage(String path, String title, @Nullable String iFrameUrl) {
         return mWebServer.setResponse(path, makeTestPage(title, iFrameUrl), null);
     }
@@ -405,8 +486,9 @@ public class AwSupervisedUserTest extends AwParameterizedTest {
     private void loadUrl(String requestUrl) throws Exception {
         // If the page is blocked, then it will never fire the onPageFinished callback so we can't
         // use loadUrlSync(). Instead, use loadUrlAsync and wait for onProgressChanged().
+        int count = mContentsClient.getCallCount();
         mActivityTestRule.loadUrlAsync(mAwContents, requestUrl);
-        mContentsClient.waitForFullLoad();
+        mContentsClient.waitForCallback(count);
     }
 
     private void assertPageTitle(String expectedTitle) {
@@ -420,17 +502,23 @@ public class AwSupervisedUserTest extends AwParameterizedTest {
 
     private static class OnProgressChangedClient extends TestAwContentsClient {
         private final CallbackHelper mCallbackHelper = new CallbackHelper();
+        private int mLastProgress = -1;
 
         @Override
         public void onProgressChanged(int progress) {
             super.onProgressChanged(progress);
-            if (progress == 100) {
+            if (progress == 100 && mLastProgress != 100) {
                 mCallbackHelper.notifyCalled();
             }
+            mLastProgress = progress;
         }
 
-        public void waitForFullLoad() throws TimeoutException {
-            mCallbackHelper.waitForNext();
+        public int getCallCount() {
+            return mCallbackHelper.getCallCount();
+        }
+
+        public void waitForCallback(int count) throws TimeoutException {
+            mCallbackHelper.waitForCallback(count);
         }
     }
 
@@ -462,22 +550,26 @@ public class AwSupervisedUserTest extends AwParameterizedTest {
         // works.
         private final Executor mExecutor = new BackgroundThreadExecutor("TEST_BACKGROUND_THREAD");
         private final CallbackHelper mNeedsRestrictionHelper = new CallbackHelper();
-        private boolean mNeedsRestrictionResponse;
+        private @Nullable Boolean mNeedsRestrictionResponse;
         private static final Set RESTRICTED_CONTENT_BLOCKLIST =
                 Set.of(MATURE_SITE_PATH, MATURE_SITE_IFRAME_PATH);
+        private final CallbackHelper mShouldBlockUrlHelper = new CallbackHelper();
+        private volatile @Nullable GURL mLastCheckedUrl;
 
         @Override
         public void shouldBlockUrl(GURL requestUrl, final Callback<Boolean> callback) {
+            mLastCheckedUrl = requestUrl;
             String path = requestUrl.getPath();
             boolean isRestrictedContent = RESTRICTED_CONTENT_BLOCKLIST.contains(path);
             mExecutor.execute(
                     () -> {
                         callback.onResult(isRestrictedContent);
+                        mShouldBlockUrlHelper.notifyCalled();
                     });
         }
 
         @Override
-        public void needsRestrictedContentBlocking(final Callback<Boolean> callback) {
+        public void needsRestrictedContentBlocking(final Callback<@Nullable Boolean> callback) {
             mExecutor.execute(
                     () -> {
                         callback.onResult(mNeedsRestrictionResponse);
@@ -485,12 +577,20 @@ public class AwSupervisedUserTest extends AwParameterizedTest {
                     });
         }
 
-        public void setNeedsRestrictedContentBlockingResponse(boolean value) {
+        public void setNeedsRestrictedContentBlockingResponse(@Nullable Boolean value) {
             mNeedsRestrictionResponse = value;
         }
 
         public CallbackHelper getNeedsRestrictionHelper() {
             return mNeedsRestrictionHelper;
+        }
+
+        public CallbackHelper getShouldBlockUrlHelper() {
+            return mShouldBlockUrlHelper;
+        }
+
+        public @Nullable GURL getLastCheckedUrl() {
+            return mLastCheckedUrl;
         }
     }
 
@@ -507,7 +607,7 @@ public class AwSupervisedUserTest extends AwParameterizedTest {
         }
     }
 
-    private void resetNeedsRestriction(boolean value) throws Exception {
+    private void resetNeedsRestriction(@Nullable Boolean value) throws Exception {
         mDelegate.setNeedsRestrictedContentBlockingResponse(value);
         int count = mDelegate.getNeedsRestrictionHelper().getCallCount();
         AwSupervisedUserUrlClassifier classifier = AwSupervisedUserUrlClassifier.getInstance();
@@ -515,5 +615,50 @@ public class AwSupervisedUserTest extends AwParameterizedTest {
 
         classifier.checkIfNeedRestrictedContentBlocking();
         mDelegate.getNeedsRestrictionHelper().waitForCallback(count);
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"AndroidWebView"})
+    public void testRestrictedContentBlockingNullDoesNotUpdateCache() throws Throwable {
+        String embeddedUrl = setUpWebPage(MATURE_SITE_IFRAME_PATH, MATURE_SITE_IFRAME_TITLE, null);
+        String requestUrl = setUpWebPage(MATURE_SITE_PATH, MATURE_SITE_TITLE, embeddedUrl);
+
+        // Start with restriction enabled (setUp sets it to true, but let's be explicit)
+        resetNeedsRestriction(true);
+        loadUrl(requestUrl);
+        assertPageTitle(BLOCKED_SITE_TITLE);
+
+        // Now set restriction response to null (simulating timeout/error)
+        // It should NOT update the cache, so restriction should remain enabled (mature pages
+        // blocked)
+        // We also check that the histogram is NOT recorded.
+        try (HistogramWatcher watcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords(
+                                "Android.WebView.RestrictedContentBlocking.ApiCallMatchesDiskCache")
+                        .build()) {
+            resetNeedsRestriction(null);
+            loadUrl(requestUrl);
+            assertPageTitle(BLOCKED_SITE_TITLE);
+        }
+
+        // Now set restriction to false
+        resetNeedsRestriction(false);
+        loadUrl(requestUrl);
+        assertPageTitle(MATURE_SITE_TITLE);
+
+        // Now set restriction response to null again
+        // It should NOT update the cache, so restriction should remain disabled (mature pages
+        // allowed)
+        try (HistogramWatcher watcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords(
+                                "Android.WebView.RestrictedContentBlocking.ApiCallMatchesDiskCache")
+                        .build()) {
+            resetNeedsRestriction(null);
+            loadUrl(requestUrl);
+            assertPageTitle(MATURE_SITE_TITLE);
+        }
     }
 }

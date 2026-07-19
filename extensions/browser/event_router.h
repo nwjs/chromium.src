@@ -501,8 +501,7 @@ class EventRouter : public KeyedService,
                            const std::set<std::string>& events,
                            RegisteredEventType type);
 
-  // TODO(crbug.com/474558883): Remove this after webRequest listener
-  // persistence is stable for a few milestones.
+  // TODO(crbug.com/474558883): Remove this in M157.
   void RemoveOrphanedWebRequestEvents(const ExtensionId& extension_id,
                                       std::set<std::string>& events,
                                       RegisteredEventType type);
@@ -720,6 +719,12 @@ struct Event {
   // workers), it is unused for persistent background pages. Used in UMA
   // histograms.
   bool lazy_background_active_on_dispatch;
+
+  // If valid, the event will not be dispatched to this process. This can be
+  // helpful for events that want to be dispatched to other renderer context's
+  // but don't want to receive that event themselves even if they have a
+  // listener for it.
+  content::ChildProcessId exclude_process_id;
 
   // Whether a user gesture triggered the event.
   EventRouter::UserGestureState user_gesture;

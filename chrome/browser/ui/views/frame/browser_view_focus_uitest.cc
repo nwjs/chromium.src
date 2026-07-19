@@ -42,7 +42,7 @@ class BrowserViewFocusTest : public InProcessBrowserTest {
   }
 
   void TestSplitTabFocusOrder() {
-    gfx::NativeWindow window = browser()->window()->GetNativeWindow();
+    gfx::NativeWindow window = browser()->GetWindow()->GetNativeWindow();
     views::Widget* widget = views::Widget::GetWidgetForNativeWindow(window);
     views::FocusManager* focus_manager = widget->GetFocusManager();
 
@@ -142,7 +142,7 @@ IN_PROC_BROWSER_TEST_F(BrowserViewFocusTest, BrowsersRememberFocus) {
   GURL url = embedded_test_server()->GetURL(kSimplePage);
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
 
-  gfx::NativeWindow window = browser()->window()->GetNativeWindow();
+  gfx::NativeWindow window = browser()->GetWindow()->GetNativeWindow();
 
   // The focus should be on the Tab contents.
   ASSERT_TRUE(IsViewFocused(VIEW_ID_TAB_CONTAINER));
@@ -166,10 +166,10 @@ IN_PROC_BROWSER_TEST_F(BrowserViewFocusTest, BrowsersRememberFocus) {
       Browser::Create(Browser::CreateParams(browser()->profile(), true));
   ASSERT_TRUE(browser2);
   chrome::AddTabAt(browser2, GURL(), -1, true);
-  browser2->window()->Show();
+  browser2->GetWindow()->Show();
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser2, url));
 
-  gfx::NativeWindow window2 = browser2->window()->GetNativeWindow();
+  gfx::NativeWindow window2 = browser2->GetWindow()->GetNativeWindow();
   BrowserView* browser_view2 = BrowserView::GetBrowserViewForBrowser(browser2);
   ASSERT_TRUE(browser_view2);
   const views::Widget* widget2 =
@@ -182,12 +182,12 @@ IN_PROC_BROWSER_TEST_F(BrowserViewFocusTest, BrowsersRememberFocus) {
 
   // Switch to the 1st browser window, focus should still be on the location
   // bar and the second browser should have nothing focused.
-  browser()->window()->Activate();
+  browser()->GetWindow()->Activate();
   ASSERT_TRUE(IsViewFocused(VIEW_ID_OMNIBOX));
   EXPECT_EQ(nullptr, focus_manager2->GetFocusedView());
 
   // Switch back to the second browser, focus should still be on the page.
-  browser2->window()->Activate();
+  browser2->GetWindow()->Activate();
   views::Widget* widget = views::Widget::GetWidgetForNativeWindow(window);
   ASSERT_TRUE(widget);
   EXPECT_EQ(nullptr, widget->GetFocusManager()->GetFocusedView());
@@ -249,7 +249,7 @@ IN_PROC_BROWSER_TEST_F(BrowserViewFocusTest, TabChangesAvoidSpuriousFocus) {
   ASSERT_TRUE(AddTabAtIndex(1, url, ui::PAGE_TRANSITION_TYPED));
 
   // Begin recording focus changes.
-  gfx::NativeWindow window = browser()->window()->GetNativeWindow();
+  gfx::NativeWindow window = browser()->GetWindow()->GetNativeWindow();
   views::Widget* widget = views::Widget::GetWidgetForNativeWindow(window);
   views::FocusManager* focus_manager = widget->GetFocusManager();
   FocusedViewClassRecorder focus_change_recorder(focus_manager);

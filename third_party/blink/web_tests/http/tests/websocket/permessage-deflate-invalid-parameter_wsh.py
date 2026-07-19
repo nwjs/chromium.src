@@ -26,9 +26,10 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from six.moves.urllib import parse
-from mod_pywebsocket import handshake
-from mod_pywebsocket.handshake.hybi import compute_accept_from_unicode
+from urllib import parse
+
+from pywebsocket3 import handshake
+from pywebsocket3.handshake.hybi import compute_accept_from_unicode
 
 
 def web_socket_do_extra_handshake(request):

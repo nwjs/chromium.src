@@ -38,9 +38,6 @@ extern const base::FeatureParam<bool> kContextMenuEnableMultiTabSelection;
 
 // The maximum number of file attachments to upload.
 extern const base::FeatureParam<int> kMaxNumFiles;
-// Whether or not to show a description in the context menu entrypoint, or just
-// the icon.
-extern const base::FeatureParam<bool> kShowContextMenuDescription;
 // Whether to show section headers in the context menu.
 extern const base::FeatureParam<bool> kShowContextMenuHeaders;
 
@@ -104,6 +101,9 @@ BASE_DECLARE_FEATURE(kNtpRealboxCyclingPlaceholders);
 
 // Whether to enable multi-line input in the searchbox.
 extern const base::FeatureParam<bool> kMultiLineEnabled;
+
+// Whether to enable the dynamic version of the AI Mode button in the realbox.
+BASE_DECLARE_FEATURE(kNtpRealboxDynamicAiModeButton);
 
 bool IsNtpRealboxNextEnabled(Profile* profile);
 

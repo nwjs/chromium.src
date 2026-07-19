@@ -6,6 +6,7 @@ package org.chromium.content.browser;
 
 import org.jni_zero.CalledByNative;
 import org.jni_zero.JNINamespace;
+import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.base.ObserverList;
@@ -14,6 +15,7 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.content_public.browser.MediaSession;
 import org.chromium.content_public.browser.MediaSessionObserver;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.media_session.mojom.MediaSession.SuspendType;
 import org.chromium.services.media_session.MediaImage;
 import org.chromium.services.media_session.MediaMetadata;
 import org.chromium.services.media_session.MediaPosition;
@@ -77,13 +79,13 @@ public class MediaSessionImpl extends MediaSession {
     }
 
     @Override
-    public void resume() {
-        MediaSessionImplJni.get().resume(mNativeMediaSessionAndroid);
+    public void resume(@SuspendType.EnumType int suspendType) {
+        MediaSessionImplJni.get().resume(mNativeMediaSessionAndroid, suspendType);
     }
 
     @Override
-    public void suspend() {
-        MediaSessionImplJni.get().suspend(mNativeMediaSessionAndroid);
+    public void suspend(@SuspendType.EnumType int suspendType) {
+        MediaSessionImplJni.get().suspend(mNativeMediaSessionAndroid, suspendType);
     }
 
     @Override
@@ -194,9 +196,13 @@ public class MediaSessionImpl extends MediaSession {
 
     @NativeMethods
     public interface Natives {
-        void resume(long nativeMediaSessionAndroid);
+        void resume(
+                long nativeMediaSessionAndroid,
+                @JniType("media_session::mojom::MediaSession::SuspendType") int suspendType);
 
-        void suspend(long nativeMediaSessionAndroid);
+        void suspend(
+                long nativeMediaSessionAndroid,
+                @JniType("media_session::mojom::MediaSession::SuspendType") int suspendType);
 
         void stop(long nativeMediaSessionAndroid);
 

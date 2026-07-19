@@ -187,6 +187,65 @@ struct DomainLookupTiming {
   mojo_base.mojom.TimeDelta? domain_lookup_end;
 };
 
+// Represents Unicode scripts (and Emojis) that we track for font fallback.
+// This is a curated subset of ICU's UScriptCode (plus kEmoji) designed
+// specifically for tracking high-impact font fallback categories in UMA.
+// LINT.IfChange(ScriptType)
+enum ScriptType {
+  // Catch-all for scripts not explicitly listed below.
+  kOther = 0,
+  // Latin script (USCRIPT_LATIN).
+  kLatin = 1,
+  // Han (CJK Ideographs) script (USCRIPT_HAN).
+  kHan = 2,
+  // Hangul script (USCRIPT_HANGUL).
+  kHangul = 3,
+  // Hiragana script (USCRIPT_HIRAGANA).
+  kHiragana = 4,
+  // Katakana script (USCRIPT_KATAKANA).
+  kKatakana = 5,
+  // Arabic script (USCRIPT_ARABIC).
+  kArabic = 6,
+  // Bengali script (USCRIPT_BENGALI).
+  kBengali = 7,
+  // Devanagari script (USCRIPT_DEVANAGARI).
+  kDevanagari = 8,
+  // Cyrillic script (USCRIPT_CYRILLIC).
+  kCyrillic = 9,
+  // Common script (USCRIPT_COMMON), used for math, symbols, etc.
+  kCommon = 10,
+  // Emojis (detected via fallback priority instead of script code).
+  kEmoji = 11,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/page/histograms.xml:GWSFontFallbackScript)
+
+struct ScriptFallbackInfo {
+  // The script type (or Emoji) of the fallback character.
+  ScriptType script_type;
+  // The number of fallback events for this script/Emoji.
+  uint32 fallback_count;
+};
+
+struct FontLoadingMetrics {
+  // Total cumulative time spent in character fallback.
+  mojo_base.mojom.TimeDelta? fallback_duration;
+
+  // Total number of character fallback events.
+  uint32 fallback_count;
+
+  // Duration of the first fallback event in the process.
+  mojo_base.mojom.TimeDelta? fallback_initial_duration;
+
+  // NGShapeCache hits.
+  uint32 shape_cache_hit_count;
+
+  // NGShapeCache misses.
+  uint32 shape_cache_miss_count;
+
+  // Detailed fallback metrics per script.
+  array<ScriptFallbackInfo> script_fallback_metrics;
+};
+
 // PageLoadTiming contains timing metrics associated with a page load. Many of
 // the metrics here are based on the Navigation Timing spec:
 // http://www.w3.org/TR/navigation-timing/.
@@ -593,7 +652,8 @@ interface PageLoadMetrics {
                SubresourceLoadMetrics? subresource_load_metrics,
                array<SoftNavigationMetrics> soft_navigation_metrics,
                array<LargestContentfulPaintTiming> soft_largest_contentful_paint,
-               array<CustomUserTimingMark> custom_user_timings);
+               array<CustomUserTimingMark> custom_user_timings,
+               FontLoadingMetrics? font_loading_metrics);
 
   // Called when performance entries are added via `performance.mark()` from the
   // outermost main frame in renderer, except for the case when standard
@@ -640,13 +700,15 @@ struct SoftNavigationMetrics {
   // e.g. LCP.
   mojo_base.mojom.TimeDelta start_time;
 
-  // The timestamp that we use for slicing the performance timeline;
+  // The TimeTicks value that we use for slicing the performance timeline;
   // specifically, for layout shifts (LayoutShift) and interactions
   // (EventTiming) in a PageLoadMetrics.UpdateTiming call, we distinguish
   // measurements belonging before or after this soft navigation by comparing
-  // with this timestamp. This is only a Chrome-internal mechanism and never
-  // recorded to UKM. Note: For our web exposed (experimental) API,
-  // PerformanceEntry.navigationId serves the same purpose.
+  // with this value. Only its ordering relative to other event TimeTicks is
+  // meaningful; the absolute value is not a wall-clock timestamp. This is only
+  // a Chrome-internal mechanism and never recorded to UKM. Note: For our web
+  // exposed (experimental) API, PerformanceEntry.navigationId serves the same
+  // purpose.
   mojo_base.mojom.TimeTicks soft_navigation_slicing_time;
 
   // The type of the soft navigation.

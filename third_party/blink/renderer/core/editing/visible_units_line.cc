@@ -84,6 +84,27 @@ static PositionWithAffinity AdjustForSoftLineWrap(
                               TextAffinity::kUpstreamIfPossible);
 }
 
+// Returns true for positions anchored at a block with inline children (e.g.
+// "div@0" before a leading <wbr> run in an editable <div>). |OffsetMapping|
+// cannot map such positions, and adjusting them may end up inside a nested
+// inline formatting context (e.g. an inline-flex atomic inline), resolving
+// the boundary of the wrong line. They need to be re-anchored to the
+// equivalent caret position first. See https://crbug.com/40765041.
+template <typename Strategy>
+static bool NeedsCaretNormalization(
+    const PositionTemplate<Strategy>& position) {
+  if (position.IsNull() || position.IsBeforeAnchor() ||
+      position.IsAfterAnchor()) {
+    return false;
+  }
+  const Node* const anchor = position.AnchorNode();
+  if (anchor->IsTextNode()) {
+    return false;
+  }
+  const LayoutObject* const layout_object = anchor->GetLayoutObject();
+  return layout_object && layout_object->IsLayoutBlockFlow();
+}
+
 template <typename Strategy, typename Ordering>
 static PositionWithAffinityTemplate<Strategy> EndPositionForLine(
     const PositionWithAffinityTemplate<Strategy>& c) {
@@ -108,7 +129,7 @@ static PositionWithAffinityTemplate<Strategy> EndPositionForLine(
     InlineCursor line_box = caret_position.cursor;
     line_box.MoveToContainingLine();
     const PositionWithAffinity end_position = line_box.PositionForEndOfLine();
-    return FromPositionInDOMTree<Strategy>(
+    return FromPositionInDomTree<Strategy>(
         AdjustForSoftLineWrap(line_box.Current(), end_position));
   }
 
@@ -147,7 +168,7 @@ PositionWithAffinityTemplate<Strategy> StartPositionForLine(
     InlineCursor line_box = caret_position.cursor;
     line_box.MoveToContainingLine();
     DCHECK(line_box.Current().IsLineBox()) << line_box;
-    return FromPositionInDOMTree<Strategy>(line_box.PositionForStartOfLine());
+    return FromPositionInDomTree<Strategy>(line_box.PositionForStartOfLine());
   }
 
   // There are VisiblePositions at offset 0 in blocks without line boxes, like
@@ -267,12 +288,16 @@ static PositionWithAffinityTemplate<Strategy> LogicalStartOfLineAlgorithm(
     const PositionWithAffinityTemplate<Strategy>& c) {
   // TODO: this is the current behavior that might need to be fixed.
   // Please refer to https://bugs.webkit.org/show_bug.cgi?id=49107 for detail.
+  const PositionWithAffinityTemplate<Strategy> normalized =
+      NeedsCaretNormalization(c.GetPosition())
+          ? PositionWithAffinityTemplate<Strategy>(
+                MostBackwardCaretPosition(c.GetPosition()), c.Affinity())
+          : c;
   PositionWithAffinityTemplate<Strategy> vis_pos =
-      StartPositionForLine<Strategy, LogicalOrdering>(c);
+      StartPositionForLine<Strategy, LogicalOrdering>(normalized);
 
   if (ContainerNode* editable_root = HighestEditableRoot(c.GetPosition())) {
-    if (vis_pos.IsNull() &&
-        RuntimeEnabledFeatures::LogicalStartOfLineBlockFallbackEnabled()) {
+    if (vis_pos.IsNull()) {
       // When the start-of-line position cannot be determined (e.g., because the
       // caret is in an empty inline element with no layout information), fall
       // back to the start of the enclosing block rather than the start of the
@@ -359,8 +384,14 @@ static PositionWithAffinityTemplate<Strategy> LogicalEndOfLineAlgorithm(
     const PositionWithAffinityTemplate<Strategy>& current_position) {
   // TODO(yosin) this is the current behavior that might need to be fixed.
   // Please refer to https://bugs.webkit.org/show_bug.cgi?id=49107 for detail.
+  const PositionWithAffinityTemplate<Strategy> normalized =
+      NeedsCaretNormalization(current_position.GetPosition())
+          ? PositionWithAffinityTemplate<Strategy>(
+                MostForwardCaretPosition(current_position.GetPosition()),
+                current_position.Affinity())
+          : current_position;
   const PositionWithAffinityTemplate<Strategy> candidate_position =
-      EndPositionForLine<Strategy, LogicalOrdering>(current_position);
+      EndPositionForLine<Strategy, LogicalOrdering>(normalized);
 
   if (ContainerNode* editable_root =
           HighestEditableRoot(current_position.GetPosition())) {

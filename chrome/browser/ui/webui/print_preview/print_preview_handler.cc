@@ -83,13 +83,9 @@
 #if BUILDFLAG(IS_CHROMEOS)
 #include "ash/constants/ash_pref_names.h"
 #include "ash/webui/settings/public/constants/routes.mojom.h"
-#include "chrome/browser/ash/crosapi/crosapi_ash.h"
-#include "chrome/browser/ash/crosapi/crosapi_manager.h"
-#include "chrome/browser/ash/crosapi/local_printer_ash.h"
 #include "chrome/browser/ash/drive/drive_integration_service.h"
 #include "chrome/browser/ash/drive/drive_integration_service_factory.h"
 #include "chromeos/ash/experiences/settings_ui/settings_app_manager.h"
-#include "chromeos/crosapi/mojom/local_printer.mojom.h"
 #include "components/session_manager/core/session.h"
 #include "components/session_manager/core/session_manager.h"
 #include "components/user_manager/user_manager.h"
@@ -423,11 +419,6 @@ void NWPrintSetDefaultPrinter(const std::string& printer_name) {
 
 namespace printing {
 PrintPreviewHandler::PrintPreviewHandler() {
-#if BUILDFLAG(IS_CHROMEOS)
-  DCHECK(crosapi::CrosapiManager::IsInitialized());
-  local_printer_ =
-      crosapi::CrosapiManager::Get()->crosapi_ash()->local_printer_ash();
-#endif
   ReportUserActionHistogram(UserActionBuckets::kPreviewStarted);
 }
 
@@ -506,16 +497,6 @@ PrefService* PrintPreviewHandler::GetPrefs() {
 }
 
 void PrintPreviewHandler::ReadPrinterTypeDenyListFromPrefs() {
-#if BUILDFLAG(IS_CHROMEOS)
-  if (!local_printer_) {
-    return;
-  }
-
-  local_printer_->GetPrinterTypeDenyList(
-      base::BindOnce(&PrintPreviewHandler::OnPrinterTypeDenyListReady,
-                     weak_factory_.GetWeakPtr()));
-  return;
-#else
   PrefService* prefs = GetPrefs();
   if (!prefs->HasPrefPath(prefs::kPrinterTypeDenyList)) {
     return;
@@ -542,7 +523,6 @@ void PrintPreviewHandler::ReadPrinterTypeDenyListFromPrefs() {
     deny_list.push_back(printer_type);
   }
   OnPrinterTypeDenyListReady(deny_list);
-#endif  // BUILDFLAG(IS_CHROMEOS)
 }
 
 void PrintPreviewHandler::OnPrinterTypeDenyListReady(

@@ -13,6 +13,7 @@
 #include "content/public/browser/web_contents.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/permissions/permissions_data.h"
+#include "extensions/common/utils/extension_utils.h"
 
 using extensions::mojom::APIPermissionID;
 
@@ -29,7 +30,20 @@ namespace {
 // 7. M17n/T13n/CJK input method component extension.
 // 8. Accessibility Common extension (used for Dictation)
 // Once http://crbug.com/40333126 is fixed, remove this allowlist.
-bool IsMediaRequestAllowedForExtension(const extensions::Extension* extension) {
+// Note that if an extension is included here, then the permission request is
+// evaluated based on whether the extension has audioCapture or videoCapture
+// permission. If it's not included here, then the request is handled by
+// other means (e.g. it could still be granted by showing a permission prompt to
+// the user).
+bool IsMediaRequestHandledByManifestForExtension(
+    const extensions::Extension* extension) {
+  if (extensions::IsExtensionAllowlistedByCommandLine(*extension)) {
+    // The extension is granted broad extension permissions for testing
+    // (including the audio/video capture permissions), so have the extension
+    // system handle the request.
+    return true;
+  }
+
   return extension->id() == extension_misc::kKeyboardExtensionId ||
          extension->id() == "jokbpnebhdcladagohdnfgjcpejggllo" ||
          extension->id() == "clffjmdilanldobdnedchkdbofoimcgb" ||
@@ -52,7 +66,7 @@ bool ExtensionMediaAccessHandler::SupportsStreamType(
     const extensions::Extension* extension) {
   return extension &&
          (extension->is_platform_app() ||
-          IsMediaRequestAllowedForExtension(extension)) &&
+          IsMediaRequestHandledByManifestForExtension(extension)) &&
          (type == blink::mojom::MediaStreamType::DEVICE_AUDIO_CAPTURE ||
           type == blink::mojom::MediaStreamType::DEVICE_VIDEO_CAPTURE);
 }

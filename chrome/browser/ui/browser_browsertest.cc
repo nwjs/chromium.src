@@ -94,6 +94,7 @@
 #include "chrome/browser/ui/unload_controller.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
+#include "chrome/browser/ui/window_metadata/window_metadata_controller.h"
 #include "chrome/browser/web_applications/policy/web_app_policy_constants.h"
 #include "chrome/browser/web_applications/policy/web_app_policy_manager.h"
 #include "chrome/browser/web_applications/test/os_integration_test_override_impl.h"
@@ -461,7 +462,8 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, NoTitle) {
                      base::FilePath(kTitle1File))));
   EXPECT_EQ(
       LocaleWindowCaptionFromPageTitle(u"title1.html"),
-      browser()->GetWindowTitleForCurrentTab(true /* include_app_name */));
+      WindowMetadataController::From(browser())->GetWindowTitleForCurrentTab(
+          true /* include_app_name */));
   std::u16string tab_title;
   ASSERT_TRUE(ui_test_utils::GetCurrentTabTitle(browser(), &tab_title));
   EXPECT_EQ(u"title1.html", tab_title);
@@ -521,7 +523,8 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, Title) {
   const std::u16string test_title(u"Title Of Awesomeness");
   EXPECT_EQ(
       LocaleWindowCaptionFromPageTitle(test_title),
-      browser()->GetWindowTitleForCurrentTab(true /* include_app_name */));
+      WindowMetadataController::From(browser())->GetWindowTitleForCurrentTab(
+          true /* include_app_name */));
   std::u16string tab_title;
   ASSERT_TRUE(ui_test_utils::GetCurrentTabTitle(browser(), &tab_title));
   EXPECT_EQ(test_title, tab_title);
@@ -541,19 +544,18 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, CaptivePortalWindowTitle) {
       captive_portal::CaptivePortalWindowType::kPopup;
   ui_test_utils::NavigateToURL(&captive_portal_params);
   std::u16string captive_portal_window_title =
-      GlobalBrowserCollection::GetInstance()
-          ->FindBrowserWithTab(
-              captive_portal_params.navigated_or_inserted_contents)
-          ->GetBrowserForMigrationOnly()
+      WindowMetadataController::From(
+          GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+              captive_portal_params.navigated_or_inserted_contents))
           ->GetWindowTitleForCurrentTab(true /* include_app_name */);
 
   NavigateParams normal_params(browser(), url, ui::PAGE_TRANSITION_TYPED);
   normal_params.disposition = WindowOpenDisposition::NEW_POPUP;
   ui_test_utils::NavigateToURL(&normal_params);
   std::u16string normal_window_title =
-      GlobalBrowserCollection::GetInstance()
-          ->FindBrowserWithTab(normal_params.navigated_or_inserted_contents)
-          ->GetBrowserForMigrationOnly()
+      WindowMetadataController::From(
+          GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+              normal_params.navigated_or_inserted_contents))
           ->GetWindowTitleForCurrentTab(true /* include_app_name */);
 
   ASSERT_NE(captive_portal_window_title, normal_window_title);
@@ -656,7 +658,7 @@ IN_PROC_BROWSER_TEST_F(
             closing_contents->GetPrimaryMainFrame()->GetProcess())
       << "Test relies on active and closing tabs sharing a renderer process.";
 
-  BrowserView* browser_view = browser()->window()->AsBrowserView();
+  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
   ASSERT_TRUE(browser_view);
   views::View* active_webview = browser_view->GetActiveContentsWebView();
   ASSERT_TRUE(active_webview);
@@ -1107,7 +1109,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, NotifiesBrowserDidClose) {
   EXPECT_CALL(browser_did_close_callback, Run).Times(0);
   base::CallbackListSubscription subscription =
       browser()->RegisterBrowserDidClose(browser_did_close_callback.Get());
-  browser()->window()->Close();
+  browser()->GetWindow()->Close();
   EXPECT_FALSE(browser()->IsDeleteScheduled());
   testing::Mock::VerifyAndClearExpectations(&browser_did_close_callback);
 
@@ -1115,7 +1117,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, NotifiesBrowserDidClose) {
   // notification is propagated.
   EXPECT_CALL(browser_did_close_callback, Run).Times(1);
   UnloadController::From(browser())->set_force_skip_warning_user_on_close(true);
-  browser()->window()->Close();
+  browser()->GetWindow()->Close();
   EXPECT_TRUE(browser()->IsDeleteScheduled());
 }
 
@@ -1505,11 +1507,11 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, RestorePinnedTabs) {
   model->SetTabPinned(0, true);
 
   // Add a non pinned tab.
-  chrome::NewTab(browser());
+  chrome::NewTab(browser(), NewTabTypes::kNoUserAction);
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
 
   // Add another pinned tab.
-  chrome::NewTab(browser());
+  chrome::NewTab(browser(), NewTabTypes::kNoUserAction);
   ASSERT_TRUE(
       ui_test_utils::NavigateToURL(browser(), GURL(url::kAboutBlankURL)));
   model->SetTabPinned(2, true);
@@ -2056,7 +2058,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, FullscreenBookmarkBar) {
   EXPECT_EQ(BookmarkBar::SHOW,
             BookmarkBarController::From(browser())->bookmark_bar_state());
   chrome::ToggleFullscreenMode(browser());
-  EXPECT_TRUE(browser()->window()->IsFullscreen());
+  EXPECT_TRUE(browser()->GetWindow()->IsFullscreen());
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS)
   // Mac and Chrome OS both have an "immersive style" fullscreen where the
   // bookmark bar is visible when the top views slide down.
@@ -2092,7 +2094,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, BrowserFullscreenShowBookmarkBarSplitView) {
   EXPECT_EQ(BookmarkBar::SHOW,
             BookmarkBarController::From(browser())->bookmark_bar_state());
   chrome::ToggleFullscreenMode(browser());
-  EXPECT_TRUE(browser()->window()->IsFullscreen());
+  EXPECT_TRUE(browser()->GetWindow()->IsFullscreen());
   EXPECT_EQ(BookmarkBar::SHOW,
             BookmarkBarController::From(browser())->bookmark_bar_state());
 }
@@ -2125,7 +2127,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, TabFullscreenHiddenBookmarkBarSplitView) {
       ->fullscreen_controller()
       ->EnterFullscreenModeForTab(web_contents->GetPrimaryMainFrame());
 
-  EXPECT_TRUE(browser()->window()->IsFullscreen());
+  EXPECT_TRUE(browser()->GetWindow()->IsFullscreen());
   EXPECT_EQ(BookmarkBar::HIDDEN,
             BookmarkBarController::From(browser())->bookmark_bar_state());
 }
@@ -2168,7 +2170,7 @@ class KioskModeTest : public BrowserTest {
 #endif
 IN_PROC_BROWSER_TEST_F(KioskModeTest, MAYBE_EnableKioskModeTest) {
   // Check if browser is in fullscreen mode.
-  ASSERT_TRUE(browser()->window()->IsFullscreen());
+  ASSERT_TRUE(browser()->GetWindow()->IsFullscreen());
   const auto* fullscreen_bubble_element =
       BrowserElements::From(browser())->GetElement(
           kExclusiveAccessBubbleViewElementId);
@@ -2177,17 +2179,19 @@ IN_PROC_BROWSER_TEST_F(KioskModeTest, MAYBE_EnableKioskModeTest) {
 
 #if BUILDFLAG(IS_CHROMEOS)
 IN_PROC_BROWSER_TEST_F(KioskModeTest, DoNotExitFullscreen) {
-  browser()->window()->GetExclusiveAccessContext()->ExitFullscreen();
-  ASSERT_TRUE(browser()->window()->IsFullscreen());
+  BrowserWindow::FromBrowser(browser())
+      ->GetExclusiveAccessContext()
+      ->ExitFullscreen();
+  ASSERT_TRUE(browser()->GetWindow()->IsFullscreen());
 }
 
 IN_PROC_BROWSER_TEST_F(KioskModeTest, DoNotChangeBounds) {
-  gfx::Rect old_bounds = browser()->window()->GetBounds();
+  gfx::Rect old_bounds = browser()->GetWindow()->GetBounds();
 
-  browser()->window()->SetBounds(gfx::Rect(10, 10, 10, 10));
-  gfx::Rect new_bounds = browser()->window()->GetBounds();
+  browser()->GetWindow()->SetBounds(gfx::Rect(10, 10, 10, 10));
+  gfx::Rect new_bounds = browser()->GetWindow()->GetBounds();
 
-  ASSERT_TRUE(browser()->window()->IsFullscreen());
+  ASSERT_TRUE(browser()->GetWindow()->IsFullscreen());
   ASSERT_EQ(old_bounds, new_bounds);
 }
 #endif  // BUILDFLAG(IS_CHROMEOS)
@@ -2603,7 +2607,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, GetSizeForNewRenderView) {
   // Force an initial resize. This works around a test-only problem on Chrome OS
   // where the shelf may not be created before the initial test browser window
   // opens, which leads to sizing issues in WebContents resize.
-  browser()->window()->SetBounds(gfx::Rect(10, 20, 600, 400));
+  browser()->GetWindow()->SetBounds(gfx::Rect(10, 20, 600, 400));
   // Let the message loop run so that resize actually takes effect.
   content::RunAllPendingInMessageLoop();
 
@@ -2630,7 +2634,8 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, GetSizeForNewRenderView) {
   content::RenderViewHost* prev_rvh =
       web_contents->GetPrimaryMainFrame()->GetRenderViewHost();
   const gfx::Size initial_wcv_size = web_contents->GetContainerBounds().size();
-  RenderViewSizeObserver observer(web_contents, browser()->window());
+  RenderViewSizeObserver observer(web_contents,
+                                  BrowserWindow::FromBrowser(browser()));
 
   // Navigate to a non-NTP page, without resizing WebContentsView.
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
@@ -2816,7 +2821,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, TestPopupBounds) {
                                  true);
     params.initial_bounds = gfx::Rect(0, 0, 100, 122);
     Browser* browser = Browser::Create(params);
-    gfx::Rect bounds = browser->window()->GetBounds();
+    gfx::Rect bounds = browser->GetWindow()->GetBounds();
 
     // Should be EXPECT_EQ, but this width is inconsistent across platforms.
     // See https://crbug.com/41227805.
@@ -2824,7 +2829,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, TestPopupBounds) {
 
     // EXPECT_GE as Mac will have a larger height with the additional title bar.
     EXPECT_GE(bounds.height(), 122 + minimum_popup_padding);
-    browser->window()->Close();
+    browser->GetWindow()->Close();
   }
 
   {
@@ -2835,7 +2840,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, TestPopupBounds) {
     params.initial_bounds = gfx::Rect(0, 0, 100, 122);
     params.trusted_source = true;
     Browser* browser = Browser::Create(params);
-    gfx::Rect bounds = browser->window()->GetBounds();
+    gfx::Rect bounds = browser->GetWindow()->GetBounds();
 
     // Should be EXPECT_EQ, but this width is inconsistent across platforms.
     // See https://crbug.com/41227805.
@@ -2843,7 +2848,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, TestPopupBounds) {
 
     // EXPECT_GE as Mac will have a larger height with the additional title bar.
     EXPECT_GE(bounds.height(), 122);
-    browser->window()->Close();
+    browser->GetWindow()->Close();
   }
 
   {
@@ -2853,13 +2858,13 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, TestPopupBounds) {
         "app-name", false, gfx::Rect(0, 0, 100, 122), browser()->profile(),
         true);
     Browser* browser = Browser::Create(params);
-    gfx::Rect bounds = browser->window()->GetBounds();
+    gfx::Rect bounds = browser->GetWindow()->GetBounds();
 
     // Should be EXPECT_EQ, but this width is inconsistent across platforms.
     // See https://crbug.com/41227805.
     EXPECT_GE(bounds.width(), 100);
     EXPECT_EQ(122, bounds.height());
-    browser->window()->Close();
+    browser->GetWindow()->Close();
   }
 
   {
@@ -2869,13 +2874,13 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, TestPopupBounds) {
         "app-name", true, gfx::Rect(0, 0, 100, 122), browser()->profile(),
         true);
     Browser* browser = Browser::Create(params);
-    gfx::Rect bounds = browser->window()->GetBounds();
+    gfx::Rect bounds = browser->GetWindow()->GetBounds();
 
     // Should be EXPECT_EQ, but this width is inconsistent across platforms.
     // See https://crbug.com/41227805.
     EXPECT_GE(bounds.width(), 100);
     EXPECT_EQ(122, bounds.height());
-    browser->window()->Close();
+    browser->GetWindow()->Close();
   }
 
   {
@@ -2885,7 +2890,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, TestPopupBounds) {
         Browser::CreateParams::CreateForDevTools(browser()->profile());
     params.initial_bounds = gfx::Rect(0, 0, 100, 122);
     Browser* browser = Browser::Create(params);
-    gfx::Rect bounds = browser->window()->GetBounds();
+    gfx::Rect bounds = browser->GetWindow()->GetBounds();
 
     // Should be EXPECT_EQ, but this width is inconsistent across platforms.
     // See https://crbug.com/41227805.
@@ -2893,7 +2898,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, TestPopupBounds) {
 
     // EXPECT_GE as Mac will have a larger height with the additional title bar.
     EXPECT_GE(bounds.height(), 122);
-    browser->window()->Close();
+    browser->GetWindow()->Close();
   }
 }
 
@@ -2909,7 +2914,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, IsOffTheRecordBrowserInUse) {
 
 IN_PROC_BROWSER_TEST_F(BrowserTest, TestActiveTabChangedUserAction) {
   base::UserActionTester user_action_tester;
-  chrome::NewTab(browser());
+  chrome::NewTab(browser(), NewTabTypes::kNoUserAction);
   EXPECT_EQ(user_action_tester.GetActionCount("ActiveTabChanged"), 1);
 }
 
@@ -2977,7 +2982,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, TestTabCountMetrics) {
 
   // Create an additional browser with two tabs.
   Browser* browser2 = CreateBrowser(browser()->profile());
-  chrome::NewTab(browser2);
+  chrome::NewTab(browser2, NewTabTypes::kNoUserAction);
   ASSERT_TRUE(content::WaitForLoadStop(
       browser2->tab_strip_model()->GetActiveWebContents()));
   EXPECT_EQ(2u, GlobalBrowserCollection::GetInstance()->GetSize());

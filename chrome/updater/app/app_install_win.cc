@@ -33,7 +33,6 @@
 #include "base/sequence_checker.h"
 #include "base/strings/escape.h"
 #include "base/strings/strcat.h"
-#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/task/sequenced_task_runner.h"
@@ -47,6 +46,7 @@
 #include "base/win/elevation_util.h"
 #include "base/win/registry.h"
 #include "base/win/scoped_com_initializer.h"
+#include "base/win/scoped_gdi_object.h"
 #include "base/win/win_util.h"
 #include "chrome/updater/app/app_install_progress.h"
 #include "chrome/updater/app/app_install_util_win.h"
@@ -75,6 +75,7 @@
 #include "chrome/updater/win/ui/webview2_progress_wnd.h"
 #include "chrome/updater/win/win_constants.h"
 #include "components/update_client/update_client_errors.h"
+#include "third_party/abseil-cpp/absl/strings/str_format.h"
 #include "url/gurl.h"
 
 namespace updater {
@@ -832,7 +833,7 @@ void AppInstallControllerImpl::StateChange(
 // the resultant image onto the app bitmap for the progress window.
 void AppInstallControllerImpl::LoadLogo(const std::string& app_id,
                                         HWND progress_hwnd) {
-  std::wstring url = base::UTF8ToWide(base::StringPrintf(
+  std::wstring url = base::UTF8ToWide(absl::StrFormat(
       "%s%s.bmp?lang=%s",
       CreateExternalConstants()->AppLogoURL().possibly_invalid_spec().c_str(),
       base::EscapeUrlEncodedData(app_id, false).c_str(),
@@ -859,15 +860,21 @@ void AppInstallControllerImpl::LoadLogo(const std::string& app_id,
     return;
   }
 
-  if (!::IsWindow(progress_hwnd)) {
-    VLOG(1) << __func__ << "progress_hwnd not valid anymore";
+  // Copy the bitmap on the background thread so it remains valid when the
+  // IPicture goes out of scope.
+  base::win::ScopedGDIObject<HBITMAP> standalone_bitmap(
+      reinterpret_cast<HBITMAP>(::CopyImage(bitmap, IMAGE_BITMAP, 0, 0, 0)));
+  if (!standalone_bitmap.is_valid()) {
+    VLOG(1) << __func__ << "::CopyImage failed";
     return;
   }
 
-  ::SendDlgItemMessage(progress_hwnd, IDC_APP_BITMAP, STM_SETIMAGE,
-                       IMAGE_BITMAP,
-                       reinterpret_cast<LPARAM>(::CopyImage(
-                           bitmap, IMAGE_BITMAP, 0, 0, LR_COPYRETURNORG)));
+  if (::PostMessage(progress_hwnd, ui::WM_SET_APP_LOGO,
+                    reinterpret_cast<WPARAM>(standalone_bitmap.get()), 0)) {
+    static_cast<void>(standalone_bitmap.release());
+  } else {
+    VLOG(1) << __func__ << "::PostMessage failed";
+  }
 }
 
 // Creates the install progress observer. The observer has thread affinity. It
@@ -1051,7 +1058,7 @@ std::wstring GetTextForStartupError(int error_code, const std::wstring& lang) {
   ObserverCompletionInfo observer_info;
   observer_info.completion_code = completion_code;
   observer_info.completion_text = base::WideToUTF16(completion_text);
-  observer_info.help_url = GURL(base::StringPrintf(
+  observer_info.help_url = GURL(absl::StrFormat(
       "%s?product=%s&error=%d", HELP_CENTER_URL,
       base::EscapeUrlEncodedData(update_state.app_id, false).c_str(),
       update_state.error_code));

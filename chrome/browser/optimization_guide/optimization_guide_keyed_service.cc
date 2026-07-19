@@ -69,7 +69,6 @@
 #include "components/optimization_guide/core/model_quality/model_quality_logs_uploader_service.h"
 #include "components/optimization_guide/core/model_quality/model_quality_util.h"
 #include "components/optimization_guide/core/optimization_guide_common.mojom-shared.h"
-#include "components/optimization_guide/core/optimization_guide_constants.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/core/optimization_guide_logger.h"
 #include "components/optimization_guide/core/optimization_guide_prefs.h"
@@ -97,12 +96,13 @@
 #include "chrome/browser/optimization_guide/android/optimization_guide_tab_url_provider_android.h"
 #else
 #include "chrome/browser/optimization_guide/optimization_guide_tab_url_provider.h"
-#include "chrome/browser/optimization_guide/private_ai_model_execution_fetcher.h"
-#include "chrome/browser/private_ai/private_ai_service.h"
+#endif
+
 #include "chrome/browser/private_ai/private_ai_service_factory.h"
+#include "components/optimization_guide/core/model_execution/private_ai_model_execution_fetcher.h"
 #include "components/private_ai/client.h"    // nogncheck
 #include "components/private_ai/features.h"  // nogncheck
-#endif
+#include "components/private_ai/private_ai_service.h"
 
 namespace {
 
@@ -138,7 +138,6 @@ Profile* GetProfileForOTROptimizationGuide(Profile* profile) {
   return profile->GetOriginalProfile();
 }
 
-#if !BUILDFLAG(IS_ANDROID)
 class FetcherDelegate : public ModelExecutionManager::Delegate {
  public:
   ~FetcherDelegate() override = default;
@@ -171,7 +170,6 @@ class FetcherDelegate : public ModelExecutionManager::Delegate {
  private:
   raw_ptr<content::BrowserContext> browser_context_;
 };
-#endif
 
 ModelExecutionFeaturesController::SettingsVisibilityResult
 ShouldHideHistorySearch(PrefService* local_state) {
@@ -401,11 +399,9 @@ void OptimizationGuideKeyedService::InitializeModelExecution(Profile* profile) {
 
   std::unique_ptr<ModelExecutionManager::Delegate> delegate;
 
-#if !BUILDFLAG(IS_ANDROID)
   if (base::FeatureList::IsEnabled(private_ai::kPrivateAi)) {
     delegate = std::make_unique<FetcherDelegate>(browser_context_);
   }
-#endif
 
   model_execution_manager_ = std::make_unique<ModelExecutionManager>(
       url_loader_factory, IdentityManagerFactory::GetForProfile(profile),
@@ -450,14 +446,14 @@ void OptimizationGuideKeyedService::AddObserverForOptimizationTargetModel(
     const std::optional<optimization_guide::proto::Any>& model_metadata,
     scoped_refptr<base::SequencedTaskRunner> model_task_runner,
     optimization_guide::OptimizationTargetModelObserver* observer) {
-  GetPredictionManager()->AddObserverForOptimizationTargetModel(
+  GetGlobalState().model_provider().AddObserverForOptimizationTargetModel(
       optimization_target, model_metadata, model_task_runner, observer);
 }
 
 void OptimizationGuideKeyedService::RemoveObserverForOptimizationTargetModel(
     optimization_guide::proto::OptimizationTarget optimization_target,
     optimization_guide::OptimizationTargetModelObserver* observer) {
-  GetPredictionManager()->RemoveObserverForOptimizationTargetModel(
+  GetGlobalState().model_provider().RemoveObserverForOptimizationTargetModel(
       optimization_target, observer);
 }
 

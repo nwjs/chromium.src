@@ -81,18 +81,8 @@ void HarfBuzzFace::Trace(Visitor* visitor) const {
   visitor->Trace(harfbuzz_font_data_);
 }
 
-VariationSelectorMode& GetIgnoreVariationSelectorModeRef() {
-  DEFINE_THREAD_SAFE_STATIC_LOCAL(ThreadSpecific<VariationSelectorMode>,
-                                  variation_selector_mode, ());
-  return *variation_selector_mode;
-}
-
-VariationSelectorMode HarfBuzzFace::GetVariationSelectorMode() {
-  return GetIgnoreVariationSelectorModeRef();
-}
-
 void HarfBuzzFace::SetVariationSelectorMode(VariationSelectorMode value) {
-  GetIgnoreVariationSelectorModeRef() = value;
+  harfbuzz_font_data_->SetVariationSelectorMode(value);
 }
 
 static hb_bool_t HarfBuzzGetGlyph(hb_font_t* hb_font,
@@ -138,16 +128,16 @@ static hb_bool_t HarfBuzzGetGlyph(hb_font_t* hb_font,
   // selectors since we will get the font with the correct presentation relying
   // on FontFallbackPriority in `FontCache::PlatformFallbackFontForCharacter`.
   VariationSelectorMode variation_selector_mode =
-      HarfBuzzFace::GetVariationSelectorMode();
-    if (!ShouldIgnoreVariationSelector(variation_selector_mode) &&
-        Character::IsUnicodeVariationSelector(variation_selector) &&
-        Character::IsVariationSequence(unicode, variation_selector)) {
-      is_variation_sequence = true;
-      consider_variation_selector = true;
-    } else if (UseFontVariantEmojiVariationSelector(variation_selector_mode) &&
-               Character::IsEmoji(unicode)) {
-      consider_variation_selector = true;
-    }
+      hb_font_data->GetVariationSelectorMode();
+  if (!ShouldIgnoreVariationSelector(variation_selector_mode) &&
+      Character::IsUnicodeVariationSelector(variation_selector) &&
+      Character::IsVariationSequence(unicode, variation_selector)) {
+    is_variation_sequence = true;
+    consider_variation_selector = true;
+  } else if (UseFontVariantEmojiVariationSelector(variation_selector_mode) &&
+             Character::IsEmoji(unicode)) {
+    consider_variation_selector = true;
+  }
 
   bool text_presentation_requested = false;
   bool emoji_presentation_requested = false;
@@ -271,9 +261,11 @@ static void HarfBuzzGetGlyphHorizontalAdvances(
     void* user_data) {
   HarfBuzzFontData* hb_font_data =
       reinterpret_cast<HarfBuzzFontData*>(font_data);
+  CHECK_EQ(glyph_stride % 4, 0u);
+  CHECK_EQ(advance_stride % 4, 0u);
   SkFontGetGlyphWidthForHarfBuzz(
       hb_font_data->EnsureStrikeRef(), hb_font_data->font_.isSubpixel(), count,
-      first_glyph, glyph_stride, first_advance, advance_stride);
+      first_glyph, glyph_stride / 4, first_advance, advance_stride / 4);
 }
 
 static hb_bool_t HarfBuzzGetGlyphVerticalOrigin(hb_font_t* hb_font,

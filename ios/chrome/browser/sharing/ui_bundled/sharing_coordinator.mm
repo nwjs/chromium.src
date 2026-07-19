@@ -25,6 +25,7 @@
 #import "ios/chrome/browser/enterprise/connectors/connectors_service_factory.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
+#import "ios/chrome/browser/shared/model/web_state_list/web_state_list_observer_bridge.h"
 #import "ios/chrome/browser/shared/public/commands/activity_service_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/qr_generation_commands.h"
@@ -42,10 +43,10 @@
 // Exposes methods to allow calling the from helper free functions.
 @interface SharingCoordinator (ForHelperFunction)
 
-// Starts the download if `directoryCreated`. If not, show the share menu
-// without file options.
+// Starts the download if `destinationDirectory` is not nil. If not, show the
+// share menu without file options.
 - (void)startDownloadForWebState:(web::WebState*)webState
-                directoryCreated:(BOOL)directoryCreated;
+            destinationDirectory:(NSString*)destinationDirectory;
 
 // The download is successful and should proceed.
 - (void)downloadShouldProceed:(BOOL)shouldProceed;
@@ -64,68 +65,41 @@ NSString* GetTemporaryDocumentDirectory() {
       stringByAppendingPathComponent:kDocumentsTemporaryPath];
 }
 
-// Removes all the stored files at `path`.
-void RemoveAllStoredDocumentsAtPath(NSString* path) {
-  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
-                                                base::BlockingType::WILL_BLOCK);
-  NSFileManager* file_manager = [NSFileManager defaultManager];
-
-  NSError* error = nil;
-  NSArray<NSString*>* document_files =
-      [file_manager contentsOfDirectoryAtPath:path error:&error];
-  if (!document_files) {
-    DLOG(ERROR) << "Failed to get content of directory at path: "
-                << base::SysNSStringToUTF8([error description]);
-    return;
-  }
-
-  for (NSString* filename in document_files) {
-    NSString* file_path = [path stringByAppendingPathComponent:filename];
-    if (![file_manager removeItemAtPath:file_path error:&error]) {
-      DLOG(ERROR) << "Failed to remove file: "
-                  << base::SysNSStringToUTF8([error description]);
-    }
-  }
-}
-
-// Remove a file stored at `path` if it exists.
-void RemoveFileAtPath(NSString* path) {
-  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
-                                                base::BlockingType::WILL_BLOCK);
-  NSFileManager* file_manager = [NSFileManager defaultManager];
-
-  if ([file_manager fileExistsAtPath:path]) {
-    NSError* error = nil;
-    if (![file_manager removeItemAtPath:path error:&error]) {
-      DLOG(ERROR) << "Failed to remove file: "
-                  << base::SysNSStringToUTF8([error description]);
-    }
-  }
-}
-
-// Ensures the destination directory is created and any contained obsolete files
-// are deleted. Returns YES if the directory is created successfully.
-BOOL CreateDestinationDirectoryAndRemoveObsoleteFiles() {
+// Ensures the destination directory is created. Returns `nil` if the directory
+// was not created successfully.
+NSString* CreateUniqueDestinationDirectory() {
   NSString* temporary_directory_path = GetTemporaryDocumentDirectory();
+  NSString* destination_directory_path = [temporary_directory_path
+      stringByAppendingPathComponent:[[NSUUID UUID] UUIDString]];
   base::File::Error error;
   if (!CreateDirectoryAndGetError(
-          base::apple::NSStringToFilePath(temporary_directory_path), &error)) {
+          base::apple::NSStringToFilePath(destination_directory_path),
+          &error)) {
     DLOG(ERROR) << "Error creating destination dir: " << error;
-    return NO;
+    return nil;
   }
-  // Remove all documents that might be still on temporary storage.
-  RemoveAllStoredDocumentsAtPath(temporary_directory_path);
-  return YES;
+  return destination_directory_path;
+}
+
+// Remove a directory created using CreateUniqueDestinationDirectory().
+void RemoveUniqueDestinationDirectory(NSString* destination_directory_path) {
+  if (destination_directory_path.length == 0) {
+    return;
+  }
+  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+                                                base::BlockingType::WILL_BLOCK);
+  std::ignore = base::DeletePathRecursively(
+      base::apple::NSStringToFilePath(destination_directory_path));
 }
 
 // Starts download for `weak_web_state` if `directory_created` using
 // `coordinator`.
 void StartDownloadForWebState(__weak SharingCoordinator* coordinator,
                               base::WeakPtr<web::WebState> weak_web_state,
-                              BOOL directory_created) {
+                              NSString* destination_directory) {
   if (web::WebState* web_state = weak_web_state.get()) {
     [coordinator startDownloadForWebState:web_state
-                         directoryCreated:directory_created];
+                     destinationDirectory:destination_directory];
   }
 }
 
@@ -139,7 +113,8 @@ void DownloadShouldProceed(__weak SharingCoordinator* coordinator,
 @interface SharingCoordinator () <ActivityServicePresentation,
                                   CRWWebViewDownloadDelegate,
                                   QRGenerationCommands,
-                                  ShareDownloadOverlayCommands>
+                                  ShareDownloadOverlayCommands,
+                                  WebStateListObserving>
 
 @property(nonatomic, strong)
     ActivityServiceCoordinator* activityServiceCoordinator;
@@ -177,6 +152,10 @@ void DownloadShouldProceed(__weak SharingCoordinator* coordinator,
 
 @implementation SharingCoordinator {
   scoped_refptr<base::SequencedTaskRunner> _taskRunner;
+  // The bridge to observe the WebStateList.
+  std::unique_ptr<WebStateListObserverBridge> _webStateListObserverBridge;
+  // Whether the coordinator has been stopped.
+  BOOL _stopped;
   // The source item for the presentation.
   id<UIPopoverPresentationControllerSourceItem> _sourceItem;
   // The source view for the presentation.
@@ -189,10 +168,12 @@ void DownloadShouldProceed(__weak SharingCoordinator* coordinator,
   // The handler that will request scan for the downloaded file.
   std::unique_ptr<enterprise_connectors::FilesRequestHandlerBase>
       _filesRequestHandler;
-  // The webstate that initiates the download.
-  base::WeakPtr<web::WebState> _downloadWebState;
+  // The webstate that initiates the sharing action.
+  base::WeakPtr<web::WebState> _originatingWebState;
   // The GURL of the download.
   GURL _downloadGURL;
+  // The path to the directory where the download is saved.
+  NSString* _destinationDirectory;
 }
 
 - (instancetype)
@@ -254,27 +235,51 @@ void DownloadShouldProceed(__weak SharingCoordinator* coordinator,
 #pragma mark - ChromeCoordinator
 
 - (void)start {
-  web::WebState* activeWebState =
-      self.browser->GetWebStateList()->GetActiveWebState();
+  WebStateList* webStateList = self.browser->GetWebStateList();
+  _webStateListObserverBridge =
+      std::make_unique<WebStateListObserverBridge>(self);
+  webStateList->AddObserver(_webStateListObserverBridge.get());
+
+  web::WebState* activeWebState = webStateList->GetActiveWebState();
+  if (activeWebState) {
+    _originatingWebState = activeWebState->GetWeakPtr();
+  } else {
+    _originatingWebState = nullptr;
+  }
+
   if (activeWebState &&
       ShareFileDownloadTabHelper::ShouldDownload(activeWebState)) {
     // Creating the directory can block the main thread, so perform it on a
     // background sequence, then on current sequence complete the workflow.
     __weak SharingCoordinator* weakSelf = self;
-    _downloadWebState = activeWebState->GetWeakPtr();
     _taskRunner->PostTaskAndReplyWithResult(
-        FROM_HERE,
-        base::BindOnce(&CreateDestinationDirectoryAndRemoveObsoleteFiles),
-        base::BindOnce(&StartDownloadForWebState, weakSelf, _downloadWebState));
+        FROM_HERE, base::BindOnce(&CreateUniqueDestinationDirectory),
+        base::BindOnce(&StartDownloadForWebState, weakSelf,
+                       _originatingWebState));
   } else {
     [self startActivityService];
   }
 }
 
 - (void)stop {
+  if (_stopped) {
+    return;
+  }
+  _stopped = YES;
+
+  [self.download cancelDownload:nil];
+  [self stopDisplayDownloadOverlay];
+  if (_webStateListObserverBridge) {
+    if (self.browser) {
+      self.browser->GetWebStateList()->RemoveObserver(
+          _webStateListObserverBridge.get());
+    }
+    _webStateListObserverBridge.reset();
+  }
   [self activityServiceDidEndPresenting];
   [self hideQRCode];
   [self cleanUpAnalysisResources];
+  _originatingWebState = nullptr;
   _sourceItem = nil;
   _sourceView = nil;
   _sourceRect = CGRectZero;
@@ -285,11 +290,25 @@ void DownloadShouldProceed(__weak SharingCoordinator* coordinator,
 - (void)activityServiceDidEndPresenting {
   [self.activityServiceCoordinator stop];
   self.activityServiceCoordinator = nil;
+  if (_destinationDirectory) {
+    _taskRunner->PostTask(FROM_HERE,
+                          base::BindOnce(&RemoveUniqueDestinationDirectory,
+                                         _destinationDirectory));
+    _destinationDirectory = nil;
+  }
+}
 
-  // If a new download with a file with the same name exist it will throw an
-  // error in downloadDidFailWithError method.
-  _taskRunner->PostTask(FROM_HERE,
-                        base::BindOnce(&RemoveFileAtPath, self.filePath));
+#pragma mark - WebStateListObserving
+
+- (void)didChangeWebStateList:(WebStateList*)webStateList
+                       change:(const WebStateListChange&)change
+                       status:(const WebStateListStatus&)status {
+  if (status.active_web_state_change()) {
+    if (!_originatingWebState ||
+        _originatingWebState.get() != status.new_active_web_state) {
+      [self stop];
+    }
+  }
 }
 
 #pragma mark - QRGenerationCommands
@@ -312,8 +331,17 @@ void DownloadShouldProceed(__weak SharingCoordinator* coordinator,
 #pragma mark - Private Methods
 
 - (void)startDownloadForWebState:(web::WebState*)webState
-                directoryCreated:(BOOL)directoryCreated {
-  if (directoryCreated) {
+            destinationDirectory:(NSString*)destinationDirectory {
+  if (_stopped) {
+    if (destinationDirectory) {
+      _taskRunner->PostTask(FROM_HERE,
+                            base::BindOnce(&RemoveUniqueDestinationDirectory,
+                                           destinationDirectory));
+    }
+    return;
+  }
+  if (destinationDirectory) {
+    _destinationDirectory = destinationDirectory;
     [self startDisplayDownloadOverlayOnWebView:webState];
     [self startDownloadFromWebState:webState];
   } else {
@@ -323,6 +351,16 @@ void DownloadShouldProceed(__weak SharingCoordinator* coordinator,
 
 // Starts the share menu feature.
 - (void)startActivityService {
+  if (_stopped) {
+    return;
+  }
+  web::WebState* activeWebState =
+      self.browser->GetWebStateList()->GetActiveWebState();
+  if (!_originatingWebState || _originatingWebState.get() != activeWebState) {
+    [self stop];
+    return;
+  }
+
   if (_sourceItem) {
     self.activityServiceCoordinator = [[ActivityServiceCoordinator alloc]
         initWithBaseViewController:self.baseViewController
@@ -358,7 +396,8 @@ void DownloadShouldProceed(__weak SharingCoordinator* coordinator,
   self.isDownloadCanceled = NO;
   ShareFileDownloadTabHelper* helper =
       ShareFileDownloadTabHelper::FromWebState(webState);
-  self.filePath = [GetTemporaryDocumentDirectory()
+  CHECK(_destinationDirectory);
+  self.filePath = [_destinationDirectory
       stringByAppendingPathComponent:base::SysUTF16ToNSString(
                                          helper->GetFileNameSuggestion())];
   self.fileNSURL = [NSURL fileURLWithPath:self.filePath];
@@ -387,6 +426,9 @@ void DownloadShouldProceed(__weak SharingCoordinator* coordinator,
 
 // Download is successful and should proceed.
 - (void)downloadShouldProceed:(BOOL)shouldProceed {
+  if (_stopped) {
+    return;
+  }
   // Remember to clean up the analysis resources before early return if download
   // is interrupted. Otherwise, leaving the resources to be alive because we
   // might need them to report warning bypass.
@@ -439,7 +481,7 @@ void DownloadShouldProceed(__weak SharingCoordinator* coordinator,
       std::make_unique<enterprise_connectors::FilesRequestHandlerIOS>(
           profile, base::apple::NSStringToFilePath(self.filePath),
           base::BindOnce(&enterprise_connectors::HandleScanDecision,
-                         _downloadWebState,
+                         _originatingWebState,
                          enterprise_connectors::TriggerType::kShareSheet,
                          base::BindOnce(&DownloadShouldProceed, weakSelf)));
 
@@ -482,16 +524,14 @@ void DownloadShouldProceed(__weak SharingCoordinator* coordinator,
 - (void)cleanUpAnalysisResources {
   _filesRequestHandler.reset();
   _contentAnalysisInfo.reset();
-  _downloadWebState = nullptr;
   _downloadGURL = GURL();
 }
 
 #pragma mark - CRWWebViewDownloadDelegate
 
 - (void)downloadDidFinish {
-  if (self.isDownloadCanceled) {
-    _contentAnalysisInfo.reset();
-    _downloadGURL = GURL();
+  if (_stopped || self.isDownloadCanceled) {
+    [self cleanUpAnalysisResources];
     return;
   }
   self.params.filePath = self.fileNSURL;
@@ -499,7 +539,12 @@ void DownloadShouldProceed(__weak SharingCoordinator* coordinator,
 }
 
 - (void)downloadDidFailWithError:(NSError*)error {
+  if (_stopped) {
+    return;
+  }
+
   [self cleanUpAnalysisResources];
+
   if (self.isDownloadCanceled) {
     return;
   }

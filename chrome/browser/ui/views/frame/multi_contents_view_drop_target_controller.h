@@ -43,6 +43,11 @@ class MultiContentsViewDropTargetController final
   static constexpr int kNudgeShownLimit = 6;
   static constexpr int kNudgeUsedLimit = 1;
 
+  struct DropTargetConstants {
+    static int GetHideWidth();
+    static double GetHidePercentage();
+  };
+
   // Delegate for handling the drop callback.
   class DropDelegate {
    public:
@@ -124,12 +129,11 @@ class MultiContentsViewDropTargetController final
   // Assumes the dragged data is droppable (e.g. tab or link).
   void HandleDragUpdate(const gfx::Point& point_in_view,
                         MultiContentsDropTargetView::DragType drag_type);
-  void HandleDragUpdateForNudge(const gfx::Point& point_in_view);
 
   // Starts or updates a running timer to show `target_to_show`.
   void StartOrUpdateDropTargetTimer(
       const gfx::Point& point_in_view,
-      int drop_entry_point_width,
+      int drop_entry_point_size,
       MultiContentsDropTargetView::DropSide drop_side,
       MultiContentsDropTargetView::DragType drag_type);
   void ResetDropTargetTimers();
@@ -152,8 +156,8 @@ class MultiContentsViewDropTargetController final
 
   // Used to determine if the drop target should be hidden because the OS drop
   // target would be visible. Estimation based on when OS drop targets typically
-  // show. Only returns true if the browser is maximized.
-  bool PointOverlapsWithOSDropTarget(const gfx::Point& point_in_view);
+  // show.
+  bool PointOverlapsWithOSDropTarget(const gfx::Point& point_in_screen);
 
   // Keeps the value of nudge_shown_count_ in sync with the pref.
   void OnDragAndDropNudgeShownCountChange();

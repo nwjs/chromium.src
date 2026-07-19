@@ -30,6 +30,7 @@
 #include "content/browser/webid/delegation/sd_jwt.h"
 #include "content/browser/webid/fake_identity_request_dialog_controller.h"
 #include "content/browser/webid/identity_registry.h"
+#include "content/browser/webid/request.h"
 #include "content/browser/webid/request_service.h"
 #include "content/browser/webid/test/mock_digital_identity_provider.h"
 #include "content/browser/webid/test/mock_identity_request_dialog_controller.h"
@@ -265,7 +266,7 @@ class IdpTestServer {
 };
 
 class TestFederatedIdentityModalDialogViewDelegate
-    : public NiceMock<MockModalDialogViewDelegate> {
+    : public NiceMock<webid::MockModalDialogViewDelegate> {
  public:
   base::OnceClosure closure_;
   bool closed_{false};
@@ -310,7 +311,8 @@ class WebIdBrowserTest : public ContentBrowserTest {
     EXPECT_TRUE(NavigateToURL(
         shell(), https_server().GetURL(kRpHostName, "/title1.html")));
 
-    test_browser_client_ = std::make_unique<WebIdTestContentBrowserClient>();
+    test_browser_client_ =
+        std::make_unique<webid::WebIdTestContentBrowserClient>();
     SetTestIdentityRequestDialogController("not_real_account");
     SetTestModalDialogViewDelegate();
   }
@@ -425,7 +427,7 @@ class WebIdBrowserTest : public ContentBrowserTest {
 
  protected:
   base::test::ScopedFeatureList scoped_feature_list_;
-  std::unique_ptr<WebIdTestContentBrowserClient> test_browser_client_;
+  std::unique_ptr<webid::WebIdTestContentBrowserClient> test_browser_client_;
   std::unique_ptr<TestFederatedIdentityModalDialogViewDelegate>
       test_modal_dialog_view_delegate_;
 
@@ -2448,9 +2450,9 @@ class WebIdNavigationInterceptionTest : public WebIdBrowserTest {
 IN_PROC_BROWSER_TEST_F(WebIdNavigationInterceptionTest, resolveWithRedirect) {
   // For this test, we just want to test redirects without having to also
   // trigger interception, so override the check.
-  auto* request_service = webid::RequestService::GetOrCreateForCurrentDocument(
-      shell()->web_contents()->GetPrimaryMainFrame());
-  request_service->SetForceAllowRedirectToForTesting(true);
+  webid::RequestService::GetOrCreateForCurrentDocument(
+      shell()->web_contents()->GetPrimaryMainFrame())
+      ->SetForceAllowRedirectToForTesting(true);
 
   IdpTestServer::ConfigDetails config_details = BuildValidConfigDetails();
 
@@ -2577,9 +2579,9 @@ IN_PROC_BROWSER_TEST_F(WebIdNavigationInterceptionTest, resolveWithRedirect) {
 IN_PROC_BROWSER_TEST_F(WebIdNavigationInterceptionTest, redirectPOST) {
   // For this test, we just want to test redirects without having to also
   // trigger interception, so override the check.
-  auto* request_service = webid::RequestService::GetOrCreateForCurrentDocument(
-      shell()->web_contents()->GetPrimaryMainFrame());
-  request_service->SetForceAllowRedirectToForTesting(true);
+  webid::RequestService::GetOrCreateForCurrentDocument(
+      shell()->web_contents()->GetPrimaryMainFrame())
+      ->SetForceAllowRedirectToForTesting(true);
 
   IdpTestServer::ConfigDetails config_details = BuildValidConfigDetails();
 

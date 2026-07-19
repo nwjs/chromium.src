@@ -174,6 +174,7 @@ component("net") {
     "base/data_url.h",
     "base/does_url_match_filter.cc",
     "base/does_url_match_filter.h",
+    "base/ech_mode.h",
     "base/elements_upload_data_stream.cc",
     "base/elements_upload_data_stream.h",
     "base/expiring_cache.h",
@@ -226,8 +227,6 @@ component("net") {
     "base/net_errors.cc",
     "base/net_errors.h",
     "base/net_info_source_list.h",
-    "base/net_module.cc",
-    "base/net_module.h",
     "base/net_platform_api_util.cc",
     "base/net_platform_api_util.h",
     "base/net_string_util.h",
@@ -469,9 +468,7 @@ component("net") {
     "device_bound_sessions/session_event.h",
     "device_bound_sessions/session_inclusion_rules_display.cc",
     "device_bound_sessions/session_inclusion_rules_display.h",
-    "device_bound_sessions/session_key.cc",
     "device_bound_sessions/session_key.h",
-    "device_bound_sessions/session_params.cc",
     "device_bound_sessions/session_params.h",
     "device_bound_sessions/session_usage.cc",
     "device_bound_sessions/session_usage.h",
@@ -960,6 +957,10 @@ component("net") {
     "shared_dictionary/shared_dictionary_network_transaction_factory.cc",
     "shared_dictionary/shared_dictionary_network_transaction_factory.h",
     "shared_dictionary/shared_dictionary_transaction_outcome.h",
+    "socket/bandwidth_throttle.cc",
+    "socket/bandwidth_throttle.h",
+    "socket/bottleneck_buffer.cc",
+    "socket/bottleneck_buffer.h",
     "socket/client_socket_factory.cc",
     "socket/client_socket_factory.h",
     "socket/client_socket_handle.cc",
@@ -1115,6 +1116,7 @@ component("net") {
     "ssl/client_cert_store_empty.h",
     "ssl/crypto_private_key.cc",
     "ssl/crypto_private_key.h",
+    "ssl/ech_mode_getter.h",
     "ssl/openssl_private_key.cc",
     "ssl/openssl_private_key.h",
     "ssl/openssl_ssl_util.cc",
@@ -1360,6 +1362,8 @@ component("net") {
       "cert/x509_util_android.cc",
       "proxy_resolution/proxy_config_service_android.cc",
       "proxy_resolution/proxy_config_service_android.h",
+      "ssl/ech_mode_getter_android.cc",
+      "ssl/ech_mode_getter_android.h",
       "ssl/ssl_platform_key_android.cc",
       "ssl/ssl_platform_key_android.h",
     ]
@@ -1738,8 +1742,6 @@ component("net") {
     sources += [
       "base/directory_lister.cc",
       "base/directory_lister.h",
-      "base/directory_listing.cc",
-      "base/directory_listing.h",
     ]
   }
 
@@ -1901,12 +1903,18 @@ component("net") {
       "disk_cache/sql/sql_shared_cache_index_database.cc",
       "disk_cache/sql/sql_shared_cache_index_database.h",
       "disk_cache/sql/sql_shared_cache_index_database_queries.h",
+      "disk_cache/sql/sql_shared_cache_isolated_database.cc",
+      "disk_cache/sql/sql_shared_cache_isolated_database.h",
+      "disk_cache/sql/sql_shared_cache_isolated_database_queries.h",
+      "disk_cache/sql/sql_shared_cache_isolated_database_reader.cc",
+      "disk_cache/sql/sql_shared_cache_isolated_database_reader.h",
       "disk_cache/sql/sql_tracked_sequence_bound.h",
       "disk_cache/sql/sql_write_buffer_memory_monitor.cc",
       "disk_cache/sql/sql_write_buffer_memory_monitor.h",
     ]
     deps += [
       "//components/performance_manager/scenario_api",
+      "//components/sqlite_vfs",
       "//sql",
     ]
   }
@@ -1937,6 +1945,7 @@ source_set("net_deps") {
     "//base",
     "//net/base:constants",
     "//net/base:net_export_header",
+    "//net/base/module",
     "//net/base/registry_controlled_domains",
     "//third_party/protobuf:protobuf_lite",
     "//third_party/zlib",
@@ -2014,6 +2023,7 @@ source_set("net_public_deps") {
     "//base",
     "//crypto",
     "//net/base:registry_controlled_domains",
+    "//net/base/module",
     "//net/third_party/quiche",
     "//net/third_party/quiche:net_quic_test_tools_proto",
     "//net/third_party/uri_template",
@@ -3076,6 +3086,8 @@ target(_test_target_type, "net_unittests") {
     "shared_dictionary/shared_dictionary_isolation_key_unittest.cc",
     "shared_dictionary/shared_dictionary_network_transaction_factory_unittest.cc",
     "shared_dictionary/shared_dictionary_network_transaction_unittest.cc",
+    "socket/bandwidth_throttle_unittest.cc",
+    "socket/bottleneck_buffer_unittest.cc",
     "socket/client_socket_pool_base_unittest.cc",
     "socket/client_socket_pool_unittest.cc",
     "socket/connect_job_factory_unittest.cc",
@@ -3139,6 +3151,7 @@ target(_test_target_type, "net_unittests") {
     "ssl/ssl_cipher_suite_names_unittest.cc",
     "ssl/ssl_client_auth_cache_unittest.cc",
     "ssl/ssl_client_session_cache_unittest.cc",
+    "ssl/ssl_config_service_defaults_unittest.cc",
     "ssl/ssl_config_service_unittest.cc",
     "ssl/ssl_config_unittest.cc",
     "ssl/ssl_connection_status_flags_unittest.cc",
@@ -3251,9 +3264,12 @@ target(_test_target_type, "net_unittests") {
 
   fuzztests = [
     "CRLSetTest.ParseDoesNotCrash",
-    "HpackHeaderTableFuzzTest.CanCallMethodSequence",
     "HostCacheTest.CheckHostCacheSerialization",
+    "HostResolverCacheFuzzTest.SerializationDoesNotCrash",
+    "HpackHeaderTableFuzzTest.CanCallMethodSequence",
+    "HttpAuthHandlerDigestTest.DigestAuthDoesNotCrash",
     "HttpNoVarySearchTest.AreEquivalentImplementationsMatch",
+    "HttpUtilTest.ParseFetchSingleRangeNeverCrashes",
     "PickleTest.FuzzRoundTrip",
     "ParseProxyListFuzzer.TestOneInput",
     "QuicheHostnameUtilsFuzzTest.FuzzPropertyNormalizationIsIdempotentForValidSni",
@@ -3307,6 +3323,7 @@ target(_test_target_type, "net_unittests") {
     sources += [
       "extras/sqlite/sqlite_persistent_cookie_store_unittest.cc",
       "extras/sqlite/sqlite_persistent_shared_dictionary_store_unittest.cc",
+      "extras/sqlite/sqlite_persistent_store_backend_base_unittest.cc",
       "log/trace_net_log_observer_unittest.cc",
     ]
 
@@ -3366,6 +3383,7 @@ target(_test_target_type, "net_unittests") {
     "data/file_stream_unittest/",
     "data/filter_unittests/",
     "data/fuzzer_data/",
+    "data/fuzzer_dictionaries/",
     "data/gencerts/",
     "data/pac_file_fetcher_unittest/",
     "data/quic_http_response_cache_data/",
@@ -3662,18 +3680,24 @@ target(_test_target_type, "net_unittests") {
       "disk_cache/sql/sql_persistent_store_in_memory_index_unittest.cc",
       "disk_cache/sql/sql_persistent_store_unittest.cc",
       "disk_cache/sql/sql_shared_cache_index_database_unittest.cc",
+      "disk_cache/sql/sql_shared_cache_isolated_database_reader_unittest.cc",
+      "disk_cache/sql/sql_shared_cache_isolated_database_unittest.cc",
       "disk_cache/sql/sql_tracked_sequence_bound_unittest.cc",
       "disk_cache/sql/test_util.cc",
       "disk_cache/sql/test_util.h",
     ]
 
-    deps += [ "//components/performance_manager/scenario_api:test_support" ]
+    deps += [
+      "//components/performance_manager/scenario_api:test_support",
+      "//components/sqlite_vfs",
+    ]
 
     # Platforms where sqlite_dev_shell is defined.
     if (is_win || is_mac || is_linux || is_chromeos) {
       sources += [
         "disk_cache/sql/sql_persistent_store_queries_unittest.cc",
         "disk_cache/sql/sql_shared_cache_index_database_queries_unittest.cc",
+        "disk_cache/sql/sql_shared_cache_isolated_database_queries_unittest.cc",
       ]
       data_deps += [ "//third_party/sqlite:sqlite_dev_shell" ]
     }
@@ -4199,16 +4223,6 @@ fuzzer_test("net_http_chunked_decoder_fuzzer") {
 fuzzer_test("net_http_auth_handler_basic_fuzzer") {
   sources = [ "http/http_auth_handler_basic_fuzzer.cc" ]
   dict = "data/fuzzer_dictionaries/net_http_auth_handler_basic_fuzzer.dict"
-  deps = [
-    ":net_fuzzer_test_support",
-    ":test_support",
-    "//net",
-  ]
-}
-
-fuzzer_test("net_http_auth_handler_digest_fuzzer") {
-  sources = [ "http/http_auth_handler_digest_fuzzer.cc" ]
-  dict = "data/fuzzer_dictionaries/net_http_auth_handler_digest_fuzzer.dict"
   deps = [
     ":net_fuzzer_test_support",
     ":test_support",

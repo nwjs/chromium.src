@@ -18,6 +18,13 @@
 // Switch to `viewState`.
 - (void)switchToViewState:(ios::provider::GeminiViewState)viewState;
 
+// Called when the processing status changes with a dormant reason.
+- (void)didUpdateProcessingStatus:(ios::provider::GeminiClientMode)processStatus
+                    dormantReason:
+                        (ios::provider::GeminiDormantReason)dormantReason
+                        sessionID:(NSString*)sessionID
+                   conversationID:(NSString*)conversationID;
+
 // Called when the processing status changes.
 - (void)didUpdateProcessingStatus:
             (ios::provider::GeminiClientMode)processingStatus
@@ -29,6 +36,9 @@
 
 // Called when the user barges in during Gemini Live session.
 - (void)geminiLiveUserDidBargeIn;
+
+// Called when the Gemini UI did appear.
+- (void)geminiUIDidAppear;
 
 @end
 

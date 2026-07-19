@@ -6,9 +6,10 @@
 
 #include "base/check_deref.h"
 
-#include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "ui/base/base_window.h"
 
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
@@ -25,6 +26,7 @@
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/extensions/app_tab_helper.h"
+#include "extensions/browser/mime_handler/mime_handler_stream_manager.h"
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
@@ -65,6 +67,17 @@ bool ShouldCloseTabOnExtensionUnload(const Extension* extension,
   // have a URL of https://mail.google.com.
   if (AppTabHelper::FromWebContents(web_contents)->GetExtensionAppId() ==
       extension->id()) {
+    return true;
+  }
+
+  // Case 3: The root of this tab is the embedder, which hosts a top-level
+  // viewer that is a generic MIME handler for this extension. The tab
+  // exists only for that viewer, so close it on unload. An embedded
+  // handler does not qualify - the rest of the page is unrelated.
+  if (auto* stream_manager =
+          mime_handler::MimeHandlerStreamManager::FromWebContents(web_contents);
+      stream_manager &&
+      stream_manager->GetTopLevelHandlerExtensionId() == extension->id()) {
     return true;
   }
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -110,9 +123,11 @@ void ExtensionBrowserWindowHelper::OnExtensionUnloaded(
     content::WebContents* web_contents =
         browser_->GetTabStripModel()->GetWebContentsAt(0);
     if (web_contents) {
-      Browser* browser = chrome::FindBrowserWithTab(web_contents);
+      BrowserWindowInterface* browser =
+          GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+              web_contents);
       if (browser) {
-        browser->window()->Close();
+        browser->GetWindow()->Close();
         return;
       }
     }

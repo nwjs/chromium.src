@@ -27,6 +27,7 @@
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/send_tab_to_self/fake_send_tab_to_self_model.h"
 #include "components/send_tab_to_self/features.h"
+#include "components/send_tab_to_self/metrics_util.h"
 #include "components/send_tab_to_self/send_tab_to_self_sync_service.h"
 #include "components/send_tab_to_self/stub_send_tab_to_self_sync_service.h"
 #include "components/send_tab_to_self/target_device_info.h"
@@ -67,6 +68,7 @@ class SendTabToSelfInteractiveUiTest : public InteractiveBrowserTest {
     identity_test_env_adaptor_ =
         std::make_unique<IdentityTestEnvironmentProfileAdaptor>(
             browser()->profile());
+    ASSERT_TRUE(embedded_test_server()->Start());
   }
 
   void OnWillCreateBrowserContextServices(content::BrowserContext* context) {
@@ -83,7 +85,7 @@ class SendTabToSelfInteractiveUiTest : public InteractiveBrowserTest {
     return Do([this]() {
       SendTabToSelfBubbleController::GetOrCreateForWebContents(
           browser()->tab_strip_model()->GetActiveWebContents())
-          ->ShowBubble();
+          ->ShowBubble(ShareEntryPoint::kToolbarIcon);
     });
   }
 
@@ -125,7 +127,7 @@ class SendTabToSelfInteractiveUiTest : public InteractiveBrowserTest {
 // a success toast after a device is selected.
 IN_PROC_BROWSER_TEST_F(SendTabToSelfInteractiveUiTest,
                        SendTabShowsBubbleAndToast) {
-  const GURL test_url("chrome://flags/");
+  const GURL test_url = embedded_test_server()->GetURL("/empty.html");
   RunTestSequence(
       InstrumentTab(kPrimaryTabId),
       NavigateWebContents(kPrimaryTabId, test_url),
@@ -180,7 +182,7 @@ class SendTabToSelfDeviceSelectionInteractiveUiTest
 
 IN_PROC_BROWSER_TEST_F(SendTabToSelfDeviceSelectionInteractiveUiTest,
                        SendTabShowsBubbleAndToastDeviceSelection) {
-  const GURL test_url("chrome://flags/");
+  const GURL test_url = embedded_test_server()->GetURL("/empty.html");
   RunTestSequence(
       InstrumentTab(kPrimaryTabId),
       NavigateWebContents(kPrimaryTabId, test_url),
@@ -230,7 +232,7 @@ IN_PROC_BROWSER_TEST_F(SendTabToSelfDeviceSelectionInteractiveUiTest,
 
 IN_PROC_BROWSER_TEST_F(SendTabToSelfDeviceSelectionInteractiveUiTest,
                        SendTabMultipleDevicesDeviceSelection) {
-  const GURL test_url("chrome://flags/");
+  const GURL test_url = embedded_test_server()->GetURL("/empty.html");
   RunTestSequence(
       InstrumentTab(kPrimaryTabId),
       NavigateWebContents(kPrimaryTabId, test_url),
@@ -296,7 +298,7 @@ IN_PROC_BROWSER_TEST_F(SendTabToSelfDeviceSelectionInteractiveUiTest,
 
 IN_PROC_BROWSER_TEST_F(SendTabToSelfDeviceSelectionInteractiveUiTest,
                        CancelClosesBubbleWithoutSending) {
-  const GURL test_url("chrome://flags/");
+  const GURL test_url = embedded_test_server()->GetURL("/empty.html");
   RunTestSequence(
       InstrumentTab(kPrimaryTabId),
       NavigateWebContents(kPrimaryTabId, test_url), Do([this]() {

@@ -17,6 +17,7 @@
 #import "ios/chrome/browser/intelligence/actor/model/actor_engine.h"
 #import "ios/chrome/browser/intelligence/actor/public/actor_task_updates_observer.h"
 #import "ios/chrome/browser/intelligence/actor/public/actor_types.h"
+#import "ios/chrome/browser/intelligence/actor/tools/model/tool_delegate.h"
 #import "ios/web/public/web_state_observer.h"
 
 @class CRBProtocolObservers;
@@ -27,19 +28,22 @@ class WebState;
 
 namespace actor {
 
-class ActorTool;
+class ActorToolFactory;
+class ActorToolRequest;
 class AggregatedJournal;
 
 // A class representing a task managed by `ActorService`. A task should live for
 // a whole Actor journey and be passed multiple sets of actions to execute
 // sequentially.
 class ActorTask : public web::WebStateObserver,
-                  public ActorEngine::ExecutionUpdatesDelegate {
+                  public ActorEngine::ExecutionUpdatesDelegate,
+                  public ToolDelegate {
  public:
   ActorTask(ActorTaskId task_id,
             const std::string& title,
             bool allow_incognito_web_states,
-            AggregatedJournal* journal);
+            AggregatedJournal* journal,
+            ActorToolFactory* tool_factory);
   ~ActorTask() override;
 
   ActorTask(const ActorTask&) = delete;
@@ -63,7 +67,7 @@ class ActorTask : public web::WebStateObserver,
   // Begins executing the given sequence of actions on the underlying execution
   // engine with a string update blurb in plain language about what the actor is
   // doing.
-  void Act(std::vector<std::unique_ptr<ActorTool>> actions,
+  void Act(std::vector<std::unique_ptr<ActorToolRequest>> actions,
            const std::string& task_update,
            ActCallback callback);
 
@@ -98,16 +102,20 @@ class ActorTask : public web::WebStateObserver,
  private:
   friend class ActorTaskTest;
 
+  // ToolDelegate:
+  ActorTaskId GetTaskId() const override;
+  AggregatedJournal& GetJournal() const override;
+  ActorToolFactory& GetToolFactory() const override;
+
+  // Sets the actuation state on all controlled `WebState`s based on
+  // `actuating`.
+  void SetActuatingOnWebStates(bool actuating);
+
   // Sets the task state and logs the transition.
   void SetState(ActorTaskState new_state);
 
   // Called when tools execution is completed.
   void OnActCompleted(ActCallback callback, std::vector<ActionResult> results);
-
-  // Adds WebStates targeted by actions passed to `Act()` to the controlled
-  // WebStates set.
-  void AddControlledWebStates(
-      const std::vector<std::unique_ptr<ActorTool>>& actions);
 
   // Starts observing controlled WebStates that are loading. Returns true if any
   // observations are active, and false otherwise.
@@ -144,8 +152,13 @@ class ActorTask : public web::WebStateObserver,
   // The execution engine for this task.
   std::unique_ptr<ActorEngine> engine_;
 
-  // The aggregated journal for logging.
+  // The aggregated journal for logging. Owned by the ActorService, which is
+  // guaranteed to outlive this ActorTask.
   raw_ptr<AggregatedJournal> journal_;
+
+  // The tool factory used for creating tools under this task. Owned by the
+  // ActorService, which is guaranteed to outlive this ActorTask.
+  raw_ptr<ActorToolFactory> tool_factory_;
 
   // Set of web states actively controlled (observed and/or being actuated on)
   // by this task.

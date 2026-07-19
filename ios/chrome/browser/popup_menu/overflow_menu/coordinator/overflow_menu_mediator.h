@@ -14,30 +14,35 @@
 
 namespace bookmarks {
 class BookmarkModel;
-}
+}  // namespace bookmarks
 namespace feature_engagement {
 class Tracker;
-}
+}  // namespace feature_engagement
 namespace signin {
+class AvatarProvider;
 class IdentityManager;
-}
+}  // namespace signin
 namespace syncer {
 class SyncService;
-}
+}  // namespace syncer
 namespace web {
 class WebState;
-}
+}  // namespace web
 
 @protocol ActivityServiceCommands;
 class AuthenticationService;
 @protocol BookmarksCommands;
 @protocol BrowserCoordinatorCommands;
 class BrowserPolicyConnectorIOS;
-@protocol BWGCommands;
+@protocol CobaltCommands;
 @protocol FindInPageCommands;
+@protocol GeminiCommands;
 @protocol HelpCommands;
+class HomeBackgroundCustomizationService;
+@class LayoutGuideCenter;
 @protocol LensOverlayCommands;
 @protocol LevelUpCommands;
+class NTPBackgroundImageCacheService;
 @protocol OverflowMenuCustomizationCommands;
 @class OverflowMenuOrderer;
 class OverlayPresenter;
@@ -47,6 +52,7 @@ class PrefService;
 @protocol PriceTrackedItemsCommands;
 class PromosManager;
 @protocol QuickDeleteCommands;
+@protocol NewTabPageCommands;
 @protocol ReaderModeCommands;
 class ReadingListBrowserAgent;
 class ReadingListModel;
@@ -54,13 +60,11 @@ class ReadingListModel;
 @protocol SceneCommands;
 @protocol SettingsCommands;
 class TabBasedIPHBrowserAgent;
-@protocol CobaltCommands;
 class TemplateURLService;
 @protocol TextZoomCommands;
 class WebNavigationBrowserAgent;
 class WebStateList;
 @protocol WhatsNewCommands;
-@class LayoutGuideCenter;
 
 // Mediator for the overflow menu. This object is in charge of creating and
 // updating the items of the overflow menu.
@@ -97,8 +101,9 @@ class WebStateList;
 @property(nonatomic, weak) id<WhatsNewCommands> whatsNewHandler;
 @property(nonatomic, weak) id<LevelUpCommands> levelUpHandler;
 @property(nonatomic, weak) id<ReaderModeCommands> readerModeHandler;
-@property(nonatomic, weak) id<BWGCommands> BWGHandler;
+@property(nonatomic, weak) id<GeminiCommands> geminiHandler;
 @property(nonatomic, weak) id<CobaltCommands> cobaltHandler;
+@property(nonatomic, weak) id<NewTabPageCommands> NTPCommandHandler;
 
 // Navigation agent for reloading pages.
 @property(nonatomic, assign) WebNavigationBrowserAgent* navigationAgent;
@@ -120,6 +125,14 @@ class WebStateList;
 
 // Readinglist model to know if model has finished loading.
 @property(nonatomic, assign) ReadingListModel* readingListModel;
+
+// Service for NTP background customization.
+@property(nonatomic, assign)
+    HomeBackgroundCustomizationService* backgroundCustomizationService;
+
+// Service for NTP background image cache.
+@property(nonatomic, assign)
+    NTPBackgroundImageCacheService* backgroundImageCacheService;
 
 // Pref service to retrieve profile preference values.
 @property(nonatomic, assign) PrefService* profilePrefs;
@@ -167,6 +180,9 @@ class WebStateList;
 
 // If settings destination has a blue dot.
 @property(nonatomic, assign) bool hasSettingsBlueDot;
+
+// The AvatarProvider to get identity avatars.
+@property(nonatomic, assign) signin::AvatarProvider* identityAvatarProvider;
 
 // Disconnect the mediator.
 - (void)disconnect;

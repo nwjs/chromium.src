@@ -203,6 +203,10 @@
     "module_scheme": "gtest",
     "skip_usage_check": True,
   },
+  "blackbox_fuzzing_targets": {
+    "label": "//:blackbox_fuzzing_targets",
+    "type": "additional_compile_target",
+  },
   "blink_common_unittests": {
     "label": "//third_party/blink/common:blink_common_unittests",
     "type": "console_test_launcher",
@@ -527,6 +531,14 @@
     "module_scheme": "gtest",
     "skip_usage_check": True,
   },
+  "chrome_flaky_tast_tests": {
+    "label": "//chromeos:chrome_flaky_tast_tests",
+    "type": "generated_script",
+    "module_scheme": "tast",
+    "args": [
+      "--logs-dir=${ISOLATED_OUTDIR}",
+    ],
+  },
   "chrome_ios_wpt": {
     "label": "//ios/chrome/test/wpt:chrome_ios_wpt",
     "type": "generated_script",
@@ -707,10 +719,6 @@
     "label": "//chromeos:chromeos_unittests",
     "type": "console_test_launcher",
     "module_scheme": "gtest",
-  },
-  "chromium_builder_asan": {
-    "label": "//:chromium_builder_asan",
-    "type": "additional_compile_target",
   },
   "chromium_builder_perf": {
     "label": "//:chromium_builder_perf",
@@ -1208,6 +1216,12 @@
       "../../tools/grit/grit/test_suite_all.py",
     ],
   },
+  "gtk_unittests": {
+    "label": "//ui/gtk:gtk_unittests",
+    "type": "windowed_test_launcher",
+    "module_scheme": "gtest",
+    "skip_usage_check": True,
+  },
   "gwp_asan_unittests": {
     "label": "//components/gwp_asan:gwp_asan_unittests",
     "type": "console_test_launcher",
@@ -1347,12 +1361,6 @@
     "label": "//ios/net:ios_net_unittests",
     "type": "generated_script",
     "module_scheme": "gtest",
-    "skip_usage_check": True,
-  },
-  "ios_swift_interop_xcuitests_module": {
-    "label": "//ios/chrome/test/swift_interop:ios_swift_interop_xcuitests_module",
-    "type": "generated_script",
-    "module_scheme": "xctest",
     "skip_usage_check": True,
   },
   "ios_testing_unittests": {

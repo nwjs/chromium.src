@@ -6,16 +6,21 @@
 
 #include <utility>
 
+#include "base/feature_list.h"
 #include "base/observer_list.h"
 #include "base/types/pass_key.h"
+#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/toolbar/app_menu_model.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
 #include "chrome/browser/ui/views/frame/app_menu_button_observer.h"
+#include "chrome/browser/ui/views/toolbar/action_app_menu.h"
 #include "chrome/browser/ui/views/toolbar/app_menu.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_ink_drop_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/views/accessible_pane_view.h"
 #include "ui/views/controls/button/menu_button_controller.h"
 #include "ui/views/view_class_properties.h"
 
@@ -47,6 +52,9 @@ bool AppMenuButton::IsDrawn() const {
 }
 
 bool AppMenuButton::IsMenuShowing() const {
+  if (base::FeatureList::IsEnabled(features::kAppMenuGlowUp)) {
+    return action_menu_ && action_menu_->IsShowing();
+  }
   return menu_ && menu_->IsShowing();
 }
 
@@ -55,6 +63,13 @@ views::DialogDelegate* AppMenuButton::GetDialogDelegate() {
 }
 
 void AppMenuButton::CloseMenu() {
+  if (base::FeatureList::IsEnabled(features::kAppMenuGlowUp)) {
+    if (action_menu_) {
+      action_menu_->CloseMenu();
+    }
+    action_menu_.reset();
+    return;
+  }
   if (menu_) {
     menu_->CloseMenu();
   }
@@ -96,8 +111,44 @@ void AppMenuButton::RunMenu(std::unique_ptr<AppMenuModel> menu_model,
   observer_list_.Notify(&AppMenuButtonObserver::AppMenuShown);
 }
 
+void AppMenuButton::RunActionMenu(
+    BrowserWindowInterface* browser_window_interface,
+    int run_flags) {
+  action_menu_.reset();
+  action_menu_ = std::make_unique<ActionAppMenu>(
+      browser_window_interface,
+      base::BindRepeating(&AppMenuButton::OnMenuClosed,
+                          weak_ptr_factory_.GetWeakPtr()));
+  action_menu_->RunMenu(menu_button_controller_);
+
+  observer_list_.Notify(&AppMenuButtonObserver::AppMenuShown);
+}
+
 void AppMenuButton::SetMenuTimerForTesting(base::ElapsedTimer timer) {
   menu_->SetTimerForTesting(std::move(timer));  // IN-TEST
+}
+
+bool AppMenuButton::HasFocus() const {
+  return views::View::HasFocus();
+}
+
+void AppMenuButton::Focus(views::AccessiblePaneView* pane) {
+  pane->SetPaneFocus(this);
+}
+
+void AppMenuButton::SetTypeAndSeverity(
+    AppMenuIconController::TypeAndSeverity type_and_severity) {
+  // Empty default implementation. BrowserAppMenuButton overrides this to
+  // handle update severity badges, while WebAppMenuButton does not need
+  // this functionality.
+}
+
+void AppMenuButton::SetTrailingMargin(int margin) {
+  ToolbarButton::SetTrailingMargin(margin);
+}
+
+views::View* AppMenuButton::GetFocusablePaneView() {
+  return this;
 }
 
 BEGIN_METADATA(AppMenuButton)

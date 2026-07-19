@@ -4,16 +4,19 @@
 
 #import "ios/chrome/browser/shared/coordinator/scene/state/incognito_state.h"
 
+#import <string_view>
+
 #import "base/apple/foundation_util.h"
 #import "base/ios/crb_protocol_observers.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
+#import "ios/chrome/browser/shared/coordinator/scene/scene_state_prefs.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/incognito_lock_state.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 
 namespace {
 
 // Preference key used to store which profile is current.
-NSString* const kIncognitoCurrentKey = @"IncognitoActive";
+constexpr std::string_view kIncognitoCurrentKey = "IncognitoActive";
 
 }  // namespace
 
@@ -25,6 +28,7 @@ NSString* const kIncognitoCurrentKey = @"IncognitoActive";
 
 @implementation IncognitoState {
   IncognitoStateObserverList* _observers;
+  BOOL _incognitoContentVisible;
 }
 
 @synthesize lockState = _lockState;
@@ -35,10 +39,6 @@ NSString* const kIncognitoCurrentKey = @"IncognitoActive";
     _observers = [IncognitoStateObserverList
         observersWithProtocol:@protocol(IncognitoStateObserver)];
     _sceneState = sceneState;
-
-    const BOOL incognitoContentVisible = [base::apple::ObjCCast<NSNumber>(
-        [_sceneState sessionObjectForKey:kIncognitoCurrentKey]) boolValue];
-    self.incognitoContentVisible = incognitoContentVisible;
   }
   return self;
 }
@@ -51,18 +51,20 @@ NSString* const kIncognitoCurrentKey = @"IncognitoActive";
   [_observers removeObserver:observer];
 }
 
+- (void)preferencesDidLoad {
+  const bool incognitoContentVisible =
+      [_sceneState.prefs boolForKey:kIncognitoCurrentKey];
+  [self setIncognitoContentVisible:incognitoContentVisible
+             saveInSceneStatePrefs:NO];
+}
+
+- (BOOL)incognitoContentVisible {
+  return _incognitoContentVisible;
+}
+
 - (void)setIncognitoContentVisible:(BOOL)incognitoContentVisible {
-  if (_incognitoContentVisible == incognitoContentVisible) {
-    return;
-  }
-  _incognitoContentVisible = incognitoContentVisible;
-  if (incognitoContentVisible) {
-    [_observers willEnterIncognitoForState:self];
-  } else {
-    [_observers willExitIncognitoForState:self];
-  }
-  [self.sceneState setSessionObject:@(incognitoContentVisible)
-                             forKey:kIncognitoCurrentKey];
+  [self setIncognitoContentVisible:incognitoContentVisible
+             saveInSceneStatePrefs:YES];
 }
 
 - (BOOL)isAuthenticationRequired {
@@ -79,6 +81,27 @@ NSString* const kIncognitoCurrentKey = @"IncognitoActive";
     [_observers didUpdateIncognitoLockStateForState:self];
   } else if (wasAuthenticationRequired != self.isAuthenticationRequired) {
     [_observers didUpdateAuthenticationRequirementForState:self];
+  }
+}
+
+// Helper method that sets the property `-incognitoContentVisible`, notify
+// the observers and optionally update the value in the SceneStatePrefs if
+// `saveInSceneStatePrefs` is true.
+- (void)setIncognitoContentVisible:(BOOL)incognitoContentVisible
+             saveInSceneStatePrefs:(BOOL)saveInSceneStatePrefs {
+  if (_incognitoContentVisible == incognitoContentVisible) {
+    return;
+  }
+
+  _incognitoContentVisible = incognitoContentVisible;
+  if (_incognitoContentVisible) {
+    [_observers willEnterIncognitoForState:self];
+  } else {
+    [_observers willExitIncognitoForState:self];
+  }
+  if (saveInSceneStatePrefs) {
+    [_sceneState.prefs setBool:_incognitoContentVisible
+                        forKey:kIncognitoCurrentKey];
   }
 }
 

@@ -16,6 +16,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/picture_in_picture_browser_frame_view.h"
+#include "chrome/browser/ui/views/picture_in_picture/document_pip_host.h"
 #include "content/public/browser/web_contents.h"
 #endif
 
@@ -28,17 +29,28 @@ void RecordPopupsAction(PopupsAction action) {
 
 void UpdateLocationBarUiForWebContents(content::WebContents* web_contents) {
 #if !BUILDFLAG(IS_ANDROID)
+  if (!web_contents) {
+    return;
+  }
   BrowserWindowInterface* browser =
       GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(web_contents);
-  if (!browser)
+  if (!browser) {
+    // Standalone Document PiP windows are not Browser-backed. The captured
+    // child WebContents holds a back-pointer to its DocumentPipHost, which
+    // forwards the refresh to the PiP frame view's content-setting icons.
+    if (DocumentPipHost* pip_host =
+            DocumentPipHost::FromChildWebContents(web_contents)) {
+      pip_host->UpdateContentSettingsIcons();
+    }
     return;
+  }
 
   if (browser->GetTabStripModel()->GetActiveWebContents() != web_contents) {
     return;
   }
 
   LocationBar* location_bar =
-      browser->GetBrowserForMigrationOnly()->window()->GetLocationBar();
+      BrowserWindow::FromBrowser(browser)->GetLocationBar();
   if (location_bar)
     location_bar->UpdateContentSettingsIcons();
 

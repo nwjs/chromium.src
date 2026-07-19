@@ -15,12 +15,14 @@
 #import "components/actor/core/aggregated_journal.h"
 #import "components/optimization_guide/proto/features/actions_data.pb.h"
 #import "ios/chrome/browser/intelligence/actor/public/actor_types.h"
-#import "ios/chrome/browser/intelligence/actor/tools/model/observation_delay_controller.h"
 #import "ios/web/public/web_state_id.h"
 
 namespace actor {
 
 class ActorTool;
+class ActorToolRequest;
+class ToolDelegate;
+class ToolController;
 
 // Executes a sequence of actions moving through the state machine.
 //
@@ -84,16 +86,16 @@ class ActorEngine {
     kCancelled,
   };
 
-  ActorEngine(ActorTaskId task_id,
-              AggregatedJournal* journal,
-              ExecutionUpdatesDelegate* execution_updates_delegate);
+  ActorEngine(ExecutionUpdatesDelegate* execution_updates_delegate,
+              ToolDelegate* tool_delegate);
+
   ~ActorEngine();
   ActorEngine(const ActorEngine&) = delete;
   ActorEngine& operator=(const ActorEngine&) = delete;
 
-  // Performs the given sequence of tools and invokes the callback when
+  // Performs the given sequence of actions and invokes the callback when
   // completed.
-  void Act(std::vector<std::unique_ptr<ActorTool>> actions,
+  void Act(std::vector<std::unique_ptr<ActorToolRequest>> actions,
            ActCallback callback);
 
   // Cancels any ongoing and pending actions.
@@ -114,10 +116,12 @@ class ActorEngine {
   // Callback for when UI pre-invoke is finished.
   void FinishedUiPreInvoke(ActionResult result);
 
+  // Callback invoked when tool validation is complete.
+  void OnToolValidationComplete(ToolExecutionResult result);
+
   // Callback invoked when a tool completes execution, which bridges the tool's
   // `ToolExecutionResult` into an `ActionResult`.
-  void OnToolExecutionComplete(ActorTool* tool,
-                               ToolExecutionResult tool_result);
+  void OnToolExecutionComplete(ToolExecutionResult result);
 
   // Callback for when tool execution is finished.
   void FinishedToolInvoke(ActionResult result);
@@ -140,7 +144,7 @@ class ActorEngine {
   State state_;
 
   // The sequence of actions to be executed.
-  std::vector<std::unique_ptr<ActorTool>> action_sequence_;
+  std::vector<std::unique_ptr<ActorToolRequest>> action_sequence_;
 
   // The index of the *next* action that will be invoked. Prefer to use
   // `InProgressActionIndex()` to get the index of the action currently being
@@ -158,23 +162,17 @@ class ActorEngine {
   // implementation.
   std::vector<ActionResult> action_results_;
 
-  // The ID of the task that owns this engine.
-  ActorTaskId task_id_;
-
-  // The aggregated journal for logging.
-  raw_ptr<AggregatedJournal> journal_;
-
-  // Current async entry for journal logging.
-  std::unique_ptr<AggregatedJournal::PendingAsyncEntry> current_async_entry_;
-
-  // This is used to add delays after tool invocations to ensure that the page
-  // is ready for another tool invocation.
-  //
-  // TODO(crbug.com/504625981): Replace this with a ToolController once setup.
-  raw_ptr<ObservationDelayController> observation_delay_controller_;
+  // The state machine responsible for validating, creating, invoking and
+  // post-invocation of the current tool.
+  std::unique_ptr<ToolController> tool_controller_;
 
   // The delegate to notify of execution milestones.
   raw_ptr<ExecutionUpdatesDelegate> execution_updates_delegate_;
+
+  // The ToolDelegate that provides access to Task level data objects. A raw_ptr
+  // is safe since the delegate is owned by the ActorTask which owns the
+  // ActorEngine.
+  raw_ptr<ToolDelegate> tool_delegate_;
 
   // Weak pointer factory.
   base::WeakPtrFactory<ActorEngine> weak_ptr_factory_{this};

@@ -10,7 +10,10 @@ import android.net.Uri;
 import androidx.annotation.IntDef;
 
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
+import org.chromium.content_public.browser.AdditionalNavigationParams;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.content_public.common.Referrer;
 import org.chromium.url.GURL;
 
 import java.lang.annotation.Retention;
@@ -145,6 +148,186 @@ public interface ContextMenuItemDelegate {
      */
     default void onAddToContacts(GURL url) {}
 
+    /**
+     * @return Whether opening an image in a new tab is supported.
+     */
+    default boolean supportsOpenImageInNewTab() {
+        return false;
+    }
+
+    /**
+     * @return Whether opening an ephemeral preview tab is supported.
+     */
+    default boolean supportsOpenInEphemeralTab() {
+        return false;
+    }
+
+    /**
+     * @return Whether saving/downloading an image is supported.
+     */
+    default boolean supportsSaveImage() {
+        return false;
+    }
+
+    /**
+     * @return Whether saving/downloading a link is supported.
+     */
+    default boolean supportsSaveLinkAs() {
+        return false;
+    }
+
+    /**
+     * @return Whether searching by image / Google Lens is supported.
+     */
+    default boolean supportsSearchByImage() {
+        return false;
+    }
+
+    /**
+     * @return Whether inspecting elements is supported.
+     */
+    default boolean supportsInspectElement() {
+        return false;
+    }
+
+    /**
+     * Called when the {@code url} is of an image and should be opened in a new page.
+     *
+     * @param url The image URL to open.
+     * @param referrer The referrer to be used for navigation.
+     */
+    default void onOpenImageInNewTab(GURL url, @Nullable Referrer referrer) {}
+
+    /**
+     * Called when the {@code url} should be opened in an ephemeral page.
+     *
+     * @param url The URL to open.
+     * @param title The title text to show on top control.
+     */
+    default void onOpenInEphemeralTab(GURL url, String title) {}
+
+    /**
+     * @return Whether opening a link in a new tab is supported.
+     */
+    default boolean supportsOpenInNewTab() {
+        return false;
+    }
+
+    /**
+     * @return Whether opening a link in a new tab in group is supported.
+     */
+    default boolean supportsOpenInNewTabInGroup() {
+        return false;
+    }
+
+    /**
+     * @return Whether opening a link in a new incognito tab is supported.
+     */
+    default boolean supportsOpenInNewIncognitoTab() {
+        return false;
+    }
+
+    /**
+     * @return Whether opening a link in a new window is supported.
+     */
+    default boolean supportsOpenInNewWindow() {
+        return false;
+    }
+
+    /**
+     * @return Whether opening a link in an incognito window is supported.
+     */
+    default boolean supportsOpenInIncognitoWindow() {
+        return false;
+    }
+
+    /**
+     * Called when the {@code url} should be opened in a new page with the same incognito state as
+     * the current page.
+     *
+     * @param url The URL to open.
+     * @param referrer The attribution impression to associate with the navigation.
+     * @param navigateToTab Whether or not to navigate to the new page.
+     * @param additionalNavigationParams Additional information that needs to be passed to the
+     *     navigation request.
+     */
+    default void onOpenInNewTab(
+            GURL url,
+            @Nullable Referrer referrer,
+            boolean navigateToTab,
+            @Nullable AdditionalNavigationParams additionalNavigationParams) {}
+
+    /**
+     * Called when {@code url} should be opened in a new page in the same group as the current page.
+     *
+     * @param url The URL to open.
+     * @param referrer The attribution impression to associate with the navigation.
+     */
+    default void onOpenInNewTabInGroup(GURL url, @Nullable Referrer referrer) {}
+
+    /**
+     * Called when the {@code url} should be opened in a new incognito page.
+     *
+     * @param url The URL to open.
+     */
+    default void onOpenInNewIncognitoTab(GURL url) {}
+
+    /**
+     * Opens a URL in a new or existing window.
+     *
+     * @param url The URL to open.
+     * @param referrer The referrer to use when opening the URL.
+     * @param isIncognito Whether the other window should be incognito.
+     * @param preferNew Whether the URL should be opened in a new window.
+     */
+    default void openInOtherWindow(
+            GURL url, @Nullable Referrer referrer, boolean isIncognito, boolean preferNew) {}
+
+    /**
+     * Opens a URL in an incognito window.
+     *
+     * @param url The URL to open.
+     */
+    default void openInIncognitoWindow(GURL url) {}
+
+    /**
+     * @return Whether adding a link to the reading list is supported.
+     */
+    default boolean supportsReadLater() {
+        return false;
+    }
+
+    /**
+     * Called when Read Later was selected from the context menu.
+     *
+     * @param url The URL to be saved to the reading list.
+     * @param title The title text to be shown for this item in the reading list.
+     */
+    default void onReadLater(GURL url, String title) {}
+
+    /**
+     * Called when the {@code url} is of an image and should be opened in the same page.
+     *
+     * @param url The image URL to open.
+     */
+    default void onOpenImageUrl(GURL url, @Nullable Referrer referrer) {}
+
+    /**
+     * Called when a link should be opened in the main Chrome browser.
+     *
+     * @param linkUrl URL that should be opened.
+     * @param pageUrl URL of the current page.
+     */
+    default void onOpenInChrome(GURL linkUrl, GURL pageUrl) {}
+
+    /**
+     * Called when the {@code url} should be opened in a new Chrome page from CCT.
+     *
+     * @param linkUrl The URL to open.
+     * @param isIncognito true if the {@code url} should be opened in a new incognito page.
+     */
+    default void onOpenInNewChromeTabFromCct(GURL linkUrl, boolean isIncognito) {}
+
     /** Returns the page url. */
     GURL getPageUrl();
 
@@ -154,4 +337,7 @@ public interface ContextMenuItemDelegate {
      * @param url The URL to open.
      */
     void onOpenInDefaultBrowser(GURL url);
+
+    /** Called when the current tab should be reloaded. */
+    default void onReloadCurrentTab() {}
 }

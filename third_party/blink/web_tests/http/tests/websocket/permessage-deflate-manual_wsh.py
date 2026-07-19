@@ -26,13 +26,14 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from six.moves.urllib import parse
+from urllib import parse
+
 import zlib
-from mod_pywebsocket import common
-from mod_pywebsocket import util
-from mod_pywebsocket.extensions import PerMessageDeflateExtensionProcessor
-from mod_pywebsocket.extensions import ExtensionProcessorInterface
-from mod_pywebsocket.common import ExtensionParameter
+from pywebsocket3 import common
+from pywebsocket3 import util
+from pywebsocket3.extensions import PerMessageDeflateExtensionProcessor
+from pywebsocket3.extensions import ExtensionProcessorInterface
+from pywebsocket3.common import ExtensionParameter
 
 _GOODBYE_MESSAGE = u'Goodbye'
 _ENABLE_MESSAGE = u'EnableCompression'

@@ -4,13 +4,13 @@
 
 #include "components/passage_embeddings/core/passage_embeddings_service_controller.h"
 
-#include <ranges>
+#include <algorithm>
+#include <utility>
 
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/not_fatal_until.h"
 #include "base/notreached.h"
 #include "base/task/thread_pool.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
@@ -38,8 +38,9 @@ mojom::PassageEmbeddingsLoadModelsParamsPtr MakeModelParams(
 }
 
 // Makes the parameters used to run the passage embedder.
-mojom::PassageEmbedderParamsPtr MakeEmbedderParams() {
+mojom::PassageEmbedderParamsPtr MakeEmbedderParams(bool execute_for_gemma) {
   auto params = mojom::PassageEmbedderParams::New();
+  params->execute_for_gemma = execute_for_gemma;
   params->user_initiated_priority_num_threads =
       kUserInitiatedPriorityNumThreads.Get();
   params->urgent_priority_num_threads = kUrgentPriorityNumThreads.Get();
@@ -77,8 +78,11 @@ class ScopedEmbeddingsModelInfoStatusLogger {
 
 }  // namespace
 
-PassageEmbeddingsServiceController::PassageEmbeddingsServiceController()
-    : embedder_(std::make_unique<SchedulingEmbedder>(
+PassageEmbeddingsServiceController::PassageEmbeddingsServiceController(
+    PassageEmbeddingsServiceLauncher& launcher,
+    bool execute_for_gemma)
+    : launcher_(launcher),
+      embedder_(std::make_unique<SchedulingEmbedder>(
           /*embedder_metadata_provider=*/this,
           /*get_embeddings_callback=*/
           base::BindRepeating(
@@ -86,7 +90,9 @@ PassageEmbeddingsServiceController::PassageEmbeddingsServiceController()
               base::Unretained(this)),
           kSchedulerMaxJobs.Get(),
           kSchedulerMaxBatchSize.Get(),
-          kUsePerformanceScenario.Get())) {}
+          kUsePerformanceScenario.Get(),
+          execute_for_gemma)),
+      execute_for_gemma_(execute_for_gemma) {}
 
 PassageEmbeddingsServiceController::~PassageEmbeddingsServiceController() =
     default;
@@ -139,7 +145,7 @@ bool PassageEmbeddingsServiceController::MaybeUpdateModelInfo(
   embeddings_model_path_ = model_info->GetModelFilePath();
   sp_model_path_ = *(additional_files.begin());
 
-  CHECK(EmbedderReady());
+  CHECK(IsModelAvailable());
   logger.set_status(EmbeddingsModelInfoStatus::kValid);
   observer_list_.Notify(&EmbedderMetadataObserver::EmbedderMetadataUpdated,
                         GetEmbedderMetadata());
@@ -147,24 +153,26 @@ bool PassageEmbeddingsServiceController::MaybeUpdateModelInfo(
 }
 
 void PassageEmbeddingsServiceController::LoadModelsToService(
+    base::WeakPtr<PassageEmbeddingsServiceController> embedder_remote_weak_ptr,
     mojo::PendingReceiver<mojom::PassageEmbedder> receiver,
     base::ElapsedTimer service_launch_timer,
     mojom::PassageEmbeddingsLoadModelsParamsPtr params) {
-  if (!service_remote_) {
+  if (!embedder_remote_weak_ptr || !service_remote_) {
     // Close the model files in a background thread.
     base::ThreadPool::PostTaskAndReply(
         FROM_HERE, {base::MayBlock()},
         base::DoNothingWithBoundArgs(std::move(params)),
         base::BindOnce(&PassageEmbeddingsServiceController::OnLoadModelsResult,
-                       weak_ptr_factory_.GetWeakPtr(),
+                       embedder_remote_weak_ptr_factory_.GetWeakPtr(),
                        std::move(service_launch_timer), /*success=*/false));
     return;
   }
 
   service_remote_->LoadModels(
-      std::move(params), MakeEmbedderParams(), std::move(receiver),
+      std::move(params), MakeEmbedderParams(execute_for_gemma_),
+      std::move(receiver),
       base::BindOnce(&PassageEmbeddingsServiceController::OnLoadModelsResult,
-                     weak_ptr_factory_.GetWeakPtr(),
+                     embedder_remote_weak_ptr_factory_.GetWeakPtr(),
                      std::move(service_launch_timer)));
 }
 
@@ -172,12 +180,24 @@ void PassageEmbeddingsServiceController::OnLoadModelsResult(
     base::ElapsedTimer service_launch_timer,
     bool success) {
   if (!success) {
-    ResetEmbedderRemote();
     return;
   }
 
-  base::UmaHistogramTimes("History.Embeddings.Embedder.LaunchDuration",
-                          service_launch_timer.Elapsed());
+  if (!execute_for_gemma_) {
+    base::UmaHistogramTimes("History.Embeddings.Embedder.LaunchDuration",
+                            service_launch_timer.Elapsed());
+  } else {
+    base::UmaHistogramTimes("AI.SemanticEmbedder.LaunchDuration",
+                            service_launch_timer.Elapsed());
+  }
+}
+
+bool PassageEmbeddingsServiceController::IsModelAvailable() {
+  return !sp_model_path_.empty() && !embeddings_model_path_.empty();
+}
+
+bool PassageEmbeddingsServiceController::EmbedderRunning() {
+  return !pending_requests_.empty();
 }
 
 Embedder* PassageEmbeddingsServiceController::GetEmbedder() {
@@ -186,7 +206,7 @@ Embedder* PassageEmbeddingsServiceController::GetEmbedder() {
 
 void PassageEmbeddingsServiceController::AddObserver(
     EmbedderMetadataObserver* observer) {
-  if (EmbedderReady()) {
+  if (IsModelAvailable()) {
     observer->EmbedderMetadataUpdated(GetEmbedderMetadata());
   }
   observer_list_.AddObserver(observer);
@@ -206,7 +226,7 @@ void PassageEmbeddingsServiceController::GetEmbeddings(
     return;
   }
 
-  if (!EmbedderReady()) {
+  if (!IsModelAvailable()) {
     VLOG(1) << "Missing model path: embeddings='" << embeddings_model_path_
             << "'; sp='" << sp_model_path_ << "'";
     std::move(callback).Run({}, ComputeEmbeddingsStatus::kModelUnavailable);
@@ -217,7 +237,8 @@ void PassageEmbeddingsServiceController::GetEmbeddings(
     base::ElapsedTimer service_launch_timer;
     MaybeLaunchService();
 
-    auto receiver = embedder_remote_.BindNewPipeAndPassReceiver();
+    mojo::PendingReceiver<mojom::PassageEmbedder> receiver =
+        embedder_remote_.BindNewPipeAndPassReceiver();
     // Unretained is safe because `this` owns `embedder_remote_`, which
     // synchronously calls the disconnect and idle handlers.
     embedder_remote_.set_disconnect_handler(
@@ -233,25 +254,26 @@ void PassageEmbeddingsServiceController::GetEmbeddings(
         base::BindOnce(&MakeModelParams, embeddings_model_path_, sp_model_path_,
                        model_metadata_->input_window_size()),
         base::BindOnce(&PassageEmbeddingsServiceController::LoadModelsToService,
-                       weak_ptr_factory_.GetWeakPtr(), std::move(receiver),
-                       std::move(service_launch_timer)));
+                       weak_ptr_factory_.GetWeakPtr(),
+                       embedder_remote_weak_ptr_factory_.GetWeakPtr(),
+                       std::move(receiver), std::move(service_launch_timer)));
   }
 
   pending_requests_.push_back(next_request_id_);
   base::ElapsedTimer generate_embeddings_timer;
+  std::pair<GetEmbeddingsResultCallback, GetEmbeddingsResultCallback>
+      callbacks = base::SplitOnceCallback(std::move(callback));
   embedder_remote_->GenerateEmbeddings(
       std::move(passages), PassagePriorityToMojom(priority),
-      mojo::WrapCallbackWithDefaultInvokeIfNotRun(
+      mojo::WrapCallbackWithDropHandler(
           base::BindOnce(&PassageEmbeddingsServiceController::OnGotEmbeddings,
                          weak_ptr_factory_.GetWeakPtr(), next_request_id_,
-                         std::move(callback),
+                         std::move(callbacks.first),
                          std::move(generate_embeddings_timer), priority),
-          std::vector<mojom::PassageEmbeddingsResultPtr>()));
+          base::BindOnce(&PassageEmbeddingsServiceController::OnDisconnected,
+                         weak_ptr_factory_.GetWeakPtr(), next_request_id_,
+                         std::move(callbacks.second))));
   next_request_id_++;
-}
-
-bool PassageEmbeddingsServiceController::EmbedderReady() {
-  return !sp_model_path_.empty() && !embeddings_model_path_.empty();
 }
 
 EmbedderMetadata PassageEmbeddingsServiceController::GetEmbedderMetadata() {
@@ -263,12 +285,9 @@ EmbedderMetadata PassageEmbeddingsServiceController::GetEmbedderMetadata() {
   return EmbedderMetadata(model_version_, model_metadata_->output_size());
 }
 
-bool PassageEmbeddingsServiceController::EmbedderRunning() {
-  return !pending_requests_.empty();
-}
-
 void PassageEmbeddingsServiceController::ResetEmbedderRemote() {
   embedder_remote_.reset();
+  embedder_remote_weak_ptr_factory_.InvalidateWeakPtrs();
 }
 
 void PassageEmbeddingsServiceController::OnGotEmbeddings(
@@ -278,43 +297,77 @@ void PassageEmbeddingsServiceController::OnGotEmbeddings(
     PassagePriority priority,
     std::vector<mojom::PassageEmbeddingsResultPtr> results) {
   // Mojo invokes the callbacks in the order in which `GenerateEmbeddings()` was
-  // called. Therefore, `request_id` should be expected at the front of
-  // `pending_requests_`. However, when `embedder_remote_` disconnects and the
-  // callbacks are dropped, `mojo::WrapCallbackWithDefaultInvokeIfNotRun()`
-  // invokes the callbacks in the reverse order in which they were bound.
-  auto it = std::ranges::find(pending_requests_, request_id);
-  if (it != pending_requests_.end()) {
-    pending_requests_.erase(it);
-  } else {
-    NOTREACHED(base::NotFatalUntil::M140);
-  }
+  // called.
+  CHECK(!pending_requests_.empty());
+  CHECK_EQ(pending_requests_.front(), request_id);
+  pending_requests_.pop_front();
 
-  auto status = results.empty() ? ComputeEmbeddingsStatus::kExecutionFailure
-                                : ComputeEmbeddingsStatus::kSuccess;
-  std::move(callback).Run(std::move(results), status);
+  ComputeEmbeddingsStatus status =
+      results.empty() ? ComputeEmbeddingsStatus::kExecutionFailure
+                      : ComputeEmbeddingsStatus::kSuccess;
 
   if (status == ComputeEmbeddingsStatus::kSuccess) {
     const base::TimeDelta duration = generate_embeddings_timer.Elapsed();
-    base::UmaHistogramTimes("History.Embeddings.TaskDuration", duration);
-    const char* priority_histogram = nullptr;
-    switch (priority) {
-      case kUserInitiated:
-        priority_histogram = "History.Embeddings.TaskDuration.UserInitiated";
-        break;
+    if (execute_for_gemma_) {
+      base::UmaHistogramTimes("AI.SemanticEmbedder.TaskDuration", duration);
+    } else {
+      base::UmaHistogramTimes("History.Embeddings.TaskDuration", duration);
+      const char* priority_histogram = nullptr;
+      switch (priority) {
+        case kUserInitiated:
+          priority_histogram = "History.Embeddings.TaskDuration.UserInitiated";
+          break;
 
-      case kUrgent:
-        priority_histogram = "History.Embeddings.TaskDuration.Urgent";
-        break;
+        case kUrgent:
+          priority_histogram = "History.Embeddings.TaskDuration.Urgent";
+          break;
 
-      case kPassive:
-        priority_histogram = "History.Embeddings.TaskDuration.Passive";
-        break;
+        case kPassive:
+          priority_histogram = "History.Embeddings.TaskDuration.Passive";
+          break;
 
-      default:
-        priority_histogram = "History.Embeddings.TaskDuration.Other";
+        default:
+          priority_histogram = "History.Embeddings.TaskDuration.Other";
+      }
+      base::UmaHistogramTimes(priority_histogram, duration);
     }
-    base::UmaHistogramTimes(priority_histogram, duration);
   }
+
+  // Run the callback last to prevent UAF if the callback destroys `this`.
+  std::move(callback).Run(std::move(results), status);
 }
 
+void PassageEmbeddingsServiceController::OnDisconnected(
+    RequestId request_id,
+    GetEmbeddingsResultCallback callback) {
+  // On disconnect, drop handlers are invoked in an undefined order, so we must
+  // be able to remove arbitrary request IDs.
+  auto it = std::ranges::find(pending_requests_, request_id);
+  CHECK(it != pending_requests_.end());
+  pending_requests_.erase(it);
+
+  std::move(callback).Run(std::vector<mojom::PassageEmbeddingsResultPtr>(),
+                          ComputeEmbeddingsStatus::kExecutionFailure);
+}
+
+void PassageEmbeddingsServiceController::MaybeLaunchService() {
+  if (service_remote_.is_bound() || !launcher_->AllowedToLaunch()) {
+    return;
+  }
+  auto receiver = service_remote_.BindNewPipeAndPassReceiver();
+  service_remote_.set_disconnect_handler(
+      base::BindOnce(&PassageEmbeddingsServiceController::ResetServiceRemote,
+                     base::Unretained(this), /*is_idle=*/false));
+  service_remote_.set_idle_handler(
+      kEmbeddingsServiceTimeout.Get(),
+      base::BindRepeating(
+          &PassageEmbeddingsServiceController::ResetServiceRemote,
+          base::Unretained(this), /*is_idle=*/true));
+  launcher_->LaunchService(std::move(receiver));
+}
+
+void PassageEmbeddingsServiceController::ResetServiceRemote(bool is_idle) {
+  service_remote_.reset();
+  launcher_->OnServiceDisconnected(is_idle);
+}
 }  // namespace passage_embeddings

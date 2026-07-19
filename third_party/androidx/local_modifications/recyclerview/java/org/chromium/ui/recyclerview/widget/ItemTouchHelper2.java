@@ -153,6 +153,8 @@ public class ItemTouchHelper2 extends RecyclerView.ItemDecoration
     /** Developer callback which controls the behavior of ItemTouchHelper. */
     @NonNull Callback mCallback;
 
+    private final boolean mIsDragSweepingEnabled;
+
     /** Current mode. */
     private int mActionState = ACTION_STATE_IDLE;
 
@@ -378,6 +380,7 @@ public class ItemTouchHelper2 extends RecyclerView.ItemDecoration
      */
     public ItemTouchHelper2(@NonNull Callback callback) {
         mCallback = callback;
+        mIsDragSweepingEnabled = callback.isDragSweepingEnabled();
     }
 
     private static boolean hitTest(View child, float x, float y, float left, float top) {
@@ -777,6 +780,17 @@ public class ItemTouchHelper2 extends RecyclerView.ItemDecoration
         final int bottom = top + viewHolder.itemView.getHeight() + 2 * margin;
         final int centerX = (left + right) / 2;
         final int centerY = (top + bottom) / 2;
+
+        final int layoutLeft = viewHolder.itemView.getLeft() - margin;
+        final int layoutTop = viewHolder.itemView.getTop() - margin;
+        final int layoutRight = viewHolder.itemView.getRight() + margin;
+        final int layoutBottom = viewHolder.itemView.getBottom() + margin;
+
+        final int sweepLeft = mIsDragSweepingEnabled ? Math.min(left, layoutLeft) : left;
+        final int sweepTop = mIsDragSweepingEnabled ? Math.min(top, layoutTop) : top;
+        final int sweepRight = mIsDragSweepingEnabled ? Math.max(right, layoutRight) : right;
+        final int sweepBottom = mIsDragSweepingEnabled ? Math.max(bottom, layoutBottom) : bottom;
+
         final RecyclerView.LayoutManager lm = mRecyclerView.getLayoutManager();
         final int childCount = lm.getChildCount();
         for (int i = 0; i < childCount; i++) {
@@ -784,10 +798,10 @@ public class ItemTouchHelper2 extends RecyclerView.ItemDecoration
             if (other == viewHolder.itemView) {
                 continue; // myself!
             }
-            if (other.getBottom() < top
-                    || other.getTop() > bottom
-                    || other.getRight() < left
-                    || other.getLeft() > right) {
+            if (other.getBottom() < sweepTop
+                    || other.getTop() > sweepBottom
+                    || other.getRight() < sweepLeft
+                    || other.getLeft() > sweepRight) {
                 continue;
             }
             final ViewHolder otherVh = mRecyclerView.getChildViewHolder(other);
@@ -1608,6 +1622,19 @@ public class ItemTouchHelper2 extends RecyclerView.ItemDecoration
          */
         public boolean isLongPressDragEnabled() {
             return true;
+        }
+
+        /**
+         * Return true to enable drag sweeping.
+         *
+         * <p>Drag sweeping computes intersection using the union of the view's original layout
+         * bounds and its current dragged bounds. This prevents fast drags (like those from a mouse)
+         * from skipping intermediate swap targets.
+         *
+         * @return True if drag sweeping should be used. Default is false.
+         */
+        public boolean isDragSweepingEnabled() {
+            return false;
         }
 
         /**

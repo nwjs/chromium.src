@@ -110,6 +110,7 @@ public class WebApkIntegrationTest {
     @LargeTest
     @Feature({"Webapps"})
     @MinAndroidSdkLevel(Build.VERSION_CODES.S)
+    @DisableIf.Build(product_name_includes = "brya", message = "Flaky, see crbug.com/527174394")
     public void testWebApkTrampoline() {
         Context targetContext = ApplicationProvider.getApplicationContext();
         String pageUrl = "https://pwa-directory.appspot.com/defaultresponse";
@@ -130,7 +131,7 @@ public class WebApkIntegrationTest {
         targetContext.startActivity(intent);
 
         if (OpenInAppUtils.isOpenInAppAvailable()) {
-            onView(withId(R.id.open_in_app_chip)).perform(click());
+            onView(withId(R.id.omnibox_chip_full)).perform(click());
         }
 
         // Check we end up in the WebAPK.

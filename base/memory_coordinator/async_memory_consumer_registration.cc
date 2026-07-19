@@ -26,6 +26,7 @@ class AsyncMemoryConsumerRegistration::MainThread : public MemoryConsumer {
 
   void Init(std::string consumer_name,
             std::optional<MemoryConsumerTraits> traits,
+            bool is_passive,
             CheckUnregister check_unregister,
             CheckRegistryExists check_registry_exists,
             WeakPtr<AsyncMemoryConsumerRegistration> parent,
@@ -33,6 +34,7 @@ class AsyncMemoryConsumerRegistration::MainThread : public MemoryConsumer {
     DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
     consumer_task_runner_ = std::move(consumer_task_runner);
     parent_ = std::move(parent);
+    is_passive_ = is_passive;
     registration_.emplace(consumer_name, traits, this, check_unregister,
                           check_registry_exists);
     registration_->SetAsyncHandleDestroyedFlag(
@@ -71,6 +73,11 @@ class AsyncMemoryConsumerRegistration::MainThread : public MemoryConsumer {
                  parent_));
   }
 
+  bool IsPassive() const override {
+    DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+    return is_passive_;
+  }
+
   // The task runner on which the off-sequence consumer lives.
   scoped_refptr<SequencedTaskRunner> consumer_task_runner_
       GUARDED_BY_CONTEXT(thread_checker_);
@@ -84,6 +91,8 @@ class AsyncMemoryConsumerRegistration::MainThread : public MemoryConsumer {
       GUARDED_BY_CONTEXT(thread_checker_);
 
   std::atomic<bool> async_handle_destroyed_{false};
+
+  bool is_passive_ GUARDED_BY_CONTEXT(thread_checker_) = false;
 
   THREAD_CHECKER(thread_checker_);
 };
@@ -108,7 +117,8 @@ AsyncMemoryConsumerRegistration::AsyncMemoryConsumerRegistration(
   main_thread_ = std::make_unique<MainThread>();
   main_thread_task_runner_->PostTask(
       FROM_HERE, BindOnce(&MainThread::Init, Unretained(main_thread_.get()),
-                          std::string(consumer_name), traits, check_unregister,
+                          std::string(consumer_name), traits,
+                          consumer->IsPassive(), check_unregister,
                           check_registry_exists, weak_ptr_factory_.GetWeakPtr(),
                           SequencedTaskRunner::GetCurrentDefault()));
 }

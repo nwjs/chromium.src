@@ -151,7 +151,7 @@ class TabStripModelDelegate {
   virtual void GroupAdded(const tab_groups::TabGroupId& group) = 0;
 
   // Notifies the delegate that a group is about to be closed, and allows it
-  // to perform any preparation neccessary.
+  // to perform any preparation necessary.
   virtual void WillCloseGroup(const tab_groups::TabGroupId& group) = 0;
 
   // Called before a full split view (both tabs) is closed.
@@ -232,18 +232,6 @@ class TabStripModelDelegate {
 
   // Glic related delegation (see GlicKeyedService and GlicSharingManager).
   // Note: 'Pinning' in Glic is a distinct notion.
-
-  // Returns true if the tab is Glic-pinned.
-  virtual bool IsTabGlicPinned(tabs::TabHandle tab_handle) = 0;
-
-  // Glic-pins the tab and returns true if successful.
-  virtual bool GlicPinTabs(base::span<const tabs::TabHandle> tab_handles) = 0;
-
-  // Glic-unpins the tab and returns true if successful.
-  virtual bool GlicUnpinTabs(base::span<const tabs::TabHandle> tab_handles) = 0;
-
-  // Opens the Glic window if not already open.
-  virtual void OpenGlicWindowFromSharedTab() = 0;
 
   // Unpins the specified tabs from all Glic conversations.
   virtual void GlicUnpinTabsFromAllConversations(

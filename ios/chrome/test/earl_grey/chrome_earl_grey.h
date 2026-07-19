@@ -90,6 +90,9 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // vertical and regular horizontal size class.
 - (BOOL)isRegularXRegularSizeClass;
 
+// Returns YES if the application window is in windowed mode (multitasking).
+- (BOOL)isWindowedMode;
+
 // Stops primes performance metrics logging by calling into the
 // internal framework (should only be used by performance tests)
 - (void)primesStopLogging;
@@ -103,9 +106,6 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 
 // Returns whether the current layout is showing the bottom omnibox.
 - (BOOL)isCurrentLayoutBottomOmnibox;
-
-// Returns whether the Ask Gemini Chip feature is enabled.
-- (BOOL)isAskGeminiChipEnabled;
 
 // Returns whether the ComposeboxIOS feature is enabled.
 - (BOOL)isComposeboxIOSEnabled;
@@ -358,6 +358,12 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
                                 formFieldData:
                                     (NSDictionary<NSString*, NSString*>*)
                                         formFieldData;
+
+// Adds a fake Send Tab To Self entry with the given text fragment to the local
+// model and returns its GUID.
+- (NSString*)addFakeSendTabToSelfEntryWithURL:(NSString*)url
+                                        title:(NSString*)title
+                                 textFragment:(NSString*)textFragment;
 
 // Waits for the local Send Tab To Self model to contain an entry with the
 // given GUID.
@@ -834,11 +840,20 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // Returns whether the UseLensToSearchForImage feature is enabled;
 - (BOOL)isUseLensToSearchForImageEnabled;
 
+// Returns whether the YourSavedInfoSettingsPageIos feature is enabled.
+- (BOOL)isYourSavedInfoSettingsPageIosEnabled;
+
 // Returns whether the unfocused omnibox is at the bottom.
 - (BOOL)isUnfocusedOmniboxAtBottom;
 
 // Returns whether Chrome Next is enabled.
 - (BOOL)isChromeNextEnabled;
+
+// Returns whether overflow menu refactoring on the NTP is enabled.
+- (BOOL)isOverflowMenuNTPRefactorEnabled;
+
+// Returns whether the Chrome Next Share Icon is visible.
+- (BOOL)isChromeNextShareIconVisible;
 
 // Returns YES if the view with `accessibilityID` or any of its ancestors is
 // animating.

@@ -18,11 +18,10 @@ import './home_url_input.js';
 import '../controls/settings_dropdown_menu.js';
 
 import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
-import {CustomizeColorSchemeModeBrowserProxy} from 'chrome://resources/cr_components/customize_color_scheme_mode/browser_proxy.js';
-import type {CustomizeColorSchemeModeClientCallbackRouter, CustomizeColorSchemeModeHandlerInterface} from 'chrome://resources/cr_components/customize_color_scheme_mode/customize_color_scheme_mode.mojom-webui.js';
-import {ColorSchemeMode} from 'chrome://resources/cr_components/customize_color_scheme_mode/customize_color_scheme_mode.mojom-webui.js';
+import {browserProxyFactory, ColorSchemeMode} from 'chrome://resources/cr_components/customize_color_scheme_mode/customize_color_scheme_mode.mojom-webui.js';
+import type {BrowserProxy as CustomizeColorSchemeModeBrowserProxy} from 'chrome://resources/cr_components/customize_color_scheme_mode/customize_color_scheme_mode.mojom-webui.js';
 import {I18nMixin} from 'chrome://resources/cr_elements/i18n_mixin.js';
-import {assert} from 'chrome://resources/js/assert.js';
+import {assert, assertNotReached} from 'chrome://resources/js/assert.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import type {DropdownMenuOptionList, SettingsDropdownMenuElement} from '../controls/settings_dropdown_menu.js';
@@ -217,18 +216,36 @@ export class SettingsAppearancePageElement extends
         },
       },
 
+      ntpSimplificationBookmarksBarEnabled_: {
+        type: Boolean,
+        value() {
+          return loadTimeData.getBoolean(
+              'ntpSimplificationBookmarksBarEnabled');
+        },
+      },
+
+      // The values in this array must match the BookmarkBarVisibilityState enum
+      // defined in components/bookmarks/common/bookmark_bar_visibility_state.h.
+      bookmarksBarOptions_: {
+        readOnly: true,
+        type: Array,
+        value() {
+          return [
+            {value: 0, name: loadTimeData.getString('bookmarksBarAlwaysShow')},
+            {
+              value: 1,
+              name: loadTimeData.getString('bookmarksBarOnlyShowOnNtp'),
+            },
+            {value: 2, name: loadTimeData.getString('bookmarksBarAlwaysHide')},
+          ];
+        },
+      },
+
       showVerticalTabsExpandOnHoverEnabled_: {
         type: Boolean,
         value() {
           return loadTimeData.getBoolean(
               'showVerticalTabsExpandOnHoverEnabled');
-        },
-      },
-
-      showTabSearchEnabled_: {
-        type: Boolean,
-        value() {
-          return loadTimeData.getBoolean('showTabSearchEnabled');
         },
       },
 
@@ -326,8 +343,9 @@ export class SettingsAppearancePageElement extends
   // </if>
 
   declare private showVerticalTabsEnabled_: boolean;
+  declare private ntpSimplificationBookmarksBarEnabled_: boolean;
+  declare private bookmarksBarOptions_: DropdownMenuOptionList;
   declare private showVerticalTabsExpandOnHoverEnabled_: boolean;
-  declare private showTabSearchEnabled_: boolean;
   declare private showProjectsPanelEnabled_: boolean;
   declare private showEverythingMenuEnabled_: boolean;
   declare private showManagedThemeDialog_: boolean;
@@ -336,11 +354,8 @@ export class SettingsAppearancePageElement extends
   declare private tabStripOptions_: DropdownMenuOptionList;
   private appearanceBrowserProxy_: AppearanceBrowserProxy =
       AppearanceBrowserProxyImpl.getInstance();
-  private colorSchemeModeHandler_: CustomizeColorSchemeModeHandlerInterface =
-      CustomizeColorSchemeModeBrowserProxy.getInstance().handler;
-  private colorSchemeModeCallbackRouter_:
-      CustomizeColorSchemeModeClientCallbackRouter =
-          CustomizeColorSchemeModeBrowserProxy.getInstance().callbackRouter;
+  private colorSchemeModeBrowserProxy_: CustomizeColorSchemeModeBrowserProxy =
+      browserProxyFactory.getInstance();
   private setColorSchemeModeListenerId_: number|null = null;
   private metricsBrowserProxy_: MetricsBrowserProxy =
       MetricsBrowserProxyImpl.getInstance();
@@ -359,20 +374,20 @@ export class SettingsAppearancePageElement extends
         JSON.parse(loadTimeData.getString('presetZoomFactors'));
 
     this.setColorSchemeModeListenerId_ =
-        this.colorSchemeModeCallbackRouter_.setColorSchemeMode.addListener(
-            (colorSchemeMode: ColorSchemeMode) => {
+        this.colorSchemeModeBrowserProxy_.callbackRouter.setColorSchemeMode
+            .addListener((colorSchemeMode: ColorSchemeMode) => {
               this.selectedColorSchemeMode_ =
                   this.colorSchemeModeOptions_
                       .find(mode => colorSchemeMode === mode.value)
                       ?.value;
             });
-    this.colorSchemeModeHandler_.initializeColorSchemeMode();
+    this.colorSchemeModeBrowserProxy_.handler.initializeColorSchemeMode();
   }
 
   override disconnectedCallback() {
     super.disconnectedCallback();
     assert(this.setColorSchemeModeListenerId_);
-    this.colorSchemeModeCallbackRouter_.removeListener(
+    this.colorSchemeModeBrowserProxy_.callbackRouter.removeListener(
         this.setColorSchemeModeListenerId_);
   }
 
@@ -551,7 +566,7 @@ export class SettingsAppearancePageElement extends
   }
 
   private onColorSchemeModeChange_(): void {
-    this.colorSchemeModeHandler_.setColorSchemeMode(
+    this.colorSchemeModeBrowserProxy_.handler.setColorSchemeMode(
         parseInt(this.$.colorSchemeModeSelect.value, 10) as ColorSchemeMode);
   }
 
@@ -593,6 +608,32 @@ export class SettingsAppearancePageElement extends
     this.metricsBrowserProxy_.recordAction(
         event.detail ? 'TabStripComboButton.EverythingMenu.Pinned' :
                        'TabStripComboButton.EverythingMenu.Unpinned');
+  }
+
+  private onBookmarksBarVisibilitySettingChange_(event: Event) {
+    const dropdown = event.target as SettingsDropdownMenuElement;
+    const value = Number.parseInt(dropdown.getSelectedValue(), 10);
+    // These values map to the BookmarkBarVisibilityState enum in
+    // components/bookmarks/common/bookmark_bar_visibility_state.h.
+    switch (value) {
+      // Equivalent to `BookmarkBarVisibilityState::kAlwaysShow`.
+      case 0:
+        this.metricsBrowserProxy_.recordAction(
+            'Settings_BookmarkBar_AlwaysShow');
+        break;
+      // Equivalent to `BookmarkBarVisibilityState::kOnlyShowOnNtp`.
+      case 1:
+        this.metricsBrowserProxy_.recordAction(
+            'Settings_BookmarkBar_OnlyShowOnNtp');
+        break;
+      // Equivalent to `BookmarkBarVisibilityState::kAlwaysHide`.
+      case 2:
+        this.metricsBrowserProxy_.recordAction(
+            'Settings_BookmarkBar_AlwaysHide');
+        break;
+      default:
+        assertNotReached();
+    }
   }
 
   private onHoverCardImagesToggleChange_(event: Event) {

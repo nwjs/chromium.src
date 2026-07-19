@@ -306,7 +306,9 @@ void ExtensionsToolbarDesktop::UpdateRequestAccessButton(
   // This will also update the button's background.
   std::optional<ToolbarButton::Edge> extensions_button_edge =
       request_access_button_->GetVisible()
-          ? std::optional<ToolbarButton::Edge>(ToolbarButton::Edge::kLeft)
+          ? std::optional<ToolbarButton::Edge>(base::i18n::IsRTL()
+                                                   ? ToolbarButton::Edge::kRight
+                                                   : ToolbarButton::Edge::kLeft)
           : std::nullopt;
   extensions_button_->SetFlatEdge(extensions_button_edge);
 }
@@ -584,6 +586,23 @@ void ExtensionsToolbarDesktop::MovePinnedActionBy(const std::string& action_id,
   toolbar_view_model_->MovePinnedActionBy(action_id, move_by);
 }
 
+bool ExtensionsToolbarDesktop::IsFocusOnExtensionAction() const {
+  const views::FocusManager* focus_manager = GetFocusManager();
+  if (!focus_manager) {
+    return false;
+  }
+  const views::View* focused_view = focus_manager->GetFocusedView();
+  if (!focused_view) {
+    return false;
+  }
+  for (const auto& pair : icons_) {
+    if (pair.second == focused_view) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void ExtensionsToolbarDesktop::UpdateHoverCard(
     ToolbarActionView* action_view,
     ToolbarActionHoverCardUpdateType update_type) {
@@ -801,7 +820,7 @@ void ExtensionsToolbarDesktop::CloseExtensionsMenuIfOpen() {
 
 bool ExtensionsToolbarDesktop::CanShowToolbarActionPopupForAPICall(
     const ToolbarActionsModel::ActionId& action_id) {
-  return !popped_out_action_ && browser_->window()->IsActive();
+  return !popped_out_action_ && browser_->GetWindow()->IsActive();
 }
 
 void ExtensionsToolbarDesktop::ToggleExtensionsMenu() {
@@ -1132,9 +1151,9 @@ void ExtensionsToolbarDesktop::UpdateCloseSidePanelButtonIcon() {
       prefs::kSidePanelHorizontalAlignment);
   close_side_panel_button_->SetVectorIcon(
       is_right_aligned                    ? features::IsRoundedIconsEnabled()
-                                                ? kRightPanelCloseIcon
+                                                ? kRightPanelCloseFlippableIcon
                                                 : kRightPanelCloseOldIcon
-      : features::IsRoundedIconsEnabled() ? kLeftPanelCloseIcon
+      : features::IsRoundedIconsEnabled() ? kLeftPanelCloseFlippableIcon
                                           : kLeftPanelCloseOldIcon);
 }
 

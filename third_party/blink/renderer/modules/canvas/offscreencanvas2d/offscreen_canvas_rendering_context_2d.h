@@ -20,7 +20,8 @@
 
 namespace blink {
 
-class CanvasResourceProvider;
+class Canvas2DBitmapProvider;
+class Canvas2DResourceProviderSharedImage;
 class ExceptionState;
 class ExecutionContext;
 class MemoryManagedPaintCanvas;
@@ -63,6 +64,8 @@ class MODULES_EXPORT OffscreenCanvasRenderingContext2D final
   V8OffscreenRenderingContext* AsV8OffscreenRenderingContext() final;
   void Stop() final { NOTREACHED(); }
   scoped_refptr<StaticBitmapImage> GetImage() final;
+  scoped_refptr<StaticBitmapImage> PaintRenderingResultsToSnapshot(
+      SourceDrawingBuffer source_buffer) override;
   void Reset() override;
   // CanvasRenderingContext - ActiveScriptWrappable
   // This method will avoid this class to be garbage collected, as soon as
@@ -83,6 +86,7 @@ class MODULES_EXPORT OffscreenCanvasRenderingContext2D final
   int Height() const final;
 
   bool CanCreateResourceProvider() final;
+  bool Is2DCanvasAccelerated() const override;
 
   // Offscreen canvas doesn't have any notion of image orientation.
   RespectImageOrientationEnum RespectImageOrientation() const final {
@@ -113,12 +117,14 @@ class MODULES_EXPORT OffscreenCanvasRenderingContext2D final
 
   void Trace(Visitor*) const override;
 
-  bool PushFrame() override;
+  scoped_refptr<CanvasResource> GetResourceForPushFrame(
+      bool& should_call_push_frame) override;
 
   CanvasRenderingContextHost* GetCanvasRenderingContextHost() const override;
   ExecutionContext* GetTopExecutionContext() const override;
 
   std::optional<cc::PaintRecord> FlushCanvas(FlushReason) override;
+  base::ByteSize AllocatedBufferSize() const override;
 
  protected:
   OffscreenCanvas* HostAsOffscreenCanvas() const final;
@@ -133,18 +139,16 @@ class MODULES_EXPORT OffscreenCanvasRenderingContext2D final
   bool ResolveFont(const String& new_font) override;
 
  private:
-  CanvasResourceProvider* GetResourceProvider() const override;
   void FinalizeFrame(FlushReason) final;
 
   bool IsPaintable() const final;
 
   scoped_refptr<CanvasResource> ProduceCanvasResource(FlushReason);
 
-  CanvasResourceProvider* GetOrCreateResourceProvider() override;
-  std::unique_ptr<CanvasResourceProvider> ReplaceResourceProvider(
-      std::unique_ptr<CanvasResourceProvider>) override;
+  bool InitializeResourceProvider() override;
 
-  std::unique_ptr<CanvasResourceProvider> resource_provider_;
+  std::unique_ptr<Canvas2DResourceProviderSharedImage> shared_image_provider_;
+  std::unique_ptr<Canvas2DBitmapProvider> bitmap_provider_;
 };
 
 }  // namespace blink

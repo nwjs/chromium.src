@@ -545,7 +545,7 @@ LayoutUnit CalculateIntrinsicMinimumContribution(
       //   To provide a more reasonable default minimum size for grid items,
       //   the used value of its automatic minimum size in a given axis is
       //   the content-based minimum size if all of the following are true:
-      //     - it is not a scroll container
+      //     - it is not a scroll container in that axis
       //     - it spans at least one track in that axis whose min track
       //     sizing function is 'auto'
       //     - if it spans more than one track in that axis, none of those
@@ -554,7 +554,11 @@ LayoutUnit CalculateIntrinsicMinimumContribution(
       //
       // Start by resolving the cases where |min_length| is non-auto or its
       // automatic minimum size should be zero.
-      if (!min_length.HasAuto() || item_style.IsScrollContainer() ||
+      const bool is_track_scroll_container =
+          is_parallel_with_track_direction
+              ? item_style.IsOverflowValueScrollableInline()
+              : item_style.IsOverflowValueScrollableBlock();
+      if (!min_length.HasAuto() || is_track_scroll_container ||
           special_spanning_criteria) {
         // TODO(ikilpatrick): This block needs to respect the aspect-ratio,
         // and apply the transferred min/max sizes when appropriate. We do
@@ -665,6 +669,8 @@ void BuildGridSizingSubtree(const LayoutAlgorithmType& algorithm,
     // Construct grid items that are not subgridded.
     grid_items =
         node.ConstructGridItems(line_resolver, &must_invalidate_placement_cache,
+                                /*parent_is_auto_placed=*/opt_subgrid_data &&
+                                    opt_subgrid_data->is_auto_placed,
                                 opt_oof_children, &has_nested_subgrid);
   }
 
@@ -734,8 +740,20 @@ void BuildGridSizingSubtree(const LayoutAlgorithmType& algorithm,
     const GridLayoutAlgorithm subgrid_algorithm(
         {grid_item.node, fragment_geometry, space});
 
+    // An auto-placed subgrid of a grid-lanes container does not inherit line
+    // names from that container. Line-name inheritance maps the parent's named
+    // lines onto the subgrid using the subgrid's resolved area in the parent,
+    // but an auto-placed item's placement within a grid-lanes container is only
+    // resolved after track sizing, so that area (and thus the mapping) is
+    // unknown when this resolver is built.
+    const bool can_inherit_line_names_from_parent =
+        !(style.IsDisplayGridLanes() && grid_item.is_auto_placed);
+
+    // TODO(almaher): Grid lanes will need to do the same thing once we support
+    // grid lanes subgrids.
     const auto subgrid_line_resolver = subgrid_algorithm.BuildGridLineResolver(
-        SubgriddedAreaInParent(subgridded_item), &line_resolver);
+        SubgriddedAreaInParent(subgridded_item), &line_resolver,
+        can_inherit_line_names_from_parent);
 
     // TODO(almaher): Use the grid lanes algorithm if the subgrid requires it.
     BuildGridSizingSubtree<GridLayoutAlgorithm>(
@@ -929,7 +947,8 @@ GridLayoutTrackCollection* CreateSubgridTrackCollection(
       track_direction,
       is_for_columns_in_parent
           ? subgrid_data->is_opposite_direction_in_root_grid_columns
-          : subgrid_data->is_opposite_direction_in_root_grid_rows);
+          : subgrid_data->is_opposite_direction_in_root_grid_rows,
+      subgrid_data->is_auto_placed);
 }
 
 GridTrackBaselines* CreateSubgridBaselines(
@@ -1080,6 +1099,30 @@ LayoutUnit GetSynthesizedLogicalBaseline(
              : synthesized_baseline;
 }
 
+LayoutUnit LargestAutoPlacedSubgridContribution(LayoutUnit start_extra_margin,
+                                                LayoutUnit end_extra_margin,
+                                                LayoutUnit gutter_delta,
+                                                wtf_size_t subgrid_span_size) {
+  // For span 1 subgrids, both edge margins land in the same track, with no
+  // internal gap possible.
+  if (subgrid_span_size == 1) {
+    return start_extra_margin + end_extra_margin;
+  }
+
+  // For span 2 subgrids, a single internal gap is split between the two tracks,
+  // and each track is also an edge track.
+  const LayoutUnit half_gutter_delta = gutter_delta / 2;
+  if (subgrid_span_size == 2) {
+    return std::max(start_extra_margin + half_gutter_delta,
+                    end_extra_margin + half_gutter_delta);
+  }
+
+  // For all other subgrids, the internal tracks accumulate a full gutter-size
+  // delta, while edge tracks see one edge margin plus half a gutter-size delta.
+  return std::max({start_extra_margin + half_gutter_delta, gutter_delta,
+                   end_extra_margin + half_gutter_delta});
+}
+
 void AccommodateSubgridExtraMargins(const GridSizingSubtree& sizing_subtree,
                                     GridSizingTrackCollection& track_collection,
                                     GridTrackSizingDirection track_direction) {
@@ -1091,9 +1134,6 @@ void AccommodateSubgridExtraMargins(const GridSizingSubtree& sizing_subtree,
       set.IncreaseBaseSize(extra_margin);
     }
   };
-
-  // Lazily built mapping from track index to set index.
-  Vector<wtf_size_t> track_to_set;
 
   for (auto& grid_item :
        sizing_subtree.GetGridItems().IncludeSubgriddedItems()) {
@@ -1131,49 +1171,53 @@ void AccommodateSubgridExtraMargins(const GridSizingSubtree& sizing_subtree,
       std::swap(start_extra_margin, end_extra_margin);
     }
 
+    // Auto-placed subgrids (e.g., children of a grid-lanes container) have
+    // an unresolved position at sizing time, so any track is a candidate
+    // placement. Apply the largest possible per-track contribution to every
+    // track. Note that this will oversize some tracks, but follows the
+    // resolution taken in https://github.com/w3c/csswg-drafts/issues/10926.
     if (grid_item.is_auto_placed) {
-      // The subgrid is auto-placed (e.g., in grid-lanes where placement
-      // happens after track sizing). Walk every possible start track
-      // position and accommodate the sets containing the start and end
-      // tracks.
-      if (track_to_set.empty()) {
-        track_to_set = track_collection.BuildTrackToSetMapping();
+      const auto& subgrid_span = grid_item.Span(track_direction);
+      const wtf_size_t subgrid_span_size =
+          subgrid_span.IsTranslatedDefinite()
+              ? subgrid_span.IntegerSpan()
+              : subgrid_span.IndefiniteSpanSize();
+
+      const LayoutUnit largest_contribution =
+          LargestAutoPlacedSubgridContribution(
+              start_extra_margin, end_extra_margin,
+              subgrid_track_collection.AccumulatedGutterSizeDelta(),
+              subgrid_span_size);
+      if (largest_contribution == LayoutUnit()) {
+        continue;
       }
 
-      const auto& span = grid_item.Span(track_direction);
-      const wtf_size_t line_span = span.IsTranslatedDefinite()
-                                       ? span.IntegerSpan()
-                                       : span.IndefiniteSpanSize();
-
-      // TODO(almaher): This is a bit unfortunate, since we have to walk every
-      // track for every auto placed subgrid. We could optimize this by handling
-      // all of these in the same loop once we exit. However, subgrids in grid
-      // lanes should be relatively rare, so this is likely ok for now.
-      for (wtf_size_t start_track = 0;
-           start_track + line_span <= track_to_set.size(); ++start_track) {
-        const wtf_size_t start_set = track_to_set[start_track];
-        const wtf_size_t end_set = track_to_set[start_track + line_span - 1];
-        if (start_set < end_set) {
-          AccommodateExtraMargin(start_extra_margin, start_set);
-          AccommodateExtraMargin(end_extra_margin, end_set);
-        } else {
-          AccommodateExtraMargin(start_extra_margin + end_extra_margin,
-                                 start_set);
-        }
+      for (wtf_size_t set_index = 0; set_index < track_collection.GetSetCount();
+           ++set_index) {
+        // Multiply the largest contribution by the number of tracks in the set
+        // so that we increase every track as opposed to just the set itself.
+        AccommodateExtraMargin(
+            largest_contribution * track_collection.GetSetTrackCount(set_index),
+            set_index);
       }
+      continue;
+    }
+
+    // The subgrid has a definite position; accommodate its specific edge
+    // sets.
+    //
+    // TODO(almaher): We likely want to include gaps in every track when
+    // we know the position of the subgrid. Update based on the resolution
+    // taken in https://github.com/w3c/csswg-drafts/issues/13983.
+    const auto& set_indices = grid_item.SetIndices(track_direction);
+    const wtf_size_t set_span_size = set_indices.end - set_indices.begin;
+    const wtf_size_t end_position = set_indices.begin + set_span_size - 1;
+    if (set_indices.begin < end_position) {
+      AccommodateExtraMargin(start_extra_margin, set_indices.begin);
+      AccommodateExtraMargin(end_extra_margin, end_position);
     } else {
-      // The subgrid has a definite position; accommodate its specific edge
-      // sets.
-      const auto& set_indices = grid_item.SetIndices(track_direction);
-      const wtf_size_t set_span_size = set_indices.end - set_indices.begin;
-      const wtf_size_t end_position = set_indices.begin + set_span_size - 1;
-      if (set_indices.begin < end_position) {
-        AccommodateExtraMargin(start_extra_margin, set_indices.begin);
-        AccommodateExtraMargin(end_extra_margin, end_position);
-      } else {
-        AccommodateExtraMargin(start_extra_margin + end_extra_margin,
-                               set_indices.begin);
-      }
+      AccommodateExtraMargin(start_extra_margin + end_extra_margin,
+                             set_indices.begin);
     }
   }
 }

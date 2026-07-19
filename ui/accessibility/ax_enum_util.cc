@@ -1290,6 +1290,8 @@ const char* ToString(ax::mojom::StringAttribute string_attribute) {
       return "ariaNotificationAnnouncement";
     case ax::mojom::StringAttribute::kAriaNotificationIdDeprecated:
       return "ariaNotificationId";
+    case ax::mojom::StringAttribute::kCanvasAnnotation:
+      return "canvasAnnotation";
     case ax::mojom::StringAttribute::kCheckedStateDescription:
       return "checkedStateDescription";
     case ax::mojom::StringAttribute::kChildTreeId:
@@ -1334,8 +1336,12 @@ const char* ToString(ax::mojom::StringAttribute string_attribute) {
       return "liveRelevant";
     case ax::mojom::StringAttribute::kLiveStatus:
       return "liveStatus";
+    case ax::mojom::StringAttribute::kMathArg:
+      return "mathArg";
     case ax::mojom::StringAttribute::kMathContent:
       return "mathContent";
+    case ax::mojom::StringAttribute::kMathIntent:
+      return "mathIntent";
     case ax::mojom::StringAttribute::kName:
       return "name";
     case ax::mojom::StringAttribute::kPlaceholder:
@@ -1352,6 +1358,8 @@ const char* ToString(ax::mojom::StringAttribute string_attribute) {
       return "url";
     case ax::mojom::StringAttribute::kValue:
       return "value";
+    case ax::mojom::StringAttribute::kAriaValueText:
+      return "ariaValueText";
     case ax::mojom::StringAttribute::kVirtualContent:
       return "virtualContent";
   }
@@ -1383,6 +1391,8 @@ ax::mojom::StringAttribute StringToStringAttribute(
     return ax::mojom::StringAttribute::kAriaNotificationAnnouncementDeprecated;
   } else if (string_attribute == "kAriaNotificationIdDeprecated") {
     return ax::mojom::StringAttribute::kAriaNotificationIdDeprecated;
+  } else if (string_attribute == "kCanvasAnnotation") {
+    return ax::mojom::StringAttribute::kCanvasAnnotation;
   } else if (string_attribute == "kCheckedStateDescription") {
     return ax::mojom::StringAttribute::kCheckedStateDescription;
   } else if (string_attribute == "kChildTreeId") {
@@ -1425,8 +1435,12 @@ ax::mojom::StringAttribute StringToStringAttribute(
     return ax::mojom::StringAttribute::kLiveRelevant;
   } else if (string_attribute == "kLiveStatus") {
     return ax::mojom::StringAttribute::kLiveStatus;
+  } else if (string_attribute == "kMathArg") {
+    return ax::mojom::StringAttribute::kMathArg;
   } else if (string_attribute == "kMathContent") {
     return ax::mojom::StringAttribute::kMathContent;
+  } else if (string_attribute == "kMathIntent") {
+    return ax::mojom::StringAttribute::kMathIntent;
   } else if (string_attribute == "kName") {
     return ax::mojom::StringAttribute::kName;
   } else if (string_attribute == "kPlaceholder") {
@@ -1442,7 +1456,9 @@ ax::mojom::StringAttribute StringToStringAttribute(
   } else if (string_attribute == "kUrl") {
     return ax::mojom::StringAttribute::kUrl;
   } else if (string_attribute == "kValue") {
-    return ax::mojom::StringAttribute::kUrl;
+    return ax::mojom::StringAttribute::kValue;
+  } else if (string_attribute == "kAriaValueText") {
+    return ax::mojom::StringAttribute::kAriaValueText;
   } else if (string_attribute == "kVirtualContent") {
     return ax::mojom::StringAttribute::kVirtualContent;
   } else {

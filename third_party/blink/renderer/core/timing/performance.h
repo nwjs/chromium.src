@@ -35,6 +35,7 @@
 #include "base/functional/callback_forward.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
+#include "third_party/blink/public/mojom/timing/declarative_performance_observer.mojom-blink.h"
 #include "third_party/blink/public/mojom/timing/resource_timing.mojom-blink-forward.h"
 #include "third_party/blink/public/web/web_performance_metrics_for_reporting.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
@@ -50,13 +51,13 @@
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_linked_hash_set.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/mojo/heap_mojo_remote.h"
 #include "third_party/blink/renderer/platform/timer.h"
 #include "third_party/blink/renderer/platform/wtf/forward.h"
 #include "third_party/blink/renderer/platform/wtf/linked_hash_set.h"
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 #include "v8-local-handle.h"
-
 
 namespace blink {
 
@@ -73,6 +74,7 @@ class Node;
 class PerformanceContainerTiming;
 class PerformanceElementTiming;
 class PerformanceEventTiming;
+class PerformanceScrollTiming;
 class PerformanceMark;
 class PerformanceMarkOptions;
 class PerformanceMeasure;
@@ -216,6 +218,9 @@ class CORE_EXPORT Performance : public EventTarget {
   bool IsElementTimingBufferFull() const;
   void AddToElementTimingBuffer(PerformanceElementTiming&);
 
+  bool IsScrollTimingBufferFull() const;
+  void AddToScrollTimingBuffer(PerformanceScrollTiming&);
+
   bool IsEventTimingBufferFull() const;
   void AddToEventTimingBuffer(PerformanceEventTiming&);
 
@@ -328,6 +333,11 @@ class CORE_EXPORT Performance : public EventTarget {
 
   base::SingleThreadTaskRunner& GetTaskRunner() { return *task_runner_; }
 
+  // Flushes all buffered performance entries and sends them to the browser
+  // process via Mojo IPC. This is called automatically by the timer, or
+  // manually during window destruction and visibility changes.
+  void FlushPerformanceEntries();
+
  private:
   PerformanceMeasure* MeasureInternal(
       ScriptState* script_state,
@@ -407,6 +417,8 @@ class CORE_EXPORT Performance : public EventTarget {
   unsigned container_timing_buffer_max_size_;
   PerformanceEntryVector element_timing_buffer_;
   unsigned element_timing_buffer_max_size_;
+  PerformanceEntryVector scroll_timing_buffer_;
+  unsigned scroll_timing_buffer_max_size_;
   PerformanceEntryVector layout_shift_buffer_;
   PerformanceEntryVector largest_contentful_paint_buffer_;
   PerformanceEntryVector interaction_contentful_paint_buffer_;
@@ -436,11 +448,31 @@ class CORE_EXPORT Performance : public EventTarget {
   // type. Entries are dropped when the buffer from that entry type is full.
   HashMap<PerformanceEntry::EntryType, int> dropped_entries_count_map_;
 
+  // Buffers a performance entry to be sent to the browser. If the flush timer
+  // is not active, it will be started with a 100ms delay.
+  void BufferPerformanceEntry(
+      mojom::blink::DeclarativePerformanceEntryPtr entry);
+
+  // Called when the flush timer fires. Triggers a call to
+  // FlushPerformanceEntries().
+  void PerformanceEntriesFlushTimerFired(TimerBase*);
+
   // See crbug.com/1181774.
   Member<BackgroundTracingHelper> background_tracing_helper_;
 
   // Running counter for LongTask observations.
   size_t long_task_counter_ = 0;
+
+  // Buffered performance entries that are waiting to be flushed to the browser.
+  Vector<mojom::blink::DeclarativePerformanceEntryPtr>
+      batched_performance_entries_;
+
+  // Timer used to throttle and batch IPC messages for observed performance
+  // entries.
+  HeapTaskRunnerTimer<Performance> performance_entries_flush_timer_;
+
+  HeapMojoRemote<mojom::blink::DeclarativePerformanceObserverHost>
+      declarative_performance_observer_host_;
 
   // Telling a document to pause/resume the parser for more optimized task
   // scheduling to priroitize key loading milestones. To explore this idea, the

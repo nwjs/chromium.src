@@ -27,6 +27,7 @@
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/permissions/chip/permission_dashboard_controller.h"
 #include "chrome/browser/ui/views/permissions/chip/permission_dashboard_view.h"
+#include "chrome/browser/ui/window_metadata/window_metadata_controller.h"
 #include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/interactive_test_utils.h"
@@ -291,8 +292,7 @@ class PictureInPictureBrowserFrameViewTest : public WebRtcTestBase,
   void SetUp() override {
     scoped_feature_list_.InitWithFeatures(
         /*enabled_features=*/{blink::features::kDocumentPictureInPictureAPI,
-                              media::kPictureInPictureOcclusionTracking,
-                              media::kPictureInPictureShowWindowAnimation},
+                              media::kPictureInPictureOcclusionTracking},
         /*disabled_features=*/{});
     InProcessBrowserTest::SetUp();
   }
@@ -488,7 +488,7 @@ IN_PROC_BROWSER_TEST_F(PictureInPictureBrowserFrameViewTest,
   // the pip window) should deactivate the title.
   gfx::Point outside = gfx::Point();
   views::View::ConvertPointToScreen(
-      static_cast<BrowserView*>(browser()->window()), &outside);
+      BrowserView::GetBrowserViewForBrowser(browser()), &outside);
   ASSERT_FALSE(IsPointInPIPFrameView(outside));
   ASSERT_TRUE(ui_test_utils::SendMouseMoveSync(outside));
   WaitForTopBarAnimations(
@@ -1121,9 +1121,8 @@ IN_PROC_BROWSER_TEST_F(PictureInPictureBrowserFrameViewTest,
   // The window title for the document picture-in-picture window should use the
   // title from the opener page.
   EXPECT_EQ(u"Document Picture-in-Picture",
-            pip_frame_view()
-                ->GetBrowserView()
-                ->browser()
+            WindowMetadataController::From(
+                pip_frame_view()->GetBrowserView()->browser())
                 ->GetWindowTitleForCurrentTab(
                     /*include_app_name=*/false));
 }
@@ -1314,7 +1313,7 @@ IN_PROC_BROWSER_TEST_P(PictureInPictureBrowserFrameViewTest,
   gfx::Point outside = gfx::Point();
   if (PlatformSupportsScreenCoordinates()) {
     views::View::ConvertPointToScreen(
-        static_cast<BrowserView*>(browser()->window()), &outside);
+        BrowserView::GetBrowserViewForBrowser(browser()), &outside);
     // This check only makes sense in platforms that support global screen
     // coordinates.
     ASSERT_FALSE(IsPointInPIPFrameView(outside));

@@ -215,13 +215,6 @@ public interface ManualFillingComponent extends BackPressHandler {
      */
     void showAccessorySheetTab(@AccessoryTabType int tabType);
 
-    /**
-     * Sets the callback to be executed when the @memory search button is clicked.
-     *
-     * @param callback The {@link Runnable} to be executed.
-     */
-    void setAtMemoryCallback(Runnable callback);
-
     /** Notifies the component that the activity it's living in was resumed. */
     void onResume();
 
@@ -297,6 +290,12 @@ public interface ManualFillingComponent extends BackPressHandler {
      */
     MonotonicObservableSupplier<AccessorySheetVisualStateProvider>
             getAccessorySheetVisualStateProvider();
+
+    /**
+     * Returns a supplier indicating whether the accessory bar or sheet is currently requested to
+     * show.
+     */
+    NonNullObservableSupplier<Boolean> getIsAccessoryRequestedSupplier();
 
     /**
      * Informs the component whether an asynchronous action is pending. If true, the component might

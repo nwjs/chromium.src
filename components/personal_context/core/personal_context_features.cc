@@ -8,39 +8,12 @@
 
 namespace personal_context::features {
 
-BASE_FEATURE(kPersonalContext, base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE_PARAM(bool,
-                   kPersonalContextEnableFetchContext,
-                   &kPersonalContext,
-                   "personal_context_enable_fetch_context",
-                   false);
-
-BASE_FEATURE_PARAM(std::string,
-                   kPersonalContextEligibleTiers,
-                   &kPersonalContext,
-                   "personal_context_eligible_tiers",
-                   "1,2");
-
-BASE_FEATURE_PARAM(
-    std::string,
-    kContextMemoryFetchContextEndpointUrl,
-    &kPersonalContext,
-    "context_memory_fetch_context_endpoint_url",
-    "https://contextmemoryservice-pa.googleapis.com/v1:fetchContext");
-
-BASE_FEATURE(kPersonalContextFirstRun, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kPersonalContext, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPersonalContextFirstRunNoticePhase2,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPersonalContextFirstRunOptIn, base::FEATURE_DISABLED_BY_DEFAULT);
-
-bool IsPersonalContextFirstRunEnabled() {
-  return base::FeatureList::IsEnabled(kPersonalContextFirstRun) ||
-         base::FeatureList::IsEnabled(kPersonalContextFirstRunNoticePhase2) ||
-         base::FeatureList::IsEnabled(kPersonalContextFirstRunOptIn);
-}
 
 bool IsPersonalContextFirstRunNoticePhase2Enabled() {
   return base::FeatureList::IsEnabled(kPersonalContextFirstRunNoticePhase2);

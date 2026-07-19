@@ -176,6 +176,7 @@ PasswordStoreBuiltInBackend::PasswordStoreBuiltInBackend(
     os_crypt_async::OSCryptAsync* os_crypt_async,
     std::unique_ptr<AffiliatedMatchHelper> affiliated_match_helper)
     : affiliated_match_helper_(std::move(affiliated_match_helper)),
+      is_account_store_(IsAccountStore(login_db->is_account_store())),
       pref_service_(prefs),
       os_crypt_async_(os_crypt_async) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -258,8 +259,7 @@ void PasswordStoreBuiltInBackend::InitBackend(
       weak_ptr_factory_.GetWeakPtr(), std::move(remote_form_changes_received),
       std::move(sync_enabled_or_disabled_cb), std::move(completion));
 
-  os_crypt_async_->GetInstance(std::move(init_database_callback),
-                               os_crypt_async::Encryptor::Option::kNone);
+  os_crypt_async_->GetInstance(std::move(init_database_callback));
 }
 
 void PasswordStoreBuiltInBackend::GetAllLoginsAsync(
@@ -433,6 +433,14 @@ PasswordStoreBuiltInBackend::CreateSyncControllerDelegate() {
 void PasswordStoreBuiltInBackend::OnSyncServiceInitialized(
     syncer::SyncService* sync_service) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+#if BUILDFLAG(IS_IOS)
+  // On iOS, the profile store is local-only, so no need to observe sync.
+  // TODO(crbug.com/464228247): Expand this to other platforms.
+  if (!is_account_store_.value()) {
+    return;
+  }
+#endif
+
   sync_observation_.Reset();
   if (sync_service) {
     sync_observation_.Observe(sync_service);
@@ -441,6 +449,13 @@ void PasswordStoreBuiltInBackend::OnSyncServiceInitialized(
 
 void PasswordStoreBuiltInBackend::OnStateChanged(syncer::SyncService* sync) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+#if BUILDFLAG(IS_IOS)
+  // On iOS, sync is not observed for the profile store.
+  if (!is_account_store_.value()) {
+    return;
+  }
+#endif
+
   CHECK(sync_observation_.IsObservingSource(sync));
   if (!base::FeatureList::IsEnabled(
           features::kPasswordStorePropagatesActionableErrors)) {
@@ -459,6 +474,13 @@ void PasswordStoreBuiltInBackend::OnStateChanged(syncer::SyncService* sync) {
 
 void PasswordStoreBuiltInBackend::OnSyncShutdown(syncer::SyncService* sync) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+#if BUILDFLAG(IS_IOS)
+  // On iOS, sync is not observed for the profile store.
+  if (!is_account_store_.value()) {
+    return;
+  }
+#endif
+
   CHECK(sync_observation_.IsObservingSource(sync));
   sync_observation_.Reset();
 }

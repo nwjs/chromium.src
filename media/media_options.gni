@@ -72,6 +72,10 @@ declare_args() {
     media_use_openh264 = false
   }
 
+  # Enable usage of iamf_tools within the media library. Used for software
+  # decoding of the IAMF type content.
+  media_use_iamf_tools = false
+
   # Override to dynamically link the cras (ChromeOS audio) library.
   use_cras = is_chromeos_device
 
@@ -160,6 +164,10 @@ declare_args() {
   enable_passthrough_audio_codecs =
       (enable_platform_ac3_eac3_audio && is_android) ||
       (enable_platform_dts_audio && (is_android || is_win))
+
+  # Enable IAMF audio handling if either platform support or software decoder is
+  # enabled.
+  enable_iamf_audio = enable_platform_iamf_audio || media_use_iamf_tools
 }
 
 declare_args() {
@@ -223,9 +231,9 @@ declare_args() {
     # ASAN and TSAN will occasionally hang during pa_context_connect(), so we
     # disable PulseAudio when these configurations are enabled.
     #
-    # TODO(crbug.com/40636948): We shouldn't have to do this, but it's unclear why
-    # our test bots are hanging and all of the ones that don't hang just fall
-    # back to ALSA after a connection error anyways.
+    # TODO(crbug.com/40636948): We shouldn't have to do this, but it's unclear
+    # why our test bots are hanging and all of the ones that don't hang just
+    # fall back to ALSA after a connection error anyways.
     if (!use_cras && !is_castos && !is_asan && !is_tsan) {
       use_pulseaudio = true
     }
@@ -285,8 +293,25 @@ _default_mojo_media_services = []
 _default_mojo_media_host = ""
 
 if (is_cast_media_device) {
-  _default_mojo_media_services = cast_mojo_media_services
-  _default_mojo_media_host = cast_mojo_media_host
+  if (enable_cast_renderer) {
+    # In this path, mojo media services are hosted in two processes:
+    # 1. "renderer" and "cdm" run in browser process.
+    # 2. "video_decoder" runs in the gpu process.
+    _default_mojo_media_services = [
+      "cdm",
+      "renderer",
+      "video_decoder",
+    ]
+  } else {
+    # On Cast Receiver on Android, all the enabled mojo media services run in
+    # the gpu process.
+    _default_mojo_media_services = [
+      "cdm",
+      "audio_decoder",
+      "video_decoder",
+    ]
+  }
+  _default_mojo_media_host = "gpu"
 } else if (is_android) {
   _default_mojo_media_services = [
     "cdm",

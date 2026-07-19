@@ -2,9 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import {isMac} from 'chrome://resources/js/platform.js';
 import {MenuSourceType} from 'chrome://resources/mojo/ui/base/mojom/menu_source_type.mojom-webui.js';
-import {assertEquals} from 'chrome://webui-test/chai_assert.js';
-import {getClickSourceType, getContextMenuSourceType} from 'chrome://webui-toolbar.top-chrome/app.js';
+import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {getClickSourceType, getContextMenuSourceType, PressHandler} from 'chrome://webui-toolbar.top-chrome/app.js';
 
 suite('ToolbarButtonTest', function() {
   test('GetClickSourceType', function() {
@@ -88,5 +89,189 @@ suite('ToolbarButtonTest', function() {
     assertEquals(
         MenuSourceType.kMouse,
         getContextMenuSourceType(new MouseEvent('contextmenu', {button: 2})));
+  });
+
+  const TARGET_SIZE = 100;
+  const TARGET_MIDDLE = TARGET_SIZE / 2;
+
+  // Creates a mock HTMLElement with a predefined bounding client rect.
+  // This is used to test click coordinates and check if they are within bounds.
+  function createMockTarget(): HTMLElement {
+    const target = document.createElement('div');
+    target.getBoundingClientRect = () => {
+      return {
+        x: 0,
+        y: 0,
+        width: TARGET_SIZE,
+        height: TARGET_SIZE,
+        top: 0,
+        right: TARGET_SIZE,
+        bottom: TARGET_SIZE,
+        left: 0,
+        toJSON: () => {},
+      };
+    };
+    return target;
+  }
+
+  // Dispatches a PointerEvent (pointerdown or pointerup) targeting the mock
+  // element with coordinates pointing to its center.
+  function dispatchPointerEvent(
+      handler: PressHandler, eventType: 'pointerdown'|'pointerup',
+      target: HTMLElement, pointerId: number, ctrlKey: boolean = false) {
+    const event = new PointerEvent(eventType, {
+      bubbles: true,
+      cancelable: true,
+      pointerId,
+      button: 0,
+      ctrlKey,
+      clientX: TARGET_MIDDLE,
+      clientY: TARGET_MIDDLE,
+    });
+    Object.defineProperty(
+        event, 'currentTarget', {value: target, writable: false});
+    if (eventType === 'pointerdown') {
+      handler.onPointerdown(event);
+    } else {
+      handler.onPointerup(event);
+    }
+  }
+
+  let shortPressCount: number;
+  let longPressCount: number;
+  let handler: PressHandler;
+  let target: HTMLElement;
+
+  setup(() => {
+    shortPressCount = 0;
+    longPressCount = 0;
+    handler = new PressHandler(
+        (_source) => {
+          longPressCount++;
+        },
+        (_e) => {
+          shortPressCount++;
+        });
+    target = createMockTarget();
+  });
+
+  function simulateClick(pointerId: number = 1) {
+    dispatchPointerEvent(handler, 'pointerdown', target, pointerId);
+    dispatchPointerEvent(handler, 'pointerup', target, pointerId);
+  }
+
+  // Tests a standard mouse click where pointer capture is successful.
+  // The click should successfully trigger the short press callback.
+  test('PressHandlerNormalClick', function() {
+    let hasCapture = false;
+    target.setPointerCapture = (_id) => {
+      hasCapture = true;
+    };
+    target.hasPointerCapture = (_id) => hasCapture;
+
+    simulateClick();
+
+    assertEquals(1, shortPressCount);
+    assertEquals(0, longPressCount);
+  });
+
+  // Tests synthetic mouse clicks from screen readers where pointer capture
+  // fails (e.g. because there's no physical pointer to capture).
+  // The press handler should detect the capture failure on pointerdown
+  // and still trigger the short press on pointerup.
+  test('PressHandlerScreenReaderSyntheticClick', function() {
+    target.setPointerCapture = (_id) => {};
+    target.hasPointerCapture = (_id) => false;
+
+    simulateClick();
+
+    assertEquals(1, shortPressCount);
+    assertEquals(0, longPressCount);
+  });
+
+  // Tests the case where pointer capture is successfully acquired but later
+  // lost before the pointerup event occurs (e.g. by another element capturing).
+  // In this case, the short press callback should NOT trigger.
+  test('PressHandlerClickWithoutCapture', function() {
+    let hasCapture = false;
+    target.setPointerCapture = (_id) => {
+      hasCapture = true;
+    };
+    target.hasPointerCapture = (_id) => hasCapture;
+
+    dispatchPointerEvent(handler, 'pointerdown', target, 1);
+    hasCapture = false;  // Lose capture
+    dispatchPointerEvent(handler, 'pointerup', target, 1);
+
+    assertEquals(0, shortPressCount);
+    assertEquals(0, longPressCount);
+  });
+
+  // Tests that on Mac, a Ctrl+LeftClick bypasses pointer capture and standard
+  // short press logic, delegating to the native contextmenu event instead.
+  test('PressHandlerMacCtrlLeftClick', function() {
+    if (!isMac) {
+      return;
+    }
+
+    let hasCapture = false;
+    target.setPointerCapture = (_id) => {
+      hasCapture = true;
+    };
+    target.hasPointerCapture = (_id) => hasCapture;
+
+    dispatchPointerEvent(handler, 'pointerdown', target, 1, /*ctrlKey=*/ true);
+
+    // On Mac, pointer capture should be bypassed.
+    assertFalse(hasCapture);
+
+    // Simulate the native contextmenu event that fires immediately after.
+    const contextMenuEvent = new PointerEvent('contextmenu', {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      ctrlKey: true,
+      clientX: TARGET_MIDDLE,
+      clientY: TARGET_MIDDLE,
+    });
+    Object.defineProperty(
+        contextMenuEvent, 'currentTarget', {value: target, writable: false});
+    handler.onContextmenu(contextMenuEvent);
+
+    // Long press should be triggered by contextmenu.
+    assertEquals(0, shortPressCount);
+    assertEquals(1, longPressCount);
+
+    dispatchPointerEvent(handler, 'pointerup', target, 1, /*ctrlKey=*/ true);
+
+    // Short press should NOT be triggered.
+    assertEquals(0, shortPressCount);
+    assertEquals(1, longPressCount);
+  });
+
+  // Tests that on non-Mac platforms, a Ctrl+LeftClick is treated as a normal
+  // click that captures the pointer and triggers a short press (e.g., Hard
+  // Reload for reload button).
+  test('PressHandlerNonMacCtrlLeftClick', function() {
+    if (isMac) {
+      return;
+    }
+
+    let hasCapture = false;
+    target.setPointerCapture = (_id) => {
+      hasCapture = true;
+    };
+    target.hasPointerCapture = (_id) => hasCapture;
+
+    dispatchPointerEvent(handler, 'pointerdown', target, 1, /*ctrlKey=*/ true);
+
+    // On non-Mac, it should be captured normally.
+    assertTrue(hasCapture);
+
+    dispatchPointerEvent(handler, 'pointerup', target, 1, /*ctrlKey=*/ true);
+
+    // Short press should be triggered.
+    assertEquals(1, shortPressCount);
+    assertEquals(0, longPressCount);
   });
 });

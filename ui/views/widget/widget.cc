@@ -301,16 +301,23 @@ Widget::~Widget() {
       native_widget_->ClientDestroyedWidget();
     }
 
-    HandleWidgetDestroying();
+    if (!widget_destroying_handled_) {
+      HandleWidgetDestroying();
+    }
     if (native_widget_) {
       native_widget_->Close();
     }
 
-    HandleWidgetDestroyed();
+    if (!native_widget_destroyed_) {
+      HandleWidgetDestroyed();
+    }
     if (widget_delegate_) {
       widget_delegate_->WidgetDestroying();
     }
   }
+
+  CHECK(widget_destroying_handled_);
+  CHECK(native_widget_destroyed_);
 
   RemoveObserver(&root_view_->GetViewAccessibility());
   // Destroy RootView after the native widget, so in case the WidgetDelegate is
@@ -2855,9 +2862,9 @@ void Widget::HandleShowRequested() {
 }
 
 void Widget::HandleWidgetDestroying() {
-  if (native_widget_destroyed_) {
-    return;
-  }
+  CHECK(!native_widget_destroyed_);
+  CHECK(!widget_destroying_handled_);
+  widget_destroying_handled_ = true;
   ClearFocusManagerFromWidget();
   if (parent_) {
     parent_->OnChildRemoved(this);
@@ -2872,6 +2879,7 @@ void Widget::HandleWidgetDestroying() {
 }
 
 void Widget::HandleWidgetDestroyed() {
+  CHECK(widget_destroying_handled_);
   if (native_widget_destroyed_) {
     return;
   }

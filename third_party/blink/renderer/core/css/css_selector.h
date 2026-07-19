@@ -183,6 +183,8 @@ class CORE_EXPORT CSSSelector {
   unsigned Specificity() const;
   // Returns specificity components in decreasing order of significance.
   std::array<uint8_t, 3> SpecificityTuple() const;
+  // Returns specificity components for this single simple selector.
+  std::array<uint8_t, 3> SimpleSelectorSpecificityTuple() const;
 
   enum RelationType {
     // No combinator. Used between simple selectors within the same compound.
@@ -322,12 +324,15 @@ class CORE_EXPORT CSSSelector {
     kPseudoSearchText,
     kPseudoPickerIcon,
     kPseudoPicker,
+    kPseudoSelectListbox,
+    kPseudoSelectContainsInput,
     kPseudoSelectHasSlottedButton,
     kPseudoSelection,
     kPseudoSingleButton,
     kPseudoStart,
     kPseudoState,
     kPseudoTarget,
+    kPseudoTriggerLink,
     kPseudoTextField,
     kPseudoToolFormActive,
     kPseudoToolSubmitActive,
@@ -368,6 +373,7 @@ class CORE_EXPORT CSSSelector {
     kPseudoGrammarError,
     kPseudoHas,
     kPseudoHasDatalist,
+    kPseudoHasOpenMenuitem,
     kPseudoHighlight,
     kPseudoHost,
     kPseudoHostContext,
@@ -386,7 +392,7 @@ class CORE_EXPORT CSSSelector {
     kPseudoSpatialNavigationFocus,
     kPseudoSpellingError,
     kPseudoTargetText,
-    kPseudoUnboundedElementInactive,
+    kPseudoUnbounded,
     kPseudoVideoPersistent,
     kPseudoVideoPersistentAncestor,
 
@@ -414,8 +420,8 @@ class CORE_EXPORT CSSSelector {
     kPseudoScrollButton,
 
     // Overscroll gesture support.
-    kPseudoOverscrollTarget,
     kPseudoOverscrollAreaParent,
+    kPseudoOverscrollBackdrop,
     kPseudoOverscrollOpen,
 
     // :link-to(<route-location>)
@@ -546,6 +552,15 @@ class CORE_EXPORT CSSSelector {
     }
     return data_.rare_data_->active_navigation_condition_.Get();
   }
+  unsigned NthAValue() const {
+    CHECK_EQ(GetPseudoType(), kPseudoNthChild);
+    return data_.rare_data_->NthAValue();
+  }
+  unsigned NthBValue() const {
+    CHECK_EQ(GetPseudoType(), kPseudoNthChild);
+    return data_.rare_data_->NthBValue();
+  }
+
   // Similar to SelectorList(), but also works for kPseudoParent
   // (i.e., nested selectors); on &, will give the parent's selector list.
   // Will return nullptr if no such list exists (e.g. if we are not a

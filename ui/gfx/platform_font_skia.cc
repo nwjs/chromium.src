@@ -328,7 +328,16 @@ int PlatformFontSkia::GetFontSize() const {
 const FontRenderParams& PlatformFontSkia::GetFontRenderParams() {
   TRACE_EVENT0("fonts", "PlatformFontSkia::GetFontRenderParams");
   float current_scale_factor = GetFontRenderParamsDeviceScaleFactor();
-  if (current_scale_factor != device_scale_factor_) {
+  bool force_query = false;
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+  const bool current_subpixel_rendering_enabled =
+      gfx::GetFontRenderParamsSubpixelRenderingEnabled();
+  if (current_subpixel_rendering_enabled != subpixel_rendering_enabled_) {
+    force_query = true;
+  }
+#endif
+
+  if (current_scale_factor != device_scale_factor_ || force_query) {
     FontRenderParamsQuery query;
     query.families.push_back(font_family_);
     query.pixel_size = font_size_pixels_;
@@ -337,6 +346,9 @@ const FontRenderParams& PlatformFontSkia::GetFontRenderParams() {
     query.device_scale_factor = current_scale_factor;
     font_render_params_ = gfx::GetFontRenderParams(query, nullptr);
     device_scale_factor_ = current_scale_factor;
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+    subpixel_rendering_enabled_ = current_subpixel_rendering_enabled;
+#endif
   }
   return font_render_params_;
 }
@@ -382,21 +394,30 @@ void PlatformFontSkia::InitFromDetails(sk_sp<SkTypeface> typeface,
     return;
   }
 
+  set_typeface_unique_id(typeface_->uniqueID());
   font_size_pixels_ = font_size_pixels;
   style_ = style;
   weight_ = weight;
   device_scale_factor_ = GetFontRenderParamsDeviceScaleFactor();
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+  subpixel_rendering_enabled_ =
+      gfx::GetFontRenderParamsSubpixelRenderingEnabled();
+#endif
   font_render_params_ = render_params;
 }
 
 void PlatformFontSkia::InitFromPlatformFont(const PlatformFontSkia* other) {
   TRACE_EVENT0("fonts", "PlatformFontSkia::InitFromPlatformFont");
   typeface_ = other->typeface_;
+  set_typeface_unique_id(other->typeface_unique_id());
   font_family_ = other->font_family_;
   font_size_pixels_ = other->font_size_pixels_;
   style_ = other->style_;
   weight_ = other->weight_;
   device_scale_factor_ = other->device_scale_factor_;
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+  subpixel_rendering_enabled_ = other->subpixel_rendering_enabled_;
+#endif
   font_render_params_ = other->font_render_params_;
 
   if (!other->metrics_need_computation_) {

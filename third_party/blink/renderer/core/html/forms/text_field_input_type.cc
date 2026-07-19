@@ -34,6 +34,7 @@
 #include "third_party/blink/renderer/core/accessibility/scoped_blink_ax_event_intent.h"
 #include "third_party/blink/renderer/core/css_value_keywords.h"
 #include "third_party/blink/renderer/core/dom/events/event_dispatch_forbidden_scope.h"
+#include "third_party/blink/renderer/core/dom/events/scoped_event_queue.h"
 #include "third_party/blink/renderer/core/dom/focus_params.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/editing/frame_selection.h"
@@ -42,6 +43,7 @@
 #include "third_party/blink/renderer/core/events/keyboard_event.h"
 #include "third_party/blink/renderer/core/events/mouse_event.h"
 #include "third_party/blink/renderer/core/events/text_event.h"
+#include "third_party/blink/renderer/core/frame/event_handler_registry.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/html/forms/html_data_list_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
@@ -400,6 +402,7 @@ void TextFieldInputType::HandleBlurEvent() {
   input.EndEditing();
   if (SpinButtonElement* spin_button = GetSpinButtonElement())
     spin_button->ReleaseCapture();
+  UpdateWheelEventRegistration(/*is_detaching=*/false);
 
   if (input.IsBaseAppearanceCombobox()) {
     auto* datalist = input.DataList();
@@ -515,6 +518,7 @@ void TextFieldInputType::DestroyShadowSubtree() {
   InputTypeView::DestroyShadowSubtree();
   if (SpinButtonElement* spin_button = GetSpinButtonElement())
     spin_button->RemoveSpinButtonOwner();
+  UpdateWheelEventRegistration(/*is_detaching=*/false);
 }
 
 void TextFieldInputType::ListAttributeTargetChanged() {
@@ -568,23 +572,35 @@ void TextFieldInputType::ValueAttributeChanged() {
   UpdateView();
 }
 
-void TextFieldInputType::DisabledOrReadonlyAttributeChanged() {
-  if (SpinButtonElement* spin_button = GetSpinButtonElement())
-    spin_button->ReleaseCapture();
+void TextFieldInputType::DisabledOrReadonlyAttributeChanged(
+    DisabledChangedReason reason) {
+  if (SpinButtonElement* spin_button = GetSpinButtonElement()) {
+    bool avoid_dispatch =
+        RuntimeEnabledFeatures::
+            DisableFormControlChangeEventDuringMutationEnabled() &&
+        (GetElement().GetDocument().StatePreservingAtomicMoveInProgress() ||
+         reason == DisabledChangedReason::kFieldsetChildrenChanged);
+    SpinButtonElement::EventDispatch dispatch =
+        avoid_dispatch ? SpinButtonElement::kEventDispatchDisallowed
+                       : SpinButtonElement::kEventDispatchAllowed;
+    spin_button->ReleaseCapture(dispatch);
+  }
+  UpdateWheelEventRegistration(/*is_detaching=*/false);
 }
 
-void TextFieldInputType::DisabledAttributeChanged() {
+void TextFieldInputType::DisabledAttributeChanged(
+    DisabledChangedReason reason) {
   if (!HasCreatedShadowSubtree()) {
     return;
   }
-  DisabledOrReadonlyAttributeChanged();
+  DisabledOrReadonlyAttributeChanged(reason);
 }
 
 void TextFieldInputType::ReadonlyAttributeChanged() {
   if (!HasCreatedShadowSubtree()) {
     return;
   }
-  DisabledOrReadonlyAttributeChanged();
+  DisabledOrReadonlyAttributeChanged(DisabledChangedReason::kAttributeChanged);
 }
 
 bool TextFieldInputType::SupportsReadOnly() const {
@@ -853,6 +869,7 @@ void TextFieldInputType::HandleFocusInEvent(
     // already doing for the list attribute in order to remove the
     // :active-option pseudo.
   }
+  UpdateWheelEventRegistration(/*is_detaching=*/false);
 }
 
 namespace {
@@ -910,6 +927,35 @@ bool TextFieldInputType::SupportsBaseAppearance(
     return false;
   }
   return value == Element::BaseAppearanceValue::kBase;
+}
+
+void TextFieldInputType::UpdateWheelEventRegistration(bool is_detaching) {
+  auto* frame = GetElement().GetDocument().GetFrame();
+  if (!frame) {
+    return;
+  }
+  bool should_register = !is_detaching && GetSpinButtonElement() &&
+                         GetElement().GetLayoutObject() &&
+                         ShouldSpinButtonRespondToWheelEvents();
+  if (should_register && !has_registered_wheel_event_handler_) {
+    frame->GetEventHandlerRegistry().DidAddEventHandler(
+        GetElement(), EventHandlerRegistry::kWheelEventBlocking);
+    has_registered_wheel_event_handler_ = true;
+  } else if (!should_register && has_registered_wheel_event_handler_) {
+    frame->GetEventHandlerRegistry().DidRemoveEventHandler(
+        GetElement(), EventHandlerRegistry::kWheelEventBlocking);
+    has_registered_wheel_event_handler_ = false;
+  }
+}
+
+void TextFieldInputType::OnAttachWithLayoutObject() {
+  InputType::OnAttachWithLayoutObject();
+  UpdateWheelEventRegistration(/*is_detaching=*/false);
+}
+
+void TextFieldInputType::OnDetachWithLayoutObject() {
+  UpdateWheelEventRegistration(/*is_detaching=*/true);
+  InputType::OnDetachWithLayoutObject();
 }
 
 }  // namespace blink

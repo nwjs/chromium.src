@@ -10,11 +10,17 @@
 #import "base/memory/raw_ptr.h"
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
+#import "base/strings/string_util.h"
+#import "components/country_codes/country_codes.h"
+#import "components/omnibox/browser/aim_eligibility_service.h"
 #import "components/policy/core/common/policy_pref_names.h"
 #import "components/prefs/ios/pref_observer_bridge.h"
 #import "components/prefs/pref_change_registrar.h"
+#import "components/regional_capabilities/regional_capabilities_service.h"
+#import "components/search/search.h"
 #import "components/signin/public/base/signin_metrics.h"
 #import "components/signin/public/identity_manager/objc/identity_manager_observer_bridge.h"
+#import "components/variations/service/variations_service.h"
 #import "ios/chrome/browser/app_bar/ui/app_bar_consumer.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
 #import "ios/chrome/browser/cobrowse/model/cobrowse_context.h"
@@ -27,11 +33,16 @@
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_browser_agent.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_browser_agent_observer_bridge.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service.h"
+#import "ios/chrome/browser/intelligence/bwg/model/gemini_service_observer_bridge.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_entry_flow_result.h"
+#import "ios/chrome/browser/intelligence/bwg/utils/gemini_prefs.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/intents/model/intents_donation_helper.h"
+#import "ios/chrome/browser/lens/ui_bundled/lens_availability.h"
 #import "ios/chrome/browser/lens/ui_bundled/lens_entrypoint.h"
+#import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
+#import "ios/chrome/browser/ntp/model/new_tab_page_util.h"
 #import "ios/chrome/browser/policy/model/policy_util.h"
 #import "ios/chrome/browser/search_engines/model/search_engine_observer_bridge.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/incognito_state.h"
@@ -42,8 +53,8 @@
 #import "ios/chrome/browser/shared/model/web_state_list/tab_group_utils.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list_observer_bridge.h"
-#import "ios/chrome/browser/shared/public/commands/bwg_commands.h"
 #import "ios/chrome/browser/shared/public/commands/fullscreen_commands.h"
+#import "ios/chrome/browser/shared/public/commands/gemini_commands.h"
 #import "ios/chrome/browser/shared/public/commands/lens_commands.h"
 #import "ios/chrome/browser/shared/public/commands/open_lens_input_selection_command.h"
 #import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
@@ -65,16 +76,20 @@
 #import "url/gurl.h"
 
 @interface AppBarMediator () <GeminiBrowserAgentObserving,
+                              GeminiServiceObserving,
                               IdentityManagerObserverBridgeDelegate,
                               IncognitoStateObserver,
                               PrefObserverDelegate,
                               SearchEngineObserving,
-                              TabGridStateObserver,
+                              TabGridStateObserving,
                               ToolbarButtonMenuFactoryDelegate,
                               WebStateListObserving>
 
 // The web state list currently observed by this mediator.
 @property(nonatomic, assign) WebStateList* currentWebStateList;
+
+// Override Lens availability for testing.
+@property(nonatomic, assign) BOOL overrideLensAvailabilityForTesting;
 
 // The TabGroup currently visible.
 @property(nonatomic, assign) const TabGroup* currentTabGroup;
@@ -101,6 +116,7 @@
   std::unique_ptr<signin::IdentityManagerObserverBridge>
       _identityManagerObserver;
   raw_ptr<GeminiService> _geminiService;
+  std::unique_ptr<GeminiServiceObserverBridge> _geminiServiceObserver;
   raw_ptr<GeminiBrowserAgent> _geminiBrowserAgent;
   std::unique_ptr<GeminiBrowserAgentObserverBridge> _geminiObserver;
   raw_ptr<UrlLoadingBrowserAgent> _URLLoader;
@@ -167,6 +183,10 @@
     }
 
     _geminiService = geminiService;
+    if (_geminiService) {
+      _geminiServiceObserver =
+          std::make_unique<GeminiServiceObserverBridge>(self, _geminiService);
+    }
     _geminiBrowserAgent = geminiBrowserAgent;
     if (_geminiBrowserAgent) {
       _geminiObserver = std::make_unique<GeminiBrowserAgentObserverBridge>(
@@ -313,6 +333,7 @@
   _incognitoFullscreenBrowserAgent = nullptr;
   _regularFullscreenHandler = nil;
   _incognitoFullscreenHandler = nil;
+  _lensHandler = nil;
   [_tabGridState removeObserver:self];
   [_incognitoState removeObserver:self];
   _observerBridge.reset();
@@ -325,6 +346,7 @@
   _templateURLService = nullptr;
   _authenticationService = nullptr;
   _geminiService = nullptr;
+  _geminiServiceObserver.reset();
   _geminiBrowserAgent = nullptr;
   _geminiObserver.reset();
   _URLLoader = nullptr;
@@ -413,7 +435,7 @@
   [self didUpdateAuthenticationRequirementForState:incognitoState];
 }
 
-#pragma mark - TabGridStateObserver
+#pragma mark - TabGridStateObserving
 
 - (void)willEnterTabGrid {
   _currentPage = _tabGridState.currentPage;
@@ -545,6 +567,16 @@
       [self.sceneHandler showAssistant];
       break;
     }
+    case AppBarAssistantButtonState::kLens: {
+      OpenLensInputSelectionCommand* command =
+          [[OpenLensInputSelectionCommand alloc]
+                  initWithEntryPoint:LensEntrypoint::AppBar
+                   presentationStyle:LensInputSelectionPresentationStyle::
+                                         SlideFromRight
+              presentationCompletion:nil];
+      [self.lensHandler openLensInputSelection:command];
+      break;
+    }
     case AppBarAssistantButtonState::kAccount:
       if (_authenticationService->HasPrimaryIdentity()) {
         [self.delegate showAccountMenu:sender];
@@ -584,6 +616,12 @@
   [self updateAssistantButton];
 }
 
+#pragma mark - GeminiServiceObserving
+
+- (void)geminiEligibilityDidChange {
+  [self updateAssistantButton];
+}
+
 #pragma mark - Properties
 
 - (void)setCurrentWebStateList:(WebStateList*)currentWebStateList {
@@ -619,6 +657,17 @@
   if (!self.consumer || !self.currentWebStateList) {
     return;
   }
+
+  web::WebState* activeWebState = self.currentWebStateList->GetActiveWebState();
+  BOOL isNtp = activeWebState && IsVisibleURLNewTabPage(activeWebState);
+  BOOL isStartSurface = NO;
+  if (isNtp) {
+    NewTabPageTabHelper* NTPHelper =
+        NewTabPageTabHelper::FromWebState(activeWebState);
+    isStartSurface = NTPHelper && NTPHelper->ShouldShowStartSurface();
+  }
+  [self.consumer setNTPVisible:isNtp isStartSurface:isStartSurface];
+
   NSUInteger tabCount;
 
   // Determine the tab count to display in the tab grid button.
@@ -691,10 +740,43 @@
 // Updates the consumer with the latest state of the assistant button.
 - (void)updateAssistantButton {
   AppBarAssistantButtonState state = AppBarAssistantButtonState::kAccount;
-  if (IsPageActionMenuEnabled()) {
+  BOOL geminiAllowed = NO;
+  if (_geminiService) {
+    geminiAllowed = _geminiService->IsProfileEligibleForGemini();
+    if (!geminiAllowed && _authenticationService &&
+        !_authenticationService->HasPrimaryIdentity()) {
+      // If the profile is ineligible, it might be just because the user is
+      // signed out. We still want to show the Gemini button (disabled) for
+      // signed-out users to encourage sign-in, unless a local enterprise
+      // policy explicitly disables it.
+      geminiAllowed = gemini::GeminiAllowedByPolicy(_prefService);
+    }
+  }
+  BOOL useLens = _overrideLensAvailabilityForTesting;
+  if (!useLens) {
+    useLens = lens_availability::CheckAvailabilityForLensEntryPoint(
+        LensEntrypoint::AppBar,
+        search::DefaultSearchProviderIsGoogle(_templateURLService));
+  }
+
+  BOOL isEEAOrJapan = NO;
+  variations::VariationsService* variationsService =
+      GetApplicationContext()->GetVariationsService();
+  if (variationsService) {
+    country_codes::CountryId countryId(
+        base::ToUpperASCII(variationsService->GetStoredPermanentCountry()));
+    isEEAOrJapan = regional_capabilities::RegionalCapabilitiesService::
+                       IsInAnySearchEngineChoiceScreenRegion(countryId) ||
+                   countryId == country_codes::CountryId("JP");
+  }
+
+  if (IsPageActionMenuEnabled() && geminiAllowed && !isEEAOrJapan) {
     state = AppBarAssistantButtonState::kAsk;
-  } else if (IsAimCobrowseEnabled() && IsAssistantContainerEnabled()) {
+  } else if (IsAimCobrowseEnabled() && IsAssistantContainerEnabled() &&
+             AimEligibilityService::IsAimAllowedByPolicy(_prefService)) {
     state = AppBarAssistantButtonState::kAIM;
+  } else if (useLens) {
+    state = AppBarAssistantButtonState::kLens;
   }
 
   BOOL highlighted = NO;

@@ -15,10 +15,6 @@
 #include "gpu/config/gpu_finch_features.h"
 #include "ui/gl/buildflags.h"
 
-#if BUILDFLAG(IS_MAC)
-#include "base/mac/mac_util.h"
-#endif
-
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/android_info.h"
 #endif
@@ -59,20 +55,19 @@ const base::FeatureParam<std::string> kAdapterBlockList{
     "4d4f4351:36334330:*31.0.110.*|4d4f4351:36334330:*31.0.111.*|"
     "4d4f4351:36334330:*31.0.112.*|4d4f4351:36334330:*31.0.113.*|"
     "4d4f4351:36334330:*31.0.114.*|4d4f4351:36334330:*31.0.115.*|"
-    "4d4f4351:36334330:*31.0.116.*"};
+    "4d4f4351:36334330:*31.0.116.*|"
+
+    // ImgTec driver version 25.1 is known to have significant issues.
+    // Additionally, it appears some of ImgTec devices may not report the vendor
+    // ID, so match against "PowerVR" in the driver string instead.
+
+    "*:*:PowerVR*25.1*"};
 #endif  // BUILDFLAG(USE_DAWN)
 
 WebGPUBlocklistReason GetWebGPUAdapterBlocklistReason(
     const wgpu::AdapterInfo& info,
     const WebGPUBlocklistOptions& options) {
   WebGPUBlocklistReason reason = WebGPUBlocklistReason::None;
-#if BUILDFLAG(IS_MAC)
-  constexpr uint32_t kAMDVendorID = 0x1002;
-  if (base::mac::MacOSMajorVersion() < 13 && info.vendorID == kAMDVendorID &&
-      info.backendType == wgpu::BackendType::Metal) {
-    reason = reason | WebGPUBlocklistReason::DynamicArrayIndexInStruct;
-  }
-#endif
 
 #if BUILDFLAG(IS_WIN)
   constexpr uint32_t kAMDVendorID = 0x1002;
@@ -238,6 +233,12 @@ WebGPUBlocklistReason GetWebGPUAdapterBlocklistReason(
     } else {
       reason = reason | WebGPUBlocklistReason::StringPatternOther;
     }
+#elif BUILDFLAG(IS_ANDROID)
+    if (info.vendorID == kImgTecVendorID) {
+      reason = reason | WebGPUBlocklistReason::StringPatternImgTec;
+    } else {
+      reason = reason | WebGPUBlocklistReason::StringPatternOther;
+    }
 #else
     reason = reason | WebGPUBlocklistReason::StringPatternOther;
 #endif
@@ -252,7 +253,7 @@ std::string BlocklistReasonToString(WebGPUBlocklistReason reason) {
   std::string result;
   bool first = true;
   static constexpr std::array<
-      std::pair<WebGPUBlocklistReason, std::string_view>, 11>
+      std::pair<WebGPUBlocklistReason, std::string_view>, 12>
       kKnownReasons = {{
           {WebGPUBlocklistReason::Consteval22ndBit,
            "crbug.com/42250788: Invalid consteval interpretation of 22nd bit "
@@ -273,9 +274,6 @@ std::string BlocklistReasonToString(WebGPUBlocklistReason reason) {
           {WebGPUBlocklistReason::IndirectComputeRootConstants,
            "crbug.com/42240193: Indirect root constants in compute pass "
            "broken on Windows NVIDIA x86."},
-          {WebGPUBlocklistReason::DynamicArrayIndexInStruct,
-           "crbug.com/40643701: Metal compiler errors for dynamic indexing "
-           "of arrays in structures."},
           {WebGPUBlocklistReason::StringPatternOther,
            "Blocklisted by vendor/device/driver string pattern."},
           {WebGPUBlocklistReason::QualcommWindows,
@@ -284,6 +282,9 @@ std::string BlocklistReasonToString(WebGPUBlocklistReason reason) {
           {WebGPUBlocklistReason::StringPatternQualcommWindows,
            "Blocklisted by vendor/device/driver string pattern on Qualcomm "
            "Windows."},
+          {WebGPUBlocklistReason::StringPatternImgTec,
+           "crbug.com/520126488: Blocklisted by vendor/device/driver string "
+           "pattern on Img Tec."},
       }};
   for (const auto& [flag, description] : kKnownReasons) {
     if ((reason & flag) != flag) {

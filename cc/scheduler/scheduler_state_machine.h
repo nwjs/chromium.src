@@ -380,7 +380,6 @@ class CC_EXPORT SchedulerStateMachine {
     waiting_for_scroll_event_ = waiting_for_scroll_event;
   }
 
-  void SetShouldThrottleFrameRate(bool flag);
   void SetRequestHighFramerate(bool flag);
 
  protected:
@@ -424,6 +423,8 @@ class CC_EXPORT SchedulerStateMachine {
   void WillDrawInternal();
   void WillPerformImplSideInvalidationInternal();
   void DidDrawInternal(DrawResult draw_result);
+  void UpdateConsecutiveNoDamageThrottlingInterval();
+  bool DisableThrottlingDueToHighFramerateRequests() const;
 
   const SchedulerSettings settings_;
 
@@ -452,6 +453,7 @@ class CC_EXPORT SchedulerStateMachine {
   base::TimeTicks last_sent_begin_main_frame_time_;
   base::TimeDelta main_frame_throttled_interval_;
   base::TimeDelta unthrottled_frame_interval_;
+  base::TimeDelta main_frame_consecutive_no_damage_throttled_interval_;
 
   // Inputs from the last impl frame that are required for decisions made in
   // this impl frame. The values from the last frame are cached before being
@@ -473,6 +475,11 @@ class CC_EXPORT SchedulerStateMachine {
   bool did_prepare_tiles_ = false;
 
   int consecutive_checkerboard_animations_ = 0;
+  int consecutive_no_damage_main_frames_ = 0;
+  const int repeated_no_damage_frame_throttling_threshold1_;
+  const int repeated_no_damage_frame_throttling_threshold2_;
+  const int repeated_no_damage_frame_throttling_factor1_;
+  const int repeated_no_damage_frame_throttling_factor2_;
   int pending_submit_frames_ = 0;
   int submit_frames_with_current_layer_tree_frame_sink_ = 0;
   bool needs_redraw_ = false;
@@ -539,7 +546,6 @@ class CC_EXPORT SchedulerStateMachine {
   // scroll events to arrive.
   bool waiting_for_scroll_event_ = false;
 
-  bool throttle_frame_rate_ = false;
   uint64_t high_framerate_requests_count_ = 0;
 };
 

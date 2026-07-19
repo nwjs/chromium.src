@@ -37,11 +37,12 @@
 -PageContentMetadataObserverBrowserTest.NoMetaTags
 
 # TODO(crbug.com/503810632): These tests have been failing since
-# https://crrev.com/c/7539316, https://crrev.com/c/7763951, and
-# https://crrev.com/c/7671607 on the bot.
+# https://crrev.com/c/7539316, https://crrev.com/c/7763951,
+# https://crrev.com/c/7671607, and https://crrev.com/c/7863615 on the bot.
 -SurfaceEmbedBrowserTest.Crash
 -SurfaceEmbedBrowserTest.CrashEarly
 -SurfaceEmbedBrowserTest.CrashThenReattach
+-SurfaceEmbedBrowserTest.CrashThenReload
 -SurfaceEmbedBrowserTest.CrossProcessNavigationPixelTest
 -SurfaceEmbedBrowserTest.DisplayNonePropagates
 -SurfaceEmbedBrowserTest.EmbedMultipleTagsCreatesMultiplePlugins
@@ -50,7 +51,10 @@
 -SurfaceEmbedBrowserTest.EmbedTagInvalidContentId
 -SurfaceEmbedBrowserTest.EmbedTagRemovedDestroysHost
 -SurfaceEmbedBrowserTest.FocusByClick
+-SurfaceEmbedBrowserTest.HtmlPopupOnSurfaceEmbeddedPage
 -SurfaceEmbedBrowserTest.ResizeEmbedPixelTest
 -SurfaceEmbedBrowserTest.VisibilityHiddenPropagates
 -SurfaceEmbedBrowserTest.VisualPropertiesSync
 -SurfaceEmbedBrowserTestNoHost.NoCrash
+-SurfaceEmbedBrowserTest.MultilevelDisplayNonePropagates
+-SurfaceEmbedBrowserTest.MultilevelVisibilityHiddenPropagates

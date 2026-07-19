@@ -76,6 +76,11 @@ import java.util.List;
 @NullMarked
 public class Fido2CredentialRequest implements WebauthnBrowserBridge.Provider {
     private static final String TAG = "Fido2CredentialRequest";
+    // These constants are GMS Core error messages. GMS Core has started prepending bracketed
+    // internal error codes (e.g., "[50157]") to these messages, which breaks Chrome's string
+    // matching. We discovered this in b/514718917 and changed the matching to use `contains()`
+    // as a less fragile workaround. However, hardcoding these checks is still fragile and should
+    // eventually be replaced by proper error codes from GMS Core (see GMS Core bug b/291647705).
     static final String NON_EMPTY_ALLOWLIST_ERROR_MSG =
             "Authentication request must have non-empty allowList";
     static final String NON_VALID_ALLOWED_CREDENTIALS_ERROR_MSG =
@@ -84,7 +89,7 @@ public class Fido2CredentialRequest implements WebauthnBrowserBridge.Provider {
     static final String CREDENTIAL_EXISTS_ERROR_MSG =
             "One of the excluded credentials exists on the local device";
     static final String LOW_LEVEL_ERROR_MSG = "Low level error 0x6a80";
-    static final String CANCELLED_ERROR_MSG = "[16] Cancelled by user.";
+    static final String CANCELLED_ERROR_MSG = "Cancelled by user.";
 
     @IntDef({
         Fido2ApiRequestType.MAKE_CREDENTIAL,
@@ -254,6 +259,9 @@ public class Fido2CredentialRequest implements WebauthnBrowserBridge.Provider {
         RenderFrameHost frameHost = mAuthenticationContextProvider.getRenderFrameHost();
         assert frameHost != null;
         assert mAuthenticationContextProvider.getRequestCallback() != null;
+        mAuthenticationContextProvider
+                .getRequestCallback()
+                .addCompletionCallback(this::cleanupRequest);
         assert (paymentOptions != null) == options.isPaymentCredentialCreation;
         @Nullable Origin remoteDesktopOrigin = null;
         if (options.remoteDesktopClientOverride != null
@@ -540,6 +548,10 @@ public class Fido2CredentialRequest implements WebauthnBrowserBridge.Provider {
         log(TAG, "handleGetCredentialRequest");
         RenderFrameHost frameHost = mAuthenticationContextProvider.getRenderFrameHost();
         assert frameHost != null;
+        assert mAuthenticationContextProvider.getRequestCallback() != null;
+        mAuthenticationContextProvider
+                .getRequestCallback()
+                .addCompletionCallback(this::cleanupRequest);
 
         if (options.publicKey == null) {
             handlePasswordOnlyImmediateRequest(options, origin);
@@ -891,8 +903,6 @@ public class Fido2CredentialRequest implements WebauthnBrowserBridge.Provider {
                 mBarrier.onFido2ApiCancelled();
                 break;
             case CancellableUiState.WAITING_FOR_SELECTION:
-                assumeNonNull(getBridge());
-                getBridge().cleanupRequest(mAuthenticationContextProvider.getRenderFrameHost());
                 mCancellableUiState = CancellableUiState.NONE;
                 mBarrier.onFido2ApiCancelled();
                 break;
@@ -1323,8 +1333,6 @@ public class Fido2CredentialRequest implements WebauthnBrowserBridge.Provider {
 
         if (reason == NonCredentialReturnReason.ERROR) {
             logError(TAG, "Bottom sheet not displayed due to an error.");
-            assumeNonNull(getBridge());
-            getBridge().cleanupRequest(mAuthenticationContextProvider.getRenderFrameHost());
             returnErrorAndResetCallback(
                     AuthenticatorStatus.UNKNOWN_ERROR,
                     /* response= */ null,
@@ -1593,8 +1601,6 @@ public class Fido2CredentialRequest implements WebauthnBrowserBridge.Provider {
 
                 if (mCancellableUiState == CancellableUiState.CANCEL_PENDING) {
                     mCancellableUiState = CancellableUiState.NONE;
-                    assumeNonNull(getBridge());
-                    getBridge().cleanupRequest(frameHost);
                     mBarrier.onFido2ApiCancelled();
                 } else {
                     // The user can try again by selecting another conditional UI credential.
@@ -1603,8 +1609,6 @@ public class Fido2CredentialRequest implements WebauthnBrowserBridge.Provider {
                 return;
             }
             mCancellableUiState = CancellableUiState.NONE;
-            assumeNonNull(getBridge());
-            getBridge().cleanupRequest(frameHost);
         }
 
         WebauthnRequestCallback requestCallback =
@@ -1705,6 +1709,7 @@ public class Fido2CredentialRequest implements WebauthnBrowserBridge.Provider {
         }
     }
 
+    @VisibleForTesting
     @MakeCredentialOutcome
     int makeCredentialOutcomeCodeFromFidoError(Pair<Integer, String> error) {
         final int errorCode = error.first;
@@ -1715,21 +1720,22 @@ public class Fido2CredentialRequest implements WebauthnBrowserBridge.Provider {
             case Fido2Api.TIMEOUT_ERR:
                 return MakeCredentialOutcome.UI_TIMEOUT;
             case Fido2Api.NOT_ALLOWED_ERR:
-                if (NON_EMPTY_ALLOWLIST_ERROR_MSG.equals(errorMsg)
-                        || NON_VALID_ALLOWED_CREDENTIALS_ERROR_MSG.equals(errorMsg)) {
+                if (errorMsg != null
+                        && (errorMsg.contains(NON_EMPTY_ALLOWLIST_ERROR_MSG)
+                                || errorMsg.contains(NON_VALID_ALLOWED_CREDENTIALS_ERROR_MSG))) {
                     return MakeCredentialOutcome.RK_NOT_SUPPORTED;
                 }
-                if (CANCELLED_ERROR_MSG.equals(errorMsg)) {
+                if (errorMsg != null && errorMsg.contains(CANCELLED_ERROR_MSG)) {
                     return MakeCredentialOutcome.USER_CANCELLATION;
                 }
                 return MakeCredentialOutcome.PLATFORM_NOT_ALLOWED;
             case Fido2Api.CONSTRAINT_ERR:
-                if (NO_SCREENLOCK_ERROR_MSG.equals(errorMsg)) {
+                if (errorMsg != null && errorMsg.contains(NO_SCREENLOCK_ERROR_MSG)) {
                     return MakeCredentialOutcome.UV_NOT_SUPPORTED;
                 }
                 return MakeCredentialOutcome.OTHER_FAILURE;
             case Fido2Api.INVALID_STATE_ERR:
-                if (CREDENTIAL_EXISTS_ERROR_MSG.equals(errorMsg)) {
+                if (errorMsg != null && errorMsg.contains(CREDENTIAL_EXISTS_ERROR_MSG)) {
                     return MakeCredentialOutcome.CREDENTIAL_EXCLUDED;
                 }
             // else fallthrough.
@@ -1738,6 +1744,7 @@ public class Fido2CredentialRequest implements WebauthnBrowserBridge.Provider {
         }
     }
 
+    @VisibleForTesting
     @GetAssertionOutcome
     int getAssertionOutcomeCodeFromFidoError(Pair<Integer, String> error) {
         final int errorCode = error.first;
@@ -1748,21 +1755,22 @@ public class Fido2CredentialRequest implements WebauthnBrowserBridge.Provider {
             case Fido2Api.TIMEOUT_ERR:
                 return GetAssertionOutcome.UI_TIMEOUT;
             case Fido2Api.NOT_ALLOWED_ERR:
-                if (NON_EMPTY_ALLOWLIST_ERROR_MSG.equals(errorMsg)
-                        || NON_VALID_ALLOWED_CREDENTIALS_ERROR_MSG.equals(errorMsg)) {
+                if (errorMsg != null
+                        && (errorMsg.contains(NON_EMPTY_ALLOWLIST_ERROR_MSG)
+                                || errorMsg.contains(NON_VALID_ALLOWED_CREDENTIALS_ERROR_MSG))) {
                     return GetAssertionOutcome.RK_NOT_SUPPORTED;
                 }
-                if (CANCELLED_ERROR_MSG.equals(errorMsg)) {
+                if (errorMsg != null && errorMsg.contains(CANCELLED_ERROR_MSG)) {
                     return GetAssertionOutcome.USER_CANCELLATION;
                 }
                 return GetAssertionOutcome.PLATFORM_NOT_ALLOWED;
             case Fido2Api.CONSTRAINT_ERR:
-                if (NO_SCREENLOCK_ERROR_MSG.equals(errorMsg)) {
+                if (errorMsg != null && errorMsg.contains(NO_SCREENLOCK_ERROR_MSG)) {
                     return GetAssertionOutcome.UV_NOT_SUPPORTED;
                 }
                 return GetAssertionOutcome.OTHER_FAILURE;
             case Fido2Api.UNKNOWN_ERR:
-                if (LOW_LEVEL_ERROR_MSG.equals(errorMsg)) {
+                if (errorMsg != null && errorMsg.contains(LOW_LEVEL_ERROR_MSG)) {
                     return GetAssertionOutcome.CREDENTIAL_NOT_RECOGNIZED;
                 }
             // else fallthrough.
@@ -1776,7 +1784,8 @@ public class Fido2CredentialRequest implements WebauthnBrowserBridge.Provider {
      *
      * @return error code corresponding to an AuthenticatorStatus.
      */
-    private static int convertError(Pair<Integer, String> error) {
+    @VisibleForTesting
+    static int convertError(Pair<Integer, String> error) {
         final int errorCode = error.first;
         final @Nullable String errorMsg = error.second;
 
@@ -1791,8 +1800,9 @@ public class Fido2CredentialRequest implements WebauthnBrowserBridge.Provider {
                 return AuthenticatorStatus.UNKNOWN_ERROR;
             case Fido2Api.NOT_ALLOWED_ERR:
                 // The implementation doesn't support resident keys.
-                if (NON_EMPTY_ALLOWLIST_ERROR_MSG.equals(errorMsg)
-                        || NON_VALID_ALLOWED_CREDENTIALS_ERROR_MSG.equals(errorMsg)) {
+                if (errorMsg != null
+                        && (errorMsg.contains(NON_EMPTY_ALLOWLIST_ERROR_MSG)
+                                || errorMsg.contains(NON_VALID_ALLOWED_CREDENTIALS_ERROR_MSG))) {
                     return AuthenticatorStatus.EMPTY_ALLOW_CREDENTIALS;
                 }
                 // The request is not allowed, possibly because the user denied permission.
@@ -1803,17 +1813,17 @@ public class Fido2CredentialRequest implements WebauthnBrowserBridge.Provider {
                 // Request parameters were not supported.
                 return AuthenticatorStatus.ANDROID_NOT_SUPPORTED_ERROR;
             case Fido2Api.CONSTRAINT_ERR:
-                if (NO_SCREENLOCK_ERROR_MSG.equals(errorMsg)) {
+                if (errorMsg != null && errorMsg.contains(NO_SCREENLOCK_ERROR_MSG)) {
                     return AuthenticatorStatus.USER_VERIFICATION_UNSUPPORTED;
                 }
                 return AuthenticatorStatus.UNKNOWN_ERROR;
             case Fido2Api.INVALID_STATE_ERR:
-                if (CREDENTIAL_EXISTS_ERROR_MSG.equals(errorMsg)) {
+                if (errorMsg != null && errorMsg.contains(CREDENTIAL_EXISTS_ERROR_MSG)) {
                     return AuthenticatorStatus.CREDENTIAL_EXCLUDED;
                 }
             // else fallthrough.
             case Fido2Api.UNKNOWN_ERR:
-                if (LOW_LEVEL_ERROR_MSG.equals(errorMsg)) {
+                if (errorMsg != null && errorMsg.contains(LOW_LEVEL_ERROR_MSG)) {
                     // The error message returned from GmsCore when the user attempted to use a
                     // credential that is not registered with a U2F security key.
                     return AuthenticatorStatus.NOT_ALLOWED_ERROR;
@@ -1895,6 +1905,13 @@ public class Fido2CredentialRequest implements WebauthnBrowserBridge.Provider {
             mBrowserBridge = new WebauthnBrowserBridge();
         }
         return mBrowserBridge;
+    }
+
+    private void cleanupRequest() {
+        WebauthnBrowserBridge bridge = getBridge();
+        if (bridge != null && bridge.isInitialized()) {
+            bridge.cleanupRequest(mAuthenticationContextProvider.getRenderFrameHost());
+        }
     }
 
     protected void destroyBridge() {

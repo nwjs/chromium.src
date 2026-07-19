@@ -43,8 +43,8 @@ using chrome_test_util::SignOutAccountsButton;
 namespace {
 
 // Opens settings > sync settings > button with `identifier`.
-// `identifier` is an accessiblity identifier. It must be visible when the view
-// scrolled to the bottom.
+// `identifier` is an accessibility identifier. It must be visible when the view
+// is scrolled to the bottom.
 void OpenSyncSettingsSubmenu(NSString* identifier) {
   // First scroll down so that the button is visible.
   id<GREYMatcher> scroll_view_matcher =
@@ -413,9 +413,15 @@ id<GREYMatcher> SignOutSnackbarLabelMatcher() {
   NSString* signedInSnackbarTitle =
       l10n_util::GetNSStringF(IDS_IOS_ACCOUNT_MENU_SWITCH_CONFIRMATION_TITLE,
                               base::SysNSStringToUTF16(identity.userGivenName));
-  id<GREYMatcher> snackbarMatcher = grey_allOf(
-      chrome_test_util::SnackbarViewMatcher(),
-      grey_descendant(grey_accessibilityLabel(signedInSnackbarTitle)), nil);
+  [self dismissSigninConfirmationSnackbarWithTitle:signedInSnackbarTitle
+                                     assertVisible:assertVisible];
+}
+
++ (void)dismissSigninConfirmationSnackbarWithTitle:(NSString*)title
+                                     assertVisible:(BOOL)assertVisible {
+  id<GREYMatcher> snackbarMatcher =
+      grey_allOf(chrome_test_util::SnackbarViewMatcher(),
+                 grey_descendant(grey_accessibilityLabel(title)), nil);
 
   if (assertVisible) {
     [[EarlGrey selectElementWithMatcher:snackbarMatcher]

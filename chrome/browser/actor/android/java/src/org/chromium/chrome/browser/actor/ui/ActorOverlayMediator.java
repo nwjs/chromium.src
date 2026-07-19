@@ -4,8 +4,6 @@
 
 package org.chromium.chrome.browser.actor.ui;
 
-import static org.chromium.build.NullUtil.assertNonNull;
-
 import org.chromium.base.Callback;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.NonNullObservableSupplier;
@@ -24,16 +22,12 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabObscuringHandler;
 import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
-import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.SheetState;
-import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.StateChangeReason;
-import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.ui.modelutil.PropertyModel;
 
 /** Mediator for the Actor Overlay. */
 @NullMarked
-class ActorOverlayMediator extends EmptyBottomSheetObserver
+class ActorOverlayMediator
         implements ActorUiTabController.Observer,
                 LayoutStateProvider.LayoutStateObserver,
                 BackPressHandler {
@@ -50,7 +44,6 @@ class ActorOverlayMediator extends EmptyBottomSheetObserver
             ObservableSuppliers.createNonNull(false);
     private final Runnable mBackPressCallback;
     private final Runnable mDismissSnackbarCallback;
-    private final BottomSheetController mBottomSheetController;
 
     private @Nullable Tab mCurrentTab;
     private @Nullable ActorUiTabController mTabController;
@@ -63,7 +56,6 @@ class ActorOverlayMediator extends EmptyBottomSheetObserver
      * @param browserControlsVisibilityManager The BrowserControlsVisibilityManager to observe.
      * @param tabObscuringHandler The TabObscuringHandler to obscure the web content.
      * @param layoutManagerSupplier The LayoutManager supplier to observe layout changes.
-     * @param bottomSheetController The BottomSheetController to observe bottom sheet states.
      * @param backPressCallback The callback to show the snackbar.
      * @param dismissSnackbarCallback The callback to dismiss the snackbar.
      */
@@ -73,7 +65,6 @@ class ActorOverlayMediator extends EmptyBottomSheetObserver
             BrowserControlsVisibilityManager browserControlsVisibilityManager,
             TabObscuringHandler tabObscuringHandler,
             MonotonicObservableSupplier<LayoutManager> layoutManagerSupplier,
-            BottomSheetController bottomSheetController,
             Runnable backPressCallback,
             Runnable dismissSnackbarCallback) {
         mModel = model;
@@ -81,11 +72,8 @@ class ActorOverlayMediator extends EmptyBottomSheetObserver
         mBrowserControlsVisibilityManager = browserControlsVisibilityManager;
         mTabObscuringHandler = tabObscuringHandler;
         mLayoutManagerSupplier = layoutManagerSupplier;
-        mBottomSheetController = bottomSheetController;
         mBackPressCallback = backPressCallback;
         mDismissSnackbarCallback = dismissSnackbarCallback;
-
-        mBottomSheetController.addObserver(this);
         updateTakeOverButtonVisibility();
 
         mTabObserver =
@@ -154,8 +142,7 @@ class ActorOverlayMediator extends EmptyBottomSheetObserver
     }
 
     private void updateTakeOverButtonVisibility() {
-        boolean isSheetHidden = mBottomSheetController.getSheetState() == SheetState.HIDDEN;
-        boolean visible = isHandoffButtonActive() && isSheetHidden;
+        boolean visible = isHandoffButtonActive();
         mModel.set(ActorOverlayProperties.TAKE_OVER_TASK_BUTTON_VISIBLE, visible);
     }
 
@@ -178,6 +165,9 @@ class ActorOverlayMediator extends EmptyBottomSheetObserver
 
     private void onCurrentTabChanged(@Nullable Tab tab) {
         mDismissSnackbarCallback.run();
+        // TODO(crbug.com/520161144): We had to remove "assert mTabController != null;" to pass the
+        // test in
+        // org.chromium.chrome.browser.actor.ui.ActorOverlayCoordinatorTest#testTabSwitchToDestroyedTab.
         if (mCurrentTab != null) {
             mCurrentTab.removeObserver(mTabObserver);
             if (mTabController != null) {
@@ -189,8 +179,10 @@ class ActorOverlayMediator extends EmptyBottomSheetObserver
 
         if (mCurrentTab != null) {
             mCurrentTab.addObserver(mTabObserver);
-            mTabController = assertNonNull(ActorUiTabController.from(mCurrentTab));
-            mTabController.addObserver(this);
+            mTabController = ActorUiTabController.from(mCurrentTab);
+            if (mTabController != null) {
+                mTabController.addObserver(this);
+            }
         } else {
             mTabController = null;
         }
@@ -234,14 +226,6 @@ class ActorOverlayMediator extends EmptyBottomSheetObserver
     }
 
     @Override
-    public void onSheetStateChanged(@SheetState int newState, @StateChangeReason int reason) {
-        if (!isHandoffButtonActive()) {
-            return;
-        }
-        updateTakeOverButtonVisibility();
-    }
-
-    @Override
     public int handleBackPress() {
         mBackPressCallback.run();
         return BackPressResult.SUCCESS;
@@ -254,7 +238,6 @@ class ActorOverlayMediator extends EmptyBottomSheetObserver
 
     /** Cleans up the mediator. */
     public void destroy() {
-        mBottomSheetController.removeObserver(this);
         if (mTabController != null) {
             mTabController.removeObserver(this);
             mTabController = null;

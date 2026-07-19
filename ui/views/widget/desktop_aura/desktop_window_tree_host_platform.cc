@@ -555,7 +555,11 @@ bool DesktopWindowTreeHostPlatform::IsStackedAbove(aura::Window* window) {
 }
 
 void DesktopWindowTreeHostPlatform::CenterWindow(const gfx::Size& size) {
+  auto weak_ptr = weak_factory_.GetWeakPtr();
   gfx::Rect parent_bounds = GetWorkAreaBoundsInScreen();
+  if (!weak_ptr) {
+    return;
+  }
 
   // If |window_|'s transient parent bounds are big enough to contain |size|,
   // use them instead.
@@ -770,6 +774,11 @@ Widget::MoveLoopResult DesktopWindowTreeHostPlatform::RunMoveLoop(
     const gfx::Vector2d& drag_offset,
     Widget::MoveLoopSource source,
     Widget::MoveLoopEscapeBehavior escape_behavior) {
+  // The window-move loop runs a kNestableTasksAllowed RunLoop that pumps Mojo
+  // IPC; suppress renderer-initiated data drags for its duration so a
+  // compromised renderer in another window cannot hijack the user's gesture.
+  auto suppress_data_drag =
+      DesktopDragDropClientOzone::ScopedSuppressForWindowMove();
   auto* move_loop_handler = ui::GetWmMoveLoopHandler(*platform_window());
   if (move_loop_handler && move_loop_handler->RunMoveLoop(drag_offset)) {
     return Widget::MoveLoopResult::kSuccessful;
@@ -1027,7 +1036,13 @@ void DesktopWindowTreeHostPlatform::OnCompositorVisibilityChanged(
 
 gfx::Insets DesktopWindowTreeHostPlatform::CalculateInsetsInDIP(
     ui::PlatformWindowState window_state) const {
-  return GetWidget()->GetCustomInsetsInDIP();
+  // `native_widget_delegate_` is a WeakPtr to the Widget, so GetWidget() can
+  // return null after the Widget has been destroyed. A queued Wayland state
+  // change can still be dispatched into the longer-lived platform window and
+  // reach here during/after teardown. Guard against a null Widget and return
+  // the default (empty) custom insets.
+  const Widget* widget = GetWidget();
+  return widget ? widget->GetCustomInsetsInDIP() : gfx::Insets();
 }
 
 void DesktopWindowTreeHostPlatform::OnClosed() {

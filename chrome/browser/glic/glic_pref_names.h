@@ -5,9 +5,12 @@
 #ifndef CHROME_BROWSER_GLIC_GLIC_PREF_NAMES_H_
 #define CHROME_BROWSER_GLIC_GLIC_PREF_NAMES_H_
 
+#include <optional>
+
 #include "build/build_config.h"
 
 class PrefRegistrySimple;
+class PrefService;
 namespace user_prefs {
 class PrefRegistrySyncable;
 }  // namespace user_prefs
@@ -21,7 +24,11 @@ namespace glic::prefs {
 inline constexpr char kGlicLauncherEnabled[] = "glic.launcher_enabled";
 
 // String pref that keeps track of the non-localized version of the registered
-// hotkey for Glic.
+// hotkey for Glic. Note that on Android, this hotkey is implemented in
+// local_hotkey_manager.cc, otherwise it is implemented in
+// chrome/browser/background/.
+// TODO(b/517917926): Migrate handling of the launcher to
+// local_hotkey_manager.cc.
 inline constexpr char kGlicLauncherHotkey[] = "glic.launcher_hotkey";
 
 // String pref that keeps track of the non-localized version of the registered
@@ -138,10 +145,9 @@ inline constexpr char kGlicPreviousPositionY[] = "glic.previous_bounds.y";
 inline constexpr char kGlicClosedCaptioningEnabled[] =
     "glic.closed_captioning_enabled";
 
-// Integer pref that tracks the total number of times the user dismissed the
-// selection widget.
-inline constexpr char kGlicSelectionWidgetDismissCount[] =
-    "glic.selection_widget_dismiss_count";
+// Bool pref for the media understanding setting.
+inline constexpr char kGlicMediaUnderstandingEnabled[] =
+    "glic.media_understanding_enabled";
 
 // Bool pref that determines if errors are allowed to be shown.
 inline constexpr char kGlicShowErrorAllowed[] = "glic.show_error_allowed";
@@ -169,9 +175,18 @@ inline constexpr char kGlicGeminiEnterpriseSettings[] =
 inline constexpr char kGlicPartitionNeedsCookieSync[] =
     "glic.partition_needs_cookie_sync";
 
+// Boolean pref that tracks if the Glic profile was previously ineligible.
+inline constexpr char kGlicPreviouslyNotAllowed[] =
+    "glic.previously_not_allowed";
+
 #if BUILDFLAG(IS_MAC)
 inline constexpr char kGlicUseAltOSIcon[] = "glic.use_alt_os_icon";
 #endif
+
+// Returns the actuation capability policy state if the preference contains a
+// valid enumerator value, or std::nullopt otherwise.
+std::optional<GlicActuationOnWebPolicyState> GetActuationOnWebCapability(
+    const PrefService* pref_service);
 
 void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry);
 void RegisterLocalStatePrefs(PrefRegistrySimple* registry);

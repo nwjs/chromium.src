@@ -83,7 +83,9 @@ void AttemptFastKillForDiscard(
 
 content::WebContents* DiscardLeastImportantTab(
     ::mojom::LifecycleUnitDiscardReason discard_reason,
-    base::TimeDelta urgent_protection_time) {
+    bool ignore_recent_visibility,
+    std::optional<absl::flat_hash_set<base::UnguessableToken>>
+        allowed_browser_context_ids) {
   performance_manager::Graph* graph =
       performance_manager::PerformanceManager::GetGraph();
   CHECK(graph);
@@ -94,7 +96,9 @@ content::WebContents* DiscardLeastImportantTab(
     return nullptr;
   }
 
-  return discarding_helper->DiscardAPage(discard_reason, urgent_protection_time)
+  return discarding_helper
+      ->DiscardAPage(discard_reason, ignore_recent_visibility,
+                     std::move(allowed_browser_context_ids))
       .first_content_after_discard;
 }
 

@@ -116,6 +116,8 @@
       return l10n_util::GetNSString(IDS_IOS_COMPOSEBOX_GALLERY_ACTION);
     case kCamera:
       return l10n_util::GetNSString(IDS_IOS_COMPOSEBOX_CAMERA_ACTION);
+    case kDrive:
+      return l10n_util::GetNSString(IDS_IOS_COMPOSEBOX_DRIVE_ACTION);
   }
 }
 

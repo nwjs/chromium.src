@@ -73,6 +73,7 @@ constexpr wchar_t kRegDeviceDetailsUploadFailures[] =
 constexpr wchar_t kRegDeveloperMode[] = L"developer_mode";
 constexpr wchar_t kRegUpdateCredentialsOnChange[] =
     L"update_credentials_on_change";
+constexpr wchar_t kRegEnableGcpwModalDialog[] = L"enable_gcpw_modal_dialog";
 constexpr wchar_t kRegUseShorterAccountName[] = L"use_shorter_account_name";
 constexpr wchar_t kEmailDomainsKey[] = L"ed";  // deprecated.
 constexpr wchar_t kEmailDomainsKeyNew[] = L"domains_allowed_to_login";
@@ -123,7 +124,7 @@ HRESULT SetMachineRegBinaryInternal(const std::wstring& key_name,
   return S_OK;
 }
 
-std::wstring GetImageRegKeyForSpecificSize(int image_size) {
+std::wstring GetImageRegKeyForSpecificSize(size_t image_size) {
   return kImageRegKey + base::NumberToWString(image_size);
 }
 
@@ -267,7 +268,7 @@ HRESULT GetMachineRegBinaryInternal(const std::wstring& key_name,
 }
 
 HRESULT GetAccountPictureRegString(const std::wstring& user_sid,
-                                   int image_size,
+                                   size_t image_size,
                                    wchar_t* value,
                                    ULONG* length) {
   return GetMachineRegString(GetAccountPictureRegPathForUSer(user_sid),
@@ -277,7 +278,7 @@ HRESULT GetAccountPictureRegString(const std::wstring& user_sid,
 
 // Sets a specific account picture registry key in HKEY_LOCAL_MACHINE
 HRESULT SetAccountPictureRegString(const std::wstring& user_sid,
-                                   int image_size,
+                                   size_t image_size,
                                    const std::wstring& value) {
   return SetMachineRegString(GetAccountPictureRegPathForUSer(user_sid),
                              GetImageRegKeyForSpecificSize(image_size), value);

@@ -173,7 +173,7 @@ class FormStructureBrowserTest
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
   web::ScopedTestingWebClient web_client_;
   web::WebTaskEnvironment task_environment_;
-  autofill::test::AutofillBrowserTestEnvironment autofill_test_environment_;
+  test::AutofillBrowserTestEnvironment autofill_test_environment_;
   std::unique_ptr<TestProfileIOS> profile_;
   std::unique_ptr<web::WebState> web_state_;
   std::unique_ptr<AutofillClient> autofill_client_;
@@ -217,6 +217,7 @@ FormStructureBrowserTest::FormStructureBrowserTest()
           features::kAutofillIgnoreCheckableElements,
           // TODO(crbug.com/369503318): Remove once launched.
           features::kAutofillSupportSplitZipCode,
+          features::kAutofillSupportStandaloneZipCodeGlobally,
           // TODO(crbug.com/479503511): Remove once launched.
           features::kAutofillNewRegexForPhoneCountryCode,
           // TODO(crbug.com/479503511): Remove once launched.
@@ -375,6 +376,12 @@ namespace {
 // (i.e., "NNN_some_site.html") as a literal to the initializer_list given
 // to the kFailingTestNames constructor.
 bool IsFailingTestName(const std::string& test_name) {
+  if (test_name == "132_bug_469012.html") {
+    if (@available(iOS 27.0, *)) {
+      return false;
+    }
+    return true;
+  }
   static constexpr auto kFailingTestNames =
       base::MakeFixedFlatSet<std::string_view>({
           // TODO(crbug.com/40266699): These pages contains iframes. Until
@@ -394,7 +401,6 @@ bool IsFailingTestName(const std::string& test_name) {
           // regressions.
           "110_checkout_harryanddavid.com.html",
           "123_bug_459132.html",
-          "132_bug_469012.html",
       });
   return kFailingTestNames.contains(test_name);
 }

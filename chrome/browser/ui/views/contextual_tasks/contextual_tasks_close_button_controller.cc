@@ -10,12 +10,12 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_utils.h"
 #include "chrome/browser/contextual_tasks/entry_point_eligibility_manager.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/immersive/immersive_mode_controller.h"
 #include "chrome/browser/ui/side_panel/side_panel_entry.h"
 #include "chrome/browser/ui/side_panel/side_panel_registry.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
-#include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
 #include "components/contextual_tasks/public/features.h"
 #include "components/tabs/public/tab_interface.h"
 
@@ -80,7 +80,7 @@ void ContextualTasksCloseButtonController::OnEntryShown(SidePanelEntry* entry) {
 void ContextualTasksCloseButtonController::OnEntryWillHide(
     SidePanelEntry* entry,
     SidePanelEntryHideReason reason) {
-  if (contextual_tasks::kShowEntryPoint.Get() !=
+  if (contextual_tasks::kShowEntryPoint.Get() ==
       contextual_tasks::EntryPointOption::kToolbarEphemeralBranded) {
     is_panel_hiding_ = true;
     MaybeNotifyVisibilityShouldChange();
@@ -89,7 +89,7 @@ void ContextualTasksCloseButtonController::OnEntryWillHide(
 
 void ContextualTasksCloseButtonController::OnEntryHideCancelled(
     SidePanelEntry* entry) {
-  if (contextual_tasks::kShowEntryPoint.Get() !=
+  if (contextual_tasks::kShowEntryPoint.Get() ==
       contextual_tasks::EntryPointOption::kToolbarEphemeralBranded) {
     is_panel_hiding_ = false;
     MaybeNotifyVisibilityShouldChange();

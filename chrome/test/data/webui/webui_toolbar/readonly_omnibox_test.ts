@@ -7,7 +7,7 @@ import 'chrome://webui-toolbar.top-chrome/app.js';
 import {assertEquals, assertGE, assertLE, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {TestBrowserProxy} from 'chrome://webui-test/test_browser_proxy.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
-import {BrowserProxyImpl, OmniboxTextColor} from 'chrome://webui-toolbar.top-chrome/app.js';
+import {BrowserProxyImpl, INVALID_FOCUS_REQUEST_HANDLE, OmniboxTextColor} from 'chrome://webui-toolbar.top-chrome/app.js';
 import type {OmniboxAction, ReadonlyOmniboxElement} from 'chrome://webui-toolbar.top-chrome/app.js';
 
 class MockToolbarUiHandler extends TestBrowserProxy {
@@ -20,9 +20,31 @@ class MockToolbarUiHandler extends TestBrowserProxy {
   }
 }
 
+class MockBrowserProxy extends TestBrowserProxy {
+  toolbarUIHandler: MockToolbarUiHandler = new MockToolbarUiHandler();
+
+  addFocusRequestListener() {
+    return INVALID_FOCUS_REQUEST_HANDLE;
+  }
+
+  removeFocusRequestListener() {}
+}
+
 suite('ReadonlyOmnibox', function() {
   let omnibox: ReadonlyOmniboxElement;
   let uiHandler: MockToolbarUiHandler;
+
+  const initialState = {
+    browserVersion: 0,
+    uiVersion: 0,
+    textPieces: [],
+    inlineAutocompletion: '',
+    additionalText: '',
+    formattedFullUrl: '',
+    selection: null,
+    textIsUrl: false,
+    userInputInProgress: false,
+  };
 
   function getTextPieces(): NodeListOf<HTMLElement> {
     return omnibox.shadowRoot.querySelectorAll<HTMLElement>(
@@ -47,17 +69,59 @@ suite('ReadonlyOmnibox', function() {
 
   function getStringSelection(): string {
     const inp = getTextInput();
-    return inp.value.substring(inp.selectionStart || 0, inp.selectionEnd || 0);
+    // Verify that both copies of selected text are in sync; modulo the
+    // special case for inline autocompletion.
+    const inputSelection =
+        inp.value.substring(inp.selectionStart || 0, inp.selectionEnd || 0);
+    let start = omnibox.omniboxViewState.selection?.start || 0;
+    let end = omnibox.omniboxViewState.selection?.end || 0;
+    if (start > end) {
+      [start, end] = [end, start];
+    }
+    if (omnibox.omniboxViewState.inlineAutocompletion.length === 0) {
+      const stateSelection = inp.value.substring(start, end);
+      assertEquals(stateSelection, inputSelection);
+    } else {
+      // If we're displaying inline autocompletion as selection, state's
+      // selection will be of caret at end of the user input portion, and
+      // match the <input> selection's start.
+      assertEquals(start, inp.selectionStart);
+      assertEquals(end, inp.selectionStart);
+    }
+    return inputSelection;
   }
 
-  function fakeKeyDown(key: string) {
-    const ev = new KeyboardEvent('keydown', {key});
+  function fakeKeyDown(key: string, shiftDown: boolean = false) {
+    const ev = new KeyboardEvent('keydown', {key, shiftKey: shiftDown});
     getTextInput().dispatchEvent(ev);
   }
 
+  // Tests that the bounding boxes of `first` and `second` have the same
+  // vertical bounds, and `first` is directly to the left of `second`.
+  function assertLinedUp(first: HTMLElement, second: HTMLElement): void {
+    const firstBounds = first.getBoundingClientRect();
+    const secondBounds = second.getBoundingClientRect();
+    assertLE(Math.abs(firstBounds.top - secondBounds.top), 0.1);
+    assertLE(Math.abs(firstBounds.bottom - secondBounds.bottom), 0.1);
+    assertLE(Math.abs(firstBounds.right - secondBounds.left), 0.1);
+  }
+
+  // buttons = 1 by default here, and 0 on up, since that's the current
+  // state of the button during the respective event.
+  function fakeLeftMouseDown(buttons = 1) {
+    const evDown = new MouseEvent('mousedown', {detail: 1, button: 0, buttons});
+    getTextInput().dispatchEvent(evDown);
+  }
+
+  function fakeLeftMouseUp(buttons = 0) {
+    const evUp = new MouseEvent('mouseup', {detail: 1, button: 0, buttons});
+    getTextInput().dispatchEvent(evUp);
+  }
+
   setup(() => {
-    uiHandler = new MockToolbarUiHandler();
-    BrowserProxyImpl.setInstance({toolbarUIHandler: uiHandler} as any);
+    const browserProxy = new MockBrowserProxy();
+    uiHandler = browserProxy.toolbarUIHandler;
+    BrowserProxyImpl.setInstance(browserProxy as any);
 
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     omnibox = document.createElement('readonly-omnibox');
@@ -73,8 +137,7 @@ suite('ReadonlyOmnibox', function() {
 
   test('Setting text without selection', async () => {
     omnibox.browserOmniboxState = {
-      browserVersion: 0,
-      uiVersion: 0,
+      ...initialState,
       textPieces: [
         {
           text: 'Hello',
@@ -82,23 +145,14 @@ suite('ReadonlyOmnibox', function() {
           color: OmniboxTextColor.kOmniboxText,
         },
       ],
-      inlineAutocompletion: '',
       selection: null,
-      textIsUrl: false,
     };
     await microtasksFinished();
     assertEquals('Hello', omnibox.$.textContainer.textContent);
     assertEquals('Hello', omnibox.$.textInput.value);
 
     // Now set to blank
-    omnibox.browserOmniboxState = {
-      browserVersion: 0,
-      uiVersion: 0,
-      textPieces: [],
-      inlineAutocompletion: '',
-      selection: null,
-      textIsUrl: false,
-    };
+    omnibox.browserOmniboxState = Object.assign(initialState);
     await microtasksFinished();
     assertEquals('', omnibox.$.textContainer.textContent);
     assertEquals('', omnibox.$.textInput.value);
@@ -106,8 +160,7 @@ suite('ReadonlyOmnibox', function() {
 
   test('Setting text with multiple pieces', async () => {
     omnibox.browserOmniboxState = {
-      browserVersion: 0,
-      uiVersion: 0,
+      ...initialState,
       textPieces: [
         {
           text: 'He',
@@ -120,9 +173,7 @@ suite('ReadonlyOmnibox', function() {
           color: OmniboxTextColor.kOmniboxText,
         },
       ],
-      inlineAutocompletion: '',
       selection: null,
-      textIsUrl: false,
     };
     await microtasksFinished();
     assertEquals('Hello', omnibox.$.textContainer.textContent);
@@ -131,8 +182,7 @@ suite('ReadonlyOmnibox', function() {
 
   test('Text formatting', async () => {
     omnibox.browserOmniboxState = {
-      browserVersion: 0,
-      uiVersion: 0,
+      ...initialState,
       textPieces: [
         {
           text: 'A0',
@@ -175,9 +225,7 @@ suite('ReadonlyOmnibox', function() {
           color: OmniboxTextColor.kOmniboxSecurityChipDangerous,
         },
       ],
-      inlineAutocompletion: '',
       selection: null,
-      textIsUrl: false,
     };
     await microtasksFinished();
     assertEquals('A0A1B0B1C0C1D0D1', omnibox.$.textContainer.textContent);
@@ -197,8 +245,7 @@ suite('ReadonlyOmnibox', function() {
   test('RTL mode handling', async () => {
     omnibox.style.setProperty('direction', 'rtl');
     omnibox.browserOmniboxState = {
-      browserVersion: 0,
-      uiVersion: 0,
+      ...initialState,
       textPieces: [
         {
           text: 'example.com',
@@ -211,7 +258,6 @@ suite('ReadonlyOmnibox', function() {
           color: OmniboxTextColor.kOmniboxTextDimmed,
         },
       ],
-      inlineAutocompletion: '',
       selection: null,
       textIsUrl: true,
     };
@@ -240,8 +286,7 @@ suite('ReadonlyOmnibox', function() {
 
   test('Inline completion', async () => {
     omnibox.browserOmniboxState = {
-      browserVersion: 0,
-      uiVersion: 0,
+      ...initialState,
       textPieces: [
         {
           text: 'example.com',
@@ -278,6 +323,8 @@ suite('ReadonlyOmnibox', function() {
     assertEquals(kExpectedInput1.length, args[0].textInput.selection.start);
     assertEquals(kExpectedInput1.length, args[0].textInput.selection.end);
     assertEquals('es/1/', args[0].textInput.inlineAutocompletion);
+    // Version updated with new input.
+    assertEquals(1, omnibox.omniboxViewState.uiVersion);
 
     // The <input> got its selection shifted, and the readonly view got updated
     // with new character.
@@ -310,12 +357,83 @@ suite('ReadonlyOmnibox', function() {
     assertEquals('example.com/articlo', omnibox.$.textContainer.textContent);
     assertEquals('example.com/articlo', omnibox.$.textInput.value);
     assertEquals('', getStringSelection());
+    // Likewise version updated on the non-inline character path.
+    assertEquals(2, omnibox.omniboxViewState.uiVersion);
+  });
+
+  test('Additional text', async () => {
+    omnibox.browserOmniboxState = {
+      ...initialState,
+      textPieces: [
+        {
+          text: 'popula',
+          strikethrough: false,
+          color: OmniboxTextColor.kOmniboxText,
+        },
+      ],
+      inlineAutocompletion: 'r page',
+      additionalText: ' - uk.wikipedia.org',
+      selection: {start: 0, end: 0},
+      textIsUrl: true,
+    };
+    await microtasksFinished();
+
+    // Inline autocompletion rendered as selection.
+    assertEquals('popula', omnibox.$.textContainer.textContent);
+    assertEquals('popular page', omnibox.$.textInput.value);
+    assertEquals('r page', getStringSelection());
+    // And there is also a hidden box for inline completion (with the visible
+    // portion of the completion coming from the <input>), and a visible
+    // one for additional text.
+    assertEquals('r page', omnibox.$.inlineAutocomplete.textContent);
+    assertEquals(' - uk.wikipedia.org', omnibox.$.additionalText.textContent);
+
+    const inlineAutocompleteStyle =
+        omnibox.$.inlineAutocomplete.computedStyleMap();
+    assertEquals(
+        'hidden', inlineAutocompleteStyle.get('visibility')?.toString());
+
+    // Check that our 3 boxes are all lined up. This really wants to check
+    // against what's inside the <input>, but that doesn't seem possible.
+    assertLinedUp(omnibox.$.textContainer, omnibox.$.inlineAutocomplete);
+    assertLinedUp(omnibox.$.inlineAutocomplete, omnibox.$.additionalText);
+
+    const right1 = omnibox.$.additionalText.getBoundingClientRect().right;
+
+    // Advance completion and make sure stuff is still reasonable.
+    fakeKeyDown('r');
+    await microtasksFinished();
+    assertEquals('popular', omnibox.$.textContainer.textContent);
+    assertEquals('popular page', omnibox.$.textInput.value);
+    assertEquals(' page', getStringSelection());
+    assertEquals(' page', omnibox.$.inlineAutocomplete.textContent);
+    assertEquals(' - uk.wikipedia.org', omnibox.$.additionalText.textContent);
+    assertLinedUp(omnibox.$.textContainer, omnibox.$.inlineAutocomplete);
+    assertLinedUp(omnibox.$.inlineAutocomplete, omnibox.$.additionalText);
+    const right2 = omnibox.$.additionalText.getBoundingClientRect().right;
+
+    // And the space.
+    fakeKeyDown(' ');
+    await microtasksFinished();
+    assertEquals('popular ', omnibox.$.textContainer.textContent);
+    assertEquals('popular page', omnibox.$.textInput.value);
+    assertEquals('page', getStringSelection());
+    assertEquals('page', omnibox.$.inlineAutocomplete.textContent);
+    assertEquals(' - uk.wikipedia.org', omnibox.$.additionalText.textContent);
+    assertLinedUp(omnibox.$.textContainer, omnibox.$.inlineAutocomplete);
+    assertLinedUp(omnibox.$.inlineAutocomplete, omnibox.$.additionalText);
+    const right3 = omnibox.$.additionalText.getBoundingClientRect().right;
+
+    // If we didn't screw up the whitespace, the right edge of the box
+    // should be basically the same. (It seemed exactly the same when
+    // writing this test).
+    assertLE(Math.abs(right1 - right2), 0.1);
+    assertLE(Math.abs(right2 - right3), 0.1);
   });
 
   test('Inline completion race vs. browser handling', async () => {
     omnibox.browserOmniboxState = {
-      browserVersion: 0,
-      uiVersion: 0,
+      ...initialState,
       textPieces: [
         {
           text: 'example.com',
@@ -384,6 +502,7 @@ suite('ReadonlyOmnibox', function() {
     // Now an update comes from the browser that's after the 'l'. It should
     // get ignored.
     omnibox.browserOmniboxState = {
+      ...initialState,
       browserVersion: 0,
       uiVersion: 1,
       textPieces: [
@@ -411,6 +530,7 @@ suite('ReadonlyOmnibox', function() {
     // If something totally different gets loaded, however, it should get
     // honored due to bumped browserVersion.
     omnibox.browserOmniboxState = {
+      ...initialState,
       browserVersion: 1,
       uiVersion: 0,
       textPieces: [
@@ -455,4 +575,302 @@ suite('ReadonlyOmnibox', function() {
       assertEquals('y', getStringSelection());
     }
   });
+
+  test('Unelision on home', async () => {
+    omnibox.browserOmniboxState = {
+      ...initialState,
+      textPieces: [
+        {
+          text: 'example.com',
+          strikethrough: false,
+          color: OmniboxTextColor.kOmniboxText,
+        },
+        {
+          text: '/article',
+          strikethrough: false,
+          color: OmniboxTextColor.kOmniboxTextDimmed,
+        },
+      ],
+      inlineAutocompletion: '',
+      formattedFullUrl: 'https://example.com/article',
+      selection: {start: 1, end: 1},
+      textIsUrl: true,
+    };
+    await microtasksFinished();
+
+    const input = getTextInput();
+
+    assertEquals('example.com/article', input.value);
+    // The state set the caret to 1 so we can see home moving the caret.
+    assertEquals(1, input.selectionStart!);
+    assertEquals(1, input.selectionEnd!);
+
+    // Pressing home moves caret and unelides (both versions).
+    fakeKeyDown('Home');
+    await microtasksFinished();
+    assertEquals('https://example.com/article', input.value);
+    assertEquals(
+        'https://example.com/article', omnibox.$.textContainer.textContent);
+    assertEquals(0, input.selectionStart!);
+    assertEquals(0, input.selectionEnd!);
+    // It also updated the ui-side version #, since text changed.
+    assertEquals(1, omnibox.omniboxViewState.uiVersion);
+
+    // ... Home unelides even if all is selected.
+    const testShortUrl = 'example.com';
+    omnibox.browserOmniboxState = {
+      ...initialState,
+      textPieces: [
+        {
+          text: testShortUrl,
+          strikethrough: false,
+          color: OmniboxTextColor.kOmniboxText,
+        },
+      ],
+      inlineAutocompletion: '',
+      formattedFullUrl: 'https://example.com',
+      selection: {start: 0, end: testShortUrl.length},
+      textIsUrl: true,
+      browserVersion: 1,
+    };
+    await microtasksFinished();
+    assertEquals(testShortUrl, input.value);
+    assertEquals(0, input.selectionStart!);
+    assertEquals(testShortUrl.length, input.selectionEnd!);
+    fakeKeyDown('Home');
+    await microtasksFinished();
+    assertEquals('https://example.com', input.value);
+    assertEquals('https://example.com', omnibox.$.textContainer.textContent);
+    assertEquals(0, input.selectionStart!);
+    assertEquals(0, input.selectionEnd!);
+    assertEquals(1, omnibox.omniboxViewState.uiVersion);
+
+    // Now test shift-home (forward selection dir).
+    omnibox.browserOmniboxState = {
+      ...initialState,
+      textPieces: [
+        {
+          text: testShortUrl,
+          strikethrough: false,
+          color: OmniboxTextColor.kOmniboxText,
+        },
+      ],
+      inlineAutocompletion: '',
+      formattedFullUrl: 'https://example.com',
+      selection: {start: 1, end: 3},
+      textIsUrl: true,
+      browserVersion: 2,
+    };
+    await microtasksFinished();
+    assertEquals(1, input.selectionStart);
+    assertEquals(3, input.selectionEnd);
+    assertEquals('forward', input.selectionDirection);
+
+    fakeKeyDown('Home', /*shiftDown=*/ true);
+    await microtasksFinished();
+    assertEquals('https://e', getStringSelection());
+    assertEquals(1, omnibox.omniboxViewState.uiVersion);
+
+    // Now test shift-home (backward selection dir).
+    omnibox.browserOmniboxState = {
+      ...initialState,
+      textPieces: [
+        {
+          text: testShortUrl,
+          strikethrough: false,
+          color: OmniboxTextColor.kOmniboxText,
+        },
+      ],
+      inlineAutocompletion: '',
+      formattedFullUrl: 'https://example.com',
+      selection: {start: 3, end: 1},
+      textIsUrl: true,
+      browserVersion: 3,
+    };
+    await microtasksFinished();
+    assertEquals(1, input.selectionStart);
+    assertEquals(3, input.selectionEnd);
+    assertEquals('backward', input.selectionDirection);
+
+    fakeKeyDown('Home', /*shiftDown=*/ true);
+    await microtasksFinished();
+    assertEquals('https://exa', getStringSelection());
+    assertEquals(1, omnibox.omniboxViewState.uiVersion);
+  });
+
+  test('Unelision on mouse release', async () => {
+    omnibox.browserOmniboxState = {
+      ...initialState,
+      textPieces: [
+        {
+          text: 'example.com',
+          strikethrough: false,
+          color: OmniboxTextColor.kOmniboxText,
+        },
+      ],
+      inlineAutocompletion: '',
+      formattedFullUrl: 'https://example.com',
+      selection: {start: 0, end: 0},
+      textIsUrl: true,
+    };
+    await microtasksFinished();
+    const input = getTextInput();
+    assertEquals('example.com', input.value);
+    assertEquals('example.com', omnibox.$.textContainer.textContent);
+    assertEquals('', getStringSelection());
+
+    // Just clicking should not unelide, but should select all.
+    fakeLeftMouseDown();
+    fakeLeftMouseUp();
+    await microtasksFinished();
+    assertEquals('example.com', input.value);
+    assertEquals('example.com', omnibox.$.textContainer.textContent);
+    assertEquals('example.com', getStringSelection());
+    assertEquals(0, omnibox.omniboxViewState.uiVersion);
+
+    // Reset the omnibox in between subtests.
+    omnibox.browserOmniboxState = {
+      ...omnibox.browserOmniboxState,
+      browserVersion: 1,
+    };
+    await microtasksFinished();
+    assertEquals('example.com', input.value);
+    assertEquals('example.com', omnibox.$.textContainer.textContent);
+    assertEquals('', getStringSelection());
+
+    // Simulate drag-select. (We currently don't handle it properly with real
+    // events, but this at least exercises the relevant code for updating
+    // selection). To get this to happen and not hit the select-all path
+    // we can act as if the middle button is down continuously.
+    // Here, 5 = middle + left, 4 = middle.
+    fakeLeftMouseDown(/*buttons=*/ 5);
+    input.setSelectionRange(1, 5, 'forward');
+    fakeLeftMouseUp(/*buttons=*/ 4);
+    await microtasksFinished();
+    assertEquals('https://example.com', input.value);
+    assertEquals('https://example.com', omnibox.$.textContainer.textContent);
+    assertEquals(1, omnibox.omniboxViewState.uiVersion);
+    // Selection value is preserved if it's in the middle.
+    assertEquals('xamp', getStringSelection());
+    assertEquals('forward', input.selectionDirection);
+
+    // Reset the omnibox in between subtests.
+    omnibox.browserOmniboxState = {
+      ...omnibox.browserOmniboxState,
+      browserVersion: 2,
+    };
+    await microtasksFinished();
+
+    // Drag-select to beginning. Should also include https:// in the selection
+    // after unelision, and preserve the direction.
+    fakeLeftMouseDown(/*buttons=*/ 5);
+    input.setSelectionRange(0, 5, 'backward');
+    fakeLeftMouseUp(/*buttons=*/ 4);
+    await microtasksFinished();
+    assertEquals('https://example.com', input.value);
+    assertEquals('https://example.com', omnibox.$.textContainer.textContent);
+    // Selection value is preserved if it's in the middle.
+    assertEquals('https://examp', getStringSelection());
+    assertEquals('backward', input.selectionDirection);
+    assertEquals(1, omnibox.omniboxViewState.uiVersion);
+  });
+
+  test('Unelision of intranet domains', async () => {
+    omnibox.browserOmniboxState = {
+      ...initialState,
+      textPieces: [
+        {
+          text: 'example/',
+          strikethrough: false,
+          color: OmniboxTextColor.kOmniboxText,
+        },
+      ],
+      inlineAutocompletion: '',
+      formattedFullUrl: 'https://example',
+      selection: {start: 0, end: 0},
+      textIsUrl: true,
+    };
+    await microtasksFinished();
+    const input = getTextInput();
+    assertEquals('example/', input.value);
+    assertEquals('example/', omnibox.$.textContainer.textContent);
+
+    // Simulate drag-select.
+    fakeLeftMouseDown(/*buttons=*/ 5);
+    input.setSelectionRange(1, 5);
+    fakeLeftMouseUp(/*buttons=*/ 4);
+    await microtasksFinished();
+    assertEquals('https://example', input.value);
+    assertEquals('https://example', omnibox.$.textContainer.textContent);
+    // Selection value is preserved if it's in the middle.
+    assertEquals('xamp', getStringSelection());
+  });
+
+  test('Unelision of https://https', async () => {
+    omnibox.browserOmniboxState = {
+      ...initialState,
+      textPieces: [
+        {
+          text: 'https',
+          strikethrough: false,
+          color: OmniboxTextColor.kOmniboxText,
+        },
+      ],
+      inlineAutocompletion: '',
+      formattedFullUrl: 'https://https',
+      selection: {start: 0, end: 0},
+      textIsUrl: true,
+    };
+    await microtasksFinished();
+    const input = getTextInput();
+    assertEquals('https', input.value);
+    assertEquals('https', omnibox.$.textContainer.textContent);
+
+    // Simulate drag-select.
+    fakeLeftMouseDown(/*buttons=*/ 5);
+    input.setSelectionRange(1, 5);
+    fakeLeftMouseUp(/*buttons=*/ 4);
+    await microtasksFinished();
+    assertEquals('https://https', input.value);
+    assertEquals('https://https', omnibox.$.textContainer.textContent);
+    // Selection value is preserved if it's in the middle.
+    assertEquals('ttps', getStringSelection());
+    // And it's selecting the second copy, not the first one.
+    assertEquals(9, input.selectionStart);
+    assertEquals(13, input.selectionEnd);
+
+    // Reset, and repeat with trailing /
+    omnibox.browserOmniboxState = {
+      ...initialState,
+      textPieces: [
+        {
+          text: 'https/',
+          strikethrough: false,
+          color: OmniboxTextColor.kOmniboxText,
+        },
+      ],
+      inlineAutocompletion: '',
+      formattedFullUrl: 'https://https',
+      selection: {start: 0, end: 0},
+      textIsUrl: true,
+      browserVersion: 1,
+    };
+    await microtasksFinished();
+    assertEquals('https/', input.value);
+    assertEquals('https/', omnibox.$.textContainer.textContent);
+
+    // Simulate drag-select, including the trailing /
+    fakeLeftMouseDown(/*buttons=*/ 5);
+    input.setSelectionRange(1, 6);
+    fakeLeftMouseUp(/*buttons=*/ 4);
+    await microtasksFinished();
+    assertEquals('https://https', input.value);
+    assertEquals('https://https', omnibox.$.textContainer.textContent);
+    // Selection value is preserved (sans the trailing /).
+    assertEquals('ttps', getStringSelection());
+    // And it's selecting the second copy, not the first one.
+    assertEquals(9, input.selectionStart);
+    assertEquals(13, input.selectionEnd);
+  });
+
 });

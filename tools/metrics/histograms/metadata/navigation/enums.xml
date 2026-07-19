@@ -172,6 +172,15 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Http(s) scheme"/>
 </enum>
 
+<!-- LINT.IfChange(ConnectionEstablishmentInitiator) -->
+
+<enum name="ConnectionEstablishmentInitiator">
+  <int value="0" label="kPreconnect"/>
+  <int value="1" label="kRequest"/>
+</enum>
+
+<!-- LINT.ThenChange(//services/network/public/mojom/connection_change_observer_client.mojom:ConnectionEstablishmentInitiator) -->
+
 <!-- LINT.IfChange(CookieChangeCause) -->
 
 <enum name="CookieChangeCause">
@@ -226,7 +235,7 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="Cookies Not Changed"/>
 </enum>
 
-<!-- LINT.ThenChange(//content/browser/renderer_host/navigator.cc:DuplicateNavsCookieStatus) -->
+<!-- LINT.ThenChange(//content/common/content_navigation_policy.h:DuplicateNavsCookieStatus) -->
 
 <enum name="EarlyRFHSwapType">
   <int value="0" label="No early swap"/>

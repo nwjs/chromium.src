@@ -531,7 +531,7 @@ class LoadingPredictorBrowserTest : public InProcessBrowserTest {
   // simultaneous navigations and avoids triggering the reload behavior.
   std::unique_ptr<content::TestNavigationManager> NavigateToURLAsync(
       const GURL& url) {
-    chrome::NewTab(browser());
+    chrome::NewTab(browser(), NewTabTypes::kNoUserAction);
     content::WebContents* tab =
         browser()->tab_strip_model()->GetActiveWebContents();
     DCHECK(tab);
@@ -1876,7 +1876,7 @@ IN_PROC_BROWSER_TEST_P(LoadingPredictorNetworkIsolationKeyBrowserTest,
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
       browser(), preconnecting_test_server()->GetURL(kHost1, "/title1.html")));
 
-  chrome::NewTab(browser());
+  chrome::NewTab(browser(), NewTabTypes::kNoUserAction);
   content::WebContents* tab2 =
       browser()->tab_strip_model()->GetActiveWebContents();
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
@@ -1947,7 +1947,7 @@ IN_PROC_BROWSER_TEST_P(LoadingPredictorNetworkIsolationKeyBrowserTest,
   ASSERT_EQ(kHost2, iframe_2->GetLastCommittedOrigin().host());
 
   // Create another tab without an iframe, at kHost2.
-  chrome::NewTab(browser());
+  chrome::NewTab(browser(), NewTabTypes::kNoUserAction);
   content::WebContents* tab2 =
       browser()->tab_strip_model()->GetActiveWebContents();
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
@@ -3284,7 +3284,7 @@ IN_PROC_BROWSER_TEST_F(ConnectionAllowlistLoadingPredictorBrowserTest,
                                                  ->tab_strip_model()
                                                  ->GetActiveWebContents()
                                                  ->GetPrimaryMainFrame();
-  EXPECT_TRUE(main_frame_rfh->GetNetworkRestrictionsID().has_value());
+  EXPECT_FALSE(main_frame_rfh->GetNetworkRestrictionsID().is_empty());
 
   // Create an iframe and wait for it to load. The initial about:blank
   // document should now correctly inherit policies and get a
@@ -3300,7 +3300,7 @@ IN_PROC_BROWSER_TEST_F(ConnectionAllowlistLoadingPredictorBrowserTest,
   content::RenderFrameHost* child_frame_rfh =
       content::ChildFrameAt(main_frame_rfh, 0);
   ASSERT_TRUE(child_frame_rfh);
-  EXPECT_TRUE(child_frame_rfh->GetNetworkRestrictionsID().has_value());
+  EXPECT_FALSE(child_frame_rfh->GetNetworkRestrictionsID().is_empty());
 
   net::NetworkAnonymizationKey network_anonymization_key =
       child_frame_rfh->GetIsolationInfoForSubresources()

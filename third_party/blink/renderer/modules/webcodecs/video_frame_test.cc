@@ -121,6 +121,69 @@ TEST_F(VideoFrameTest, ConstructorAndAttributes) {
   EXPECT_EQ(nullptr, blink_frame->frame());
 }
 
+TEST_F(VideoFrameTest, ConstructorWithTimestamp) {
+  V8TestingScope scope;
+
+  scoped_refptr<media::VideoFrame> media_frame = CreateBlackMediaVideoFrame(
+      base::Microseconds(1000), media::PIXEL_FORMAT_I420,
+      gfx::Size(112, 208) /* coded_size */,
+      gfx::Size(100, 200) /* visible_size */);
+
+  // Case 1: Constructor with explicit timestamp override
+  VideoFrame* frame_with_ts = MakeGarbageCollected<VideoFrame>(
+      media_frame, scope.GetExecutionContext(), "source_id", nullptr,
+      base::Microseconds(2000));
+  EXPECT_EQ(2000, frame_with_ts->timestamp());
+  frame_with_ts->close();
+
+  // Case 2: Constructor with std::nullopt timestamp (should use media_frame
+  // timestamp)
+  VideoFrame* frame_with_nullopt =
+      MakeGarbageCollected<VideoFrame>(media_frame, scope.GetExecutionContext(),
+                                       "source_id", nullptr, std::nullopt);
+  EXPECT_EQ(1000, frame_with_nullopt->timestamp());
+  frame_with_nullopt->close();
+
+  // Case 3: Constructor with default timestamp (should use media_frame
+  // timestamp)
+  VideoFrame* frame_default = MakeGarbageCollected<VideoFrame>(
+      media_frame, scope.GetExecutionContext(), "source_id", nullptr);
+  EXPECT_EQ(1000, frame_default->timestamp());
+  frame_default->close();
+}
+
+TEST_F(VideoFrameTest, CreateFromVideoFrameWithTimestampOverride) {
+  V8TestingScope scope;
+
+  scoped_refptr<media::VideoFrame> media_frame = CreateBlackMediaVideoFrame(
+      base::Microseconds(1000), media::PIXEL_FORMAT_I420,
+      gfx::Size(112, 208) /* coded_size */,
+      gfx::Size(100, 200) /* visible_size */);
+
+  VideoFrame* frame_with_ts = MakeGarbageCollected<VideoFrame>(
+      media_frame, scope.GetExecutionContext(), "source_id", nullptr,
+      base::Microseconds(2000));
+
+  auto* source = MakeGarbageCollected<V8CanvasImageSource>(frame_with_ts);
+  auto* init = VideoFrameInit::Create();
+
+  // Creating a VideoFrame from another VideoFrame should bring over the
+  // overridden timestamp.
+  VideoFrame* new_frame = VideoFrame::Create(scope.GetScriptState(), source,
+                                             init, scope.GetExceptionState());
+  ASSERT_TRUE(new_frame);
+  EXPECT_EQ(2000, new_frame->timestamp());
+
+  // Also verify explicit override works.
+  init->setTimestamp(3000);
+  VideoFrame* new_frame_override = VideoFrame::Create(
+      scope.GetScriptState(), source, init, scope.GetExceptionState());
+  ASSERT_TRUE(new_frame_override);
+  EXPECT_EQ(3000, new_frame_override->timestamp());
+
+  frame_with_ts->close();
+}
+
 TEST_F(VideoFrameTest, ConstructorOddSize) {
   V8TestingScope scope;
 
@@ -481,7 +544,7 @@ TEST_F(VideoFrameTest, VideoFrameFromGPUImageBitmap) {
 
   scoped_refptr<StaticBitmapImage> bitmap =
       AcceleratedStaticBitmapImage::CreateFromCanvasSharedImage(
-          std::move(client_si), token, kPremul_SkAlphaType,
+          std::move(client_si), token, kPremul_SkAlphaType, gfx::HDRMetadata(),
           SharedGpuContext::ContextProviderWrapper(),
           base::PlatformThread::CurrentRef(),
           base::MakeRefCounted<base::NullTaskRunner>(), base::DoNothing());
@@ -537,24 +600,27 @@ TEST_F(VideoFrameTest, HandleMonitoring) {
       SkImageInfo::MakeN32Premul(5, 5, SkColorSpace::MakeSRGB())));
   sk_sp<SkImage> sk_image = surface->makeImageSnapshot();
   auto handle_2_1 = base::MakeRefCounted<VideoFrameHandle>(
-      media_frame2, sk_image, scope.GetExecutionContext(), source1);
+      media_frame2, sk_image, std::nullopt, scope.GetExecutionContext(),
+      source1);
   verify_expectations(/* source1 */ 2, 1, 1, /* source2 */ 0, 0, 0);
 
   auto& logger = WebCodecsLogger::From(*scope.GetExecutionContext());
   auto handle_1_1b = base::MakeRefCounted<VideoFrameHandle>(
-      media_frame1, sk_image, logger.GetCloseAuditor(), source1);
+      media_frame1, sk_image, std::nullopt, logger.GetCloseAuditor(), source1);
   verify_expectations(/* source1 */ 2, 2, 1, /* source2 */ 0, 0, 0);
 
-  auto handle_1_2 =
-      base::MakeRefCounted<VideoFrameHandle>(media_frame1, sk_image, source2);
+  auto handle_1_2 = base::MakeRefCounted<VideoFrameHandle>(
+      media_frame1, sk_image, std::nullopt,
+      scoped_refptr<WebCodecsLogger::VideoFrameCloseAuditor>(), source2);
   verify_expectations(/* source1 */ 2, 2, 1, /* source2 */ 1, 1, 0);
 
   auto non_monitored1 = base::MakeRefCounted<VideoFrameHandle>(
-      media_frame2, sk_image, scope.GetExecutionContext());
+      media_frame2, sk_image, std::nullopt, scope.GetExecutionContext());
   verify_expectations(/* source1 */ 2, 2, 1, /* source2 */ 1, 1, 0);
 
-  auto non_monitored2 =
-      base::MakeRefCounted<VideoFrameHandle>(media_frame1, sk_image);
+  auto non_monitored2 = base::MakeRefCounted<VideoFrameHandle>(
+      media_frame1, sk_image, std::nullopt,
+      scoped_refptr<WebCodecsLogger::VideoFrameCloseAuditor>());
   verify_expectations(/* source1 */ 2, 2, 1, /* source2 */ 1, 1, 0);
 
   // Move constructor

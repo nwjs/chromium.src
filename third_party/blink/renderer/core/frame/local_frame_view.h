@@ -69,6 +69,7 @@
 #include "ui/gfx/geometry/rect.h"
 
 namespace cc {
+class AnimatedImageFrameIndexMap;
 class AnimationHost;
 class AnimationTimeline;
 class Layer;
@@ -307,6 +308,7 @@ class CORE_EXPORT LocalFrameView final
   };
 
   std::optional<NaturalSizingInfo> GetNaturalDimensions() const override;
+  void ClearNaturalDimensions() override;
 
   void Dispose() override;
   void PropagateFrameRects() override;
@@ -486,6 +488,7 @@ class CORE_EXPORT LocalFrameView final
   void SetIsVisuallyNonEmpty() { is_visually_non_empty_ = true; }
   void EnableAutoSizeMode(const gfx::Size& min_size, const gfx::Size& max_size);
   void DisableAutoSizeMode();
+  bool IsBeingAutoSized() const { return is_being_auto_sized_; }
 
   void ForceLayoutForPagination(float maximum_shrink_factor);
 
@@ -797,6 +800,14 @@ class CORE_EXPORT LocalFrameView final
   LocalFrameUkmAggregator* GetUkmAggregator();
   void ResetUkmAggregatorForTesting();
 
+  // Checks whether paint holding should be released without FCP.
+  // If the page has been painted and the document has finished parsing,
+  // but FCP hasn't fired (i.e., the page has no text or images), stops
+  // deferred commits so the page doesn't wait for the full paint holding
+  // timeout. Called from both the First Paint and FinishedParsing paths
+  // to handle either ordering.
+  void MaybeStopDeferringCommitsWithoutContentfulPaint();
+
   // Report the First Contentful Paint signal to the LocalFrameView.
   // This causes Deferred Commits to be restarted and tells the UKM
   // aggregator that FCP has been reached.
@@ -832,7 +843,12 @@ class CORE_EXPORT LocalFrameView final
                                           bool is_dominant);
 
   void DidPaintCanvasChild(HTMLCanvasElement& canvas, Element& child);
-  void RequestCanvasOnpaint(HTMLCanvasElement&);
+  void RequestCanvasOnpaint(HTMLCanvasElement&, Element* child = nullptr);
+
+  scoped_refptr<const cc::AnimatedImageFrameIndexMap>
+  GetAnimatedImageFrameIndexes() const;
+  void SetAnimatedImageFrameIndexes(
+      scoped_refptr<const cc::AnimatedImageFrameIndexMap> indexes);
 
   bool HasDominantVideoElement() const;
 
@@ -1203,6 +1219,8 @@ class CORE_EXPORT LocalFrameView final
   std::optional<gfx::Size> layout_size_for_natural_size_;
   bool layout_size_fixed_to_frame_size_;
 
+  bool is_being_auto_sized_ = false;
+
   bool needs_update_geometries_;
 
 #if DCHECK_IS_ON()
@@ -1331,6 +1349,8 @@ class CORE_EXPORT LocalFrameView final
               Member<GCedHeapLinkedHashSet<Member<Element>>>>
       canvas_elements_needing_onpaint_;
   bool did_run_post_lifecycle_steps_before_commit_ = false;
+  scoped_refptr<const cc::AnimatedImageFrameIndexMap>
+      animated_image_frame_indexes_;
 
   HeapHashSet<WeakMember<HTMLVideoElement>> fullscreen_video_elements_;
 

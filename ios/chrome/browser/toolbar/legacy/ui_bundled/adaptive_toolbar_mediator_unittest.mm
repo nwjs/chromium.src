@@ -31,8 +31,8 @@
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list_observer_bridge.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_opener.h"
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
-#import "ios/chrome/browser/shared/public/commands/bwg_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/gemini_commands.h"
 #import "ios/chrome/browser/shared/public/commands/qr_scanner_commands.h"
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
@@ -151,10 +151,10 @@ class AdaptiveToolbarMediatorTest : public PlatformTest {
         startDispatchingToTarget:mock_qr_scanner_commands_handler_
                      forProtocol:@protocol(QRScannerCommands)];
 
-    mock_gemini_handler_ = OCMStrictProtocolMock(@protocol(BWGCommands));
+    mock_gemini_handler_ = OCMStrictProtocolMock(@protocol(GeminiCommands));
     [test_browser_->GetCommandDispatcher()
         startDispatchingToTarget:mock_gemini_handler_
-                     forProtocol:@protocol(BWGCommands)];
+                     forProtocol:@protocol(GeminiCommands)];
 
     [[UIPasteboard generalPasteboard] setItems:@[]];
 
@@ -494,8 +494,8 @@ TEST_F(AdaptiveToolbarMediatorTest, MenuElements) {
 
   ASSERT_EQ(3U, tab_grid_menu.children.count);
 
-  ASSERT_TRUE([tab_grid_menu.children[2] isKindOfClass:[UIAction class]]);
-  UIAction* close_tab = (UIAction*)tab_grid_menu.children[2];
+  ASSERT_TRUE([tab_grid_menu.children[0] isKindOfClass:[UIAction class]]);
+  UIAction* close_tab = (UIAction*)tab_grid_menu.children[0];
   EXPECT_NSEQ(l10n_util::GetNSString(IDS_IOS_TOOLS_MENU_CLOSE_TAB),
               close_tab.title);
   EXPECT_EQ(UIMenuElementAttributesDestructive, close_tab.attributes);
@@ -504,8 +504,8 @@ TEST_F(AdaptiveToolbarMediatorTest, MenuElements) {
   UIAction* action = (UIAction*)tab_grid_menu.children[1];
   EXPECT_EQ(0U, action.attributes);
 
-  ASSERT_TRUE([tab_grid_menu.children[0] isKindOfClass:[UIAction class]]);
-  action = (UIAction*)tab_grid_menu.children[0];
+  ASSERT_TRUE([tab_grid_menu.children[2] isKindOfClass:[UIAction class]]);
+  action = (UIAction*)tab_grid_menu.children[2];
   EXPECT_EQ(0U, action.attributes);
 }
 

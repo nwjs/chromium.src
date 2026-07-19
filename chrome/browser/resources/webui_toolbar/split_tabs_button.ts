@@ -4,21 +4,23 @@
 
 import '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import '/strings.m.js';
-import './split_tabs_button_icons.html.js';
+import './icons.html.js';
 
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {MenuSourceType} from '//resources/mojo/ui/base/mojom/menu_source_type.mojom-webui.js';
+import {ContextMenuType, SplitTabActiveLocation} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
+import type {SplitTabsControlState} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 
 import {BrowserProxyImpl} from './browser_proxy.js';
 import type {BrowserProxy} from './browser_proxy.js';
-import {getCss} from './split_tabs_button.css.js';
 import {getHtml} from './split_tabs_button.html.js';
-import {BUTTON_LEFT, getClickSourceType, getContextMenuPosition, getContextMenuSourceType} from './toolbar_button.js';
-import {ContextMenuType, SplitTabActiveLocation} from './toolbar_ui_api_data_model.mojom-webui.js';
-import type {SplitTabsControlState} from './toolbar_ui_api_data_model.mojom-webui.js';
+import {getCss} from './toolbar_button.css.js';
+import {BUTTON_LEFT, getClickSourceType, getContextMenuPosition, getContextMenuSourceType, HelpBubbleAnchorMixin, roundedIconsEnabled} from './toolbar_button.js';
 
-export class SplitTabsButtonElement extends CrLitElement {
+const SplitTabsButtonElementBase = HelpBubbleAnchorMixin(CrLitElement);
+
+export class SplitTabsButtonElement extends SplitTabsButtonElementBase {
   static get is() {
     return 'split-tabs-button';
   }
@@ -33,6 +35,7 @@ export class SplitTabsButtonElement extends CrLitElement {
 
   static override get properties() {
     return {
+      ...super.properties,
       state: {type: Object},
     };
   }
@@ -46,33 +49,61 @@ export class SplitTabsButtonElement extends CrLitElement {
   private browserProxy_: BrowserProxy = BrowserProxyImpl.getInstance();
 
   protected getIcon(): string {
-    let iconName = 'split-scene';
+    let iconName = 'split_scene';
     if (this.state.isCurrentTabSplit) {
       switch (this.state.location) {
         case SplitTabActiveLocation.kStart:
-          iconName = 'split-scene-left';
+          iconName = 'split_scene_left';
           break;
         case SplitTabActiveLocation.kEnd:
-          iconName = 'split-scene-right';
+          iconName = 'split_scene_right';
           break;
         case SplitTabActiveLocation.kTop:
-          iconName = 'split-scene-up';
+          iconName = 'split_scene_up';
           break;
         case SplitTabActiveLocation.kBottom:
-          iconName = 'split-scene-down';
+          iconName = 'split_scene_down';
           break;
         default:
           break;
       }
     }
-    return `split-tabs-button:${iconName}`;
+    if (!roundedIconsEnabled()) {
+      iconName += '_old';
+    }
+    return `webui-toolbar:${iconName}`;
   }
 
   protected getLabel(): string {
-    const labelId = this.state.isCurrentTabSplit ?
-        'splitTabsButtonAccNameEnabled' :
-        'splitTabsButtonAccNamePinned';
+    if (!this.state.isCurrentTabSplit) {
+      return loadTimeData.getString('splitTabsButtonAccNamePinned');
+    }
+    const isRtl = loadTimeData.getString('textdirection') === 'rtl';
+    let labelId = '';
+    switch (this.state.location) {
+      case SplitTabActiveLocation.kStart:
+        labelId = isRtl ? 'splitTabsButtonAccNameEnabledRight' :
+                          'splitTabsButtonAccNameEnabledLeft';
+        break;
+      case SplitTabActiveLocation.kEnd:
+        labelId = isRtl ? 'splitTabsButtonAccNameEnabledLeft' :
+                          'splitTabsButtonAccNameEnabledRight';
+        break;
+      case SplitTabActiveLocation.kTop:
+        labelId = 'splitTabsButtonAccNameEnabledTop';
+        break;
+      case SplitTabActiveLocation.kBottom:
+        labelId = 'splitTabsButtonAccNameEnabledBottom';
+        break;
+      default:
+        labelId = 'splitTabsButtonAccNamePinned';
+        break;
+    }
     return loadTimeData.getString(labelId);
+  }
+
+  protected getTooltip_(): string {
+    return this.adjustTooltipForHelpBubble(this.getLabel());
   }
 
   /**

@@ -106,7 +106,8 @@ static_library("config") {
     "//chrome/browser/ui/webui/ash/slow",
     "//chrome/browser/ui/webui/ash/smb_shares",
     "//chrome/browser/ui/webui/ash/sys_internals",
-    "//chrome/browser/ui/webui/ash/vm",
+    "//chrome/browser/ui/webui/chromeos/chrome_url_disabled",
+    "//chrome/browser/ui/webui/nearby_internals",
     "//chrome/browser/ui/webui/nearby_share",
     "//chromeos/ash/components/boca/receiver",
     "//chromeos/ash/experiences/guest_os/borealis/motd",
@@ -116,8 +117,5 @@ static_library("config") {
 
   if (!is_official_build) {
     deps += [ "//ash/webui/sample_system_web_app_ui" ]
-    if (!use_real_dbus_clients) {
-      deps += [ "//chrome/browser/ui/webui/ash/emulator" ]
-    }
   }
 }

@@ -16,7 +16,6 @@
 #include "chrome/browser/site_protection/site_familiarity_utils.h"
 #include "chrome/browser/ui/views/infobars/confirm_infobar.h"
 #include "chrome/browser/ui/views/js_optimization/js_optimizations_infobar_delegate.h"
-#include "chrome/grit/generated_resources.h"
 #include "components/policy/core/browser/browser_policy_connector.h"
 #include "components/policy/core/common/mock_configuration_policy_provider.h"
 #include "components/policy/policy_constants.h"
@@ -31,6 +30,7 @@
 #include "chrome/browser/ui/views/js_optimization/js_optimizations_page_action_controller.h"
 #include "chrome/browser/ui/views/location_bar/icon_label_bubble_view.h"
 #include "chrome/browser/ui/views/page_action/test_support/page_action_interactive_test_mixin.h"
+#include "chrome/browser/ui/views/page_action/test_support/page_action_test_support.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "ui/actions/actions.h"
@@ -49,6 +49,7 @@
 #include "components/keyed_service/core/service_access_type.h"
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/core/browser/db/fake_database_manager.h"
+#include "components/safe_browsing/core/common/features.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_handle.h"
@@ -979,6 +980,37 @@ IN_PROC_BROWSER_TEST_F(JavascriptOptimizerBrowserTest_UseSiteFamiliarity,
   NavigateToUnfamiliarSite(/*expect_v8_optimizations_enabled=*/false);
 }
 
+class JavascriptOptimizerBrowserTest_UseSiteFamiliarityMigrationDryRun
+    : public JavascriptOptimizerBrowserTest_UseSiteFamiliarity {
+ public:
+  JavascriptOptimizerBrowserTest_UseSiteFamiliarityMigrationDryRun() = default;
+
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    JavascriptOptimizerBrowserTest_UseSiteFamiliarity::SetUpCommandLine(
+        command_line);
+    feature_list_.InitAndEnableFeatureWithParameters(
+        safe_browsing::kMigrateToBlockV8OptimizerOnUnfamiliarSites,
+        {{"dry_run", "true"}});
+  }
+
+  void SetUpOnMainThread() override {
+    JavascriptOptimizerBrowserTest_UseSiteFamiliarity::SetUpOnMainThread();
+    // Clear the pref set by the base class to force the migration logic to be
+    // evaluated.
+    profile()->GetPrefs()->ClearPref(
+        prefs::kJavascriptOptimizerBlockedForUnfamiliarSites);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(
+    JavascriptOptimizerBrowserTest_UseSiteFamiliarityMigrationDryRun,
+    ExpectOptimizationEnabledForUnfamiliarSiteWithDryRun) {
+  NavigateToUnfamiliarSite(/*expect_v8_optimizations_enabled=*/true);
+}
+
 IN_PROC_BROWSER_TEST_P(JavascriptOptimizerParamBrowserTest,
                        ExpectOptimizationCanBeEnabledForUnfamiliarOrigin) {
   const GURL kTestUrl =
@@ -1311,9 +1343,11 @@ class JavascriptOptimizerOmnibarIconBrowserTest
  public:
   // Returns true iff the JS Optimizations omnibar icon is visible.
   bool IsOmnibarIconVisible() {
-    const auto* view = BrowserView::GetBrowserViewForBrowser(browser())
-                           ->toolbar_button_provider()
-                           ->GetPageActionView(kActionShowJsOptimizationsIcon);
+    auto* provider = BrowserView::GetBrowserViewForBrowser(browser())
+                         ->toolbar_button_provider();
+    const auto* view = page_actions::GetIconLabelBubbleViewForTesting(
+        provider->GetPageActionViewInterface(kActionShowJsOptimizationsIcon),
+        kActionShowJsOptimizationsIcon);
     return view && view->GetVisible();
   }
 
@@ -1521,9 +1555,11 @@ IN_PROC_BROWSER_TEST_F(JavascriptOptimizerBubbleBrowserTest,
   EXPECT_TRUE(IsBubbleVisible());
 
   // Check icon is highlighted.
-  auto* icon = BrowserView::GetBrowserViewForBrowser(browser())
-                   ->toolbar_button_provider()
-                   ->GetPageActionView(kActionShowJsOptimizationsIcon);
+  auto* provider = BrowserView::GetBrowserViewForBrowser(browser())
+                       ->toolbar_button_provider();
+  auto* icon = page_actions::GetIconLabelBubbleViewForTesting(
+      provider->GetPageActionViewInterface(kActionShowJsOptimizationsIcon),
+      kActionShowJsOptimizationsIcon);
   EXPECT_TRUE(icon);
   views::test::InkDropHostTestApi ink_drop_test_api(views::InkDrop::Get(icon));
   ASSERT_EQ(ink_drop_test_api.GetInkDrop()->GetTargetInkDropState(),

@@ -39,9 +39,11 @@
 #include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_rendering_context.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_rendering_context_host.h"
+#include "third_party/blink/renderer/core/html/canvas/html_canvas_accessibility_manager.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/imagebitmap/image_bitmap_source.h"
 #include "third_party/blink/renderer/core/page/page_visibility_observer.h"
+#include "third_party/blink/renderer/platform/graphics/canvas_resource_dispatcher.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_types_3d.h"
 #include "third_party/blink/renderer/platform/graphics/offscreen_canvas_placeholder.h"
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image.h"
@@ -68,6 +70,7 @@ class DOMMatrix;
 class Element;
 class ElementImage;
 class GraphicsContext;
+class HTMLCanvasAccessibilityManager;
 class HTMLCanvasElement;
 class ImageBitmapOptions;
 class StaticBitmapImageToVideoFrameCopier;
@@ -189,6 +192,10 @@ class CORE_EXPORT HTMLCanvasElement final
 
   cc::TextureLayer* GetOrCreateCcLayerForCanvas2DIfNeeded();
   cc::TextureLayer* GetCanvas2DCcLayerForTesting() { return cc_layer_.get(); }
+  HTMLCanvasAccessibilityManager* GetAccessibilityManagerForTesting() {
+    return accessibility_manager_.Get();
+  }
+
   void ClearCanvas2DLayerTexture() override;
 
   void SetNeedsPushProperties();
@@ -246,7 +253,7 @@ class CORE_EXPORT HTMLCanvasElement final
 
   bool IsPageVisible() const override;
 
-  // CanvasResourceProvider::Delegate implementation
+  // CanvasResourceProviderDelegate implementation
   void NotifyGpuContextLost() override;
   bool IsPrinting() const override;
 
@@ -266,6 +273,20 @@ class CORE_EXPORT HTMLCanvasElement final
   // OffscreenCanvasPlaceholder implementation.
   void SetOffscreenCanvasResource(
       scoped_refptr<ExportedCanvasResource>&&) override;
+
+  // Accessibility support related functions.
+  void OnAxObjectIgnoredStateChanged(bool is_ignored);
+  bool GetNeedsAccessibilitySupportHeuristic();
+  void EnsureAccessibilityManager();
+  void RecordRenderedText(const String& text,
+                          const gfx::RectF& bounds,
+                          float font_height) override;
+  void ClearRenderedText(const gfx::RectF& rect) override;
+  void ClearRenderedText() override;
+  void UpdateCaptureRenderedText(bool capture);
+  bool ShouldCaptureRenderedText() override;
+  String CanvasAnnotation() const;
+
   void Trace(Visitor*) const override;
 
   static void RegisterRenderingContextFactory(
@@ -441,6 +462,8 @@ class CORE_EXPORT HTMLCanvasElement final
   bool origin_clean_;
   bool needs_unbuffered_input_ = false;
   bool style_is_visible_ = false;
+
+  Member<HTMLCanvasAccessibilityManager> accessibility_manager_;
 
   // Used for OffscreenCanvas that controls this HTML canvas element
   // and for low latency mode.

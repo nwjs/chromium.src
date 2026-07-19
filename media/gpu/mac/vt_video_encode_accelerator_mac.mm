@@ -7,6 +7,7 @@
 #import <Foundation/Foundation.h>
 
 #include <algorithm>
+#include <cmath>
 #include <memory>
 #include <optional>
 
@@ -38,16 +39,11 @@
 #include "media/base/video_frame.h"
 #include "media/base/video_types.h"
 #include "media/gpu/gpu_video_encode_accelerator_helpers.h"
+#include "media/gpu/mac/vt_config_util.h"
 #include "media/video/video_encode_accelerator.h"
 
 using base::apple::CFToNSPtrCast;
 using base::apple::NSToCFPtrCast;
-
-// This is a min version of macOS where we want to support SVC encoding via
-// EnableLowLatencyRateControl flag. The flag is actually supported since 11.3,
-// but there we see frame drops even with ample bitrate budget. Excessive frame
-// drops were fixed in 12.0.1.
-#define LOW_LATENCY_AND_SVC_AVAILABLE_VER 12.0.1
 
 #define SOFTWARE_ENCODING_SUPPORTED BUILDFLAG(IS_MAC)
 
@@ -165,10 +161,7 @@ bool IsSVCSupported(VideoCodec codec) {
   }
 #endif  // BUILDFLAG(ENABLE_HEVC_PARSER_AND_HW_DECODER) &&
         // defined(ARCH_CPU_ARM_FAMILY)
-  if (@available(macOS LOW_LATENCY_AND_SVC_AVAILABLE_VER, *)) {
-    return codec == VideoCodec::kH264;
-  }
-  return false;
+  return codec == VideoCodec::kH264;
 }
 
 bool IsManualQpSupported(VideoCodec codec) {
@@ -276,19 +269,17 @@ CreateCompressionSession(VideoCodec codec,
   }
 #endif  // SOFTWARE_ENCODING_SUPPORTED
 
-  if (@available(macOS LOW_LATENCY_AND_SVC_AVAILABLE_VER, *)) {
-    // Don't enable low-latency rate control in SW mode as it doesn't seem to
-    // apply to the SW encoder. From
-    // https://developer.apple.com/videos/play/wwdc2021/10158/, "[...] the
-    // low-latency mode always uses a hardware-accelerated video encoder". In
-    // fact, trying to use
-    // `kVTVideoEncoderSpecification_EnableLowLatencyRateControl` with the SW
-    // encoder leads to an initialization error.
-    if (required_encoder_type != EncoderType::kSoftware && require_low_delay &&
-        IsSVCSupported(codec)) {
-      encoder_spec[CFToNSPtrCast(
-          kVTVideoEncoderSpecification_EnableLowLatencyRateControl)] = @YES;
-    }
+  // Don't enable low-latency rate control in SW mode as it doesn't seem to
+  // apply to the SW encoder. From
+  // https://developer.apple.com/videos/play/wwdc2021/10158/, "[...] the
+  // low-latency mode always uses a hardware-accelerated video encoder". In
+  // fact, trying to use
+  // `kVTVideoEncoderSpecification_EnableLowLatencyRateControl` with the SW
+  // encoder leads to an initialization error.
+  if (required_encoder_type != EncoderType::kSoftware && require_low_delay &&
+      IsSVCSupported(codec)) {
+    encoder_spec[CFToNSPtrCast(
+        kVTVideoEncoderSpecification_EnableLowLatencyRateControl)] = @YES;
   }
 
   // Create the compression session.
@@ -308,16 +299,6 @@ CreateCompressionSession(VideoCodec codec,
       /*compressedDataAllocator=*/nullptr, output_callback,
       reinterpret_cast<void*>(accelerator), session.InitializeInto());
   if (status != noErr) {
-    if (@available(macOS 13, iOS 16, *)) {
-      // No extra steps required.
-    } else {
-      // IMPORTANT: ScopedCFTypeRef::release() doesn't call CFRelease(). In
-      // case of an error VTCompressionSessionCreate() is not supposed to write
-      // a non-null value into compression_session_, but just in case, we'll
-      // clear it without calling CFRelease() because it can be unsafe to call
-      // VTCompressionSessionInvalidate() on a not fully created session.
-      std::ignore = session.release();
-    }
     return base::unexpected(status);
   }
   DVLOG(3) << " VTCompressionSession created with input size="
@@ -584,6 +565,7 @@ EncoderStatus VTVideoEncodeAccelerator::Initialize(
                                 << GetProfileName(config.output_profile);
     return {EncoderStatus::Codes::kEncoderInitializationError};
   }
+  input_format_ = config.input_format;
   profile_ = config.output_profile;
   codec_ = VideoCodecProfileToVideoCodec(config.output_profile);
   client_ = client;
@@ -692,15 +674,13 @@ void VTVideoEncodeAccelerator::Encode(
       options.key_frame ? @YES : @NO;
 
   std::optional<int> frame_qp;
-  if (@available(macOS LOW_LATENCY_AND_SVC_AVAILABLE_VER, *)) {
-    if (IsManualQpSupported(codec_) &&
-        bitrate_.mode() == Bitrate::Mode::kExternal &&
-        options.quantizer.has_value()) {
-      DCHECK(require_low_delay_);
-      frame_qp = std::clamp(options.quantizer.value(), 1, kH26xMaxQp);
-      frame_props[CFToNSPtrCast(kVTEncodeFrameOptionKey_BaseFrameQP)] =
-          @(frame_qp.value());
-    }
+  if (IsManualQpSupported(codec_) &&
+      bitrate_.mode() == Bitrate::Mode::kExternal &&
+      options.quantizer.has_value()) {
+    DCHECK(require_low_delay_);
+    frame_qp = std::clamp(options.quantizer.value(), 1, kH26xMaxQp);
+    frame_props[CFToNSPtrCast(kVTEncodeFrameOptionKey_BaseFrameQP)] =
+        @(frame_qp.value());
   }
 
   // VideoToolbox uses timestamps for rate control purposes, but we can't rely
@@ -1004,6 +984,41 @@ void VTVideoEncodeAccelerator::ReturnBitstreamBuffer(
     md.qp = encode_output->qp.value();
   }
 
+  if (calculate_psnr_) {
+    if (@available(macOS 14.4, *)) {
+      NSDictionary* quality_metrics = [sample_attachments
+          objectForKey:CFToNSPtrCast(kVTSampleAttachmentKey_QualityMetrics)];
+      if (quality_metrics) {
+        NSNumber* luma_mse = [quality_metrics
+            objectForKey:
+                CFToNSPtrCast(
+                    kVTSampleAttachmentQualityMetricsKey_LumaMeanSquaredError)];
+        NSNumber* chroma_blue_mse = [quality_metrics
+            objectForKey:
+                CFToNSPtrCast(
+                    kVTSampleAttachmentQualityMetricsKey_ChromaBlueMeanSquaredError)];
+        NSNumber* chroma_red_mse = [quality_metrics
+            objectForKey:
+                CFToNSPtrCast(
+                    kVTSampleAttachmentQualityMetricsKey_ChromaRedMeanSquaredError)];
+        if (luma_mse && chroma_blue_mse && chroma_red_mse) {
+          // YUV isn't the same as YCbCr, but we don't have a good way to report
+          // the latter and in practice the difference will be small (luma vs
+          // chroma is still a valid comparison).
+          double y_mse = [luma_mse doubleValue];
+          double cb_mse = [chroma_blue_mse doubleValue];
+          double cr_mse = [chroma_red_mse doubleValue];
+
+          md.yuv_psnr = YuvPsnr{
+              .y = CalculatePsnr(y_mse, input_format_),
+              .u = CalculatePsnr(cb_mse, input_format_),  // Cb -> U
+              .v = CalculatePsnr(cr_mse, input_format_),  // Cr -> V
+          };
+        }
+      }
+    }
+  }
+
   client_->BitstreamBufferReady(buffer_ref->id, std::move(md));
   MaybeRunFlushCallback();
 }
@@ -1106,6 +1121,21 @@ bool VTVideoEncodeAccelerator::ConfigureCompressionSession(VideoCodec codec) {
     DLOG(WARNING) << "MaxFrameDelayCount is not supported";
   }
 
+  if (@available(macOS 14.4, *)) {
+    if (session_property_setter.IsSupported(
+            kVTCompressionPropertyKey_CalculateMeanSquaredError) &&
+        base::FeatureList::IsEnabled(kVTVideoEncodeAcceleratorCalculatePSNR)) {
+      if (session_property_setter.Set(
+              kVTCompressionPropertyKey_CalculateMeanSquaredError, true)) {
+        calculate_psnr_ = true;
+      } else {
+        DLOG(WARNING) << "Failed to set CalculateMeanSquaredError property";
+      }
+    } else {
+      DVLOG(1) << "CalculateMeanSquaredError is not supported or not enabled";
+    }
+  }
+
   if (num_temporal_layers_ != 2) {
     return true;
   }
@@ -1118,46 +1148,42 @@ bool VTVideoEncodeAccelerator::ConfigureCompressionSession(VideoCodec codec) {
     return false;
   }
 
-  if (@available(macOS LOW_LATENCY_AND_SVC_AVAILABLE_VER, *)) {
-    if (!session_property_setter.IsSupported(
-            kVTCompressionPropertyKey_BaseLayerFrameRateFraction)) {
-      NotifyErrorStatus({EncoderStatus::Codes::kEncoderUnsupportedConfig,
-                         "BaseLayerFrameRateFraction is not supported"});
-      return false;
-    }
-    if (!session_property_setter.Set(
-            kVTCompressionPropertyKey_BaseLayerFrameRateFraction, 0.5)) {
-      NotifyErrorStatus({EncoderStatus::Codes::kEncoderUnsupportedConfig,
-                         "Setting BaseLayerFrameRate property failed"});
-      return false;
-    }
+  if (!session_property_setter.IsSupported(
+          kVTCompressionPropertyKey_BaseLayerFrameRateFraction)) {
+    NotifyErrorStatus({EncoderStatus::Codes::kEncoderUnsupportedConfig,
+                       "BaseLayerFrameRateFraction is not supported"});
+    return false;
+  }
+  if (!session_property_setter.Set(
+          kVTCompressionPropertyKey_BaseLayerFrameRateFraction, 0.5)) {
+    NotifyErrorStatus({EncoderStatus::Codes::kEncoderUnsupportedConfig,
+                       "Setting BaseLayerFrameRate property failed"});
+    return false;
   }
 
   // Configuring the number of reference frames to 1, which will produce
   // bitstream that follows WebRTC SVC spec for L1T2.
-  if (@available(macOS 13.0, iOS 16.0, *)) {
-    bool skip_set_reference_buffer_count = false;
-    if (@available(macOS 26, *)) {
-      // We see that setting kVTCompressionPropertyKey_ReferenceBufferCount=1
-      // causes frame drops on Mac OS Tahoe when encoding H264,
-      // that's why we skip it. More info: http://crbug.com/450596068
-      // Using an extra flag here because @available checks can't be combined
-      // with other conditions in the same if statement,
-      // see the `unsupported-availability-guard` warning.
-      skip_set_reference_buffer_count = (codec == VideoCodec::kH264);
-    }
-    if (!skip_set_reference_buffer_count &&
-        session_property_setter.IsSupported(
-            kVTCompressionPropertyKey_ReferenceBufferCount)) {
-      if (!session_property_setter.Set(
-              kVTCompressionPropertyKey_ReferenceBufferCount, 1)) {
-        DLOG(WARNING) << "Setting ReferenceBufferCount property failed";
-      } else {
-        encoder_produces_svc_spec_compliant_bitstream_ = true;
-      }
+  bool skip_set_reference_buffer_count = false;
+  if (@available(macOS 26, *)) {
+    // We see that setting kVTCompressionPropertyKey_ReferenceBufferCount=1
+    // causes frame drops on Mac OS Tahoe when encoding H264,
+    // that's why we skip it. More info: http://crbug.com/450596068
+    // Using an extra flag here because @available checks can't be combined
+    // with other conditions in the same if statement,
+    // see the `unsupported-availability-guard` warning.
+    skip_set_reference_buffer_count = (codec == VideoCodec::kH264);
+  }
+  if (!skip_set_reference_buffer_count &&
+      session_property_setter.IsSupported(
+          kVTCompressionPropertyKey_ReferenceBufferCount)) {
+    if (!session_property_setter.Set(
+            kVTCompressionPropertyKey_ReferenceBufferCount, 1)) {
+      DLOG(WARNING) << "Setting ReferenceBufferCount property failed";
     } else {
-      DLOG(WARNING) << "ReferenceBufferCount is not supported";
+      encoder_produces_svc_spec_compliant_bitstream_ = true;
     }
+  } else {
+    DLOG(WARNING) << "ReferenceBufferCount is not supported";
   }
 
   return true;
@@ -1234,6 +1260,26 @@ base::TimeDelta VTVideoEncodeAccelerator::AssignMonotonicTimestamp() {
   auto result = next_timestamp_;
   next_timestamp_ += step;
   return result;
+}
+
+// static
+double VTVideoEncodeAccelerator::CalculatePsnr(double mse,
+                                               VideoPixelFormat format) {
+  DCHECK_GE(mse, 0.0);
+  DCHECK(format == PIXEL_FORMAT_I420 || format == PIXEL_FORMAT_NV12);
+  constexpr double max_value = 255.0;
+  if (mse == 0.0) {
+    return 128.0;
+  }
+  double psnr = 10.0 * std::log10((max_value * max_value) / mse);
+  return std::min(psnr, 128.0);
+}
+
+// static
+double VTVideoEncodeAccelerator::CalculatePsnrForTesting(
+    double mse,
+    VideoPixelFormat format) {
+  return CalculatePsnr(mse, format);
 }
 
 }  // namespace media

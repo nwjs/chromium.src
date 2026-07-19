@@ -11,6 +11,7 @@
 #include "base/check.h"
 #include "base/functional/bind.h"
 #include "base/memory/ptr_util.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/page_action/page_action_controller.h"
@@ -37,11 +38,13 @@ namespace page_actions {
 
 PageActionView::PageActionView(actions::ActionItem* action_item,
                                const PageActionViewParams& params,
+                               PageActionIconType type,
                                ui::ElementIdentifier element_identifier)
     : IconLabelBubbleView(gfx::FontList(), params.icon_label_bubble_delegate),
       action_item_(action_item->GetAsWeakPtr()),
       icon_size_(params.icon_size),
-      icon_insets_(params.icon_insets) {
+      icon_insets_(params.icon_insets),
+      type_(type) {
   CHECK(action_item_->GetActionId().has_value());
   SetUpForAnimation(base::Milliseconds(600));
 
@@ -131,6 +134,7 @@ void PageActionView::SetAnchoredMessageCollapseCallback(
 }
 
 void PageActionView::OnNewActiveController(PageActionController* controller) {
+  chip_shown_metric_recorded_ = false;
   observation_.Reset();
   action_item_controller_subscription_ = {};
   if (controller) {
@@ -210,6 +214,26 @@ void PageActionView::OnPageActionModelWillBeDeleted(
   SetVisible(false);
 }
 
+views::BubbleAnchor PageActionView::GetBubbleAnchor() {
+  return views::BubbleAnchor(this);
+}
+
+std::u16string PageActionView::GetTooltipText() const {
+  return IconLabelBubbleView::GetTooltipText();
+}
+
+std::u16string PageActionView::GetAccessibleName() const {
+  return IconLabelBubbleView::GetAccessibleName();
+}
+
+void PageActionView::SetVisible(bool visible) {
+  IconLabelBubbleView::SetVisible(visible);
+}
+
+IconLabelBubbleView* PageActionView::GetIconLabelBubbleViewNotMigrated() {
+  NOTREACHED();
+}
+
 actions::ActionId PageActionView::GetActionId() const {
   return action_item_->GetActionId().value();
 }
@@ -254,6 +278,10 @@ bool PageActionView::ShouldUpdateInkDropOnClickCanceled() const {
 }
 
 void PageActionView::NotifyClick(const ui::Event& event) {
+  if (IsAnchoredMessageVisible()) {
+    return;
+  }
+
   PageActionTrigger trigger_source;
   if (event.IsMouseEvent()) {
     trigger_source = PageActionTrigger::kMouse;
@@ -276,6 +304,10 @@ void PageActionView::NotifyClick(const ui::Event& event) {
           .SetProperty(kPageActionTriggerKey,
                        static_cast<std::underlying_type_t<PageActionTrigger>>(
                            trigger_source))
+          .SetProperty(
+              kPageActionEntryPointKey,
+              static_cast<std::underlying_type_t<PageActionEntryPoint>>(
+                  PageActionEntryPoint::kSuggestionChip))
           .Build());
 }
 
@@ -297,8 +329,10 @@ void PageActionView::UpdateIconImage() {
                                  : views::GetCascadingAccentColor(this);
 
   if (observation_.GetSource()->GetShouldAnimateImage()) {
-    int resource_id = observation_.GetSource()->GetImageAnimationResourceId();
-    AnimateImage(resource_id, icon_color);
+    std::optional<page_actions::PageActionAnimationParams> params =
+        observation_.GetSource()->GetImageAnimationParameters();
+    CHECK(params.has_value());
+    AnimateImage(params.value(), icon_color);
   }
 
   // If image does not have a vector icon, set it directly.
@@ -314,14 +348,23 @@ void PageActionView::UpdateIconImage() {
   }
 }
 
-void PageActionView::AnimateImage(int resource_id, SkColor icon_color) {
+void PageActionView::AnimateImage(
+    const page_actions::PageActionAnimationParams& params,
+    SkColor icon_color) {
   views::SingleAnimatedImageContainer::AnimationConfig config{
-      .direction =
-          views::SingleAnimatedImageContainer::AnimationDirection::kForward,
-      .end_behavior =
-          views::SingleAnimatedImageContainer::AnimationEndBehavior::kReset};
+      .tween = params.tween,
+      .duration = params.duration};
 
-  animated_image_container().PlayAnimation({resource_id, icon_color}, config);
+  if (params.start_offset != 0.0f || params.end_offset != 1.0f) {
+    config.boundary = views::SingleAnimatedImageContainer::AnimationBoundary{
+        .start_offset = params.start_offset, .end_offset = params.end_offset};
+  }
+
+  animated_image_container().PlayAnimation(
+      {params.resource_id, icon_color,
+       views::SingleAnimatedImageContainer::AnimationDirection::kForward,
+       views::SingleAnimatedImageContainer::AnimationEndBehavior::kReset},
+      config);
   image_animation_started_callback_.Run();
 }
 
@@ -370,6 +413,10 @@ bool PageActionView::IsBubbleShowing() const {
 }
 
 bool PageActionView::IsTriggerableEvent(const ui::Event& event) {
+  if (IsAnchoredMessageVisible()) {
+    return false;
+  }
+
   // Returns whether the bubble should be shown given the event. Only trigger an
   // action when action UI isn't already showing (managed at the
   // IconLabelBubbleView level), and if mouse input, when event is a left button
@@ -409,6 +456,9 @@ void PageActionView::NotifyIsChipShowingChange() {
     return;
   }
   last_notified_is_chip_showing_ = is_chip_showing;
+  if (!is_chip_showing) {
+    chip_shown_metric_recorded_ = false;
+  }
   // Defer to avoid re-entrancy into PageActionModel::NotifyChange().
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE,
@@ -437,7 +487,9 @@ void PageActionView::CreateAndShowAnchoredMessage(
     anchored_message_widget_->MakeCloseSynchronous(
         base::BindOnce(&PageActionView::OnAnchoredMessageWidgetClose,
                        weak_factory_.GetWeakPtr()));
-    anchored_message_widget_->Show();
+
+    // Don't steal focus when shown
+    anchored_message_widget_->ShowInactive();
   } else {
     anchored_message_ = nullptr;
   }
@@ -449,7 +501,7 @@ void PageActionView::OnAnchoredMessageWidgetClose(
   CHECK(anchored_message_);
   CHECK(anchored_message_widget_);
   anchored_message_ = nullptr;
-  anchored_message_widget_ = nullptr;
+  anchored_message_widget_.reset();
   anchored_message_visibility_changed_callbacks_.Notify(this);
 }
 
@@ -461,6 +513,10 @@ void PageActionView::AnchoredMessageChipClick() {
           .SetProperty(kPageActionTriggerKey,
                        static_cast<std::underlying_type_t<PageActionTrigger>>(
                            PageActionTrigger::kMouse))
+          .SetProperty(
+              kPageActionEntryPointKey,
+              static_cast<std::underlying_type_t<PageActionEntryPoint>>(
+                  PageActionEntryPoint::kAnchoredMessage))
           .Build());
   anchored_message_close_callback_.Run();
 }
@@ -479,6 +535,39 @@ void PageActionView::AnchoredMessageCollapsed() {
 
 AnchoredMessageBubbleView* PageActionView::GetAnchoredMessageForTesting() {
   return anchored_message_;
+}
+
+void PageActionView::BeforeApplyLayout(const views::ProposedLayout& layout) {
+  if (!GetVisible() || !IsChipVisible() || chip_shown_metric_recorded_ ||
+      GetAnimationValue() != 1.0 || GetText().empty()) {
+    return;
+  }
+  int label_width = 0;
+  for (const auto& child_layout : layout.child_layouts) {
+    if (child_layout.child_view == label()) {
+      label_width = child_layout.bounds.width();
+      break;
+    }
+  }
+  MaybeRecordCollapsedMetrics(label_width);
+}
+
+void PageActionView::MaybeRecordCollapsedMetrics(int label_width) {
+  int preferred_width =
+      GetSizeForLabelWidth(label()->GetPreferredSize().width()).width();
+
+  base::UmaHistogramEnumeration(
+      "PageActionController.ChipCollapseAnalysisCount.ActionType", type_);
+
+  if (label_width == 0) {
+    base::UmaHistogramEnumeration(
+        "PageActionController.Chip.CollapsedDueToSpace.ActionType", type_);
+    base::UmaHistogramCounts1000(
+        "PageActionController.Chip.CollapsedDueToSpace.PreferredWidth",
+        preferred_width);
+  }
+
+  chip_shown_metric_recorded_ = true;
 }
 
 BEGIN_METADATA(PageActionView)

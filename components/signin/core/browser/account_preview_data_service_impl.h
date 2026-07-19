@@ -15,6 +15,7 @@
 #include "base/scoped_observation.h"
 #include "base/version_info/channel.h"
 #include "components/signin/core/browser/account_preview_data_service.h"
+#include "components/signin/core/browser/account_preview_metrics_recorder.h"
 #include "components/signin/public/base/wait_for_network_callback_helper.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "google_apis/gaia/gaia_id.h"
@@ -40,7 +41,8 @@ class AccountPreviewDataServiceImpl : public AccountPreviewDataService,
       PrefService* pref_service,
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
       std::unique_ptr<WaitForNetworkCallbackHelper> network_delay_helper,
-      version_info::Channel channel);
+      version_info::Channel channel,
+      const metrics::ProfileMetricsService* profile_metrics_service);
 
   AccountPreviewDataServiceImpl(const AccountPreviewDataServiceImpl&) = delete;
   AccountPreviewDataServiceImpl& operator=(
@@ -63,10 +65,6 @@ class AccountPreviewDataServiceImpl : public AccountPreviewDataService,
       const CoreAccountInfo& account_info) override;
   void OnRefreshTokenRemovedForAccount(
       const CoreAccountId& account_id) override;
-  void OnPrimaryAccountChanged(const PrimaryAccountChangeEvent& event) override;
-  void OnAccountsInCookieUpdated(
-      const AccountsInCookieJarInfo& accounts_in_cookie_jar_info,
-      const GoogleServiceAuthError& error) override;
   void OnRefreshTokensLoaded() override;
   void OnIdentityManagerShutdown(IdentityManager* identity_manager) override;
 
@@ -76,13 +74,12 @@ class AccountPreviewDataServiceImpl : public AccountPreviewDataService,
   void StartFetch(const GaiaId& gaia_id);
   void OnFetchCompleted(const GaiaId& gaia_id,
                         std::optional<AccountPreviewData> data);
-  void MaybeClearInvalidAccountPreviewData(
-      const AccountsInCookieJarInfo& accounts_in_cookie_jar_info);
 
   raw_ptr<IdentityManager> identity_manager_ = nullptr;
   scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory_;
   std::unique_ptr<WaitForNetworkCallbackHelper> network_delay_helper_;
   const version_info::Channel channel_;
+  AccountPreviewMetricsRecorder metrics_recorder_;
 
   std::unique_ptr<PersistentRepeatingTimer> repeating_timer_;
   bool deferred_refresh_pending_ = false;

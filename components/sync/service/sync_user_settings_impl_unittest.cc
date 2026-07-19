@@ -318,6 +318,77 @@ TEST_F(SyncUserSettingsImplTest, SetSelectedTypeInTransportMode) {
   EXPECT_EQ(sync_user_settings->GetSelectedTypes(), default_types);
 }
 
+#if BUILDFLAG(IS_CHROMEOS)
+TEST_F(SyncUserSettingsImplTest,
+       SetSelectedTypeInTransportModeChromeOsWithReplaceSyncPromosEnabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(kReplaceSyncPromosWithSignInPromos);
+
+  SetSyncAccountState(SyncPrefs::SyncAccountState::kSignedInWithoutSyncConsent);
+  std::unique_ptr<SyncUserSettingsImpl> sync_user_settings =
+      MakeSyncUserSettings(GetUserTypes());
+
+  const UserSelectableTypeSet default_types =
+      sync_user_settings->GetSelectedTypes();
+  ASSERT_TRUE(default_types.Has(UserSelectableType::kPayments));
+
+  // Exactly one notification is expected when the type is changed, even though
+  // two underlying preferences are updated.
+  EXPECT_CALL(delegate_, OnSelectedTypesChanged()).Times(1);
+
+  sync_user_settings->SetSelectedType(UserSelectableType::kPayments, false);
+
+  // The active types (for account) should be updated.
+  EXPECT_THAT(
+      sync_user_settings->GetSelectedTypes(),
+      ContainerEq(Difference(default_types, {UserSelectableType::kPayments})));
+
+  // The syncing user types should ALSO be updated. This is verified by
+  // transitioning to kSyncing state (which makes GetSelectedTypes() read from
+  // syncing user prefs).
+  SetSyncAccountState(SyncPrefs::SyncAccountState::kSyncing);
+  EXPECT_THAT(
+      sync_user_settings->GetSelectedTypes(),
+      ContainerEq(Difference(default_types, {UserSelectableType::kPayments})));
+}
+
+TEST_F(SyncUserSettingsImplTest,
+       SetSelectedTypeInTransportModeChromeOsWithReplaceSyncPromosDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(kReplaceSyncPromosWithSignInPromos);
+
+  // Measure default syncing user types first.
+  SetSyncAccountState(SyncPrefs::SyncAccountState::kSyncing);
+  std::unique_ptr<SyncUserSettingsImpl> sync_user_settings =
+      MakeSyncUserSettings(GetUserTypes());
+  const UserSelectableTypeSet default_syncing_types =
+      sync_user_settings->GetSelectedTypes();
+  ASSERT_TRUE(default_syncing_types.Has(UserSelectableType::kPayments));
+
+  // Switch to transport mode for the actual test.
+  SetSyncAccountState(SyncPrefs::SyncAccountState::kSignedInWithoutSyncConsent);
+  const UserSelectableTypeSet default_transport_types =
+      sync_user_settings->GetSelectedTypes();
+  ASSERT_TRUE(default_transport_types.Has(UserSelectableType::kPayments));
+
+  // Exactly one notification is expected when the type is changed.
+  EXPECT_CALL(delegate_, OnSelectedTypesChanged()).Times(1);
+
+  sync_user_settings->SetSelectedType(UserSelectableType::kPayments, false);
+
+  // The active types (for account) should be updated.
+  EXPECT_THAT(sync_user_settings->GetSelectedTypes(),
+              ContainerEq(Difference(default_transport_types,
+                                     {UserSelectableType::kPayments})));
+
+  // The syncing user types should NOT be updated (should still be
+  // default_syncing_types).
+  SetSyncAccountState(SyncPrefs::SyncAccountState::kSyncing);
+  EXPECT_THAT(sync_user_settings->GetSelectedTypes(),
+              ContainerEq(default_syncing_types));
+}
+#endif  // BUILDFLAG(IS_CHROMEOS)
+
 TEST_F(SyncUserSettingsImplTest, SetSelectedTypeInFullSyncMode) {
   std::unique_ptr<SyncUserSettingsImpl> sync_user_settings =
       MakeSyncUserSettings(GetUserTypes());
@@ -752,7 +823,7 @@ TEST_F(SyncUserSettingsImplTest, SyncFeatureDisabledViaDashboard) {
 
 TEST_F(
     SyncUserSettingsImplTest,
-    SetSyncFeatureDisabledViaDashboardDisablesOsTypesWhenFlagEnabledAndNotSyncing) {
+    SetSyncFeatureDisabledViaDashboard_SignedInWithoutSyncConsentWithTheFlagEnabled) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeature(syncer::kReplaceSyncPromosWithSignInPromos);
 
@@ -762,15 +833,22 @@ TEST_F(
 
   // Ensure OS types are enabled by default.
   ASSERT_TRUE(sync_user_settings->IsSyncAllOsTypesEnabled());
+  // Ensure browser types are enabled by default.
+  ASSERT_TRUE(sync_user_settings->GetPreferredDataTypes().HasAll(
+      {NIGORI, DEVICE_INFO, PASSWORDS}));
 
   sync_user_settings->SetSyncFeatureDisabledViaDashboard();
 
   EXPECT_FALSE(sync_user_settings->IsSyncAllOsTypesEnabled());
   EXPECT_TRUE(sync_user_settings->GetSelectedOsTypes().empty());
+  // When the flag is enabled and user is not syncing, the dashboard reset does
+  // NOT clear preferred browser types.
+  EXPECT_TRUE(sync_user_settings->GetPreferredDataTypes().HasAll(
+      {NIGORI, DEVICE_INFO, PASSWORDS}));
 }
 
 TEST_F(SyncUserSettingsImplTest,
-       SetSyncFeatureDisabledViaDashboardDoesNotDisableOsTypesWithSyncConsent) {
+       SetSyncFeatureDisabledViaDashboard_SyncingWithTheFlagEnabled) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeature(syncer::kReplaceSyncPromosWithSignInPromos);
 
@@ -780,29 +858,47 @@ TEST_F(SyncUserSettingsImplTest,
 
   // Ensure OS types are enabled by default.
   ASSERT_TRUE(sync_user_settings->IsSyncAllOsTypesEnabled());
+  // Ensure browser types are enabled by default.
+  ASSERT_TRUE(sync_user_settings->GetPreferredDataTypes().HasAll(
+      {NIGORI, DEVICE_INFO, BOOKMARKS, PASSWORDS}));
 
   sync_user_settings->SetSyncFeatureDisabledViaDashboard();
 
   EXPECT_TRUE(sync_user_settings->IsSyncAllOsTypesEnabled());
+  // Even when the feature is enabled, if the user is syncing, the dashboard
+  // reset clears preferred browser types. Only a minimal set of datatypes
+  // should sync.
+  EXPECT_TRUE(sync_user_settings->GetPreferredDataTypes().HasAll(
+      {NIGORI, DEVICE_INFO}));
+  EXPECT_FALSE(sync_user_settings->GetPreferredDataTypes().Has(BOOKMARKS));
+  EXPECT_FALSE(sync_user_settings->GetPreferredDataTypes().Has(PASSWORDS));
 }
 
-TEST_F(
-    SyncUserSettingsImplTest,
-    SetSyncFeatureDisabledViaDashboardDoesNotDisableOsTypesWhenFlagDisabled) {
+TEST_F(SyncUserSettingsImplTest,
+       SetSyncFeatureDisabledViaDashboard_SyncingWithTheFlagDisabled) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndDisableFeature(
       syncer::kReplaceSyncPromosWithSignInPromos);
 
-  SetSyncAccountState(SyncPrefs::SyncAccountState::kSignedInWithoutSyncConsent);
+  SetSyncAccountState(SyncPrefs::SyncAccountState::kSyncing);
   std::unique_ptr<SyncUserSettingsImpl> sync_user_settings =
       MakeSyncUserSettings(GetUserTypes());
 
   // Ensure OS types are enabled by default.
   ASSERT_TRUE(sync_user_settings->IsSyncAllOsTypesEnabled());
+  // Ensure browser types are enabled by default.
+  ASSERT_TRUE(sync_user_settings->GetPreferredDataTypes().HasAll(
+      {NIGORI, DEVICE_INFO, BOOKMARKS, PASSWORDS}));
 
   sync_user_settings->SetSyncFeatureDisabledViaDashboard();
 
   EXPECT_TRUE(sync_user_settings->IsSyncAllOsTypesEnabled());
+  // When the feature is disabled, the dashboard reset clears preferred browser
+  // types.  Only a minimal set of datatypes should sync.
+  EXPECT_TRUE(sync_user_settings->GetPreferredDataTypes().HasAll(
+      {NIGORI, DEVICE_INFO}));
+  EXPECT_FALSE(sync_user_settings->GetPreferredDataTypes().Has(BOOKMARKS));
+  EXPECT_FALSE(sync_user_settings->GetPreferredDataTypes().Has(PASSWORDS));
 }
 
 TEST_F(SyncUserSettingsImplTest,

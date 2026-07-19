@@ -76,7 +76,7 @@ class FamilyLinkUserMetricsProviderTest : public testing::Test {
     AccountInfo account = signin::MakePrimaryAccountAvailable(
         IdentityManagerFactory::GetForProfile(profile), test_email,
         signin::ConsentLevel::kSignin);
-    AccountCapabilitiesTestMutator mutator(&account.capabilities);
+    AccountCapabilitiesTestMutator mutator(&account);
     // Tests assume that this account is in Family Link.
     mutator.set_can_fetch_family_member_info(true);
     mutator.set_is_subject_to_parental_controls(
@@ -576,8 +576,9 @@ class
       public testing::WithParamInterface<ContentFiltersTestCase> {
  protected:
   void SetUpFeatureList() override {
-    scoped_feature_list_.InitAndDisableFeature(
-        kSupervisedUserEmitLogRecordSeparately);
+    scoped_feature_list_.InitWithFeatureStates(
+        {{kSupervisedUserUseUrlFilteringService, true},
+         {kSupervisedUserEmitLogRecordSeparately, false}});
   }
 
   void CreateProfiles(std::size_t count) {
@@ -639,7 +640,8 @@ TEST_P(
       SupervisedUserLogRecord::Segment::kSupervisionEnabledLocally,
       /*expected_count=*/1);
   histogram_tester.ExpectBucketCount(
-      kFamilyLinkUserLogSegmentWebFilterHistogramName, WebFilterType::kDisabled,
+      kFamilyLinkUserLogSegmentWebFilterHistogramName,
+      WebFilterType::kAllowAllSites,
       /*expected_count=*/1);
 }
 

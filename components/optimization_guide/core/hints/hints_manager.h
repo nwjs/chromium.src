@@ -75,6 +75,11 @@ BASE_DECLARE_FEATURE_PARAM(size_t, kHintsMaxConcurrentBatchUpdateFetches);
 // remove this.
 BASE_DECLARE_FEATURE_PARAM(size_t, kHintsMaxConcurrentNavigationFetches);
 
+extern const char kOptimizationGuideServiceGetHintsDefaultURL[];
+// The local histogram used to record that the component hints are stored in
+// the cache and are ready for use.
+extern const char kLoadedHintLocalHistogramString[];
+
 class HintsManager : public OptimizationHintsComponentObserver,
                      public PushNotificationManager::Delegate {
  public:

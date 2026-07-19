@@ -46,10 +46,10 @@
 
 // Used to create PassKey to access the UIViewController through the
 // BrowserProvider interface (crbug.com/40606165).
-class FirstRunProfileAgentHelper {
+class FirstRunProfileAgentPassKeyFactory {
  public:
   static BrowserProviderPassKey CreateKey() {
-    return base::PassKey<FirstRunProfileAgentHelper>();
+    return base::PassKey<FirstRunProfileAgentPassKeyFactory>();
   }
 };
 
@@ -153,29 +153,40 @@ const char kGuidedTourStepDidFinishHistogram[] = "IOS.GuidedTour.DidFinishStep";
     return;
   }
 
+  CommandDispatcher* dispatcher = [self commandDispatcher];
+
   switch (_currentGuidedTourStep.value()) {
     case GuidedTourStep::kNTP: {
-      id<GuidedTourCommands> handler =
-          HandlerForProtocol([self commandDispatcher], GuidedTourCommands);
-      [handler stepCompleted:GuidedTourStep::kNTP];
+      if ([dispatcher dispatchingForProtocol:@protocol(GuidedTourCommands)]) {
+        id<GuidedTourCommands> handler =
+            HandlerForProtocol(dispatcher, GuidedTourCommands);
+        [handler stepCompleted:GuidedTourStep::kNTP];
+      }
 
-      id<SceneCommands> sceneHandler =
-          HandlerForProtocol([self commandDispatcher], SceneCommands);
-      [sceneHandler hideGuidedTourNTPStep];
+      if ([dispatcher dispatchingForProtocol:@protocol(SceneCommands)]) {
+        id<SceneCommands> sceneHandler =
+            HandlerForProtocol(dispatcher, SceneCommands);
+        [sceneHandler hideGuidedTourNTPStep];
+      }
       break;
     }
     // Both tab grid steps are exited in the same way.
     case GuidedTourStep::kTabGridIncognito:
     case GuidedTourStep::kTabGridTabGroup: {
-      id<TabGridToolbarCommands> tabGridToolbarHandler =
-          HandlerForProtocol([self commandDispatcher], TabGridToolbarCommands);
-      [tabGridToolbarHandler hideTabGridToolbarGuidedTour];
+      if ([dispatcher
+              dispatchingForProtocol:@protocol(TabGridToolbarCommands)]) {
+        id<TabGridToolbarCommands> tabGridToolbarHandler =
+            HandlerForProtocol(dispatcher, TabGridToolbarCommands);
+        [tabGridToolbarHandler hideTabGridToolbarGuidedTour];
+      }
       break;
     }
     case GuidedTourStep::kTabGridLongPress: {
-      id<TabGridCommands> tabGridHandler =
-          HandlerForProtocol([self commandDispatcher], TabGridCommands);
-      [tabGridHandler hideTabGridGuidedTour];
+      if ([dispatcher dispatchingForProtocol:@protocol(TabGridCommands)]) {
+        id<TabGridCommands> tabGridHandler =
+            HandlerForProtocol(dispatcher, TabGridCommands);
+        [tabGridHandler hideTabGridGuidedTour];
+      }
       break;
     }
   }
@@ -360,7 +371,7 @@ const char kGuidedTourStepDidFinishHistogram[] = "IOS.GuidedTour.DidFinishStep";
       [[FirstRunScreenProvider alloc] initForProfile:profile];
   UIViewController* baseViewController =
       [_presentingSceneState.browserProviderInterface.currentBrowserProvider
-          viewController:FirstRunProfileAgentHelper::CreateKey()];
+          viewController:FirstRunProfileAgentPassKeyFactory::CreateKey()];
   Browser* mainBrowser = _presentingSceneState.browserProviderInterface
                              .mainBrowserProvider.browser;
   _firstRunCoordinator =
@@ -419,7 +430,7 @@ const char kGuidedTourStepDidFinishHistogram[] = "IOS.GuidedTour.DidFinishStep";
   _guidedTourPromoCoordinator = [[GuidedTourPromoCoordinator alloc]
       initWithBaseViewController:
           [presentingInterface
-              viewController:FirstRunProfileAgentHelper::CreateKey()]
+              viewController:FirstRunProfileAgentPassKeyFactory::CreateKey()]
                          browser:browser];
   _guidedTourPromoCoordinator.delegate = self;
   [_guidedTourPromoCoordinator start];

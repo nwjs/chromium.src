@@ -60,12 +60,13 @@ class CORE_EXPORT HTMLMenuItemElement final : public HTMLElement {
       UpdateBehavior update_behavior =
           UpdateBehavior::kStyleAndLayout) const override;
 
-  bool HandleCommandForActivation() override;
   void DefaultEventHandler(Event&) override;
 
   bool MatchesDefaultPseudoClass() const override;
   bool MatchesEnabledPseudoClass() const override;
   bool IsSubmenuOpen() const;
+
+  void OpenPseudoChanged();
 
   void ParseAttribute(const AttributeModificationParams&) override;
   bool ShouldHaveFocusAppearance() const override;
@@ -100,9 +101,6 @@ class CORE_EXPORT HTMLMenuItemElement final : public HTMLElement {
 
   // Represents 'checkedness'.
   bool is_checked_;
-  // This is used to avoid double-invoking target menus, due to custom logic
-  // that invokes sub-menus on mousedown.
-  bool ignore_next_command_ = false;
   // This is similar to the input element's `dirty_checkedness_` flag, but
   // better named. When only the default checkedness is set or unset, this will
   // remain true. When checkedness finally gets set in any other way after the

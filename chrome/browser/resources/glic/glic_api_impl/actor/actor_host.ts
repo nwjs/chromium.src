@@ -6,26 +6,27 @@
 // to the browser via mojo.
 
 import type * as actorWebUiMojom from '../../actor_webui.mojom-webui.js';
-import type {ActorHandlerInterface} from '../../glic.mojom-webui.js';
+import type {ActorClientInterface, ActorHandlerInterface, ActorTaskState as ActorTaskStateMojo, TabContext as TabContextMojo} from '../../glic.mojom-webui.js';
 import type * as api from '../../glic_api/glic_api.js';
 import type {ActorTaskInterruptReason, ActorTaskPauseReason, ActorTaskStopReason, CancelActionsResult, FormFillingResponse, Journal, TabContextOptions, TaskOptions} from '../../glic_api/glic_api.js';
-import {CreateTaskErrorReason, PerformActionsErrorReason} from '../../glic_api/glic_api.js';
+import {CreateTaskErrorReason, FeatureMode, PerformActionsErrorReason} from '../../glic_api/glic_api.js';
 import type {CheckEnumCompatibility} from '../conversions.js';
 import {enumFromClient, enumToClient} from '../enum_conversions.js';
-import {byteArrayFromClient, getArrayBufferFromBigBuffer, idFromClient, idToClient, optionalToClient, resumeActorTaskResultToClient, tabContextOptionsFromClient, tabContextToClient, taskOptionsToMojo, urlToClient} from '../host/conversions.js';
+import {bitmapN32ToRGBAImage, byteArrayFromClient, getArrayBufferFromBigBuffer, idFromClient, idToClient, optionalFromClient, optionalToClient, originToClient, tabContextOptionsFromClient, tabContextToClient, urlToClient} from '../host/conversions.js';
 import {ErrorWithReasonImpl} from '../request_types.js';
-import type {ResumeActorTaskResultPrivate, TabContextResultPrivate} from '../request_types.js';
+import type {ResumeActorTaskResultPrivate, RgbaImage, TabContextResultPrivate} from '../request_types.js';
 import {assertNever} from '../transport/messaging.js';
-import type {MessageHandlerInterface, ResponseExtras} from '../transport/messaging.js';
+import type {ResponseExtras} from '../transport/messaging.js';
+import type {PostMessageHandler, PostMessageRemote} from '../transport/post_message_transport.js';
 
+import type {ConfirmationRequestErrorReason as ConfirmationRequestErrorReasonMojo, NavigationConfirmationRequest as NavigationConfirmationRequestMojo, NavigationConfirmationResponse as NavigationConfirmationResponseMojo, SelectAutofillSuggestionsDialogErrorReason as SelectAutofillSuggestionsDialogErrorReasonMojo, SelectAutofillSuggestionsDialogRequest as SelectAutofillSuggestionsDialogRequestMojo, SelectAutofillSuggestionsDialogResponse as SelectAutofillSuggestionsDialogResponseMojo, SelectCredentialDialogErrorReason as SelectCredentialDialogErrorReasonMojo, SelectCredentialDialogRequest as SelectCredentialDialogRequestMojo, SelectCredentialDialogResponse as SelectCredentialDialogResponseMojo, TaskOptions as TaskOptionsMojo, UserConfirmationDialogRequest as UserConfirmationDialogRequestMojo, UserConfirmationDialogResponse as UserConfirmationDialogResponseMojo, UserGrantedPermissionDuration as UserGrantedPermissionDurationMojo, GmailOtpOptInResult as GmailOtpOptInResultMojo, GmailOtpOptInErrorReason as GmailOtpOptInErrorReasonMojo} from './../../actor_webui.mojom-webui.js';
 import type * as actorTypes from './actor_types.js';
-import type {ActorHost} from './actor_types.js';
+import type {ActorClient, ActorHost} from './actor_types.js';
 
-export class ActorHostMessageHandler implements
-    MessageHandlerInterface<ActorHost> {
+export class ActorHostMessageHandler implements PostMessageHandler<ActorHost> {
   constructor(private actorHandler: ActorHandlerInterface) {}
 
-  async glicBrowserGetContextForActorFromTab(
+  async getContextForActorFromTab(
       request: {tabId: string, options: TabContextOptions},
       extras: ResponseExtras):
       Promise<{tabContextResult: TabContextResultPrivate}> {
@@ -43,7 +44,7 @@ export class ActorHostMessageHandler implements
     };
   }
 
-  async glicBrowserCreateTask(request: {taskOptions?: TaskOptions}):
+  async createTask(request: {taskOptions?: TaskOptions}):
       Promise<{taskId: number}> {
     try {
       const taskId = await this.actorHandler.createTask(
@@ -59,7 +60,7 @@ export class ActorHostMessageHandler implements
     }
   }
 
-  async glicBrowserPerformActions(request: {actions: ArrayBuffer}):
+  async performActions(request: {actions: ArrayBuffer}):
       Promise<{actionsResult: ArrayBuffer}> {
     try {
       const resultProto = await this.actorHandler.performActions(
@@ -79,7 +80,7 @@ export class ActorHostMessageHandler implements
     }
   }
 
-  async glicBrowserCancelActions(request: {taskId: number}):
+  async cancelActions(request: {taskId: number}):
       Promise<{result: CancelActionsResult}> {
     const cancelResult = await this.actorHandler.cancelActions(request.taskId);
     return {
@@ -87,13 +88,13 @@ export class ActorHostMessageHandler implements
     };
   }
 
-  glicBrowserStopActorTask(
-      request: {taskId: number, stopReason: ActorTaskStopReason}): void {
+  stopActorTask(request: {taskId: number, stopReason: ActorTaskStopReason}):
+      void {
     this.actorHandler.stopActorTask(
         request.taskId, enumFromClient(request.stopReason));
   }
 
-  glicBrowserPauseActorTask(request: {
+  pauseActorTask(request: {
     taskId: number,
     pauseReason: ActorTaskPauseReason,
     tabId: string,
@@ -103,7 +104,7 @@ export class ActorHostMessageHandler implements
         idFromClient(request.tabId));
   }
 
-  async glicBrowserResumeActorTask(
+  async resumeActorTask(
       request: {taskId: number, tabContextOptions: TabContextOptions},
       extras: ResponseExtras): Promise<{
     resumeActorTaskResult: ResumeActorTaskResultPrivate,
@@ -127,7 +128,7 @@ export class ActorHostMessageHandler implements
     };
   }
 
-  glicBrowserInterruptActorTask(request: {
+  interruptActorTask(request: {
     taskId: number,
     interruptReason?: ActorTaskInterruptReason,
   }): void {
@@ -135,13 +136,13 @@ export class ActorHostMessageHandler implements
         request.taskId, enumFromClient(request.interruptReason));
   }
 
-  glicBrowserUninterruptActorTask(request: {
+  uninterruptActorTask(request: {
     taskId: number,
   }): void {
     this.actorHandler.uninterruptActorTask(request.taskId);
   }
 
-  async glicBrowserCreateActorTab(request: {
+  async createActorTab(request: {
     taskId: number,
     options: {
       initiatorTabId?: string,
@@ -167,7 +168,7 @@ export class ActorHostMessageHandler implements
     return {};
   }
 
-  glicBrowserLogBeginAsyncEvent(request: {
+  logBeginAsyncEvent(request: {
     asyncEventId: number,
     taskId: number,
     event: string,
@@ -178,25 +179,23 @@ export class ActorHostMessageHandler implements
         request.details);
   }
 
-  glicBrowserLogEndAsyncEvent(request: {asyncEventId: number, details: string}):
-      void {
+  logEndAsyncEvent(request: {asyncEventId: number, details: string}): void {
     this.actorHandler.logEndAsyncEvent(
         BigInt(request.asyncEventId), request.details);
   }
 
-  glicBrowserLogInstantEvent(
-      request: {taskId: number, event: string, details: string}): void {
+  logInstantEvent(request: {taskId: number, event: string, details: string}):
+      void {
     this.actorHandler.logInstantEvent(
         request.taskId, request.event, request.details);
   }
 
-  glicBrowserJournalClear(): void {
+  journalClear(): void {
     this.actorHandler.journalClear();
   }
 
-  async glicBrowserJournalSnapshot(
-      request: {clear: boolean},
-      extras: ResponseExtras): Promise<{journal: Journal}> {
+  async journalSnapshot(request: {clear: boolean}, extras: ResponseExtras):
+      Promise<{journal: Journal}> {
     const result = await this.actorHandler.journalSnapshot(request.clear);
     const journalArray = new Uint8Array(result.journal.data);
     extras.addTransfer(journalArray.buffer);
@@ -207,22 +206,20 @@ export class ActorHostMessageHandler implements
     };
   }
 
-  glicBrowserJournalStart(
-      request: {maxBytes: number, captureScreenshots: boolean}): void {
+  journalStart(request: {maxBytes: number, captureScreenshots: boolean}): void {
     this.actorHandler.journalStart(
         BigInt(request.maxBytes), request.captureScreenshots);
   }
 
-  glicBrowserJournalStop(): void {
+  journalStop(): void {
     this.actorHandler.journalStop();
   }
 
-  glicBrowserJournalRecordFeedback(
-      request: {positive: boolean, reason: string}): void {
+  journalRecordFeedback(request: {positive: boolean, reason: string}): void {
     this.actorHandler.journalRecordFeedback(request.positive, request.reason);
   }
 
-  glicBrowserAutofillSuggestionDialogOnFormPresented(payload: {
+  autofillSuggestionDialogOnFormPresented(payload: {
     taskId: number,
     params: {formFillingRequestIndex: number},
   }): void {
@@ -230,7 +227,7 @@ export class ActorHostMessageHandler implements
         payload.taskId, payload.params);
   }
 
-  glicBrowserAutofillSuggestionDialogOnFormPreviewChanged(payload: {
+  autofillSuggestionDialogOnFormPreviewChanged(payload: {
     taskId: number,
     params: {
       formFillingRequestIndex: number,
@@ -244,7 +241,7 @@ export class ActorHostMessageHandler implements
         });
   }
 
-  glicBrowserAutofillSuggestionDialogOnFormConfirmed(payload: {
+  autofillSuggestionDialogOnFormConfirmed(payload: {
     taskId: number,
     params: {
       formFillingRequestIndex: number,
@@ -253,6 +250,70 @@ export class ActorHostMessageHandler implements
   }): void {
     this.actorHandler.autofillSuggestionDialogOnFormConfirmed(
         payload.taskId, payload.params);
+  }
+}
+
+
+export class ActorClientImpl implements ActorClientInterface {
+  constructor(private sender: PostMessageRemote<ActorClient>) {}
+
+  notifyActorTaskStateChanged(taskId: number, state: ActorTaskStateMojo): void {
+    const clientState = enumToClient(state);
+    this.sender.requestNoResponse(
+        'notifyActorTaskStateChanged', {taskId, state: clientState});
+  }
+
+  async requestToShowCredentialSelectionDialog(
+      request: SelectCredentialDialogRequestMojo):
+      Promise<{response: SelectCredentialDialogResponseMojo}> {
+    const clientResponse = await this.sender.requestWithResponse(
+        'requestToShowDialog',
+        {request: selectCredentialDialogRequestToClient(request)});
+    return {
+      response: selectCredentialDialogResponseToMojo(clientResponse.response),
+    };
+  }
+
+  async requestToShowUserConfirmationDialog(
+      request: UserConfirmationDialogRequestMojo):
+      Promise<{response: UserConfirmationDialogResponseMojo}> {
+    const clientResponse = await this.sender.requestWithResponse(
+        'requestToShowConfirmationDialog',
+        {request: userConfirmationDialogRequestToClient(request)});
+    return {
+      response: userConfirmationDialogResponseToMojo(clientResponse.response),
+    };
+  }
+
+  async requestToConfirmNavigation(request: NavigationConfirmationRequestMojo):
+      Promise<{response: NavigationConfirmationResponseMojo}> {
+    const clientResponse = await this.sender.requestWithResponse(
+        'requestToConfirmNavigation',
+        {request: navigationConfirmationRequestToClient(request)});
+    return {
+      response: navigationConfirmationResponseToMojo(clientResponse.response),
+    };
+  }
+
+  async requestToShowAutofillSuggestionsDialog(
+      request: SelectAutofillSuggestionsDialogRequestMojo):
+      Promise<{response: SelectAutofillSuggestionsDialogResponseMojo}> {
+    const clientResponse = await this.sender.requestWithResponse(
+        'requestToShowAutofillSuggestionsDialog',
+        {request: selectAutofillSuggestionsDialogRequestToClient(request)});
+    return {
+      response: selectAutofillSuggestionsDialogResponseToMojo(
+          clientResponse.response),
+    };
+  }
+
+  async requestToShowGmailOtpOptInDialog(
+      taskId: number): Promise<{result: GmailOtpOptInResultMojo}> {
+    const clientResponse = await this.sender.requestWithResponse(
+        'requestToShowGmailOtpOptInDialog', {request: {taskId}});
+    return {
+      result: gmailOtpOptInResultToMojo(clientResponse.response),
+    };
   }
 }
 
@@ -265,3 +326,186 @@ assertNever<CheckEnumCompatibility<
 assertNever<CheckEnumCompatibility<
     typeof actorWebUiMojom.UserGrantedPermissionDuration,
     typeof api.UserGrantedPermissionDuration>>();
+
+function selectCredentialDialogResponseToMojo(
+    response: actorTypes.SelectCredentialDialogResponsePrivate):
+    SelectCredentialDialogResponseMojo {
+  return response.errorReason ?
+      {
+        taskId: response.taskId,
+        errorReason: response.errorReason as number as
+            SelectCredentialDialogErrorReasonMojo,
+        permissionDuration: null,
+        selectedCredentialId: null,
+      } :
+      {
+        ...response,
+        errorReason: null,
+        permissionDuration: optionalFromClient(response.permissionDuration) as
+                UserGrantedPermissionDurationMojo |
+            null,
+        selectedCredentialId: response.selectedCredentialId ?? null,
+      };
+}
+
+function selectCredentialDialogRequestToClient(
+    request: SelectCredentialDialogRequestMojo):
+    actorTypes.SelectCredentialDialogRequestPrivate {
+  const icons = new Map<string, RgbaImage>();
+  if (request.icons) {
+    for (const [siteOrApp, value] of Object.entries(request.icons)) {
+      const rgbaImage = bitmapN32ToRGBAImage(value);
+      if (rgbaImage) {
+        icons.set(siteOrApp, rgbaImage);
+      }
+    }
+  }
+  return {
+    ...request,
+    credentials: request.credentials.map(
+        credential => ({
+          ...credential,
+          requestOrigin: originToClient(credential.requestOrigin),
+          type: enumToClient(credential.type),
+          accountPicture: credential.accountPicture ?
+              bitmapN32ToRGBAImage(credential.accountPicture) :
+              undefined,
+        })),
+    icons,
+  };
+}
+
+function userConfirmationDialogRequestToClient(
+    request: UserConfirmationDialogRequestMojo):
+    actorTypes.UserConfirmationDialogRequestPrivate {
+  return {
+    navigationOrigin: request.payload.navigationOrigin ?
+        originToClient(request.payload.navigationOrigin) :
+        undefined,
+    forBlocklistedOrigin: request.payload.forBlocklistedOrigin,
+  };
+}
+
+function userConfirmationDialogResponseToMojo(
+    response: actorTypes.UserConfirmationDialogResponsePrivate):
+    UserConfirmationDialogResponseMojo {
+  if (response.errorReason) {
+    return {
+      result: {
+        errorReason: response.errorReason as number as
+            ConfirmationRequestErrorReasonMojo,
+      },
+    };
+  }
+  return {
+    result: {permissionGranted: response.permissionGranted},
+  };
+}
+
+function navigationConfirmationRequestToClient(
+    request: NavigationConfirmationRequestMojo):
+    actorTypes.NavigationConfirmationRequestPrivate {
+  return {
+    taskId: request.taskId,
+    navigationOrigin: originToClient(request.navigationOrigin),
+  };
+}
+
+function navigationConfirmationResponseToMojo(
+    response: actorTypes.NavigationConfirmationResponsePrivate):
+    NavigationConfirmationResponseMojo {
+  if (response.errorReason) {
+    return {
+      result: {
+        errorReason: response.errorReason as number as
+            ConfirmationRequestErrorReasonMojo,
+      },
+    };
+  }
+  return {
+    result: {
+      permissionGranted: response.permissionGranted,
+    },
+  };
+}
+
+function selectAutofillSuggestionsDialogRequestToClient(
+    request: SelectAutofillSuggestionsDialogRequestMojo):
+    actorTypes.SelectAutofillSuggestionsDialogRequestPrivate {
+  return {
+    ...request,
+    formFillingRequests: request.formFillingRequests.map(
+        r => ({
+          ...r,
+          requestedData: Number(r.requestedData),
+          formattedRequestOrigin: r.formattedRequestOrigin,
+          suggestions: r.suggestions.map(
+              s => ({
+                ...s,
+                icon: s.icon ? bitmapN32ToRGBAImage(s.icon) : undefined,
+              })),
+        })),
+  };
+}
+
+function selectAutofillSuggestionsDialogResponseToMojo(
+    response: actorTypes.SelectAutofillSuggestionsDialogResponsePrivate):
+    SelectAutofillSuggestionsDialogResponseMojo {
+  if (response.errorReason) {
+    return {
+      taskId: response.taskId,
+      result: {
+        errorReason: response.errorReason as number as
+            SelectAutofillSuggestionsDialogErrorReasonMojo,
+      },
+    };
+  } else {
+    return {
+      taskId: response.taskId,
+      result: {
+        selectedSuggestions: response.selectedSuggestions,
+      },
+    };
+  }
+}
+
+function taskOptionsToMojo(taskOptions?: TaskOptions): TaskOptionsMojo|null {
+  if (taskOptions) {
+    return {
+      title: taskOptions.title ?? null,
+      duration: enumFromClient(taskOptions.duration),
+      featureMode:
+          enumFromClient(taskOptions.featureMode ?? FeatureMode.UNSPECIFIED),
+    };
+  }
+  return null;
+}
+
+function resumeActorTaskResultToClient(
+    tabContext: TabContextMojo, actionResult: number,
+    extras: ResponseExtras): ResumeActorTaskResultPrivate {
+  return {
+    ...tabContextToClient(tabContext, extras),
+    actionResult,
+  };
+}
+
+assertNever<CheckEnumCompatibility<
+    typeof actorWebUiMojom.GmailOtpOptInErrorReason,
+    typeof actorTypes.GmailOtpOptInErrorReason>>();
+
+function gmailOtpOptInResultToMojo(
+    response: actorTypes.GmailOtpOptInResponsePrivate):
+    GmailOtpOptInResultMojo {
+  if (response.errorReason !== undefined) {
+    return {
+      errorReason: response.errorReason as number as
+          GmailOtpOptInErrorReasonMojo,
+    };
+  }
+  return {
+    permissionGranted: response.permissionGranted,
+  };
+}
+
+

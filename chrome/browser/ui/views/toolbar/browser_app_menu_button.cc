@@ -12,15 +12,16 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "build/branding_buildflags.h"
+#include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
+#include "chrome/browser/ui/views/toolbar/action_app_menu.h"
 #include "chrome/browser/ui/views/toolbar/app_menu.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_ink_drop_util.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/grit/browser_resources.h"
 #include "components/feature_engagement/public/feature_constants.h"
-#include "components/user_education/common/feature_promo/feature_promo_controller.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/accessibility/ax_action_data.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -28,6 +29,7 @@
 #include "ui/base/ui_base_features.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/animation/throb_animation.h"
+#include "ui/gfx/animation/tween.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/color_utils.h"
@@ -49,8 +51,6 @@
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 namespace {
-constexpr int kChromeRefreshImageLabelPadding = 2;
-constexpr int kGlowUpImageLabelPadding = 4;
 constexpr int kHideTextForFlexPadding = 4;
 }  // namespace
 
@@ -62,9 +62,8 @@ BrowserAppMenuButton::BrowserAppMenuButton(ToolbarView* toolbar_view)
                                         base::Unretained(this))),
       toolbar_view_(toolbar_view) {
   SetHorizontalAlignment(gfx::ALIGN_RIGHT);
-  SetImageLabelSpacing(features::IsToolbarGlowUpEnabled()
-                           ? kGlowUpImageLabelPadding
-                           : kChromeRefreshImageLabelPadding);
+  SetImageLabelSpacing(
+      GetLayoutConstant(LayoutConstant::kAppMenuButtonImageLabelPadding));
   label()->SetPaintToLayer();
   label()->SetSkipSubpixelRenderingOpacityCheck(true);
   label()->layer()->SetFillsBoundsOpaquely(false);
@@ -76,6 +75,8 @@ BrowserAppMenuButton::~BrowserAppMenuButton() = default;
 void BrowserAppMenuButton::SetTypeAndSeverity(
     AppMenuIconController::TypeAndSeverity type_and_severity) {
   type_and_severity_ = type_and_severity;
+  GetViewAccessibility().SetName(
+      AppMenuIconController::GetIconAccessibleName(type_and_severity_.type));
   UpdateThemeBasedState();
 }
 
@@ -95,6 +96,11 @@ void BrowserAppMenuButton::ShowMenu(int run_types) {
 
   Browser* browser = toolbar_view_->browser();
 
+  if (base::FeatureList::IsEnabled(features::kAppMenuGlowUp)) {
+    RunActionMenu(browser, run_types);
+    return;
+  }
+
   // Allow highlighting menu items when the menu was opened while
   // certain tutorials are running.
   AlertMenuItem alert_item =
@@ -110,12 +116,17 @@ void BrowserAppMenuButton::OnMenuClosed() {
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   if (features::IsToolbarGlowUpEnabled()) {
     views::SingleAnimatedImageContainer::AnimationConfig config{
-        .direction =
-            views::SingleAnimatedImageContainer::AnimationDirection::kForward,
-        .end_behavior =
-            views::SingleAnimatedImageContainer::AnimationEndBehavior::kReset};
+        .boundary =
+            views::SingleAnimatedImageContainer::AnimationBoundary{
+                .start_offset = 0.5f, .end_offset = 0.75f},
+        .tween = gfx::Tween::FAST_OUT_SLOW_IN_3,
+        .duration = base::Milliseconds(250)};
+
     animated_image_container().PlayAnimation(
-        {IDR_CHROME_TO_DOTS_LOTTIE, GetForegroundColor(GetState())}, config);
+        {IDR_APP_MENU_LOTTIE, GetForegroundColor(GetState()),
+         views::SingleAnimatedImageContainer::AnimationDirection::kForward,
+         views::SingleAnimatedImageContainer::AnimationEndBehavior::kReset},
+        config);
   }
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
   AppMenuButton::OnMenuClosed();
@@ -262,12 +273,17 @@ void BrowserAppMenuButton::ButtonPressed(const ui::Event& event) {
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   if (features::IsToolbarGlowUpEnabled() && !IsMenuShowing()) {
     views::SingleAnimatedImageContainer::AnimationConfig config{
-        .direction =
-            views::SingleAnimatedImageContainer::AnimationDirection::kForward,
-        .end_behavior =
-            views::SingleAnimatedImageContainer::AnimationEndBehavior::kPause};
+        .boundary =
+            views::SingleAnimatedImageContainer::AnimationBoundary{
+                .start_offset = 0.0f, .end_offset = 0.25f},
+        .tween = gfx::Tween::FAST_OUT_SLOW_IN_3,
+        .duration = base::Milliseconds(250)};
+
     animated_image_container().PlayAnimation(
-        {IDR_DOTS_TO_CHROME_LOTTIE, GetForegroundColor(GetState())}, config);
+        {IDR_APP_MENU_LOTTIE, GetForegroundColor(GetState()),
+         views::SingleAnimatedImageContainer::AnimationDirection::kForward,
+         views::SingleAnimatedImageContainer::AnimationEndBehavior::kPause},
+        config);
   }
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 

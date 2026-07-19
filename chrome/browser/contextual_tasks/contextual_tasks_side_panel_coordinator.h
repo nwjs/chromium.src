@@ -44,12 +44,28 @@ class ContextualTasksUiService;
 class ActiveTaskContextProvider;
 class EntryPointEligibilityManager;
 
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// LINT.IfChange(ContextualTasksTabCloseState)
+enum class ContextualTasksTabCloseState {
+  kActiveTab = 0,
+  kBackgroundTab = 1,
+  kMaxValue = kBackgroundTab,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/contextual_tasks/enums.xml:ContextualTasksTabCloseState)
+
 class ContextualTasksSidePanelCoordinator
     : public ContextualTasksPanelController,
       public ContextualTasksPanelHost::Observer,
       public TabListInterfaceObserver,
       content::WebContentsObserver {
  public:
+  enum class EntrySource {
+    kOther,
+    kLensOverlay,
+    kAiModeLinkClick,
+  };
+
   // A data structure to hold the cache and state of the panel per thread.
   struct WebContentsCacheItem {
     WebContentsCacheItem(std::unique_ptr<content::WebContents> wc, bool open);
@@ -65,6 +81,9 @@ class ContextualTasksSidePanelCoordinator
 
     // The time when the WebContents becomes inactive.
     base::TimeTicks last_active_time_ticks;
+
+    // The entry source that triggered this task's panel.
+    EntrySource entry_source = EntrySource::kOther;
   };
 
   DECLARE_USER_DATA(ContextualTasksSidePanelCoordinator);
@@ -94,11 +113,14 @@ class ContextualTasksSidePanelCoordinator
   void Show(bool transition_from_tab,
             omnibox::ChromeAimEntryPoint entry_point) override;
   void Close() override;
+  void OpenInZeroState() override;
   bool IsPanelOpenForContextualTask() const override;
   std::optional<tabs::TabHandle> GetAutoSuggestedTabHandle() override;
   void OnTaskChanged(content::WebContents* web_contents,
                      base::Uuid task_id) override;
   void OnAiInteraction() override;
+  void SetPendingTaskForTab(tabs::TabInterface* tab,
+                            const base::Uuid& task_id) override;
   content::WebContents* GetActiveWebContents() const override;
   std::vector<content::WebContents*> GetPanelWebContentsList() const override;
   std::unique_ptr<content::WebContents> DetachWebContentsForTask(
@@ -147,9 +169,14 @@ class ContextualTasksSidePanelCoordinator
  private:
   friend class ContextualTasksSidePanelCoordinatorInteractiveUiTest;
   friend class ContextualTasksSidePanelCoordinatorTest;
+  friend class ContextualTasksInteractiveUiTest;
 
   void SetPanelSuppressedForTesting(bool suppressed) {
     contextual_tasks_panel_host_->SetPanelSuppressedForTesting(suppressed);
+  }
+
+  void SetSuppressHideOnContextualTasksUrlForTesting(bool suppress) {
+    suppress_hide_on_contextual_tasks_url_for_testing_ = suppress;
   }
 
   // Hide or show panel base on open state of the current task.
@@ -200,6 +227,11 @@ class ContextualTasksSidePanelCoordinator
   // Closes any active Lens sessions for tabs associated with the given task.
   void CloseLensSessionsForTask(const ContextualTask& task);
 
+  // Closes any active Lens session on the given tab if it matches an
+  // eligibility criteria.
+  void CloseLensSessionIfActive(tabs::TabInterface* tab_interface,
+                                omnibox::ChromeAimEntryPoint entry_point);
+
   // Notifies the ActiveTaskContextProvider about the current session state.
   // This checks both the panel and the active tab for a valid session handle.
   void NotifyActiveTaskContextProvider();
@@ -207,6 +239,16 @@ class ContextualTasksSidePanelCoordinator
   void RecordSessionEndMetrics();
 
   void OnEligibilityChange(bool is_eligible);
+
+  // ContextualTasksUiService is a ProfileKeyedService whose lifetime is bound
+  // to the Profile. In contrast, ContextualTasksSidePanelCoordinator is a
+  // window-scoped object whose teardown occurs asynchronously via the message
+  // loop during window closure. Because of this mismatched lifetime, the UI
+  // service can be destroyed before the coordinator, leading to use-after-free
+  // dangling raw pointer crashes if a raw pointer is cached. To prevent this,
+  // the coordinator must fetch the service dynamically via GetUiService() and
+  // check for null.
+  ContextualTasksUiService* GetUiService() const;
 
   // Browser window of the current panel.
   const raw_ptr<BrowserWindowInterface> browser_window_ = nullptr;
@@ -220,8 +262,6 @@ class ContextualTasksSidePanelCoordinator
 
   const raw_ptr<contextual_search::ContextualSearchService>
       contextual_search_service_;
-
-  const raw_ptr<ContextualTasksUiService> ui_service_;
 
   // Pref service for the current profile.
   const raw_ptr<PrefService> pref_service_;
@@ -240,6 +280,15 @@ class ContextualTasksSidePanelCoordinator
       scoped_unowned_user_data_;
 
   bool in_cobrowsing_session_ = false;
+
+  // When true, PrimaryPageChanged() will not auto-hide the panel on a
+  // contextual tasks URL navigation. Set only by interactive tests that drive
+  // in-panel webview navigation.
+  bool suppress_hide_on_contextual_tasks_url_for_testing_ = false;
+
+  // Used to save the entry source that triggered a task's panel when the panel
+  // is being closed so that it can be logged.
+  std::optional<EntrySource> closing_entry_source_;
 
   base::ObserverList<ContextualTasksPanelController::Observer> observers_;
 

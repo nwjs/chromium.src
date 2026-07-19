@@ -9,6 +9,7 @@
 #include "cc/paint/paint_flags.h"
 #include "third_party/blink/renderer/core/css/properties/longhands.h"
 #include "third_party/blink/renderer/core/layout/inline/fragment_item.h"
+#include "third_party/blink/renderer/core/layout/inline/used_font.h"
 #include "third_party/blink/renderer/core/layout/layout_object_inlines.h"
 #include "third_party/blink/renderer/core/layout/svg/layout_svg_inline_text.h"
 #include "third_party/blink/renderer/core/layout/svg/svg_layout_support.h"
@@ -515,21 +516,37 @@ void TextPainter::SetEmphasisMark(const AtomicString& emphasis_mark,
 
   if (!font_data || emphasis_mark.IsNull()) {
     emphasis_mark_offset_ = 0;
-  } else if (emphasis_line_side == LineLogicalSide::kOver) {
-    emphasis_mark_offset_ = -font_data->GetFontMetrics().Ascent() -
-                            font_.EmphasisMarkDescent(emphasis_mark);
-    if (RuntimeEnabledFeatures::TextEmphasisWithRubyEnabled() && text_item &&
-        text_item->HasOverAnnotation()) {
-      emphasis_mark_offset_ -= text_item->AnnotationMetrics().ascent.Ceil();
+    return;
+  }
+
+  LayoutUnit over = -font_data->GetFontMetrics().FixedAscent();
+  LayoutUnit under = font_data->GetFontMetrics().FixedDescent();
+
+  if (text_item) {
+    if (RuntimeEnabledFeatures::TextEmphasisAsRubyEnabled()) {
+      UsedFont used_font = text_item->GetUsedFont();
+      const auto metrics = text_item->AnnotationMetrics();
+      over = LayoutUnit((-used_font.FixedAscent() - metrics.ascent) /
+                        used_font.ScalingFactor());
+      under = LayoutUnit((used_font.FixedDescent() + metrics.descent) /
+                         used_font.ScalingFactor());
+    } else if (RuntimeEnabledFeatures::TextEmphasisWithRubyEnabled()) {
+      if (text_item->HasOverAnnotation()) {
+        over -= text_item->AnnotationMetrics().ascent;
+      }
+      if (text_item->HasUnderAnnotation()) {
+        under += text_item->AnnotationMetrics().descent;
+      }
     }
+  }
+
+  if (emphasis_line_side == LineLogicalSide::kOver) {
+    over -= font_.EmphasisMarkDescent(emphasis_mark);
+    emphasis_mark_offset_ = over.Floor();
   } else {
     DCHECK(emphasis_line_side == LineLogicalSide::kUnder);
-    emphasis_mark_offset_ = font_data->GetFontMetrics().Descent() +
-                            font_.EmphasisMarkAscent(emphasis_mark);
-    if (RuntimeEnabledFeatures::TextEmphasisWithRubyEnabled() && text_item &&
-        text_item->HasUnderAnnotation()) {
-      emphasis_mark_offset_ += text_item->AnnotationMetrics().descent.Ceil();
-    }
+    under += font_.EmphasisMarkAscent(emphasis_mark);
+    emphasis_mark_offset_ = under.Ceil();
   }
 }
 

@@ -87,12 +87,33 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="ContextualTasks.Composebox.UserAction.AddedActiveTabAfterDeletingAutoSuggestion"
-    enum="Boolean" expires_after="2026-09-27">
+    enum="Boolean" expires_after="2026-11-29">
   <owner>sophiechang@chromium.org</owner>
   <owner>chrome-contextual-tasks-eng@google.com</owner>
   <summary>
     Recorded every time a user explicitly adds the active tab after previously
     deleting the auto-suggestion. Always recorded as true.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.Composebox.UserAction.LensButtonClicked"
+    enum="Boolean" expires_after="2027-06-18">
+  <owner>nguyenbryan@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when the user clicks the Lens button inside the contextual tasks
+    composebox. Always recorded as true.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.Context.CandidateTabHasEmbeddings"
+    enum="Boolean" expires_after="2026-11-01">
+  <owner>sophiechang@chromium.org</owner>
+  <owner>abhayprakash@google.com</owner>
+  <summary>
+    Recorded for each candidate tab when retrieving tab signals during
+    Contextual Tasks context calculation. Records whether the candidate tab has
+    embeddings.
   </summary>
 </histogram>
 
@@ -287,7 +308,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="ContextualTasks.HistoryNavigation.UserAction.NavigatedInFullTab"
-    enum="Boolean" expires_after="2026-06-28">
+    enum="Boolean" expires_after="2026-12-22">
   <owner>hujasonx@google.com</owner>
   <owner>chrome-contextual-tasks-eng@google.com</owner>
   <summary>
@@ -320,6 +341,145 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="ContextualTasks.OAuth.Latency.{OAuthTrigger}" units="ms"
+    expires_after="2026-12-31">
+  <owner>mercerd@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Records the total time taken to fetch the OAuth access token for Contextual
+    Tasks, including any retries due to transient errors. Recorded when the
+    fetch process finally completes (either success or persistent failure).
+    Slices: {OAuthTrigger}
+  </summary>
+  <token key="OAuthTrigger">
+    <variant name="AimNavigation"
+        summary="OAuth token fetches triggered early by top-level AIM
+                 navigation intercept"/>
+    <variant name="All" summary="all OAuth token fetches"/>
+  </token>
+</histogram>
+
+<histogram name="ContextualTasks.OAuth.Start.{OAuthTrigger}" enum="Boolean"
+    expires_after="2026-12-31">
+  <owner>mercerd@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Records initiations of the OAuth access token fetch process for Contextual
+    Tasks. Recorded when the fetch process begins, before any network requests
+    are made, regardless if the token is cached. Slices: {OAuthTrigger}
+  </summary>
+  <token key="OAuthTrigger">
+    <variant name="AimNavigation"
+        summary="OAuth token fetches triggered early by top-level AIM
+                 navigation intercept"/>
+    <variant name="All" summary="all OAuth token fetches"/>
+  </token>
+</histogram>
+
+<histogram name="ContextualTasks.OAuth.StartToCommitLatency" units="ms"
+    expires_after="2026-12-31">
+  <owner>mercerd@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Records the latency between the WebUI app constructor being called and the
+    first top-level load commit event of the hosted webview. This represents the
+    time from the WebUI being ready, and the top level AIM navigation actually
+    happening. Recorded once per WebUI initialization when the webview commits
+    its first top-level load.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.OAuth.Success.{OAuthTrigger}" enum="Boolean"
+    expires_after="2026-12-31">
+  <owner>mercerd@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Records whether the OAuth access token fetch for Contextual Tasks completed
+    successfully. Recorded when the fetch process finally completes, meaning no
+    more retries either due to a success or a persistent error. Slices:
+    {OAuthTrigger}
+  </summary>
+  <token key="OAuthTrigger">
+    <variant name="AimNavigation"
+        summary="OAuth token fetches triggered early by top-level AIM
+                 navigation intercept"/>
+    <variant name="All" summary="all OAuth token fetches"/>
+  </token>
+</histogram>
+
+<histogram name="ContextualTasks.OAuth.TriesCount.{OAuthTrigger}" units="count"
+    expires_after="2026-12-31">
+  <owner>mercerd@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Records the number of attempts (tries) required to complete the OAuth access
+    token fetch for Contextual Tasks. This includes transient error retries. A
+    value of 1 means it succeeded (or failed persistently) on the first try.
+    Recorded when the fetch process finally completes. Slices: {OAuthTrigger}
+  </summary>
+  <token key="OAuthTrigger">
+    <variant name="AimNavigation"
+        summary="OAuth token fetches triggered early by top-level AIM
+                 navigation intercept"/>
+    <variant name="All" summary="all OAuth token fetches"/>
+  </token>
+</histogram>
+
+<histogram name="ContextualTasks.OAuth.TriesCountBeforeFailure.{OAuthTrigger}"
+    units="count" expires_after="2026-12-31">
+  <owner>mercerd@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Records the number of attempts (tries) before the OAuth access token fetch
+    for Contextual Tasks ultimately failed. This includes transient error
+    retries. A value of 1 means it failed persistently on the first try.
+    Recorded when the fetch process finally completes with a persistent failure.
+    Slices: {OAuthTrigger}
+  </summary>
+  <token key="OAuthTrigger">
+    <variant name="AimNavigation"
+        summary="OAuth token fetches triggered early by top-level AIM
+                 navigation intercept"/>
+    <variant name="All" summary="all OAuth token fetches"/>
+  </token>
+</histogram>
+
+<histogram name="ContextualTasks.OAuth.TriesCountBeforeSuccess.{OAuthTrigger}"
+    units="count" expires_after="2026-12-31">
+  <owner>mercerd@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Records the number of attempts (tries) required to successfully complete the
+    OAuth access token fetch for Contextual Tasks. This includes transient error
+    retries. A value of 1 means it succeeded on the first try. Recorded when the
+    fetch process finally completes successfully. Slices: {OAuthTrigger}
+  </summary>
+  <token key="OAuthTrigger">
+    <variant name="AimNavigation"
+        summary="OAuth token fetches triggered early by top-level AIM
+                 navigation intercept"/>
+    <variant name="All" summary="all OAuth token fetches"/>
+  </token>
+</histogram>
+
+<histogram name="ContextualTasks.OAuth.WasCached.{OAuthTrigger}" enum="Boolean"
+    expires_after="2026-12-31">
+  <owner>mercerd@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Records whether the successfully fetched OAuth access token was served from
+    the local cache. This is determined by a heuristic where a response time of
+    less than 50ms is classified as a cache hit. Recorded only upon successful
+    token retrieval. Slices: {OAuthTrigger}
+  </summary>
+  <token key="OAuthTrigger">
+    <variant name="AimNavigation"
+        summary="OAuth token fetches triggered early by top-level AIM
+                 navigation intercept"/>
+    <variant name="All" summary="all OAuth token fetches"/>
+  </token>
+</histogram>
+
 <histogram name="ContextualTasks.Session.Completed" enum="Boolean"
     expires_after="2026-11-01">
   <owner>sophiechang@chromium.org</owner>
@@ -330,6 +490,49 @@ chromium-metrics-reviews@google.com.
     the user, the window housing the side panel is closed, or the Chrome session
     has ended. Note that a cobrowsing session is only considered to have started
     if a user enters a query via the side panel. Always recorded as true.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.SidePanel.UserAction.Close.AiModeLinkClick"
+    enum="Boolean" expires_after="2027-06-18">
+  <owner>nguyenbryan@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when the user clicks the side panel close button, for sessions that
+    were entered due to a link click from AI mode. Always recorded as true.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.SidePanel.UserAction.Close.LensOverlay"
+    enum="Boolean" expires_after="2027-06-18">
+  <owner>nguyenbryan@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when the user clicks the side panel close button, for sessions that
+    were entered via the Lens Overlay. Always recorded as true.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.SidePanel.UserAction.Close.Other"
+    enum="Boolean" expires_after="2027-06-18">
+  <owner>nguyenbryan@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when the user clicks the side panel close button, for sessions
+    where the entry point was not recorded as another histogram. Always recorded
+    as true.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.Tab.ClosedWithSidePanelOpenState"
+    enum="ContextualTasksTabCloseState" expires_after="2027-06-18">
+  <owner>nguyenbryan@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when a user closes a content tab that had an associated contextual
+    task and had the side panel open (either currently active, or logically open
+    before the tab was backgrounded). The value indicates whether the closed tab
+    was the active tab or a background tab.
   </summary>
 </histogram>
 
@@ -345,7 +548,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextualTasks.TabChange.UserAction{ActionType}"
-    enum="Boolean" expires_after="2026-09-17">
+    enum="Boolean" expires_after="2026-11-29">
   <owner>sophiechang@chromium.org</owner>
   <owner>chrome-contextual-tasks-eng@google.com</owner>
   <summary>
@@ -366,6 +569,18 @@ chromium-metrics-reviews@google.com.
         summary="The user changed tabs which resulted in staying on the
                  existing thread."/>
   </token>
+</histogram>
+
+<histogram
+    name="ContextualTasks.ToolbarCloseTabButton.UserAction.CloseTabAndExpandSidePanel"
+    enum="Boolean" expires_after="2027-06-18">
+  <owner>yuhengh@chromium.org</owner>
+  <owner>nguyenbryan@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when the user interacts with the contextual tasks toolbar close tab
+    button. Always recorded as true.
+  </summary>
 </histogram>
 
 <histogram name="ContextualTasks.VoiceSearch.StateV2" enum="VoiceSearchState"
@@ -405,17 +620,22 @@ chromium-metrics-reviews@google.com.
     <variant name=".OpenMyActivity"
         summary="The user opened the My Activity page."/>
     <variant name=".OpenNewThread" summary="The user opened a new thread."/>
+    <variant name=".OpenOverflowMenu"
+        summary="The user opened the overflow menu."/>
     <variant name=".OpenSourcesMenu"
         summary="The user opened the sources menu."/>
     <variant name=".OpenThreadHistory"
         summary="The user opened the thread history."/>
+    <variant name=".PinSidePanel" summary="The user pinned the side panel."/>
     <variant name=".TabFromSourcesMenuClicked"
         summary="The user clicked on a tab from the sources menu."/>
+    <variant name=".UnpinSidePanel"
+        summary="The user unpinned the side panel."/>
   </token>
 </histogram>
 
 <histogram name="ContextualTasks.{EntrypointType}.UserAction{ActionType}"
-    enum="Boolean" expires_after="2026-09-06">
+    enum="Boolean" expires_after="2026-11-29">
   <owner>sophiechang@chromium.org</owner>
   <owner>chrome-contextual-tasks-eng@google.com</owner>
   <summary>

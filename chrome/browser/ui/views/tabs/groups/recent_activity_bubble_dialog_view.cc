@@ -23,6 +23,7 @@
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_metrics.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/data_sharing/collaboration_controller_delegate_desktop.h"
 #include "chrome/browser/ui/views/data_sharing/data_sharing_bubble_controller.h"
@@ -160,12 +161,12 @@ bool GetActionEnabledForItem(const ActivityLogItem& item) {
 DEFINE_ELEMENT_IDENTIFIER_VALUE(kRecentActivityBubbleDialogId);
 
 RecentActivityBubbleDialogView::RecentActivityBubbleDialogView(
-    View* anchor_view,
+    views::BubbleAnchor anchor,
     content::WebContents* web_contents,
     std::vector<ActivityLogItem> tab_activity_log,
     std::vector<ActivityLogItem> group_activity_log,
     Profile* profile)
-    : LocationBarBubbleDelegateView(anchor_view, web_contents),
+    : LocationBarBubbleDelegateView(anchor, web_contents),
       tab_activity_log_(tab_activity_log),
       group_activity_log_(group_activity_log),
       profile_(profile) {
@@ -628,14 +629,7 @@ void RecentActivityRowView::OpenTabGroupEditDialog() {
     return;
   }
 
-  if (views::View* tab_group_header =
-          BrowserView::GetBrowserViewForBrowser(browser)
-              ->tab_strip_view()
-              ->GetTabGroupAnchorView(group_id.value())) {
-    TabGroupEditorBubbleView::Show(browser, group_id.value(), tab_group_header,
-                                   /*anchor_rect=*/std::nullopt,
-                                   /*stop_context_menu_propagation=*/false);
-  }
+  browser->tab_strip_model()->OpenTabGroupEditor(group_id.value());
 }
 
 void RecentActivityRowView::ManageSharing() {
@@ -936,12 +930,12 @@ void RecentActivityBubbleCoordinator::OnWidgetDestroying(
 }
 
 void RecentActivityBubbleCoordinator::Show(
-    views::View* anchor_view,
+    views::BubbleAnchor anchor,
     content::WebContents* web_contents,
     std::vector<ActivityLogItem> activity_log,
     Profile* profile) {
   auto bubble = std::make_unique<RecentActivityBubbleDialogView>(
-      anchor_view, web_contents, std::vector<ActivityLogItem>(), activity_log,
+      anchor, web_contents, std::vector<ActivityLogItem>(), activity_log,
       profile);
   bubble->SetArrow(views::BubbleBorder::Arrow::TOP_LEFT);
 
@@ -949,13 +943,13 @@ void RecentActivityBubbleCoordinator::Show(
 }
 
 void RecentActivityBubbleCoordinator::ShowForCurrentTab(
-    views::View* anchor_view,
+    views::BubbleAnchor anchor,
     content::WebContents* web_contents,
     std::vector<ActivityLogItem> tab_activity_log,
     std::vector<ActivityLogItem> group_activity_log,
     Profile* profile) {
   auto bubble = std::make_unique<RecentActivityBubbleDialogView>(
-      anchor_view, web_contents, tab_activity_log, group_activity_log, profile);
+      anchor, web_contents, tab_activity_log, group_activity_log, profile);
   bubble->SetArrow(views::BubbleBorder::Arrow::TOP_RIGHT);
   RecentActivityBubbleCoordinator::ShowCommon(std::move(bubble));
 }

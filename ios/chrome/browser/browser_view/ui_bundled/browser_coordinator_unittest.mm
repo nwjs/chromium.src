@@ -37,7 +37,7 @@
 #import "ios/chrome/browser/main/model/browser_web_state_list_delegate.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_coordinator.h"
-#import "ios/chrome/browser/omnibox/model/omnibox_position/omnibox_position_browser_agent.h"
+#import "ios/chrome/browser/omnibox/model/omnibox_focus/omnibox_focus_browser_agent.h"
 #import "ios/chrome/browser/save_to_photos/ui_bundled/save_to_photos_coordinator.h"
 #import "ios/chrome/browser/saved_tab_groups/model/tab_group_sync_service_factory.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
@@ -52,6 +52,7 @@
 #import "ios/chrome/browser/shared/public/commands/activity_service_commands.h"
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/gemini_commands.h"
 #import "ios/chrome/browser/shared/public/commands/help_commands.h"
 #import "ios/chrome/browser/shared/public/commands/promos_manager_commands.h"
 #import "ios/chrome/browser/shared/public/commands/save_image_to_photos_command.h"
@@ -87,6 +88,7 @@
 #import "third_party/ocmock/OCMock/OCMock.h"
 #import "third_party/ocmock/gtest_support.h"
 #import "ui/base/device_form_factor.h"
+#import "url/origin.h"
 
 // Test fixture for BrowserCoordinator testing.
 class BrowserCoordinatorTest : public PlatformTest {
@@ -161,7 +163,7 @@ class BrowserCoordinatorTest : public PlatformTest {
     StartSurfaceRecentTabBrowserAgent::CreateForBrowser(browser_.get());
     WebStateDelegateBrowserAgent::CreateForBrowser(browser_.get());
     SyncErrorBrowserAgent::CreateForBrowser(browser_.get());
-    OmniboxPositionBrowserAgent::CreateForBrowser(browser_.get());
+    OmniboxFocusBrowserAgent::CreateForBrowser(browser_.get());
     BrowserViewVisibilityNotifierBrowserAgent::CreateForBrowser(browser_.get());
     DiscoverFeedVisibilityBrowserAgent::CreateForBrowser(browser_.get());
     ToolbarsSizeBrowserAgent::CreateForBrowser(browser_.get());
@@ -183,6 +185,10 @@ class BrowserCoordinatorTest : public PlatformTest {
                              forProtocol:@protocol(SceneCommands)];
     [dispatcher startDispatchingToTarget:mock_settings_handler
                              forProtocol:@protocol(SettingsCommands)];
+
+    id mock_gemini_handler = OCMProtocolMock(@protocol(GeminiCommands));
+    [dispatcher startDispatchingToTarget:mock_gemini_handler
+                             forProtocol:@protocol(GeminiCommands)];
 
     LayoutGuideSceneAgent* layout_guide_scene_agent =
         [[LayoutGuideSceneAgent alloc] init];
@@ -442,10 +448,12 @@ TEST_F(BrowserCoordinatorTest, StartsAndStopsSaveToPhotosCoordinator) {
   GURL fakeImageURL("http://www.example.com/image.jpg");
   web::Referrer fakeImageReferrer;
   web::WebState* webState = GetActiveWebState();
-  SaveImageToPhotosCommand* command =
-      [[SaveImageToPhotosCommand alloc] initWithImageURL:fakeImageURL
-                                                referrer:fakeImageReferrer
-                                                webState:webState];
+  SaveImageToPhotosCommand* command = [[SaveImageToPhotosCommand alloc]
+      initWithImageURL:fakeImageURL
+              referrer:fakeImageReferrer
+              webState:webState
+               frameID:"fake_frame_id"
+           frameOrigin:url::Origin::Create(GURL("http://chromium.test/"))];
 
   // Tests that -[BrowserCoordinator saveImageToPhotos:] starts the
   // SaveToPhotosCoordinator.
@@ -456,7 +464,9 @@ TEST_F(BrowserCoordinatorTest, StartsAndStopsSaveToPhotosCoordinator) {
                                    browser:browser_.get()
                                   imageURL:command.imageURL
                                   referrer:command.referrer
-                                  webState:command.webState.get()])
+                                  webState:command.webState.get()
+                                   frameID:command.frameID
+                               frameOrigin:command.frameOrigin])
       .andReturn(mockSaveToPhotosCoordinator);
   OCMExpect([(SaveToPhotosCoordinator*)mockSaveToPhotosCoordinator start]);
   [handler saveImageToPhotos:command];

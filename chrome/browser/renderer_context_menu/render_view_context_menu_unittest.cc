@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
@@ -831,9 +832,10 @@ TEST_F(RenderViewContextMenuPrefsTest, LoadBrokenImage) {
   ASSERT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_LOAD_IMAGE));
 }
 
-TEST_F(RenderViewContextMenuPrefsTest, ContextMenu2026VideoOrderDisabled) {
+TEST_F(RenderViewContextMenuPrefsTest,
+       ContextMenuMenuSimplificationVideoOrderDisabled) {
   base::test::ScopedFeatureList features;
-  features.InitAndDisableFeature(media::kContextMenu2026);
+  features.InitAndDisableFeature(features::kMenuSimplification);
 
   content::ContextMenuParams params = CreateParams(MenuItem::VIDEO);
   params.media_flags |= blink::ContextMenuData::kMediaCanPictureInPicture;
@@ -852,10 +854,11 @@ TEST_F(RenderViewContextMenuPrefsTest, ContextMenu2026VideoOrderDisabled) {
   EXPECT_GT(pip_item->second, loop_item->second);
 }
 
-// Verify that the 2026 video context menu are ordered properly.
-TEST_F(RenderViewContextMenuPrefsTest, ContextMenu2026VideoOrder) {
+// Verify that the MenuSimplification video context menu are ordered properly.
+TEST_F(RenderViewContextMenuPrefsTest,
+       ContextMenuMenuSimplificationVideoOrder) {
   base::test::ScopedFeatureList features;
-  features.InitAndEnableFeature(media::kContextMenu2026);
+  features.InitAndEnableFeature(features::kMenuSimplification);
 
   content::ContextMenuParams params = CreateParams(MenuItem::VIDEO);
   params.media_flags |= blink::ContextMenuData::kMediaCanPictureInPicture;
@@ -1796,10 +1799,15 @@ TEST_F(RenderViewContextMenuPrefsTest, GetIsNewFeatureAtValue) {
                              kTestUnregisteredFeature},
                             {});
 
-  UserEducationServiceFactory::GetForBrowserContext(profile())
-      ->new_badge_registry()
-      ->RegisterFeature({user_education::features::kNewBadgeTestFeature,
-                         user_education::Metadata()});
+  auto* new_badge_registry =
+      UserEducationServiceFactory::GetForBrowserContext(profile())
+          ->new_badge_registry();
+  if (!new_badge_registry->IsFeatureRegistered(
+          user_education::features::kNewBadgeTestFeature)) {
+    new_badge_registry->RegisterFeature(
+        {user_education::features::kNewBadgeTestFeature,
+         user_education::Metadata()});
+  }
 
   // Initialize the New Badge controller, so that the new badge data for this
   // profile is set.
@@ -1887,6 +1895,35 @@ TEST_F(RenderViewContextMenuPrefsTest,
 }
 
 #endif  // BUILDFLAG(ENABLE_LENS_DESKTOP_GOOGLE_BRANDED_FEATURES)
+
+#if !BUILDFLAG(IS_CHROMEOS)
+TEST_F(RenderViewContextMenuPrefsTest,
+       TextSelectionShowsPartialTranslateWhenMenuSimplificationDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(features::kMenuSimplification);
+  translate::TranslateManager::SetIgnoreMissingKeyForTesting(true);
+  base::ScopedClosureRunner reset_ignore_missing_key(base::BindOnce(
+      &translate::TranslateManager::SetIgnoreMissingKeyForTesting, false));
+
+  NavigateAndCommit(GURL("https://www.example.com"));
+  SetUserSelectedDefaultSearchProvider("https://www.google.com", true);
+  ChromeTranslateClient::CreateForWebContents(web_contents());
+  ChromeTranslateClient* chrome_translate_client =
+      ChromeTranslateClient::FromWebContents(web_contents());
+  ASSERT_TRUE(chrome_translate_client);
+  chrome_translate_client->GetTranslateManager()
+      ->GetLanguageState()
+      ->LanguageDetermined("fr", true);
+
+  content::ContextMenuParams params = CreateParams(MenuItem::SELECTION);
+  TestRenderViewContextMenu menu(*web_contents()->GetPrimaryMainFrame(),
+                                 params);
+  menu.SetBrowser(GetBrowser());
+  menu.Init();
+
+  EXPECT_TRUE(menu.IsItemPresent(IDC_CONTENT_CONTEXT_PARTIAL_TRANSLATE));
+}
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(ENABLE_PRINTING)
 TEST_F(RenderViewContextMenuPrefsTest, PrintSelectionLabel) {
@@ -2098,6 +2135,9 @@ TEST_P(RenderViewContextMenuReadAnythingTest, MAYBE_AppendPageItems) {
   if (enable_region_search) {
     SetUserSelectedDefaultSearchProvider("https://www.google.com",
                                          /*supports_image_search=*/true);
+  } else {
+    SetUserSelectedDefaultSearchProvider("https://www.example.com",
+                                         /*supports_image_search=*/false);
   }
   menu.SetBrowser(GetBrowser());
   menu.Init();
@@ -2150,6 +2190,26 @@ TEST_P(RenderViewContextMenuReadAnythingTest, MAYBE_AppendPageItems) {
     // Read anything is after translate.
     EXPECT_EQ(model.GetItemCount() - 1, read_anything_index.value());
   }
+}
+
+TEST_P(RenderViewContextMenuReadAnythingTest, GlicNotPresentInReadingMode) {
+  base::test::ScopedFeatureList features;
+  features.InitAndEnableFeature(features::kGlicContextMenu);
+
+  glic::GlicEnabling::SetBypassEnablementChecksForTesting(true);
+
+  // Simulate a context menu request with page level options.
+  content::ContextMenuParams params = CreateParams(MenuItem::PAGE);
+  params.page_url = GURL(chrome::kChromeUIUntrustedReadAnythingSidePanelURL);
+
+  TestRenderViewContextMenu menu(*web_contents()->GetPrimaryMainFrame(),
+                                 params);
+  menu.SetBrowser(GetBrowser());
+  menu.Init();
+
+  EXPECT_FALSE(menu.IsItemPresent(IDC_CONTENT_CONTEXT_GLIC));
+
+  glic::GlicEnabling::SetBypassEnablementChecksForTesting(false);
 }
 
 INSTANTIATE_TEST_SUITE_P(All,
@@ -2240,6 +2300,32 @@ class RenderViewContextMenuMenuSimplificationTest
     feature_list_.InitAndEnableFeature(features::kMenuSimplification);
   }
 
+  base::ScopedClosureRunner SetUpTranslateClient() {
+    translate::TranslateManager::SetIgnoreMissingKeyForTesting(true);
+    NavigateAndCommit(GURL("https://www.example.com"));
+    SetUserSelectedDefaultSearchProvider("https://www.google.com", true);
+    ChromeTranslateClient::CreateForWebContents(web_contents());
+    ChromeTranslateClient* chrome_translate_client =
+        ChromeTranslateClient::FromWebContents(web_contents());
+    DCHECK(chrome_translate_client);
+    chrome_translate_client->GetTranslateManager()
+        ->GetLanguageState()
+        ->LanguageDetermined("fr", true);
+    return base::ScopedClosureRunner(base::BindOnce(
+        &translate::TranslateManager::SetIgnoreMissingKeyForTesting, false));
+  }
+
+  int CountOccurrences(const TestRenderViewContextMenu& menu, int command_id) {
+    int count = 0;
+    const ui::SimpleMenuModel& model = menu.menu_model();
+    for (size_t i = 0; i < model.GetItemCount(); ++i) {
+      if (model.GetCommandIdAt(i) == command_id) {
+        count++;
+      }
+    }
+    return count;
+  }
+
  private:
   base::test::ScopedFeatureList feature_list_;
 };
@@ -2255,7 +2341,7 @@ TEST_F(RenderViewContextMenuMenuSimplificationTest, CopySelectionTruncated) {
   size_t index =
       menu.menu_model().GetIndexOfCommandId(IDC_CONTENT_CONTEXT_COPY).value();
   std::u16string label = menu.menu_model().GetLabelAt(index);
-  EXPECT_EQ(label, u"&Copy \"Long text exceeding twen\x2026\"");
+  EXPECT_EQ(label, u"&Copy \x201CLong text exceeding twen\x2026\x201D");
 }
 
 TEST_F(RenderViewContextMenuMenuSimplificationTest, PasswordFieldRestricted) {
@@ -2268,6 +2354,50 @@ TEST_F(RenderViewContextMenuMenuSimplificationTest, PasswordFieldRestricted) {
 
   EXPECT_FALSE(menu.IsItemPresent(IDC_PRINT));
   EXPECT_FALSE(menu.IsItemPresent(IDC_CONTENT_CONTEXT_SEARCHWEBFOR));
+}
+
+#if BUILDFLAG(ENABLE_PRINTING)
+TEST_F(RenderViewContextMenuMenuSimplificationTest,
+       PasswordFieldWithSelectionRestricted) {
+  content::ContextMenuParams params =
+      CreateParams(MenuItem::SELECTION | MenuItem::EDITABLE);
+  params.form_control_type = blink::mojom::FormControlType::kInputPassword;
+  params.selection_text = u"secretpassword";
+
+  // Ensure printing is enabled.
+  profile()->GetPrefs()->SetBoolean(prefs::kPrintingEnabled, true);
+
+  TestRenderViewContextMenu menu(*web_contents()->GetPrimaryMainFrame(),
+                                 params);
+  menu.SetBrowser(GetBrowser());
+  ChromeTranslateClient::CreateForWebContents(web_contents());
+  menu.Init();
+
+  EXPECT_FALSE(menu.IsItemPresent(IDC_PRINT));
+}
+#endif  // BUILDFLAG(ENABLE_PRINTING)
+
+TEST_F(RenderViewContextMenuMenuSimplificationTest,
+       PasswordFieldWithSelectionGlicRestricted) {
+  base::test::ScopedFeatureList features;
+  features.InitAndEnableFeature(features::kGlicContextMenu);
+
+  glic::GlicEnabling::SetBypassEnablementChecksForTesting(true);
+
+  content::ContextMenuParams params =
+      CreateParams(MenuItem::SELECTION | MenuItem::EDITABLE);
+  params.form_control_type = blink::mojom::FormControlType::kInputPassword;
+  params.selection_text = u"secretpassword";
+
+  TestRenderViewContextMenu menu(*web_contents()->GetPrimaryMainFrame(),
+                                 params);
+  menu.SetBrowser(GetBrowser());
+  ChromeTranslateClient::CreateForWebContents(web_contents());
+  menu.Init();
+
+  EXPECT_FALSE(menu.IsItemPresent(IDC_CONTENT_CONTEXT_GLIC));
+
+  glic::GlicEnabling::SetBypassEnablementChecksForTesting(false);
 }
 
 TEST_F(RenderViewContextMenuMenuSimplificationTest, EmailFieldSearchHidden) {
@@ -2360,4 +2490,44 @@ TEST_F(RenderViewContextMenuMenuSimplificationTest, LinkAndSelectionLayout) {
   EXPECT_TRUE(menu.IsItemPresent(IDC_CONTENT_CONTEXT_COPY));
   EXPECT_TRUE(menu.IsItemPresent(IDC_CONTENT_CONTEXT_SEARCHWEBFOR));
   EXPECT_FALSE(menu.IsItemPresent(IDC_CONTENT_CONTEXT_OPEN_IN_READING_MODE));
+}
+
+TEST_F(RenderViewContextMenuMenuSimplificationTest,
+       TranslateSelectionOnlyOnce_NonEditable) {
+  auto reset_ignore_missing_key = SetUpTranslateClient();
+
+  content::ContextMenuParams params;
+  params.selection_text = u"hello world";
+  params.is_editable = false;
+
+  auto menu = std::make_unique<TestRenderViewContextMenu>(
+      *web_contents()->GetPrimaryMainFrame(), params);
+  menu->SetBrowser(GetBrowser());
+  menu->Init();
+
+  // Verify that the partial translate item is present.
+  EXPECT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_PARTIAL_TRANSLATE));
+
+  // Verify that it is present exactly once.
+  EXPECT_EQ(1, CountOccurrences(*menu, IDC_CONTENT_CONTEXT_PARTIAL_TRANSLATE));
+}
+
+TEST_F(RenderViewContextMenuMenuSimplificationTest,
+       TranslateSelectionOnlyOnce_Editable) {
+  auto reset_ignore_missing_key = SetUpTranslateClient();
+
+  content::ContextMenuParams params;
+  params.selection_text = u"hello world";
+  params.is_editable = true;
+
+  auto menu = std::make_unique<TestRenderViewContextMenu>(
+      *web_contents()->GetPrimaryMainFrame(), params);
+  menu->SetBrowser(GetBrowser());
+  menu->Init();
+
+  // Verify that the partial translate item is present.
+  EXPECT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_PARTIAL_TRANSLATE));
+
+  // Verify that it is present exactly once.
+  EXPECT_EQ(1, CountOccurrences(*menu, IDC_CONTENT_CONTEXT_PARTIAL_TRANSLATE));
 }

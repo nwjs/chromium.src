@@ -89,20 +89,6 @@ namespace blink {
 
 namespace {
 
-// Controls whether the canvas resource in ExportLowLatencyCanvasResource()
-// should be created with the SyncToken returned from back color buffer
-// (when enabled) or with an empty SyncToken (when disabled). Enabling this
-// feature would prevent flickering in some cases where desynchronized canvas
-// are periodically refreshed on Windows.
-BASE_FEATURE(kUseNonEmptySyncTokenForLowLatencyCanvas,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-#if !BUILDFLAG(IS_WIN)
-// Controls whether offscreen canvases are allowed to be placed into overlays.
-BASE_FEATURE(kAllowOverlaysForOffscreenCanvas,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
-
 const float kResourceAdjustedRatio = 0.5;
 
 bool g_should_fail_drawing_buffer_creation_for_testing = false;
@@ -190,7 +176,6 @@ scoped_refptr<DrawingBuffer> DrawingBuffer::Create(
     bool desynchronized,
     PreserveDrawingBuffer preserve,
     Platform::WebGLContextType webgl_version,
-    bool is_offscreen_canvas,
     PredefinedColorSpace color_space,
     gl::GpuPreference gpu_preference) {
   if (g_should_fail_drawing_buffer_creation_for_testing) {
@@ -248,7 +233,7 @@ scoped_refptr<DrawingBuffer> DrawingBuffer::Create(
           std::move(extensions_util), client, discard_framebuffer_supported,
           texture_storage_enabled, want_alpha_channel, premultiplied_alpha,
           preserve, webgl_version, want_depth_buffer, want_stencil_buffer,
-          is_offscreen_canvas, color_space, gpu_preference));
+          color_space, gpu_preference));
   if (!drawing_buffer->Initialize(size, multisample_supported)) {
     drawing_buffer->BeginDestruction();
     return scoped_refptr<DrawingBuffer>();
@@ -270,7 +255,6 @@ DrawingBuffer::DrawingBuffer(
     Platform::WebGLContextType webgl_version,
     bool want_depth,
     bool want_stencil,
-    bool is_offscreen_canvas,
     PredefinedColorSpace color_space,
     gl::GpuPreference gpu_preference)
     : client_(client),
@@ -294,7 +278,6 @@ DrawingBuffer::DrawingBuffer(
       want_depth_(want_depth),
       want_stencil_(want_stencil),
       color_space_(PredefinedColorSpaceToGfxColorSpace(color_space)),
-      is_offscreen_canvas_(is_offscreen_canvas),
       opengl_flip_y_extension_(
           ContextProvider()->GetCapabilities().mesa_framebuffer_flip_y),
       initial_gpu_(gpu_preference),
@@ -322,6 +305,10 @@ DrawingBuffer::~DrawingBuffer() {
 }
 
 bool DrawingBuffer::MarkContentsChanged() {
+  // IF the buffer had been discarded, it should have been recreated before
+  // getting there.
+  CHECK(!back_buffer_discarded_);
+
   if (contents_change_resolved_ || !contents_changed_) {
     contents_change_resolved_ = false;
     transient_framebuffers_discarded_ = false;
@@ -363,7 +350,7 @@ DrawingBuffer::ContextProviderWeakPtr() {
 }
 
 void DrawingBuffer::SetIsInHiddenPage(bool hidden) {
-  TRACE_EVENT("gpu", __PRETTY_FUNCTION__);
+  TRACE_EVENT("gpu", __PRETTY_FUNCTION__, "hidden", hidden);
   if (is_hidden_ == hidden)
     return;
   is_hidden_ = hidden;
@@ -376,6 +363,27 @@ void DrawingBuffer::SetIsInHiddenPage(bool hidden) {
 
   // Make sure to interrupt pixel local storage.
   ScopedStateRestorer scoped_state_restorer(this);
+
+  const bool may_discard_back_buffer =
+      base::FeatureList::IsEnabled(blink::features::kWebGLDiscardBackBuffer);
+  if (may_discard_back_buffer) {
+    if (is_hidden_) {
+      bool nothing_to_preserve =
+          preserve_drawing_buffer_ == kDiscard && !contents_changed_;
+      if (back_color_buffer_ && nothing_to_preserve) {
+        TRACE_EVENT("gpu", "DiscardBackBuffer");
+        // Detach first, clear second.
+        gl_->BindFramebuffer(GL_FRAMEBUFFER, fbo_);
+        gl_->FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                  GL_TEXTURE_2D, 0, 0);
+        back_color_buffer_ = nullptr;
+        back_buffer_discarded_ = true;
+      }
+    } else {
+      // Page became visible again, proactively allocate the back buffer.
+      EnsureBackColorBuffer();
+    }
+  }
 
   auto* context_support = ContextProvider()->ContextSupport();
   if (context_support) {
@@ -564,6 +572,10 @@ DrawingBuffer::ExportSharedImageFromBackBuffer(
     gpu::SyncToken& sync_token,
     viz::ReleaseCallback* out_release_callback) {
   DCHECK(state_restorer_);
+  // Should only be called when there is something in the canvas, which should
+  // have caused re-creation of the buffer.
+  CHECK(!back_buffer_discarded_);
+
   if (webgl_version_ != Platform::kWebGL1ContextType) {
     state_restorer_->SetPixelUnpackBufferBindingDirty();
     gl_->BindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
@@ -780,7 +792,7 @@ scoped_refptr<StaticBitmapImage> DrawingBuffer::TransferToStaticBitmapImage() {
   DCHECK(release_callback);
 
   return AcceleratedStaticBitmapImage::CreateFromCanvasSharedImage(
-      std::move(shared_image), sync_token, kPremul_SkAlphaType,
+      std::move(shared_image), sync_token, kPremul_SkAlphaType, hdr_metadata_,
       context_provider_->GetWeakPtr(), base::PlatformThread::CurrentRef(),
       ThreadScheduler::Current()->CleanupTaskRunner(),
       std::move(release_callback));
@@ -810,12 +822,7 @@ DrawingBuffer::ExportLowLatencyCanvasResource() {
     // Restart SharedImage access on the back buffer to ensure a write fence is
     // generated on it to guarantee display reads this frame completely.
     // Display may still read parts of subsequent frames, which is okay.
-    if (base::FeatureList::IsEnabled(
-            kUseNonEmptySyncTokenForLowLatencyCanvas)) {
-      sync_token = back_color_buffer_->EndAccess();
-    } else {
-      back_color_buffer_->EndAccess();
-    }
+    sync_token = back_color_buffer_->EndAccess();
     back_color_buffer_->BeginAccess(gpu::SyncToken(), /*readonly=*/false);
   }
 
@@ -1295,39 +1302,36 @@ void DrawingBuffer::OnMemoryDump(
                                          dump_base_name.c_str(), i++));
   }
 
-  // Only report these if the drawing buffer is retained. Otherwise they are
-  // likely to be resourceless, in particular on tile-based architectures.
-  if (preserve_drawing_buffer_ == kPreserve) {
-    if (staging_texture_needed_ || SampleCount() > 0) {
-      uint64_t multisample_size =
-          (base::ByteSize(color_buffer_format_.EstimatedSizeInBytes(size_)) *
-           (SampleCount() + staging_texture_needed_))
-              .InBytes();
-      auto* dump = pmd->CreateAllocatorDump(dump_base_name +
-                                            "/multisample_and_staging_buffers");
-      dump->AddScalar(base::trace_event::MemoryAllocatorDump::kNameSize,
-                      base::trace_event::MemoryAllocatorDump::kUnitsBytes,
-                      multisample_size);
-      dump->AddScalar("width", "pixels", size_.width());
-      dump->AddScalar("height", "pixels", size_.height());
-    }
+  // MSAA, Depth / Stencil and others can be memoryless in theory, but do not
+  // appear to be, even on architectures that support it. Report them always.
+  if (staging_texture_needed_ || SampleCount() > 0) {
+    uint64_t multisample_size =
+        (base::ByteSize(color_buffer_format_.EstimatedSizeInBytes(size_)) *
+         (SampleCount() + staging_texture_needed_))
+            .InBytes();
+    auto* dump = pmd->CreateAllocatorDump(dump_base_name +
+                                          "/multisample_and_staging_buffers");
+    dump->AddScalar(base::trace_event::MemoryAllocatorDump::kNameSize,
+                    base::trace_event::MemoryAllocatorDump::kUnitsBytes,
+                    multisample_size);
+    dump->AddScalar("width", "pixels", size_.width());
+    dump->AddScalar("height", "pixels", size_.height());
+  }
 
-    if (HasDepthBuffer() || HasStencilBuffer()) {
-      uint64_t depth_stencil_size =
-          (std::max(SampleCount(), 1) *
-           base::ByteSize(base::checked_cast<uint64_t>(4 * size_.width() *
-                                                       size_.height())))
-              .InBytes();
-      auto* dump =
-          pmd->CreateAllocatorDump(dump_base_name + "/depth_stencil_buffer");
-      dump->AddScalar(base::trace_event::MemoryAllocatorDump::kNameSize,
-                      base::trace_event::MemoryAllocatorDump::kUnitsBytes,
-                      depth_stencil_size);
-      dump->AddScalar("width", "pixels", size_.width());
-      dump->AddScalar("height", "pixels", size_.height());
-      if (HasStencilBuffer()) {
-        dump->AddScalar("stencil_bits", "bits", 8);
-      }
+  if (HasDepthBuffer() || HasStencilBuffer()) {
+    uint64_t depth_stencil_size = (std::max(SampleCount(), 1) *
+                                   base::ByteSize(base::checked_cast<uint64_t>(
+                                       4 * size_.width() * size_.height())))
+                                      .InBytes();
+    auto* dump =
+        pmd->CreateAllocatorDump(dump_base_name + "/depth_stencil_buffer");
+    dump->AddScalar(base::trace_event::MemoryAllocatorDump::kNameSize,
+                    base::trace_event::MemoryAllocatorDump::kUnitsBytes,
+                    depth_stencil_size);
+    dump->AddScalar("width", "pixels", size_.width());
+    dump->AddScalar("height", "pixels", size_.height());
+    if (HasStencilBuffer()) {
+      dump->AddScalar("stencil_bits", "bits", 8);
     }
   }
 }
@@ -1689,6 +1693,10 @@ void DrawingBuffer::SetColorSpace(PredefinedColorSpace predefined_color_space) {
 }
 
 bool DrawingBuffer::ResolveAndBindForReadAndDraw() {
+  // IF the buffer had been discarded, it should have been recreated before
+  // getting there.
+  CHECK(!back_buffer_discarded_);
+
   {
     ScopedStateRestorer scoped_state_restorer(this);
     ResolveIfNeeded(kDontDiscard);
@@ -1895,6 +1903,7 @@ bool DrawingBuffer::Multisample() const {
 }
 
 void DrawingBuffer::Bind(GLenum target) {
+  EnsureBackColorBuffer();
   gl_->BindFramebuffer(target, WantExplicitResolve() ? multisample_fbo_ : fbo_);
 }
 
@@ -1925,6 +1934,12 @@ DrawingBuffer::GetUnacceleratedStaticBitmapImage(
     GrSurfaceOrigin origin) {
   ScopedStateRestorer scoped_state_restorer(this);
 
+  // The callers should only get there where another code path that
+  // reallocates the buffer (content has changed, canvas has been cleared)
+  // have been called. If this is not true, inspect the failure, and consider
+  // removing this CHECK().
+  CHECK(!back_buffer_discarded_);
+
   sk_sp<SkData> dst_buffer = TryAllocateSkDataForBitmap(format, Size());
   if (!dst_buffer)
     return nullptr;
@@ -1937,6 +1952,7 @@ DrawingBuffer::GetUnacceleratedStaticBitmapImage(
       SkImageInfo::Make(SkISize::Make(Size().width(), Size().height()),
                         ToClosestSkColorType(format), alpha_type,
                         color_space_.ToSkColorSpace()),
+      hdr_metadata_,
       origin == kTopLeft_GrSurfaceOrigin
           ? ImageOrientationEnum::kOriginTopLeft
           : ImageOrientationEnum::kOriginBottomLeft);
@@ -2095,28 +2111,7 @@ scoped_refptr<DrawingBuffer::ColorBuffer> DrawingBuffer::CreateColorBuffer(
   // First see if creating a SharedImage that can be used as an overlay is
   // feasible.
   if (SharedGpuContext::IsGpuCompositingEnabled()) {
-#if BUILDFLAG(IS_WIN)
-    // TODO(crbug.com/488937356): Fold this into the below once the killswitch
-    // on the below is removed (that condition was historically never checked
-    // on Windows).
-    bool use_as_overlay = can_use_low_latency_;
-#else
-    bool use_as_overlay = false;
-    // On Mac OS, DrawingBuffer is using an IOSurface as its backing storage,
-    // this allows WebGL-rendered canvases to be composited by the OS rather
-    // than Chrome.  IOSurfaces are only compatible with the
-    // GL_TEXTURE_RECTANGLE_ARB binding target. So to avoid the knowledge of
-    // GL_TEXTURE_RECTANGLE_ARB type textures being introduced into more areas
-    // of the code, we use the code path of non-WebGLImageChromium for
-    // OffscreenCanvas. See detailed discussion in crbug.com/649668.
-    // TODO(crbug.com/488937356): Eliminate this workaround post-rollout of the
-    // killswitch; the workaround should no longer be necessary
-    // post-SharedImage.
-    if (!is_offscreen_canvas_ ||
-        base::FeatureList::IsEnabled(kAllowOverlaysForOffscreenCanvas)) {
-      use_as_overlay = UseOverlaysForWebGL() || can_use_low_latency_;
-    }
-#endif
+    bool use_as_overlay = UseOverlaysForWebGL() || can_use_low_latency_;
     if (use_as_overlay) {
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_WIN)
       // Android's SharedImage backing for ChromiumImage does not support BGRX,
@@ -2231,6 +2226,9 @@ void DrawingBuffer::AttachColorBufferToReadFramebuffer() {
     id = staging_texture_;
     texture_target = GL_TEXTURE_2D;
   } else {
+    if (!back_color_buffer_) {
+      return;
+    }
     id = back_color_buffer_->texture_id();
     texture_target = back_color_buffer_->shared_image->GetTextureTarget();
   }
@@ -2244,6 +2242,24 @@ void DrawingBuffer::AttachColorBufferToReadFramebuffer() {
   } else {
     gl_->FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                               texture_target, id, 0);
+  }
+}
+
+void DrawingBuffer::EnsureBackColorBuffer() {
+  const bool may_discard_back_buffer =
+      base::FeatureList::IsEnabled(blink::features::kWebGLDiscardBackBuffer);
+  if (may_discard_back_buffer && back_buffer_discarded_ &&
+      !back_color_buffer_) {
+    ScopedStateRestorer scoped_state_restorer(this);
+    back_color_buffer_ = CreateOrRecycleColorBuffer();
+    // We had a back buffer before, we can't allocate one now. We can't
+    // continue, so we could lose the context, but for now, just crash, if this
+    // shows up in crash reports, just lose the context. Crashing here makes
+    // state management simpler elsewhere, since we don't have to deal with the
+    // case where we tried and failed to recreate the buffer.
+    CHECK(back_color_buffer_);
+    AttachColorBufferToReadFramebuffer();
+    back_buffer_discarded_ = false;
   }
 }
 

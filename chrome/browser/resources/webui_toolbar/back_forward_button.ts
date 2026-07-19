@@ -9,13 +9,15 @@ import {loadTimeData} from '//resources/js/load_time_data.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {MenuSourceType} from '//resources/mojo/ui/base/mojom/menu_source_type.mojom-webui.js';
 
-import {getCss} from './back_forward_button.css.js';
 import {getHtml} from './back_forward_button.html.js';
 import {BrowserProxyImpl, ContextMenuType} from './browser_proxy.js';
 import type {BackForwardButtonState, BrowserProxy} from './browser_proxy.js';
-import {getContextMenuPosition, getEventDispositionFlags, PressHandler} from './toolbar_button.js';
+import {getCss} from './toolbar_button.css.js';
+import {getContextMenuPosition, getEventDispositionFlags, HelpBubbleAnchorMixin, PressHandler, roundedIconsEnabled} from './toolbar_button.js';
 
-export class BackForwardButtonElement extends CrLitElement {
+const BackForwardButtonElementBase = HelpBubbleAnchorMixin(CrLitElement);
+
+export class BackForwardButtonElement extends BackForwardButtonElementBase {
   static get is() {
     return 'back-forward-button';
   }
@@ -30,9 +32,11 @@ export class BackForwardButtonElement extends CrLitElement {
 
   static override get properties() {
     return {
+      ...super.properties,
       direction: {type: String},
       state: {type: Object},
       leadingMargin: {type: Number},
+      touchUi: {type: Boolean},
     };
   }
 
@@ -43,6 +47,7 @@ export class BackForwardButtonElement extends CrLitElement {
     isContextMenuVisible: false,
   };
   accessor leadingMargin: number = 0;
+  accessor touchUi: boolean = false;
 
   private browserProxy_: BrowserProxy = BrowserProxyImpl.getInstance();
   protected pressHandler_: PressHandler = new PressHandler(
@@ -74,9 +79,10 @@ export class BackForwardButtonElement extends CrLitElement {
   }
 
   protected getTooltip_(): string {
-    return this.direction === 'back' ?
-        loadTimeData.getString('backButtonTooltip') :
-        loadTimeData.getString('forwardButtonTooltip');
+    return this.adjustTooltipForHelpBubble(
+        this.direction === 'back' ?
+            loadTimeData.getString('backButtonTooltip') :
+            loadTimeData.getString('forwardButtonTooltip'));
   }
 
   protected onPointerenter_() {
@@ -90,6 +96,24 @@ export class BackForwardButtonElement extends CrLitElement {
     // Other events like mouse 'click' are handled in onShortPress_.
     if (e.detail === 0) {
       this.onShortPress_(e);
+    }
+  }
+
+  protected getIronIcon_(): string {
+    if (this.direction === 'back') {
+      if (roundedIconsEnabled()) {
+        return 'webui-toolbar:arrow_back';
+      } else {
+        return this.touchUi ? 'webui-toolbar:back_arrow_touch_old' :
+                              'webui-toolbar:back_arrow_chrome_refresh_old';
+      }
+    } else {
+      if (roundedIconsEnabled()) {
+        return 'webui-toolbar:arrow_forward';
+      } else {
+        return this.touchUi ? 'webui-toolbar:forward_arrow_touch_old' :
+                              'webui-toolbar:forward_arrow_chrome_refresh_old';
+      }
     }
   }
 }

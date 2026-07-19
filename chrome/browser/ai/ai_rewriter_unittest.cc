@@ -38,6 +38,7 @@
 #include "services/on_device_model/public/cpp/features.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/features_generated.h"
 #include "third_party/blink/public/mojom/ai/ai_manager.mojom.h"
 #include "third_party/blink/public/mojom/ai/model_streaming_responder.mojom.h"
 
@@ -163,6 +164,11 @@ CreateRewriterConfig() {
 }
 
 class AIRewriterTest : public AITestUtils::AITestBase {
+ public:
+  AIRewriterTest() {
+    scoped_feature_list_.InitAndEnableFeature(blink::features::kAIRewriterAPI);
+  }
+
  protected:
   optimization_guide::proto::OnDeviceModelExecutionFeatureConfig CreateConfig()
       override {
@@ -180,7 +186,8 @@ class AIRewriterTest : public AITestUtils::AITestBase {
       blink::mojom::AIRewriterCreateOptionsPtr options = GetDefaultOptions()) {
     TestCreateRewriterClient create_rewriter_client;
     GetAIManagerRemote()->CreateRewriter(
-        create_rewriter_client.BindNewPipeAndPassRemote(), std::move(options));
+        create_rewriter_client.BindNewPipeAndPassRemote(), std::move(options),
+        /*monitor=*/mojo::NullRemote());
 
     CreateRewriterResult result = create_rewriter_client.result().Take();
     EXPECT_OK(result);
@@ -218,11 +225,15 @@ class AIRewriterTest : public AITestUtils::AITestBase {
   void EnsureModelIsReady() {
     TestCreateRewriterClient rewriter_client;
     GetAIManagerRemote()->CreateRewriter(
-        rewriter_client.BindNewPipeAndPassRemote(), GetDefaultOptions());
+        rewriter_client.BindNewPipeAndPassRemote(), GetDefaultOptions(),
+        /*monitor=*/mojo::NullRemote());
 
     auto result = rewriter_client.result().Take();
     EXPECT_OK(result);
   }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 TEST_F(AIRewriterTest, CreateRewriterNoService) {
@@ -230,7 +241,8 @@ TEST_F(AIRewriterTest, CreateRewriterNoService) {
 
   TestCreateRewriterClient create_rewriter_client;
   GetAIManagerRemote()->CreateRewriter(
-      create_rewriter_client.BindNewPipeAndPassRemote(), GetDefaultOptions());
+      create_rewriter_client.BindNewPipeAndPassRemote(), GetDefaultOptions(),
+      /*monitor=*/mojo::NullRemote());
 
   CreateRewriterResult result = create_rewriter_client.result().Take();
   EXPECT_FALSE(result.has_value());
@@ -267,7 +279,8 @@ TEST_F(AIRewriterTest, CreateRewriterModelNotEligible) {
 
   TestCreateRewriterClient create_rewriter_client;
   GetAIManagerRemote()->CreateRewriter(
-      create_rewriter_client.BindNewPipeAndPassRemote(), GetDefaultOptions());
+      create_rewriter_client.BindNewPipeAndPassRemote(), GetDefaultOptions(),
+      /*monitor=*/mojo::NullRemote());
 
   CreateRewriterResult result = create_rewriter_client.result().Take();
   EXPECT_FALSE(result.has_value());
@@ -280,7 +293,8 @@ TEST_F(AIRewriterTest, CreateRewriterWaitsForBaseModel) {
 
   TestCreateRewriterClient create_rewriter_client;
   GetAIManagerRemote()->CreateRewriter(
-      create_rewriter_client.BindNewPipeAndPassRemote(), GetDefaultOptions());
+      create_rewriter_client.BindNewPipeAndPassRemote(), GetDefaultOptions(),
+      /*monitor=*/mojo::NullRemote());
 
   TestFuture<CreateRewriterResult>& future = create_rewriter_client.result();
   task_environment()->FastForwardBy(base::Hours(1));
@@ -299,7 +313,8 @@ TEST_F(AIRewriterTest, CreateRewriterWaitsForModelAdaptation) {
 
   TestCreateRewriterClient create_rewriter_client;
   GetAIManagerRemote()->CreateRewriter(
-      create_rewriter_client.BindNewPipeAndPassRemote(), GetDefaultOptions());
+      create_rewriter_client.BindNewPipeAndPassRemote(), GetDefaultOptions(),
+      /*monitor=*/mojo::NullRemote());
 
   TestFuture<CreateRewriterResult>& future = create_rewriter_client.result();
   task_environment()->FastForwardBy(base::Hours(1));
@@ -319,7 +334,8 @@ TEST_F(AIRewriterTest, CreateRewriterWaitsForTextSafetyModel) {
 
   TestCreateRewriterClient create_rewriter_client;
   GetAIManagerRemote()->CreateRewriter(
-      create_rewriter_client.BindNewPipeAndPassRemote(), GetDefaultOptions());
+      create_rewriter_client.BindNewPipeAndPassRemote(), GetDefaultOptions(),
+      /*monitor=*/mojo::NullRemote());
 
   TestFuture<CreateRewriterResult>& future = create_rewriter_client.result();
   task_environment()->FastForwardBy(base::Hours(1));
@@ -346,7 +362,8 @@ TEST_F(AIRewriterTest, CreateRewriterSafetyConfigNotAvailable) {
 
   TestCreateRewriterClient create_rewriter_client;
   GetAIManagerRemote()->CreateRewriter(
-      create_rewriter_client.BindNewPipeAndPassRemote(), GetDefaultOptions());
+      create_rewriter_client.BindNewPipeAndPassRemote(), GetDefaultOptions(),
+      /*monitor=*/mojo::NullRemote());
 
   CreateRewriterResult result = create_rewriter_client.result().Take();
   EXPECT_FALSE(result.has_value());
@@ -366,7 +383,8 @@ TEST_F(AIRewriterTest, CreateRewriterUnableToCalculateTokenSize) {
 
   TestCreateRewriterClient create_rewriter_client;
   GetAIManagerRemote()->CreateRewriter(
-      create_rewriter_client.BindNewPipeAndPassRemote(), GetDefaultOptions());
+      create_rewriter_client.BindNewPipeAndPassRemote(), GetDefaultOptions(),
+      /*monitor=*/mojo::NullRemote());
 
   CreateRewriterResult result = create_rewriter_client.result().Take();
   EXPECT_FALSE(result.has_value());
@@ -381,7 +399,8 @@ TEST_F(AIRewriterTest, CreateRewriterContextLimitExceededError) {
 
   TestCreateRewriterClient create_rewriter_client;
   GetAIManagerRemote()->CreateRewriter(
-      create_rewriter_client.BindNewPipeAndPassRemote(), GetDefaultOptions());
+      create_rewriter_client.BindNewPipeAndPassRemote(), GetDefaultOptions(),
+      /*monitor=*/mojo::NullRemote());
 
   CreateRewriterResult result = create_rewriter_client.result().Take();
   EXPECT_FALSE(result.has_value());
@@ -723,7 +742,8 @@ TEST_F(AIRewriterTest, CreatePermissionsPolicyDisabled) {
   mojo::test::BadMessageObserver observer;
   TestCreateRewriterClient create_rewriter_client;
   GetAIManagerRemote()->CreateRewriter(
-      create_rewriter_client.BindNewPipeAndPassRemote(), GetDefaultOptions());
+      create_rewriter_client.BindNewPipeAndPassRemote(), GetDefaultOptions(),
+      /*monitor=*/mojo::NullRemote());
   EXPECT_EQ(observer.WaitForBadMessage(), "Policy or user setting disabled");
 }
 
@@ -738,7 +758,8 @@ TEST_F(AIRewriterTest, CreateBuiltInAIAPIsEnterprisePolicyDisabled) {
   mojo::test::BadMessageObserver observer;
   TestCreateRewriterClient create_rewriter_client;
   GetAIManagerRemote()->CreateRewriter(
-      create_rewriter_client.BindNewPipeAndPassRemote(), GetDefaultOptions());
+      create_rewriter_client.BindNewPipeAndPassRemote(), GetDefaultOptions(),
+      /*monitor=*/mojo::NullRemote());
   EXPECT_EQ(observer.WaitForBadMessage(), "Policy or user setting disabled");
   SetBuiltInAIAPIsEnterprisePolicy(true);
 }
@@ -754,7 +775,8 @@ TEST_F(AIRewriterTest, CreateGenAILocalEnterprisePolicyDisabled) {
   mojo::test::BadMessageObserver observer;
   TestCreateRewriterClient create_rewriter_client;
   GetAIManagerRemote()->CreateRewriter(
-      create_rewriter_client.BindNewPipeAndPassRemote(), GetDefaultOptions());
+      create_rewriter_client.BindNewPipeAndPassRemote(), GetDefaultOptions(),
+      /*monitor=*/mojo::NullRemote());
   EXPECT_EQ(observer.WaitForBadMessage(), "Policy or user setting disabled");
   SetGenAILocalEnterprisePolicy(true);
 }
@@ -770,7 +792,8 @@ TEST_F(AIRewriterTest, CreateOnDeviceAiUserSettingDisabled) {
   mojo::test::BadMessageObserver observer;
   TestCreateRewriterClient create_rewriter_client;
   GetAIManagerRemote()->CreateRewriter(
-      create_rewriter_client.BindNewPipeAndPassRemote(), GetDefaultOptions());
+      create_rewriter_client.BindNewPipeAndPassRemote(), GetDefaultOptions(),
+      /*monitor=*/mojo::NullRemote());
   EXPECT_EQ(observer.WaitForBadMessage(), "Policy or user setting disabled");
   SetOnDeviceAiUserSetting(true);
 }
@@ -779,7 +802,8 @@ class AIRewriterManifestTest : public AITestUtils::AITestManifestBase {
  public:
   AIRewriterManifestTest() {
     scoped_feature_list_.InitWithFeatures(
-        {optimization_guide::kOptimizationGuideManifestBroker,
+        {blink::features::kAIRewriterAPI,
+         optimization_guide::kOptimizationGuideManifestBroker,
          on_device_model::features::kOnDeviceModelLitertLmBackend},
         {});
   }
@@ -868,7 +892,8 @@ TEST_F(AIRewriterManifestTest, CanCreateAndCreateWithManifestGemma4) {
   // Verify CreateRewriter can retrieve the model successfully.
   TestCreateRewriterClient create_rewriter_client;
   GetAIManagerRemote()->CreateRewriter(
-      create_rewriter_client.BindNewPipeAndPassRemote(), GetDefaultOptions());
+      create_rewriter_client.BindNewPipeAndPassRemote(), GetDefaultOptions(),
+      /*monitor=*/mojo::NullRemote());
 
   auto result = create_rewriter_client.result().Take();
   EXPECT_TRUE(result.has_value());

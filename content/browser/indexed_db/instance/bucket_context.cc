@@ -25,6 +25,7 @@
 #include "base/auto_reset.h"
 #include "base/check.h"
 #include "base/check_op.h"
+#include "base/command_line.h"
 #include "base/containers/map_util.h"
 #include "base/feature_list.h"
 #include "base/files/file_enumerator.h"
@@ -105,6 +106,12 @@ BASE_FEATURE_ENUM_PARAM(SqliteRolloutStage,
 // Time after the last connection to a database is closed and when we destroy
 // the backing store.
 constexpr base::TimeDelta kBackingStoreGracePeriod = base::Seconds(2);
+
+// If this switch is present, the backing store is shut down near-synchronously
+// when the last `Database` closes. Used by blink perf tests to exercise
+// database cold-open.
+constexpr char kExpediteBackingStoreShutdownSwitch[] =
+    "idb-expedite-backing-store-shutdown";
 
 // Duration of inactivity after which idle tasks are run.
 constexpr base::TimeDelta kIdleTimeout = base::Seconds(15);
@@ -616,7 +623,11 @@ void BucketContext::RunTasks() {
       ++db_it;
     }
   }
-  if (CanClose() && closing_stage_ == ClosingState::kClosed) {
+  static const bool kExpediteShutdown =
+      base::CommandLine::ForCurrentProcess()->HasSwitch(
+          kExpediteBackingStoreShutdownSwitch);
+  if (CanClose() &&
+      (closing_stage_ == ClosingState::kClosed || kExpediteShutdown)) {
     ResetBackingStore();
   } else {
     // Since a `Database` may have just been destroyed, there may no longer be
@@ -729,7 +740,8 @@ void BucketContext::Open(
     mojo::PendingAssociatedReceiver<blink::mojom::IDBTransaction>
         transaction_receiver,
     int64_t transaction_id,
-    int scheduling_priority) {
+    int scheduling_priority,
+    bool request_shared_connection) {
   base::ElapsedTimer timer;
   TRACE_EVENT0("IndexedDB", "BucketContext::Open");
   auto scoper = ScopedHandlingRequest();
@@ -774,6 +786,8 @@ void BucketContext::Open(
       transaction_id, version, std::move(transaction_receiver));
   connection->data_loss_info = data_loss_info;
   connection->scheduling_priority = scheduling_priority;
+  connection->request_shared_connection = request_shared_connection;
+
   ReceiverContext& client = receivers_.current_context();
   // `Connection` only needs an opaque token to uniquely identify the
   // document or worker that owns the other side of the connection.
@@ -1094,6 +1108,7 @@ bool BucketContext::OnMemoryDump(const base::trace_event::MemoryDumpArgs& args,
     return true;
   }
 
+  uintptr_t identifier = backing_store()->GetIdentifierForMemoryDump();
   base::CheckedNumeric<uint64_t> total_memory_in_flight = 0;
   for (const auto& [name, database] : databases_) {
     for (Connection* connection : database->connections()) {
@@ -1102,12 +1117,18 @@ bool BucketContext::OnMemoryDump(const base::trace_event::MemoryDumpArgs& args,
       }
     }
   }
-  auto* db_dump = pmd->CreateAllocatorDump(
-      base::StringPrintf("site_storage/index_db/in_flight_0x%" PRIXPTR,
-                         backing_store()->GetIdentifierForMemoryDump()));
-  db_dump->AddScalar(base::trace_event::MemoryAllocatorDump::kNameSize,
-                     base::trace_event::MemoryAllocatorDump::kUnitsBytes,
-                     total_memory_in_flight.ValueOrDefault(0));
+  auto* in_flight_dump = pmd->CreateAllocatorDump(base::StringPrintf(
+      "site_storage/indexed_db/in_flight_0x%" PRIXPTR, identifier));
+  in_flight_dump->AddScalar(base::trace_event::MemoryAllocatorDump::kNameSize,
+                            base::trace_event::MemoryAllocatorDump::kUnitsBytes,
+                            total_memory_in_flight.ValueOrDefault(0));
+
+  // TODO(crbug.com/520300216): Add per-bucket origin attribution.
+  backing_store()->ReportMemoryUsage(
+      pmd,
+      base::StringPrintf("site_storage/indexed_db/database_engine_0x%" PRIXPTR,
+                         identifier));
+
   return true;
 }
 

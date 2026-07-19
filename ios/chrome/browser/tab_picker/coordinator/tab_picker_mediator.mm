@@ -11,9 +11,10 @@
 #import "ios/chrome/browser/intelligence/proto_wrappers/page_context_utils.h"
 #import "ios/chrome/browser/shared/model/utils/web_state_deferred_executor.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
+#import "ios/chrome/browser/shared/public/commands/tab_picker_commands.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_tab_helper.h"
-#import "ios/chrome/browser/tab_picker/coordinator/tab_picker_logger.h"
-#import "ios/chrome/browser/tab_picker/coordinator/tab_picker_snackbar_presenter.h"
+#import "ios/chrome/browser/tab_picker/public/tab_picker_logger.h"
+#import "ios/chrome/browser/tab_picker/public/tab_picker_snackbar_presenter.h"
 #import "ios/chrome/browser/tab_picker/ui/tab_picker_consumer.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_collection_consumer.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/grid/grid_item_identifier.h"
@@ -32,8 +33,10 @@
   __weak id<TabCollectionConsumer> _gridConsumer;
   /// The tab picker consumer.
   __weak id<TabPickerConsumer> _tabPickerConsumer;
-  /// The delegate for tabs attachment.
-  __weak id<TabsAttachmentDelegate> _tabsAttachmentDelegate;
+  /// Parameters used to configure the Tab Picker.
+  TabPickerParams* _params;
+  /// Called when the user confirms a new selection of tabs.
+  TabPickerCompletionBlock _tabPickerCompletionBlock;
   /// Stores the unique identifiers of web states that have valid cached APC
   /// (Annotated Page Content) data.
   std::set<std::string> _validAPCwebStatesIDs;
@@ -45,8 +48,9 @@
 
 - (instancetype)initWithGridConsumer:(id<TabCollectionConsumer>)gridConsumer
                    tabPickerConsumer:(id<TabPickerConsumer>)tabPickerConsumer
-              tabsAttachmentDelegate:
-                  (id<TabsAttachmentDelegate>)tabsAttachmentDelegate {
+                              params:(TabPickerParams*)params
+            tabPickerCompletionBlock:
+                (TabPickerCompletionBlock)tabPickerCompletionBlock {
   TabGridModeHolder* modeHolder =
       [[TabGridModeHolder alloc] initWithTabGridState:nil];
   modeHolder.mode = TabGridMode::kSelection;
@@ -55,7 +59,8 @@
   if (self) {
     _gridConsumer = gridConsumer;
     _tabPickerConsumer = tabPickerConsumer;
-    _tabsAttachmentDelegate = tabsAttachmentDelegate;
+    _params = params;
+    _tabPickerCompletionBlock = tabPickerCompletionBlock;
 
     [_tabPickerConsumer
         setSelectedTabsCount:self.selectedEditingItems.tabsCount];
@@ -83,6 +88,11 @@
   [self fetchPageContexts];
 }
 
+- (void)disconnect {
+  _tabPickerCompletionBlock = nil;
+  [super disconnect];
+}
+
 - (id<TabCollectionConsumer>)gridConsumer {
   return _gridConsumer;
 }
@@ -106,8 +116,8 @@
 }
 
 - (void)updateDoneButtonState {
-  BOOL selectionChanged = self.selectedEditingItems.allTabs !=
-                          [_tabsAttachmentDelegate preselectedWebStateIDs];
+  BOOL selectionChanged =
+      self.selectedEditingItems.allTabs != _params.preselectedWebStateIDs;
   [_tabPickerConsumer setDoneButtonEnabled:selectionChanged];
 }
 
@@ -115,9 +125,8 @@
   CHECK_EQ(self.modeHolder.mode, TabGridMode::kSelection);
   CHECK_EQ(itemID.type, GridItemType::kTab);
   if ([self attachmentLimitReached:itemID]) {
-    [self.snackbarPresenter
-        showSnackbarForTabAttachmentLimit:[_tabsAttachmentDelegate
-                                              maxTabAttachmentCount]];
+    [_params.snackbarPresenter
+        showSnackbarForTabAttachmentLimit:_params.maxTabAttachmentCount];
     return;
   }
 
@@ -136,34 +145,30 @@
   }
 
   // If the tab's APC is cached avoid updating the snapshot.
-  BOOL cached = webState && _validAPCwebStatesIDs.contains(base::NumberToString(
-                                webState->GetUniqueIdentifier().identifier()));
-  if (webState && !webState->IsRealized() && !cached) {
+  if (webState && _validAPCwebStatesIDs.contains(base::NumberToString(
+                      webState->GetUniqueIdentifier().identifier()))) {
+    return;
+  }
+
+  if (webState && !webState->IsRealized()) {
     // If the web state is not realized, force it to realize in order to have
     // the latest content and updated snapshot.
     __weak TabPickerMediator* weakSelf = self;
     [_webStateDeferredExecutor
-                   webState:webState
-        executeOnceRealized:^{
-          [weakSelf
-              cancelPlaceholderForRealizedWebState:webState->GetWeakPtr()];
-        }];
+        ensureWebStateIsRealized:webState
+                  withCompletion:^(web::WebState* innerWebState) {
+                    [weakSelf
+                        cancelPlaceholderForRealizedWebState:innerWebState];
+                  }];
     // Defer snapshot update and item reconfiguration until the web state is
     // fully loaded.
-    [_webStateDeferredExecutor webState:webState
-                      executeOnceLoaded:^(BOOL success) {
-                        if (!success) {
-                          [weakSelf handleFailedTabLoad:itemID];
-                          return;
-                        }
-                        if (!CanExtractPageContextForWebState(webState)) {
-                          [weakSelf handleAttemptToAttachInvalidTab:itemID];
-                          return;
-                        }
-                        [weakSelf
-                            updateSnapshotForWebState:webState->GetWeakPtr()
-                                               itemID:itemID];
-                      }];
+    [_webStateDeferredExecutor
+        ensureWebStateIsLoaded:webState
+                withCompletion:^(web::WebState* innerWebState, BOOL success) {
+                  [weakSelf extractPageItem:itemID
+                                   webState:innerWebState
+                                loadSuccess:success];
+                }];
     return;
   }
 
@@ -192,8 +197,8 @@
 #pragma mark - TabPickerMutator
 
 - (void)attachSelectedTabs {
-  BOOL selectionChanged = self.selectedEditingItems.allTabs !=
-                          [_tabsAttachmentDelegate preselectedWebStateIDs];
+  BOOL selectionChanged =
+      self.selectedEditingItems.allTabs != _params.preselectedWebStateIDs;
   if (!selectionChanged) {
     return;
   }
@@ -206,9 +211,11 @@
   }
   // Call this even if `selectedEditingItems` is empty as you can remove tabs
   // from tab picker.
-  [_tabsAttachmentDelegate attachSelectedTabs:self
-                          selectedWebStateIDs:self.selectedEditingItems.allTabs
-                            cachedWebStateIDs:cachedWebStateIDs];
+  if (_tabPickerCompletionBlock) {
+    TabPickerCompletionBlock completion = _tabPickerCompletionBlock;
+    _tabPickerCompletionBlock = nil;
+    completion(self.selectedEditingItems.allTabs, cachedWebStateIDs);
+  }
 }
 
 #pragma mark - Private
@@ -280,7 +287,7 @@
 /// items that are already marked as selected by the delegate.
 - (void)populateGridItems:(NSArray<GridItemIdentifier*>*)items {
   std::set<web::WebStateID> preselectedWebStatesIDs =
-      [self.tabsAttachmentDelegate preselectedWebStateIDs];
+      _params.preselectedWebStateIDs;
   for (GridItemIdentifier* item in items) {
     if (item.type != GridItemType::kTab) {
       continue;
@@ -296,34 +303,31 @@
     }
   }
 
-  [_gridConsumer populateItems:items
-        selectedItemIdentifier:[self activeIdentifier]];
-
-  // Defer scrolling to ensure the collection view layout is finalized.
   __weak __typeof(self) weakSelf = self;
-  dispatch_async(dispatch_get_main_queue(), ^{
-    [weakSelf bringActiveGridItemIntoView];
-  });
+  [_gridConsumer populateItems:items
+        selectedItemIdentifier:[self activeIdentifier]
+                    completion:^{
+                      [weakSelf bringActiveItemIntoViewAfterPopulation:items];
+                    }];
 }
 
-- (void)cancelPlaceholderForRealizedWebState:
-    (base::WeakPtr<web::WebState>)weakWebState {
-  web::WebState* webState = weakWebState.get();
-  if (!webState) {
-    return;
+/// Brings the active item into view after the grid has been populated.
+- (void)bringActiveItemIntoViewAfterPopulation:
+    (NSArray<GridItemIdentifier*>*)items {
+  GridItemIdentifier* activeIdentifier = [self activeIdentifier];
+  if (activeIdentifier && [items containsObject:activeIdentifier]) {
+    [_gridConsumer bringItemIntoView:activeIdentifier animated:NO];
   }
+}
+
+- (void)cancelPlaceholderForRealizedWebState:(web::WebState*)webState {
   PagePlaceholderTabHelper::FromWebState(webState)
       ->CancelPlaceholderForNextNavigation();
 }
 
 /// Updates the snapshot for the given web state and reconfigures the grid item.
-- (void)updateSnapshotForWebState:(base::WeakPtr<web::WebState>)weakWebState
+- (void)updateSnapshotForWebState:(web::WebState*)webState
                            itemID:(GridItemIdentifier*)itemID {
-  web::WebState* webState = weakWebState.get();
-  if (!webState) {
-    return;
-  }
-
   // This function is called when the web state successfully loaded, so it is
   // not a failed loaded item anymore.
   if ([_failedLoadedItemIDs containsObject:itemID]) {
@@ -347,37 +351,47 @@
 /// an existing item implies removal).
 - (BOOL)attachmentLimitReached:(GridItemIdentifier*)itemID {
   return ![self.selectedEditingItems containItem:itemID] &&
-         (self.selectedEditingItems.tabsCount >=
-          [_tabsAttachmentDelegate maxTabAttachmentCount]);
+         (self.selectedEditingItems.tabsCount >= _params.maxTabAttachmentCount);
 }
 
 /// Handles the scenario where a tab fails to load.
 - (void)handleFailedTabLoad:(GridItemIdentifier*)itemID {
-  [self.snackbarPresenter showCannotReloadTabError];
+  [_params.snackbarPresenter showCannotReloadTabError];
   [_failedLoadedItemIDs addObject:itemID];
   [self removeFromSelectionItemID:itemID];
   [self reconfigureGridItem:itemID];
 }
 
-/// Handles the scenario where a user attempts to attach an invalid tab.
-- (void)handleAttemptToAttachInvalidTab:(GridItemIdentifier*)itemID {
-  [self.snackbarPresenter showCannotAttachTabError];
-  [self removeFromSelectionItemID:itemID];
-  [self reconfigureGridItem:itemID];
+- (void)extractPageItem:(GridItemIdentifier*)itemID
+               webState:(web::WebState*)webState
+            loadSuccess:(BOOL)loadSuccess {
+  if (!loadSuccess) {
+    [self handleFailedTabLoad:itemID];
+    return;
+  }
+
+  if (!CanExtractPageContextForWebState(webState)) {
+    [self handleAttemptToAttachInvalidTab:itemID];
+    return;
+  }
+
+  [self updateSnapshotForWebState:webState itemID:itemID];
 }
 
-/// Brings the active grid item into view.
-- (void)bringActiveGridItemIntoView {
-  [_gridConsumer bringItemIntoView:[self activeIdentifier] animated:NO];
+/// Handles the scenario where a user attempts to attach an invalid tab.
+- (void)handleAttemptToAttachInvalidTab:(GridItemIdentifier*)itemID {
+  [_params.snackbarPresenter showCannotAttachTabError];
+  [self removeFromSelectionItemID:itemID];
+  [self reconfigureGridItem:itemID];
 }
 
 #pragma mark - WebStateDeferredExecutorDelegate
 
 - (void)webStateDeferredExecutor:(WebStateDeferredExecutor*)executor
                 willLoadWebState:(web::WebState*)webState {
-  if ([self.logger respondsToSelector:@selector(logWillLoadTabWithTitle:
-                                                                  tabID:)]) {
-    [self.logger
+  if ([_params.logger
+          respondsToSelector:@selector(logWillLoadTabWithTitle:tabID:)]) {
+    [_params.logger
         logWillLoadTabWithTitle:base::SysUTF16ToNSString(webState->GetTitle())
                           tabID:webState->GetUniqueIdentifier()];
   }
@@ -386,9 +400,10 @@
 - (void)webStateDeferredExecutor:(WebStateDeferredExecutor*)executor
                  didLoadWebState:(web::WebState*)webState
                          success:(BOOL)success {
-  if ([self.logger respondsToSelector:@selector
-                   (logDidLoadTabWithSuccess:title:tabID:)]) {
-    [self.logger
+  if ([_params.logger
+          respondsToSelector:@selector(
+                                 logDidLoadTabWithSuccess:title:tabID:)]) {
+    [_params.logger
         logDidLoadTabWithSuccess:success
                            title:base::SysUTF16ToNSString(webState->GetTitle())
                            tabID:webState->GetUniqueIdentifier()];
@@ -397,19 +412,19 @@
 
 - (void)webStateDeferredExecutor:(WebStateDeferredExecutor*)executor
         willForceRealizeWebState:(web::WebState*)webState {
-  if ([self.logger respondsToSelector:@selector(logWillRealizeTabWithTitle:
-                                                                     tabID:)]) {
-    [self.logger logWillRealizeTabWithTitle:base::SysUTF16ToNSString(
-                                                webState->GetTitle())
-                                      tabID:webState->GetUniqueIdentifier()];
+  if ([_params.logger
+          respondsToSelector:@selector(logWillRealizeTabWithTitle:tabID:)]) {
+    [_params.logger logWillRealizeTabWithTitle:base::SysUTF16ToNSString(
+                                                   webState->GetTitle())
+                                         tabID:webState->GetUniqueIdentifier()];
   }
 }
 
 - (void)webStateDeferredExecutor:(WebStateDeferredExecutor*)executor
          didForceRealizeWebState:(web::WebState*)webState {
-  if ([self.logger respondsToSelector:@selector(logDidRealizeTabWithTitle:
-                                                                    tabID:)]) {
-    [self.logger
+  if ([_params.logger
+          respondsToSelector:@selector(logDidRealizeTabWithTitle:tabID:)]) {
+    [_params.logger
         logDidRealizeTabWithTitle:base::SysUTF16ToNSString(webState->GetTitle())
                             tabID:webState->GetUniqueIdentifier()];
   }

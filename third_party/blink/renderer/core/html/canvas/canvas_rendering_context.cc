@@ -36,6 +36,7 @@
 #include "third_party/blink/renderer/core/html/canvas/canvas_context_creation_attributes_core.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_image_source.h"
 #include "third_party/blink/renderer/core/html/canvas/element_image.h"
+#include "third_party/blink/renderer/core/html/canvas/html_canvas_accessibility_manager.h"
 #include "third_party/blink/renderer/core/html/canvas/html_canvas_element.h"
 #include "third_party/blink/renderer/core/layout/layout_box.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
@@ -51,13 +52,20 @@
 #include "third_party/blink/renderer/platform/graphics/unaccelerated_static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
+#include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
+#include "ui/accessibility/accessibility_features.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/geometry/size_conversions.h"
 
 namespace blink {
 namespace {
 BASE_FEATURE(kAllowAcceleratedTexElement, base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Delay for recording the UKM for canvas accessibility to allow the canvas
+// element to update its accessibility related information. This value is chosen
+// arbitrarily and can be subject to optimization.
+constexpr base::TimeDelta kAccessibilityUkmRecordingDelay = base::Seconds(5);
 }
 
 CanvasRenderingContext::CanvasRenderingContext(
@@ -82,6 +90,10 @@ CanvasRenderingContext::CanvasRenderingContext(
 
 void CanvasRenderingContext::Dispose() {
   RenderTaskEnded();
+
+  if (did_schedule_accessibility_ukm_recording_) {
+    RecordUKMCanvasAccessibility();
+  }
 
   // HTMLCanvasElement and CanvasRenderingContext have a circular reference.
   // When the pair is no longer reachable, their destruction order is non-
@@ -258,8 +270,14 @@ scoped_refptr<StaticBitmapImage> CanvasRenderingContext::GetElementImage(
     if (auto wrapper = SharedGpuContext::ContextProviderWrapper()) {
       auto resource_provider = CanvasNon2DResourceProviderSharedImage::Create(
           dest_size, GetN32FormatForCanvas(), kPremul_SkAlphaType,
-          gfx::ColorSpace::CreateSRGB(), wrapper,
+          gfx::ColorSpace::CreateSRGB(), gfx::HDRMetadata(), wrapper,
           gpu::SHARED_IMAGE_USAGE_RASTER_WRITE | usage);
+
+      // GetOrCreateImageProvider() to make sure one is created prior to the
+      // call to SetAnimatedImageFrameIndexMaps().
+      resource_provider->GetOrCreateImageProvider();
+      resource_provider->SetAnimatedImageFrameIndexes(
+          child_paint_record->paint_state.animated_image_frame_index_map);
 
       return resource_provider->DoExternalOverdrawAndSnapshot(
           [&](cc::PaintCanvas& canvas) { draw_to_canvas(canvas); },
@@ -267,16 +285,15 @@ scoped_refptr<StaticBitmapImage> CanvasRenderingContext::GetElementImage(
     }
   }
 
-  sk_sp<SkSurface> surface = SkSurfaces::Raster(
-      SkImageInfo::MakeN32Premul(dest_size.width(), dest_size.height()),
-      /*surface_props*/ nullptr);
-  if (!surface) {
-    return nullptr;
-  }
+  auto bitmap_provider = Canvas2DBitmapProvider::CreateWithClear(
+      dest_size, GetN32FormatForCanvas(), kPremul_SkAlphaType,
+      gfx::ColorSpace::CreateSRGB());
 
-  SkiaPaintCanvas skia_paint_canvas(surface->getCanvas());
-  draw_to_canvas(skia_paint_canvas);
-  return UnacceleratedStaticBitmapImage::Create(surface->makeImageSnapshot());
+  bitmap_provider->SetAnimatedImageFrameIndexes(
+      child_paint_record->paint_state.animated_image_frame_index_map);
+
+  bitmap_provider->RasterRecord(draw_to_canvas);
+  return bitmap_provider->Snapshot();
 }
 
 void CanvasRenderingContext::DidDraw(
@@ -323,7 +340,39 @@ void CanvasRenderingContext::DidProcessTask(
 }
 
 void CanvasRenderingContext::MaybeRecordUKMCanvasAccessibility() {
-  if (accessibility_ukm_recorded_ || !did_process_task_) {
+  if (did_record_accessibility_ukm_ || !did_process_task_) {
+    return;
+  }
+
+  // If heuristic collection is disabled, record the UKM immediately.
+  if (!base::FeatureList::IsEnabled(
+          ::features::kEnableCollectAccessibilityHeuristicInCanvasUkm)) {
+    RecordUKMCanvasAccessibility();
+    return;
+  }
+
+  if (did_schedule_accessibility_ukm_recording_) {
+    return;
+  }
+  CanvasRenderingContextHost* const host = Host();
+  if (!host) {
+    return;
+  }
+  ExecutionContext* execution_context = host->GetTopExecutionContext();
+  if (!execution_context) {
+    return;
+  }
+  did_schedule_accessibility_ukm_recording_ = true;
+  execution_context->GetTaskRunner(TaskType::kInternalDefault)
+      ->PostDelayedTask(
+          FROM_HERE,
+          blink::BindOnce(&CanvasRenderingContext::RecordUKMCanvasAccessibility,
+                          WrapWeakPersistent(this)),
+          kAccessibilityUkmRecordingDelay);
+}
+
+void CanvasRenderingContext::RecordUKMCanvasAccessibility() {
+  if (did_record_accessibility_ukm_ || !did_process_task_) {
     return;
   }
 
@@ -365,15 +414,24 @@ void CanvasRenderingContext::MaybeRecordUKMCanvasAccessibility() {
   }
 
   const auto& ukm_params = host->GetUkmParameters();
-  ukm::builders::Accessibility_Canvas(ukm_params.source_id)
-      .SetRenderingContext(static_cast<int>(canvas_rendering_type_))
+  auto ukm_builder = ukm::builders::Accessibility_Canvas(ukm_params.source_id);
+  ukm_builder.SetRenderingContext(static_cast<int>(canvas_rendering_type_))
       .SetIsOffscreen(is_offscreen)
       .SetHasKeyboardListener(has_keyboard_listener)
       .SetHasMouseListener(has_mouse_listener)
-      .SetHasText(did_draw_text_)
-      .Record(ukm_params.ukm_recorder);
+      .SetHasText(did_draw_text_);
 
-  accessibility_ukm_recorded_ = true;
+  if (!is_offscreen &&
+      base::FeatureList::IsEnabled(
+          ::features::kEnableCollectAccessibilityHeuristicInCanvasUkm)) {
+    HTMLCanvasElement* canvas_element = static_cast<HTMLCanvasElement*>(host);
+    ukm_builder.SetNeedsAccessibilitySupport(
+        canvas_element->GetNeedsAccessibilitySupportHeuristic());
+  }
+
+  ukm_builder.Record(ukm_params.ukm_recorder);
+
+  did_record_accessibility_ukm_ = true;
 }
 
 void CanvasRenderingContext::RecordUMACanvasRenderingAPI() {

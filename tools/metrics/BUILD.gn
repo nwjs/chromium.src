@@ -7,11 +7,11 @@ import("//tools/json_to_struct/json_to_struct.gni")
 import("//tools/metrics/histograms/histograms_xml_files.gni")
 
 # Only include histograms_xml if we have access to dirmd data, which
-# is used to populate ownership information. This is only set to false
-# for non-git checkouts.
+# is used to populate ownership information.
+# dirmd doesn't work in non-git checkout.
 # TODO(crbug.com/329080012): Remove this once dirmd works in non-git
 # checkouts.
-if (generate_location_tags) {
+if (path_exists("//.git")) {
   action("histograms_xml") {
     script = "histograms/merge_xml.py"
     output = "$root_out_dir/histograms.xml"
@@ -164,12 +164,16 @@ group("metrics_python_tests") {
     "//tools/json_to_struct/aggregation_test.py",
     "//tools/json_to_struct/element_generator_test.py",
     "//tools/json_to_struct/struct_generator_test.py",
+    "//tools/metrics/PRESUBMIT.py",
+    "//tools/metrics/PRESUBMIT_test.py",
     "//tools/metrics/actions/PRESUBMIT_test.py",
     "//tools/metrics/histograms/presubmit_caching_support_test.py",
     "//tools/metrics/histograms/split_xml_unittest.py",
     "//tools/metrics/python_support/setup_modules_lib_test.py",
     "//tools/metrics/python_support/dependency_solver_test.py",
     "//tools/metrics/python_support/tests_helpers_test.py",
+    "//tools/metrics/python_support/quote_checker.py",
+    "//tools/metrics/python_support/quote_checker_test.py",
   ]
 
   data += JSON_TO_STRUCT_FILES + JSON_TO_STRUCT_TEST_FILES

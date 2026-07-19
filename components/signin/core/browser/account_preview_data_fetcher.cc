@@ -4,16 +4,20 @@
 
 #include "components/signin/core/browser/account_preview_data_fetcher.h"
 
+#include <algorithm>
 #include <utility>
 
+#include "base/barrier_callback.h"
 #include "base/barrier_closure.h"
 #include "base/functional/bind.h"
 #include "base/json/json_reader.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/time/time.h"
 #include "base/values.h"
 #include "components/signin/public/base/oauth_consumer_id.h"
+#include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/access_token_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/sync/base/data_type.h"
@@ -34,6 +38,8 @@ constexpr char kStablePreviewUrl[] =
 constexpr char kStagingPreviewUrl[] =
     "https://alpha-chromesyncpreview-googleapis.pa.sandbox.google.com/v1";
 
+constexpr char kFetchStateHistogram[] = "Signin.AccountPreviewData.FetchState";
+
 // Parses the specifics field number (data type ID) from the stats name string.
 // Returns std::nullopt if the format doesn't match or cannot be parsed.
 std::optional<int> ParseDataTypeId(std::string_view name) {
@@ -52,23 +58,21 @@ std::optional<int> ParseDataTypeId(std::string_view name) {
   return std::nullopt;
 }
 
-// Parses the response from the stats endpoint. Returns std::nullopt if the
-// response format is not as expected or if the data is empty.
-std::optional<AccountPreviewData> ParseStatsResponse(
-    const std::optional<std::string>& response_body,
-    std::optional<AccountPreviewData> data) {
-  if (!data.has_value() || !response_body.has_value()) {
-    return std::nullopt;
-  }
+// Parses the response from the stats endpoint. Returns true if the
+// response format is as expected (or if the data is properly structured
+// but empty).
+bool ParseStatsResponse(const std::string& response_body,
+                        AccountPreviewData& data) {
   std::optional<base::Value> value =
-      base::JSONReader::Read(response_body.value(), base::JSON_PARSE_RFC);
+      base::JSONReader::Read(response_body, base::JSON_PARSE_RFC);
   if (!value || !value->is_dict()) {
-    return std::nullopt;
+    return false;
   }
   const auto& dict = value->GetDict();
   const auto* list = dict.FindList("dataTypeStatistics");
   if (!list) {
-    return std::nullopt;
+    // An empty valid result is still considered a success.
+    return true;
   }
   for (const auto& item : *list) {
     if (!item.is_dict()) {
@@ -95,30 +99,28 @@ std::optional<AccountPreviewData> ParseStatsResponse(
     base::StringToInt64(*count_str, &count_int64);
     // Counts should always be non-negative.
     size_t count = count_int64 >= 0 ? static_cast<size_t>(count_int64) : 0;
-    data->counts[type] = count;
+    data.counts[type] = count;
   }
-  return data;
+  return true;
 }
 
-// Parses the response from the previews endpoint. Returns std::nullopt if the
-// response format is not as expected or if the data is empty.
-std::optional<AccountPreviewData> ParsePreviewsResponse(
-    const std::optional<std::string>& response_body,
-    std::optional<AccountPreviewData> data) {
-  if (!data.has_value() || !response_body.has_value()) {
-    return std::nullopt;
-  }
+// Parses the response from the previews endpoint. Returns true if the
+// response format is as expected (or if the data is properly structured
+// but empty).
+bool ParsePreviewsResponse(const std::string& response_body,
+                           AccountPreviewData& data) {
   std::optional<base::Value> value =
-      base::JSONReader::Read(response_body.value(), base::JSON_PARSE_RFC);
+      base::JSONReader::Read(response_body, base::JSON_PARSE_RFC);
   if (!value || !value->is_dict()) {
-    return std::nullopt;
+    return false;
   }
   const auto& dict = value->GetDict();
   const auto* list = dict.FindList("entitiesPreviews");
   if (!list) {
-    return std::nullopt;
+    // An empty valid result is still considered a success.
+    return true;
   }
-  data->password_domains.clear();
+  data.password_domains.clear();
   for (const auto& item : *list) {
     if (!item.is_dict()) {
       continue;
@@ -136,10 +138,10 @@ std::optional<AccountPreviewData> ParsePreviewsResponse(
     const std::string* domain =
         url ? url : password_preview->FindString("hashedUrl");
     if (domain) {
-      data->password_domains.push_back(*domain);
+      data.password_domains.push_back(*domain);
     }
   }
-  return data;
+  return true;
 }
 
 std::string_view GetBaseUrl(version_info::Channel channel) {
@@ -209,9 +211,13 @@ void AccountPreviewDataFetcher::OnAccessTokenReceived(
 
 void AccountPreviewDataFetcher::StartNetworkRequests(
     const std::string& access_token) {
-  barrier_closure_ = base::BarrierClosure(
-      2, base::BindOnce(&AccountPreviewDataFetcher::OnFetchCompleted,
-                        weak_ptr_factory_.GetWeakPtr()));
+  const bool fetch_previews = base::FeatureList::IsEnabled(
+      switches::kEnableAccountPreviewEntityPreviews);
+
+  barrier_callback_ = base::BarrierCallback<bool>(
+      fetch_previews ? 2 : 1,
+      base::BindOnce(&AccountPreviewDataFetcher::OnFetchCompleted,
+                     weak_ptr_factory_.GetWeakPtr()));
 
   net::NetworkTrafficAnnotationTag traffic_annotation =
       net::DefineNetworkTrafficAnnotation("chrome_sync_preview_fetcher", R"(
@@ -264,42 +270,65 @@ void AccountPreviewDataFetcher::StartNetworkRequests(
       base::BindOnce(&AccountPreviewDataFetcher::OnStatsFetchCompleted,
                      weak_ptr_factory_.GetWeakPtr()));
 
-  // 2. Previews Request
-  auto previews_request = std::make_unique<network::ResourceRequest>();
-  previews_request->url = GetPreviewsUrlForChannel(channel_);
-  previews_request->method = "GET";
-  previews_request->credentials_mode = network::mojom::CredentialsMode::kOmit;
-  previews_request->headers.SetHeader(net::HttpRequestHeaders::kAuthorization,
-                                      base::StrCat({"Bearer ", access_token}));
+  if (fetch_previews) {
+    // 2. Previews Request
+    auto previews_request = std::make_unique<network::ResourceRequest>();
+    previews_request->url = GetPreviewsUrlForChannel(channel_);
+    previews_request->method = "GET";
+    previews_request->credentials_mode = network::mojom::CredentialsMode::kOmit;
+    previews_request->headers.SetHeader(
+        net::HttpRequestHeaders::kAuthorization,
+        base::StrCat({"Bearer ", access_token}));
 
-  previews_url_loader_ = network::SimpleURLLoader::Create(
-      std::move(previews_request), traffic_annotation);
+    previews_url_loader_ = network::SimpleURLLoader::Create(
+        std::move(previews_request), traffic_annotation);
 
-  previews_url_loader_->DownloadToStringOfUnboundedSizeUntilCrashAndDie(
-      url_loader_factory_.get(),
-      base::BindOnce(&AccountPreviewDataFetcher::OnPreviewsFetchCompleted,
-                     weak_ptr_factory_.GetWeakPtr()));
+    previews_url_loader_->DownloadToStringOfUnboundedSizeUntilCrashAndDie(
+        url_loader_factory_.get(),
+        base::BindOnce(&AccountPreviewDataFetcher::OnPreviewsFetchCompleted,
+                       weak_ptr_factory_.GetWeakPtr()));
+  }
+
+  base::UmaHistogramEnumeration(kFetchStateHistogram, FetchState::kRequested);
 }
 
 void AccountPreviewDataFetcher::OnStatsFetchCompleted(
     std::optional<std::string> response_body) {
   stats_url_loader_.reset();
-  fetched_data_ = ParseStatsResponse(response_body, std::move(fetched_data_));
-  barrier_closure_.Run();
+  base::UmaHistogramEnumeration(kFetchStateHistogram,
+                                response_body.has_value()
+                                    ? FetchState::kStatisticsHasResult
+                                    : FetchState::kStatisticsEmptyResult);
+  bool success = response_body.has_value() &&
+                 ParseStatsResponse(*response_body, *fetched_data_);
+  barrier_callback_.Run(success);
 }
 
 void AccountPreviewDataFetcher::OnPreviewsFetchCompleted(
     std::optional<std::string> response_body) {
   previews_url_loader_.reset();
-  fetched_data_ =
-      ParsePreviewsResponse(response_body, std::move(fetched_data_));
-  barrier_closure_.Run();
+  base::UmaHistogramEnumeration(kFetchStateHistogram,
+                                response_body.has_value()
+                                    ? FetchState::kEntityPreviewHasResult
+                                    : FetchState::kEntityPreviewEmptyResult);
+  bool success = response_body.has_value() &&
+                 ParsePreviewsResponse(*response_body, *fetched_data_);
+  barrier_callback_.Run(success);
 }
 
-void AccountPreviewDataFetcher::OnFetchCompleted() {
-  // PostTask is required here because `barrier_closure_` is owned by `this`
+void AccountPreviewDataFetcher::OnFetchCompleted(std::vector<bool> results) {
+  // If all requests failed, clear the fetched data.
+  if (std::ranges::none_of(results, [](bool success) { return success; })) {
+    fetched_data_ = std::nullopt;
+  }
+
+  base::UmaHistogramEnumeration(kFetchStateHistogram,
+                                fetched_data_.has_value()
+                                    ? FetchState::kCompletedWithResults
+                                    : FetchState::kCompletedWithoutResults);
+  // PostTask is required here because `barrier_callback_` is owned by `this`
   // and is triggering this callback (`OnFetchCompleted()`). If `callback_`
-  // causes `this` to be deleted, the destruction of `barrier_closure_` could
+  // causes `this` to be deleted, the destruction of `barrier_callback_` could
   // result in a use-after-free.
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE,

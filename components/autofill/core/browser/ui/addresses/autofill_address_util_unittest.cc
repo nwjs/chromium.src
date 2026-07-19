@@ -32,8 +32,8 @@ TEST_F(AddressFormattingTest, GetAddressComponentsSkipsEmptyLines) {
   std::vector<std::vector<AutofillAddressUIComponent>> lines;
   std::string components_language_code;
   // For Åland Islands the last line contains "ÅLAND" and should be skipped.
-  autofill::GetAddressComponents("AX", GetLocale(), /*include_literals=*/false,
-                                 &lines, &components_language_code);
+  GetAddressComponents("AX", GetLocale(), /*include_literals=*/false, &lines,
+                       &components_language_code);
 
   EXPECT_FALSE(
       std::ranges::any_of(lines, [](auto line) { return line.empty(); }));
@@ -44,8 +44,8 @@ TEST_F(AddressFormattingTest, GetAddressComponentsSkipsEmptyLines) {
 TEST_F(AddressFormattingTest, GetAddressComponentsWithExtensions) {
   std::vector<std::vector<AutofillAddressUIComponent>> lines;
   std::string components_language_code;
-  autofill::GetAddressComponents("GB", GetLocale(), /*include_literals=*/false,
-                                 &lines, &components_language_code);
+  GetAddressComponents("GB", GetLocale(), /*include_literals=*/false, &lines,
+                       &components_language_code);
 
   // Expect to find a line consisting solely of a state field.
   // Because `include_literals=false`, accessing `.field` is valid.
@@ -231,8 +231,6 @@ TEST_F(AddressFormattingTest,
 
 TEST_F(AddressFormattingTest,
        GetEnvelopeStyleAddressHasDiffereceInUiWhenAlternativeFullnameDiffers) {
-  base::test::ScopedFeatureList feature_list{
-      features::kAutofillSupportPhoneticNameForJP};
   AutofillProfile profile1 = test::GetFullProfile(AddressCountryCode("JP"));
   profile1.SetInfo(ALTERNATIVE_FULL_NAME, u"", "ja-JP");
 

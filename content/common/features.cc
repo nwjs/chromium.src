@@ -195,6 +195,11 @@ BASE_FEATURE(kDocumentIsolationPolicyWithoutSiteIsolation,
 // Enable document policy negotiation mechanism.
 BASE_FEATURE(kDocumentPolicyNegotiation, base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled `EditContext::updateSelection` calls from async selectionchange
+// handlers sync the selection to the browser.
+// See https://crbug.com/516839844
+BASE_FEATURE(kEditContextSelectionSync, base::FEATURE_ENABLED_BY_DEFAULT);
+
 // When enabled, the renderer is killed if a renderer process provides
 // an Origin header on a navigation request.
 BASE_FEATURE(kKillOnUnexpectedOriginHeader, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -279,6 +284,13 @@ BASE_FEATURE(kFledgeBidderWorkletThreadPool, base::FEATURE_ENABLED_BY_DEFAULT);
 #if BUILDFLAG(IS_ANDROID)
 // Makes FLEDGE worklets on Android not use the main thread for their mojo.
 BASE_FEATURE(kFledgeAndroidWorkletOffMainThread,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+// This is a kill switch for focusing the RenderWidgetHostViewAndroid on
+// MouseDown if not focused already, please see crbug.com/515000108. The root
+// view, RWHVA, is always focused for main tabs in Chrome, however this might
+// not be true for WebContents hosted outside of tabs (such as WebView or
+// ThinWebView). Unlike ActionDown focus, this is not disabled on WebView.
+BASE_FEATURE(kFocusRenderWidgetHostViewAndroidOnMouseDown,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
@@ -534,6 +546,10 @@ BASE_FEATURE_PARAM(size_t,
 // NavigationThrottleRunner. See https://crbug.com/422003056.
 BASE_FEATURE(kNavigationThrottleRunner2, base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled, precomputes SiteInfo once in BrowsingInstance entry-points
+// and passes it down to avoid redundant calculations.
+BASE_FEATURE(kPrecomputeSiteInfo, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // This feature enables Permissions Policy verification in the Browser process
 // in content/. Additionally only for //chrome Permissions Policy verification
 // is enabled in components/permissions/permission_context_base.cc
@@ -543,6 +559,10 @@ BASE_FEATURE(kPermissionsPolicyVerificationInContent,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // !BUILDFLAG(IS_ANDROID)
 
+// When enabled, OnMouseEvent uses the event's actual pointer type for
+// last_pointer_type_ instead of unconditionally reporting kMouse.
+BASE_FEATURE(kMouseEventPenPointerType, base::FEATURE_ENABLED_BY_DEFAULT);
+
 // If enabled, responses with an operative Cookie-Indices will not be used
 // if the relevant cookie values have changed.
 BASE_FEATURE(kPrefetchCookieIndices, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -550,6 +570,10 @@ BASE_FEATURE(kPrefetchCookieIndices, base::FEATURE_DISABLED_BY_DEFAULT);
 // Preloading holdback feature disables preloading (e.g., preconnect, prefetch,
 // and prerender) on all predictors. This is useful in comparing the impact of
 // blink::features::kPrerender2 experiment with and without them.
+
+// Enables extension interception for preload activation report beacons.
+BASE_FEATURE(kPreloadActivationReportWithExtensionInterception,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // This Feature allows configuring preloading features via a parameter string.
 // See content/browser/preloading/preloading_config.cc to see how to use this
@@ -633,6 +657,13 @@ BASE_FEATURE(kPreferWarmRendererProcess, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kReusePrerenderingProcessForMainFrames,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Allows a reload to replace the initial navigation entry if it is
+// the first navigation to commit. This fixes the case where a browser-initiated
+// reload occurs before the first navigation has committed, resulting in
+// discarding the pending entry and remaining on the about:blank page. See
+// https://crbug.com/324117294.
+BASE_FEATURE(kReplaceInitialEntryForReload, base::FEATURE_ENABLED_BY_DEFAULT);
+
 #if BUILDFLAG(IS_ANDROID)
 // If enabled, then orientation lock won't claim to work on anything but phone
 // form factors.  Tablets already do unpredictable things, such as letterboxing
@@ -648,11 +679,6 @@ BASE_FEATURE(kRestrictOrientationLockToPhones,
 #if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kSandboxedProcessServiceLimitOnAndroid,
              base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE_PARAM(int,
-                   kSandboxedProcessServiceLimitOnAndroidCount,
-                   &kSandboxedProcessServiceLimitOnAndroid,
-                   "count",
-                   98);
 
 BASE_FEATURE(kScrollAfterOSKViewportShrinkFix,
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -689,14 +715,6 @@ const base::FeatureParam<std::string>
 // (crbug.com/41411856): When enabled, the srcdoc iframes are controlled by the
 // same service worker that controls their parent.
 BASE_FEATURE(kServiceWorkerSrcdocSupport, base::FEATURE_ENABLED_BY_DEFAULT);
-
-// When this is enabled, it fixes the object lifetime issue when
-// `race-network-and-fetch-handler` is used, the object should be deleted after
-// the fetch event completion, regardless of the result of racing.
-//
-// crbug.com/340949948 for more details.
-BASE_FEATURE(kServiceWorkerStaticRouterRaceRequestFix2,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enforce CORP check for Service Worker Static Router's cache source.
 BASE_FEATURE(kServiceWorkerStaticRouterCORPCheck,
@@ -742,9 +760,6 @@ BASE_FEATURE(kServiceWorkerClientUrlIsCreationUrl,
 BASE_FEATURE(kServiceWorkerOptionalTimeoutIterator,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kServiceWorkerWindowClientInitiator,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // If enabled, the browser process verifies that the URL of a main script
 // request matches the service worker's script URL.
 // See https://crbug.com/497983180.
@@ -785,15 +800,6 @@ BASE_FEATURE(kSkipRendererCancellationThrottle,
 // background or the effective binding state is in conflict with low rank
 // processes.
 BASE_FEATURE(kStrictHighRankProcessLRU, base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
-
-#if BUILDFLAG(IS_MAC)
-BASE_FEATURE(kTextInputClient, base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE_PARAM(base::TimeDelta,
-                   kTextInputClientIPCTimeout,
-                   &kTextInputClient,
-                   "ipc_timeout",
-                   base::Milliseconds(1500));
 #endif
 
 // Allows swipe left/right from touchpad change browser navigation.

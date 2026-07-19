@@ -29,6 +29,8 @@ std::string_view SuggestionTypeToStringView(SuggestionType type) {
       return "kManageAutofillAi";
     case SuggestionType::kManageAutofillAiIdentityDocs:
       return "kManageAutofillAiIdentityDocs";
+    case SuggestionType::kManageAutofillAiShopping:
+      return "kManageAutofillAiShopping";
     case SuggestionType::kManageAutofillAiTravel:
       return "kManageAutofillAiTravel";
     case SuggestionType::kManageCreditCard:
@@ -93,6 +95,8 @@ std::string_view SuggestionTypeToStringView(SuggestionType type) {
       return "kWebauthnCredential";
     case SuggestionType::kWebauthnSignInWithAnotherDevice:
       return "kWebauthnSignInWithAnotherDevice";
+    case SuggestionType::kWebauthnPasskeyQrCode:
+      return "kWebauthnPasskeyQrCode";
     case SuggestionType::kIdentityCredential:
       return "kIdentityCredential";
     case SuggestionType::kTitle:
@@ -137,6 +141,14 @@ std::string_view SuggestionTypeToStringView(SuggestionType type) {
       return "kAtMemorySearchAffordance";
     case SuggestionType::kPersonalContextNotice:
       return "kPersonalContextNotice";
+    case SuggestionType::kFetchingAmbientData:
+      return "kFetchingAmbientData";
+    case SuggestionType::kAtMemoryGenericError:
+      return "kAtMemoryGenericError";
+    case SuggestionType::kMaximizeCreditCardBenefitsEntry:
+      return "kMaximizeCreditCardBenefitsEntry";
+    case SuggestionType::kAutofillAiOtherOrders:
+      return "kAutofillAiOtherOrders";
   }
   NOTREACHED();
 }

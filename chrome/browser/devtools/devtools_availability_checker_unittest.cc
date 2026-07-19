@@ -6,13 +6,17 @@
 
 #include "build/build_config.h"
 #include "chrome/browser/policy/developer_tools_policy_handler.h"
+#include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/web_applications/test/web_app_test_utils.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/prefs/pref_service.h"
-#include "content/public/test/browser_task_environment.h"
+#include "content/public/test/navigation_simulator.h"
 #include "content/public/test/test_renderer_host.h"
 #include "content/public/test/web_contents_tester.h"
+#include "extensions/browser/extension_registry.h"
+#include "extensions/common/constants.h"
 #include "extensions/common/extension_builder.h"
 #include "extensions/common/extension_features.h"
 #include "extensions/common/manifest.h"
@@ -157,7 +161,7 @@ TEST_F(DevToolsAvailabilityCheckerTest, DeveloperToolsDisallowedByPolicy) {
   profile_->GetPrefs()->SetInteger(
       prefs::kDevToolsAvailability,
       static_cast<int>(
-          policy::DeveloperToolsPolicyHandler::Availability::kDisallowed));
+          policy::DeveloperToolsAvailability::kDisallowed));
   content::WebContentsTester::For(web_contents_.get())
       ->NavigateAndCommit(GURL("https://example.com/page"));
   EXPECT_FALSE(IsInspectionAllowed(profile_.get(), web_contents_.get()));
@@ -203,6 +207,74 @@ TEST_F(DevToolsAvailabilityCheckerTest,
   EXPECT_TRUE(IsInspectionAllowed(profile_.get(), extension.get()));
 }
 
+TEST_F(DevToolsAvailabilityCheckerTest,
+       ComponentExtensionBlockedForManagedProfileWhenForcedExtsDisallowed) {
+  // Set policy to DisallowForForceInstalledExtensions.
+  profile_->GetPrefs()->SetInteger(
+      prefs::kDevToolsAvailability,
+      static_cast<int>(policy::DeveloperToolsAvailability::
+                           kDisallowedForForceInstalledExtensions));
+
+  // Set profile to managed.
+  profile_->GetProfilePolicyConnector()->OverrideIsManagedForTesting(true);
+
+  // Create a normal component extension.
+  scoped_refptr<const extensions::Extension> extension =
+      extensions::ExtensionBuilder("Component Extension")
+          .SetLocation(extensions::mojom::ManifestLocation::kComponent)
+          .Build();
+
+  // It should be blocked because it's a component extension on a managed
+  // profile.
+  EXPECT_FALSE(IsInspectionAllowed(profile_.get(), extension.get()));
+}
+
+TEST_F(DevToolsAvailabilityCheckerTest,
+       PdfViewerBlockedDirectlyWhenForcedExtsDisallowedOnManagedProfile) {
+  // Set policy to DisallowForForceInstalledExtensions.
+  profile_->GetPrefs()->SetInteger(
+      prefs::kDevToolsAvailability,
+      static_cast<int>(policy::DeveloperToolsAvailability::
+                           kDisallowedForForceInstalledExtensions));
+
+  // Set profile to managed.
+  profile_->GetProfilePolicyConnector()->OverrideIsManagedForTesting(true);
+
+  // Create the PDF viewer extension (which is also a component extension).
+  scoped_refptr<const extensions::Extension> extension =
+      extensions::ExtensionBuilder("PDF Viewer")
+          .SetID(extension_misc::kPdfExtensionId)
+          .SetLocation(extensions::mojom::ManifestLocation::kComponent)
+          .Build();
+
+  // Direct inspection of the extension (like a background worker) should be
+  // blocked.
+  EXPECT_FALSE(IsInspectionAllowed(profile_.get(), extension.get()));
+}
+
+TEST_F(DevToolsAvailabilityCheckerTest,
+       PdfViewerBlockedWhenDevtoolsBlocked) {
+  // Set policy to Disallowed.
+  profile_->GetPrefs()->SetInteger(
+      prefs::kDevToolsAvailability,
+      static_cast<int>(policy::DeveloperToolsAvailability::
+                           kDisallowed));
+
+  // Set profile to managed.
+  profile_->GetProfilePolicyConnector()->OverrideIsManagedForTesting(true);
+
+  // Create the PDF viewer extension (which is also a component extension).
+  scoped_refptr<const extensions::Extension> extension =
+      extensions::ExtensionBuilder("PDF Viewer")
+          .SetID(extension_misc::kPdfExtensionId)
+          .SetLocation(extensions::mojom::ManifestLocation::kComponent)
+          .Build();
+
+  // Direct inspection of the extension (like a background worker) should be
+  // blocked.
+  EXPECT_FALSE(IsInspectionAllowed(profile_.get(), extension.get()));
+}
+
 TEST_F(DevToolsAvailabilityCheckerTest, IsInspectionAllowedNullWebContents) {
   // Passing nullptr for WebContents should default to allowed.
   EXPECT_TRUE(IsInspectionAllowed(profile_.get(),
@@ -220,7 +292,7 @@ TEST_F(DevToolsAvailabilityCheckerTest,
   profile_->GetPrefs()->SetInteger(
       prefs::kDevToolsAvailability,
       static_cast<int>(
-          policy::DeveloperToolsPolicyHandler::Availability::kDisallowed));
+          policy::DeveloperToolsAvailability::kDisallowed));
 
   base::ListValue allowlist;
   allowlist.Append("foo.com");
@@ -236,7 +308,7 @@ TEST_F(DevToolsAvailabilityCheckerTest,
   profile_->GetPrefs()->SetInteger(
       prefs::kDevToolsAvailability,
       static_cast<int>(
-          policy::DeveloperToolsPolicyHandler::Availability::kDisallowed));
+          policy::DeveloperToolsAvailability::kDisallowed));
 
   EXPECT_FALSE(IsInspectionAllowed(
       profile_.get(), static_cast<extensions::Extension*>(nullptr)));
@@ -275,7 +347,7 @@ TEST_F(DevToolsAvailabilityCheckerTest, WebAppDisallowedByPolicy) {
   profile_->GetPrefs()->SetInteger(
       prefs::kDevToolsAvailability,
       static_cast<int>(
-          policy::DeveloperToolsPolicyHandler::Availability::kDisallowed));
+          policy::DeveloperToolsAvailability::kDisallowed));
 
   auto web_app = web_app::test::CreateWebApp(GURL("https://example.com/"));
   EXPECT_FALSE(IsInspectionAllowed(profile_.get(), web_app.get()));
@@ -285,7 +357,7 @@ TEST_F(DevToolsAvailabilityCheckerTest, WebAppAllowedWhenPolicyIsAllowed) {
   profile_->GetPrefs()->SetInteger(
       prefs::kDevToolsAvailability,
       static_cast<int>(
-          policy::DeveloperToolsPolicyHandler::Availability::kAllowed));
+          policy::DeveloperToolsAvailability::kAllowed));
 
   auto web_app = web_app::test::CreateWebApp(GURL("https://example.com/"));
   EXPECT_TRUE(IsInspectionAllowed(profile_.get(), web_app.get()));

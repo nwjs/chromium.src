@@ -14,6 +14,7 @@
 #include "components/signin/public/base/signin_buildflags.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
 
+class BrowserWindowInterface;
 class ToolbarButtonProvider;
 
 namespace content {
@@ -25,12 +26,14 @@ class AutofillBubbleBase;
 class FilledCardInformationBubbleController;
 class SaveCardBubbleController;
 class IbanBubbleController;
+class OmniboxAutofillBubbleController;
+class PaymentsChurnedUsersBubbleController;
 enum class IbanBubbleType;
 
 class AutofillBubbleHandlerImpl : public AutofillBubbleHandler {
  public:
-  explicit AutofillBubbleHandlerImpl(
-      ToolbarButtonProvider* toolbar_button_provider);
+  AutofillBubbleHandlerImpl(BrowserWindowInterface* browser,
+                            ToolbarButtonProvider* toolbar_button_provider);
 
   AutofillBubbleHandlerImpl(const AutofillBubbleHandlerImpl&) = delete;
   AutofillBubbleHandlerImpl& operator=(const AutofillBubbleHandlerImpl&) =
@@ -93,6 +96,13 @@ class AutofillBubbleHandlerImpl : public AutofillBubbleHandler {
   AutofillBubbleBase* ShowSaveIbanConfirmationBubble(
       content::WebContents* web_contents,
       IbanBubbleController* controller) override;
+  AutofillBubbleBase* ShowOmniboxAutofillBubble(
+      content::WebContents* web_contents,
+      OmniboxAutofillBubbleController* controller) override;
+  AutofillBubbleBase* ShowPaymentsChurnedUsersBubble(
+      content::WebContents* web_contents,
+      PaymentsChurnedUsersBubbleController* controller,
+      bool is_user_gesture) override;
 
  private:
   // Show the save card and virtual card enrollment confirmation bubble.
@@ -104,6 +114,8 @@ class AutofillBubbleHandlerImpl : public AutofillBubbleHandler {
       SavePaymentMethodAndVirtualCardEnrollConfirmationUiParams ui_params);
 
   raw_ptr<ToolbarButtonProvider> toolbar_button_provider_ = nullptr;
+
+  ui::ScopedUnownedUserData<AutofillBubbleHandler> scoped_user_data_;
 };
 
 }  // namespace autofill

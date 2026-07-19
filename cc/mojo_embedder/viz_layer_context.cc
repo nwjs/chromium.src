@@ -90,10 +90,18 @@ void AddTransformNodeUpdate(
   wire->post_translation = new_node.post_translation;
   wire->to_parent = new_node.to_parent;
   if (new_node.sticky_position_constraint_id >= 0) {
+    // TODO(zork): Remove these after 2026-07-01
+    DUMP_WILL_BE_CHECK_LT(
+        static_cast<size_t>(new_node.sticky_position_constraint_id),
+        tree.sticky_position_data().size());
     wire->sticky_position_constraint_id =
         base::checked_cast<uint32_t>(new_node.sticky_position_constraint_id);
   }
   if (new_node.anchor_position_scroll_data_id >= 0) {
+    // TODO(zork): Remove these after 2026-07-01
+    DUMP_WILL_BE_CHECK_LT(
+        static_cast<size_t>(new_node.anchor_position_scroll_data_id),
+        tree.anchor_position_scroll_data().size());
     wire->anchor_position_scroll_data_id =
         base::checked_cast<uint32_t>(new_node.anchor_position_scroll_data_id);
   }
@@ -1089,6 +1097,10 @@ void SerializeLayer(LayerImpl& layer,
             picture_layer.IsDirectlyCompositedImage();
         tile_display_extra->nearest_neighbor =
             picture_layer.GetNearestNeighbor();
+        tile_display_extra->has_animated_image_update_rect =
+            picture_layer.has_animated_image_update_rect();
+        tile_display_extra->has_non_animated_image_update_rect =
+            picture_layer.has_non_animated_image_update_rect();
         tile_display_extra->content_color_usage =
             picture_layer.GetContentColorUsage();
         tile_display_extra->recorded_bounds =
@@ -1346,11 +1358,9 @@ viz::mojom::AnimationKeyframeModelPtr SerializeAnimationKeyframeModel(
                                                                      *wire);
       break;
     case gfx::AnimationCurve::SIZE:
-      SerializeAnimationCurve<gfx::KeyframedSizeAnimationCurve>(model, *wire);
-      break;
     case gfx::AnimationCurve::RECT:
-      SerializeAnimationCurve<gfx::KeyframedRectAnimationCurve>(model, *wire);
-      break;
+      // SIZE and RECT are not supported by the compositor.
+      return nullptr;
     case gfx::AnimationCurve::FILTER:
     case gfx::AnimationCurve::SCROLL_OFFSET:
       // TODO(rockot): Support these curve types too.

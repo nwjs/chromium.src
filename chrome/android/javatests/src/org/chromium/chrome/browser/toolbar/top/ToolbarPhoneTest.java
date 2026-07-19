@@ -73,7 +73,7 @@ import org.chromium.chrome.browser.fullscreen.BrowserControlsManager;
 import org.chromium.chrome.browser.night_mode.ChromeNightModeTestUtils;
 import org.chromium.chrome.browser.omnibox.LocationBarBackgroundDrawable;
 import org.chromium.chrome.browser.omnibox.LocationBarCoordinator;
-import org.chromium.chrome.browser.omnibox.SearchEngineUtils;
+import org.chromium.chrome.browser.omnibox.SearchEngineService;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
@@ -118,14 +118,14 @@ public class ToolbarPhoneTest {
 
     @Mock private MenuButtonCoordinator mMenuButtonCoordinator;
 
-    @Mock private MenuButtonCoordinator.SetFocusFunction mFocusFunction;
+    @Mock private Runnable mClearOmniboxFocus;
     @Mock private Runnable mRequestRenderRunnable;
     @Mock ThemeColorProvider mThemeColorProvider;
     @Mock IncognitoStateProvider mIncognitoStateProvider;
     @Mock LocationBarBackgroundDrawable mLocationbarBackgroundDrawable;
     @Mock OptionalButtonCoordinator mOptionalButtonCoordinator;
     @Mock SigninButtonCoordinator mSigninButtonCoordinator;
-    @Mock private SearchEngineUtils mSearchEngineUtils;
+    @Mock private SearchEngineService mSearchEngineService;
 
     private final Canvas mCanvas = new Canvas();
     private ToolbarPhone mToolbar;
@@ -310,7 +310,7 @@ public class ToolbarPhoneTest {
                                     new BrowserStateBrowserControlsVisibilityDelegate(
                                             ObservableSuppliers.alwaysFalse()),
                                     mActivityTestRule.getActivity().getWindowAndroid(),
-                                    mFocusFunction,
+                                    mClearOmniboxFocus,
                                     mRequestRenderRunnable,
                                     true,
                                     () -> false,
@@ -736,10 +736,10 @@ public class ToolbarPhoneTest {
     @Test
     @MediumTest
     public void testGetLocationBarOffsetForFocusAnimation() {
-        SearchEngineUtils.setInstanceForTesting(mSearchEngineUtils);
+        SearchEngineService.setInstanceForTesting(mSearchEngineService);
 
         // Test focus on non-NTP pages.
-        doReturn(true).when(mSearchEngineUtils).shouldShowSearchEngineLogo();
+        doReturn(true).when(mSearchEngineService).shouldShowSearchEngineLogo();
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     assertEquals(
@@ -753,7 +753,7 @@ public class ToolbarPhoneTest {
         assertEquals(true, mToolbar.isLocationBarShownInNtp());
 
         // Test focus when should not show search engine logo.
-        doReturn(false).when(mSearchEngineUtils).shouldShowSearchEngineLogo();
+        doReturn(false).when(mSearchEngineService).shouldShowSearchEngineLogo();
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     assertEquals(
@@ -762,7 +762,7 @@ public class ToolbarPhoneTest {
                 });
 
         // Test un-focus on NTP.
-        doReturn(true).when(mSearchEngineUtils).shouldShowSearchEngineLogo();
+        doReturn(true).when(mSearchEngineService).shouldShowSearchEngineLogo();
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     assertEquals(

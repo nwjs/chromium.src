@@ -5,8 +5,10 @@
 #include "chrome/browser/ui/views/frame/custom_corners.h"
 
 #include "base/check_op.h"
+#include "base/i18n/rtl.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/themed_background.h"
+#include "third_party/skia/include/core/SkPathBuilder.h"
 #include "ui/gfx/scoped_canvas.h"
 
 CustomCorners::CustomCorners(BrowserView& browser_view)
@@ -35,7 +37,7 @@ void CustomCorners::OnViewAddedToWidget(views::View* view) {
 }
 
 void CustomCorners::SetFadeBackground(
-    std::optional<FadeBackground> fade_background) {
+    std::optional<ColorChoiceWithAlpha> fade_background) {
   if (fade_background_ == fade_background) {
     return;
   }
@@ -46,56 +48,146 @@ void CustomCorners::SetFadeBackground(
 
 void CustomCorners::PaintPath(gfx::Canvas* canvas,
                               const SkPath& path,
-                              ColorChoice color_choice,
+                              ColorChoiceWithAlpha color_choice,
                               bool anti_alias) const {
-  auto paint_color = [&](ColorChoice choice, float alpha) {
-    if (std::holds_alternative<ToolbarTheme>(choice) ||
-        std::holds_alternative<FrameTheme>(choice)) {
+  if (!color_choice.is_visible()) {
+    return;
+  }
+
+  auto paint_color = [&](ColorChoiceWithAlpha choice) {
+    if (std::holds_alternative<ToolbarTheme>(choice.color) ||
+        std::holds_alternative<FrameTheme>(choice.color)) {
       gfx::ScopedCanvas scoped(canvas);
       canvas->ClipPath(path, anti_alias);
       // If this theme color should have any transparency, we paint it to a
       // layer so we can adjust the layer's transparency.
-      bool has_transparency = alpha < 1.0f;
+      const bool has_transparency = !choice.is_opaque();
       if (has_transparency) {
         cc::PaintFlags layer_flags;
-        layer_flags.setAlphaf(alpha);
+        layer_flags.setAlphaf(choice.opacity);
         canvas->SaveLayerWithFlags(layer_flags);
       }
       ThemedBackground::PaintBackground(
           canvas, &GetView(), &browser_view(),
-          std::holds_alternative<ToolbarTheme>(choice)
+          std::holds_alternative<ToolbarTheme>(choice.color)
               ? ThemedBackground::ThemeChoice::kToolbarTheme
               : ThemedBackground::ThemeChoice::kFrameTheme);
     } else {
-      ui::ColorId color_id = std::get<ui::ColorId>(choice);
+      ui::ColorId color_id = std::get<ui::ColorId>(choice.color);
 
       cc::PaintFlags flags;
       flags.setAntiAlias(anti_alias);
       flags.setStyle(cc::PaintFlags::kFill_Style);
-      flags.setColor(
-          SkColorSetA(GetView().GetColorProvider()->GetColor(color_id),
-                      std::clamp(static_cast<int>(255 * alpha), 0, 255)));
+      flags.setColor(SkColorSetA(
+          GetView().GetColorProvider()->GetColor(color_id),
+          std::clamp(static_cast<int>(255 * choice.opacity), 0, 255)));
       canvas->DrawPath(path, flags);
     }
   };
 
   // A fade background may be drawn with some transparency over the original
-  // background. If the fade background is fully transparent, we only draw the
-  // original background. If the fade background is fully opaque, we only draw
-  // the fade background. If the fade background is partially transparent, we
-  // draw the original background at full opacity with the partially transparent
-  // fade background on top.
-  if (fade_background_.has_value()) {
-    if (fade_background_->opacity <= 0.0f) {
-      paint_color(color_choice, 1.0f);
-    } else if (fade_background_->opacity < 1.0f) {
-      paint_color(color_choice, 1.0f);
-      paint_color(fade_background_->color, fade_background_->opacity);
-    } else {
-      paint_color(fade_background_->color, 1.0f);
-    }
-    return;
+  // background. These choices are optimizations; we could always draw both.
+  if (!fade_background_ || !fade_background_->is_visible()) {
+    // If the fade background is not present or fully transparent, only draw the
+    // original background.
+    paint_color(color_choice);
+  } else if (fade_background_->is_opaque()) {
+    // If the fade background is fully opaque, only draw the fade background.
+    paint_color(*fade_background_);
+  } else {
+    // If the fade background is partially transparent, draw the original
+    // background at full opacity with the partially transparent fade background
+    // on top.
+    paint_color(color_choice);
+    paint_color(*fade_background_);
+  }
+}
+
+// static
+CustomCorners::VisualCorner CustomCorners::ToVisualCorner(
+    CornerOrientation orientation) {
+  const bool mirror = base::i18n::IsRTL();
+  switch (orientation) {
+    case CornerOrientation::kTopLeading:
+      return mirror ? VisualCorner::kTopRight : VisualCorner::kTopLeft;
+    case CornerOrientation::kTopTrailing:
+      return mirror ? VisualCorner::kTopLeft : VisualCorner::kTopRight;
+    case CornerOrientation::kBottomLeading:
+      return mirror ? VisualCorner::kBottomRight : VisualCorner::kBottomLeft;
+    case CornerOrientation::kBottomTrailing:
+      return mirror ? VisualCorner::kBottomLeft : VisualCorner::kBottomRight;
+  }
+}
+
+// static
+SkPath CustomCorners::GetCornerPath(VisualCorner orientation,
+                                    const gfx::Rect& inbounds,
+                                    const gfx::Insets& insets) {
+  const gfx::Rect border_rect = inbounds;
+  gfx::Rect curve_rect = inbounds;
+  curve_rect.Inset(insets);
+  const SkVector corner_radius(curve_rect.width(), curve_rect.height());
+
+  // Set up a clip path.
+  SkPathBuilder clip_path;
+  switch (orientation) {
+    case VisualCorner::kTopLeft:
+      clip_path.moveTo(border_rect.x(), border_rect.y());
+      clip_path.lineTo(curve_rect.right(), border_rect.y());
+      if (insets.top()) {
+        clip_path.lineTo(curve_rect.right(), curve_rect.y());
+      }
+      clip_path.arcTo(corner_radius, 0, SkPathBuilder::kSmall_ArcSize,
+                      SkPathDirection::kCCW,
+                      SkPoint(curve_rect.x(), curve_rect.bottom()));
+      if (insets.left()) {
+        clip_path.lineTo(border_rect.x(), curve_rect.bottom());
+      }
+      clip_path.lineTo(border_rect.x(), border_rect.y());
+      break;
+    case VisualCorner::kTopRight:
+      clip_path.moveTo(curve_rect.x(), border_rect.y());
+      clip_path.lineTo(border_rect.right(), border_rect.y());
+      clip_path.lineTo(border_rect.right(), curve_rect.bottom());
+      if (insets.right()) {
+        clip_path.lineTo(curve_rect.right(), curve_rect.bottom());
+      }
+      clip_path.arcTo(corner_radius, 0, SkPathBuilder::kSmall_ArcSize,
+                      SkPathDirection::kCCW,
+                      SkPoint(curve_rect.x(), curve_rect.y()));
+      if (insets.top()) {
+        clip_path.lineTo(curve_rect.x(), border_rect.y());
+      }
+      break;
+    case VisualCorner::kBottomLeft:
+      clip_path.moveTo(border_rect.x(), curve_rect.y());
+      if (insets.left()) {
+        clip_path.lineTo(curve_rect.x(), curve_rect.y());
+      }
+      clip_path.arcTo(corner_radius, 0, SkPathBuilder::kSmall_ArcSize,
+                      SkPathDirection::kCCW,
+                      SkPoint(curve_rect.right(), curve_rect.bottom()));
+      if (insets.bottom()) {
+        clip_path.lineTo(curve_rect.right(), border_rect.bottom());
+      }
+      clip_path.lineTo(border_rect.x(), border_rect.bottom());
+      clip_path.lineTo(border_rect.x(), curve_rect.y());
+      break;
+    case VisualCorner::kBottomRight:
+      clip_path.moveTo(border_rect.right(), curve_rect.y());
+      clip_path.lineTo(border_rect.right(), border_rect.bottom());
+      clip_path.lineTo(curve_rect.x(), border_rect.bottom());
+      if (insets.bottom()) {
+        clip_path.lineTo(curve_rect.x(), curve_rect.bottom());
+      }
+      clip_path.arcTo(corner_radius, 0, SkPathBuilder::kSmall_ArcSize,
+                      SkPathDirection::kCCW,
+                      SkPoint(curve_rect.right(), curve_rect.y()));
+      if (insets.right()) {
+        clip_path.lineTo(border_rect.right(), curve_rect.y());
+      }
+      break;
   }
 
-  paint_color(color_choice, 1.0f);
+  return clip_path.detach();
 }

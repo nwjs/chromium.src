@@ -24,7 +24,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/chrome_device_id_helper.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/signin/signin_ui_util.h"
+#include "chrome/browser/signin/signin_ui_util_extensions.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/common/extensions/api/identity.h"
 #include "components/prefs/pref_service.h"
@@ -43,6 +43,7 @@
 #include "extensions/browser/ui_util.h"
 #include "extensions/common/api/oauth2.h"
 #include "extensions/common/manifest_handlers/oauth2_manifest_handler.h"
+#include "extensions/common/utils/extension_utils.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "google_apis/gaia/gaia_constants.h"
 #include "google_apis/gaia/gaia_id.h"
@@ -64,6 +65,8 @@
 #include "google_apis/gaia/oauth2_access_token_consumer.h"
 #include "google_apis/gaia/oauth2_access_token_manager.h"
 #endif
+
+static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
 
 namespace extensions {
 
@@ -405,7 +408,6 @@ bool IdentityGetAuthTokenFunction::ShouldStartSigninFlow() {
 }
 
 void IdentityGetAuthTokenFunction::StartSigninFlow() {
-#if BUILDFLAG(ENABLE_EXTENSIONS)
   DCHECK(ShouldStartSigninFlow());
 
   // All cached tokens are invalid because the user is not signed in.
@@ -443,10 +445,7 @@ void IdentityGetAuthTokenFunction::StartSigninFlow() {
   }
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
   ShowExtensionLoginPrompt();
-#endif
-#else
-  SigninFailed();
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 }
 
 void IdentityGetAuthTokenFunction::StartMintTokenFlow(
@@ -921,19 +920,16 @@ void IdentityGetAuthTokenFunction::OnChromeSigninDialogDestroyed() {
 }
 #endif
 
+#if !BUILDFLAG(IS_CHROMEOS)
 void IdentityGetAuthTokenFunction::ShowExtensionLoginPrompt() {
-#if BUILDFLAG(ENABLE_EXTENSIONS)
   const CoreAccountInfo& account = token_key_.account_info;
   std::string email_hint = account.IsEmpty()
                                ? GetSigninPrimaryAccount(GetProfile()).email
                                : account.email;
 
-  signin_ui_util::ShowExtensionSigninPrompt(GetProfile(),
-                                            IsPrimaryAccountOnly(), email_hint);
-#else
-  NOTREACHED();
-#endif
+  ShowExtensionSigninPrompt(GetProfile(), IsPrimaryAccountOnly(), email_hint);
 }
+#endif
 
 void IdentityGetAuthTokenFunction::ShowRemoteConsentDialog(
     const RemoteConsentResolutionData& resolution_data) {
@@ -967,11 +963,14 @@ std::string IdentityGetAuthTokenFunction::GetOAuth2ClientId() const {
     client_id = *oauth2_info.client_id;
   }
 
+  const bool can_use_auto_approve =
+      extension()->location() == mojom::ManifestLocation::kComponent ||
+      IsExtensionAllowlistedByCommandLine(*extension());
+
   // Component apps using auto_approve may use Chrome's client ID by
   // omitting the field.
-  if (client_id.empty() &&
-      extension()->location() == mojom::ManifestLocation::kComponent &&
-      oauth2_info.auto_approve && *oauth2_info.auto_approve) {
+  if (client_id.empty() && can_use_auto_approve && oauth2_info.auto_approve &&
+      *oauth2_info.auto_approve) {
     client_id = GaiaUrls::GetInstance()->oauth2_chrome_client_id();
   }
   return client_id;

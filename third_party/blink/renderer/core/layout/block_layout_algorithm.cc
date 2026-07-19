@@ -17,6 +17,7 @@
 #include "third_party/blink/renderer/core/layout/column_spanner_path.h"
 #include "third_party/blink/renderer/core/layout/constraint_space.h"
 #include "third_party/blink/renderer/core/layout/constraint_space_builder.h"
+#include "third_party/blink/renderer/core/layout/disable_layout_side_effects_scope.h"
 #include "third_party/blink/renderer/core/layout/early_break.h"
 #include "third_party/blink/renderer/core/layout/floats_utils.h"
 #include "third_party/blink/renderer/core/layout/fragmentation_utils.h"
@@ -672,6 +673,8 @@ const LayoutResult* BlockLayoutAlgorithm::LayoutInlineChild(
         text_fit.Type() == TextFitType::kShrink &&
         text_fit.Target() == TextFitTarget::kConsistent;
     if (grow_consistent || shrink_consistent) {
+      DisableLayoutSideEffectsScope no_side_effects;
+
       // Compute the paragraph scaling factor with a cloned
       // BlockLayoutAlgorithm.
       // TODO(crbug.com/417306102): This approach is an inefficient because it
@@ -695,6 +698,16 @@ const LayoutResult* BlockLayoutAlgorithm::LayoutInlineChild(
       // for the first column, and pass the scaling factor via a BreakToken.
 
       BlockLayoutAlgorithm cloned_algorithm(cloned_param);
+      cloned_algorithm.relayout_mode_ = relayout_mode_;
+      cloned_algorithm.line_clamp_data_ = line_clamp_data_;
+      cloned_algorithm.override_text_box_trim_end_child_ =
+          override_text_box_trim_end_child_;
+      cloned_algorithm.override_text_box_trim_end_break_token_ =
+          override_text_box_trim_end_break_token_;
+      cloned_algorithm.is_relayout_for_margin_end_trim_ =
+          is_relayout_for_margin_end_trim_;
+      cloned_algorithm.pending_margin_end_trim_child_ =
+          pending_margin_end_trim_child_;
       const LayoutResult* result =
           cloned_algorithm.LayoutInlineChild(node, nullptr);
       // The layout might abort with non-success status. For example, it may
@@ -710,6 +723,12 @@ const LayoutResult* BlockLayoutAlgorithm::LayoutInlineChild(
           // triggered the abort.
           DCHECK(result->BfcBlockOffset());
           container_builder_.SetBfcBlockOffset(*result->BfcBlockOffset());
+        } else if (result->Status() ==
+                   LayoutResult::kTextBoxTrimEndDidNotApply) {
+          last_non_empty_inflow_child_ =
+              cloned_algorithm.last_non_empty_inflow_child_;
+          last_non_empty_break_token_ =
+              cloned_algorithm.last_non_empty_break_token_;
         }
         return container_builder_.Abort(result->Status());
       }
@@ -835,7 +854,7 @@ inline const LayoutResult* BlockLayoutAlgorithm::Layout(
 
   PreviousInflowPosition previous_inflow_position = {
       LayoutUnit(), constraint_space.GetMarginStrut(),
-      is_resuming_ ? LayoutUnit() : container_builder_.Padding().block_start,
+      is_resuming_ ? LayoutUnit() : ComputeInitialBlockStartAnnotationSpace(),
       /* self_collapsing_child_had_clearance */ false};
 
   if (GetBreakToken()) {
@@ -947,7 +966,20 @@ inline const LayoutResult* BlockLayoutAlgorithm::Layout(
   // |previous_inflow_position| and |BreakToken()|.
   const InlineBreakToken* previous_inline_break_token = nullptr;
 
-  BlockChildIterator child_iterator(Node().FirstChild(), GetBreakToken());
+  // TODO(crbug.com/527144302): Need to grab the first child *before* actually
+  // iterating over children (since we might need it during child layout), due
+  // to display-locking inconsistencies.
+  //
+  // This container may suddenly become display-locked during child layout.
+  // Accessibility requires more stuff to be laid out, and will therefore
+  // prevent display-locking in some cases, for instance if some style recalc
+  // was initially skipped due to container queries. If these styles then get
+  // calculated (during layout now), that might remove the one and only reason
+  // for preventing display-locking, which means that FirstChild() would then
+  // return nullptr all of a sudden.
+  LayoutInputNode first_child = Node().FirstChild();
+
+  BlockChildIterator child_iterator(first_child, GetBreakToken());
 
   // If this layout is blocked by a display-lock, then we pretend this node has
   // no children and that there are no break tokens. Due to this, we skip layout
@@ -957,9 +989,16 @@ inline const LayoutResult* BlockLayoutAlgorithm::Layout(
 
   BlockNode placeholder_child(nullptr);
   BlockChildIterator::Entry entry;
-  for (entry = child_iterator.NextChild(); LayoutInputNode child = entry.node;
+  for (entry = child_iterator.NextChild(); !entry.AtEnd();
        entry = child_iterator.NextChild(previous_inline_break_token)) {
     const BreakToken* child_break_token = entry.token;
+    // If there's no block node, it means that this is an inline formatting
+    // context, and then the child is always the first and only InlineNode
+    // child.
+    DCHECK(entry.block_node || !child_break_token ||
+           child_break_token->IsInlineType());
+    DCHECK(entry.block_node || first_child.IsInline());
+    LayoutInputNode child = entry.block_node ? entry.block_node : first_child;
 
     if (child.IsOutOfFlowPositioned()) {
       HandleOutOfFlowPositioned(previous_inflow_position, To<BlockNode>(child),
@@ -1019,7 +1058,7 @@ inline const LayoutResult* BlockLayoutAlgorithm::Layout(
       // in front of that one. Otherwise we'll just resume after all the
       // children.
       for (entry = child_iterator.NextChild();
-           LayoutInputNode sibling = entry.node;
+           LayoutInputNode sibling = entry.block_node;
            entry = child_iterator.NextChild()) {
         DCHECK(!entry.token);
         if (sibling.IsColumnSpanAll())
@@ -1108,7 +1147,7 @@ inline const LayoutResult* BlockLayoutAlgorithm::Layout(
         offset_and_status.logical_block_offset;
   }
 
-  if (!child_iterator.NextChild(previous_inline_break_token).node) {
+  if (child_iterator.NextChild(previous_inline_break_token).AtEnd()) {
     // We've gone through all the children. This doesn't necessarily mean that
     // we're done fragmenting, as there may be parallel flows [1] (visible
     // overflow) still needing more space than what the current fragmentainer
@@ -4035,6 +4074,26 @@ LogicalOffset BlockLayoutAlgorithm::AdjustSliderThumbInlineOffset(
   return {logical_offset.inline_offset + offset, logical_offset.block_offset};
 }
 
+LayoutUnit BlockLayoutAlgorithm::ComputeInitialBlockStartAnnotationSpace()
+    const {
+  LayoutUnit padding_start = container_builder_.Padding().block_start;
+  // Allow ruby annotations to overflow to the block-start margin if the
+  // container has no block-start border.
+  // TODO(crbug.com/445727139): We'd like to add block-end annotation space of
+  // the previous sibling IFC.
+  if (RuntimeEnabledFeatures::AnnotationSpaceOnStartEnabled() &&
+      !GetConstraintSpace().IsNewFormattingContext() &&
+      Borders().block_start == 0 &&
+      Style().OverflowBlockDirection() == EOverflow::kVisible) {
+    MarginStrut margin_strut = GetConstraintSpace().GetMarginStrut();
+    margin_strut.Append(
+        ComputeMarginsForSelf(GetConstraintSpace(), Style()).block_start,
+        Style().HasMarginBlockStartQuirk());
+    return margin_strut.Sum() + padding_start;
+  }
+  return padding_start;
+}
+
 NOINLINE void BlockLayoutAlgorithm::SetupLineClamp() {
   const ConstraintSpace& constraint_space = GetConstraintSpace();
 
@@ -4059,6 +4118,9 @@ NOINLINE void BlockLayoutAlgorithm::SetupLineClamp() {
 
       if (!RuntimeEnabledFeatures::CSSLineClampEnabled()) {
         line_clamp_data_.data.block_ellipsis = EBlockEllipsis::kEllipsis;
+      } else if (!RuntimeEnabledFeatures::CSSLineClampAsShorthandEnabled()) {
+        line_clamp_data_.data.block_ellipsis =
+            Style().LineClampInternalBlockEllipsis();
       }
     }
   } else {

@@ -133,6 +133,31 @@ class QueryContextualizerTest : public testing::Test {
     }
   }
 
+  void CallContextualize(
+      const std::optional<base::Uuid>& task_id,
+      const std::string& query_text,
+      const std::vector<QueryContextualizer::TabId>& tabs_to_recontextualize,
+      const std::vector<QueryContextualizer::TabId>& auto_suggested_chip_tabs,
+      QueryContextualizer::PageContextIneligibleCallback on_ineligible_callback,
+      QueryContextualizer::TabProcessedCallback on_processed_callback,
+      QueryContextualizer::ContextualizedCallback callback,
+      bool enable_smart_tab_selection = false,
+      const std::vector<QueryContextualizer::TabId>&
+          tabs_for_contextual_searchbox_first_turn = {}) {
+    QueryContextualizer::ContextualizeParams params;
+    params.task_id = task_id;
+    params.query_text = query_text;
+    params.tabs_to_recontextualize = tabs_to_recontextualize;
+    params.auto_suggested_chip_tabs = auto_suggested_chip_tabs;
+    params.tabs_for_contextual_searchbox_first_turn =
+        tabs_for_contextual_searchbox_first_turn;
+    params.on_ineligible_callback = std::move(on_ineligible_callback);
+    params.on_processed_callback = std::move(on_processed_callback);
+    params.complete_callback = std::move(callback);
+    params.enable_smart_tab_selection = enable_smart_tab_selection;
+    contextualizer_->Contextualize(std::move(params));
+  }
+
   void TearDown() override {
     contextualizer_.reset();
     delegate_.reset();
@@ -190,9 +215,9 @@ TEST_F(QueryContextualizerTest, Contextualize_SmartTabSharingEnabled) {
   base::MockCallback<QueryContextualizer::ContextualizedCallback> callback;
   EXPECT_CALL(callback, Run(testing::_)).Times(1);
 
-  contextualizer_->Contextualize(std::nullopt, query, {}, {}, base::DoNothing(),
-                                 base::DoNothing(), callback.Get(),
-                                 /*enable_smart_tab_selection=*/true);
+  CallContextualize(std::nullopt, query, {}, {}, base::DoNothing(),
+                    base::DoNothing(), callback.Get(),
+                    /*enable_smart_tab_selection=*/true);
 
   CompleteAllUploads();
 }
@@ -285,10 +310,10 @@ TEST_F(QueryContextualizerTest, Contextualize_WaitsForUploadsToFinish) {
   // uploads.
   EXPECT_CALL(done_callback, Run(testing::_)).Times(0);
 
-  contextualizer_->Contextualize(task_id, "Check out https://example.com",
-                                 {tab_id}, {}, ineligible_callback.Get(),
-                                 processed_callback.Get(), done_callback.Get(),
-                                 /*enable_smart_tab_selection=*/false);
+  CallContextualize(task_id, "Check out https://example.com", {tab_id}, {},
+                    ineligible_callback.Get(), processed_callback.Get(),
+                    done_callback.Get(),
+                    /*enable_smart_tab_selection=*/false);
 
   ASSERT_NE(captured_observer_, nullptr);
   ASSERT_EQ(created_tokens_.size(), 2u);
@@ -357,7 +382,7 @@ TEST_F(QueryContextualizerTest, Contextualize_ExtractsUrls) {
   // Expect GetPageContext call to NOT be called since the tab is not expired
   // and content hasn't changed. We mock GetFileInfoList to return the tab
   // so it's not updated.
-  std::vector<const contextual_search::FileInfo*> file_info_list;
+  std::vector<raw_ptr<const contextual_search::FileInfo>> file_info_list;
   contextual_search::FileInfo file_info;
   file_info.tab_session_id = session_id;
   file_info.upload_status =
@@ -372,13 +397,13 @@ TEST_F(QueryContextualizerTest, Contextualize_ExtractsUrls) {
   base::MockCallback<QueryContextualizer::ContextualizedCallback> done_callback;
   EXPECT_CALL(done_callback, Run(testing::_));
 
-  contextualizer_->Contextualize(task_id,
-                                 "Check out https://example.com! Also "
-                                 "http://test.org, and www.google.com. "
-                                 "Duplicate: https://example.com",
-                                 {}, {}, base::DoNothing(), base::DoNothing(),
-                                 done_callback.Get(),
-                                 /*enable_smart_tab_selection=*/false);
+  CallContextualize(task_id,
+                    "Check out https://example.com! Also "
+                    "http://test.org, and www.google.com. "
+                    "Duplicate: https://example.com",
+                    {}, {}, base::DoNothing(), base::DoNothing(),
+                    done_callback.Get(),
+                    /*enable_smart_tab_selection=*/false);
   CompleteAllUploads();
 }
 
@@ -389,10 +414,14 @@ TEST_F(QueryContextualizerTest, Contextualize_WithNullService) {
   base::MockCallback<QueryContextualizer::ContextualizedCallback> done_callback;
   EXPECT_CALL(done_callback, Run(testing::_)).Times(1);
 
-  null_service_contextualizer->Contextualize(
-      /*task_id=*/std::nullopt, "test query", {}, {}, base::DoNothing(),
-      base::DoNothing(), done_callback.Get(),
-      /*enable_smart_tab_selection=*/false);
+  QueryContextualizer::ContextualizeParams params;
+  params.task_id = std::nullopt;
+  params.query_text = "test query";
+  params.on_ineligible_callback = base::DoNothing();
+  params.on_processed_callback = base::DoNothing();
+  params.complete_callback = done_callback.Get();
+  params.enable_smart_tab_selection = false;
+  null_service_contextualizer->Contextualize(std::move(params));
 }
 
 TEST(QueryContextualizerStaticTest, ExtractUrlsFromQuery) {
@@ -509,7 +538,7 @@ TEST_F(QueryContextualizerTest,
   // Expect GetPageContext call to NOT be called since the tab is not expired
   // and content hasn't changed. We mock GetFileInfoList to return the tab
   // so it's not updated.
-  std::vector<const contextual_search::FileInfo*> file_info_list;
+  std::vector<raw_ptr<const contextual_search::FileInfo>> file_info_list;
   contextual_search::FileInfo file_info;
   file_info.tab_session_id = session_id;
   file_info.upload_status =
@@ -524,13 +553,13 @@ TEST_F(QueryContextualizerTest,
   base::MockCallback<QueryContextualizer::ContextualizedCallback> done_callback;
   EXPECT_CALL(done_callback, Run(testing::_));
 
-  contextualizer_->Contextualize(task_id,
-                                 "Check out https://example.com! Also "
-                                 "http://test.org, and www.google.com. "
-                                 "Duplicate: https://example.com",
-                                 {}, {}, base::DoNothing(), base::DoNothing(),
-                                 done_callback.Get(),
-                                 /*enable_smart_tab_selection=*/false);
+  CallContextualize(task_id,
+                    "Check out https://example.com! Also "
+                    "http://test.org, and www.google.com. "
+                    "Duplicate: https://example.com",
+                    {}, {}, base::DoNothing(), base::DoNothing(),
+                    done_callback.Get(),
+                    /*enable_smart_tab_selection=*/false);
   CompleteAllUploads();
 }
 
@@ -565,7 +594,7 @@ TEST_F(QueryContextualizerTest, Contextualize_RecontextualizeExpiredTab) {
                   callback) { std::move(callback).Run(std::move(context)); });
 
   // Setup FileInfo with expired status.
-  std::vector<const contextual_search::FileInfo*> file_info_list;
+  std::vector<raw_ptr<const contextual_search::FileInfo>> file_info_list;
   contextual_search::FileInfo file_info;
   file_info.tab_session_id = session_id;
   file_info.upload_status =
@@ -619,10 +648,10 @@ TEST_F(QueryContextualizerTest, Contextualize_RecontextualizeExpiredTab) {
   base::MockCallback<QueryContextualizer::ContextualizedCallback> done_callback;
   EXPECT_CALL(done_callback, Run(testing::_));
 
-  contextualizer_->Contextualize(task_id, "test query", {tab_id}, {},
-                                 ineligible_callback.Get(),
-                                 processed_callback.Get(), done_callback.Get(),
-                                 /*enable_smart_tab_selection=*/false);
+  CallContextualize(task_id, "test query", {tab_id}, {},
+                    ineligible_callback.Get(), processed_callback.Get(),
+                    done_callback.Get(),
+                    /*enable_smart_tab_selection=*/false);
   CompleteAllUploads();
 }
 
@@ -657,7 +686,7 @@ TEST_F(QueryContextualizerTest, Contextualize_RecontextualizeContentChanged) {
                   callback) { std::move(callback).Run(std::move(context)); });
 
   // Setup context with uploaded status and some previous content.
-  std::vector<const contextual_search::FileInfo*> file_info_list;
+  std::vector<raw_ptr<const contextual_search::FileInfo>> file_info_list;
   contextual_search::FileInfo file_info;
   file_info.tab_session_id = session_id;
   file_info.upload_status =
@@ -719,10 +748,10 @@ TEST_F(QueryContextualizerTest, Contextualize_RecontextualizeContentChanged) {
   base::MockCallback<QueryContextualizer::ContextualizedCallback> done_callback;
   EXPECT_CALL(done_callback, Run(testing::_));
 
-  contextualizer_->Contextualize(task_id, "test query", {tab_id}, {},
-                                 ineligible_callback.Get(),
-                                 processed_callback.Get(), done_callback.Get(),
-                                 /*enable_smart_tab_selection=*/false);
+  CallContextualize(task_id, "test query", {tab_id}, {},
+                    ineligible_callback.Get(), processed_callback.Get(),
+                    done_callback.Get(),
+                    /*enable_smart_tab_selection=*/false);
   CompleteAllUploads();
 }
 
@@ -758,7 +787,7 @@ TEST_F(QueryContextualizerTest,
                   callback) { std::move(callback).Run(std::move(context)); });
 
   // Setup FileInfo with uploaded status and SAME content.
-  std::vector<const contextual_search::FileInfo*> file_info_list;
+  std::vector<raw_ptr<const contextual_search::FileInfo>> file_info_list;
   contextual_search::FileInfo file_info;
   file_info.tab_session_id = session_id;
   file_info.upload_status =
@@ -823,10 +852,10 @@ TEST_F(QueryContextualizerTest,
   base::MockCallback<QueryContextualizer::ContextualizedCallback> done_callback;
   EXPECT_CALL(done_callback, Run(testing::_));
 
-  contextualizer_->Contextualize(task_id, "test query", {tab_id}, {},
-                                 ineligible_callback.Get(),
-                                 processed_callback.Get(), done_callback.Get(),
-                                 /*enable_smart_tab_selection=*/false);
+  CallContextualize(task_id, "test query", {tab_id}, {},
+                    ineligible_callback.Get(), processed_callback.Get(),
+                    done_callback.Get(),
+                    /*enable_smart_tab_selection=*/false);
   CompleteAllUploads();
 }
 
@@ -866,7 +895,7 @@ TEST_F(QueryContextualizerTest,
                   callback) { std::move(callback).Run(std::move(context)); });
 
   // Setup FileInfo with uploaded status and some content.
-  std::vector<const contextual_search::FileInfo*> file_info_list;
+  std::vector<raw_ptr<const contextual_search::FileInfo>> file_info_list;
   contextual_search::FileInfo file_info;
   file_info.tab_session_id = session_id;
   file_info.upload_status =
@@ -932,10 +961,10 @@ TEST_F(QueryContextualizerTest,
   base::MockCallback<QueryContextualizer::ContextualizedCallback> done_callback;
   EXPECT_CALL(done_callback, Run(testing::_));
 
-  contextualizer_->Contextualize(task_id, "test query", {tab_id}, {},
-                                 ineligible_callback.Get(),
-                                 processed_callback.Get(), done_callback.Get(),
-                                 /*enable_smart_tab_selection=*/false);
+  CallContextualize(task_id, "test query", {tab_id}, {},
+                    ineligible_callback.Get(), processed_callback.Get(),
+                    done_callback.Get(),
+                    /*enable_smart_tab_selection=*/false);
   CompleteAllUploads();
 }
 
@@ -976,7 +1005,7 @@ TEST_F(
                   callback) { std::move(callback).Run(std::move(context)); });
 
   // Setup FileInfo with uploaded status and some content.
-  std::vector<const contextual_search::FileInfo*> file_info_list;
+  std::vector<raw_ptr<const contextual_search::FileInfo>> file_info_list;
   contextual_search::FileInfo file_info;
   file_info.tab_session_id = session_id;
   file_info.upload_status =
@@ -1055,10 +1084,10 @@ TEST_F(
   base::MockCallback<QueryContextualizer::ContextualizedCallback> done_callback;
   EXPECT_CALL(done_callback, Run(testing::_));
 
-  contextualizer_->Contextualize(task_id, "test query", {tab_id}, {},
-                                 ineligible_callback.Get(),
-                                 processed_callback.Get(), done_callback.Get(),
-                                 /*enable_smart_tab_selection=*/false);
+  CallContextualize(task_id, "test query", {tab_id}, {},
+                    ineligible_callback.Get(), processed_callback.Get(),
+                    done_callback.Get(),
+                    /*enable_smart_tab_selection=*/false);
   CompleteAllUploads();
 }
 
@@ -1098,7 +1127,7 @@ TEST_F(QueryContextualizerTest,
                   callback) { std::move(callback).Run(std::move(context)); });
 
   // Setup FileInfo with uploaded status and some content.
-  std::vector<const contextual_search::FileInfo*> file_info_list;
+  std::vector<raw_ptr<const contextual_search::FileInfo>> file_info_list;
   contextual_search::FileInfo file_info;
   file_info.tab_session_id = session_id;
   file_info.upload_status =
@@ -1165,10 +1194,10 @@ TEST_F(QueryContextualizerTest,
   base::MockCallback<QueryContextualizer::ContextualizedCallback> done_callback;
   EXPECT_CALL(done_callback, Run(testing::_));
 
-  contextualizer_->Contextualize(task_id, "test query", {tab_id}, {},
-                                 ineligible_callback.Get(),
-                                 processed_callback.Get(), done_callback.Get(),
-                                 /*enable_smart_tab_selection=*/false);
+  CallContextualize(task_id, "test query", {tab_id}, {},
+                    ineligible_callback.Get(), processed_callback.Get(),
+                    done_callback.Get(),
+                    /*enable_smart_tab_selection=*/false);
   CompleteAllUploads();
 }
 
@@ -1208,7 +1237,7 @@ TEST_F(QueryContextualizerTest,
                   callback) { std::move(callback).Run(std::move(context)); });
 
   // Setup FileInfo with uploaded status, some content, and old screenshot.
-  std::vector<const contextual_search::FileInfo*> file_info_list;
+  std::vector<raw_ptr<const contextual_search::FileInfo>> file_info_list;
   contextual_search::FileInfo file_info;
   file_info.tab_session_id = session_id;
   file_info.upload_status =
@@ -1287,10 +1316,10 @@ TEST_F(QueryContextualizerTest,
   base::MockCallback<QueryContextualizer::ContextualizedCallback> done_callback;
   EXPECT_CALL(done_callback, Run(testing::_));
 
-  contextualizer_->Contextualize(task_id, "test query", {tab_id}, {},
-                                 ineligible_callback.Get(),
-                                 processed_callback.Get(), done_callback.Get(),
-                                 /*enable_smart_tab_selection=*/false);
+  CallContextualize(task_id, "test query", {tab_id}, {},
+                    ineligible_callback.Get(), processed_callback.Get(),
+                    done_callback.Get(),
+                    /*enable_smart_tab_selection=*/false);
   CompleteAllUploads();
 }
 
@@ -1331,7 +1360,7 @@ TEST_F(
                   callback) { std::move(callback).Run(std::move(context)); });
 
   // Setup FileInfo with uploaded status, some content, and old screenshot.
-  std::vector<const contextual_search::FileInfo*> file_info_list;
+  std::vector<raw_ptr<const contextual_search::FileInfo>> file_info_list;
   contextual_search::FileInfo file_info;
   file_info.tab_session_id = session_id;
   file_info.upload_status =
@@ -1409,10 +1438,10 @@ TEST_F(
   base::MockCallback<QueryContextualizer::ContextualizedCallback> done_callback;
   EXPECT_CALL(done_callback, Run(testing::_));
 
-  contextualizer_->Contextualize(task_id, "test query", {tab_id}, {},
-                                 ineligible_callback.Get(),
-                                 processed_callback.Get(), done_callback.Get(),
-                                 /*enable_smart_tab_selection=*/false);
+  CallContextualize(task_id, "test query", {tab_id}, {},
+                    ineligible_callback.Get(), processed_callback.Get(),
+                    done_callback.Get(),
+                    /*enable_smart_tab_selection=*/false);
   CompleteAllUploads();
 }
 
@@ -1456,10 +1485,9 @@ TEST_F(QueryContextualizerTest, Contextualize_ActiveTabNotInContext) {
   base::MockCallback<QueryContextualizer::ContextualizedCallback> done_callback;
   EXPECT_CALL(done_callback, Run(testing::_));
 
-  contextualizer_->Contextualize(task_id, "test query", {tab_id}, {},
-                                 base::DoNothing(), base::DoNothing(),
-                                 done_callback.Get(),
-                                 /*enable_smart_tab_selection=*/false);
+  CallContextualize(task_id, "test query", {tab_id}, {}, base::DoNothing(),
+                    base::DoNothing(), done_callback.Get(),
+                    /*enable_smart_tab_selection=*/false);
   CompleteAllUploads();
 }
 
@@ -1509,10 +1537,9 @@ TEST_F(QueryContextualizerTest, Contextualize_ActiveTabUrlMismatch) {
   base::MockCallback<QueryContextualizer::ContextualizedCallback> done_callback;
   EXPECT_CALL(done_callback, Run(testing::_));
 
-  contextualizer_->Contextualize(task_id, "test query", {tab_id}, {},
-                                 base::DoNothing(), base::DoNothing(),
-                                 done_callback.Get(),
-                                 /*enable_smart_tab_selection=*/false);
+  CallContextualize(task_id, "test query", {tab_id}, {}, base::DoNothing(),
+                    base::DoNothing(), done_callback.Get(),
+                    /*enable_smart_tab_selection=*/false);
   CompleteAllUploads();
 }
 
@@ -1548,7 +1575,7 @@ TEST_F(QueryContextualizerTest,
                   callback) { std::move(callback).Run(std::move(context)); });
 
   // Setup FileInfo with uploaded status and OLD bitmap.
-  std::vector<const contextual_search::FileInfo*> file_info_list;
+  std::vector<raw_ptr<const contextual_search::FileInfo>> file_info_list;
   contextual_search::FileInfo file_info;
   file_info.tab_session_id = session_id;
   file_info.upload_status =
@@ -1614,10 +1641,10 @@ TEST_F(QueryContextualizerTest,
   base::MockCallback<QueryContextualizer::ContextualizedCallback> done_callback;
   EXPECT_CALL(done_callback, Run(testing::_));
 
-  contextualizer_->Contextualize(task_id, "test query", {tab_id}, {},
-                                 ineligible_callback.Get(),
-                                 processed_callback.Get(), done_callback.Get(),
-                                 /*enable_smart_tab_selection=*/false);
+  CallContextualize(task_id, "test query", {tab_id}, {},
+                    ineligible_callback.Get(), processed_callback.Get(),
+                    done_callback.Get(),
+                    /*enable_smart_tab_selection=*/false);
   CompleteAllUploads();
 }
 
@@ -1653,7 +1680,7 @@ TEST_F(QueryContextualizerTest,
                   callback) { std::move(callback).Run(std::move(context)); });
 
   // Setup FileInfo with uploaded status and old content.
-  std::vector<const contextual_search::FileInfo*> file_info_list;
+  std::vector<raw_ptr<const contextual_search::FileInfo>> file_info_list;
   contextual_search::FileInfo file_info;
   file_info.tab_session_id = session_id;
   file_info.upload_status =
@@ -1734,10 +1761,9 @@ TEST_F(QueryContextualizerTest,
   base::MockCallback<QueryContextualizer::ContextualizedCallback> done_callback;
   EXPECT_CALL(done_callback, Run(testing::_));
 
-  contextualizer_->Contextualize(task_id, "", {tab_id}, {},
-                                 ineligible_callback.Get(),
-                                 processed_callback.Get(), done_callback.Get(),
-                                 /*enable_smart_tab_selection=*/false);
+  CallContextualize(task_id, "", {tab_id}, {}, ineligible_callback.Get(),
+                    processed_callback.Get(), done_callback.Get(),
+                    /*enable_smart_tab_selection=*/false);
   CompleteAllUploads();
 }
 
@@ -1773,7 +1799,7 @@ TEST_F(QueryContextualizerTest,
                   callback) { std::move(callback).Run(std::move(context)); });
 
   // Setup FileInfo with uploaded status and old content.
-  std::vector<const contextual_search::FileInfo*> file_info_list;
+  std::vector<raw_ptr<const contextual_search::FileInfo>> file_info_list;
   contextual_search::FileInfo file_info;
   file_info.tab_session_id = session_id;
   file_info.upload_status =
@@ -1855,10 +1881,9 @@ TEST_F(QueryContextualizerTest,
   base::MockCallback<QueryContextualizer::ContextualizedCallback> done_callback;
   EXPECT_CALL(done_callback, Run(testing::_));
 
-  contextualizer_->Contextualize(task_id, "", {tab_id}, {},
-                                 ineligible_callback.Get(),
-                                 processed_callback.Get(), done_callback.Get(),
-                                 /*enable_smart_tab_selection=*/false);
+  CallContextualize(task_id, "", {tab_id}, {}, ineligible_callback.Get(),
+                    processed_callback.Get(), done_callback.Get(),
+                    /*enable_smart_tab_selection=*/false);
   CompleteAllUploads();
 }
 TEST_F(QueryContextualizerTest,
@@ -1893,7 +1918,7 @@ TEST_F(QueryContextualizerTest,
                   callback) { std::move(callback).Run(std::move(context)); });
 
   // Setup FileInfo list. First is superseded, second is active.
-  std::vector<const contextual_search::FileInfo*> file_info_list;
+  std::vector<raw_ptr<const contextual_search::FileInfo>> file_info_list;
 
   contextual_search::FileInfo file_info_superseded;
   file_info_superseded.tab_session_id = session_id;
@@ -1983,10 +2008,10 @@ TEST_F(QueryContextualizerTest,
   base::MockCallback<QueryContextualizer::ContextualizedCallback> done_callback;
   EXPECT_CALL(done_callback, Run(testing::_));
 
-  contextualizer_->Contextualize(task_id, "test query", {tab_id}, {},
-                                 ineligible_callback.Get(),
-                                 processed_callback.Get(), done_callback.Get(),
-                                 /*enable_smart_tab_selection=*/false);
+  CallContextualize(task_id, "test query", {tab_id}, {},
+                    ineligible_callback.Get(), processed_callback.Get(),
+                    done_callback.Get(),
+                    /*enable_smart_tab_selection=*/false);
 }
 
 TEST_F(QueryContextualizerTest,
@@ -2046,10 +2071,282 @@ TEST_F(QueryContextualizerTest,
   EXPECT_CALL(done_callback, Run(testing::_));
 
   // Pass tab_id in tabs_to_force_contextualize (the 4th parameter).
-  contextualizer_->Contextualize(task_id, "test query", {}, {tab_id},
-                                 base::DoNothing(), base::DoNothing(),
-                                 done_callback.Get(),
-                                 /*enable_smart_tab_selection=*/false);
+  CallContextualize(task_id, "test query", {}, {tab_id}, base::DoNothing(),
+                    base::DoNothing(), done_callback.Get(),
+                    /*enable_smart_tab_selection=*/false);
+  CompleteAllUploads();
+}
+
+TEST_F(QueryContextualizerTest,
+       Contextualize_AutoSuggestedTabSetsAutoTabChipUploadType) {
+  base::Uuid task_id = base::Uuid::GenerateRandomV4();
+  int32_t tab_id = 100;
+  SessionID session_id = SessionID::FromSerializedValue(1);
+  GURL kUrl("about:blank");
+
+  ContextualTask task(task_id);
+  auto context = std::make_unique<ContextualTaskContext>(task);
+
+  EXPECT_CALL(*service_,
+              GetContextForTask(
+                  task_id,
+                  testing::Contains(
+                      ContextualTaskContextSource::kSubmittedContextDecorator),
+                  testing::NotNull(), testing::_))
+      .WillOnce(
+          [&context](
+              const base::Uuid& task_id,
+              const std::set<ContextualTaskContextSource>& sources,
+              std::unique_ptr<ContextDecorationParams> params,
+              base::OnceCallback<void(std::unique_ptr<ContextualTaskContext>)>
+                  callback) { std::move(callback).Run(std::move(context)); });
+
+  EXPECT_CALL(*delegate_, GetTabUrl(tab_id))
+      .WillRepeatedly(testing::Return(kUrl));
+  EXPECT_CALL(*delegate_, GetTabSessionId(tab_id))
+      .WillRepeatedly(testing::Return(session_id));
+
+  // Expect GetPageContext call.
+  EXPECT_CALL(*delegate_, GetPageContext(tab_id, testing::_))
+      .WillOnce([session_id](
+                    QueryContextualizer::TabId id,
+                    base::OnceCallback<void(
+                        std::unique_ptr<lens::ContextualInputData>)> callback) {
+        auto data = std::make_unique<lens::ContextualInputData>();
+        data->tab_session_id = session_id;
+        data->page_url = GURL("about:blank");
+        data->is_page_context_eligible = true;
+        std::move(callback).Run(std::move(data));
+      });
+
+  EXPECT_CALL(*delegate_, IsTabValid(tab_id)).WillOnce(testing::Return(true));
+
+  // Expect StartTabContextUploadFlow call and check upload_type.
+  EXPECT_CALL(*session_handle_,
+              StartTabContextUploadFlow(testing::_, testing::_, testing::_))
+      .WillOnce([](const base::UnguessableToken& file_token,
+                   std::unique_ptr<lens::ContextualInputData> data,
+                   std::optional<lens::ImageEncodingOptions> image_options) {
+        ASSERT_TRUE(data->upload_type.has_value());
+        EXPECT_EQ(*data->upload_type,
+                  lens::LensOverlayContextualInputUploadType::
+                      CONTEXTUAL_INPUT_UPLOAD_TYPE_AUTO_TAB_CHIP);
+      });
+
+  base::MockCallback<QueryContextualizer::ContextualizedCallback> done_callback;
+  EXPECT_CALL(done_callback, Run(testing::_));
+
+  // Pass tab_id in tabs_to_force_contextualize.
+  CallContextualize(task_id, "test query", {}, {tab_id}, base::DoNothing(),
+                    base::DoNothing(), done_callback.Get(),
+                    /*enable_smart_tab_selection=*/false);
+  CompleteAllUploads();
+}
+
+TEST_F(
+    QueryContextualizerTest,
+    Contextualize_ContextualSearchboxFirstTurnTabSetsContextualSearchboxInitialQueryUploadType) {
+  base::Uuid task_id = base::Uuid::GenerateRandomV4();
+  int32_t tab_id = 100;
+  SessionID session_id = SessionID::FromSerializedValue(1);
+  GURL kUrl("about:blank");
+
+  ContextualTask task(task_id);
+  auto context = std::make_unique<ContextualTaskContext>(task);
+
+  EXPECT_CALL(*service_,
+              GetContextForTask(
+                  task_id,
+                  testing::Contains(
+                      ContextualTaskContextSource::kSubmittedContextDecorator),
+                  testing::NotNull(), testing::_))
+      .WillOnce(
+          [&context](
+              const base::Uuid& task_id,
+              const std::set<ContextualTaskContextSource>& sources,
+              std::unique_ptr<ContextDecorationParams> params,
+              base::OnceCallback<void(std::unique_ptr<ContextualTaskContext>)>
+                  callback) { std::move(callback).Run(std::move(context)); });
+
+  EXPECT_CALL(*delegate_, GetTabUrl(tab_id))
+      .WillRepeatedly(testing::Return(kUrl));
+  EXPECT_CALL(*delegate_, GetTabSessionId(tab_id))
+      .WillRepeatedly(testing::Return(session_id));
+
+  // Expect GetPageContext call.
+  EXPECT_CALL(*delegate_, GetPageContext(tab_id, testing::_))
+      .WillOnce([session_id](
+                    QueryContextualizer::TabId id,
+                    base::OnceCallback<void(
+                        std::unique_ptr<lens::ContextualInputData>)> callback) {
+        auto data = std::make_unique<lens::ContextualInputData>();
+        data->tab_session_id = session_id;
+        data->page_url = GURL("about:blank");
+        data->is_page_context_eligible = true;
+        std::move(callback).Run(std::move(data));
+      });
+
+  EXPECT_CALL(*delegate_, IsTabValid(tab_id)).WillOnce(testing::Return(true));
+
+  // Expect StartTabContextUploadFlow call and check upload_type.
+  EXPECT_CALL(*session_handle_,
+              StartTabContextUploadFlow(testing::_, testing::_, testing::_))
+      .WillOnce([](const base::UnguessableToken& file_token,
+                   std::unique_ptr<lens::ContextualInputData> data,
+                   std::optional<lens::ImageEncodingOptions> image_options) {
+        ASSERT_TRUE(data->upload_type.has_value());
+        EXPECT_EQ(
+            *data->upload_type,
+            lens::LensOverlayContextualInputUploadType::
+                CONTEXTUAL_INPUT_UPLOAD_TYPE_CONTEXTUAL_SEARCHBOX_INITIAL_QUERY);
+      });
+
+  base::MockCallback<QueryContextualizer::ContextualizedCallback> done_callback;
+  EXPECT_CALL(done_callback, Run(testing::_));
+
+  // Pass tab_id in tabs_for_contextual_searchbox_first_turn.
+  CallContextualize(task_id, "test query", {}, {}, base::DoNothing(),
+                    base::DoNothing(), done_callback.Get(),
+                    /*enable_smart_tab_selection=*/false, {tab_id});
+  CompleteAllUploads();
+}
+
+TEST_F(QueryContextualizerTest,
+       Contextualize_RecontextualizedTabSetsRecontextualizationUploadType) {
+  base::Uuid task_id = base::Uuid::GenerateRandomV4();
+  int32_t tab_id = 100;
+  SessionID session_id = SessionID::FromSerializedValue(1);
+  GURL kUrl("about:blank");
+  std::string kTitle = "about:blank";
+
+  // Setup context with expired tab.
+  ContextualTask task(task_id);
+  UrlResource resource(kUrl, ResourceType::kWebpage);
+  resource.title = kTitle;
+  resource.tab_id = session_id;
+  task.AddUrlResource(resource);
+
+  auto context = std::make_unique<ContextualTaskContext>(task);
+
+  EXPECT_CALL(*service_,
+              GetContextForTask(
+                  task_id,
+                  testing::Contains(
+                      ContextualTaskContextSource::kSubmittedContextDecorator),
+                  testing::NotNull(), testing::_))
+      .WillOnce(
+          [&context](
+              const base::Uuid& task_id,
+              const std::set<ContextualTaskContextSource>& sources,
+              std::unique_ptr<ContextDecorationParams> params,
+              base::OnceCallback<void(std::unique_ptr<ContextualTaskContext>)>
+                  callback) { std::move(callback).Run(std::move(context)); });
+
+  // Setup FileInfo with expired status so it recontextualizes.
+  std::vector<raw_ptr<const contextual_search::FileInfo>> file_info_list;
+  contextual_search::FileInfo file_info;
+  file_info.tab_session_id = session_id;
+  file_info.upload_status =
+      contextual_search::ContextUploadStatus::kUploadExpired;
+  file_info.request_id.emplace();
+  file_info.request_id->set_context_id(12345);
+  file_info_list.push_back(&file_info);
+
+  EXPECT_CALL(*context_controller_, GetFileInfoList())
+      .WillRepeatedly(testing::Return(file_info_list));
+
+  EXPECT_CALL(*delegate_, GetTabUrl(tab_id))
+      .WillRepeatedly(testing::Return(kUrl));
+  EXPECT_CALL(*delegate_, GetTabSessionId(tab_id))
+      .WillRepeatedly(testing::Return(session_id));
+
+  // Expect GetPageContext call.
+  EXPECT_CALL(*delegate_, GetPageContext(tab_id, testing::_))
+      .WillOnce([session_id](
+                    QueryContextualizer::TabId id,
+                    base::OnceCallback<void(
+                        std::unique_ptr<lens::ContextualInputData>)> callback) {
+        auto data = std::make_unique<lens::ContextualInputData>();
+        data->tab_session_id = session_id;
+        data->page_url = GURL("about:blank");
+        data->page_title = "about:blank";
+        data->context_id = 12345;
+        data->is_page_context_eligible = true;
+        std::move(callback).Run(std::move(data));
+      });
+
+  // Expect IsTabValid call.
+  EXPECT_CALL(*delegate_, IsTabValid(tab_id)).WillOnce(testing::Return(true));
+
+  // Expect StartTabContextUploadFlow call and check upload_type.
+  EXPECT_CALL(*session_handle_,
+              StartTabContextUploadFlow(testing::_, testing::_, testing::_))
+      .WillOnce([](const base::UnguessableToken& file_token,
+                   std::unique_ptr<lens::ContextualInputData> data,
+                   std::optional<lens::ImageEncodingOptions> image_options) {
+        ASSERT_TRUE(data->upload_type.has_value());
+        EXPECT_EQ(*data->upload_type,
+                  lens::LensOverlayContextualInputUploadType::
+                      CONTEXTUAL_INPUT_UPLOAD_TYPE_RECONTEXTUALIZATION);
+      });
+
+  base::MockCallback<QueryContextualizer::ContextualizedCallback> done_callback;
+  EXPECT_CALL(done_callback, Run(testing::_));
+
+  // Pass tab_id in tabs_to_recontextualize.
+  CallContextualize(task_id, "test query", {tab_id}, {}, base::DoNothing(),
+                    base::DoNothing(), done_callback.Get(),
+                    /*enable_smart_tab_selection=*/false);
+  CompleteAllUploads();
+}
+
+TEST_F(QueryContextualizerTest,
+       Contextualize_SmartTabSetsSmartTabSelectionUploadType) {
+  std::string query = "query";
+  int32_t tab_id = 1;
+  SessionID session_id = SessionID::FromSerializedValue(1);
+
+  EXPECT_CALL(*delegate_,
+              GetRelevantTabsForQuery(query, testing::_, testing::_))
+      .WillOnce([tab_id](const auto& query, const auto& urls, auto callback) {
+        std::move(callback).Run({tab_id});
+      });
+
+  EXPECT_CALL(*delegate_, IsTabValid(tab_id))
+      .WillRepeatedly(testing::Return(true));
+  EXPECT_CALL(*delegate_, GetTabUrl(tab_id))
+      .WillRepeatedly(testing::Return(GURL("http://tab1.com")));
+  EXPECT_CALL(*delegate_, GetTabSessionId(tab_id))
+      .WillRepeatedly(testing::Return(session_id));
+
+  EXPECT_CALL(*delegate_, GetPageContext(tab_id, testing::_))
+      .WillOnce([session_id](auto id, auto callback) {
+        auto data = std::make_unique<lens::ContextualInputData>();
+        data->tab_session_id = session_id;
+        data->page_url = GURL("http://tab1.com");
+        data->is_page_context_eligible = true;
+        std::move(callback).Run(std::move(data));
+      });
+
+  // Expect StartTabContextUploadFlow call and check upload_type.
+  EXPECT_CALL(*session_handle_,
+              StartTabContextUploadFlow(testing::_, testing::_, testing::_))
+      .WillOnce([](const base::UnguessableToken& file_token,
+                   std::unique_ptr<lens::ContextualInputData> data,
+                   std::optional<lens::ImageEncodingOptions> image_options) {
+        ASSERT_TRUE(data->upload_type.has_value());
+        EXPECT_EQ(*data->upload_type,
+                  lens::LensOverlayContextualInputUploadType::
+                      CONTEXTUAL_INPUT_UPLOAD_TYPE_SMART_TAB_SELECTION);
+      });
+
+  base::MockCallback<QueryContextualizer::ContextualizedCallback> callback;
+  EXPECT_CALL(callback, Run(testing::_)).Times(1);
+
+  CallContextualize(std::nullopt, query, {}, {}, base::DoNothing(),
+                    base::DoNothing(), callback.Get(),
+                    /*enable_smart_tab_selection=*/true);
+
   CompleteAllUploads();
 }
 

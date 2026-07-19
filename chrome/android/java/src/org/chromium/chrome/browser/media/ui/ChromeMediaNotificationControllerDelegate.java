@@ -7,11 +7,8 @@ package org.chromium.chrome.browser.media.ui;
 import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.app.Service;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
-import android.media.AudioManager;
 import android.os.IBinder;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.util.SparseArray;
@@ -21,7 +18,6 @@ import androidx.mediarouter.media.MediaRouter;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.SplitCompatService;
-import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
@@ -40,6 +36,7 @@ import org.chromium.components.browser_ui.notifications.NotificationWrapperBuild
 @NullMarked
 class ChromeMediaNotificationControllerDelegate implements MediaNotificationController.Delegate {
     private final int mNotificationId;
+    private final int mMediaTypeId;
 
     @VisibleForTesting
     static class NotificationOptions {
@@ -52,41 +49,41 @@ class ChromeMediaNotificationControllerDelegate implements MediaNotificationCont
         }
     }
 
-    // Maps the notification ids to their corresponding choices of the service, button receiver and
+    // Maps the media type ids to their corresponding choices of the service, button receiver and
     // group name.
-    @VisibleForTesting static SparseArray<NotificationOptions> sMapNotificationIdToOptions;
+    @VisibleForTesting static SparseArray<NotificationOptions> sMapMediaTypeIdToOptions;
 
     static {
-        sMapNotificationIdToOptions = new SparseArray<>();
+        sMapMediaTypeIdToOptions = new SparseArray<>();
 
-        sMapNotificationIdToOptions.put(
-                PlaybackListenerServiceImpl.NOTIFICATION_ID,
+        sMapMediaTypeIdToOptions.put(
+                PlaybackListenerServiceImpl.NOTIFICATION_TYPE_ID,
                 new NotificationOptions(
                         ChromeMediaNotificationControllerServices.PlaybackListenerService.class,
                         NotificationConstants.GROUP_MEDIA_PLAYBACK));
-        sMapNotificationIdToOptions.put(
-                PresentationListenerServiceImpl.NOTIFICATION_ID,
+        sMapMediaTypeIdToOptions.put(
+                PresentationListenerServiceImpl.NOTIFICATION_TYPE_ID,
                 new NotificationOptions(
                         ChromeMediaNotificationControllerServices.PresentationListenerService.class,
                         NotificationConstants.GROUP_MEDIA_PRESENTATION));
-        sMapNotificationIdToOptions.put(
-                CastListenerServiceImpl.NOTIFICATION_ID,
+        sMapMediaTypeIdToOptions.put(
+                CastListenerServiceImpl.NOTIFICATION_TYPE_ID,
                 new NotificationOptions(
                         ChromeMediaNotificationControllerServices.CastListenerService.class,
                         NotificationConstants.GROUP_MEDIA_REMOTE));
     }
 
     /**
-     * Service used to transform intent requests triggered from the notification into
-     * {@code MediaNotificationListener} callbacks. We have to create a separate derived class for
-     * each type of notification since one class corresponds to one instance of the service only.
+     * Service used to transform intent requests triggered from the notification into {@code
+     * MediaNotificationListener} callbacks. We have to create a separate derived class for each
+     * type of notification since one class corresponds to one instance of the service only.
      */
     @VisibleForTesting
     abstract static class ListenerServiceImpl extends SplitCompatService.Impl {
-        private final int mNotificationId;
+        private final int mNotificationTypeId;
 
-        ListenerServiceImpl(int notificationId) {
-            mNotificationId = notificationId;
+        ListenerServiceImpl(int notificationTypeId) {
+            mNotificationTypeId = notificationTypeId;
         }
 
         @Override
@@ -97,9 +94,10 @@ class ChromeMediaNotificationControllerDelegate implements MediaNotificationCont
         @Override
         public void onDestroy() {
             super.onDestroy();
-            MediaNotificationController controller = getController();
-            if (controller != null) controller.onServiceDestroyed();
-            MediaNotificationManager.clear(mNotificationId);
+            // TODO(crbug.com/522397811): We currently assume each media type shows only one
+            // notification.
+            MediaNotificationManager.onServiceDestroyed(mNotificationTypeId);
+            MediaNotificationManager.clear(mNotificationTypeId);
         }
 
         @Override
@@ -108,9 +106,12 @@ class ChromeMediaNotificationControllerDelegate implements MediaNotificationCont
                 // The service has been started with startForegroundService() but the
                 // notification hasn't been shown. On O it will lead to the app crash.
                 // So show an empty notification before stopping the service.
+                // TODO(crbug.com/522397811): We currently assume each media type shows only one
+                // notification. Calling stopListenerService() immediately will kill the service
+                // for all active notifications of this type.
                 MediaNotificationController.finishStartingForegroundServiceOnO(
                         getService(),
-                        createNotificationWrapperBuilder(mNotificationId)
+                        createNotificationWrapperBuilder(mNotificationTypeId)
                                 .buildNotificationWrapper());
                 stopListenerService();
             }
@@ -127,110 +128,69 @@ class ChromeMediaNotificationControllerDelegate implements MediaNotificationCont
 
         @VisibleForTesting
         boolean processIntent(@Nullable Intent intent) {
-            MediaNotificationController controller = getController();
+            MediaNotificationController controller = getController(intent);
             if (controller == null) return false;
 
             return controller.processIntent(getService(), intent);
         }
 
-        private @Nullable MediaNotificationController getController() {
-            return MediaNotificationManager.getController(mNotificationId);
+        private @Nullable MediaNotificationController getController(@Nullable Intent intent) {
+            int id = mNotificationTypeId;
+            if (intent != null) {
+                id =
+                        intent.getIntExtra(
+                                MediaNotificationController.EXTRA_NOTIFICATION_ID,
+                                mNotificationTypeId);
+            }
+            return MediaNotificationManager.getController(id);
         }
     }
 
     /**
-     * A {@link ListenerService} for the MediaSession web api.
-     * This class is used internally but has to be public to be able to launch the service.
+     * A {@link ListenerService} for the MediaSession web api. This class is used internally but has
+     * to be public to be able to launch the service.
      */
     public static final class PlaybackListenerServiceImpl extends ListenerServiceImpl {
-        static final int NOTIFICATION_ID = R.id.media_playback_notification;
+        static final int NOTIFICATION_TYPE_ID = R.id.media_playback_notification;
 
         public PlaybackListenerServiceImpl() {
-            super(NOTIFICATION_ID);
+            super(NOTIFICATION_TYPE_ID);
         }
-
-        @Override
-        public void onCreate() {
-            super.onCreate();
-            IntentFilter filter = new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY);
-            ContextUtils.registerProtectedBroadcastReceiver(
-                    getService(), mAudioBecomingNoisyReceiver, filter);
-        }
-
-        @Override
-        public void onDestroy() {
-            getService().unregisterReceiver(mAudioBecomingNoisyReceiver);
-            super.onDestroy();
-        }
-
-        private final BroadcastReceiver mAudioBecomingNoisyReceiver =
-                new BroadcastReceiver() {
-                    @Override
-                    public void onReceive(Context context, Intent intent) {
-                        if (!AudioManager.ACTION_AUDIO_BECOMING_NOISY.equals(intent.getAction())) {
-                            return;
-                        }
-
-                        Intent i =
-                                new Intent(
-                                        getContext(),
-                                        ChromeMediaNotificationControllerServices
-                                                .PlaybackListenerService.class);
-                        i.setAction(intent.getAction());
-                        boolean succeeded = true;
-                        try {
-                            getContext().startService(i);
-                        } catch (RuntimeException e) {
-                            // This happens occasionally with "cannot start foreground service".
-                            // It's not at all clear what causes it; no combination of
-                            // multi-window / background
-                            // unplugging headphones has managed to repro it locally.  While it
-                            // might be possible to trampoline this through an activity like we do
-                            // elsewhere for notifications, that's a fairly invasive change
-                            // without a local repro.
-                            //  So,
-                            // for now, just log that this happened and move on.
-                            // https://crbug.com/40788370
-                            succeeded = false;
-                        }
-                        RecordHistogram.recordBooleanHistogram(
-                                "Media.Android.BecomingNoisy", succeeded);
-                    }
-                };
     }
 
     /**
-     * A {@link ListenerService} for casting.
-     * This class is used internally but has to be public to be able to launch the service.
+     * A {@link ListenerService} for casting. This class is used internally but has to be public to
+     * be able to launch the service.
      */
     public static final class PresentationListenerServiceImpl extends ListenerServiceImpl {
-        static final int NOTIFICATION_ID = R.id.presentation_notification;
+        static final int NOTIFICATION_TYPE_ID = R.id.presentation_notification;
 
         public PresentationListenerServiceImpl() {
-            super(NOTIFICATION_ID);
+            super(NOTIFICATION_TYPE_ID);
         }
     }
 
     /**
-     * A {@link ListenerService} for remoting.
-     * This class is used internally but has to be public to be able to launch the service.
+     * A {@link ListenerService} for remoting. This class is used internally but has to be public to
+     * be able to launch the service.
      */
     public static final class CastListenerServiceImpl extends ListenerServiceImpl {
-        static final int NOTIFICATION_ID = R.id.remote_playback_notification;
+        static final int NOTIFICATION_TYPE_ID = R.id.remote_playback_notification;
 
         public CastListenerServiceImpl() {
-            super(NOTIFICATION_ID);
+            super(NOTIFICATION_TYPE_ID);
         }
     }
 
-    ChromeMediaNotificationControllerDelegate(int id) {
-        mNotificationId = id;
+    ChromeMediaNotificationControllerDelegate(int uniqueId, int mediaTypeId) {
+        mNotificationId = uniqueId;
+        mMediaTypeId = mediaTypeId;
     }
 
     @Override
     public @Nullable Intent createServiceIntent() {
         Class<?> serviceClass =
-                assumeNonNull(sMapNotificationIdToOptions.get(mNotificationId)).serviceClass;
+                assumeNonNull(sMapMediaTypeIdToOptions.get(mMediaTypeId)).serviceClass;
         return (serviceClass != null) ? new Intent(getContext(), serviceClass) : null;
     }
 
@@ -241,11 +201,20 @@ class ChromeMediaNotificationControllerDelegate implements MediaNotificationCont
 
     @Override
     public String getNotificationGroupName() {
-        String groupName =
-                assumeNonNull(sMapNotificationIdToOptions.get(mNotificationId)).groupName;
+        String groupName = assumeNonNull(sMapMediaTypeIdToOptions.get(mMediaTypeId)).groupName;
 
         assert groupName != null;
         return groupName;
+    }
+
+    @Override
+    public int getMediaTypeId() {
+        return mMediaTypeId;
+    }
+
+    @Override
+    public int getNotificationId() {
+        return mNotificationId;
     }
 
     @Override

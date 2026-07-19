@@ -36,6 +36,7 @@
 #include "components/omnibox/browser/aim_eligibility_service.h"
 #include "components/omnibox/browser/aim_eligibility_service_features.h"
 #include "components/omnibox/browser/omnibox_prefs.h"
+#include "components/omnibox/common/omnibox_features.h"
 #include "components/prefs/pref_service.h"
 #include "components/search/search.h"
 #include "components/search_engines/template_url.h"
@@ -353,8 +354,9 @@ INSTANTIATE_TEST_SUITE_P(,
                              // Values for Pdf server response eligibility.
                              ::testing::Values(true, false)));
 
-#if (BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX))
-// TODO(crbug.com/488467253): Fix and re-enable this test for CrOS.
+#if (BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)) || \
+    (BUILDFLAG(IS_WIN) && defined(ADDRESS_SANITIZER))
+// TODO(crbug.com/488467253): Fix and re-enable this test for all platforms.
 #define MAYBE_ComprehensiveEligibilityTest DISABLED_ComprehensiveEligibilityTest
 #else
 #define MAYBE_ComprehensiveEligibilityTest ComprehensiveEligibilityTest
@@ -1234,7 +1236,8 @@ class ChromeAimEligibilityServiceOAuthBrowserTest
         {{omnibox::kAimEnabled, {}},
          {omnibox::kAimServerEligibilityEnabled, {}},
          {omnibox::kAimServerRequestOnStartupEnabled, {}},
-         {omnibox::kAimEligibilityServiceIdentityImprovements, {}}},
+         {omnibox::kAimEligibilityServiceIdentityImprovements,
+          {{"oauth_enabled", "true"}}}},
         // Disabled features.
         {});
     InProcessBrowserTest::SetUp();

@@ -542,8 +542,9 @@ bool OpenXrRenderLoop::MarkFrameSubmitted(int16_t frame_index) {
   return true;
 }
 
-void OpenXrRenderLoop::SubmitFrameMissing(int16_t frame_index,
-                                          const gpu::SyncToken& sync_token) {
+void OpenXrRenderLoop::SubmitFrameMissing(
+    int16_t frame_index,
+    gpu::SharedImageExportResult camera_export_multi_result) {
   DVLOG(3) << __func__ << " frame_index=" << frame_index;
   TRACE_EVENT_INSTANT("xr", "OpenXrRenderLoop::SubmitFrameMissing");
   if (pending_frame_) {
@@ -905,20 +906,20 @@ void OpenXrRenderLoop::SubmitFrame(int16_t frame_index,
   // The sync token passed here is unused by OpenXR backend's implementation of
   // SubmitFrameMissing.
   // TODO(crbug.com/40917172): Support non-shared buffer mode.
-  SubmitFrameMissing(frame_index, gpu::SyncToken());
+  SubmitFrameMissing(frame_index,
+                     gpu::SharedImageExportResult::CreateEmptyResult());
 }
 
 void OpenXrRenderLoop::SubmitFrameDrawnIntoTexture(
     int16_t frame_index,
     std::vector<device::mojom::XRLayerUpdatePtr> layer_updates,
-    const std::vector<gpu::SyncToken>& camera_sync_tokens,
+    gpu::SharedImageExportResult camera_export_multi_result,
     base::TimeDelta time_waited) {
   TRACE_EVENT_BEGIN("xr", "OpenXrRenderLoop::WaitSyncToken",
                     perfetto::Track(frame_index));
   DVLOG(3) << __func__ << " frame_index=" << frame_index;
-  gpu::gles2::GLES2Interface* gl = context_provider_->ContextGL();
 
-  if (!camera_sync_tokens.empty()) {
+  if (camera_export_multi_result.HasData()) {
     presentation_receiver_.ReportBadMessage(
         "Received unexpected camera sync tokens.");
     return;
@@ -927,23 +928,24 @@ void OpenXrRenderLoop::SubmitFrameDrawnIntoTexture(
   std::vector<LayerId> layer_ids;
   layer_ids.reserve(layer_updates.size());
   for (auto& layer : layer_updates) {
-    gl->WaitSyncTokenCHROMIUM(layer->sync_token.GetConstData());
     layer_ids.push_back(layer->layer_id);
   }
-  for (auto& camera_sync_token : camera_sync_tokens) {
-    gl->WaitSyncTokenCHROMIUM(camera_sync_token.GetConstData());
-  }
-  const GLuint id = gl->CreateGpuFenceCHROMIUM();
-  context_provider_->ContextSupport()->GetGpuFence(
-      id, base::BindOnce(&OpenXrRenderLoop::OnWebXrTokenSignaled,
-                         weak_ptr_factory_.GetWeakPtr(), frame_index, layer_ids,
-                         id));
+
+  std::vector<gpu::SyncToken> combined_sync_tokens;
+  std::vector<scoped_refptr<gpu::ClientSharedImage>> shared_images =
+      graphics_binding_->EndSharedImagesExport(std::move(layer_updates),
+                                               combined_sync_tokens);
+
+  gpu::ClientSharedImage::CreateGpuFenceForSyncTokens(
+      std::move(shared_images), std::move(combined_sync_tokens),
+      context_provider_->ContextGL(), context_provider_->ContextSupport(),
+      base::BindOnce(&OpenXrRenderLoop::OnWebXrTokenSignaled,
+                     weak_ptr_factory_.GetWeakPtr(), frame_index, layer_ids));
 }
 
 void OpenXrRenderLoop::OnWebXrTokenSignaled(
     int16_t frame_index,
     std::vector<LayerId> updated_layers,
-    GLuint id,
     std::unique_ptr<gfx::GpuFence> gpu_fence) {
   TRACE_EVENT_END("xr", /*"OpenXrRenderLoop::WaitSyncToken"*/
                   perfetto::Track(frame_index));
@@ -963,13 +965,6 @@ void OpenXrRenderLoop::OnWebXrTokenSignaled(
 
   MarkFrameSubmitted(frame_index);
   MaybeCompositeAndSubmit(updated_layers);
-
-  // Calling SubmitFrameWithTextureHandle can cause openxr_ and
-  // context_provider_ to become nullptr if we decide to stop the runtime.
-  if (context_provider_) {
-    gpu::gles2::GLES2Interface* gl = context_provider_->ContextGL();
-    gl->DestroyGpuFenceCHROMIUM(id);
-  }
 }
 
 void OpenXrRenderLoop::UpdateStageParameters() {

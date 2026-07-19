@@ -23,6 +23,7 @@
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/text/text_direction.h"
 #include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/size.h"
 
 namespace cc {
@@ -48,7 +49,7 @@ enum class RasterModeHint {
 
 class CORE_EXPORT CanvasRenderingContextHost
     : public GarbageCollectedMixin,
-      public CanvasResourceProvider::Delegate,
+      public CanvasResourceProviderDelegate,
       public CanvasImageSource,
       public ImageBitmapSource {
  public:
@@ -119,6 +120,9 @@ class CORE_EXPORT CanvasRenderingContextHost
 
   // Partial CanvasResourceProvider::Delegate implementation
   void InitializeForRecording(cc::PaintCanvas*) const final;
+  scoped_refptr<const cc::AnimatedImageFrameIndexMap>
+  GetAnimatedImageFrameIndexes(uint32_t id) const override;
+  void DidFlush() override;
 
   virtual void PageVisibilityChanged();
 
@@ -135,6 +139,15 @@ class CORE_EXPORT CanvasRenderingContextHost
   virtual bool IsPageVisible() const = 0;
   virtual void SetNeedsCompositingUpdate() = 0;
   virtual void ClearCanvas2DLayerTexture() {}
+
+  virtual void RecordRenderedText(const String& text,
+                                  const gfx::RectF& bounds,
+                                  float font_height) {}
+  virtual void ClearRenderedText(const gfx::RectF& rect) {}
+  virtual void ClearRenderedText() {}
+  virtual bool ShouldCaptureRenderedText() {
+    return should_capture_rendered_text_;
+  }
 
   // blink::CanvasImageSource
   bool IsOffscreenCanvas() const override;
@@ -165,6 +178,7 @@ class CORE_EXPORT CanvasRenderingContextHost
   Member<PlainTextPainter> plain_text_painter_;
   Member<UniqueFontSelector> unique_font_selector_;
   gfx::Size size_;
+  bool should_capture_rendered_text_ = false;
 
  private:
 

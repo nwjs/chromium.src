@@ -29,6 +29,7 @@ eventlog_provider.dll: %(ChromeDir)s\
 icudtl.dat: %(ChromeDir)s\
 libEGL.dll: %(ChromeDir)s\
 libGLESv2.dll: %(ChromeDir)s\
+libLiteRtWebGpuAccelerator.dll: %(ChromeDir)s\
 notification_helper.exe: %(ChromeDir)s\
 optimization_guide_internal.dll: %(ChromeDir)s\
 resources.pak: %(ChromeDir)s\
@@ -84,12 +85,6 @@ ffmpeg.dll: %(VersionDir)s\
 elevated_tracing_service.exe: %(VersionDir)s\
 elevation_service.exe: %(VersionDir)s\
 os_update_handler.exe: %(VersionDir)s\
-
-#
-# Sub directories living in the version dir
-#
-default_apps\*.crx: %(VersionDir)s\default_apps\
-default_apps\external_extensions.json: %(VersionDir)s\default_apps\
 
 #
 # VisualElements sub-dir.

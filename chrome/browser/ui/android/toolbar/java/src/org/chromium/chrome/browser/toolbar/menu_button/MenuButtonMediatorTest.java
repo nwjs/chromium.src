@@ -37,12 +37,12 @@ import org.chromium.chrome.browser.browser_controls.BrowserStateBrowserControlsV
 import org.chromium.chrome.browser.theme.ThemeColorProvider;
 import org.chromium.chrome.browser.toolbar.menu_button.MenuButtonProperties.ShowBadgeProperty;
 import org.chromium.chrome.browser.toolbar.menu_button.MenuButtonProperties.ThemeProperty;
+import org.chromium.chrome.browser.ui.actions.appmenu.MenuButtonState;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuButtonHelper;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuCoordinator;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuHandler;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuPropertiesDelegate;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
-import org.chromium.components.omnibox.OmniboxFocusReason;
 import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -56,7 +56,7 @@ public class MenuButtonMediatorTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private Activity mActivity;
-    @Mock private MenuButtonCoordinator.SetFocusFunction mFocusFunction;
+    @Mock private Runnable mClearOmniboxFocus;
     @Mock private AppMenuCoordinator mAppMenuCoordinator;
     @Mock private AppMenuHandler mAppMenuHandler;
     @Mock private AppMenuButtonHelper mAppMenuButtonHelper;
@@ -122,7 +122,7 @@ public class MenuButtonMediatorTest {
                 MenuButtonProperties.SHOW_UPDATE_BADGE, new ShowBadgeProperty(true, false));
         mMenuButtonMediator.onMenuVisibilityChanged(true);
 
-        verify(mFocusFunction).setFocus(false, OmniboxFocusReason.UNFOCUS);
+        verify(mClearOmniboxFocus).run();
         assertFalse(mPropertyModel.get(MenuButtonProperties.SHOW_UPDATE_BADGE).mShowUpdateBadge);
         verify(mOnMenuButtonClicked).run();
 
@@ -177,7 +177,7 @@ public class MenuButtonMediatorTest {
                         mRequestRenderRunnable,
                         () -> false,
                         mControlsVisibilityDelegate,
-                        mFocusFunction,
+                        mClearOmniboxFocus,
                         mAppMenuSupplier,
                         mWindowAndroid,
                         () -> mMenuUiState.buttonState,
@@ -328,7 +328,7 @@ public class MenuButtonMediatorTest {
                         mRequestRenderRunnable,
                         () -> false,
                         mControlsVisibilityDelegate,
-                        mFocusFunction,
+                        mClearOmniboxFocus,
                         mAppMenuSupplier,
                         mWindowAndroid,
                         () -> mMenuUiState.buttonState,

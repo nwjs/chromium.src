@@ -48,12 +48,10 @@ import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
-import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.TestFileUtil;
 import org.chromium.base.test.util.UrlUtils;
 import org.chromium.blink_public.common.BlinkFeatures;
 import org.chromium.components.embedder_support.util.WebResourceResponseInfo;
-import org.chromium.components.webauthn.WebauthnMode;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsObserver;
 import org.chromium.content_public.browser.test.util.HistoryUtils;
@@ -65,7 +63,6 @@ import org.chromium.net.test.util.TestWebServer;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.display.DisplayAndroid;
 import org.chromium.ui.display.DisplayUtil;
-import org.chromium.url.GURL;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -154,7 +151,7 @@ public class AwSettingsTest {
 
         protected abstract void doEnsureSettingHasValue(T value) throws Throwable;
 
-        protected String getTitleOnUiThread() throws Exception {
+        protected String getTitleOnUiThread() {
             return mActivityTestRule.getTitleOnUiThread(mAwContents);
         }
 
@@ -4030,200 +4027,84 @@ public class AwSettingsTest {
 
     @Test
     @SmallTest
+    @EnableFeatures(AwFeatures.WEBVIEW_GATE_TEXT_SIZE_ADJUST_ON_TEXT_AUTOSIZING)
     @Feature({"AndroidWebView", "Preferences"})
-    public void testIgnoreDuplicateNavs() throws Throwable {
+    public void testTextSizeAdjustGatedByTextAutosizing() throws Throwable {
         final TestAwContentsClient contentClient = new TestAwContentsClient();
         final AwTestContainerView testContainerView =
                 mActivityTestRule.createAwTestContainerViewOnMainSync(contentClient);
         final AwContents awContents = testContainerView.getAwContents();
         final AwSettings settings = mActivityTestRule.getAwSettingsOnUiThread(awContents);
 
-        // Verify default values: feature disabled and threshold set to -1 (default).
-        Assert.assertFalse(settings.getIgnoreDuplicateNavEnabled());
-        Assert.assertEquals(-1L, settings.getIgnoreDuplicateNavThreshold());
-
-        // Enable the feature and set a custom threshold.
-        settings.setIgnoreDuplicateNavEnabled(true);
-        long customThreshold = 1000L;
-        settings.setIgnoreDuplicateNavThreshold(customThreshold);
-        Assert.assertTrue(settings.getIgnoreDuplicateNavEnabled());
-        Assert.assertEquals(customThreshold, settings.getIgnoreDuplicateNavThreshold());
-    }
-
-    @Test
-    @SmallTest
-    @Feature({"AndroidWebView", "Preferences"})
-    public void testSetWebauthnSupportFromNonUIThread() throws Throwable {
-        final TestAwContentsClient contentClient = new TestAwContentsClient();
-        final AwTestContainerView testContainerView =
-                mActivityTestRule.createAwTestContainerViewOnMainSync(contentClient);
-        final AwContents awContents = testContainerView.getAwContents();
-        final AwSettings settings = mActivityTestRule.getAwSettingsOnUiThread(awContents);
-
-        // Call setWebauthnSupport from the instrumentation thread (non-UI thread).
-        // This should not crash.
-        settings.setWebauthnSupport(WebauthnMode.APP);
-
-        // Verify the setting was applied.
-        Assert.assertEquals(
-                WebauthnMode.APP,
-                mActivityTestRule.getAwSettingsOnUiThread(awContents).getWebauthnSupport());
-    }
-
-    @Test
-    @SmallTest
-    @Feature({"AndroidWebView", "Preferences"})
-    @DisableFeatures(AwFeatures.WEBVIEW_FORCE_WEB_AUTHN)
-    public void testWebauthnDefaultDisabled() throws Throwable {
-        final TestAwContentsClient contentClient = new TestAwContentsClient();
-        final AwTestContainerView testContainerView =
-                mActivityTestRule.createAwTestContainerViewOnMainSync(contentClient);
-        final AwContents awContents = testContainerView.getAwContents();
-        final AwSettings settings = mActivityTestRule.getAwSettingsOnUiThread(awContents);
+        // Enable JS to read computed styles.
         settings.setJavaScriptEnabled(true);
 
-        Assert.assertEquals(
-                "WebAuthn default should be NONE by default.",
-                WebauthnMode.NONE,
-                settings.getWebauthnSupport());
+        final String html =
+                "<html><head><style>"
+                        + "body { font-size: 10px; text-size-adjust: 200%; }"
+                        + "</style></head><body><div id='target'>test</div></body></html>";
 
-        TestWebServer webServer = TestWebServer.start();
-        try {
-            final String pageUrl =
-                    webServer.setResponse("/test.html", "<html><body></body></html>", null);
-            mActivityTestRule.loadUrlSync(
-                    awContents, contentClient.getOnPageFinishedHelper(), pageUrl);
-            Assert.assertFalse(
-                    "WebAuthn JavaScript interface should NOT be exposed",
-                    hasWebAuthnJavaScriptInterfaces(awContents, contentClient));
-        } finally {
-            webServer.shutdown();
-        }
-    }
+        mActivityTestRule.loadDataSync(
+                awContents, contentClient.getOnPageFinishedHelper(), html, "text/html", false);
 
-    @Test
-    @SmallTest
-    @Feature({"AndroidWebView", "Preferences"})
-    @EnableFeatures(AwFeatures.WEBVIEW_FORCE_WEB_AUTHN)
-    public void testWebauthnEnabledByFlag() throws Throwable {
-        final TestAwContentsClient contentClient = new TestAwContentsClient();
-        final AwTestContainerView testContainerView =
-                mActivityTestRule.createAwTestContainerViewOnMainSync(contentClient);
-        final AwContents awContents = testContainerView.getAwContents();
-        final AwSettings settings = mActivityTestRule.getAwSettingsOnUiThread(awContents);
-        settings.setJavaScriptEnabled(true);
-
-        Assert.assertEquals(
-                "WebAuthn default should be APP mode when the flag is enabled.",
-                WebauthnMode.APP,
-                settings.getWebauthnSupport());
-
-        TestWebServer webServer = TestWebServer.start();
-        try {
-            final String pageUrl =
-                    webServer.setResponse("/test.html", "<html><body></body></html>", null);
-            mActivityTestRule.loadUrlSync(
-                    awContents, contentClient.getOnPageFinishedHelper(), pageUrl);
-            Assert.assertTrue(
-                    "WebAuthn JavaScript interface should be exposed",
-                    hasWebAuthnJavaScriptInterfaces(awContents, contentClient));
-        } finally {
-            webServer.shutdown();
-        }
-    }
-
-    @Test
-    @SmallTest
-    @Feature({"AndroidWebView", "Preferences"})
-    @EnableFeatures(AwFeatures.WEBVIEW_FORCE_WEB_AUTHN)
-    public void testWebauthnFlagAndAppSetting() throws Throwable {
-        final TestAwContentsClient contentClient = new TestAwContentsClient();
-        final AwTestContainerView testContainerView =
-                mActivityTestRule.createAwTestContainerViewOnMainSync(contentClient);
-        final AwContents awContents = testContainerView.getAwContents();
-        final AwSettings settings = mActivityTestRule.getAwSettingsOnUiThread(awContents);
-        settings.setJavaScriptEnabled(true);
-
-        Assert.assertEquals(
-                "WebAuthn default should be APP mode when the flag is enabled.",
-                WebauthnMode.APP,
-                settings.getWebauthnSupport());
-
-        TestWebServer webServer = TestWebServer.start();
-        try {
-            final String pageUrl =
-                    webServer.setResponse("/test.html", "<html><body></body></html>", null);
-            mActivityTestRule.loadUrlSync(
-                    awContents, contentClient.getOnPageFinishedHelper(), pageUrl);
-            Assert.assertTrue(
-                    "WebAuthn JavaScript interface should be exposed",
-                    hasWebAuthnJavaScriptInterfaces(awContents, contentClient));
-
-            // Change the mode and reload the apge. Verify that the interfaces disappear again.
-            settings.setWebauthnSupport(WebauthnMode.NONE);
-            Assert.assertEquals(
-                    "setWebauthnSupport() API should still take effect.",
-                    WebauthnMode.NONE,
-                    settings.getWebauthnSupport());
-            mActivityTestRule.loadUrlSync(
-                    awContents, contentClient.getOnPageFinishedHelper(), pageUrl);
-            Assert.assertFalse(
-                    "WebAuthn JavaScript interface should NOT be exposed",
-                    hasWebAuthnJavaScriptInterfaces(awContents, contentClient));
-        } finally {
-            webServer.shutdown();
-        }
-    }
-
-    private static boolean isSecureDomain(GURL url) {
-        if ("https".equals(url.getScheme())) {
-            return true;
-        }
-        if ("http".equals(url.getScheme()) && "localhost".equals(url.getHost())) {
-            return true;
-        }
-        if ("http".equals(url.getScheme()) && "127.0.0.1".equals(url.getHost())) {
-            return true;
-        }
-        return false;
-    }
-
-    private boolean hasWebAuthnJavaScriptInterfaces(
-            AwContents awContents, TestAwContentsClient contentClient) throws Throwable {
-        if (!isSecureDomain(awContents.getUrl())) {
-            throw new Exception(
-                    "This web URL ("
-                            + awContents.getUrl()
-                            + ") is insecure, however WebAuthn interfaces are only ever exposed for"
-                            + " secure web schemes. Please rewrite this test case so that it uses"
-                            + " a localhost HTTP server (locahost is treated as 'trusted' for"
-                            + " testing purposes).");
-        }
-        String jsResult =
+        String fontSizeStr =
                 mActivityTestRule.executeJavaScriptAndWaitForResult(
                         awContents,
                         contentClient,
-                        "typeof window.PublicKeyCredential !== 'undefined'");
-        return "true".equals(jsResult);
+                        "window.getComputedStyle(document.getElementById('target')).fontSize");
+
+        Assert.assertEquals(
+                "Before LAYOUT_ALGORITHM_TEXT_AUTOSIZING is set, text-size-adjust is ignored.",
+                "\"10px\"",
+                fontSizeStr);
+
+        settings.setLayoutAlgorithm(AwSettings.LAYOUT_ALGORITHM_TEXT_AUTOSIZING);
+
+        // We must reload the page so the WebPreferences update applies.
+        mActivityTestRule.loadDataSync(
+                awContents, contentClient.getOnPageFinishedHelper(), html, "text/html", false);
+
+        fontSizeStr =
+                mActivityTestRule.executeJavaScriptAndWaitForResult(
+                        awContents,
+                        contentClient,
+                        "window.getComputedStyle(document.getElementById('target')).fontSize");
+
+        Assert.assertEquals(
+                "After LAYOUT_ALGORITHM_TEXT_AUTOSIZING is set, text-size-adjust is obeyed.",
+                "\"20px\"",
+                fontSizeStr);
     }
 
     @Test
     @SmallTest
-    @Feature({"AndroidWebView"})
-    public void testSetWebauthnSupportLogsPermissionStatus() throws Throwable {
+    @Feature({"AndroidWebView", "Preferences"})
+    public void testTextSizeAdjustAlwaysObeyed() throws Throwable {
+        final TestAwContentsClient contentClient = new TestAwContentsClient();
         final AwTestContainerView testContainerView =
-                mActivityTestRule.createAwTestContainerViewOnMainSync(new TestAwContentsClient());
+                mActivityTestRule.createAwTestContainerViewOnMainSync(contentClient);
         final AwContents awContents = testContainerView.getAwContents();
         final AwSettings settings = mActivityTestRule.getAwSettingsOnUiThread(awContents);
 
-        HistogramWatcher histogramWatcher =
-                HistogramWatcher.newSingleRecordWatcher(
-                        "Android.WebView.Webauthn.BrowserModePermissionGranted", false);
+        settings.setJavaScriptEnabled(true);
 
-        // Since the test app does not have CREDENTIAL_MANAGER_SET_ORIGIN permission,
-        // this call should log `false` to the histogram and succeed without throwing.
-        settings.setWebauthnSupport(WebauthnMode.BROWSER);
+        final String html =
+                "<html><head><style>"
+                        + "body { font-size: 10px; text-size-adjust: 200%; }"
+                        + "</style></head><body><div id='target'>test</div></body></html>";
 
-        histogramWatcher.assertExpected();
+        mActivityTestRule.loadDataSync(
+                awContents, contentClient.getOnPageFinishedHelper(), html, "text/html", false);
+
+        String fontSizeStr =
+                mActivityTestRule.executeJavaScriptAndWaitForResult(
+                        awContents,
+                        contentClient,
+                        "window.getComputedStyle(document.getElementById('target')).fontSize");
+
+        Assert.assertEquals(
+                "Even without LAYOUT_ALGORITHM_TEXT_AUTOSIZING set, text-size-adjust is obeyed.",
+                "\"20px\"",
+                fontSizeStr);
     }
 }

@@ -7,6 +7,7 @@
 #include <optional>
 
 #include "base/android/android_info.h"
+#include "base/android/device_info.h"
 #include "base/memory/raw_ptr.h"
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
@@ -132,6 +133,13 @@ TEST_F(ProcessRankPolicyAndroidTest, FocusedPage) {
 }
 
 TEST_F(ProcessRankPolicyAndroidTest, FocusedNotVisiblePage) {
+  scoped_feature_list_.InitWithFeaturesAndParameters(
+      /*enabled_features=*/
+      {{chrome::android::kProtectedTabsAndroid, {}},
+       // Effectively disable the recently visible timer.
+       {chrome::android::kProtectRecentlyVisibleTab,
+        {{"duration_in_seconds", "0"}}}},
+      /*disabled_features=*/{});
   graph_->PassToGraph(std::make_unique<ProcessRankPolicyAndroid>());
   MockPageGraph page_graph = CreateDefaultPage();
   DefaultNavigation(page_graph.page.get());
@@ -158,12 +166,11 @@ TEST_F(ProcessRankPolicyAndroidTest,
             content::ChildProcessImportance::MODERATE);
 }
 
-#if BUILDFLAG(IS_DESKTOP_ANDROID)
-#define MAYBE_NonFocusedVisiblePage DISABLED_NonFocusedVisiblePage
-#else
-#define MAYBE_NonFocusedVisiblePage NonFocusedVisiblePage
-#endif
-TEST_F(ProcessRankPolicyAndroidTest, MAYBE_NonFocusedVisiblePage) {
+TEST_F(ProcessRankPolicyAndroidTest, NonFocusedVisiblePage) {
+  if (base::android::device_info::is_desktop()) {
+    GTEST_SKIP()
+        << "ChangeUnfocusedPriority feature is always enabled on desktop";
+  }
   scoped_feature_list_.InitAndDisableFeature(
       chrome::android::kChangeUnfocusedPriority);
   graph_->PassToGraph(std::make_unique<ProcessRankPolicyAndroid>());
@@ -304,6 +311,12 @@ TEST_F(ProcessRankPolicyAndroidTest,
 }
 
 TEST_F(ProcessRankPolicyAndroidTest, RecentlyVisiblePage) {
+  if (base::android::device_info::is_desktop()) {
+    GTEST_SKIP()
+        << "ProtectRecentlyVisibleTab feature is always enabled on android "
+           "desktop. The feature is tested at "
+           "ProcessRankPolicyAndroidTest::ProtectRecentlyVisibleTab";
+  }
   if (!content::IsNotPerceptibleImportanceSupported()) {
     GTEST_SKIP() << "NOT_PERCEPTIBLE importance is not supported.";
   }
@@ -345,8 +358,13 @@ TEST_F(ProcessRankPolicyAndroidTest, RecentlyAudiblePage) {
   if (!content::IsNotPerceptibleImportanceSupported()) {
     GTEST_SKIP() << "NOT_PERCEPTIBLE importance is not supported.";
   }
-  scoped_feature_list_.InitAndEnableFeature(
-      chrome::android::kProtectedTabsAndroid);
+  scoped_feature_list_.InitWithFeaturesAndParameters(
+      /*enabled_features=*/
+      {{chrome::android::kProtectedTabsAndroid, {}},
+       // Effectively disable the recently visible timer.
+       {chrome::android::kProtectRecentlyVisibleTab,
+        {{"duration_in_seconds", "0"}}}},
+      /*disabled_features=*/{});
   graph_->PassToGraph(std::make_unique<ProcessRankPolicyAndroid>(true));
   MockPageGraph page_graph = CreateDefaultPage();
   DefaultNavigation(page_graph.page.get());
@@ -710,8 +728,13 @@ TEST_F(ProcessRankPolicyAndroidTest, HadUserEditsPage) {
 }
 
 TEST_F(ProcessRankPolicyAndroidTest, NonVisiblePage) {
-  scoped_feature_list_.InitAndEnableFeature(
-      chrome::android::kProtectedTabsAndroid);
+  scoped_feature_list_.InitWithFeaturesAndParameters(
+      /*enabled_features=*/
+      {{chrome::android::kProtectedTabsAndroid, {}},
+       // Effectively disable the recently visible timer.
+       {chrome::android::kProtectRecentlyVisibleTab,
+        {{"duration_in_seconds", "0"}}}},
+      /*disabled_features=*/{});
   graph_->PassToGraph(std::make_unique<ProcessRankPolicyAndroid>());
   MockPageGraph page_graph = CreateDefaultPage();
   DefaultNavigation(page_graph.page.get());
@@ -869,7 +892,6 @@ TEST_F(ProcessRankPolicyAndroidTest, ProtectRecentlyVisibleTab) {
 
   // Advance time by the protection duration.
   task_environment()->FastForwardBy(kDuration);
-  base::RunLoop().QuitWhenIdle();
 
   // The page should no longer be protected.
   EXPECT_EQ(web_contents()->GetPrimaryMainFrameImportanceForTesting(),

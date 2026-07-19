@@ -120,6 +120,7 @@ IN_PROC_BROWSER_TEST_F(PdfViewerPrivateApiTest, GetTextInfo_MojoSerialization) {
 
   // Check that every field is non-zero.
   EXPECT_NE(text_info->effective_zoom, 0);
+  EXPECT_NE(text_info->primary_ascent, 0);
   ASSERT_THAT(text_info->text_runs, Not(IsEmpty()));
   pdf::mojom::InkTextRunPtr& text_run = text_info->text_runs[0];
   EXPECT_NE(text_run->location, gfx::RectF());
@@ -127,6 +128,8 @@ IN_PROC_BROWSER_TEST_F(PdfViewerPrivateApiTest, GetTextInfo_MojoSerialization) {
   ASSERT_THAT(text_run->typeface_runs, Not(IsEmpty()));
   pdf::mojom::InkTypefaceRunPtr& typeface_run = text_run->typeface_runs[0];
   EXPECT_TRUE(typeface_run->is_horizontal);
+  EXPECT_FALSE(typeface_run->is_synthetic_bold);
+  EXPECT_FALSE(typeface_run->is_synthetic_italic);
   EXPECT_NE(typeface_run->typeface_id, 0);
   EXPECT_THAT(typeface_run->glyphs, Not(IsEmpty()));
   EXPECT_THAT(

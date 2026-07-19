@@ -13,6 +13,8 @@
 #include "build/buildflag.h"
 #include "components/input/timeout_monitor.h"
 #include "content/browser/renderer_host/navigation_controller_impl.h"
+#include "content/browser/renderer_host/render_frame_host_manager.h"
+#include "content/browser/site_instance_impl.h"
 #include "content/common/content_navigation_policy.h"
 #include "content/common/features.h"
 #include "content/public/browser/cors_origin_pattern_setter.h"
@@ -27,6 +29,8 @@
 #include "content/test/test_render_frame_host.h"
 #include "content/test/test_render_view_host.h"
 #include "content/test/test_web_contents.h"
+#include "mojo/public/cpp/test_support/fake_message_dispatch_context.h"
+#include "mojo/public/cpp/test_support/test_utils.h"
 #include "net/base/features.h"
 #include "net/base/isolation_info.h"
 #include "net/base/network_isolation_partition.h"
@@ -44,6 +48,7 @@
 #include "third_party/blink/public/common/runtime_feature_state/runtime_feature_state_read_context.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "third_party/blink/public/mojom/favicon/favicon_url.mojom.h"
+#include "third_party/blink/public/mojom/notifications/notification_service.mojom.h"
 #include "third_party/blink/public/mojom/webauthn/authenticator.mojom.h"
 #include "url/gurl.h"
 #include "url/origin.h"
@@ -99,6 +104,14 @@ class MimeHandlerOverrideContentBrowserClient
   RenderFrameHost* GetEffectiveTopFrameForPartitioning(
       RenderFrameHost* render_frame_host) override {
     return effective_top_;
+  }
+
+  // Mirrors the production scheme guard so the override fires only for the
+  // chrome-extension frame's own commit, not the embedder or descendants.
+  bool IsSecureContextRoot(RenderFrameHost* parent_frame,
+                           FrameTreeNodeId frame_tree_node_id,
+                           const GURL& url) override {
+    return url.SchemeIs("chrome-extension");
   }
 
  private:
@@ -452,18 +465,21 @@ TEST_F(RenderFrameHostImplTest, FaviconURLsSet) {
 
   std::vector<blink::mojom::FaviconURLPtr> one_favicon_url;
   one_favicon_url.push_back(blink::mojom::FaviconURL::New(kFavicon));
-  main_rfh->UpdateFaviconURL(std::move(one_favicon_url));
+  main_rfh->UpdateFaviconURL(std::move(one_favicon_url),
+                             blink::mojom::FaviconUpdateReason::kPageLoad);
   EXPECT_EQ(1u, contents()->GetFaviconURLs().size());
 
   std::vector<blink::mojom::FaviconURLPtr> two_favicon_urls;
   two_favicon_urls.push_back(blink::mojom::FaviconURL::New(kFavicon));
   two_favicon_urls.push_back(blink::mojom::FaviconURL::New(kFavicon));
-  main_rfh->UpdateFaviconURL(std::move(two_favicon_urls));
+  main_rfh->UpdateFaviconURL(std::move(two_favicon_urls),
+                             blink::mojom::FaviconUpdateReason::kPageLoad);
   EXPECT_EQ(2u, contents()->GetFaviconURLs().size());
 
   std::vector<blink::mojom::FaviconURLPtr> another_one_favicon_url;
   another_one_favicon_url.push_back(blink::mojom::FaviconURL::New(kFavicon));
-  main_rfh->UpdateFaviconURL(std::move(another_one_favicon_url));
+  main_rfh->UpdateFaviconURL(std::move(another_one_favicon_url),
+                             blink::mojom::FaviconUpdateReason::kPageLoad);
   EXPECT_EQ(1u, contents()->GetFaviconURLs().size());
 }
 
@@ -483,7 +499,8 @@ TEST_F(RenderFrameHostImplTest, FaviconURLsResetWithNavigation) {
   navigation->Commit();
 
   EXPECT_EQ(0u, contents()->GetFaviconURLs().size());
-  main_rfh->UpdateFaviconURL(std::move(favicon_urls));
+  main_rfh->UpdateFaviconURL(std::move(favicon_urls),
+                             blink::mojom::FaviconUpdateReason::kPageLoad);
   EXPECT_EQ(1u, contents()->GetFaviconURLs().size());
 
   navigation = NavigationSimulator::CreateBrowserInitiated(
@@ -546,6 +563,29 @@ TEST_F(RenderFrameHostImplTest, ChildOfCredentiallessIsCredentialless) {
       grandchild_frame->GetNetworkIsolationKey().GetNonce().has_value());
   EXPECT_EQ(main_test_rfh()->GetPage().credentialless_iframes_nonce(),
             grandchild_frame->GetNetworkIsolationKey().GetNonce().value());
+}
+
+TEST_F(RenderFrameHostImplTest, SpeculativeFrameHostIsCredentialless) {
+  // Start with a committed page.
+  GURL url1("https://a.com");
+  NavigationSimulator::NavigateAndCommitFromDocument(url1, main_test_rfh());
+
+  // Start a cross-site navigation to create a speculative RFH.
+  GURL url2("https://b.com");
+  std::unique_ptr<NavigationSimulator> simulator =
+      NavigationSimulator::CreateBrowserInitiated(url2, contents());
+  simulator->Start();
+
+  RenderFrameHostManager* manager =
+      main_test_rfh()->frame_tree_node()->render_manager();
+  RenderFrameHostImpl* speculative_rfh = manager->speculative_frame_host();
+
+  if (AreStrictSiteInstancesEnabled()) {
+    ASSERT_NE(speculative_rfh, nullptr);
+    // Verify that calling IsCredentialless() on the speculative RFH
+    // does not crash and returns false (since it has no policy container yet).
+    EXPECT_FALSE(speculative_rfh->IsCredentialless());
+  }
 }
 
 // FakeLocalFrame implementation that records calls to BeforeUnload().
@@ -1582,23 +1622,21 @@ TEST_P(RenderFrameHostImplCookieChangeListenerTest, CookieChangeListener) {
   }
 }
 
-// Shared fixture for tests that exercise
-// `ContentBrowserClient::GetEffectiveTopFrameForPartitioning()` and the
-// IsolationInfo / StorageKey overrides keyed off it. Centralizes the
-// scheme registration, ContentBrowserClient swap, third-party storage
-// partitioning flag, and the canonical embedder/extension/grandchild
-// frame tree.
-class RenderFrameHostImplMimeHandlerStoragePartitioningTest
-    : public RenderFrameHostImplTest {
+// Fixture for tests over the MIME-handler frame topology (embedder ->
+// extension OOPIF -> grandchild) through
+// `MimeHandlerOverrideContentBrowserClient`. Centralizes the scheme
+// registration, the ContentBrowserClient swap, and the canonical
+// embedder/extension/grandchild frame-tree helpers.
+class RenderFrameHostImplMimeHandlerTest : public RenderFrameHostImplTest {
  public:
-  RenderFrameHostImplMimeHandlerStoragePartitioningTest() {
+  RenderFrameHostImplMimeHandlerTest() {
     feature_list_.InitAndEnableFeature(
         net::features::kThirdPartyStoragePartitioning);
     url::AddStandardScheme("chrome-extension", url::SCHEME_WITH_HOST);
     previous_client_ = SetBrowserClientForTesting(&modified_client_);
   }
 
-  ~RenderFrameHostImplMimeHandlerStoragePartitioningTest() override {
+  ~RenderFrameHostImplMimeHandlerTest() override {
     SetBrowserClientForTesting(previous_client_);
   }
 
@@ -1669,8 +1707,7 @@ constexpr char kGrandchildUrl[] = "https://child-content.com/page.html";
 // top_level_site, not the embedder. The extension frame itself stays
 // first-party (handled by `ShouldUseFirstPartyStorageKey`), and the
 // main frame is unaffected.
-TEST_F(RenderFrameHostImplMimeHandlerStoragePartitioningTest,
-       StorageKeyMimeHandlerTruncation) {
+TEST_F(RenderFrameHostImplMimeHandlerTest, StorageKeyMimeHandlerTruncation) {
   Subtree tree = BuildEmbedderExtensionGrandchild(
       GURL(kEmbedderUrl), GURL(kExtensionUrl), GURL(kGrandchildUrl));
   modified_client_.SetEffectiveTopFrame(tree.extension_frame);
@@ -1700,8 +1737,7 @@ TEST_F(RenderFrameHostImplMimeHandlerStoragePartitioningTest,
 }
 
 // No override: descendant's StorageKey falls through to the embedder.
-TEST_F(RenderFrameHostImplMimeHandlerStoragePartitioningTest,
-       StorageKeyNoMimeHandlerTruncation) {
+TEST_F(RenderFrameHostImplMimeHandlerTest, StorageKeyNoMimeHandlerTruncation) {
   Subtree tree = BuildEmbedderExtensionGrandchild(
       GURL(kEmbedderUrl), GURL(kExtensionUrl), GURL(kGrandchildUrl));
 
@@ -1716,7 +1752,7 @@ TEST_F(RenderFrameHostImplMimeHandlerStoragePartitioningTest,
 
 // Override active: descendant's IsolationInfo uses the extension as
 // top_frame_origin.
-TEST_F(RenderFrameHostImplMimeHandlerStoragePartitioningTest,
+TEST_F(RenderFrameHostImplMimeHandlerTest,
        IsolationInfoMimeHandlerChildFrameOverride) {
   Subtree tree = BuildEmbedderExtensionGrandchild(GURL(kEmbedderUrl),
                                                   GURL(kExtensionUrl), GURL());
@@ -1732,7 +1768,7 @@ TEST_F(RenderFrameHostImplMimeHandlerStoragePartitioningTest,
 }
 
 // No override: descendant's IsolationInfo falls through to the embedder.
-TEST_F(RenderFrameHostImplMimeHandlerStoragePartitioningTest,
+TEST_F(RenderFrameHostImplMimeHandlerTest,
        IsolationInfoNoMimeHandlerChildFrameOverride) {
   Subtree tree = BuildEmbedderExtensionGrandchild(
       GURL(kEmbedderUrl), GURL(kExtensionUrl), GURL(kGrandchildUrl));
@@ -1748,7 +1784,7 @@ TEST_F(RenderFrameHostImplMimeHandlerStoragePartitioningTest,
 // `GetLastCommittedOrigin()` still returns the initial about:blank
 // inherited from the embedder. The override must use the pending
 // `frame_origin` instead.
-TEST_F(RenderFrameHostImplMimeHandlerStoragePartitioningTest,
+TEST_F(RenderFrameHostImplMimeHandlerTest,
        IsolationInfoMimeHandlerSelfFramePendingCommit) {
   TestRenderFrameHost* embedder = CommitEmbedder(GURL(kEmbedderUrl));
   TestRenderFrameHost* extension_frame =
@@ -1762,6 +1798,82 @@ TEST_F(RenderFrameHostImplMimeHandlerStoragePartitioningTest,
           /*fenced_frame_nonce_for_navigation=*/std::nullopt);
 
   EXPECT_EQ(extension_origin, info.top_frame_origin());
+}
+
+// `DidNavigate` replicates the secure-context-root bit from the committing
+// NavigationRequest's commit_params. The extension frame commits at a
+// chrome-extension URL, so its `IsSecureContextRoot()` override fires and
+// the replicated bit is true; the embedder (non-extension URL) stays false.
+TEST_F(RenderFrameHostImplMimeHandlerTest,
+       DidNavigateReplicatesSecureContextRootFromCommitParams) {
+  TestRenderFrameHost* embedder = CommitEmbedder(GURL(kEmbedderUrl));
+  TestRenderFrameHost* extension_frame =
+      AppendAndMaybeCommit(embedder, "extension", GURL(kExtensionUrl));
+
+  EXPECT_TRUE(extension_frame->frame_tree_node()
+                  ->current_replication_state()
+                  .is_secure_context_root);
+  EXPECT_FALSE(embedder->frame_tree_node()
+                   ->current_replication_state()
+                   .is_secure_context_root);
+}
+
+// A freshly-appended child that has not committed any navigation is not a
+// secure-context root: the bit defaults to false and the dropped
+// new-frame-origin path leaves it untouched.
+TEST_F(RenderFrameHostImplMimeHandlerTest, NewFrameIsNotSecureContextRoot) {
+  TestRenderFrameHost* embedder = CommitEmbedder(GURL(kEmbedderUrl));
+  TestRenderFrameHost* child = AppendAndMaybeCommit(embedder, "child", GURL());
+
+  EXPECT_FALSE(child->frame_tree_node()
+                   ->current_replication_state()
+                   .is_secure_context_root);
+}
+
+// A same-document navigation (e.g. a fragment change) reuses the committed
+// document, so the frame's secure-context-root status cannot change. The
+// synchronous-commit NavigationRequest carries the default
+// `is_secure_context_root=false`, so `DidNavigate` must not clobber the bit
+// the cross-document commit established for the extension frame.
+TEST_F(RenderFrameHostImplMimeHandlerTest,
+       SameDocumentNavigationPreservesSecureContextRoot) {
+  TestRenderFrameHost* embedder = CommitEmbedder(GURL(kEmbedderUrl));
+  TestRenderFrameHost* extension_frame =
+      AppendAndMaybeCommit(embedder, "extension", GURL(kExtensionUrl));
+  ASSERT_TRUE(extension_frame->frame_tree_node()
+                  ->current_replication_state()
+                  .is_secure_context_root);
+
+  // Fragment navigation within the extension document.
+  NavigationSimulator::CreateRendererInitiated(
+      GURL(std::string(kExtensionUrl) + "#frag"), extension_frame)
+      ->CommitSameDocument();
+
+  EXPECT_TRUE(extension_frame->frame_tree_node()
+                  ->current_replication_state()
+                  .is_secure_context_root);
+}
+
+TEST_F(RenderFrameHostImplTest, NotificationServiceBlockedForPdf) {
+  UrlInfo url_info(
+      UrlInfoInit(GURL("https://foo.com/document.pdf"))
+          .WithEmbedderIsolationInfo(EmbedderIsolationInfo::CreateForPdf()));
+  scoped_refptr<SiteInstanceImpl> pdf_instance =
+      SiteInstanceImpl::CreateForUrlInfo(GetBrowserContext(), url_info,
+                                         /*is_guest=*/false,
+                                         /*is_fenced=*/false,
+                                         /*is_fixed_storage_partition=*/false);
+  std::unique_ptr<TestWebContents> pdf_web_contents =
+      TestWebContents::Create(GetBrowserContext(), pdf_instance);
+  TestRenderFrameHost* pdf_rfh = pdf_web_contents->GetPrimaryMainFrame();
+
+  mojo::FakeMessageDispatchContext fake_dispatch_context;
+  mojo::test::BadMessageObserver bad_message_observer;
+  mojo::Remote<blink::mojom::NotificationService> service;
+  pdf_rfh->CreateNotificationService(service.BindNewPipeAndPassReceiver());
+
+  EXPECT_EQ("PDF renderers may not bind blink.mojom.NotificationService",
+            bad_message_observer.WaitForBadMessage());
 }
 
 }  // namespace content

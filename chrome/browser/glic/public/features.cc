@@ -14,7 +14,7 @@ namespace features {
 
 BASE_FEATURE(kGlicAndroidSidePanel, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kGlicChromeStatusIcon, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicChromeStatusIcon, base::FEATURE_ENABLED_BY_DEFAULT);
 const base::FeatureParam<int> kGlicChromeStatusIconSizePx{
     &kGlicChromeStatusIcon, "glic-chrome-status-icon-size-px", 20};
 const base::FeatureParam<bool> kGlicChromeStatusIconUseAltIcon{
@@ -40,8 +40,8 @@ const base::FeatureParam<bool> kGlicSelectionPromptEnablePinning{
     &kGlicSelectionPrompt, "enable_pinning", false};
 const base::FeatureParam<std::string> kGlicSelectionTopCueOnlyList{
     &kGlicSelectionPrompt, "top_cue_only_list", ""};
-const base::FeatureParam<int> kGlicSelectionPromptWidgetMaxTotalDismisses{
-    &kGlicSelectionPrompt, "max_total_dismisses", 10};
+const base::FeatureParam<bool> kGlicSelectionEnableSiteSettings{
+    &kGlicSelectionPrompt, "enable_site_settings", false};
 
 BASE_FEATURE(kGlicClearTurnIdOnPanelWillOpen,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -59,6 +59,7 @@ const base::FeatureParam<base::TimeDelta> kAutoOpenGlicCooldown({
 });
 
 BASE_FEATURE(kGlicInvoke, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicOnboardingMetricsMigration, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicCreateTabAdjacent, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -72,12 +73,7 @@ BASE_FEATURE(kGlicLiveMode,
 );
 
 BASE_FEATURE(kGlicDefaultToLastActiveConversation,
-#if BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_DESKTOP_ANDROID)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 const base::FeatureParam<base::TimeDelta>
     kGlicDefaultToLastActiveConversationMaxRecency{
@@ -94,6 +90,8 @@ const base::FeatureParam<std::string> kGlicContextMenuArm{&kGlicContextMenu,
                                                           "variant", "arm1"};
 const base::FeatureParam<bool> kGlicContextMenuWithOnboarding{
     &kGlicContextMenu, "WithOnboarding", false};
+
+BASE_FEATURE(kGlicTextSelectionContextMenu, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicTieredRolloutV2, base::FEATURE_DISABLED_BY_DEFAULT);
 const base::FeatureParam<std::string> kGlicTieredRolloutV2EligibleTiers{
@@ -135,13 +133,15 @@ const base::FeatureParam<GlicToolbarButtonLocation>
         GlicToolbarButtonLocation::kLeftOfProfileChip,
         &kGlicButtonLocationOptions};
 
-BASE_FEATURE(kGlicButtonAutoSummarize, base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kGlicGetTabFaviconById, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicSkipCookieSyncOnOpen, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kGlicCookieSyncOnTokenChange, base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(kGlicShareImageViaInvoke, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicCookieSyncOnError, base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<base::TimeDelta> kGlicCookieSyncOnErrorMinInterval{
+    &kGlicCookieSyncOnError, "min_interval", base::Minutes(5)};
+BASE_FEATURE(kGlicCookieSyncOnOpenEvenIfNoSyncNeeded,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicWebClientLoadTimes, base::FEATURE_ENABLED_BY_DEFAULT);
 const base::FeatureParam<int> kGlicPreLoadingTimeMs{
@@ -195,6 +195,13 @@ BASE_FEATURE(kGlicProcessCounterAbuseVerdict,
 BASE_FEATURE(kGlicNoWebUiLoader, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicGeminiEnterpriseSettingsEnabled,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kGlicHotkeyLocalScope,
+#if BUILDFLAG(IS_ANDROID)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
 }  // namespace features

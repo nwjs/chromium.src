@@ -11,12 +11,12 @@
 #include "build/buildflag.h"
 #include "chrome/browser/background/glic/glic_background_mode_manager.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/glic/fre/glic_fre_controller.h"
 #include "chrome/browser/glic/glic_metrics.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/glic_profile_manager.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/host/glic_web_contents_warming_pool.h"
+#include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
 #include "chrome/browser/glic/public/service/glic_instance_coordinator.h"
 #include "chrome/browser/glic/service/glic_instance_coordinator_impl.h"
@@ -30,6 +30,7 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_test_util.h"
 #include "chrome/browser/renderer_context_menu/render_view_context_menu.h"
+#include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
@@ -38,12 +39,18 @@
 #include "chrome/browser/ui/views/tabs/tab_strip_action_container.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
+#include "chrome/common/extensions/extension_constants.h"
 #include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
+#include "extensions/browser/background_script_executor.h"
 #include "ui/base/test/ui_controls.h"
+#if BUILDFLAG(IS_OZONE)
+#include "ui/ozone/public/ozone_platform.h"
+#endif
+
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
 #include "ui/display/test/virtual_display_util.h"
@@ -125,8 +132,8 @@ class GlicInstanceCoordinatorUiTest : public test::InteractiveGlicTest {
         gfx::Point(work_area_bounds.width() / 3 + work_area_bounds.x(),
                    work_area_bounds.height() / 3 + work_area_bounds.y()),
         cell_size);
-    browser()->window()->SetBounds(browser_bounds);
-    browser_bounds = browser()->window()->GetBounds();
+    browser()->GetWindow()->SetBounds(browser_bounds);
+    browser_bounds = browser()->GetWindow()->GetBounds();
 
     // The test places the browser in the center cell. For the test to be valid,
     // there must be enough space around the browser for the GlicWidget to
@@ -216,7 +223,7 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUiTest,
   RunTestSequence(
       Do([&]() {
         Browser* const pwa = CreateBrowserForApp("app name", GetProfile());
-        pwa->window()->Activate();
+        pwa->GetWindow()->Activate();
       }),
       SimulateGlicHotkey(),
       InAnyContext(WaitForShow(kGlicViewElementId).SetMustRemainVisible(false)),
@@ -230,7 +237,7 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUiTest,
       SetOnIncompatibleAction(OnIncompatibleAction::kSkipTest,
                               kActivateSurfaceIncompatibilityNotice),
       ActivateSurface(kBrowserViewElementId));
-  browser()->window()->Minimize();
+  browser()->GetWindow()->Minimize();
   ASSERT_TRUE(ui_test_utils::WaitForMinimized(browser()));
   RunTestSequence(SimulateGlicHotkey(), WaitForGlicOpen());
 }
@@ -249,7 +256,7 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUiTest,
       ActivateSurface(kBrowserViewElementId));
 
   // This will make some other window the foreground window.
-  browser()->window()->Deactivate();
+  browser()->GetWindow()->Deactivate();
 
   RunTestSequence(
       SimulateGlicHotkey(),
@@ -440,7 +447,7 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUiTest,
         histogram_tester.ExpectTotalCount(
             "Glic.Host.WebClientUnresponsiveState", 0);
       }),
-      Do([&] { browser()->window()->Activate(); }),
+      Do([&] { browser()->GetWindow()->Activate(); }),
       WaitForState(test::internal::kGlicAppState,
                    mojom::WebUiState::kUnresponsive),
       Do([&] {
@@ -537,7 +544,7 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUiTest, TestInitialBounds) {
   // Use default location if Glic button location results in an invalid widget
   // location. Move browser window so that it is mostly off the screen to the
   // right.
-  browser()->window()->SetBounds(
+  browser()->GetWindow()->SetBounds(
       {{top_right.x() + 500, top_right.y() + 50}, {900, 900}});
   initial_bounds =
       GlicWidget::GetInitialBounds(browser(), GlicWidget::GetInitialSize());
@@ -614,8 +621,8 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorLocationMetricsUiTest,
       gfx::Point(work_area_bounds.width() / 3 + work_area_bounds.x(),
                  work_area_bounds.height() / 3 + work_area_bounds.y()),
       cell_size);
-  browser()->window()->SetBounds(browser_bounds);
-  browser_bounds = browser()->window()->GetBounds();
+  browser()->GetWindow()->SetBounds(browser_bounds);
+  browser_bounds = browser()->GetWindow()->GetBounds();
 
   base::HistogramTester tester;
 
@@ -662,9 +669,9 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorLocationMetricsUiTest,
   open_and_close(ChromeRelativePosition::kBelowRight);
 
   RunTestSequence(OpenGlicFloatingWindow());
-  browser()->window()->Minimize();
+  browser()->GetWindow()->Minimize();
   ASSERT_TRUE(ui_test_utils::WaitForMinimized(browser()));
-  EXPECT_FALSE(browser()->window()->IsActive());
+  EXPECT_FALSE(browser()->GetWindow()->IsActive());
   RunTestSequence(CloseGlicWindow());
   tester.ExpectBucketCount("Glic.PositionOnChrome.OnClose",
                            ChromeRelativePosition::kNoVisibleChromeBrowser, 1);
@@ -690,7 +697,7 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUiTest,
   Browser* const browser1 = CreateBrowser(&profile1);
   GlicKeyedService* const service1 =
       GlicKeyedServiceFactory::GetGlicKeyedService(browser1->profile());
-  service1->fre_controller().AcceptFre(nullptr);
+  ::glic::SetFRECompletion(browser1->profile(), prefs::FreStatus::kCompleted);
   EXPECT_TRUE(service1->enabling().HasConsented());
 
   // Open glic
@@ -820,5 +827,111 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorWithDelayedPreloadingUiTest,
       InAnyContext(
           WaitForShow(kGlicViewElementId).SetMustRemainVisible(false)));
 }
+
+#if !BUILDFLAG(IS_ANDROID)
+IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUiTest,
+                       ActivateTabWithConversation) {
+#if BUILDFLAG(IS_OZONE)
+  // Programmatic window activation does not work on the Weston reference
+  // implementation of Wayland used on Linux/ChromeOS testbots, and is
+  // unreliable on Linux in general. In these environments, we completely skip
+  // this test at runtime.
+  if (!ui::OzonePlatform::GetInstance()
+           ->GetPlatformProperties()
+           .supports_global_screen_coordinates) {
+    GTEST_SKIP() << "Programmatic window activation is not supported by the "
+                    "active Ozone platform.";
+  }
+#endif
+
+  BrowserWindowInterface* window_a = browser();
+  auto* tab_list_a = TabListInterface::From(window_a);
+  tabs::TabInterface* tab_a = tab_list_a->GetActiveTab();
+  ASSERT_TRUE(tab_a);
+
+  glic::GlicKeyedService* service = glic_service();
+  service->instance_coordinator().CreateNewConversationForTabs({tab_a});
+
+  glic::GlicInstance* instance =
+      service->instance_coordinator().GetInstanceForTab(tab_a);
+  ASSERT_TRUE(instance);
+
+  {
+    auto conversation_info = glic::mojom::ConversationInfo::New();
+    conversation_info->conversation_id = "test_conversation_id";
+    static_cast<glic::GlicInstanceImpl*>(instance)->RegisterConversation(
+        std::move(conversation_info), base::DoNothing());
+  }
+
+  Browser* window_b =
+      ui_test_utils::OpenNewEmptyWindowAndWaitUntilActivated(GetProfile());
+  ASSERT_TRUE(window_b);
+
+  EXPECT_TRUE(ui_test_utils::IsBrowserActive(window_b));
+  EXPECT_FALSE(ui_test_utils::IsBrowserActive(window_a));
+
+  ui_test_utils::BrowserActivationWaiter waiter_a(window_a);
+
+  glic::GlicInstanceCoordinator::ActivateTabResult cxx_result =
+      service->instance_coordinator().ActivateTabWithConversation(
+          "test_conversation_id");
+  EXPECT_EQ(cxx_result,
+            glic::GlicInstanceCoordinator::ActivateTabResult::kSuccess);
+
+  waiter_a.WaitForActivation();
+
+  EXPECT_EQ(tab_list_a->GetActiveTab(), tab_a);
+}
+
+IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUiTest,
+                       ActivateTabWithConversation_SelectsMostRecentlyActive) {
+  BrowserWindowInterface* window_a = browser();
+  auto* tab_list_a = TabListInterface::From(window_a);
+  tabs::TabInterface* tab_1 = tab_list_a->GetActiveTab();
+  ASSERT_TRUE(tab_1);
+
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(), GURL("about:blank"), WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+  tabs::TabInterface* tab_2 = tab_list_a->GetActiveTab();
+  ASSERT_TRUE(tab_2);
+  ASSERT_NE(tab_1, tab_2);
+
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(), GURL("about:blank"), WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+  tabs::TabInterface* tab_3 = tab_list_a->GetActiveTab();
+  ASSERT_TRUE(tab_3);
+  ASSERT_NE(tab_2, tab_3);
+
+  glic::GlicKeyedService* service = glic_service();
+  service->instance_coordinator().CreateNewConversationForTabs({tab_1, tab_2});
+
+  glic::GlicInstance* instance =
+      service->instance_coordinator().GetInstanceForTab(tab_1);
+  ASSERT_TRUE(instance);
+
+  {
+    auto conversation_info = glic::mojom::ConversationInfo::New();
+    conversation_info->conversation_id = "test_conversation_id";
+    static_cast<glic::GlicInstanceImpl*>(instance)->RegisterConversation(
+        std::move(conversation_info), base::DoNothing());
+  }
+
+  tab_list_a->ActivateTab(tab_1->GetHandle());
+  tab_list_a->ActivateTab(tab_2->GetHandle());
+  tab_list_a->ActivateTab(tab_3->GetHandle());
+
+  EXPECT_EQ(tab_list_a->GetActiveTab(), tab_3);
+
+  glic::GlicInstanceCoordinator::ActivateTabResult cxx_result =
+      service->instance_coordinator().ActivateTabWithConversation(
+          "test_conversation_id");
+  EXPECT_EQ(cxx_result,
+            glic::GlicInstanceCoordinator::ActivateTabResult::kSuccess);
+
+  EXPECT_EQ(tab_list_a->GetActiveTab(), tab_2);
+}
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 }  // namespace glic

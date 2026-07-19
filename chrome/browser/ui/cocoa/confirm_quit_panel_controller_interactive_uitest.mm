@@ -13,6 +13,7 @@
 #import "chrome/browser/ui/cocoa/confirm_quit_panel_controller.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "content/public/test/browser_test.h"
+#include "ui/views/widget/widget.h"
 
 namespace {
 
@@ -49,7 +50,7 @@ class ConfirmQuitControllerPanelInteractiveUITest
 IN_PROC_BROWSER_TEST_F(ConfirmQuitControllerPanelInteractiveUITest,
                        SingleTapDoesNotTriggerQuit) {
   NSWindow* browserWindow =
-      browser()->window()->GetNativeWindow().GetNativeNSWindow();
+      browser()->GetWindow()->GetNativeWindow().GetNativeNSWindow();
   ConfirmQuitPanelController* controller =
       [[ConfirmQuitPanelController alloc] init];
   NSWindow* hudWindow = controller.window;
@@ -73,7 +74,7 @@ IN_PROC_BROWSER_TEST_F(ConfirmQuitControllerPanelInteractiveUITest,
 IN_PROC_BROWSER_TEST_F(ConfirmQuitControllerPanelInteractiveUITest,
                        SustainedHoldTriggersQuit) {
   NSWindow* browserWindow =
-      browser()->window()->GetNativeWindow().GetNativeNSWindow();
+      browser()->GetWindow()->GetNativeWindow().GetNativeNSWindow();
   ConfirmQuitPanelController* controller =
       [[ConfirmQuitPanelController alloc] init];
   NSWindow* hudWindow = controller.window;
@@ -110,7 +111,7 @@ IN_PROC_BROWSER_TEST_F(ConfirmQuitControllerPanelInteractiveUITest,
 IN_PROC_BROWSER_TEST_F(ConfirmQuitControllerPanelInteractiveUITest,
                        DoubleTapTriggersQuit) {
   NSWindow* browserWindow =
-      browser()->window()->GetNativeWindow().GetNativeNSWindow();
+      browser()->GetWindow()->GetNativeWindow().GetNativeNSWindow();
   ConfirmQuitPanelController* controller =
       [[ConfirmQuitPanelController alloc] init];
   NSWindow* hudWindow = controller.window;
@@ -148,7 +149,7 @@ IN_PROC_BROWSER_TEST_F(ConfirmQuitControllerPanelInteractiveUITest,
 IN_PROC_BROWSER_TEST_F(ConfirmQuitControllerPanelInteractiveUITest,
                        SingleTapThenHoldTriggersQuit) {
   NSWindow* browserWindow =
-      browser()->window()->GetNativeWindow().GetNativeNSWindow();
+      browser()->GetWindow()->GetNativeWindow().GetNativeNSWindow();
   ConfirmQuitPanelController* controller =
       [[ConfirmQuitPanelController alloc] init];
   NSWindow* hudWindow = controller.window;
@@ -194,7 +195,7 @@ IN_PROC_BROWSER_TEST_F(ConfirmQuitControllerPanelInteractiveUITest,
 IN_PROC_BROWSER_TEST_F(ConfirmQuitControllerPanelInteractiveUITest,
                        SustainedHoldFadesAllWindows) {
   NSWindow* browserWindow =
-      browser()->window()->GetNativeWindow().GetNativeNSWindow();
+      browser()->GetWindow()->GetNativeWindow().GetNativeNSWindow();
   CGRect childContentRect = {browserWindow.frame.origin, {100, 100}};
   NSWindow* childWindow =
       [[NSWindow alloc] initWithContentRect:childContentRect
@@ -234,13 +235,64 @@ IN_PROC_BROWSER_TEST_F(ConfirmQuitControllerPanelInteractiveUITest,
   EXPECT_TRUE(childFaded);
 }
 
+// Verifies that generic non-browser views::Widgets (like the Task Manager)
+// fade out when the user holds Cmd+Q.
+IN_PROC_BROWSER_TEST_F(ConfirmQuitControllerPanelInteractiveUITest,
+                       SustainedHoldFadesGenericWidgets) {
+  NSWindow* browserWindow =
+      browser()->GetWindow()->GetNativeWindow().GetNativeNSWindow();
+
+  // Create a generic views::Widget.
+  views::Widget* generic_widget = new views::Widget;
+  views::Widget::InitParams params(
+      views::Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
+      views::Widget::InitParams::TYPE_WINDOW);
+  params.bounds = gfx::Rect(10, 10, 100, 100);
+  generic_widget->Init(std::move(params));
+  generic_widget->Show();
+
+  NSWindow* generic_ns_window =
+      generic_widget->GetNativeWindow().GetNativeNSWindow();
+
+  EXPECT_EQ(generic_ns_window.alphaValue, 1.0);
+
+  ConfirmQuitPanelController* controller =
+      [[ConfirmQuitPanelController alloc] init];
+  base::TimeTicks startTime = base::TimeTicks::Now();
+  __block BOOL browserWindowFaded = NO;
+  __block BOOL genericWindowFaded = NO;
+  ConfirmQuitPanelController.isKeyDownForKeyCodeMock =
+      ^(unsigned short keyCode) {
+        if (browserWindow.alphaValue < 1.0) {
+          browserWindowFaded = YES;
+        }
+
+        if (generic_ns_window.alphaValue < 1.0) {
+          genericWindowFaded = YES;
+        }
+
+        // Return YES for enough time to trigger a quit and see the fade.
+        base::TimeDelta elapsed = base::TimeTicks::Now() - startTime;
+        return (BOOL)(elapsed <
+                      (confirm_quit::kShowDuration + base::Milliseconds(500)));
+      };
+
+  BOOL shouldQuit = [controller runConfirmQuitLoopWithEvent:cmd_q_event_
+                                          dismissedCallback:nil];
+  EXPECT_TRUE(shouldQuit);
+  EXPECT_TRUE(browserWindowFaded);
+  EXPECT_TRUE(genericWindowFaded);
+
+  generic_widget->CloseNow();
+}
+
 // Verifies that a quit attempt blocked by a "confirm leave" (beforeunload)
 // dialog correctly preserves the panel controller and fades the windows back in
 // when cancelled.
 IN_PROC_BROWSER_TEST_F(ConfirmQuitControllerPanelInteractiveUITest,
                        BeforeUnloadCancellationRestoresWindowsAndCleansUp) {
   NSWindow* browserWindow =
-      browser()->window()->GetNativeWindow().GetNativeNSWindow();
+      browser()->GetWindow()->GetNativeWindow().GetNativeNSWindow();
   AppController* appController = AppController.sharedController;
 
   // Lazy-initialize the panel controller on AppController.

@@ -232,6 +232,16 @@ ui::AXMode FilterAccessibilityModeInvariants(ui::AXMode mode) {
     mode.set_mode(ui::AXMode::kLabelImages, false);
   }
 
+  // If the native adapted mode is requested, and native platform APIs are
+  // active, automatically upgrade it to include kWebContents. This ensures
+  // adapted views (like Webium's toolbar) are accessible to any native client
+  // querying the UI, while keeping accessibility off (zero performance cost)
+  // when no client is active.
+  if (mode.has_mode(ui::AXMode::kNativeAdaptedWebContents) &&
+      mode.has_mode(ui::AXMode::kNativeAPIs)) {
+    mode.set_mode(ui::AXMode::kWebContents, true);
+  }
+
   // Modes above kNativeAPIs and kWebContents require kWebContents. Some
   // components may enable higher bits, but those should only be given to a
   // WebContents if that WebContents also has the kWebContents mode enabled;
@@ -506,8 +516,11 @@ ui::AXMode BrowserAccessibilityStateImpl::GetAccessibilityModeForBrowserContext(
 
 
 void BrowserAccessibilityStateImpl::SetAXModeChangeAllowed(bool allowed) {
+  if (allow_ax_mode_changes_ == allowed) {
+    return;
+  }
   allow_ax_mode_changes_ = allowed;
-  ui::AXPlatformNode::SetAXModeChangeAllowed(allowed);
+  scoped_modes_for_process_.Recompute(MakePassKey());
 }
 
 bool BrowserAccessibilityStateImpl::IsAXModeChangeAllowed() const {
@@ -547,10 +560,6 @@ BrowserAccessibilityStateImpl::RegisterFocusChangedCallback(
 
 void BrowserAccessibilityStateImpl::EnableAXModeFromPlatform(
     ui::AXMode modes_to_add) {
-  if (!allow_ax_mode_changes_) {
-    return;
-  }
-
   ui::AXMode old_mode = platform_ax_mode_->mode();
   ui::AXMode new_mode = old_mode | modes_to_add;
   if (old_mode != new_mode) {
@@ -616,7 +625,12 @@ void BrowserAccessibilityStateImpl::OnActionFromAssistiveTech() {
   }
 }
 
-void BrowserAccessibilityStateImpl::OnPageNavigationComplete() {
+void BrowserAccessibilityStateImpl::OnPageNavigationComplete(
+    WebContents* web_contents) {
+  if (web_contents && web_contents->GetAccessibilityMode().has_mode(
+                          ui::AXMode::kNativeAdaptedWebContents)) {
+    return;
+  }
   ++num_page_navs_before_first_use_;
   has_recently_checked_for_screen_reader_ = false;
 }
@@ -774,6 +788,10 @@ void BrowserAccessibilityStateImpl::ApplyAccessibilityModeToWebContents(
 // scopers targeting the process changes.
 void BrowserAccessibilityStateImpl::OnModeChanged(ui::AXMode old_mode,
                                                   ui::AXMode new_mode) {
+  // Strip kNativeAdaptedWebContents so it never pollutes process-wide UMA
+  old_mode.set_mode(ui::AXMode::kNativeAdaptedWebContents, false);
+  new_mode.set_mode(ui::AXMode::kNativeAdaptedWebContents, false);
+
   ui::RecordAccessibilityModeHistograms(ui::AXHistogramPrefix::kNone, new_mode,
                                         old_mode);
   RecordPlatformClientHistograms(old_mode, new_mode);
@@ -826,8 +844,8 @@ void BrowserAccessibilityStateImpl::OnModeChanged(ui::AXMode old_mode,
 // scoped_modes_for_process_ when recomputing the effective mode for the
 // collection of scopers targeting the process.
 ui::AXMode BrowserAccessibilityStateImpl::FilterModeFlags(ui::AXMode mode) {
-  if (activation_from_platform_enabled_) {
-    // Allow mode changes with `kFromPlatform`, but filter out that one bit.
+  if (activation_from_platform_enabled_ && allow_ax_mode_changes_) {
+    // Allow mode changes with kFromPlatform, but filter out that one bit.
     // It need not be sent to renderers.
     return mode & ~ui::AXMode(ui::AXMode::kFromPlatform);
   }

@@ -52,7 +52,6 @@ import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
 import org.chromium.chrome.browser.tabmodel.TabClosingSource;
 import org.chromium.chrome.browser.tabmodel.TabClosureParamsUtils;
-import org.chromium.chrome.browser.tabmodel.TabGroupColorUtils;
 import org.chromium.chrome.browser.tabmodel.TabGroupMetadata;
 import org.chromium.chrome.browser.tabmodel.TabGroupMetadataExtractor;
 import org.chromium.chrome.browser.tabmodel.TabGroupObserver;
@@ -79,6 +78,7 @@ import org.chromium.components.tab_group_sync.EitherId.EitherGroupId;
 import org.chromium.components.tab_group_sync.LocalTabGroupId;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
 import org.chromium.components.tab_groups.TabGroupColorId;
+import org.chromium.components.tab_groups.TabGroupColorPickerUtils;
 import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.listmenu.ListMenuItemProperties;
@@ -140,7 +140,8 @@ public class TabGroupContextMenuCoordinator extends TabStripReorderingHelper<Tok
             @Nullable TabGroupSyncService tabGroupSyncService,
             DataSharingTabManager dataSharingTabManager,
             CollaborationService collaborationService,
-            BiConsumer<Token, Boolean> reorderFunction) {
+            BiConsumer<Token, Boolean> reorderFunction,
+            @TabClosingSource int tabClosingSource) {
         super(
                 R.layout.tab_strip_group_menu_layout,
                 R.layout.tab_switcher_action_menu_layout,
@@ -148,7 +149,8 @@ public class TabGroupContextMenuCoordinator extends TabStripReorderingHelper<Tok
                         assumeNonNull(windowAndroid.getActivity().get()),
                         tabModelSupplier,
                         multiInstanceManager,
-                        dataSharingTabManager),
+                        dataSharingTabManager,
+                        tabClosingSource),
                 tabModelSupplier,
                 multiInstanceManager,
                 tabGroupSyncService,
@@ -172,15 +174,18 @@ public class TabGroupContextMenuCoordinator extends TabStripReorderingHelper<Tok
      * @param multiInstanceManager The {@link MultiInstanceManager} that may be used to move the
      *     group to another window.
      * @param windowAndroid The {@link WindowAndroid} current window.
-     * @param dataSharingTabManager The {@link} DataSharingTabManager managing communication between
+     * @param dataSharingTabManager The {@link DataSharingTabManager} managing communication between
      *     UI and DataSharing services.
+     * @param reorderFunction Callback to run when reordering tabs.
+     * @param tabClosingSource The {@link TabClosingSource} indicating where the tab is closed from.
      */
     public static TabGroupContextMenuCoordinator createContextMenuCoordinator(
             TabModel tabModel,
             MultiInstanceManager multiInstanceManager,
             WindowAndroid windowAndroid,
             DataSharingTabManager dataSharingTabManager,
-            BiConsumer<Token, Boolean> reorderFunction) {
+            BiConsumer<Token, Boolean> reorderFunction,
+            @TabClosingSource int tabClosingSource) {
         Profile profile = assumeNonNull(tabModel.getProfile());
 
         @Nullable TabGroupSyncService tabGroupSyncService =
@@ -196,7 +201,8 @@ public class TabGroupContextMenuCoordinator extends TabStripReorderingHelper<Tok
                 tabGroupSyncService,
                 dataSharingTabManager,
                 collaborationService,
-                reorderFunction);
+                reorderFunction,
+                tabClosingSource);
     }
 
     @VisibleForTesting
@@ -204,7 +210,8 @@ public class TabGroupContextMenuCoordinator extends TabStripReorderingHelper<Tok
             Activity activity,
             Supplier<TabModel> tabModelSupplier,
             MultiInstanceManager multiInstanceManager,
-            DataSharingTabManager dataSharingTabManager) {
+            DataSharingTabManager dataSharingTabManager,
+            @TabClosingSource int tabClosingSource) {
         return (menuId, tabGroupId, collaborationId, listViewTouchTracker) -> {
             TabModel tabModel = tabModelSupplier.get();
             int tabId = tabModel.getGroupLastShownTabId(tabGroupId);
@@ -220,7 +227,7 @@ public class TabGroupContextMenuCoordinator extends TabStripReorderingHelper<Tok
                 TabUiUtils.closeTabGroup(
                         tabModelSupplier.get(),
                         tabId,
-                        TabClosingSource.TABLET_TAB_STRIP,
+                        tabClosingSource,
                         allowUndo,
                         /* hideTabGroups= */ true,
                         /* didCloseCallback= */ null);
@@ -230,7 +237,7 @@ public class TabGroupContextMenuCoordinator extends TabStripReorderingHelper<Tok
                 TabUiUtils.closeTabGroup(
                         tabModelSupplier.get(),
                         tabId,
-                        TabClosingSource.TABLET_TAB_STRIP,
+                        tabClosingSource,
                         allowUndo,
                         /* hideTabGroups= */ false,
                         /* didCloseCallback= */ null);
@@ -743,11 +750,13 @@ public class TabGroupContextMenuCoordinator extends TabStripReorderingHelper<Tok
 
         // TODO(crbug.com/357104424): Consider create ColorPickerCoordinator once during the first
         // call, and reuse it for subsequent calls.
+        View inflatedRoot = ((ViewStub) contentView.findViewById(R.id.color_picker_stub)).inflate();
+        ColorPickerContainer container = inflatedRoot.findViewById(R.id.color_picker_container);
         mColorPickerCoordinator =
                 new ColorPickerCoordinator(
                         context,
-                        TabGroupColorUtils.getTabGroupColorIdList(),
-                        ((ViewStub) contentView.findViewById(R.id.color_picker_stub)).inflate(),
+                        TabGroupColorPickerUtils.getTabGroupColorIdList(),
+                        container,
                         ColorPickerType.TAB_GROUP,
                         isIncognito,
                         ColorPickerLayoutType.DYNAMIC,

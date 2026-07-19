@@ -50,7 +50,6 @@ import org.chromium.base.ApplicationStatus;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.DeviceInfo;
 import org.chromium.base.FakeTimeTestRule;
-import org.chromium.base.FeatureOverrides;
 import org.chromium.base.SysUtils;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
@@ -78,6 +77,7 @@ import org.chromium.chrome.test.OverrideContextWrapperTestRule;
 import org.chromium.components.browser_ui.desktop_windowing.AppHeaderState;
 import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager;
 import org.chromium.components.browser_ui.util.ConversionUtils;
+import org.chromium.components.messages.DismissReason;
 import org.chromium.components.messages.MessageBannerProperties;
 import org.chromium.components.messages.MessageDispatcher;
 import org.chromium.components.messages.MessageIdentifier;
@@ -214,39 +214,11 @@ public class MultiWindowUtilsUnitTest {
     }
 
     @Test
-    public void testCreateNewWindowIntent_nonMultiWindowMode_opensFullScreen() {
-        MultiWindowUtils.setMultiInstanceApi31EnabledForTesting(true);
-        Activity mActivity = createMockActivity();
-        when(mActivity.isInMultiWindowMode()).thenReturn(false);
-
-        // The new window shouldn't be opened as an adjacent window.
-        FeatureOverrides.overrideParam(
-                ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT_EXPERIMENTAL,
-                MultiWindowUtils.OPEN_ADJACENTLY_PARAM,
-                false);
-
-        Intent intent =
-                MultiWindowUtils.createNewWindowIntent(
-                        mActivity,
-                        /* isIncognito= */ false,
-                        NewWindowAppSource.BROWSER_WINDOW_CREATOR);
-
-        assertNotNull(intent);
-        assertEquals(0, (intent.getFlags() & Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT));
-    }
-
-    @Test
     @Config(sdk = 32)
     public void testCreateNewWindowIntent_nonMultiWindowMode_opensAdjacently() {
         MultiWindowUtils.setMultiInstanceApi31EnabledForTesting(true);
         Activity mActivity = createMockActivity();
         when(mActivity.isInMultiWindowMode()).thenReturn(false);
-
-        // The new window should be opened as an adjacent window.
-        FeatureOverrides.overrideParam(
-                ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT_EXPERIMENTAL,
-                MultiWindowUtils.OPEN_ADJACENTLY_PARAM,
-                true);
 
         Intent intent =
                 MultiWindowUtils.createNewWindowIntent(
@@ -1482,9 +1454,14 @@ public class MultiWindowUtilsUnitTest {
         Context context = ApplicationProvider.getApplicationContext();
         CallbackHelper primaryActionCallbackHelper = new CallbackHelper();
         int primaryActionClickCount = primaryActionCallbackHelper.getCallCount();
+        CallbackHelper dismissCallbackHelper = new CallbackHelper();
+        int dismissClickCount = dismissCallbackHelper.getCallCount();
 
         MultiWindowUtils.showInstanceCreationLimitMessage(
-                messageDispatcher, context, primaryActionCallbackHelper::notifyCalled);
+                messageDispatcher,
+                context,
+                primaryActionCallbackHelper::notifyCalled,
+                dismissCallbackHelper::notifyCalled);
 
         ArgumentCaptor<PropertyModel> message = ArgumentCaptor.forClass(PropertyModel.class);
         verify(messageDispatcher).enqueueWindowScopedMessage(message.capture(), eq(false));
@@ -1517,6 +1494,15 @@ public class MultiWindowUtilsUnitTest {
                 "Primary action callback was not called.",
                 primaryActionClickCount + 1,
                 primaryActionCallbackHelper.getCallCount());
+
+        // Simulate and verify dismiss.
+        message.getValue()
+                .get(MessageBannerProperties.ON_DISMISSED)
+                .onResult(DismissReason.GESTURE);
+        assertEquals(
+                "Dismiss callback was not called.",
+                dismissClickCount + 1,
+                dismissCallbackHelper.getCallCount());
     }
 
     @Test

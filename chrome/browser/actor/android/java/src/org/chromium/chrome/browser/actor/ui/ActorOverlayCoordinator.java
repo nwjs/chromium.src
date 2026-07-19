@@ -24,6 +24,7 @@ import org.chromium.chrome.browser.actor.ActorTaskState;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsVisibilityManager;
 import org.chromium.chrome.browser.layouts.LayoutManager;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabObscuringHandler;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.ui.messages.snackbar.Snackbar;
@@ -32,7 +33,6 @@ import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.AnchorSide;
 import org.chromium.chrome.browser.ui.side_ui.SideUiObserver;
 import org.chromium.chrome.browser.ui.side_ui.SideUiStateProvider;
-import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandlerRegistry;
 import org.chromium.ui.base.ViewUtils;
@@ -54,6 +54,7 @@ public class ActorOverlayCoordinator {
     private final SnackbarManager.SnackbarController mSnackbarController;
     private final MonotonicObservableSupplier<Profile> mProfileSupplier;
     private final Callback<Profile> mProfileObserver;
+    private final TabModelSelector mTabModelSelector;
     private final @Nullable SideUiStateProvider mSideUiStateProvider;
     private @Nullable SideUiObserver mSideUiObserver;
     private @Nullable ActorKeyedService mActorKeyedService;
@@ -70,7 +71,6 @@ public class ActorOverlayCoordinator {
      * @param backPressHandlerRegistry The BackPressHandlerRegistry to handle back press.
      * @param layoutManagerSupplier The LayoutManager supplier to observe layout changes.
      * @param profileSupplier The Profile supplier to observe profile changes.
-     * @param bottomSheetController The BottomSheetController to observe bottom sheet states.
      * @param sideUiStateProvider The {@link SideUiStateProvider} providing state on the side UI.
      */
     public ActorOverlayCoordinator(
@@ -82,12 +82,12 @@ public class ActorOverlayCoordinator {
             BackPressHandlerRegistry backPressHandlerRegistry,
             MonotonicObservableSupplier<LayoutManager> layoutManagerSupplier,
             MonotonicObservableSupplier<Profile> profileSupplier,
-            BottomSheetController bottomSheetController,
             @Nullable SideUiStateProvider sideUiStateProvider) {
         mView = (ActorOverlayView) viewStub.inflate();
         mSnackbarManager = snackbarManager;
         mBackPressHandlerRegistry = backPressHandlerRegistry;
         mProfileSupplier = profileSupplier;
+        mTabModelSelector = tabModelSelector;
 
         mModel =
                 new PropertyModel.Builder(ActorOverlayProperties.ALL_KEYS)
@@ -122,7 +122,6 @@ public class ActorOverlayCoordinator {
                         browserControlsVisibilityManager,
                         tabObscuringHandler,
                         layoutManagerSupplier,
-                        bottomSheetController,
                         this::showInteractionLimitedSnackbar,
                         this::dismissInteractionLimitedSnackbar);
         mBackPressHandlerRegistry.addHandler(mMediator, BackPressHandler.Type.ACTOR_OVERLAY);
@@ -192,9 +191,15 @@ public class ActorOverlayCoordinator {
 
     private void handleTakeOverTask() {
         assert mActorKeyedService != null;
-        ActorTask activeTask = mActorKeyedService.getCurrentActiveTask();
-        if (activeTask != null) {
-            activeTask.takeOverTask();
+        int tabId = mTabModelSelector.getCurrentTabId();
+        if (tabId == Tab.INVALID_TAB_ID) return;
+
+        Integer taskId = mActorKeyedService.getActiveTaskIdOnTab(tabId);
+        if (taskId != null) {
+            ActorTask task = mActorKeyedService.getTask(taskId);
+            if (task != null) {
+                task.takeOverTask();
+            }
         }
     }
 

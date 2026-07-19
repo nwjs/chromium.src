@@ -31,6 +31,7 @@
 #include "services/on_device_model/public/cpp/features.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/features_generated.h"
 #include "third_party/blink/public/mojom/ai/ai_manager.mojom.h"
 #include "third_party/blink/public/mojom/ai/model_streaming_responder.mojom.h"
 
@@ -124,6 +125,12 @@ optimization_guide::proto::FeatureTextSafetyConfiguration CreateSafetyConfig() {
 }
 
 class AIProofreaderTest : public AITestUtils::AITestBase {
+ public:
+  AIProofreaderTest() {
+    scoped_feature_list_.InitAndEnableFeature(
+        blink::features::kAIProofreadingAPI);
+  }
+
  protected:
   optimization_guide::proto::OnDeviceModelExecutionFeatureConfig CreateConfig()
       override {
@@ -162,7 +169,7 @@ class AIProofreaderTest : public AITestUtils::AITestBase {
     TestCreateProofreaderClient create_proofreader_client;
     GetAIManagerRemote()->CreateProofreader(
         create_proofreader_client.BindNewPipeAndPassRemote(),
-        std::move(options));
+        std::move(options), mojo::NullRemote());
 
     CreateProofreaderResult result = create_proofreader_client.result().Take();
     EXPECT_OK(result);
@@ -197,11 +204,15 @@ class AIProofreaderTest : public AITestUtils::AITestBase {
   void EnsureModelIsReady() {
     TestCreateProofreaderClient proofreader_client;
     GetAIManagerRemote()->CreateProofreader(
-        proofreader_client.BindNewPipeAndPassRemote(), GetDefaultOptions());
+        proofreader_client.BindNewPipeAndPassRemote(), GetDefaultOptions(),
+        mojo::NullRemote());
 
     auto result = proofreader_client.result().Take();
     EXPECT_OK(result);
   }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 TEST_F(AIProofreaderTest, CreateProofreaderNoService) {
@@ -209,8 +220,8 @@ TEST_F(AIProofreaderTest, CreateProofreaderNoService) {
 
   TestCreateProofreaderClient create_proofreader_client;
   GetAIManagerRemote()->CreateProofreader(
-      create_proofreader_client.BindNewPipeAndPassRemote(),
-      GetDefaultOptions());
+      create_proofreader_client.BindNewPipeAndPassRemote(), GetDefaultOptions(),
+      mojo::NullRemote());
 
   EXPECT_THAT(
       create_proofreader_client.result().Take(),
@@ -294,8 +305,8 @@ TEST_F(AIProofreaderTest, CreateProofreaderModelNotEligible) {
 
   TestCreateProofreaderClient create_proofreader_client;
   GetAIManagerRemote()->CreateProofreader(
-      create_proofreader_client.BindNewPipeAndPassRemote(),
-      GetDefaultOptions());
+      create_proofreader_client.BindNewPipeAndPassRemote(), GetDefaultOptions(),
+      mojo::NullRemote());
 
   EXPECT_THAT(
       create_proofreader_client.result().Take(),
@@ -308,8 +319,8 @@ TEST_F(AIProofreaderTest, CreateProofreaderWaitsForBaseModel) {
 
   TestCreateProofreaderClient create_proofreader_client;
   GetAIManagerRemote()->CreateProofreader(
-      create_proofreader_client.BindNewPipeAndPassRemote(),
-      GetDefaultOptions());
+      create_proofreader_client.BindNewPipeAndPassRemote(), GetDefaultOptions(),
+      mojo::NullRemote());
 
   TestFuture<CreateProofreaderResult>& future =
       create_proofreader_client.result();
@@ -329,8 +340,8 @@ TEST_F(AIProofreaderTest, CreateProofreaderWaitsForModelAdaptation) {
 
   TestCreateProofreaderClient create_proofreader_client;
   GetAIManagerRemote()->CreateProofreader(
-      create_proofreader_client.BindNewPipeAndPassRemote(),
-      GetDefaultOptions());
+      create_proofreader_client.BindNewPipeAndPassRemote(), GetDefaultOptions(),
+      mojo::NullRemote());
 
   TestFuture<CreateProofreaderResult>& future =
       create_proofreader_client.result();
@@ -351,8 +362,8 @@ TEST_F(AIProofreaderTest, CreateProofreaderWaitsForTextSafetyModel) {
 
   TestCreateProofreaderClient create_proofreader_client;
   GetAIManagerRemote()->CreateProofreader(
-      create_proofreader_client.BindNewPipeAndPassRemote(),
-      GetDefaultOptions());
+      create_proofreader_client.BindNewPipeAndPassRemote(), GetDefaultOptions(),
+      mojo::NullRemote());
 
   TestFuture<CreateProofreaderResult>& future =
       create_proofreader_client.result();
@@ -380,8 +391,8 @@ TEST_F(AIProofreaderTest, CreateProofreaderSafetyConfigNotAvailable) {
 
   TestCreateProofreaderClient create_proofreader_client;
   GetAIManagerRemote()->CreateProofreader(
-      create_proofreader_client.BindNewPipeAndPassRemote(),
-      GetDefaultOptions());
+      create_proofreader_client.BindNewPipeAndPassRemote(), GetDefaultOptions(),
+      mojo::NullRemote());
 
   EXPECT_THAT(
       create_proofreader_client.result().Take(),
@@ -410,7 +421,7 @@ TEST_F(AIProofreaderTest, InputLimitExceededError) {
   auto proofreader_remote = GetAIProofreaderRemote();
 
   fake_broker_->settings().set_size_in_tokens(
-      blink::mojom::kWritingAssistanceMaxInputTokenSize + 1);
+      blink::mojom::kTinyModelMaxInputTokenSize + 1);
 
   AITestUtils::TestStreamingResponder responder;
   proofreader_remote->Proofread(kInputString, responder.BindRemote());
@@ -418,9 +429,9 @@ TEST_F(AIProofreaderTest, InputLimitExceededError) {
   EXPECT_EQ(responder.error_status(),
             blink::mojom::ModelStreamingResponseStatus::kErrorInputTooLarge);
   ASSERT_EQ(responder.quota_error_info().requested,
-            blink::mojom::kWritingAssistanceMaxInputTokenSize + 1);
+            blink::mojom::kTinyModelMaxInputTokenSize + 1);
   ASSERT_EQ(responder.quota_error_info().quota,
-            blink::mojom::kWritingAssistanceMaxInputTokenSize);
+            blink::mojom::kTinyModelMaxInputTokenSize);
 }
 
 TEST_F(AIProofreaderTest, ProofreadMultipleResponse) {
@@ -657,8 +668,8 @@ TEST_F(AIProofreaderTest, CreateBuiltInAIAPIsEnterprisePolicyDisabled) {
   mojo::test::BadMessageObserver observer;
   TestCreateProofreaderClient create_proofreader_client;
   GetAIManagerRemote()->CreateProofreader(
-      create_proofreader_client.BindNewPipeAndPassRemote(),
-      GetDefaultOptions());
+      create_proofreader_client.BindNewPipeAndPassRemote(), GetDefaultOptions(),
+      mojo::NullRemote());
   EXPECT_EQ(observer.WaitForBadMessage(), "Policy or user setting disabled");
   SetBuiltInAIAPIsEnterprisePolicy(true);
 }
@@ -674,8 +685,8 @@ TEST_F(AIProofreaderTest, CreateGenAILocalEnterprisePolicyDisabled) {
   mojo::test::BadMessageObserver observer;
   TestCreateProofreaderClient create_proofreader_client;
   GetAIManagerRemote()->CreateProofreader(
-      create_proofreader_client.BindNewPipeAndPassRemote(),
-      GetDefaultOptions());
+      create_proofreader_client.BindNewPipeAndPassRemote(), GetDefaultOptions(),
+      mojo::NullRemote());
   EXPECT_EQ(observer.WaitForBadMessage(), "Policy or user setting disabled");
   SetGenAILocalEnterprisePolicy(true);
 }
@@ -691,8 +702,8 @@ TEST_F(AIProofreaderTest, CreateOnDeviceAiUserSettingDisabled) {
   mojo::test::BadMessageObserver observer;
   TestCreateProofreaderClient create_proofreader_client;
   GetAIManagerRemote()->CreateProofreader(
-      create_proofreader_client.BindNewPipeAndPassRemote(),
-      GetDefaultOptions());
+      create_proofreader_client.BindNewPipeAndPassRemote(), GetDefaultOptions(),
+      mojo::NullRemote());
   EXPECT_EQ(observer.WaitForBadMessage(), "Policy or user setting disabled");
   SetOnDeviceAiUserSetting(true);
 }

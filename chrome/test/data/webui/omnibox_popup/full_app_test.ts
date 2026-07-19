@@ -4,13 +4,19 @@
 
 import 'chrome://omnibox-popup.top-chrome/omnibox_popup.js';
 
+import type {OmniboxFullAppElement} from 'chrome://omnibox-popup.top-chrome/omnibox_popup.js';
 import {assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {eventToPromise} from 'chrome://webui-test/test_util.js';
 
 suite('FullAppTest', function() {
-  test('ContextMenuPrevented', async function() {
-    const app = document.createElement('omnibox-full-app');
+  let app: OmniboxFullAppElement;
+
+  setup(() => {
+    app = document.createElement('omnibox-full-app');
     document.body.appendChild(app);
+  });
+
+  test('ContextMenuPrevented', async function() {
     const whenFired = eventToPromise('contextmenu', document.documentElement);
     document.documentElement.dispatchEvent(
         new Event('contextmenu', {cancelable: true}));

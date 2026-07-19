@@ -30,11 +30,11 @@
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
 #include "third_party/blink/renderer/core/events/keyboard_event.h"
 #include "third_party/blink/renderer/core/events/mouse_event.h"
+#include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/html/anchor_element_utils.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_element.h"
-#include "third_party/blink/renderer/core/html/html_anchor_element.h"
 #include "third_party/blink/renderer/core/html/parser/html_parser_idioms.h"
 #include "third_party/blink/renderer/core/layout/svg/layout_svg_inline.h"
 #include "third_party/blink/renderer/core/layout/svg/layout_svg_transformable_container.h"
@@ -118,13 +118,13 @@ LayoutObject* SVGAElement::CreateLayoutObject(const ComputedStyle&) {
 
 void SVGAElement::DefaultEventHandler(Event& event) {
   if (IsLink()) {
-    if (IsFocused() && IsEnterKeyKeydownEvent(event)) {
+    if (IsFocused() && KeyboardEvent::IsEnterKeyKeydownEvent(event)) {
       event.SetDefaultHandled();
       DispatchSimulatedClick(&event);
       return;
     }
 
-    if (IsLinkClick(event)) {
+    if (AnchorElementUtils::IsLinkClick(event)) {
       // It's unclear whether synthesized middle-button "click" events should be
       // allowed to be dispatched and create a navigation. Measure how common
       // this is to see if we can disallow it. Per Pointer Events: "The click
@@ -162,23 +162,20 @@ void SVGAElement::DefaultEventHandler(Event& event) {
       const KURL& resolved_url = GetDocument().CompleteURL(url);
       ResourceRequest request(resolved_url);
 
-      if (RuntimeEnabledFeatures::SvgAnchorElementAttributesEnabled()) {
-        // Schedule the ping before the frame load. Prerender in Chrome may kill
-        // the renderer as soon as the navigation is sent out.
-        AnchorElementUtils::SendPings(resolved_url, GetDocument(),
-                                      FastGetAttribute(svg_names::kPingAttr));
+      // Schedule the ping before the frame load. Prerender in Chrome may kill
+      // the renderer as soon as the navigation is sent out.
+      AnchorElementUtils::SendPings(resolved_url, GetDocument(),
+                                    FastGetAttribute(svg_names::kPingAttr));
 
-        AnchorElementUtils::HandleReferrerPolicyAttribute(
-            request, FastGetAttribute(svg_names::kReferrerpolicyAttr),
-            link_relations_, GetDocument());
-      }
+      AnchorElementUtils::HandleReferrerPolicyAttribute(
+          request, FastGetAttribute(svg_names::kReferrerpolicyAttr),
+          link_relations_, GetDocument());
 
       request.SetHasUserGesture(LocalFrame::HasTransientUserActivation(frame));
 
       // Respect the download attribute only if we can read the content, and the
       // event is not an alt-click or similar.
-      if (RuntimeEnabledFeatures::SvgAnchorElementDownloadAttributeEnabled() &&
-          FastHasAttribute(svg_names::kDownloadAttr) &&
+      if (FastHasAttribute(svg_names::kDownloadAttr) &&
           navigation_policy != kNavigationPolicyDownload &&
           GetDocument().domWindow()->GetSecurityOrigin()->CanReadContent(
               resolved_url)) {
@@ -207,6 +204,9 @@ void SVGAElement::DefaultEventHandler(Event& event) {
       AnchorElementUtils::HandleRelAttribute(
           frame_request, frame->GetSettings(), GetExecutionContext(), target,
           link_relations_);
+
+      AnchorElementUtils::EnforceBlobUrlNoopenerIfNeeded(
+          frame_request, resolved_url, *GetDocument().domWindow());
 
       frame_request.SetTriggeringEventInfo(
           event.isTrusted()

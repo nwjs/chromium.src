@@ -575,6 +575,16 @@ struct CommitNavigationParams {
   // structs containing the parsed href, as, and crossorigin attributes.
   array<network.mojom.LinkHeader> early_hints_preloaded_resources;
 
+  // Origins preconnected to by Early Hints responses, represented as LinkHeader
+  // structs containing the parsed href and crossorigin attribute. Deduped by
+  // (origin, crossorigin). Used by the SpeculationMeasurement API.
+  array<network.mojom.LinkHeader> early_hints_preconnects;
+
+  // Origins preconnected to by `Link: rel=preconnect` headers on the final
+  // navigation response (as opposed to a 103 Early Hints response). Used by the
+  // SpeculationMeasurement API.
+  array<network.mojom.LinkHeader> navigation_preconnects;
+
   // The time the commit was sent from the browser.
   mojo_base.mojom.TimeTicks commit_sent;
 
@@ -735,6 +745,14 @@ struct CommitNavigationParams {
   // The string should contain only the selector value (the part after
   // "text=" in a URL directive), not the "text=" prefix itself.
   string? internal_scroll_to_text_fragment;
+
+  // Browser-authoritative per-frame secure-context-root bit (see
+  // `ContentBrowserClient::IsSecureContextRoot()`). Stored on the
+  // LocalDOMWindow's SecurityContext at document install so descendants'
+  // ancestor walks can consult it. The browser is authoritative because
+  // the renderer cannot independently determine if a frame is a MIME
+  // handler (which requires browser-side state).
+  bool is_secure_context_root = false;
 };
 
 // Parameters used to dispatch the `pageswap` event on the old Document for

@@ -82,7 +82,6 @@
 #include "components/metrics/metrics_features.h"
 #include "components/metrics/metrics_log_uploader.h"
 #include "components/metrics/metrics_pref_names.h"
-#include "components/metrics/metrics_reporting_choice_service.h"
 #include "components/metrics/metrics_reporting_default_state.h"
 #include "components/metrics/metrics_service.h"
 #include "components/metrics/metrics_service_client.h"
@@ -100,7 +99,6 @@
 #include "components/metrics/ui/form_factor_metrics_provider.h"
 #include "components/metrics/ui/screen_info_metrics_provider.h"
 #include "components/metrics/version_utils.h"
-#include "components/metrics_services_manager/metrics_services_manager.h"
 #include "components/network_time/network_time_tracker.h"
 #include "components/omnibox/browser/omnibox_metrics_provider.h"
 #include "components/pref_registry/pref_registry_syncable.h"
@@ -115,6 +113,7 @@
 #include "components/sync/service/sync_service.h"
 #include "components/sync_device_info/device_count_metrics_provider.h"
 #include "components/ukm/field_trials_provider_helper.h"
+#include "components/ukm/observers/ukm_consent_state_observer.h"
 #include "components/ukm/ukm_service.h"
 #include "components/variations/synthetic_trial_registry.h"
 #include "components/version_info/version_info.h"
@@ -166,7 +165,7 @@
 #include "chrome/browser/metrics/chromeos_system_profile_provider.h"
 #include "chrome/browser/metrics/class_management_enabled_metrics_provider.h"
 #include "chrome/browser/metrics/cros_healthd_metrics_provider.h"
-#include "chrome/browser/metrics/cros_pre_consent_metrics_manager.h"
+#include "chrome/browser/metrics/cros_pre_choice_metrics_manager.h"
 #include "chrome/browser/metrics/family_user_metrics_provider.h"
 #include "chrome/browser/metrics/k12_age_classification_metrics_provider.h"
 #include "chrome/browser/metrics/per_user_state_manager_chromeos.h"
@@ -689,8 +688,8 @@ base::TimeDelta ChromeMetricsServiceClient::GetStandardUploadInterval() {
 std::optional<base::TimeDelta>
 ChromeMetricsServiceClient::GetCustomUploadInterval() const {
 #if BUILDFLAG(IS_CHROMEOS)
-  if (cros_pre_consent_manager_) {
-    return cros_pre_consent_manager_->GetUploadInterval();
+  if (cros_pre_choice_metrics_manager_) {
+    return cros_pre_choice_metrics_manager_->GetUploadInterval();
   }
 #endif
   return std::nullopt;
@@ -755,12 +754,12 @@ void ChromeMetricsServiceClient::Initialize() {
   // currently in Demo Mode.
   SetIsDemoMode(ash::demo_mode::IsDeviceInDemoMode());
 
-  // Conditionally create the CrOSPreConsentMetricsManager.
+  // Conditionally create the CrOSPreChoiceMetricsManager.
   //
-  // See //chrome/browser/metrics/cros_pre_consent_metrics_manager.cc for all
+  // See //chrome/browser/metrics/cros_pre_choice_metrics_manager.cc for all
   // conditions.
-  cros_pre_consent_manager_ =
-      metrics::CrOSPreConsentMetricsManager::MaybeCreate();
+  cros_pre_choice_metrics_manager_ =
+      metrics::CrOSPreChoiceMetricsManager::MaybeCreate();
 #endif
 }
 
@@ -1285,14 +1284,6 @@ void ChromeMetricsServiceClient::OnHistoryDeleted() {
 void ChromeMetricsServiceClient::OnUkmAllowedStateChanged(
     bool total_purge,
     ukm::UkmConsentState previous_consent_state) {
-  // If the metrics consent restructure is enabled, UKM and DWA consent states
-  // are now managed by the metrics reporting level. Changes to these states
-  // are handled in OnMetricsReportingLevelChanged().
-  if (metrics::MetricsReportingChoiceService::
-          ShouldUseMetricsConsentRestructure(
-              g_browser_process->local_state())) {
-    return;
-  }
   const ukm::UkmConsentState consent_state = GetUkmConsentState();
   // Apply UKM consent changes to UKM service.
   if (ukm_service_) {
@@ -1441,26 +1432,10 @@ void ChromeMetricsServiceClient::SetIsProcessRunningForTesting(
 }
 
 bool ChromeMetricsServiceClient::IsUkmAllowedForAllProfiles() {
-  // Note: Incognito is handled separately, see
-  // MetricsServicesManager::UpdateUkmService().
-  PrefService* local_state = g_browser_process->local_state();
-  if (metrics::MetricsReportingChoiceService::
-          ShouldUseMetricsConsentRestructure(local_state)) {
-    return metrics::MetricsReportingChoiceService::
-        IsAdvancedMetricsReportingEnabled(local_state);
-  }
   return UkmConsentStateObserver::IsUkmAllowedForAllProfiles();
 }
 
 bool ChromeMetricsServiceClient::IsDwaAllowedForAllProfiles() {
-  // Note: Incognito is handled separately, see
-  // MetricsServicesManager::UpdateUkmService().
-  PrefService* local_state = g_browser_process->local_state();
-  if (metrics::MetricsReportingChoiceService::
-          ShouldUseMetricsConsentRestructure(local_state)) {
-    return metrics::MetricsReportingChoiceService::
-        IsAdvancedMetricsReportingEnabled(local_state);
-  }
   return UkmConsentStateObserver::IsDwaAllowedForAllProfiles();
 }
 
@@ -1529,25 +1504,24 @@ bool ChromeMetricsServiceClient::ShouldUploadMetricsForUserId(
   return user_id == metrics::MetricsLog::Hash(current_user_id.value());
 }
 
-void ChromeMetricsServiceClient::UpdateCurrentUserMetricsConsent(
-    bool user_metrics_consent) {
+void ChromeMetricsServiceClient::UpdateCurrentUserMetricsChoice(
+    bool user_choice) {
   DCHECK(per_user_state_manager_);
-  per_user_state_manager_->SetCurrentUserMetricsConsent(user_metrics_consent);
+  per_user_state_manager_->SetCurrentUserMetricsChoice(user_choice);
 }
 
 void ChromeMetricsServiceClient::InitPerUserMetrics() {
   per_user_state_manager_ =
       std::make_unique<metrics::PerUserStateManagerChromeOS>(
           this, g_browser_process->local_state());
-  per_user_consent_change_subscription_ = per_user_state_manager_->AddObserver(
+  per_user_choice_change_subscription_ = per_user_state_manager_->AddObserver(
       base::BindRepeating(&UpdateMetricsServicesForPerUser));
 }
 
-std::optional<bool> ChromeMetricsServiceClient::GetCurrentUserMetricsConsent()
+std::optional<bool> ChromeMetricsServiceClient::GetCurrentUserMetricsChoice()
     const {
   if (per_user_state_manager_) {
-    return per_user_state_manager_
-        ->GetCurrentUserReportingConsentIfApplicable();
+    return per_user_state_manager_->GetCurrentUserReportingChoiceIfApplicable();
   }
 
   return std::nullopt;

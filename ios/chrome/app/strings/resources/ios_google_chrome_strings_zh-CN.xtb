@@ -61,6 +61,7 @@
 <translation id="2120238739383482109">打开 Chrome 书签。</translation>
 <translation id="2147651015520127414">Chrome 已证实此网站的证书是由 <ph name="ISSUER" /> 签发的。</translation>
 <translation id="2199719347983604670">Chrome 同步的数据</translation>
+<translation id="2212318912894837281">输入口令才能保存此密码，并在所有设备上获取 Chrome 数据</translation>
 <translation id="2213327331203157297">若要在 Chrome 中停用锁定模式，请在您的 iPhone 上关闭该模式。</translation>
 <translation id="2242467532204595597">随时可以使用 Chrome 打开消息、文档和其他应用中的链接。</translation>
 <translation id="2256384876478573507">在 iPhone 上更快地打开 Chrome 浏览网页。</translation>
@@ -110,7 +111,7 @@
 <translation id="322254490661677575">如要将 Chrome 数据保存在您的 Google 账号中并使用这些数据，请输入您的口令。</translation>
 <translation id="3303503998967553377">在 iOS 中使用 Chrome 操作</translation>
 <translation id="3348862487678490430">将阅读清单项添加到 Chrome</translation>
-<translation id="3357827134511189025">通过 Chrome 的自动填充功能，使用任意应用中已保存的密码和通行密钥登录</translation>
+<translation id="3357827134511189025">开启 Chrome 自动填充功能，在任意应用中使用已保存的密码和通行密钥一键登录</translation>
 <translation id="3360031466389132716">{THRESHOLD,plural, =1{当 Chrome 闲置 {THRESHOLD} 分钟后，就会发生这种情况}other{当 Chrome 闲置 {THRESHOLD} 分钟后，就会发生这种情况}}</translation>
 <translation id="3367797402528056312">完成 Chrome 设置</translation>
 <translation id="3371064404604898522">将 Chrome 设为默认浏览器</translation>
@@ -367,6 +368,7 @@
 <translation id="9068336935206019333">在 Chrome 无痕模式下打开</translation>
 <translation id="9082304295862405388">Gemini 可能会使用您的精确位置，具体取决于您已向 Chrome 授予的权限</translation>
 <translation id="909127538042363610">获享 Chrome 最强大的安全保护</translation>
+<translation id="9113725809421872108">验证您的身份才能保存此密码，并在所有设备上获取 Chrome 数据</translation>
 <translation id="9122931302567044771">这意味着 Chrome 每次都会对桌面版网站发出请求。</translation>
 <translation id="9176561303811134420">在 Chrome 中管理支付方式</translation>
 <translation id="9181628561061032322">打开最近使用 Chrome 打开的标签页。</translation>

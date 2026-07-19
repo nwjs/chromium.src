@@ -542,9 +542,13 @@ void MessageService::OpenChannelToExtension(
         DCHECK_EQ(MessagingEndpoint::Relationship::kExternalWebPage,
                   relationship);
 
-        // Check that the web page URL matches.
-        is_externally_connectable = externally_connectable->matches.MatchesURL(
-            source_render_frame_host->GetLastCommittedURL());
+        // Check that the web page URL matches. Skip error pages, whose last
+        // committed URL reflects the failed navigation target rather than a
+        // document the source process actually hosts.
+        is_externally_connectable =
+            !source_render_frame_host->IsErrorDocument() &&
+            externally_connectable->matches.MatchesURL(
+                source_render_frame_host->GetLastCommittedURL());
       }
     } else {
       // Default behaviour. Any extension or content script, no webpages.
@@ -621,6 +625,9 @@ void MessageService::OpenChannelToExtension(
     if (is_web_view &&
         Manifest::IsComponentLocation(target_extension->location())) {
       include_guest_process_info = true;
+      // Temporarily allow to populate source_frame for webview.
+      source_frame = ExtensionApiFrameIdMap::Get()->GetFrameData(
+          source_render_frame_host->GetGlobalId());
     }
 #endif
   }

@@ -12,6 +12,7 @@
 #include "chrome/browser/download/download_core_service_factory.h"
 #include "chrome/browser/download/download_item_model.h"
 #include "chrome/browser/download/download_ui_model.h"
+#include "chrome/browser/download/mock_download_core_service.h"
 #include "chrome/browser/download/offline_item_utils.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/download/download_bubble_info.h"
@@ -66,43 +67,24 @@ class MockDownloadBubbleNavigationHandler
   base::WeakPtrFactory<MockDownloadBubbleNavigationHandler> weak_factory_{this};
 };
 
-class MockDownloadCoreService : public DownloadCoreService {
- public:
-  MOCK_METHOD(ChromeDownloadManagerDelegate*, GetDownloadManagerDelegate, ());
-  MOCK_METHOD(DownloadUIController*, GetDownloadUIController, ());
-  MOCK_METHOD(DownloadHistory*, GetDownloadHistory, ());
-  MOCK_METHOD(extensions::ExtensionDownloadsEventRouter*,
-              GetExtensionEventRouter,
-              ());
-  MOCK_METHOD(bool, HasCreatedDownloadManager, ());
-  MOCK_METHOD(int, BlockingShutdownCount, (), (const));
-  MOCK_METHOD(void,
-              CancelDownloads,
-              (DownloadCoreService::CancelDownloadsTrigger));
-  MOCK_METHOD(void,
-              SetDownloadManagerDelegateForTesting,
-              (std::unique_ptr<ChromeDownloadManagerDelegate> delegate));
-  MOCK_METHOD(bool, IsDownloadUiEnabled, ());
-  MOCK_METHOD(bool, IsDownloadObservedByExtension, ());
-};
 
 std::unique_ptr<KeyedService> BuildMockDownloadCoreService(
     content::BrowserContext* browser_context) {
-  return std::make_unique<MockDownloadCoreService>();
+  return std::make_unique<testing::NiceMock<MockDownloadCoreService>>();
 }
 
 }  // namespace
 
 class DownloadBubbleContentsViewTest
     : public ChromeViewsTestBase,
-      public ::testing::WithParamInterface<bool> {
+      public ::testing::WithParamInterface<DownloadBubbleMode> {
  public:
   DownloadBubbleContentsViewTest()
       : testing_profile_manager_(TestingBrowserProcess::GetGlobal()),
         manager_(std::make_unique<
                  testing::NiceMock<content::MockDownloadManager>>()) {}
 
-  bool IsPrimaryPartialView() const { return GetParam(); }
+  DownloadBubbleMode GetDownloadBubbleMode() const { return GetParam(); }
 
   // Sets up `num_items` mock download items with GUID equal to their index in
   // `download_items_`.
@@ -176,7 +158,7 @@ class DownloadBubbleContentsViewTest
     InitItems(2);
     contents_view_ = std::make_unique<DownloadBubbleContentsView>(
         browser_->AsWeakPtr(), bubble_controller_->GetWeakPtr(),
-        navigation_handler_->GetWeakPtr(), IsPrimaryPartialView(),
+        navigation_handler_->GetWeakPtr(), GetDownloadBubbleMode(),
         std::make_unique<DownloadBubbleContentsViewInfo>(GetModels()),
         bubble_delegate_);
     // The contents view has to be set up before the bubble is shown, because it
@@ -235,9 +217,11 @@ class DownloadBubbleContentsViewTest
 };
 
 // The test parameter is whether the primary view is the partial view.
-INSTANTIATE_TEST_SUITE_P(/* no label */,
-                         DownloadBubbleContentsViewTest,
-                         ::testing::Bool());
+INSTANTIATE_TEST_SUITE_P(
+    /* no label */,
+    DownloadBubbleContentsViewTest,
+    ::testing::Values(DownloadBubbleMode::kComplete,
+                      DownloadBubbleMode::kPartial));
 
 TEST_P(DownloadBubbleContentsViewTest, ShowSecurityPage) {
   // Download that doesn't exist in the row list view.

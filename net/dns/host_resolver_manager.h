@@ -154,12 +154,14 @@ class NET_EXPORT HostResolverManager
   std::unique_ptr<HostResolver::ResolveHostRequest> CreateRequest(
       std::variant<url::SchemeHostPort, HostPortPair> host,
       NetworkAnonymizationKey network_anonymization_key,
+      handles::NetworkHandle target_network,
       NetLogWithSource net_log,
       std::optional<ResolveHostParameters> optional_parameters,
       ResolveContext* resolve_context);
   std::unique_ptr<HostResolver::ResolveHostRequest> CreateRequest(
       HostResolver::Host host,
       NetworkAnonymizationKey network_anonymization_key,
+      handles::NetworkHandle target_network,
       NetLogWithSource net_log,
       std::optional<ResolveHostParameters> optional_parameters,
       ResolveContext* resolve_context);
@@ -175,6 +177,7 @@ class NET_EXPORT HostResolverManager
   CreateServiceEndpointRequest(
       HostResolver::Host host,
       NetworkAnonymizationKey network_anonymization_key,
+      handles::NetworkHandle target_network,
       NetLogWithSource net_log,
       ResolveHostParameters parameters,
       ResolveContext* resolve_context);
@@ -470,7 +473,8 @@ class NET_EXPORT HostResolverManager
   // already cached, and ERR_IO_PENDING when a probe is scheduled to be
   // completed asynchronously. When called repeatedly this method returns OK to
   // confirm that results have been cached.
-  int StartIPv6ReachabilityCheck(const NetLogWithSource& net_log,
+  int StartIPv6ReachabilityCheck(handles::NetworkHandle target_network,
+                                 const NetLogWithSource& net_log,
                                  ClientSocketFactory* client_socket_factory,
                                  CompletionOnceCallback callback);
 
@@ -488,6 +492,7 @@ class NET_EXPORT HostResolverManager
   // ERR_IO_PENDING if it will be asynchronous.
   virtual int StartGloballyReachableCheck(
       const IPAddress& dest,
+      handles::NetworkHandle target_network,
       const NetLogWithSource& net_log,
       ClientSocketFactory* client_socket_factory,
       CompletionOnceCallback callback);

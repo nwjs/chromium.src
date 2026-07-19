@@ -152,19 +152,37 @@ void GlicActorTaskIconManager::UpdateTaskListBubble(actor::TaskId task_id) {
     // we should remove it.
     // If the task was cancelled, it should also be removed from the bubble.
     actor_task_list_bubble_rows_.erase(task_id);
-  } else {
-    const auto duration = manager->GetDuration(task_id);
-    glic::mojom::FeatureMode feature_mode = manager->GetFeatureMode(task_id);
-    actor_task_list_bubble_rows_[task_id] =
-        RequiresTaskProcessing(state.value(), feature_mode);
+    return;
+  }
 
-    if (ShouldShowBubble(state.value(), duration, feature_mode)) {
-      // Notify the bubble only if a task now requires processing. This callback
-      // will open the task list bubble and make it active, in order to bring it
-      // to the user's attention. This is also necessary for when a user
-      // switches windows in order to show the bubble in the active window.
-      task_list_bubble_change_callback_list_.Notify();
-    }
+  glic::mojom::FeatureMode feature_mode = manager->GetFeatureMode(task_id);
+  if (IsActiveExperimentalTask(state.value(), feature_mode) &&
+      actor_task_list_bubble_rows_.contains(task_id)) {
+    return;
+  }
+
+  const auto duration = manager->GetDuration(task_id);
+  bool is_new_task = !actor_task_list_bubble_rows_.contains(task_id);
+  actor_task_list_bubble_rows_[task_id] =
+      RequiresTaskProcessing(state.value(), feature_mode);
+
+  if (is_new_task && IsActiveExperimentalTask(state.value(), feature_mode)) {
+    // Notify the bubble only if a task now requires processing. This callback
+    // will open the task list bubble and make it active, in order to bring it
+    // to the user's attention. This is also necessary for when a user
+    // switches windows in order to show the bubble in the active window.
+    task_list_bubble_change_callback_list_.Notify(
+        /*is_start_notification=*/true);
+    return;
+  }
+
+  if (ShouldShowBubble(state.value(), duration, feature_mode)) {
+    // Notify the bubble only if a task now requires processing. This callback
+    // will open the task list bubble and make it active, in order to bring it
+    // to the user's attention. This is also necessary for when a user
+    // switches windows in order to show the bubble in the active window.
+    task_list_bubble_change_callback_list_.Notify(
+        /*is_start_notification=*/false);
   }
 }
 
@@ -204,7 +222,8 @@ bool GlicActorTaskIconManager::RequiresTaskProcessing(
     return false;
   }
   return GlicActorTaskIconManager::RequiresAttention(state) ||
-         state == TaskState::kFinished || state == TaskState::kFailed;
+         state == TaskState::kFinished || state == TaskState::kFailed ||
+         IsActiveExperimentalTask(state, feature_mode);
 }
 
 // static
@@ -218,12 +237,19 @@ bool GlicActorTaskIconManager::ShouldSuppressNotification(
 }
 
 // static
+bool GlicActorTaskIconManager::IsActiveExperimentalTask(
+    TaskState state,
+    glic::mojom::FeatureMode feature_mode) {
+  return feature_mode == glic::mojom::FeatureMode::kExperimentalTriggering &&
+         (state == TaskState::kActing || state == TaskState::kReflecting);
+}
+
+// static
 bool GlicActorTaskIconManager::ShouldShowBubble(
     TaskState state,
     TaskDuration duration,
     glic::mojom::FeatureMode feature_mode) {
-  if (feature_mode == glic::mojom::FeatureMode::kExperimentalTriggering &&
-      state == TaskState::kActing) {
+  if (IsActiveExperimentalTask(state, feature_mode)) {
     return true;
   }
   if (GlicActorTaskIconManager::RequiresAttention(state)) {
@@ -234,6 +260,24 @@ bool GlicActorTaskIconManager::ShouldShowBubble(
   }
   return (state == TaskState::kFinished || state == TaskState::kFailed) &&
          duration != ActorTask::TaskDuration::kTransient;
+}
+
+bool GlicActorTaskIconManager::HasActiveExperimentalTask() const {
+  auto* ui_state_manager = actor_service_->GetActorUiStateManager();
+  if (!ui_state_manager) {
+    return false;
+  }
+  for (const auto& [task_id, requires_processing] :
+       actor_task_list_bubble_rows_) {
+    const std::optional<TaskState> state =
+        ui_state_manager->GetActorTaskState(task_id);
+    if (requires_processing && state &&
+        IsActiveExperimentalTask(*state,
+                                 ui_state_manager->GetFeatureMode(task_id))) {
+      return true;
+    }
+  }
+  return false;
 }
 
 }  // namespace glic

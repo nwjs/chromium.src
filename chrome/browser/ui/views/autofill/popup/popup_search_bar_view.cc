@@ -10,6 +10,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
+#include "components/omnibox/browser/vector_icons.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
 #include "ui/base/interaction/element_identifier.h"
@@ -35,8 +36,9 @@ namespace autofill {
 PopupSearchBarView::PopupSearchBarView(const std::u16string& placeholder,
                                        Delegate& delegate,
                                        bool show_indicator,
-                                       bool is_loading)
-    : delegate_(delegate) {
+                                       bool show_search_icon_sparkle,
+                                       base::TimeDelta debounce_delay)
+    : delegate_(delegate), debounce_delay_(debounce_delay) {
   ChromeLayoutProvider* layout_provider = ChromeLayoutProvider::Get();
 
   SetLayoutManager(std::make_unique<views::FlexLayout>())
@@ -51,15 +53,19 @@ PopupSearchBarView::PopupSearchBarView(const std::u16string& placeholder,
   int icon_size = layout_provider->GetDistanceMetric(
       views::DISTANCE_BUBBLE_HEADER_VECTOR_ICON_SIZE);
 
-  search_icon_ = AddChildView(
-      std::make_unique<views::ImageView>(ui::ImageModel::FromVectorIcon(
-          ::features::IsRoundedIconsEnabled()
-              ? vector_icons::kSearchIcon
-              : vector_icons::kSearchChromeRefreshOldIcon,
-          ui::kColorIcon, icon_size)));
+  const gfx::VectorIcon* icon = nullptr;
+  if (show_search_icon_sparkle) {
+    icon = &omnibox::kSearchSparkIcon;
+  } else {
+    icon = features::IsRoundedIconsEnabled()
+               ? &vector_icons::kSearchIcon
+               : &vector_icons::kSearchChromeRefreshOldIcon;
+  }
 
+  search_icon_ = AddChildView(std::make_unique<views::ImageView>(
+      ui::ImageModel::FromVectorIcon(*icon, ui::kColorIcon, icon_size)));
   throbber_ = AddChildView(std::make_unique<views::Throbber>(icon_size));
-  SetLoading(is_loading);
+  SetLoading(false);
 
   input_ = AddChildView(
       views::Builder<views::Textfield>()
@@ -88,7 +94,7 @@ PopupSearchBarView::PopupSearchBarView(const std::u16string& placeholder,
               base::BindRepeating(&PopupSearchBarView::OnClearPressed,
                                   base::Unretained(this)),
               ::features::IsRoundedIconsEnabled()
-                  ? vector_icons::kCloseSmallIcon
+                  ? vector_icons::kCloseIcon
                   : vector_icons::kCloseChromeRefreshOldIcon))
           // Reset the border set by `CreateVectorImageButtonWithNativeTheme()`
           // as it sets an unnecessary padding to the highlighting circle.
@@ -180,7 +186,7 @@ void PopupSearchBarView::OnInputChanged() {
     indicator_->SetVisible(empty);
   }
   input_change_notification_timer_.Start(
-      FROM_HERE, kInputChangeCallbackDelay,
+      FROM_HERE, debounce_delay_,
       // `delegate_` is expected to outlive `this`, the timer will either be
       // triggered when it is alive or canceled.
       base::BindOnce(&Delegate::SearchBarOnInputChanged,

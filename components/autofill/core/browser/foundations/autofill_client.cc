@@ -120,6 +120,12 @@ AutofillClient::GetPasswordManagerFieldClassificationModelHandler() {
   return nullptr;
 }
 
+bool AutofillClient::ShouldShowPersonalContextAutofillNotice() const {
+  return false;
+}
+
+void AutofillClient::MarkPersonalContextInAutofillNoticeAsAcknowledged() {}
+
 AutofillComposeDelegate* AutofillClient::GetComposeDelegate() {
   return nullptr;
 }
@@ -127,14 +133,19 @@ const AutofillComposeDelegate* AutofillClient::GetComposeDelegate() const {
   return const_cast<AutofillClient*>(this)->GetComposeDelegate();
 }
 
-accessibility_annotator::AccessibilityQueryService*
-AutofillClient::GetAccessibilityQueryService() {
+accessibility_annotator::AtMemoryQueryService*
+AutofillClient::GetAtMemoryQueryService() {
   return nullptr;
 }
 
 personal_context::PersonalContextEnablementState
 AutofillClient::GetPersonalContextEnablementState() const {
   return personal_context::PersonalContextEnablementState::kDisabledNotEligible;
+}
+
+personal_context::PersonalContextEnablementService*
+AutofillClient::GetPersonalContextEnablementService() const {
+  return nullptr;
 }
 
 PasswordManagerDelegate* AutofillClient::GetPasswordManagerDelegate(
@@ -154,6 +165,16 @@ void AutofillClient::GetAiPageContent(GetAiPageContentCallback callback) {
 
 AutofillAiManager* AutofillClient::GetAutofillAiManager() {
   return nullptr;
+}
+
+PersonalContextAccessManager*
+AutofillClient::GetPersonalContextAccessManager() {
+  return nullptr;
+}
+
+const PersonalContextAccessManager*
+AutofillClient::GetPersonalContextAccessManager() const {
+  return const_cast<AutofillClient*>(this)->GetPersonalContextAccessManager();
 }
 
 AutofillAiModelCache* AutofillClient::GetAutofillAiModelCache() {
@@ -207,6 +228,11 @@ profile_metrics::BrowserProfileType AutofillClient::GetProfileType() const {
   return profile_metrics::BrowserProfileType::kRegular;
 }
 
+const subscription_eligibility::SubscriptionEligibilityService*
+AutofillClient::GetSubscriptionEligibilityService() const {
+  return nullptr;
+}
+
 LogManager* AutofillClient::GetCurrentLogManager() {
   return nullptr;
 }
@@ -225,7 +251,8 @@ bool AutofillClient::IsAndroidLargeFormFactor() const {
 
 #if BUILDFLAG(IS_ANDROID)
 void AutofillClient::ShowAtMemoryBottomSheet(
-    base::span<const Suggestion> suggestions) {}
+    base::span<const Suggestion> suggestions,
+    base::WeakPtr<AutofillSuggestionDelegate> delegate) {}
 
 AutofillSnackbarControllerImpl*
 AutofillClient::GetAutofillSnackbarController() {
@@ -373,6 +400,10 @@ void AutofillClient::ShowAutofillAiFetchFromWalletFailureNotification() {
   NOTIMPLEMENTED();
 }
 
+void AutofillClient::ShowAutofillAiPreFetchFailureNotification() {
+  NOTIMPLEMENTED();
+}
+
 void AutofillClient::ShowEmailVerifiedToast(const GURL& issuer) {
   NOTIMPLEMENTED();
 }
@@ -418,6 +449,16 @@ OtpPhishGuardDelegate* AutofillClient::GetOtpPhishGuardDelegate() {
 void AutofillClient::OpenGeminiInSidebar(const std::u16string& prompt) {
   // TODO(crbug.com/493824736): Implement opening Gemini in the sidebar.
   NOTIMPLEMENTED();
+}
+
+bool AutofillClient::IsGlicEnabled() const {
+  return false;
+}
+
+bool AutofillClient::IsAutofillTypeBlockedByPolicy(
+    const GURL& url,
+    AutofillPolicyDataCategory category) const {
+  return false;
 }
 
 }  // namespace autofill

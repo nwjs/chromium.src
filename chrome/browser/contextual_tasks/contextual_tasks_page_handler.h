@@ -12,12 +12,13 @@
 #include "base/scoped_observation.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks.mojom.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_interface.h"
+#include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
 #include "components/contextual_tasks/public/contextual_tasks_service.h"
-#include "components/prefs/pref_change_registrar.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "third_party/lens_server_proto/aim_communication.pb.h"
+#include "ui/base/interaction/element_tracker.h"
 
 namespace base {
 class Uuid;
@@ -37,7 +38,8 @@ mojom::ComposeboxPositionPtr InputPlateConfigToMojo(
 
 class ContextualTasksPageHandler
     : public contextual_tasks::mojom::PageHandler,
-      public contextual_tasks::ContextualTasksService::Observer {
+      public contextual_tasks::ContextualTasksService::Observer,
+      public PinnedToolbarActionsModel::Observer {
  public:
   ContextualTasksPageHandler(
       mojo::PendingReceiver<contextual_tasks::mojom::PageHandler> receiver,
@@ -87,6 +89,7 @@ class ContextualTasksPageHandler
       const contextual_tasks::ContextualWindowId& window_id) override;
   void CloseWindow(
       const contextual_tasks::ContextualWindowId& window_id) override;
+  void MaybeTriggerPinningPromo() override;
   void PostMessageToWebview(const lens::ClientToAimMessage& message);
 
   // contextual_tasks::ContextualTasksService::Observer:
@@ -101,6 +104,9 @@ class ContextualTasksPageHandler
     skip_feedback_ui_for_testing_ = skip;
   }
 
+  // PinnedToolbarActionsModel::Observer:
+  void OnActionsChanged() override;
+
  private:
   void UpdateContextForTask(const base::Uuid& task_id);
   void OnReceivedUpdatedThreadContextLibrary(
@@ -108,11 +114,9 @@ class ContextualTasksPageHandler
   void OnReceivedInjectInput(const lens::InjectInput& inject_input);
   void OnReceivedRemoveInjectedInput(const std::string& id);
   void OnPinStateChanged(bool is_pinned);
-  void OnPrefChanged();
 
   mojo::Receiver<contextual_tasks::mojom::PageHandler> receiver_;
   raw_ptr<contextual_tasks::ContextualTasksUIInterface> web_ui_controller_;
-  PrefChangeRegistrar pref_change_registrar_;
   raw_ptr<contextual_tasks::ContextualTasksUiService> ui_service_;
   raw_ptr<contextual_tasks::ContextualTasksService> contextual_tasks_service_;
   raw_ptr<contextual_tasks::ContextualTasksPanelController> panel_controller_;
@@ -122,6 +126,10 @@ class ContextualTasksPageHandler
   base::ScopedObservation<contextual_tasks::ContextualTasksService,
                           contextual_tasks::ContextualTasksService::Observer>
       contextual_tasks_service_observation_{this};
+
+  base::ScopedObservation<PinnedToolbarActionsModel,
+                          PinnedToolbarActionsModel::Observer>
+      pinned_toolbar_actions_model_observation_{this};
 
   base::WeakPtrFactory<ContextualTasksPageHandler> weak_ptr_factory_{this};
 };

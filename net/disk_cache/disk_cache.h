@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "base/byte_size.h"
 #include "base/files/file.h"
 #include "base/memory/ref_counted.h"
 #include "base/sequence_checker.h"
@@ -165,6 +166,12 @@ NET_EXPORT void FlushCacheThreadForTesting();
 // the calling sequence.
 NET_EXPORT void FlushCacheThreadAsynchronouslyForTesting(
     base::OnceClosure cllback);
+
+// Runs `callback` when all backend I/O for the given `path` has completed
+// post-destruction. If there is no backend active for `path`, the callback
+// is run immediately (asynchronously).
+NET_EXPORT void WaitForBackendCleanupForTesting(const base::FilePath& path,
+                                                base::OnceClosure callback);
 
 // The root interface for a disk cache instance.
 class NET_EXPORT Backend {
@@ -331,6 +338,17 @@ class NET_EXPORT Backend {
 
   // Called when the browser is detected to be idle.
   virtual void OnBrowserIdle();
+
+  // Advise the backend of a new desired cache quota size. Note that unlike
+  // with CreateCacheBackend(), zero is not a special value and here means the
+  // minimum possible size. Implementations MAY adjust the value to within their
+  // own limits. Implementations MAY trigger evictions.
+  virtual void SetMaxBytes(base::ByteSize max_bytes) = 0;
+
+  // Returns the actual maximum size the cache can grow to in bytes.
+  // If an automatic size was chosen due to being set to 0, this returns
+  // the calculated non-zero value.
+  virtual base::ByteSize GetMaxBytesForTesting() const = 0;
 
  private:
   const net::CacheType cache_type_;

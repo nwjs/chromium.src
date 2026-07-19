@@ -46,18 +46,17 @@ class Host : public GlicSharingManagerProvider {
    public:
     virtual ~EmbedderDelegate() = default;
 
-    // Sets the size of the glic window to the specified dimensions. Callback
-    // runs when the animation finishes or is destroyed, or soon if the window
-    // doesn't exist yet. In this last case `size` will be used for the
-    // initial size when creating the widget later.
+    // Optional, does nothing by default.
+    // If supported, ensure `callback` is invoked after the animation finishes
+    // or is destroyed.
     virtual void Resize(const gfx::Size& size,
                         base::TimeDelta duration,
-                        base::OnceClosure callback) = 0;
+                        base::OnceClosure callback);
 
     // Allows the user to manually resize the widget by dragging. If the widget
     // hasn't been created yet, apply this setting when it is created. No effect
     // if the widget doesn't exist or the feature flag is disabled.
-    virtual void EnableDragResize(bool enabled) = 0;
+    virtual void EnableDragResize(bool enabled);
 
     // Attaches glic to the last focused Chrome window.
     virtual void Attach() = 0;
@@ -66,7 +65,7 @@ class Host : public GlicSharingManagerProvider {
     virtual void OnReload() = 0;
     // Sets the minimum widget size that the widget will allow the user to
     // resize to.
-    virtual void SetMinimumWidgetSize(const gfx::Size& size) = 0;
+    virtual void SetMinimumWidgetSize(const gfx::Size& size);
     virtual void CaptureScreenshot(
         glic::mojom::WebClientHandler::CaptureScreenshotCallback callback) = 0;
 
@@ -228,7 +227,7 @@ class Host : public GlicSharingManagerProvider {
   void Zoom(mojom::ZoomAction zoom_action);
 
   // GlicSharingManagerProvider Implementation.
-  GlicSharingManager& sharing_manager() override;
+  GlicSharingManagerInternal& GetSharingManagerInternal() override;
 
   GlicPinCandidateProvider& pin_candidate_provider() override;
 
@@ -310,6 +309,8 @@ class Host : public GlicSharingManagerProvider {
                                  mojom::ZeroStateSuggestionsOptions options);
 
   void NotifyInstanceActivationChanged(bool is_active);
+  void OnActuatingChanged(bool actuating);
+  void OnTaskTabsVisibilityChanged(bool has_visible_tab);
 
   // Informs the web client that additional context is available.
   void NotifyAdditionalContext(mojom::AdditionalContextPtr context);
@@ -375,7 +376,7 @@ class Host : public GlicSharingManagerProvider {
   // Returns true if the widget is visible.
   bool IsWidgetShowing(GlicWebClientAccess* client) const;
   // Returns the current panel state.
-  mojom::PanelState GetPanelState(GlicWebClientAccess* client) const;
+  mojom::PanelState GetPanelState() const;
 
   base::WeakPtr<Host> GetWeakPtr() { return weak_ptr_factory_.GetWeakPtr(); }
 
@@ -393,7 +394,6 @@ class Host : public GlicSharingManagerProvider {
       mojo::PendingRemote<mojom::ExperimentalTriggeringUpdatesHandler> handler,
       base::OnceCallback<void(bool)> success_status_callback);
 
-  void NotifyIsInvoking(bool is_invoking);
 
   virtual void Invoke(mojom::InvokeOptionsPtr options,
                       base::OnceClosure callback);

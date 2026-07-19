@@ -32,7 +32,6 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "build/build_config.h"
-#include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/process_lock.h"
 #include "content/browser/renderer_host/frame_tree_node.h"
 #include "content/browser/renderer_host/navigation_entry_restore_context_impl.h"
@@ -42,6 +41,7 @@
 #include "content/browser/renderer_host/render_process_host_impl.h"
 #include "content/browser/renderer_host/render_view_host_impl.h"
 #include "content/browser/renderer_host/spare_render_process_host_manager_impl.h"
+#include "content/browser/security/cpsp/child_process_security_policy_impl.h"
 #include "content/browser/site_info.h"
 #include "content/browser/site_instance_impl.h"
 #include "content/browser/web_contents/web_contents_impl.h"
@@ -6218,10 +6218,9 @@ IN_PROC_BROWSER_TEST_P(
   // At this time, there should be at least one RenderProcessHost. Capture them
   // for testing expectations later.
   auto& spare_manager = SpareRenderProcessHostManagerImpl::Get();
-  EXPECT_THAT(
-      spare_manager.GetSpares(),
-      testing::Each(testing::Property(&RenderProcessHost::GetPriority,
-                                      base::Process::Priority::kBestEffort)));
+  for (content::RenderProcessHost* host : spare_manager.GetSpares()) {
+    EXPECT_EQ(host->GetPriority(), base::Process::Priority::kBestEffort);
+  }
   std::vector<ChildProcessId> spare_rph_ids = spare_manager.GetSpareIds();
   ASSERT_FALSE(spare_rph_ids.empty());
 

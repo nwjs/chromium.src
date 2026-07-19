@@ -93,7 +93,6 @@ bool IsSystemWebUIHost(std::string_view host) {
       ash::kChromeUICrostiniCreditsHost,
       ash::kChromeUICrostiniInstallerHost,
       ash::kChromeUICryptohomeHost,
-      ash::kChromeUIDeviceEmulatorHost,
       ash::kChromeUIEmojiPickerHost,
       ash::kChromeUIExtendedUpdatesDialogHost,
       ash::kChromeUIInternetConfigDialogHost,
@@ -136,11 +135,11 @@ base::span<const base::cstring_view> ChromeURLHosts() {
       kChromeUIComponentsHost,
       commerce::kChromeUICommerceInternalsHost,
       kChromeUIConnectorsInternalsHost,
+#if !BUILDFLAG(IS_ANDROID)
+      kChromeUIContextualCueingInternalsHost,
+#endif
       kChromeUICrashesHost,
       kChromeUICreditsHost,
-#if BUILDFLAG(IS_CHROMEOS) && !defined(OFFICIAL_BUILD)
-      ash::kChromeUIDeviceEmulatorHost,
-#endif
       kChromeUIDeviceLogHost,
       kChromeUIDownloadInternalsHost,
       kChromeUIFamilyLinkUserInternalsHost,
@@ -299,6 +298,19 @@ base::span<const base::cstring_view> ChromeDebugURLs() {
       {blink::kChromeUIBadCastCrashURL,
        blink::kChromeUIBrowserCrashURL,
        blink::kChromeUIBrowserDcheckURL,
+       blink::kChromeUIBrowserUIHang,
+       blink::kChromeUIBrowserHeapMemberDerefAfterFreeURL,
+       blink::kChromeUIBrowserHeapOverflowURL,
+       blink::kChromeUIBrowserHeapUaFURL,
+       blink::kChromeUIBrowserHeapUnderflowURL,
+       blink::kChromeUIGpuHeapMemberDerefAfterFreeURL,
+       blink::kChromeUIGpuHeapOverflowURL,
+       blink::kChromeUIGpuHeapUaFURL,
+       blink::kChromeUIGpuHeapUnderflowURL,
+       blink::kChromeUIRendererHeapMemberDerefAfterFreeURL,
+       blink::kChromeUIRendererHeapOverflowURL,
+       blink::kChromeUIRendererHeapUaFURL,
+       blink::kChromeUIRendererHeapUnderflowURL,
        blink::kChromeUICrashURL,
        blink::kChromeUICrashRustURL,
 #if defined(ADDRESS_SANITIZER)

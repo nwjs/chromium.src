@@ -170,12 +170,8 @@ class CORE_EXPORT Event : public ScriptWrappable, public DOMOriginUtils {
   // is dangerous.
   virtual void DoneDispatchingEventAtCurrentTarget() {}
 
-  void SetRelatedTargetIfExists(EventTarget* related_target);
-
-  // This is the element that caused the event to be triggered, without
-  // any retargeting. For example, for a command event it's the element with the
-  // commandfor attribute.
-  virtual Element* SourceElement() const { return nullptr; }
+  virtual EventTarget* relatedTarget() const { return nullptr; }
+  virtual void SetRelatedTarget(EventTarget*) {}
 
   PhaseType eventPhase() const { return event_phase_; }
   void SetEventPhase(PhaseType event_phase) { event_phase_ = event_phase; }

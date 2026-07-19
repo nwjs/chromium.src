@@ -10,7 +10,10 @@ import android.widget.ImageView;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.actor.ui.ActorUiTabController.UiTabState;
+import org.chromium.chrome.browser.actor.ui.TabIndicatorStatus;
 import org.chromium.chrome.browser.tab_ui.TabListFaviconProvider.TabFaviconFetcher;
+import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.browser_ui.util.TextResolver;
 import org.chromium.components.browser_ui.util.motion.MotionEventInfo;
 import org.chromium.components.browser_ui.util.motion.OnPeripheralClickListener;
@@ -131,24 +134,44 @@ public class TabListViewBinderUtils {
     }
 
     /**
-     * Asynchronously fetches and binds the favicon drawable to the specified ImageView, using a
-     * tag-validation system to protect against recycler view recycling race conditions and
-     * performing drawable mutation for color isolation safety.
+     * Updates the favicon drawable of the specified {@link ImageView} and manages its visibility.
      *
-     * @param model the model containing the tab properties.
-     * @param faviconView the ImageView to receive the favicon drawable.
+     * <p>This method delegates the asynchronous fetching and binding of the image to {@link
+     * #updateFaviconImage(PropertyModel, ImageView)}. It then adjusts the visibility of the {@code
+     * faviconView} to {@link View#GONE} if no favicon fetcher is available, or {@link View#VISIBLE}
+     * otherwise.
+     *
+     * @param model The model containing tab properties, specifically {@link
+     *     TabProperties#FAVICON_FETCHER}.
+     * @param faviconView The {@link ImageView} whose favicon image and visibility will be updated.
      */
-    public static void updateFavicon(PropertyModel model, ImageView faviconView) {
+    public static void updateFaviconAndVisibility(PropertyModel model, ImageView faviconView) {
+        updateFaviconImage(model, faviconView);
+        faviconView.setVisibility(
+                model.get(TabProperties.FAVICON_FETCHER) == null ? View.GONE : View.VISIBLE);
+    }
+
+    /**
+     * Asynchronously fetches and applies the favicon drawable to the specified {@link ImageView}.
+     *
+     * <p>This method handles the lifecycle of resolving the favicon image, choosing between the
+     * selected and default drawables, mutating the drawable for color isolation, and safeguarding
+     * against recycler view recycling race conditions by validating the view's tag. It does not
+     * alter the visibility of the view.
+     *
+     * @param model The model containing tab properties, specifically {@link
+     *     TabProperties#FAVICON_FETCHER} and {@link TabProperties#IS_SELECTED}.
+     * @param faviconView The {@link ImageView} to update with the fetched favicon drawable.
+     */
+    public static void updateFaviconImage(PropertyModel model, ImageView faviconView) {
         @Nullable TabFaviconFetcher fetcher = model.get(TabProperties.FAVICON_FETCHER);
         faviconView.setTag(fetcher);
 
         if (fetcher == null) {
-            faviconView.setVisibility(View.GONE);
             faviconView.setImageDrawable(null);
             return;
         }
 
-        faviconView.setVisibility(View.VISIBLE);
         fetcher.fetch(
                 tabFavicon -> {
                     if (faviconView.getTag() != fetcher) return;
@@ -186,6 +209,21 @@ public class TabListViewBinderUtils {
         view.setContentDescription(contentDescriptionString);
     }
 
+    /**
+     * Updates the content description of the action button in the view using the resolver from
+     * model.
+     *
+     * @param model the model containing the tab properties.
+     * @param actionButton the action button View to update.
+     */
+    public static void updateActionButtonContentDescription(
+            PropertyModel model, View actionButton) {
+        @Nullable TextResolver resolver =
+                model.get(TabProperties.ACTION_BUTTON_DESCRIPTION_TEXT_RESOLVER);
+        actionButton.setContentDescription(
+                TabCardViewBinderUtils.resolveNullSafe(resolver, actionButton.getContext()));
+    }
+
     private static void runTabActionListener(
             TabActionListener tabActionListener,
             View view,
@@ -197,5 +235,31 @@ public class TabListViewBinderUtils {
         } else {
             tabActionListener.run(view, propertyModel.get(TabProperties.TAB_ID), triggeringMotion);
         }
+    }
+
+    /**
+     * Resolves the ACTOR_UI_STATE and updates the accessibility content description.
+     *
+     * @param model the model containing the tab properties.
+     * @param view the View to receive the accessibility content description.
+     * @return true if the actor indicator should be visible, false otherwise.
+     */
+    public static boolean setupActorIndicator(PropertyModel model, View view) {
+        @Nullable UiTabState state = model.get(TabProperties.ACTOR_UI_STATE);
+        boolean shouldBeVisible =
+                state != null
+                        && (state.tabIndicator == TabIndicatorStatus.DYNAMIC
+                                || state.tabIndicator == TabIndicatorStatus.STATIC);
+
+        if (shouldBeVisible) {
+            String title = model.get(TabProperties.TITLE);
+            String accessibilityDesc =
+                    view.getResources().getString(R.string.tab_ax_label_actor_accessing, title);
+            view.setContentDescription(accessibilityDesc);
+        } else {
+            updateContentDescription(model, view);
+        }
+
+        return shouldBeVisible;
     }
 }

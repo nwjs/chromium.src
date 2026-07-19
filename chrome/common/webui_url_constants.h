@@ -96,6 +96,14 @@ inline constexpr char kChromeUIContentAnnotatorInternalsHost[] =
 inline constexpr char kChromeUIContentAnnotatorInternalsURL[] =
     "chrome://content-annotator-internals/";
 #endif
+inline constexpr char kChromeUIContextHubHost[] = "context-hub";
+inline constexpr char kChromeUIContextHubURL[] = "chrome://context-hub/";
+#if !BUILDFLAG(IS_ANDROID)
+inline constexpr char kChromeUIContextualCueingInternalsHost[] =
+    "contextual-cueing-internals";
+inline constexpr char kChromeUIContextualCueingInternalsURL[] =
+    "chrome://contextual-cueing-internals/";
+#endif
 inline constexpr char kChromeUIContextualTasksHost[] = "contextual-tasks";
 inline constexpr char kChromeUIContextualTasksURL[] =
     "chrome://contextual-tasks/";
@@ -238,6 +246,10 @@ inline constexpr char kChromeUIUntrustedNtpMicrosoftAuthURL[] =
 inline constexpr char kChromeUINTPTilesInternalsHost[] = "ntp-tiles-internals";
 inline constexpr char kChromeUIOmniboxHost[] = "omnibox";
 inline constexpr char kChromeUIOmniboxPopupHost[] = "omnibox-popup.top-chrome";
+inline constexpr char kChromeUIOmniboxEverywhereHost[] =
+    "omnibox-everywhere.top-chrome";
+inline constexpr char kChromeUIOmniboxEverywhereURL[] =
+    "chrome://omnibox-everywhere.top-chrome/";
 inline constexpr char kChromeUIOmniboxPopupURL[] =
     "chrome://omnibox-popup.top-chrome/";
 inline constexpr char kChromeUIOmniboxPopupAimURL[] =
@@ -268,14 +280,12 @@ inline constexpr char kChromeUIPrefsInternalsHost[] = "prefs-internals";
 inline constexpr char kChromeUIPrintURL[] = "chrome://print/";
 inline constexpr char16_t kChromeUIPrivacySandboxFledgeURL[] =
     u"chrome://settings/adPrivacy/sites";
-inline constexpr char kChromeUIPrivacySandboxInternalsHost[] =
-    "privacy-sandbox-internals";
-inline constexpr char kChromeUIPrivacySandboxInternalsURL[] =
-    "chrome://privacy-sandbox-internals";
 inline constexpr char16_t kChromeUIPrivacySandboxManageTopicsLearnMoreURL[] =
     u"https://support.google.com/chrome?p=ad_privacy";
 inline constexpr char16_t kChromeUIPrivacySandboxTopicsURL[] =
     u"chrome://settings/adPrivacy/interests";
+inline constexpr char kChromeUIPrivateAiInternalsHost[] =
+    "private-ai-internals";
 inline constexpr char kChromeUIProfileInternalsHost[] = "profile-internals";
 inline constexpr char kChromeUIQuitHost[] = "quit";
 inline constexpr char kChromeUIQuitURL[] = "chrome://quit/";
@@ -297,6 +307,9 @@ inline constexpr char kChromeUISigninEmailConfirmationURL[] =
     "chrome://signin-email-confirmation";
 inline constexpr char kChromeUISigninErrorHost[] = "signin-error";
 inline constexpr char kChromeUISigninErrorURL[] = "chrome://signin-error/";
+inline constexpr char kChromeUISigninQRCodeBarHost[] = "signin-qrcode-bar";
+inline constexpr char kChromeUISigninQRCodeBarURL[] =
+    "chrome://signin-qrcode-bar/";
 inline constexpr char kChromeUISignInInternalsHost[] = "signin-internals";
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 inline constexpr char kChromeUISignoutConfirmationHost[] =
@@ -425,8 +438,6 @@ inline constexpr char kChromeUINearbyInternalsHost[] = "nearby-internals";
 inline constexpr char kChromeUINearbyShareHost[] = "nearby";
 inline constexpr char kChromeUINearbyShareURL[] = "chrome://nearby/";
 inline constexpr char kChromeUIOnDeviceInternalsHost[] = "on-device-internals";
-inline constexpr char kChromeUIPrivateAiInternalsHost[] =
-    "private-ai-internals";
 inline constexpr char kChromeUIReadLaterHost[] = "read-later.top-chrome";
 inline constexpr char kChromeUIReadLaterURL[] =
     "chrome://read-later.top-chrome/";

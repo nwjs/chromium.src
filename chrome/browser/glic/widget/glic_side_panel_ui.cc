@@ -117,17 +117,6 @@ gfx::Size GlicSidePanelUi::GetPanelSize() {
   return glic_view_->size();
 }
 
-void GlicSidePanelUi::Resize(const gfx::Size& size,
-                             base::TimeDelta duration,
-                             base::OnceClosure callback) {
-  NOTIMPLEMENTED();
-  std::move(callback).Run();
-}
-
-void GlicSidePanelUi::EnableDragResize(bool enabled) {
-  NOTIMPLEMENTED();
-}
-
 void GlicSidePanelUi::Attach() {
   // The Side Panel Ui is already attached, do nothing.
 }
@@ -138,10 +127,6 @@ void GlicSidePanelUi::Detach() {
   }
   // NOTE: `this` will be destroyed after this call.
   delegate_->Detach(*tab_);
-}
-
-void GlicSidePanelUi::SetMinimumWidgetSize(const gfx::Size& size) {
-  NOTIMPLEMENTED();
 }
 
 bool GlicSidePanelUi::IsShowing() const {
@@ -251,9 +236,6 @@ void GlicSidePanelUi::SetModalDialogDelegate(
   if (!web_contents) {
     return;
   }
-  if (glic_view_) {
-    glic_view_->SetWebContents(web_contents);
-  }
   if (auto* dialog_manager =
           web_modal::WebContentsModalDialogManager::FromWebContents(
               web_contents)) {
@@ -264,6 +246,10 @@ void GlicSidePanelUi::SetModalDialogDelegate(
 }
 
 void GlicSidePanelUi::OnReload() {
+  content::WebContents* web_contents = delegate_->host().webui_contents();
+  if (web_contents && glic_view_) {
+    glic_view_->SetWebContents(web_contents);
+  }
   SetModalDialogDelegate(this);
 }
 

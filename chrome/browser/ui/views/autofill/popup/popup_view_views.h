@@ -197,6 +197,13 @@ class PopupViewViews : public PopupBaseView,
   // metadata.
   void ShowIPHFeaturePromos();
 
+  // Automatically selects the first interactive row in the popup (or
+  // clears/skips selection) if required by trigger source or suggestion type
+  // default.
+  void MaybeAutoSelectSuggestion(
+      AutoselectFirstSuggestion force_by_trigger_source =
+          AutoselectFirstSuggestion(false));
+
   // If the current suggestions are for password recovery, announces it to the
   // user.
   void MaybeAnnouncePasswordRecoveryPopup();
@@ -322,7 +329,9 @@ class PopupViewViews : public PopupBaseView,
   // the suggestion's message is being announced to the user by focusing the row
   // view (which must be selectable). Currently, only `PopupWarningView` is
   // supported.
-  void MaybeA11yFocusInformationalSuggestion();
+  // Returns true if the popup survived the accessibility event dispatch, false
+  // if it was destroyed. DO NOT access the popup if it has been destroyed.
+  [[nodiscard]] bool MaybeA11yFocusInformationalSuggestion();
 
   // Controller for this view.
   base::WeakPtr<AutofillPopupController> controller_ = nullptr;

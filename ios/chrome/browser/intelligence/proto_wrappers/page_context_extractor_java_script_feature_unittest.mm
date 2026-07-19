@@ -62,6 +62,8 @@ class PageContextExtractorJavaScriptFeatureTest
   void SetUp() override {
     if (GetParam() == IPCExtractionMethod::kJSON) {
       scoped_feature_list_.InitAndEnableFeature(kPageContextIPCOptimization);
+    } else {
+      scoped_feature_list_.InitAndDisableFeature(kPageContextIPCOptimization);
     }
     PlatformTest::SetUp();
 
@@ -1935,6 +1937,32 @@ TEST_P(PageContextExtractorJavaScriptFeatureTest,
   if (interaction_info) {
     EXPECT_FALSE(interaction_info->FindBool("isDisabled").value_or(false));
   }
+}
+
+// Tests that page context extraction does not throw an error when the document
+// has no documentElement.
+TEST_P(PageContextExtractorJavaScriptFeatureTest,
+       ExtractPageContext_NoDocumentElement) {
+  const std::string html = "<html><body></body></html>";
+  web::test::LoadHtml(base::SysUTF8ToNSString(html),
+                      test_server_.GetURL(kMainPagePath), web_state());
+
+  // Remove the documentElement.
+  ASSERT_TRUE(web::test::ExecuteJavaScriptForFeatureAndReturnResult(
+      web_state(), @"document.documentElement.remove(); true;", feature()));
+
+  std::optional<base::Value> result_value = RunExtraction(
+      web_state()->GetPageWorldWebFramesManager()->GetMainWebFrame(),
+      /*include_cross_origin_frame_content=*/false,
+      /*use_rich_extraction=*/true,
+      /*use_rich_extraction_with_actionable=*/false,
+      /*extract_paid_content=*/false,
+      /*attempt_paid_content_json_fixing=*/false, "nonce", base::Seconds(1));
+
+  // Should successfully return none/null, rather than throwing a JS error
+  // (which returns std::nullopt).
+  ASSERT_TRUE(result_value.has_value());
+  EXPECT_TRUE(result_value->is_none());
 }
 
 INSTANTIATE_TEST_SUITE_P(All,

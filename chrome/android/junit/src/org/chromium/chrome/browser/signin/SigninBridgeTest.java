@@ -64,8 +64,8 @@ import org.chromium.chrome.browser.ui.signin.BottomSheetSigninAndHistorySyncCoor
 import org.chromium.chrome.browser.ui.signin.DelegateContext;
 import org.chromium.chrome.browser.ui.signin.FullscreenSigninAndHistorySyncConfig;
 import org.chromium.chrome.browser.ui.signin.SigninAndHistorySyncActivityLauncher;
-import org.chromium.chrome.browser.ui.signin.SigninAndHistorySyncCoordinator;
 import org.chromium.chrome.browser.ui.signin.account_picker.SigninDelegateContext;
+import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncConfig;
 import org.chromium.chrome.test.util.browser.signin.AccountManagerTestRule;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetControllerProvider;
@@ -74,6 +74,7 @@ import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.base.ExternalEntryPoint;
 import org.chromium.components.signin.base.SigninDeepLinkPayload;
 import org.chromium.components.signin.metrics.AccountConsistencyPromoAction;
+import org.chromium.components.signin.metrics.CrossDeviceInitialState;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.components.signin.test.util.FakeAccountManagerFacade;
 import org.chromium.components.signin.test.util.TestAccounts;
@@ -581,7 +582,7 @@ public class SigninBridgeTest {
 
     @Test
     @SmallTest
-    public void testSigninDeepLinkFlow_userSignedOut() {
+    public void testSigninDeepLinkFlow_userSignedOut_targetAccountNotOnDevice() {
         Context context = Robolectric.buildActivity(Activity.class).get();
         lenient().when(mSigninManagerMock.isSigninAllowed()).thenReturn(true);
         lenient().when(mWindowAndroidMock.getContext()).thenReturn(new WeakReference<>(context));
@@ -598,15 +599,15 @@ public class SigninBridgeTest {
         SigninBridge.startSigninDeepLinkFlow(mWindowAndroidMock, mProfileMock, payload);
 
         var expectedConfig =
-                new FullscreenSigninAndHistorySyncConfig.Builder(
+                FullscreenSigninAndHistorySyncConfig.builder(
                                 context.getString(R.string.signin_deep_link_flow_signin_title),
                                 context.getString(R.string.signin_deep_link_flow_signin_subtitle),
                                 context.getString(
                                         R.string.signin_deep_link_flow_signin_dismiss_button),
                                 context.getString(R.string.history_sync_title),
                                 context.getString(R.string.history_sync_subtitle))
+                        .historyOptInMode(HistorySyncConfig.OptInMode.NONE)
                         .selectedAccountEmail(TestAccounts.ACCOUNT1.getEmail())
-                        .signinFlow(SigninAndHistorySyncCoordinator.SigninFlow.DEFAULT_SIGNIN)
                         .build();
 
         verify(mSigninAndHistorySyncActivityLauncherMock)
@@ -615,11 +616,16 @@ public class SigninBridgeTest {
                         eq(mProfileMock),
                         eq(expectedConfig),
                         eq(SigninAccessPoint.DEEP_LINK_DEFAULT));
+        verify(mSigninMetricsUtilsJniMock)
+                .recordCrossDeviceInitialState(
+                        eq(ExternalEntryPoint.DESKTOP_DEFAULT),
+                        eq(CrossDeviceInitialState.SIGNED_OUT_TARGET_ACCOUNT_NOT_ON_DEVICE));
     }
 
     @Test
     @SmallTest
-    public void testSigninDeepLinkFlow_userSignedIn() {
+    public void
+            testSigninDeepLinkFlow_userSignedIn_toDifferentAccount_targetAccountNotOnTheDevice() {
         Context context = Robolectric.buildActivity(Activity.class).get();
         lenient().when(mSigninManagerMock.isSigninAllowed()).thenReturn(true);
         lenient().when(mWindowAndroidMock.getContext()).thenReturn(new WeakReference<>(context));
@@ -639,7 +645,7 @@ public class SigninBridgeTest {
         SigninBridge.startSigninDeepLinkFlow(mWindowAndroidMock, mProfileMock, payload);
 
         var expectedConfig =
-                new FullscreenSigninAndHistorySyncConfig.Builder(
+                FullscreenSigninAndHistorySyncConfig.builderForSwitchAccountFlow(
                                 context.getString(
                                         R.string.signin_deep_link_flow_switch_account_title),
                                 context.getString(
@@ -650,9 +656,9 @@ public class SigninBridgeTest {
                                         R.string
                                                 .signin_deep_link_flow_switch_account_dismiss_button),
                                 context.getString(R.string.history_sync_title),
-                                context.getString(R.string.history_sync_subtitle))
-                        .selectedAccountEmail(TestAccounts.ACCOUNT2.getEmail())
-                        .signinFlow(SigninAndHistorySyncCoordinator.SigninFlow.SWITCH_ACCOUNT)
+                                context.getString(R.string.history_sync_subtitle),
+                                TestAccounts.ACCOUNT2.getEmail())
+                        .historyOptInMode(HistorySyncConfig.OptInMode.NONE)
                         .build();
 
         verify(mSigninAndHistorySyncActivityLauncherMock)
@@ -661,11 +667,17 @@ public class SigninBridgeTest {
                         eq(mProfileMock),
                         eq(expectedConfig),
                         eq(SigninAccessPoint.DEEP_LINK_DEFAULT));
+        verify(mSigninMetricsUtilsJniMock)
+                .recordCrossDeviceInitialState(
+                        eq(ExternalEntryPoint.DESKTOP_DEFAULT),
+                        eq(
+                                CrossDeviceInitialState
+                                        .SIGNED_IN_WITH_DIFFERENT_ACCOUNT_TARGET_ACCOUNT_NOT_ON_DEVICE));
     }
 
     @Test
     @SmallTest
-    public void testSigninDeepLinkFlow_userSignedInToTheSameAccount() {
+    public void testSigninDeepLinkFlow_userSignedIn_withTheTargetAccount() {
         Context context = Robolectric.buildActivity(Activity.class).get();
         lenient().when(mSigninManagerMock.isSigninAllowed()).thenReturn(true);
         lenient().when(mWindowAndroidMock.getContext()).thenReturn(new WeakReference<>(context));
@@ -685,21 +697,168 @@ public class SigninBridgeTest {
         SigninBridge.startSigninDeepLinkFlow(mWindowAndroidMock, mProfileMock, payload);
 
         verifyNoInteractions(mSigninAndHistorySyncActivityLauncherMock);
+        verify(mSigninMetricsUtilsJniMock)
+                .recordCrossDeviceInitialState(
+                        eq(ExternalEntryPoint.DESKTOP_DEFAULT),
+                        eq(CrossDeviceInitialState.SIGNED_IN_WITH_TARGET_ACCOUNT));
+    }
+
+    @Test
+    @SmallTest
+    public void testSigninDeepLinkFlow_signinNotAllowed() {
+        Context context = Robolectric.buildActivity(Activity.class).get();
+        lenient().when(mSigninManagerMock.isSigninAllowed()).thenReturn(false);
+        lenient().when(mWindowAndroidMock.getContext()).thenReturn(new WeakReference<>(context));
+        lenient().when(mProfileMock.getOriginalProfile()).thenReturn(mProfileMock);
+
+        SigninAndHistorySyncActivityLauncherImpl.setLauncherForTest(
+                mSigninAndHistorySyncActivityLauncherMock);
+
+        var payload =
+                new SigninDeepLinkPayload(
+                        /* externalEntryPoint= */ ExternalEntryPoint.DESKTOP_DEFAULT,
+                        /* email= */ TestAccounts.ACCOUNT1.getEmail());
+
+        SigninBridge.startSigninDeepLinkFlow(mWindowAndroidMock, mProfileMock, payload);
+
+        var expectedConfig =
+                FullscreenSigninAndHistorySyncConfig.builder(
+                                context.getString(R.string.signin_deep_link_flow_signin_title),
+                                context.getString(R.string.signin_deep_link_flow_signin_subtitle),
+                                context.getString(
+                                        R.string.signin_deep_link_flow_signin_dismiss_button),
+                                context.getString(R.string.history_sync_title),
+                                context.getString(R.string.history_sync_subtitle))
+                        .historyOptInMode(HistorySyncConfig.OptInMode.NONE)
+                        .selectedAccountEmail(TestAccounts.ACCOUNT1.getEmail())
+                        .build();
+
+        verify(mSigninAndHistorySyncActivityLauncherMock)
+                .createFullscreenSigninIntentOrShowError(
+                        eq(context),
+                        eq(mProfileMock),
+                        eq(expectedConfig),
+                        eq(SigninAccessPoint.DEEP_LINK_DEFAULT));
+        verify(mSigninMetricsUtilsJniMock)
+                .recordCrossDeviceInitialState(
+                        eq(ExternalEntryPoint.DESKTOP_DEFAULT),
+                        eq(CrossDeviceInitialState.FLOW_FORBIDDEN));
+    }
+
+    @Test
+    @SmallTest
+    public void testSigninDeepLinkFlow_userSignedOut_targetAccountOnDevice() {
+        Context context = Robolectric.buildActivity(Activity.class).get();
+        lenient().when(mSigninManagerMock.isSigninAllowed()).thenReturn(true);
+        lenient().when(mWindowAndroidMock.getContext()).thenReturn(new WeakReference<>(context));
+        lenient().when(mProfileMock.getOriginalProfile()).thenReturn(mProfileMock);
+
+        SigninAndHistorySyncActivityLauncherImpl.setLauncherForTest(
+                mSigninAndHistorySyncActivityLauncherMock);
+
+        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
+
+        var payload =
+                new SigninDeepLinkPayload(
+                        /* externalEntryPoint= */ ExternalEntryPoint.DESKTOP_DEFAULT,
+                        /* email= */ TestAccounts.ACCOUNT1.getEmail());
+
+        SigninBridge.startSigninDeepLinkFlow(mWindowAndroidMock, mProfileMock, payload);
+
+        var expectedConfig =
+                FullscreenSigninAndHistorySyncConfig.builder(
+                                context.getString(R.string.signin_deep_link_flow_signin_title),
+                                context.getString(R.string.signin_deep_link_flow_signin_subtitle),
+                                context.getString(
+                                        R.string.signin_deep_link_flow_signin_dismiss_button),
+                                context.getString(R.string.history_sync_title),
+                                context.getString(R.string.history_sync_subtitle))
+                        .historyOptInMode(HistorySyncConfig.OptInMode.NONE)
+                        .selectedAccountEmail(TestAccounts.ACCOUNT1.getEmail())
+                        .build();
+
+        verify(mSigninAndHistorySyncActivityLauncherMock)
+                .createFullscreenSigninIntentOrShowError(
+                        eq(context),
+                        eq(mProfileMock),
+                        eq(expectedConfig),
+                        eq(SigninAccessPoint.DEEP_LINK_DEFAULT));
+        verify(mSigninMetricsUtilsJniMock)
+                .recordCrossDeviceInitialState(
+                        eq(ExternalEntryPoint.DESKTOP_DEFAULT),
+                        eq(CrossDeviceInitialState.SIGNED_OUT_TARGET_ACCOUNT_ON_DEVICE));
+    }
+
+    @Test
+    @SmallTest
+    public void testSigninDeepLinkFlow_userSignedIn_toDifferentAccount_targetAccountOnTheDevice() {
+        Context context = Robolectric.buildActivity(Activity.class).get();
+        lenient().when(mSigninManagerMock.isSigninAllowed()).thenReturn(true);
+        lenient().when(mWindowAndroidMock.getContext()).thenReturn(new WeakReference<>(context));
+        lenient().when(mProfileMock.getOriginalProfile()).thenReturn(mProfileMock);
+
+        SigninAndHistorySyncActivityLauncherImpl.setLauncherForTest(
+                mSigninAndHistorySyncActivityLauncherMock);
+
+        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
+        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT2);
+        mAccountManagerTestRule.getIdentityManager().setPrimaryAccount(TestAccounts.ACCOUNT1);
+
+        var payload =
+                new SigninDeepLinkPayload(
+                        /* externalEntryPoint= */ ExternalEntryPoint.DESKTOP_DEFAULT,
+                        /* email= */ TestAccounts.ACCOUNT2.getEmail());
+
+        SigninBridge.startSigninDeepLinkFlow(mWindowAndroidMock, mProfileMock, payload);
+
+        var expectedConfig =
+                FullscreenSigninAndHistorySyncConfig.builderForSwitchAccountFlow(
+                                context.getString(
+                                        R.string.signin_deep_link_flow_switch_account_title),
+                                context.getString(
+                                        R.string.signin_deep_link_flow_switch_account_subtitle,
+                                        TestAccounts.ACCOUNT1.getEmail(),
+                                        TestAccounts.ACCOUNT2.getEmail()),
+                                context.getString(
+                                        R.string
+                                                .signin_deep_link_flow_switch_account_dismiss_button),
+                                context.getString(R.string.history_sync_title),
+                                context.getString(R.string.history_sync_subtitle),
+                                TestAccounts.ACCOUNT2.getEmail())
+                        .historyOptInMode(HistorySyncConfig.OptInMode.NONE)
+                        .build();
+
+        verify(mSigninAndHistorySyncActivityLauncherMock)
+                .createFullscreenSigninIntentOrShowError(
+                        eq(context),
+                        eq(mProfileMock),
+                        eq(expectedConfig),
+                        eq(SigninAccessPoint.DEEP_LINK_DEFAULT));
+        verify(mSigninMetricsUtilsJniMock)
+                .recordCrossDeviceInitialState(
+                        eq(ExternalEntryPoint.DESKTOP_DEFAULT),
+                        eq(
+                                CrossDeviceInitialState
+                                        .SIGNED_IN_WITH_DIFFERENT_ACCOUNT_TARGET_ACCOUNT_ON_DEVICE));
     }
 
     private void verifyBottomSheetStartSigninFlow(@Nullable CoreAccountId accountId) {
         ArgumentCaptor<BottomSheetSigninAndHistorySyncConfig> configCaptor =
                 ArgumentCaptor.forClass(BottomSheetSigninAndHistorySyncConfig.class);
-        ArgumentCaptor<DelegateContext> delegateContextCaptor =
-                ArgumentCaptor.forClass(DelegateContext.class);
-        verify(mCoordinatorMock)
-                .startSigninFlow(configCaptor.capture(), delegateContextCaptor.capture());
-        Assert.assertNotNull(delegateContextCaptor.getValue());
+        if (mIsWebSignin) {
+            ArgumentCaptor<DelegateContext> delegateContextCaptor =
+                    ArgumentCaptor.forClass(DelegateContext.class);
+            verify(mCoordinatorMock)
+                    .startSigninFlow(configCaptor.capture(), delegateContextCaptor.capture());
+            Assert.assertNotNull(delegateContextCaptor.getValue());
+            SigninDelegateContext delegateContext =
+                    (SigninDelegateContext) delegateContextCaptor.getValue();
+            Assert.assertEquals(mContinueUrl, delegateContext.getContinueUrl());
+            Assert.assertEquals(TAB_ID, delegateContext.getTabId());
+        } else {
+            verify(mCoordinatorMock).startSigninFlow(configCaptor.capture());
+        }
         BottomSheetSigninAndHistorySyncConfig config = configCaptor.getValue();
         Assert.assertEquals(accountId, config.selectedCoreAccountId);
-        SigninDelegateContext delegateContext =
-                (SigninDelegateContext) delegateContextCaptor.getValue();
-        Assert.assertEquals(mContinueUrl, delegateContext.getContinueUrl());
-        Assert.assertEquals(TAB_ID, delegateContext.getTabId());
     }
 }

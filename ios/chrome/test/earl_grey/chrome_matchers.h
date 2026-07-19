@@ -837,17 +837,14 @@ id<GREYMatcher> WhatsNewDestinationButton();
 // Returns a matcher for the settings action button in the overflow menu.
 id<GREYMatcher> SettingsActionButton();
 
-#pragma mark - Tab Grid Edit Mode
+#pragma mark - Tab Grid Overflow Menu
 
-// Returns a matcher for the button to open the context menu for edit actions.
-id<GREYMatcher> TabGridEditButton();
+// Returns a matcher for the overflow menu button to close all tabs.
+id<GREYMatcher> TabGridOverflowMenuCloseAllButton();
 
-// Returns a matcher for the context menu button to close all tabs.
-id<GREYMatcher> TabGridEditMenuCloseAllButton();
-
-// Returns a matcher for the context menu button to enter the tab grid tab
+// Returns a matcher for the overflow menu button to enter the tab grid tab
 // selection mode.
-id<GREYMatcher> TabGridSelectTabsMenuButton();
+id<GREYMatcher> TabGridOverflowMenuSelectTabsButton();
 
 // Returns a matcher for the button to act on the selected tabs.
 id<GREYMatcher> TabGridEditAddToButton();

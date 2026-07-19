@@ -4,14 +4,19 @@
 
 #include "chrome/browser/contextual_tasks/android/contextual_tasks_panel_host_android.h"
 
+#include <utility>
+
 #include "base/android/jni_android.h"
 #include "base/android/scoped_java_ref.h"
+#include "base/check.h"
 #include "chrome/browser/android/tab_android.h"
 #include "chrome/browser/context_sharing/tab_bottom_sheet/android/co_browse_views_bridge.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_panel_host.h"
-#include "chrome/browser/contextual_tasks/jni_headers/ContextualTaskBottomSheetContentProvider_jni.h"
+#include "chrome/browser/contextual_tasks/jni_headers/ContextualTaskBottomSheetComponentProvider_jni.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "components/input/native_web_keyboard_event.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/android/window_android.h"
 
@@ -19,9 +24,13 @@ namespace contextual_tasks {
 
 ContextualTasksPanelHostAndroid::ContextualTasksPanelHostAndroid(
     BrowserWindowInterface* browser_window)
-    : browser_window_(browser_window) {}
+    : browser_window_(browser_window) {
+  CHECK(browser_window_);
+}
 
-ContextualTasksPanelHostAndroid::~ContextualTasksPanelHostAndroid() = default;
+ContextualTasksPanelHostAndroid::~ContextualTasksPanelHostAndroid() {
+  SetWebContents(nullptr);
+}
 
 void ContextualTasksPanelHostAndroid::AddObserver(
     ContextualTasksPanelHost::Observer* observer) {
@@ -81,7 +90,9 @@ void ContextualTasksPanelHostAndroid::SetWebContents(
     return;
   }
 
-  web_contents_ = web_contents;
+  if (content::WebContents* prev = std::exchange(web_contents_, web_contents)) {
+    prev->SetDelegate(nullptr);
+  }
 
   if (!web_contents_) {
     return;
@@ -119,6 +130,19 @@ content::WebContents* ContextualTasksPanelHostAndroid::OpenURLFromTab(
   return nullptr;
 }
 
+bool ContextualTasksPanelHostAndroid::HandleKeyboardEvent(
+    content::WebContents* source,
+    const input::NativeWebKeyboardEvent& event) {
+  tabs::TabInterface* active_tab =
+      TabListInterface::From(browser_window_)->GetActiveTab();
+  if (active_tab && active_tab->GetContents() &&
+      active_tab->GetContents()->GetDelegate()) {
+    return active_tab->GetContents()->GetDelegate()->HandleKeyboardEvent(source,
+                                                                         event);
+  }
+  return false;
+}
+
 context_sharing::TabBottomSheetBridge*
 ContextualTasksPanelHostAndroid::GetOrCreateBridge() {
   if (!tab_bottom_sheet_bridge_) {
@@ -153,7 +177,7 @@ TabAndroid* ContextualTasksPanelHostAndroid::GetTabAndroid() const {
 base::android::ScopedJavaLocalRef<jobject>
 ContextualTasksPanelHostAndroid::CreateBottomSheetContentProvider() {
   JNIEnv* env = base::android::AttachCurrentThread();
-  return Java_ContextualTaskBottomSheetContentProvider_createProvider(env);
+  return Java_ContextualTaskBottomSheetComponentProvider_createProvider(env);
 }
 
 }  // namespace contextual_tasks

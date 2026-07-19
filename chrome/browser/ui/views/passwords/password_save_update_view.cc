@@ -14,7 +14,6 @@
 #include "base/notreached.h"
 #include "base/scoped_observation.h"
 #include "base/strings/string_util.h"
-#include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/password_manager/factories/password_store_utils.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/chrome_signin_pref_names.h"
@@ -41,11 +40,11 @@
 #include "chrome/grit/theme_resources.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/feature_engagement/public/tracker.h"
+#include "components/password_manager/core/browser/features/password_features.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/base/signin_prefs.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/strings/grit/components_strings.h"
-#include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -63,6 +62,7 @@
 #include "ui/views/controls/styled_label.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/layout/flex_layout.h"
+#include "ui/views/vector_icons.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/view_utils.h"
 
@@ -96,7 +96,7 @@ class CancelSplitButton : public views::View,
         never_callback_(std::move(never_callback)) {
     // create layout manager
     auto* layout = SetLayoutManager(std::make_unique<views::BoxLayout>(
-        views::BoxLayout::Orientation::kHorizontal, gfx::Insets(), 2));
+        views::BoxLayout::Orientation::kHorizontal, gfx::Insets(), 1));
     layout->set_cross_axis_alignment(
         views::BoxLayout::CrossAxisAlignment::kStretch);
     // create "no thanks" button
@@ -106,26 +106,23 @@ class CancelSplitButton : public views::View,
         l10n_util::GetStringUTF16(IDS_NOT_NOW)));
     not_now_button_->SetStyle(ui::ButtonStyle::kTonal);
     not_now_button_->SetID(PasswordSaveUpdateView::kNotNowButton);
+    not_now_button_->SetProperty(
+        views::kElementIdentifierKey,
+        PasswordSaveUpdateView::kNotNowButtonElementId);
     // create caret button that opens menu with "never" option
     caret_button_ = AddChildView(std::make_unique<views::MdTextButton>(
         base::BindRepeating(&CancelSplitButton::OnCaretClicked,
                             base::Unretained(this)),
         std::u16string()));
     caret_button_->SetID(PasswordSaveUpdateView::kCaretButton);
+    caret_button_->SetProperty(views::kElementIdentifierKey,
+                               PasswordSaveUpdateView::kCaretButtonElementId);
     caret_button_->GetViewAccessibility().SetName(
         l10n_util::GetStringUTF16(IDS_TAB_GROUP_MORE_OPTIONS));
     caret_button_->SetImageModel(views::Button::STATE_NORMAL,
-                                 ui::ImageModel::FromVectorIcon(
-                                     features::IsRoundedIconsEnabled()
-                                         ? vector_icons::kKeyboardArrowDownIcon
-                                         : vector_icons::kCaretDownOldIcon,
-                                     ui::kColorIcon, kCaretIconSize));
-    caret_button_->SetImageModel(
-        views::Button::STATE_PRESSED,
-        ui::ImageModel::FromVectorIcon(features::IsRoundedIconsEnabled()
-                                           ? vector_icons::kKeyboardArrowUpIcon
-                                           : vector_icons::kCaretUpOldIcon,
-                                       ui::kColorIcon, kCaretIconSize));
+                                 GetCaretImageModel(/*pointing_up=*/false));
+    caret_button_->SetImageModel(views::Button::STATE_PRESSED,
+                                 GetCaretImageModel(/*pointing_up=*/true));
     caret_button_->SetStyle(ui::ButtonStyle::kTonal);
     caret_button_->SetMinSize(gfx::Size(0, 0));
     caret_button_->SetBorder(views::CreateEmptyBorder(kCaretButtonBorders));
@@ -137,6 +134,8 @@ class CancelSplitButton : public views::View,
     menu_model_->AddItemWithStringId(
         static_cast<int>(CommandId::kNeverForThisSite),
         IDS_PASSWORD_MANAGER_TOOLTIP_BLOCKED);
+    menu_model_->SetElementIdentifierAt(
+        0, PasswordSaveUpdateView::kNeverMenuItemElementId);
   }
 
   void ExecuteCommand(int command_id, int event_flags) override {
@@ -150,8 +149,14 @@ class CancelSplitButton : public views::View,
   }
 
  private:
-  static constexpr int kCaretIconSize = 20;
-  static constexpr auto kCaretButtonBorders{gfx::Insets::TLBR(0, 12, 0, 12)};
+  static constexpr int kCaretIconSize = 26;
+  static constexpr auto kCaretButtonBorders{gfx::Insets::TLBR(0, 4, 0, 8)};
+
+  static ui::ImageModel GetCaretImageModel(bool pointing_up) {
+    return ui::ImageModel::FromVectorIcon(
+        pointing_up ? views::kArrowDropUpIcon : views::kArrowDropDownIcon,
+        ui::kColorIcon, kCaretIconSize);
+  }
 
   void OnNoThanksClicked() {
     if (no_thanks_callback_) {
@@ -165,13 +170,8 @@ class CancelSplitButton : public views::View,
       return;
     }
 
-    caret_button_->SetImageModel(
-        views::Button::STATE_NORMAL,
-        ui::ImageModel::FromVectorIcon(features::IsRoundedIconsEnabled()
-                                           ? vector_icons::kKeyboardArrowUpIcon
-                                           : vector_icons::kCaretUpOldIcon,
-                                       ui::kColorIcon, kCaretIconSize));
-    caret_button_->SetCornerRadii(gfx::RoundedCornersF(GetOuterRadius()));
+    caret_button_->SetImageModel(views::Button::STATE_NORMAL,
+                                 GetCaretImageModel(/*pointing_up=*/true));
     caret_button_->SetBorder(views::CreateEmptyBorder(kCaretButtonBorders));
 
     if (auto* focus_manager = GetWidget()->GetFocusManager()) {
@@ -191,13 +191,8 @@ class CancelSplitButton : public views::View,
 
   void OnMenuClosed() {
     caret_button_->SetImageModel(views::Button::STATE_NORMAL,
-                                 ui::ImageModel::FromVectorIcon(
-                                     features::IsRoundedIconsEnabled()
-                                         ? vector_icons::kKeyboardArrowDownIcon
-                                         : vector_icons::kCaretDownOldIcon,
-                                     ui::kColorIcon, kCaretIconSize));
+                                 GetCaretImageModel(/*pointing_up=*/false));
     caret_button_->SetBorder(views::CreateEmptyBorder(kCaretButtonBorders));
-    caret_button_->SetCornerRadii(GetCaretButtonRadii());
 
     focus_observation_.Reset();
   }
@@ -215,25 +210,16 @@ class CancelSplitButton : public views::View,
         not_now_button_->GetPreferredSize());
   }
 
-  int GetInnerRadius() const {
-    return views::LayoutProvider::Get()->GetCornerRadiusMetric(
-        views::Emphasis::kLow, not_now_button_->GetPreferredSize());
-  }
-
   gfx::RoundedCornersF GetNotNowButtonRadii() const {
     int outer = GetOuterRadius();
-    int inner = GetInnerRadius();
-    return base::i18n::IsRTL()
-               ? gfx::RoundedCornersF(inner, outer, outer, inner)
-               : gfx::RoundedCornersF(outer, inner, inner, outer);
+    return base::i18n::IsRTL() ? gfx::RoundedCornersF(0, outer, outer, 0)
+                               : gfx::RoundedCornersF(outer, 0, 0, outer);
   }
 
   gfx::RoundedCornersF GetCaretButtonRadii() const {
     int outer = GetOuterRadius();
-    int inner = GetInnerRadius();
-    return base::i18n::IsRTL()
-               ? gfx::RoundedCornersF(outer, inner, inner, outer)
-               : gfx::RoundedCornersF(inner, outer, outer, inner);
+    return base::i18n::IsRTL() ? gfx::RoundedCornersF(outer, 0, 0, outer)
+                               : gfx::RoundedCornersF(0, outer, outer, 0);
   }
 
   base::RepeatingClosure no_thanks_callback_;
@@ -413,12 +399,23 @@ PasswordSaveUpdateView::PasswordSaveUpdateView(
       (dialog->controller_.*func)();
     };
 
-    SetAcceptCallbackWithClose(
-        base::BindRepeating(button_clicked, base::Unretained(this),
-                            &Controller::OnSaveClicked)
-            .Then(base::BindRepeating(
-                &PasswordSaveUpdateView::CloseOrReplaceWithPromo,
-                base::Unretained(this))));
+    if (IsTrustedVaultErrorResolutionEnabled() &&
+        controller_.IsSavingBlockedByTrustedVaultError()) {
+      SetAcceptCallbackWithClose(
+          base::BindRepeating(button_clicked, base::Unretained(this),
+                              &Controller::OnTrustedVaultUnlockClicked)
+              .Then(base::BindRepeating([]() {
+                // Closing the bubble after opening a trusted vault unlock page:
+                return true;
+              })));
+    } else {
+      SetAcceptCallbackWithClose(
+          base::BindRepeating(button_clicked, base::Unretained(this),
+                              &Controller::OnSaveClicked)
+              .Then(base::BindRepeating(
+                  &PasswordSaveUpdateView::CloseOrReplaceWithPromo,
+                  base::Unretained(this))));
+    }
 
     if (is_update_bubble_) {
       SetCancelCallback(base::BindOnce(button_clicked, base::Unretained(this),
@@ -513,6 +510,11 @@ bool PasswordSaveUpdateView::IsSaveBubbleDropdownExperimentEnabled() const {
   return !is_update_bubble_ &&
          base::FeatureList::IsEnabled(
              features::kPasswordSaveUpdateDropdownMenuExperiment);
+}
+
+bool PasswordSaveUpdateView::IsTrustedVaultErrorResolutionEnabled() const {
+  return base::FeatureList::IsEnabled(
+      password_manager::features::kPasswordSaveInContextErrorResolution);
 }
 
 PasswordBubbleControllerBase* PasswordSaveUpdateView::GetController() {
@@ -655,6 +657,10 @@ void PasswordSaveUpdateView::UpdateBubbleUIElements() {
   std::u16string ok_button_text = l10n_util::GetStringUTF16(
       controller_.IsCurrentStateUpdate() ? IDS_PASSWORD_MANAGER_UPDATE_BUTTON
                                          : IDS_PASSWORD_MANAGER_SAVE_BUTTON);
+  if (IsTrustedVaultErrorResolutionEnabled() &&
+      controller_.IsSavingBlockedByTrustedVaultError()) {
+    ok_button_text = l10n_util::GetStringUTF16(IDS_CONTINUE);
+  }
   SetButtonLabel(ui::mojom::DialogButton::kOk, ok_button_text);
   if (is_update_bubble_) {
     SetButtonLabel(
@@ -706,10 +712,17 @@ void PasswordSaveUpdateView::UpdateBubbleUIElements() {
   // readers.
   bool should_announce_save_update_change = GetWindowTitle() != title;
   SetTitle(title);
-  if (IsSaveBubbleDropdownExperimentEnabled()) {
+  if (IsTrustedVaultErrorResolutionEnabled() &&
+      controller_.IsSavingBlockedByTrustedVaultError()) {
+    SetSubtitle(l10n_util::GetStringUTF16(
+        IDS_PASSWORD_BUBBLES_SUBTITLE_TRUSTED_VAULT_ERROR));
+  } else if (IsSaveBubbleDropdownExperimentEnabled()) {
     std::optional<std::u16string> domain_subhead =
         controller_.GetDomainForSubhead();
     SetSubtitle(domain_subhead.value_or(std::u16string()));
+  } else {
+    // In other cases the subtitle is absent.
+    SetSubtitle(std::u16string());
   }
   // Nothing to do if the bubble isn't visible yet.
   if (!GetWidget()) {
@@ -730,6 +743,15 @@ std::unique_ptr<views::View> PasswordSaveUpdateView::CreateFooterView() {
             password_manager::ManagePasswordsReferrer::kSaveUpdateBubble);
       },
       base::Unretained(this));
+  if (IsTrustedVaultErrorResolutionEnabled() &&
+      controller_.IsSavingBlockedByTrustedVaultError()) {
+    return CreateGooglePasswordManagerLabel(
+        /*text_message_id=*/
+        IDS_PASSWORD_BUBBLES_FOOTER_TRUSTED_VAULT_ERROR,
+        /*link_message_id=*/
+        IDS_PASSWORD_BUBBLES_PASSWORD_MANAGER_LINK_TEXT_SYNCED_TO_ACCOUNT,
+        controller_.GetPrimaryAccountEmail(), open_password_manager_closure);
+  }
   if (controller_.IsCurrentStateAffectingPasswordsStoredInTheGoogleAccount()) {
     return CreateGooglePasswordManagerLabel(
         /*text_message_id=*/
@@ -742,8 +764,7 @@ std::unique_ptr<views::View> PasswordSaveUpdateView::CreateFooterView() {
       /*text_message_id=*/
       IDS_PASSWORD_BUBBLES_FOOTER_SAVING_ON_DEVICE,
       /*link_message_id=*/
-      IDS_PASSWORD_BUBBLES_PASSWORD_MANAGER_LINK_TEXT_SAVING_ON_DEVICE,
-      open_password_manager_closure);
+      IDS_PASSWORD_MANAGER_BRAND_NAME, open_password_manager_closure);
 }
 
 void PasswordSaveUpdateView::AnnounceBubbleChange() {
@@ -851,3 +872,9 @@ DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(PasswordSaveUpdateView,
                                       kPasswordBubbleElementId);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(PasswordSaveUpdateView,
                                       kExtraButtonElementId);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(PasswordSaveUpdateView,
+                                      kNotNowButtonElementId);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(PasswordSaveUpdateView,
+                                      kCaretButtonElementId);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(PasswordSaveUpdateView,
+                                      kNeverMenuItemElementId);

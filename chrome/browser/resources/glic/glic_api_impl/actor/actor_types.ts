@@ -2,232 +2,312 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import type {ActorTaskInterruptReason, ActorTaskPauseReason, ActorTaskState, ActorTaskStopReason, AutofillSuggestion, CancelActionsResult, Credential, FormFillingRequest, FormFillingResponse, Journal, NavigationConfirmationRequest, NavigationConfirmationResponse, SelectAutofillSuggestionsDialogRequest, SelectAutofillSuggestionsDialogResponse, SelectCredentialDialogRequest, SelectCredentialDialogResponse, TabContextOptions, TaskOptions, UserConfirmationDialogRequest, UserConfirmationDialogResponse} from '../../glic_api/glic_api.js';
+import type {ActorTaskInterruptReason, ActorTaskPauseReason, ActorTaskState, ActorTaskStopReason, AutofillSuggestion, CancelActionsResult, Credential, FormFillingRequest, FormFillingResponse, Journal, NavigationConfirmationRequest, NavigationConfirmationResponse, SelectAutofillSuggestionsDialogRequest, SelectAutofillSuggestionsDialogResponse, SelectCredentialDialogRequest, SelectCredentialDialogResponse, TabContextOptions, TaskOptions, UserConfirmationDialogRequest, UserConfirmationDialogResponse, GmailOtpOptInRequest, GmailOtpOptInResponse} from '../../glic_api/glic_api.js';
 import type {ResumeActorTaskResultPrivate, RgbaImage, TabContextResultPrivate, TabDataPrivate} from '../request_types.js';
-import type {ValidateRequestMap} from '../transport/messaging.js';
+import {defInterface, defMessage} from '../transport/messaging.js';
 
 // Shared between host and client.
 
-export declare interface ActorHost {
-  glicBrowserGetContextForActorFromTab: {
-    request: {
-      tabId: string,
-      options: TabContextOptions,
-    },
-    response: {
-      tabContextResult: TabContextResultPrivate,
-    },
-    backgroundAllowed: true,
-  };
-  glicBrowserCreateTask: {
-    request: {
-      taskOptions?: TaskOptions,
-    },
-    response: {
-      taskId: number,
-    },
-    backgroundAllowed: true,
-  };
-  glicBrowserPerformActions: {
-    request: {
-      actions: ArrayBuffer,
-    },
-    response: {
-      actionsResult: ArrayBuffer,
-    },
-    backgroundAllowed: true,
-  };
-  glicBrowserCancelActions: {
-    request: {
-      taskId: number,
-    },
-    response: {
-      result: CancelActionsResult,
-    },
-    backgroundAllowed: true,
-  };
-  glicBrowserStopActorTask: {
-    request: {
-      taskId: number,
-      stopReason: ActorTaskStopReason,
-    },
-    backgroundAllowed: true,
-  };
-  glicBrowserPauseActorTask: {
-    request: {
-      taskId: number,
-      pauseReason: ActorTaskPauseReason,
-      tabId: string,
-    },
-    backgroundAllowed: true,
-  };
-  glicBrowserResumeActorTask: {
-    request: {
-      taskId: number,
-      tabContextOptions: TabContextOptions,
-    },
-    response: {
-      resumeActorTaskResult: ResumeActorTaskResultPrivate,
-    },
-    backgroundAllowed: true,
-  };
-  glicBrowserInterruptActorTask: {
-    request: {
-      taskId: number,
-      interruptReason?: ActorTaskInterruptReason,
-    },
-    backgroundAllowed: true,
-  };
-  glicBrowserUninterruptActorTask: {
-    request: {
-      taskId: number,
-    },
-    backgroundAllowed: true,
-  };
-  glicBrowserCreateActorTab: {
-    request: {
-      taskId: number,
-      options: {
-        initiatorTabId?: string,
-        initiatorWindowId?: string,
-        openInBackground?: boolean,
+export const ActorHostDef = defInterface({
+  name: 'ActorHost',
+  methods: [
+    {
+      name: 'getContextForActorFromTab',
+      request: defMessage<{
+        tabId: string,
+        options: TabContextOptions,
+      }>(),
+      response: defMessage<{
+        tabContextResult: TabContextResultPrivate,
+      }>(),
+      histogram: {
+        id: 11,
       },
     },
-    response: {
-      // Undefined on failure.
-      tabData?: TabDataPrivate,
-    },
-    backgroundAllowed: true,
-  };
-  glicBrowserLogBeginAsyncEvent: {
-    request: {
-      asyncEventId: number,
-      taskId: number,
-      event: string,
-      details: string,
-    },
-    backgroundAllowed: true,
-  };
-  glicBrowserLogEndAsyncEvent: {
-    request: {
-      asyncEventId: number,
-      details: string,
-    },
-    backgroundAllowed: true,
-  };
-  glicBrowserLogInstantEvent: {
-    request: {
-      taskId: number,
-      event: string,
-      details: string,
-    },
-    backgroundAllowed: true,
-  };
-  glicBrowserJournalClear: {
-    backgroundAllowed: true,
-  };
-  glicBrowserJournalSnapshot: {
-    request: {
-      clear: boolean,
-    },
-    response: {
-      journal: Journal,
-    },
-    backgroundAllowed: true,
-  };
-  glicBrowserJournalStart: {
-    request: {
-      maxBytes: number,
-      captureScreenshots: boolean,
-    },
-    backgroundAllowed: true,
-  };
-  glicBrowserJournalStop: {
-    backgroundAllowed: true,
-  };
-  glicBrowserJournalRecordFeedback: {
-    request: {
-      positive: boolean,
-      reason: string,
-    },
-    backgroundAllowed: true,
-  };
-  glicBrowserAutofillSuggestionDialogOnFormPresented: {
-    request: {
-      taskId: number,
-      params: {formFillingRequestIndex: number},
-    },
-    backgroundAllowed: true,
-  };
-  glicBrowserAutofillSuggestionDialogOnFormPreviewChanged: {
-    request: {
-      taskId: number,
-      params: {
-        formFillingRequestIndex: number,
-        response?: FormFillingResponse,
+    {
+      name: 'createTask',
+      request: defMessage<{
+        taskOptions?: TaskOptions,
+      }>(),
+      response: defMessage<{
+        taskId: number,
+      }>(),
+      histogram: {
+        id: 60,
       },
     },
-    backgroundAllowed: true,
-  };
-  glicBrowserAutofillSuggestionDialogOnFormConfirmed: {
-    request: {
-      taskId: number,
-      params: {
-        formFillingRequestIndex: number,
-        response: FormFillingResponse,
+    {
+      name: 'performActions',
+      request: defMessage<{
+        actions: ArrayBuffer,
+      }>(),
+      response: defMessage<{
+        actionsResult: ArrayBuffer,
+      }>(),
+      histogram: {
+        id: 61,
       },
     },
-    backgroundAllowed: true,
-  };
-}
-export type CheckActorHost = ValidateRequestMap<ActorHost>;
+    {
+      name: 'cancelActions',
+      request: defMessage<{
+        taskId: number,
+      }>(),
+      response: defMessage<{
+        result: CancelActionsResult,
+      }>(),
+      histogram: {
+        id: 85,
+      },
+    },
+    {
+      name: 'stopActorTask',
+      request: defMessage<{
+        taskId: number,
+        stopReason: ActorTaskStopReason,
+      }>(),
+      histogram: {
+        id: 13,
+      },
+    },
+    {
+      name: 'pauseActorTask',
+      request: defMessage<{
+        taskId: number,
+        pauseReason: ActorTaskPauseReason,
+        tabId: string,
+      }>(),
+      histogram: {
+        id: 14,
+      },
+    },
+    {
+      name: 'resumeActorTask',
+      request: defMessage<{
+        taskId: number,
+        tabContextOptions: TabContextOptions,
+      }>(),
+      response: defMessage<{
+        resumeActorTaskResult: ResumeActorTaskResultPrivate,
+      }>(),
+      histogram: {
+        id: 15,
+      },
+    },
+    {
+      name: 'interruptActorTask',
+      request: defMessage<{
+        taskId: number,
+        interruptReason?: ActorTaskInterruptReason,
+      }>(),
+      histogram: {
+        id: 74,
+      },
+    },
+    {
+      name: 'uninterruptActorTask',
+      request: defMessage<{
+        taskId: number,
+      }>(),
+      histogram: {
+        id: 75,
+      },
+    },
+    {
+      name: 'createActorTab',
+      request: defMessage<{
+        taskId: number,
+        options: {
+          initiatorTabId?: string,
+          initiatorWindowId?: string,
+          openInBackground?: boolean,
+        },
+      }>(),
+      response: defMessage<{
+        // Undefined on failure.
+        tabData?: TabDataPrivate,
+      }>(),
+      histogram: {
+        id: 77,
+      },
+    },
+    {
+      name: 'logBeginAsyncEvent',
+      request: defMessage<{
+        asyncEventId: number,
+        taskId: number,
+        event: string,
+        details: string,
+      }>(),
+      histogram: {
+        id: 30,
+      },
+    },
+    {
+      name: 'logEndAsyncEvent',
+      request: defMessage<{
+        asyncEventId: number,
+        details: string,
+      }>(),
+      histogram: {
+        id: 31,
+      },
+    },
+    {
+      name: 'logInstantEvent',
+      request: defMessage<{
+        taskId: number,
+        event: string,
+        details: string,
+      }>(),
+      histogram: {
+        id: 32,
+      },
+    },
+    {
+      name: 'journalClear',
+      histogram: {
+        id: 33,
+      },
+    },
+    {
+      name: 'journalSnapshot',
+      request: defMessage<{
+        clear: boolean,
+      }>(),
+      response: defMessage<{
+        journal: Journal,
+      }>(),
+      histogram: {
+        id: 34,
+      },
+    },
+    {
+      name: 'journalStart',
+      request: defMessage<{
+        maxBytes: number,
+        captureScreenshots: boolean,
+      }>(),
+      histogram: {
+        id: 35,
+      },
+    },
+    {
+      name: 'journalStop',
+      histogram: {
+        id: 36,
+      },
+    },
+    {
+      name: 'journalRecordFeedback',
+      request: defMessage<{
+        positive: boolean,
+        reason: string,
+      }>(),
+      histogram: {
+        id: 37,
+      },
+    },
+    {
+      name: 'autofillSuggestionDialogOnFormPresented',
+      request: defMessage<{
+        taskId: number,
+        params: {formFillingRequestIndex: number},
+      }>(),
+      histogram: {
+        id: 87,
+      },
+    },
+    {
+      name: 'autofillSuggestionDialogOnFormPreviewChanged',
+      request: defMessage<{
+        taskId: number,
+        params: {
+          formFillingRequestIndex: number,
+          response?: FormFillingResponse,
+        },
+      }>(),
+      histogram: {
+        id: 88,
+      },
+    },
+    {
+      name: 'autofillSuggestionDialogOnFormConfirmed',
+      request: defMessage<{
+        taskId: number,
+        params: {
+          formFillingRequestIndex: number,
+          response: FormFillingResponse,
+        },
+      }>(),
+      histogram: {
+        id: 89,
+      },
+    },
+  ],
+});
+export type ActorHost = typeof ActorHostDef;
 
-export declare interface ActorClient {
-  glicWebClientNotifyActorTaskStateChanged: {
-    request: {
-      taskId: number,
-      state: ActorTaskState,
+export const ActorClientDef = defInterface({
+  name: 'ActorClient',
+  methods: [
+    {
+      name: 'notifyActorTaskStateChanged',
+      request: defMessage<{
+        taskId: number,
+        state: ActorTaskState,
+      }>(),
     },
-    backgroundAllowed: true,
-  };
-  glicWebClientRequestToShowDialog: {
-    request: {
-      request: SelectCredentialDialogRequestPrivate,
+    {
+      name: 'requestToShowDialog',
+      request: defMessage<{
+        request: SelectCredentialDialogRequestPrivate,
+      }>(),
+      response: defMessage<{
+        response: SelectCredentialDialogResponsePrivate,
+      }>(),
     },
-    response: {
-      response: SelectCredentialDialogResponsePrivate,
+    {
+      name: 'requestToShowConfirmationDialog',
+      request: defMessage<{
+        request: UserConfirmationDialogRequestPrivate,
+      }>(),
+      response: defMessage<{
+        response: UserConfirmationDialogResponsePrivate,
+      }>(),
     },
-    backgroundAllowed: true,
-  };
-  glicWebClientRequestToShowConfirmationDialog: {
-    request: {
-      request: UserConfirmationDialogRequestPrivate,
+    {
+      name: 'requestToConfirmNavigation',
+      request: defMessage<{
+        request: NavigationConfirmationRequestPrivate,
+      }>(),
+      response: defMessage<{
+        response: NavigationConfirmationResponsePrivate,
+      }>(),
     },
-    response: {
-      response: UserConfirmationDialogResponsePrivate,
+    {
+      name: 'requestToShowAutofillSuggestionsDialog',
+      request: defMessage<{
+        request: SelectAutofillSuggestionsDialogRequestPrivate,
+      }>(),
+      response: defMessage<{
+        response: SelectAutofillSuggestionsDialogResponsePrivate,
+      }>(),
     },
-    backgroundAllowed: true,
-  };
-  glicWebClientRequestToConfirmNavigation: {
-    request: {
-      request: NavigationConfirmationRequestPrivate,
+    {
+      name: 'requestToShowGmailOtpOptInDialog',
+      request: defMessage<{
+        request: GmailOtpOptInRequestPrivate,
+      }>(),
+      response: defMessage<{
+        response: GmailOtpOptInResponsePrivate,
+      }>(),
+      backgroundAllowed: true,
     },
-    response: {
-      response: NavigationConfirmationResponsePrivate,
-    },
-    backgroundAllowed: true,
-  };
-  glicWebClientRequestToShowAutofillSuggestionsDialog: {
-    request: {
-      request: SelectAutofillSuggestionsDialogRequestPrivate,
-    },
-    response: {
-      response: SelectAutofillSuggestionsDialogResponsePrivate,
-    },
-    backgroundAllowed: true,
-  };
-}
-export type CheckActorClient = ValidateRequestMap<ActorClient>;
+  ],
+});
+
+export type ActorClient = typeof ActorClientDef;
 
 export declare interface CredentialPrivate extends
     Omit<Credential, 'getIcon'|'getAccountPicture'> {
@@ -318,3 +398,17 @@ export enum SelectAutofillSuggestionsDialogErrorReason {
   NO_ACTOR_TASK_DELEGATE = 2,
 }
 // LINT.ThenChange(//chrome/common/actor_webui.mojom:SelectAutofillSuggestionsDialogErrorReason)
+
+export declare interface GmailOtpOptInRequestPrivate extends
+    Omit<GmailOtpOptInRequest, 'onDialogClosed'> {}
+
+export declare interface GmailOtpOptInResponsePrivate extends
+    GmailOtpOptInResponse {
+  errorReason?: GmailOtpOptInErrorReason;
+}
+
+// LINT.IfChange(GmailOtpOptInErrorReason)
+export enum GmailOtpOptInErrorReason {
+  REQUEST_PROMISE_NO_SUBSCRIBER = 0,
+}
+// LINT.ThenChange(//chrome/common/actor_webui.mojom:GmailOtpOptInErrorReason)

@@ -22,6 +22,7 @@
 #include "net/http/http_request_headers.h"
 #include "net/storage_access_api/status.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
+#include "services/network/public/cpp/constants.h"
 #include "services/network/public/mojom/network_context.mojom.h"
 #include "third_party/oak/chromium/proto/session/session.pb.h"
 
@@ -172,7 +173,10 @@ void WebSocketClient::Connect() {
       /*auth_handler=*/mojo::NullRemote(),
       /*header_client=*/mojo::NullRemote(),
       /*throttling_profile_id=*/std::nullopt,
-      /*network_restrictions_id=*/std::nullopt);
+      // PrivateAI WebSocket connections are browser-wide operations not
+      // associated with any page/frame, so no Connection Allowlist restrictions
+      // should apply.
+      network::GetNoOpNetworkRestrictionsId());
 }
 
 void WebSocketClient::InternalWrite(base::span<const uint8_t> data) {
@@ -241,6 +245,7 @@ void WebSocketClient::OnConnectionEstablished(
   websocket_->StartReceiving();
 
   state_ = State::kOpen;
+  connection_open_time_ = base::TimeTicks::Now();
 
   while (!pending_write_data_.empty()) {
     InternalWrite(pending_write_data_.front());
@@ -297,6 +302,12 @@ void WebSocketClient::OnDropChannel(bool was_clean,
                                              ", reason:", reason, ")"}));
 
   base::UmaHistogramSparse("PrivateAi.Client.WebSocketCloseCode", code);
+
+  if (state_ == State::kOpen) {
+    base::UmaHistogramLongTimes(
+        "PrivateAi.Client.WebSocketSessionDuration.ClosedByServer",
+        base::TimeTicks::Now() - connection_open_time_);
+  }
 
   // If there is a reason, it indicates an error from the server.
   if (!reason.empty()) {

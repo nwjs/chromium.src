@@ -43,7 +43,7 @@ CustomElementDefinition::~CustomElementDefinition() = default;
 
 void CustomElementDefinition::Trace(Visitor* visitor) const {
   visitor->Trace(registry_);
-  ElementRareDataField::Trace(visitor);
+  NodeRareDataField::Trace(visitor);
 }
 
 static String ErrorMessageForConstructorResult(Element& element,
@@ -248,8 +248,10 @@ void CustomElementDefinition::Upgrade(Element& element) {
   if (ListedElement* listed_element = ListedElement::From(element)) {
     if (element.FastHasAttribute(html_names::kReadonlyAttr))
       listed_element->ReadonlyAttributeChanged();
-    if (element.FastHasAttribute(html_names::kDisabledAttr))
-      listed_element->DisabledAttributeChanged();
+    if (element.FastHasAttribute(html_names::kDisabledAttr)) {
+      listed_element->DisabledAttributeChanged(
+          DisabledChangedReason::kAttributeChanged);
+    }
   }
 
   if (IsFormAssociated())

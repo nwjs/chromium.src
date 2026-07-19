@@ -23,6 +23,7 @@
 #import "components/signin/public/identity_manager/account_capabilities.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "components/signin/public/identity_manager/objc/identity_manager_observer_bridge.h"
+#import "components/signin/public/identity_manager/primary_account_change_event.h"
 #import "google_apis/gaia/gaia_id.h"
 #import "ios/chrome/app/profile/profile_state.h"
 #import "ios/chrome/app/profile/profile_state_observer.h"
@@ -197,6 +198,22 @@ void SignOutDoneForSceneState(id<SystemIdentity> identity,
   }
 }
 
+// Checks CanSignInToChrome for age mismatch when setting the primary account.
+// Needed for profile switches (e.g. from managed accounts) where capabilities
+// are unknown, ensuring immediate signout if the capability is already
+// available.
+- (void)onPrimaryAccountChanged:
+    (const signin::PrimaryAccountChangeEvent&)event {
+  switch (event.GetEventTypeFor(signin::ConsentLevel::kSignin)) {
+    case signin::PrimaryAccountChangeEvent::Type::kSet:
+      [self checkPrimaryAccountCanSignInToChromeCapability];
+      break;
+    case signin::PrimaryAccountChangeEvent::Type::kNone:
+    case signin::PrimaryAccountChangeEvent::Type::kCleared:
+      break;
+  }
+}
+
 #pragma mark - UIBlockerManagerObserver
 
 - (void)currentUIBlockerRemoved {
@@ -268,7 +285,7 @@ void SignOutDoneForSceneState(id<SystemIdentity> identity,
 
   AccountInfo accountInfo = identityManager->FindExtendedAccountInfoByAccountId(
       primaryAccountInfo.account_id);
-  switch (accountInfo.capabilities.can_sign_in_to_chrome()) {
+  switch (accountInfo.GetAccountCapabilities().can_sign_in_to_chrome()) {
     case signin::Tribool::kUnknown:
       break;
     case signin::Tribool::kFalse: {

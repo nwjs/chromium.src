@@ -19,6 +19,7 @@ import androidx.annotation.IntDef;
 import androidx.annotation.VisibleForTesting;
 import androidx.browser.customtabs.CustomTabsIntent;
 
+import org.chromium.base.Callback;
 import org.chromium.base.CommandLine;
 import org.chromium.base.IntentUtils;
 import org.chromium.base.RequiredCallback;
@@ -108,6 +109,7 @@ public class ReaderModeManager extends EmptyTabObserver
         EntryPoint.MESSAGE,
         EntryPoint.APP_MENU,
         EntryPoint.TOOLBAR_BUTTON,
+        EntryPoint.CONTEXT_MENU,
         EntryPoint.MAX_VALUE
     })
     @Retention(RetentionPolicy.SOURCE)
@@ -123,7 +125,10 @@ public class ReaderModeManager extends EmptyTabObserver
         /** The user opened reader mode through the toolbar button. */
         int TOOLBAR_BUTTON = 3;
 
-        int MAX_VALUE = TOOLBAR_BUTTON;
+        /** The user opened reader mode through the context menu. */
+        int CONTEXT_MENU = 4;
+
+        int MAX_VALUE = CONTEXT_MENU;
     }
 
     // LINT.ThenChange(//tools/metrics/histograms/metadata/accessibility/enums.xml:DomDistillerEntryPoint)
@@ -734,8 +739,9 @@ public class ReaderModeManager extends EmptyTabObserver
     }
 
     public void activateReaderMode(@EntryPoint int entryPoint) {
-        Runnable activateRunnable =
-                () -> {
+        Callback<Boolean> activateCallback =
+                (confirmed) -> {
+                    if (!confirmed) return;
                     // Contextual page action buttons can't be dismissed, instead we consider a
                     // shown but unused
                     // button as "dismissed" and mute the site on setReaderModeUiShown(). When the
@@ -768,8 +774,8 @@ public class ReaderModeManager extends EmptyTabObserver
                 };
 
         ActorUiTabController controller = ActorUiTabController.from(mTab);
-        if (controller == null || !controller.showTaskAbortConfirmationDialog(activateRunnable)) {
-            activateRunnable.run();
+        if (controller == null || !controller.showTaskAbortConfirmationDialog(activateCallback)) {
+            activateCallback.onResult(true);
         }
     }
 

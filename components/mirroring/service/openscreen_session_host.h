@@ -49,6 +49,9 @@ class OneShotTimer;
 
 namespace media {
 class AudioInputDevice;
+namespace cast {
+class AudioSender;
+}  // namespace cast
 }  // namespace media
 
 namespace viz {
@@ -61,10 +64,10 @@ class RpcDispatcher;
 class VideoCaptureClient;
 
 // Minimum required bitrate used for calculating bandwidth.
-constexpr int kMinRequiredBitrate = 384 << 10;  // 384 kbps
+inline constexpr int kMinRequiredBitrate = 384 << 10;  // 384 kbps
 
 // Default bitrate used before we have a calculation.
-constexpr int kDefaultBitrate = kMinRequiredBitrate * 2;  // 768 kbps
+inline constexpr int kDefaultBitrate = 5000000;  // 5 mbps
 
 // Hosts a streaming session by hosting an `openscreen::cast::SenderSession` and
 // doing all of the necessary interfacing for audio and video capture, switching
@@ -212,7 +215,7 @@ class COMPONENT_EXPORT(MIRRORING_SERVICE) OpenscreenSessionHost final
   void ProcessFeedback(const media::VideoCaptureFeedback& feedback);
 
   // Called by media::cast::VideoSender to help determine the video bitrate.
-  int GetVideoNetworkBandwidth() const;
+  uint32_t GetVideoNetworkBandwidth() const;
 
   // Called periodically to update the `bandwidth_estimate_`.
   void UpdateBandwidthEstimate();
@@ -323,7 +326,7 @@ class COMPONENT_EXPORT(MIRRORING_SERVICE) OpenscreenSessionHost final
   bool offering_fallback_codecs_ = false;
 
   // Created after OFFER/ANSWER exchange succeeds.
-  std::unique_ptr<AudioRtpStream> audio_stream_;
+  std::unique_ptr<media::cast::AudioSender> audio_sender_;
   std::unique_ptr<VideoRtpStream> video_stream_;
 
   // Connects to the video capture host and launches the video capture device.
@@ -396,7 +399,7 @@ class COMPONENT_EXPORT(MIRRORING_SERVICE) OpenscreenSessionHost final
   // The portion of the bandwidth estimate that is currently available for use.
   // Note that the actual bandwidth will be effectively capped at the sum of the
   // current video and audio bitrates.
-  int usable_bandwidth_ = kDefaultBitrate;
+  uint32_t usable_bandwidth_ = kDefaultBitrate;
 
   // Indicate whether we're in the middle of switching tab sources.
   bool switching_tab_source_ = false;
@@ -416,7 +419,6 @@ class COMPONENT_EXPORT(MIRRORING_SERVICE) OpenscreenSessionHost final
   SEQUENCE_CHECKER(sequence_checker_);
 
   // Used in callbacks executed on task runners, such as by RtpStream.
-  // TODO(crbug.com/40238714): determine if weak pointers can be removed.
   base::WeakPtrFactory<OpenscreenSessionHost> weak_factory_{this};
 };
 

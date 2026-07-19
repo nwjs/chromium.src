@@ -6,6 +6,7 @@ package org.chromium.ui.accessibility.testservice;
 
 import android.app.Service;
 import android.content.Intent;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.view.accessibility.AccessibilityEvent;
 
@@ -41,9 +42,11 @@ public class AccessibilityTestHelperService extends Service {
                 }
 
                 @Override
-                public boolean performActionOnNode(String className, String text, int action) {
+                public boolean performActionOnNode(
+                        NodeMatcher matcher, int action, Bundle arguments) {
                     Log.i(TAG, "performActionOnNode called in HelperService");
-                    return AccessibilityTestService.tryPerformActionOnNode(className, text, action);
+                    return AccessibilityTestService.tryPerformActionOnNode(
+                            matcher, action, arguments);
                 }
 
                 @Override

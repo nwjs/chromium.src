@@ -484,6 +484,7 @@ data/solid_green_2015x2015.webp
 data/speech_16b_stereo_48kHz.raw
 data/speex_audio_vorbis_video.ogv
 data/spherical.mp4
+data/spherical_frag.mp4
 data/stereo_48000.wav
 data/sync2-trimmed.mp4
 data/sync2.ogv
@@ -505,6 +506,7 @@ data/test-25fps.vp9_2
 data/test-25fps.vp9_2.json
 data/test_key_system_instantiation.html
 data/testsrc-no-durations-h264.mkv
+data/tiny-clip.mp4
 data/tos-h264-opus.mp4
 data/track-disabled.mp4
 data/trailing-garbage.mp3

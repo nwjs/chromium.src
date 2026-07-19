@@ -323,10 +323,6 @@ bool FreedesktopSecretKeyProvider::UseForEncryption() {
   return true;
 }
 
-bool FreedesktopSecretKeyProvider::IsCompatibleWithOsCryptSync() {
-  return true;
-}
-
 void FreedesktopSecretKeyProvider::InitializeFreedesktopSecretService() {
   dbus_utils::CheckForServiceAndStart(
       bus_, kSecretServiceName,
@@ -505,29 +501,62 @@ void FreedesktopSecretKeyProvider::OnSearchItems(
     return;
   }
 
-  auto* item_proxy =
-      bus_->GetObjectProxy(kSecretServiceName, result_paths.front());
-  dbus_utils::CallMethod<"o", "(oayays)">(
-      item_proxy, kSecretItemInterface, kMethodGetSecret,
-      base::BindOnce(&FreedesktopSecretKeyProvider::OnGetSecret,
-                     weak_ptr_factory_.GetWeakPtr()),
-      session_proxy_->object_path());
+  auto* service_proxy = bus_->GetObjectProxy(
+      kSecretServiceName, dbus::ObjectPath(kSecretServicePath));
+
+  std::vector<dbus::ObjectPath> objects = {result_paths.front()};
+  Prompter<std::vector<dbus::ObjectPath>>::Prompt<"ao", "aoo">(
+      bus_, service_proxy, kSecretServiceInterface, kMethodUnlock,
+      base::BindOnce(&FreedesktopSecretKeyProvider::OnUnlockItems,
+                     weak_ptr_factory_.GetWeakPtr(), result_paths.front()),
+      objects);
 }
 
-void FreedesktopSecretKeyProvider::OnGetSecret(
-    dbus_utils::CallMethodResultSig<"(oayays)"> secret_reply) {
+void FreedesktopSecretKeyProvider::OnUnlockItems(
+    const dbus::ObjectPath& item_path,
+    base::expected<std::vector<dbus::ObjectPath>, ErrorDetail> unlocked_items) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (!secret_reply.has_value()) {
-    FinalizeFailure(InitStatus::kGetSecretFailed,
-                    DbusErrorToErrorDetail(secret_reply.error()));
+  if (!unlocked_items.has_value()) {
+    FinalizeFailure(InitStatus::kUnlockFailed, unlocked_items.error());
+    return;
+  }
+  if (unlocked_items->empty()) {
+    FinalizeFailure(InitStatus::kUnlockFailed, ErrorDetail::kEmptyObjectPaths);
     return;
   }
 
-  const auto& [session_path, parameters, value, content_type] =
-      std::get<0>(secret_reply.value());
+  auto* service_proxy = bus_->GetObjectProxy(
+      kSecretServiceName, dbus::ObjectPath(kSecretServicePath));
+  std::vector<dbus::ObjectPath> items = {item_path};
+  dbus_utils::CallMethod<"aoo", "a{o(oayays)}">(
+      service_proxy, kSecretServiceInterface, kMethodGetSecrets,
+      base::BindOnce(&FreedesktopSecretKeyProvider::OnGetSecrets,
+                     weak_ptr_factory_.GetWeakPtr(), item_path),
+      items, session_proxy_->object_path());
+}
+
+void FreedesktopSecretKeyProvider::OnGetSecrets(
+    dbus::ObjectPath expected_item_path,
+    dbus_utils::CallMethodResultSig<"a{o(oayays)}"> secrets_reply) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (!secrets_reply.has_value()) {
+    FinalizeFailure(InitStatus::kGetSecretFailed,
+                    DbusErrorToErrorDetail(secrets_reply.error()));
+    return;
+  }
+
+  const auto& secrets_map = std::get<0>(secrets_reply.value());
+  auto it = secrets_map.find(expected_item_path);
+  if (it == secrets_map.end()) {
+    LOG(ERROR) << "GetSecrets reply did not contain the expected item.";
+    FinalizeFailure(InitStatus::kGetSecretFailed, ErrorDetail::kNone);
+    return;
+  }
+
+  const auto& [session_path, parameters, value, content_type] = it->second;
 
   if (value.empty()) {
-    LOG(ERROR) << "GetSecret returned an empty secret.";
+    LOG(ERROR) << "GetSecrets returned an empty secret.";
     FinalizeFailure(InitStatus::kEmptySecret, ErrorDetail::kNone);
     return;
   }

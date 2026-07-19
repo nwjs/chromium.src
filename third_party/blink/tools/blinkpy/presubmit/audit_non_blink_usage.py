@@ -123,6 +123,7 @@ _CONFIG = [
             'base::MatchPattern',
             'base::MaxThreadType',
             'base::MemoryConsumer',
+            'base::MemoryConsumerTraits',
             'base::MemoryPressureListener',
             'base::MemoryPressureListenerTag',
             'base::MessagePump',
@@ -797,6 +798,7 @@ _CONFIG = [
             'cc::SnapStrictness',
             'cc::TargetSnapAreaElementIds',
             'ui::ScrollGranularity',
+            'ui::ScrollInputType',
 
             # View transitions
             'cc::ViewTransitionContentLayer',
@@ -1309,6 +1311,14 @@ _CONFIG = [
         ]
     },
     {
+        'paths': [
+            'third_party/blink/renderer/core/html/anchor_element_utils.cc',
+        ],
+        'allowed': [
+            'base::CommandLine',
+        ]
+    },
+    {
         'paths': ['third_party/blink/renderer/core/frame/dom_window.cc'],
         'allowed': [
             'base::MakeFixedFlatMap',
@@ -1332,8 +1342,11 @@ _CONFIG = [
             'cc::SwapPromise',
             'stylus_handwriting::win::IsStylusHandwritingWinEnabled',
             'stylus_handwriting::win::ProximateBoundsCollectionHalfLimit',
+            'viz::CompositorFrame',
             'viz::CompositorFrameMetadata',
             'viz::FrameTimingDetails',
+            'viz::ReturnedResource',
+            'viz::TransferableResource',
         ],
     },
     {
@@ -1341,6 +1354,9 @@ _CONFIG = [
         ['third_party/blink/renderer/core/frame/web_frame_widget_impl.h'],
         'allowed': [
             'cc::CompositorCommitData',
+            'viz::CompositorFrame',
+            'viz::ReturnedResource',
+            'viz::TransferableResource',
         ],
     },
     {
@@ -1546,6 +1562,7 @@ _CONFIG = [
         ],
         'allowed': [
             'network::HttpRequestHeadersUpdateParams',
+            'network::mojom::RequestDestination',
         ],
     },
     {
@@ -1698,6 +1715,7 @@ _CONFIG = [
         ],
         'allowed': [
             'color_utils::GetContrastRatio',
+            'color_utils::GetRelativeLuminance4f',
         ],
     },
     {
@@ -1845,6 +1863,7 @@ _CONFIG = [
             'gpu::raster::RasterInterface',
             'gpu::RasterScopedAccess',
             'gpu::SHARED_IMAGE_USAGE_.+',
+            'gpu::SharedImageExportResult',
             'gpu::SharedImageInterface',
             'gpu::SharedImageTexture',
             'gpu::SharedImageUsageSet',
@@ -1940,6 +1959,14 @@ _CONFIG = [
             'base::SplitStringPiece',
             'base::StringPiece',
             'base::TRIM_WHITESPACE',
+        ]
+    },
+    {
+        'paths': [
+            'third_party/blink/renderer/core/timing/performance.cc',
+        ],
+        'allowed': [
+            'base::Value',
         ]
     },
     {
@@ -2276,11 +2303,12 @@ _CONFIG = [
     },
     {
         'paths': [
+            'third_party/blink/renderer/platform/bindings/parkable_string_manager.cc',
             'third_party/blink/renderer/platform/bindings/parkable_string_manager.h',
         ],
         'allowed': [
             # ParkableStringManager is not garbage-collected, so is safe to use the base version.
-            'base::AsyncMemoryPressureListenerRegistration',
+            'base::AsyncMemoryConsumerRegistration',
         ],
     },
     {
@@ -2430,6 +2458,7 @@ _CONFIG = [
             'third_party/blink/renderer/core/layout/layout_theme.cc',
             'third_party/blink/renderer/core/layout/layout_theme.h',
             'third_party/blink/renderer/core/scroll/',
+            'third_party/blink/renderer/core/skeleton/skeleton_pseudo_element.cc',
             'third_party/blink/renderer/modules/canvas/canvas2d/canvas_2d_recorder_context.cc',
             'third_party/blink/renderer/modules/canvas/canvas2d/canvas_2d_recorder_context.h',
         ],
@@ -2609,6 +2638,21 @@ _CONFIG = [
             'base::LapTimer',
             'cc::frame_viewer_instrumentation::IsTracingLayerTreeSnapshots',
         ],
+    },
+    {
+        'paths': [
+            'third_party/blink/renderer/core/frame/local_frame_view.cc',
+            'third_party/blink/renderer/core/frame/local_frame_view.h',
+            'third_party/blink/renderer/core/html/canvas/canvas_rendering_context.cc',
+            'third_party/blink/renderer/core/html/canvas/canvas_rendering_context.h',
+            'third_party/blink/renderer/core/html/canvas/canvas_rendering_context_host.cc',
+            'third_party/blink/renderer/core/html/canvas/canvas_rendering_context_host.h',
+            'third_party/blink/renderer/core/html/canvas/html_canvas_element.cc',
+            'third_party/blink/renderer/core/html/canvas/html_canvas_element.h',
+            'third_party/blink/renderer/modules/canvas/canvas2d/base_rendering_context_2d.cc',
+            'third_party/blink/renderer/modules/canvas/canvas2d/base_rendering_context_2d.h',
+        ],
+        'allowed': ['cc::AnimatedImageFrameIndexMap'],
     },
     {
         'paths': [
@@ -2895,6 +2939,9 @@ _CONFIG = [
             'blink_mojom::.+',
             'webnn::.+',
             'gpu::SharedImageInterface',
+            'gpu::SHARED_IMAGE_USAGE_WEBGPU_READ',
+            'gpu::SHARED_IMAGE_USAGE_WEBGPU_SHARED_BUFFER',
+            'gpu::SHARED_IMAGE_USAGE_WEBGPU_WRITE',
             'viz::SinglePlaneFormat',
         ]
     },
@@ -3050,6 +3097,18 @@ _CONFIG = [
         'allowed': [
             'GURL',
             'net::SimplifyUrlForRequest',
+        ]
+    },
+    {
+        'paths': [
+            'third_party/blink/common/chrome_debug_urls.cc',
+            'third_party/blink/public/common/chrome_debug_urls.h',
+        ],
+        'allowed': [
+            'GURL',
+            'base::SplitStringPiece',
+            'base::SPLIT_WANT_NONEMPTY',
+            'base::TRIM_WHITESPACE',
         ]
     },
     {

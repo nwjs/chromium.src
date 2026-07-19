@@ -1273,6 +1273,21 @@ Unknown properties are collapsed to zero. -->
 
 <!-- LINT.ThenChange(//content/renderer/accessibility/ax_tree_snapshotter_impl.cc:AXTreeSnapshotErrorReason) -->
 
+<!-- LINT.IfChange(CanvasAccessibilityHeuristicResult) -->
+
+<enum name="CanvasAccessibilityHeuristicResult">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="IsNotVisible (deprecated)"/>
+  <int value="2" label="IsIgnored"/>
+  <int value="3" label="TooSmall"/>
+  <int value="4" label="HasLayoutSubtree"/>
+  <int value="5" label="HasFallbackContent"/>
+  <int value="6" label="HasAriaAttributes"/>
+  <int value="7" label="NeedsA11ySupport"/>
+</enum>
+
+<!-- LINT.ThenChange(//third_party/blink/renderer/core/html/canvas/html_canvas_accessibility_manager.h:CanvasAccessibilityHeuristicResult) -->
+
 <!-- LINT.IfChange(CaptionBubbleErrorType) -->
 
 <enum name="CaptionBubbleErrorType">
@@ -1662,9 +1677,10 @@ Unknown properties are collapsed to zero. -->
   <int value="1" label="Through a message"/>
   <int value="2" label="Through the app menu item"/>
   <int value="3" label="Through the toolbar button"/>
+  <int value="4" label="Through the context menu"/>
 </enum>
 
-<!-- LINT.ThenChange(//chrome/android/java/src/org/chromium/chrome/browser/dom_distiller/ReaderModeManager.java:EntryPoint) -->
+<!-- LINT.ThenChange(//chrome/android/java/src/org/chromium/chrome/browser/dom_distiller/ReaderModeManager.java:DomDistillerEntryPoint) -->
 
 <!-- LINT.IfChange(JAWSMajorVersion)-->
 
@@ -1740,7 +1756,7 @@ Unknown properties are collapsed to zero. -->
       label="Reorder the currently-open tab to the left (not implemented)"/>
   <int value="29"
       label="Reorder the currently-open tab to the right (not implemented)"/>
-  <int value="30" label="Toggle caret browsing (not implemented)"/>
+  <int value="30" label="Toggle caret browsing"/>
   <int value="31" label="Focus on inactive dialogs (not implemented)"/>
   <int value="32" label="Open bookmarks"/>
   <int value="33" label="Bookmark page"/>
@@ -1760,7 +1776,7 @@ Unknown properties are collapsed to zero. -->
   <int value="46" label="Open history"/>
   <int value="47" label="Go back in history"/>
   <int value="48" label="Go forward in history"/>
-  <int value="49" label="Clear browsing data (not implemented)"/>
+  <int value="49" label="Clear browsing data"/>
   <int value="50" label="Print"/>
   <int value="51" label="Basic print (not implemented)"/>
   <int value="52" label="Zoom in"/>
@@ -1775,8 +1791,8 @@ Unknown properties are collapsed to zero. -->
   <int value="61"
       label="Use a custom keyboard shortcut registered by an extension"/>
   <int value="62" label="Toggle multiselect"/>
-  <int value="63" label="Zoom in (Visual/Legacy)"/>
-  <int value="64" label="Zoom out (Visual/Legacy)"/>
+  <int value="63" label="Zoom in (Visual/Legacy) (deprecated)"/>
+  <int value="64" label="Zoom out (Visual/Legacy) (deprecated)"/>
   <int value="65" label="Focus on the app menu button in toolbar"/>
 </enum>
 
@@ -2143,6 +2159,21 @@ Unknown properties are collapsed to zero. -->
 
 <!-- LINT.ThenChange(//chrome/common/read_anything/read_anything.mojom:Colors) -->
 
+<!-- LINT.IfChange(ReadAnythingDistillationQualityEvaluationStatus) -->
+
+<enum name="ReadAnythingDistillationQualityEvaluationStatus">
+  <int value="0" label="Success (Logged to UKM)"/>
+  <int value="1" label="Skipped: Empty Snapshot"/>
+  <int value="2" label="Skipped: Snapshot Reached Node Limit"/>
+  <int value="3" label="Skipped: Empty Distilled HTML"/>
+  <int value="4" label="Skipped: Distilled HTML Exceeds Size Limit"/>
+  <int value="5" label="Error: Tree Building Failed / Null Root"/>
+  <int value="6" label="Error: Original AXTree Text is Empty"/>
+  <int value="7" label="Error: Malformed Distilled HTML"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/common/read_anything/distillation_evaluator.mojom:EvaluationStatus) -->
+
 <!-- LINT.IfChange(ReadAnythingDistillationScheme) -->
 
 <enum name="ReadAnythingDistillationScheme">
@@ -2295,6 +2326,16 @@ Unknown properties are collapsed to zero. -->
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/ui/read_anything/read_anything_enums.h:ReadAnythingOmniboxChipDecision) -->
+
+<!-- LINT.IfChange(ReadAnythingPlaybackContext) -->
+
+<enum name="ReadAnythingPlaybackContext">
+  <summary>The UI context where Read Aloud speech was started.</summary>
+  <int value="0" label="Side Panel"/>
+  <int value="1" label="Immersive Overlay"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/renderer/accessibility/read_anything/read_aloud_app_model.h:ReadAnythingPlaybackContext) -->
 
 <!-- LINT.IfChange(ReadAnythingReadAloudSettingsChange) -->
 

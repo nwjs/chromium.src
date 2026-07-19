@@ -9,17 +9,19 @@
 
 #import "ios/chrome/browser/keyboard/ui_bundled/key_command_actions.h"
 #import "ios/chrome/browser/shared/ui/util/ui_view_controller_with_display_tracing.h"
+#import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/grid/disabled_grid_view_controller.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/grid/grid_consumer.h"
+#import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/grid/grid_container_view_controller.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_grid_consumer.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_grid_idle_status_handler.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_grid_paging.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/toolbars/tab_grid_toolbars_main_tab_grid_delegate.h"
 
-@protocol BWGCommands;
 @class ChromeAppBarPrototype;
-@class GridContainerViewController;
+@protocol GeminiCommands;
 @protocol GridCommands;
+@class GridContainerViewController;
 class GURL;
 @protocol InactiveTabsInfoConsumer;
 @class IncognitoGridViewController;
@@ -27,6 +29,7 @@ class GURL;
 @protocol IncognitoReauthConsumer;
 enum class IPHDismissalReasonType;
 @class LayoutGuideCenter;
+@class LayoutState;
 @class PinnedTabsViewController;
 @protocol PriceCardDataSource;
 @class RegularGridViewController;
@@ -40,9 +43,9 @@ enum class IPHDismissalReasonType;
 @protocol TabGridConsumer;
 @protocol TabGridMutator;
 @protocol TabGridToolbarsCommandsWrangler;
+@class TabGridViewController;
 @class TabGridTopToolbar;
 @class TabGroupsPanelViewController;
-@class LayoutState;
 
 // Configurations for tab grid pages.
 enum class TabGridPageConfiguration {
@@ -90,6 +93,10 @@ enum class TabGridPageConfiguration {
 // Closes the current active tab.
 - (void)closeCurrentTab;
 
+// Notifies the delegate that the current page has changed.
+- (void)tabGridViewController:(TabGridViewController*)tabGridViewController
+         didChangeCurrentPage:(TabGridPage)currentPage;
+
 @end
 
 // View controller representing a tab switcher. The tab switcher has an
@@ -101,7 +108,8 @@ enum class TabGridPageConfiguration {
                                           TabGridConsumer,
                                           TabGridIdleStatusHandler,
                                           TabGridToolbarsMainTabGridDelegate,
-                                          UISearchBarDelegate>
+                                          UISearchBarDelegate,
+                                          ContextMenuTransitionStateProviding>
 
 // Returns whether the child views have been set up.
 // Used by EarlGrey tests to poll for deferred setup completion.
@@ -114,7 +122,7 @@ enum class TabGridPageConfiguration {
 @property(nonatomic, weak) id<TabGridCommands> tabGridHandler;
 
 // Handler for Gemini commands.
-@property(nonatomic, weak) id<BWGCommands> geminiHandler;
+@property(nonatomic, weak) id<GeminiCommands> geminiHandler;
 
 // Delegate for this view controller to handle presenting tab UI.
 @property(nonatomic, weak) id<TabPresentationDelegate> tabPresentationDelegate;
@@ -170,17 +178,21 @@ enum class TabGridPageConfiguration {
     UIViewController* tabGroupsDisabledGridViewController;
 
 // Contains grids (available or disabled one).
-@property(nonatomic, weak) UIViewController* regularGridContainerViewController;
 @property(nonatomic, weak)
-    UIViewController* incognitoGridContainerViewController;
+    GridContainerViewController* regularGridContainerViewController;
 @property(nonatomic, weak)
-    UIViewController* tabGroupsGridContainerViewController;
+    GridContainerViewController* incognitoGridContainerViewController;
+@property(nonatomic, weak)
+    GridContainerViewController* tabGroupsGridContainerViewController;
 
 // Active page of the tab grid. The active page is the page that
 // contains the most recent active tab.
 @property(nonatomic, assign, readonly) TabGridPage activePage;
 // The currently visible page.
 @property(nonatomic, assign, readonly) TabGridPage currentPage;
+// The active context menu interaction animator, if any.
+@property(nonatomic, readonly) id<UIContextMenuInteractionAnimating>
+    activeContextMenuAnimator;
 
 // Init with tab grid view configuration, which decides which sub view
 // controller should be added.

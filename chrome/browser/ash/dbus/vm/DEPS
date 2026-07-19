@@ -27,15 +27,13 @@ include_rules = [
   "+chrome/browser/profiles",
   "+chrome/browser/ui/chrome_pages.h",
   "+chrome/browser/ui/select_file_policy/chrome_select_file_policy.h",
-  "+chrome/browser/ui/webui/ash/settings/app_management",
-  "+chrome/common/pref_names.h",
 ]
 
 specific_include_rules = {
-  "vm_applications_service_provider.cc": [
+  "vm_applications_service_provider\\.cc": [
     "+chrome/browser/ui/views/select_file_dialog_extension/select_file_dialog_extension.h",
   ],
-  ".*_unittest.cc": [
+  ".*_unittest\\.cc": [
     "+chrome/test/base/testing_profile.h",
   ],
 }

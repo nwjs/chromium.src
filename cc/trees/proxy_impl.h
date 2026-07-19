@@ -108,6 +108,11 @@ class CC_EXPORT ProxyImpl : public LayerTreeHostImplDelegate,
       std::unique_ptr<RenderFrameMetadataObserver> observer);
   void DetachInputDelegateAndRenderFrameObserver(
       CompletionEvent* completion_event);
+  void SetUnboundedFrameSink(
+      std::unique_ptr<LayerTreeFrameSink> unbounded_frame_sink,
+      const viz::LocalSurfaceId& local_surface_id);
+  void DismissUnboundedFrameSink();
+  void SetUnboundedLocalSurfaceId(const viz::LocalSurfaceId& local_surface_id);
 
   void MainFrameWillHappenOnImplForTesting(CompletionEvent* completion,
                                            bool* main_frame_will_happen);
@@ -118,7 +123,6 @@ class CC_EXPORT ProxyImpl : public LayerTreeHostImplDelegate,
       const {
     return smoothness_priority_expiration_notifier_;
   }
-  void SetShouldThrottleFrameRate(bool flag);
   void SetRequestHighFramerate(bool flag);
 
   void NotifyNewLocalSurfaceIdExpectedWhilePaused();
@@ -253,7 +257,8 @@ class CC_EXPORT ProxyImpl : public LayerTreeHostImplDelegate,
 
   std::unique_ptr<ClientLayerTreeHostImpl> host_impl_;
 
-  std::bitset<BeginMainFrameReasonSize> begin_main_frame_reason_;
+  // Reason(s) that BeginMainFrame was triggered. Used only for metrics.
+  BeginMainFrameReasons begin_main_frame_reason_;
 
   // Used to post tasks to ProxyMain on the main thread.
   base::WeakPtr<ProxyMain> proxy_main_weak_ptr_;

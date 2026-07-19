@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-2-Clause OR Apache-2.0 OR MIT
+//
 // Copyright 2018 The Fuchsia Authors
 //
 // Licensed under the 2-Clause BSD License <LICENSE-BSD or
@@ -10,7 +12,7 @@
 // After updating the following doc comment, make sure to run the following
 // command to update `README.md` based on its contents:
 //
-//   cargo -q run --manifest-path tools/Cargo.toml -p generate-readme > README.md
+//   (cd .. && cargo -q run --manifest-path tools/Cargo.toml -p generate-readme) > README.md
 
 //! ***<span style="font-size: 140%">Fast, safe, <span
 //! style="color:red;">compile error</span>. Pick two.</span>***
@@ -172,7 +174,7 @@
 //!
 //! [Miri]: https://github.com/rust-lang/miri
 //! [Kani]: https://github.com/model-checking/kani
-//! [soundness policy]: https://github.com/google/zerocopy/blob/main/POLICIES.md#soundness
+//! [soundness policy]: https://github.com/google/zerocopy/blob/main/zerocopy/POLICIES.md#soundness
 //!
 //! # Relationship to Project Safe Transmute
 //!
@@ -201,7 +203,7 @@
 //!
 //! See our [MSRV policy].
 //!
-//! [MSRV policy]: https://github.com/google/zerocopy/blob/main/POLICIES.md#msrv
+//! [MSRV policy]: https://github.com/google/zerocopy/blob/main/zerocopy/POLICIES.md#msrv
 //!
 //! # Changelog
 //!
@@ -359,7 +361,8 @@ mod impls;
 #[doc(hidden)]
 pub mod layout;
 mod macros;
-#[doc(hidden)]
+#[cfg_attr(not(zerocopy_unstable_ptr), doc(hidden))]
+#[cfg_attr(doc_cfg, doc(cfg(zerocopy_unstable_ptr)))]
 pub mod pointer;
 mod r#ref;
 mod split_at;
@@ -385,9 +388,10 @@ use core::{
 use std::io;
 
 #[doc(hidden)]
-pub use crate::pointer::invariant::{self, BecauseExclusive};
-#[doc(hidden)]
-pub use crate::pointer::PtrInner;
+pub use crate::pointer::{
+    invariant::{self, BecauseExclusive},
+    PtrInner,
+};
 pub use crate::{
     byte_slice::*,
     byteorder::*,
@@ -404,8 +408,6 @@ use alloc::{boxed::Box, vec::Vec};
 #[cfg(any(feature = "alloc", test))]
 use core::alloc::Layout;
 
-use util::MetadataOf;
-
 // Used by `KnownLayout`.
 #[doc(hidden)]
 pub use crate::layout::*;
@@ -420,6 +422,9 @@ pub use crate::pointer::{invariant::BecauseImmutable, Maybe, Ptr};
 // See the documentation on `util::polyfills` for more information.
 #[allow(unused_imports)]
 use crate::util::polyfills::{self, NonNullExt as _, NumExt as _};
+#[cfg_attr(not(zerocopy_unstable_ptr), doc(hidden))]
+#[cfg_attr(doc_cfg, doc(cfg(zerocopy_unstable_ptr)))]
+pub use crate::util::MetadataOf;
 
 #[cfg(all(test, not(__ZEROCOPY_INTERNAL_USE_ONLY_DEV_MODE)))]
 const _: () = {
@@ -430,6 +435,9 @@ const _: () = {
     WARNING
 };
 
+#[doc(hidden)]
+#[cfg(all(any(feature = "derive", test), zerocopy_unstable_linux))]
+pub use zerocopy_derive::most_traits;
 /// Implements [`KnownLayout`].
 ///
 /// This derive analyzes various aspects of a type's layout that are needed for
@@ -863,6 +871,19 @@ pub unsafe trait KnownLayout {
     fn size_for_metadata(meta: Self::PointerMetadata) -> Option<usize> {
         meta.size_for_metadata(Self::LAYOUT)
     }
+
+    /// Computes whether `meta` can describe a valid allocation of `Self`.
+    ///
+    /// # Safety
+    ///
+    /// `is_valid_metadata` promises to return `true` if and only if the size of
+    /// an allocation of `Self` with `meta` would not overflow an
+    /// [`isize::MAX`].
+    #[doc(hidden)]
+    #[inline(always)]
+    fn is_valid_metadata(meta: Self::PointerMetadata) -> bool {
+        meta.to_elem_count() <= maximum_trailing_slice_len::<Self>().to_elem_count()
+    }
 }
 
 /// Efficiently produces the [`TrailingSliceLayout`] of `T`.
@@ -888,9 +909,39 @@ where
     T::SIZE_INFO
 }
 
+/// Efficiently produces the maximum trailing slice length `T`.
+#[inline(always)]
+pub(crate) fn maximum_trailing_slice_len<T>() -> usize
+where
+    T: ?Sized + KnownLayout,
+{
+    trait LayoutFacts {
+        const MAX_LEN: usize;
+    }
+
+    impl<T: ?Sized> LayoutFacts for T
+    where
+        T: KnownLayout,
+    {
+        const MAX_LEN: usize = match T::LAYOUT.size_info {
+            SizeInfo::SliceDst(TrailingSliceLayout { elem_size: 0, .. }) => usize::MAX,
+            _ => match T::LAYOUT.validate_cast_and_convert_metadata(
+                T::LAYOUT.align.get(),
+                DstLayout::MAX_SIZE,
+                CastType::Prefix,
+            ) {
+                Ok((elems, _)) => elems,
+                Err(_) => const_panic!("unreachable"),
+            },
+        };
+    }
+
+    T::MAX_LEN
+}
+
 /// The metadata associated with a [`KnownLayout`] type.
 #[doc(hidden)]
-pub trait PointerMetadata: Copy + Eq + Debug {
+pub trait PointerMetadata: Copy + Eq + Debug + Ord {
     /// Constructs a `Self` from an element count.
     ///
     /// If `Self = ()`, this returns `()`. If `Self = usize`, this returns
@@ -2784,7 +2835,7 @@ pub unsafe trait TryFromBytes {
     /// ```
     ///
     /// [`try_mut_from_bytes`]: TryFromBytes::try_mut_from_bytes
-    ///  
+    ///
     #[doc = codegen_header!("h5", "try_mut_from_bytes_with_elems")]
     ///
     /// See [`TryFromBytes::try_ref_from_bytes_with_elems`](#method.try_ref_from_bytes_with_elems.codegen).

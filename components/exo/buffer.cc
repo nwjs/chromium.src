@@ -14,6 +14,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/logging.h"
+#include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_macros.h"
@@ -54,6 +55,12 @@
 
 namespace exo {
 namespace {
+
+// When enabled, this feature allows ReleaseSharedImage() to EndExport and
+// run callback immediately, skipping WaitSyncToken, and Begin/EndQuery
+// operations. This kill switch is used to verify the assumption that these
+// skipped operations are actually needed in this case.
+BASE_FEATURE(kReleaseSharedImageImmediately, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // The amount of time before we wait for release queries using
 // GetQueryObjectuivEXT(GL_QUERY_RESULT_EXT).
@@ -106,6 +113,50 @@ perfetto::NamedTrack GetTrack(const void* buffer_id) {
                               reinterpret_cast<uintptr_t>(buffer_id));
 }
 
+bool ValidateGpuMemoryBufferHandle(const gfx::GpuMemoryBufferHandle& handle,
+                                   const viz::SharedImageFormat& format,
+                                   const gfx::Size& size) {
+  if (handle.type == gfx::SHARED_MEMORY_BUFFER) {
+    const auto& region = handle.region();
+    if (!region.IsValid()) {
+      DLOG(ERROR) << "Invalid shared memory region.";
+      return false;
+    }
+    auto required_size = format.MaybeEstimatedSizeInBytes(size);
+    if (!required_size || region.GetSize() < *required_size) {
+      DLOG(ERROR) << "Shared memory region is too small. Required: "
+                  << (required_size ? *required_size : 0)
+                  << ", actual: " << region.GetSize();
+      return false;
+    }
+    if (handle.stride > 0 && size.height() > 0 &&
+        static_cast<size_t>(handle.stride) *
+                static_cast<size_t>(size.height()) >
+            region.GetSize()) {
+      DLOG(ERROR) << "Shared memory region is too small for stride. Required: "
+                  << handle.stride * size.height()
+                  << ", actual: " << region.GetSize();
+      return false;
+    }
+  }
+#if BUILDFLAG(IS_OZONE)
+  if (handle.type == gfx::NATIVE_PIXMAP) {
+    const auto& pixmap_handle = handle.native_pixmap_handle();
+    if (pixmap_handle.planes.empty()) {
+      DLOG(ERROR) << "Native pixmap handle has no planes.";
+      return false;
+    }
+    for (const auto& plane : pixmap_handle.planes) {
+      if (!plane.fd.is_valid()) {
+        DLOG(ERROR) << "Invalid plane FD.";
+        return false;
+      }
+    }
+  }
+#endif
+  return true;
+}
+
 }  // namespace
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -114,17 +165,19 @@ perfetto::NamedTrack GetTrack(const void* buffer_id) {
 // Encapsulates the state and logic needed to bind a buffer to a SharedImage.
 class Buffer::Texture : public viz::ContextLostObserver {
  public:
-  Texture(scoped_refptr<viz::RasterContextProvider> context_provider,
-          const gfx::Size& size,
-          gfx::ColorSpace color_space);
-  Texture(scoped_refptr<viz::RasterContextProvider> context_provider,
-          gfx::GpuMemoryBufferHandle* gpu_memory_buffer_handle,
-          const viz::SharedImageFormat buffer_format,
-          const gfx::Size& size,
-          gfx::ColorSpace color_space,
-          unsigned query_type,
-          base::TimeDelta wait_for_release_time,
-          bool is_overlay_candidate);
+  static std::unique_ptr<Texture> Create(
+      scoped_refptr<viz::RasterContextProvider> context_provider,
+      const gfx::Size& size,
+      gfx::ColorSpace color_space);
+  static std::unique_ptr<Texture> Create(
+      scoped_refptr<viz::RasterContextProvider> context_provider,
+      gfx::GpuMemoryBufferHandle* gpu_memory_buffer_handle,
+      const viz::SharedImageFormat format,
+      const gfx::Size& size,
+      gfx::ColorSpace color_space,
+      unsigned query_type,
+      base::TimeDelta wait_for_release_delay,
+      bool is_overlay_candidate);
 
   Texture(const Texture&) = delete;
   Texture& operator=(const Texture&) = delete;
@@ -152,9 +205,7 @@ class Buffer::Texture : public viz::ContextLostObserver {
 
   // Copy the contents of texture to |destination| and runs |callback| when
   // completed.
-  void CopyTexImage(std::unique_ptr<gfx::GpuFence> acquire_fence,
-                    Texture* destination,
-                    base::OnceClosure callback);
+  void CopyTexImage(Texture* destination, base::OnceClosure callback);
 
   // Returns the ClientSharedImage for this texture.
   gpu::ClientSharedImage* shared_image() const { return shared_image_.get(); }
@@ -163,21 +214,31 @@ class Buffer::Texture : public viz::ContextLostObserver {
   gpu::SyncToken sync_token() { return sync_token_; }
 
  private:
+  Texture(scoped_refptr<viz::RasterContextProvider> context_provider,
+          scoped_refptr<gpu::ClientSharedImage> shared_image,
+          const gfx::Size& size);
+  Texture(scoped_refptr<viz::RasterContextProvider> context_provider,
+          scoped_refptr<gpu::ClientSharedImage> shared_image,
+          gfx::GpuMemoryBufferHandle* gpu_memory_buffer_handle,
+          const gfx::Size& size,
+          unsigned query_type,
+          base::TimeDelta wait_for_release_delay);
+
   void DestroyResources();
+  static uintptr_t GetBufferIdHelper(gfx::GpuMemoryBufferHandle* handle);
   void ReleaseWhenQueryResultIsAvailable(base::OnceClosure callback);
   void Released();
   void ScheduleWaitForRelease(base::TimeDelta delay);
   void WaitForRelease();
   const void* GetBufferId() const;
 
-  // Note that the owning reference to this pointers is ::Buffer which can be
-  // destroyed before it when ::Buffer::Texture is destroyed via
-  // ::Buffer::Texture::ReleaseSharedImage(). This causes pointer to dangle. But
-  // this pointer is safe to dangle as we never access it during
-  // ::Buffer::Texture destructor and is also never accessed after the owning
-  // object ::Buffer is destroyed.
-  const raw_ptr<gfx::GpuMemoryBufferHandle, DisableDanglingPtrDetection>
-      gpu_memory_buffer_handle_;
+  // Stores the address of the GpuMemoryBufferHandle as a stable identifier
+  // for tracing. We store this as a uintptr_t rather than a raw_ptr to avoid
+  // dangling pointer detection issues, as the owning ::Buffer can be
+  // destroyed before the ::Buffer::Texture is destroyed (e.g. during
+  // ReleaseSharedImage). This identifier is only used for tracing and is
+  // never dereferenced.
+  const uintptr_t buffer_id_;
   const gfx::Size size_;
   scoped_refptr<viz::RasterContextProvider> context_provider_;
   const unsigned query_type_;
@@ -191,36 +252,46 @@ class Buffer::Texture : public viz::ContextLostObserver {
   base::WeakPtrFactory<Texture> weak_ptr_factory_{this};
 };
 
-Buffer::Texture::Texture(
+// static
+uintptr_t Buffer::Texture::GetBufferIdHelper(
+    gfx::GpuMemoryBufferHandle* handle) {
+  CHECK(handle);
+  CHECK(!handle->is_null());
+  return reinterpret_cast<uintptr_t>(handle);
+}
+
+// static
+std::unique_ptr<Buffer::Texture> Buffer::Texture::Create(
     scoped_refptr<viz::RasterContextProvider> context_provider,
     const gfx::Size& size,
-    gfx::ColorSpace color_space)
-    : gpu_memory_buffer_handle_(nullptr),
-      size_(size),
-      context_provider_(std::move(context_provider)),
-      query_type_(GL_COMMANDS_COMPLETED_CHROMIUM) {
-  gpu::SharedImageInterface* sii = context_provider_->SharedImageInterface();
+    gfx::ColorSpace color_space) {
+  if (!context_provider) {
+    return nullptr;
+  }
+  gpu::SharedImageInterface* sii = context_provider->SharedImageInterface();
+  if (!sii) {
+    return nullptr;
+  }
 
-  // These SharedImages are used over the raster interface as both the source
-  // and destination of writes. Note that as the browser process raster
-  // interface uses RasterImplementation (and not RasterImplementationGLES) as
-  // its implementation, GLES2 usage is not needed.
   const gpu::SharedImageUsageSet usage = gpu::SHARED_IMAGE_USAGE_RASTER_READ |
                                          gpu::SHARED_IMAGE_USAGE_RASTER_WRITE |
                                          gpu::SHARED_IMAGE_USAGE_DISPLAY_READ;
 
-  shared_image_ =
+  auto shared_image =
       sii->CreateSharedImage({viz::SinglePlaneFormat::kRGBA_8888, size,
                               color_space, usage, gpu::kExoTextureLabelPrefix},
                              gpu::kNullSurfaceHandle);
-  CHECK(shared_image_);
-  sync_token_ = shared_image_->creation_sync_token();
+  if (!shared_image) {
+    DLOG(ERROR) << "Failed to create shared image for texture";
+    return nullptr;
+  }
 
-  // Provides a notification when |context_provider_| is lost.
-  context_provider_->AddObserver(this);
+  return base::WrapUnique(
+      new Texture(std::move(context_provider), std::move(shared_image), size));
 }
 
-Buffer::Texture::Texture(
+// static
+std::unique_ptr<Buffer::Texture> Buffer::Texture::Create(
     scoped_refptr<viz::RasterContextProvider> context_provider,
     gfx::GpuMemoryBufferHandle* gpu_memory_buffer_handle,
     const viz::SharedImageFormat format,
@@ -228,20 +299,22 @@ Buffer::Texture::Texture(
     gfx::ColorSpace color_space,
     unsigned query_type,
     base::TimeDelta wait_for_release_delay,
-    bool is_overlay_candidate)
-    : gpu_memory_buffer_handle_(gpu_memory_buffer_handle),
-      size_(size),
-      context_provider_(std::move(context_provider)),
-      query_type_(query_type),
-      wait_for_release_delay_(wait_for_release_delay) {
-  CHECK(!gpu_memory_buffer_handle_->is_null());
+    bool is_overlay_candidate) {
+  if (!context_provider || !gpu_memory_buffer_handle ||
+      gpu_memory_buffer_handle->is_null()) {
+    return nullptr;
+  }
 
-  gpu::SharedImageInterface* sii = context_provider_->SharedImageInterface();
+  // Use the central helper!
+  if (!ValidateGpuMemoryBufferHandle(*gpu_memory_buffer_handle, format, size)) {
+    return nullptr;
+  }
 
-  // These SharedImages are used over the raster interface as both the source
-  // and destination of writes. Note that as the browser process raster
-  // interface uses RasterImplementation (and not RasterImplementationGLES) as
-  // its implementation, GLES2 usage is not needed.
+  gpu::SharedImageInterface* sii = context_provider->SharedImageInterface();
+  if (!sii) {
+    return nullptr;
+  }
+
   gpu::SharedImageUsageSet usage = gpu::SHARED_IMAGE_USAGE_RASTER_READ |
                                    gpu::SHARED_IMAGE_USAGE_RASTER_WRITE |
                                    gpu::SHARED_IMAGE_USAGE_DISPLAY_READ;
@@ -251,9 +324,48 @@ Buffer::Texture::Texture(
     usage |= gpu::SHARED_IMAGE_USAGE_SCANOUT;
   }
 
-  shared_image_ = sii->CreateSharedImage(
-      {format, size_, color_space, usage, gpu::kExoTextureLabelPrefix},
-      gpu_memory_buffer_handle_->Clone());
+  auto shared_image = sii->CreateSharedImage(
+      {format, size, color_space, usage, gpu::kExoTextureLabelPrefix},
+      gpu_memory_buffer_handle->Clone());
+  if (!shared_image) {
+    DLOG(ERROR) << "Failed to create shared image from GMB handle";
+    return nullptr;
+  }
+
+  return base::WrapUnique(new Texture(
+      std::move(context_provider), std::move(shared_image),
+      gpu_memory_buffer_handle, size, query_type, wait_for_release_delay));
+}
+
+Buffer::Texture::Texture(
+    scoped_refptr<viz::RasterContextProvider> context_provider,
+    scoped_refptr<gpu::ClientSharedImage> shared_image,
+    const gfx::Size& size)
+    : buffer_id_(0),
+      size_(size),
+      context_provider_(std::move(context_provider)),
+      query_type_(GL_COMMANDS_COMPLETED_CHROMIUM),
+      shared_image_(std::move(shared_image)) {
+  CHECK(shared_image_);
+  sync_token_ = shared_image_->creation_sync_token();
+
+  // Provides a notification when |context_provider_| is lost.
+  context_provider_->AddObserver(this);
+}
+
+Buffer::Texture::Texture(
+    scoped_refptr<viz::RasterContextProvider> context_provider,
+    scoped_refptr<gpu::ClientSharedImage> shared_image,
+    gfx::GpuMemoryBufferHandle* gpu_memory_buffer_handle,
+    const gfx::Size& size,
+    unsigned query_type,
+    base::TimeDelta wait_for_release_delay)
+    : buffer_id_(GetBufferIdHelper(gpu_memory_buffer_handle)),
+      size_(size),
+      context_provider_(std::move(context_provider)),
+      query_type_(query_type),
+      shared_image_(std::move(shared_image)),
+      wait_for_release_delay_(wait_for_release_delay) {
   CHECK(shared_image_);
   sync_token_ = shared_image_->creation_sync_token();
   if (query_type_ != 0) {
@@ -301,24 +413,18 @@ void Buffer::Texture::Release(base::OnceClosure callback,
   std::move(callback).Run();
 }
 
-void Buffer::Texture::UpdateSharedImage(
-    std::unique_ptr<gfx::GpuFence> acquire_fence) {
-  if (context_provider_) {
-    gpu::SharedImageInterface* sii = context_provider_->SharedImageInterface();
-    CHECK(shared_image_);
-    // UpdateSharedImage gets called only after |mailbox_| can be reused.
-    // A buffer can be reattached to a surface only after it has been returned
-    // to wayland clients. We return buffers to clients only after the query
-    // |query_type_| is available.
-    sii->UpdateSharedImage(gpu::SyncToken(), std::move(acquire_fence),
-                           shared_image_->mailbox());
-    sync_token_ = sii->GenUnverifiedSyncToken();
-    TRACE_EVENT_INSTANT("exo", "bound", GetTrack(GetBufferId()));
-  }
-}
-
 void Buffer::Texture::ReleaseSharedImage(base::OnceClosure callback,
                                          viz::ReturnedResource resource) {
+  if (base::FeatureList::IsEnabled(kReleaseSharedImageImmediately)) {
+    gpu::SyncToken resource_sync_token = shared_image()->EndExport(
+        std::move(resource.shared_image_export_result));
+    if (resource_sync_token.HasData()) {
+      sync_token_ = resource_sync_token;
+    }
+    std::move(callback).Run();
+    return;
+  }
+
   if (context_provider_ && query_type_ != 0) {
     gpu::raster::RasterInterface* ri = context_provider_->RasterInterface();
     gpu::SyncToken resource_sync_token = shared_image()->EndExport(
@@ -341,15 +447,12 @@ void Buffer::Texture::ReleaseSharedImage(base::OnceClosure callback,
   std::move(callback).Run();
 }
 
-void Buffer::Texture::CopyTexImage(std::unique_ptr<gfx::GpuFence> acquire_fence,
-                                   Texture* destination,
+void Buffer::Texture::CopyTexImage(Texture* destination,
                                    base::OnceClosure callback) {
   if (context_provider_) {
     CHECK(shared_image_);
-    gpu::SharedImageInterface* sii = context_provider_->SharedImageInterface();
-    sii->UpdateSharedImage(sync_token_, std::move(acquire_fence),
-                           shared_image_->mailbox());
-    gpu::SyncToken sync_token = sii->GenUnverifiedSyncToken();
+    gpu::SyncToken sync_token =
+        shared_image_->BackingWasExternallyUpdated(sync_token_);
 
     gpu::raster::RasterInterface* ri = context_provider_->RasterInterface();
     std::unique_ptr<gpu::RasterScopedAccess> ri_src_access =
@@ -391,7 +494,7 @@ void Buffer::Texture::DestroyResources() {
 void Buffer::Texture::ReleaseWhenQueryResultIsAvailable(
     base::OnceClosure callback) {
   DCHECK(context_provider_);
-  DCHECK(release_callback_.is_null());
+  CHECK(release_callback_.is_null());
   release_callback_ = std::move(callback);
   wait_for_release_time_ = base::TimeTicks::Now() + wait_for_release_delay_;
   ScheduleWaitForRelease(wait_for_release_delay_);
@@ -451,7 +554,7 @@ void Buffer::Texture::WaitForRelease() {
 }
 
 const void* Buffer::Texture::GetBufferId() const {
-  return static_cast<const void*>(gpu_memory_buffer_handle_);
+  return reinterpret_cast<const void*>(buffer_id_);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -483,7 +586,9 @@ Buffer::Buffer(gfx::GpuMemoryBufferHandle gpu_memory_buffer_handle,
       use_zero_copy_(use_zero_copy),
       is_overlay_candidate_(is_overlay_candidate),
       y_invert_(y_invert),
-      wait_for_release_delay_(base::Milliseconds(kWaitForReleaseDelayMs)) {}
+      wait_for_release_delay_(base::Milliseconds(kWaitForReleaseDelayMs)) {
+  CHECK(use_zero_copy_ || query_type_ != 0);
+}
 
 Buffer::~Buffer() = default;
 
@@ -560,13 +665,12 @@ std::unique_ptr<Buffer> Buffer::CreateBuffer(
 
 std::optional<viz::TransferableResource> Buffer::ProduceTransferableResource(
     FrameSinkResourceManager* resource_manager,
-    std::unique_ptr<gfx::GpuFence> acquire_fence,
     bool secure_output_only,
     gfx::ColorSpace color_space,
     ProtectedNativePixmapQueryDelegate* protected_native_pixmap_query) {
   TRACE_EVENT1("exo", "Buffer::ProduceTransferableResource", "buffer_id",
                GetBufferId());
-  DCHECK(attach_count_);
+  CHECK(attach_count_);
 
   // If textures are lost, destroy them to ensure that we create new ones
   // below.
@@ -596,10 +700,14 @@ std::optional<viz::TransferableResource> Buffer::ProduceTransferableResource(
   // already exist. The contents of this buffer are copied to |texture| using a
   // call to CopyTexImage.
   if (!contents_texture_) {
-    contents_texture_ = std::make_unique<Texture>(
-        context_provider, &gpu_memory_buffer_handle_, format_, size_,
-        valid_color_space, query_type_, wait_for_release_delay_,
-        is_overlay_candidate_);
+    contents_texture_ =
+        Texture::Create(context_provider, &gpu_memory_buffer_handle_, format_,
+                        size_, valid_color_space, query_type_,
+                        wait_for_release_delay_, is_overlay_candidate_);
+    if (!contents_texture_) {
+      DLOG(WARNING) << "Failed to create contents texture from client handle";
+      return std::nullopt;
+    }
   }
   Texture* contents_texture = contents_texture_.get();
 
@@ -638,15 +746,6 @@ std::optional<viz::TransferableResource> Buffer::ProduceTransferableResource(
   // Zero-copy means using the contents texture directly.
   if (use_zero_copy_) {
     // This binds the latest contents of this buffer to |contents_texture|.
-
-    // If there is no acquire fence there is no need to update the shared image.
-    // We can sync on the existing sync token if present. Examples of where this
-    // can happen is video, where there is no fence provided, or in
-    // raster/composite when the fence already signaled at this stage.
-    if (acquire_fence && !acquire_fence->GetGpuFenceHandle().is_null()) {
-      contents_texture->UpdateSharedImage(std::move(acquire_fence));
-    }
-
     viz::TransferableResource::MetadataOverride overrides;
     overrides.is_overlay_candidate = is_overlay_candidate_;
     auto resource = viz::TransferableResource::Make(
@@ -671,8 +770,11 @@ std::optional<viz::TransferableResource> Buffer::ProduceTransferableResource(
 
   // Create a mailbox texture that we copy the buffer contents to.
   if (!texture_) {
-    texture_ = std::make_unique<Texture>(context_provider, GetSize(),
-                                         valid_color_space);
+    texture_ = Texture::Create(context_provider, GetSize(), valid_color_space);
+    if (!texture_) {
+      DLOG(WARNING) << "Failed to create copy texture";
+      return std::nullopt;
+    }
   }
   Texture* texture = texture_.get();
 
@@ -680,10 +782,9 @@ std::optional<viz::TransferableResource> Buffer::ProduceTransferableResource(
   // texture mailbox from the result in |texture|. The contents texture will
   // be released when copy has completed.
   contents_texture->CopyTexImage(
-      std::move(acquire_fence), texture,
-      base::BindOnce(&Buffer::ReleaseContentsTexture, AsWeakPtr(),
-                     std::move(contents_texture_),
-                     release_contents_callback_.callback()));
+      texture, base::BindOnce(&Buffer::ReleaseContentsTexture, AsWeakPtr(),
+                              std::move(contents_texture_),
+                              release_contents_callback_.callback()));
 
   auto resource = viz::TransferableResource::Make(
       texture->shared_image(),
@@ -714,7 +815,7 @@ void Buffer::OnAttach() {
 }
 
 void Buffer::OnDetach() {
-  DCHECK_GT(attach_count_, 0u);
+  CHECK_GT(attach_count_, 0u);
   TRACE_EVENT2("exo", "Buffer::OnAttach", "buffer_id", GetBufferId(), "count",
                attach_count_);
   --attach_count_;
@@ -804,6 +905,11 @@ SkBitmap Buffer::CreateBitmap() {
     return bitmap;
   }
 
+  if (!ValidateGpuMemoryBufferHandle(gpu_memory_buffer_handle_, format_,
+                                     size_)) {
+    return bitmap;
+  }
+
   // We only need to create this shared image in order to Map the
   // |gpu_memory_buffer_handle_| to cpu visible memory.
   auto shared_image =
@@ -811,10 +917,14 @@ SkBitmap Buffer::CreateBitmap() {
                               kDefaultMappableSIUsage, "ExoBufferCreateBitmap"},
                              gpu::kNullSurfaceHandle, buffer_usage_,
                              gpu_memory_buffer_handle_.Clone());
+  if (!shared_image) {
+    DLOG(ERROR) << "Failed to create SharedImage for mapping.";
+    return bitmap;
+  }
 
   auto mapping = shared_image->Map();
   if (!mapping) {
-    LOG(ERROR) << "Failed to map MappableSI.";
+    DLOG(ERROR) << "Failed to map MappableSI.";
     return bitmap;
   }
 
@@ -852,7 +962,6 @@ SolidColorBuffer::~SolidColorBuffer() = default;
 std::optional<viz::TransferableResource>
 SolidColorBuffer::ProduceTransferableResource(
     FrameSinkResourceManager* resource_manager,
-    std::unique_ptr<gfx::GpuFence> acquire_fence,
     bool secure_output_only,
     gfx::ColorSpace color_space,
     ProtectedNativePixmapQueryDelegate* protected_native_pixmap_query) {

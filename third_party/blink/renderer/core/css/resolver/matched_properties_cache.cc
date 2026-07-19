@@ -34,6 +34,8 @@
 #include <array>
 #include <utility>
 
+#include "base/metrics/histogram_functions.h"
+#include "base/rand_util.h"
 #include "base/types/zip.h"
 #include "third_party/blink/renderer/core/css/css_property_value_set.h"
 #include "third_party/blink/renderer/core/css/properties/css_property_ref.h"
@@ -56,15 +58,7 @@ static unsigned ComputeMatchedPropertiesHash(const MatchResult& result,
                       }))
       << "This should have been checked in AddMatchedProperties()";
   unsigned hash = StringHasher::HashMemory(base::as_byte_span(hashes));
-  hash = HashInts(hash, additional_hash);
-
-  // See CSSPropertyValueSet::ComputeHash() for asserts that this is safe.
-  if (hash == HashTraits<unsigned>::EmptyValue() ||
-      hash == HashTraits<unsigned>::DeletedValue()) {
-    hash ^= 0x80000000;
-  }
-
-  return hash;
+  return EnsureValidHash(HashInts(hash, additional_hash));
 }
 
 CachedMatchedProperties::CachedMatchedProperties(
@@ -306,6 +300,14 @@ void MatchedPropertiesCache::Add(
                                      clock_++);
   }
   ++cache_entries_;
+
+  // Record the size of the bucket in which the item landed, subsampled to 1% of
+  // writes.
+  if (base::ShouldRecordSubsampledMetric(0.01)) {
+    base::UmaHistogramCounts10000(
+        "Blink.Style.MatchedPropertiesCache.BucketSize",
+        static_cast<int>(cache_item->entries.size()));
+  }
 }
 
 void MatchedPropertiesCache::Clear() {
@@ -351,10 +353,12 @@ bool MatchedPropertiesCache::IsStyleCacheable(
     // element's position in the DOM.
     return false;
   }
-  // Functional media queries cause the style to depend directly on
-  // the current MediaValues, without going through RuleSet invalidation.
-  // These values are not captured by the MatchResult.
-  if (builder.AffectedByFunctionalMedia()) {
+  // Functional media queries cause the style to depend directly on the current
+  // MediaValues, without going through RuleSet invalidation. These values are
+  // not captured by the MatchResult. Similarly, evaluation of if() functions
+  // may be affected by navigation queries.
+  if (builder.AffectedByFunctionalMedia() ||
+      builder.AffectedByFunctionalNavigation()) {
     return false;
   }
   if (builder.HasElementDependentRandomFunctions()) {

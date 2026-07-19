@@ -5,12 +5,14 @@
 package org.chromium.chrome.browser.ui.autofill;
 
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.view.ContextThemeWrapper;
+import android.view.View;
 
 import androidx.test.core.app.ApplicationProvider;
 
@@ -24,7 +26,10 @@ import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.build.annotations.NullMarked;
-import org.chromium.chrome.R;
+import org.chromium.chrome.browser.personal_context.first_run.PersonalContextFirstRunService;
+import org.chromium.chrome.browser.personal_context.first_run.PersonalContextFirstRunServiceJni;
+import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.ui.autofill.internal.R;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 
 import java.util.List;
@@ -37,18 +42,22 @@ public class AtMemoryBottomSheetCoordinatorTest {
 
     @Mock private BottomSheetController mBottomSheetController;
     @Mock private AtMemoryBottomSheetCoordinator.Delegate mMockDelegate;
+    @Mock private Profile mProfile;
+    @Mock private PersonalContextFirstRunService.Natives mFirstRunServiceJniMock;
 
     private AtMemoryBottomSheetCoordinator mCoordinator;
 
     @Before
     public void setUp() {
+        PersonalContextFirstRunServiceJni.setInstanceForTesting(mFirstRunServiceJniMock);
         mCoordinator =
                 new AtMemoryBottomSheetCoordinator(
                         new ContextThemeWrapper(
                                 ApplicationProvider.getApplicationContext(),
                                 R.style.Theme_BrowserUI_DayNight),
                         mBottomSheetController,
-                        mMockDelegate);
+                        mMockDelegate,
+                        mProfile);
     }
 
     @Test
@@ -79,5 +88,25 @@ public class AtMemoryBottomSheetCoordinatorTest {
         mCoordinator.hide();
 
         verify(mBottomSheetController).hideContent(any(), eq(true));
+    }
+
+    @Test
+    public void testShow_FocusSearchArea() {
+        when(mBottomSheetController.requestShowContent(any(), eq(true))).thenReturn(true);
+
+        mCoordinator.show(List.of());
+
+        View contentView = mCoordinator.getBottomSheetContentForTesting().getContentView();
+        View searchInput = contentView.findViewById(R.id.search_query_input);
+        assertNotNull(searchInput);
+        assertTrue(searchInput.hasFocus());
+    }
+
+    @Test
+    public void testShow_FlyoutScreen() {
+        // TODO(crbug.com/513146609): Implement the test case when the user queries
+        // the at.memory search. The list of suggestions are shown and the user clicks
+        // the detail page button, then the flyout screen is shown. In that case, the
+        // bottom sheet should be updated to show the flyout.
     }
 }

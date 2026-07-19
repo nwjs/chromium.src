@@ -24,7 +24,6 @@
 #include "third_party/blink/renderer/core/html/html_collection.h"
 
 #include "third_party/blink/renderer/core/dom/class_collection.h"
-#include "third_party/blink/renderer/core/dom/element_rare_data_vector.h"
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
 #include "third_party/blink/renderer/core/html/collection_type.h"
 #include "third_party/blink/renderer/core/html/document_all_name_collection.h"
@@ -205,14 +204,6 @@ HTMLCollection::~HTMLCollection() = default;
 void HTMLCollection::InvalidateCache(Document* old_document) const {
   collection_items_cache_.Invalidate();
   InvalidateIdNameCacheMaps(old_document);
-}
-
-unsigned HTMLCollection::length() const {
-  return collection_items_cache_.NodeCount(*this);
-}
-
-Element* HTMLCollection::item(unsigned offset) const {
-  return collection_items_cache_.NodeAt(*this, offset);
 }
 
 static inline bool IsMatchingHTMLElement(const HTMLCollection& html_collection,

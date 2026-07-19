@@ -16,6 +16,7 @@
 #include "base/command_line.h"
 #include "base/files/file_path.h"
 #include "base/functional/callback.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/rand_util.h"
 #include "base/run_loop.h"
 #include "base/test/bind.h"
@@ -541,15 +542,19 @@ scoped_refptr<VideoFrame> ProcessFrameLibyuv(scoped_refptr<VideoFrame> in_frame,
   return frame;
 }
 
-void InitWithImage(const uint8_t* img_data,
+void InitWithImage(base::span<const uint8_t> img_data,
                    const gfx::Size size,
                    uint8_t* y_plane,
                    size_t y_stride,
                    uint8_t* uv_plane,
                    size_t uv_stride) {
-  libyuv::NV12Copy(img_data, size.width(), img_data + size.GetArea(),
-                   size.width(), y_plane, y_stride, uv_plane, uv_stride,
-                   size.width(), size.height());
+  const size_t area = base::checked_cast<size_t>(size.GetArea());
+  CHECK_GE(img_data.size(), area * 3 / 2);
+  auto y_span = img_data.first(area);
+  auto uv_span = img_data.subspan(area);
+  libyuv::NV12Copy(y_span.data(), size.width(), uv_span.data(), size.width(),
+                   y_plane, y_stride, uv_plane, uv_stride, size.width(),
+                   size.height());
 }
 
 void InitWithRandom(const gfx::Size size,
@@ -799,7 +804,7 @@ TEST_P(VulkanOverlayAdaptorTest, Correctness) {
   auto in_mailbox = gpu::Mailbox::Generate();
   auto out_mailbox = gpu::Mailbox::Generate();
 
-  test::Image image(media::g_source_directory.Append(
+  test::Image image(media::GetSourceDir().Append(
       base::FilePath(is_10bit ? kMT2TImage : kMM21Image)));
   ASSERT_TRUE(image.Load());
   gfx::Size size(
@@ -807,7 +812,7 @@ TEST_P(VulkanOverlayAdaptorTest, Correctness) {
                           kMM21TileWidth),
       base::bits::AlignUp(base::checked_cast<size_t>(image.Size().height()),
                           kMM21TileHeight));
-  auto init_cb = base::BindOnce(&InitWithImage, image.Data());
+  auto init_cb = base::BindOnce(&InitWithImage, image.DataSpan());
   auto in_frame =
       CreateVideoFrame(in_mailbox, image.Size(), image.VisibleRect(),
                        std::move(init_cb), is_10bit);
@@ -853,8 +858,8 @@ TEST_P(VulkanOverlayAdaptorTest, Correctness) {
   auto packed_in_frame = VideoFrame::WrapExternalData(
       VideoPixelFormat::PIXEL_FORMAT_NV12, in_frame->coded_size(),
       in_frame->visible_rect(), in_frame->coded_size(),
-      base::span(image.Data(),
-                 static_cast<size_t>(in_frame->coded_size().GetArea() * 3 / 2)),
+      image.DataSpan().first(
+          static_cast<size_t>(in_frame->coded_size().GetArea() * 3 / 2)),
       base::TimeDelta());
 
   auto libyuv_out_frame =
@@ -1032,9 +1037,9 @@ int main(int argc, char** argv) {
     }
 
     if (it->first == "source_directory") {
-      media::g_source_directory = base::FilePath(it->second);
+      media::GetSourceDir() = base::FilePath(it->second);
     } else if (it->first == "output_directory") {
-      media::g_output_directory = base::FilePath(it->second);
+      media::GetOutputDir() = base::FilePath(it->second);
     } else {
       std::cout << "unknown option: --" << it->first << "\n"
                 << media::usage_msg;

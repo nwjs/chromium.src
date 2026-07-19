@@ -133,18 +133,6 @@ String LinkAsAttributeToString(network::mojom::LinkAsAttribute as) {
   }
 }
 
-CrossOriginAttributeValue CrossOriginAttributeToBlink(
-    network::mojom::CrossOriginAttribute attr) {
-  switch (attr) {
-    case network::mojom::CrossOriginAttribute::kAnonymous:
-      return kCrossOriginAttributeAnonymous;
-    case network::mojom::CrossOriginAttribute::kUseCredentials:
-      return kCrossOriginAttributeUseCredentials;
-    case network::mojom::CrossOriginAttribute::kUnspecified:
-      return kCrossOriginAttributeNotSet;
-  }
-}
-
 constexpr base::TimeDelta kKeepaliveLoadersTimeout = base::Seconds(30);
 
 // Timeout for link preloads to be used after window.onload
@@ -1925,12 +1913,9 @@ Resource* ResourceFetcher::MatchPreload(
   preloads_.erase(it);
   matched_preloads_.push_back(resource);
 
-  if (RuntimeEnabledFeatures::SpeculationMeasurementEnabled(
-          context_->GetFeatureContext())) {
-    auto record_it = preload_records_.find(resource->Url());
-    if (record_it != preload_records_.end()) {
-      record_it->value.used_time = base::TimeTicks::Now();
-    }
+  auto record_it = preload_records_.find(resource->Url());
+  if (record_it != preload_records_.end()) {
+    record_it->value.used_time = base::TimeTicks::Now();
   }
 
   return resource;
@@ -1982,6 +1967,10 @@ void ResourceFetcher::PrintPreloadMismatch(Resource* resource,
     case Resource::MatchStatus::kScriptTypeDoesNotMatch:
       builder.Append("because the script type does not match.");
       break;
+    case Resource::MatchStatus::kCrossWorldExtensionResourceMismatch:
+      builder.Append(
+          "because it is a cross-world extension resource mismatch.");
+      break;
   }
   console_logger_->AddConsoleMessage(mojom::ConsoleMessageSource::kOther,
                                      mojom::ConsoleMessageLevel::kWarning,
@@ -2022,9 +2011,7 @@ void ResourceFetcher::InsertAsPreloadIfNecessary(Resource* resource,
   // Only track <link rel=preload> in `preload_records_` for the
   // SpeculationMeasurement API. Speculative preloads from the HTML parser
   // are not developer-initiated and should not be reported.
-  if (RuntimeEnabledFeatures::SpeculationMeasurementEnabled(
-          context_->GetFeatureContext()) &&
-      params.IsLinkPreload()) {
+  if (params.IsLinkPreload()) {
     const KURL& url = resource->Url();
     if (!preload_records_.Contains(url)) {
       PreloadInfo info;
@@ -2438,20 +2425,45 @@ void ResourceFetcher::ClearPreloads(ClearPreloadsPolicy policy) {
 
 void ResourceFetcher::SetEarlyHintsPreloadedResources(
     HashMap<KURL, EarlyHintsPreloadEntry> resources) {
-  // Also record early hints preloads for the SpeculationMeasurement API.
-  if (RuntimeEnabledFeatures::SpeculationMeasurementEnabled(
-          context_->GetFeatureContext())) {
-    for (const auto& [url, entry] : resources) {
-      if (!preload_records_.Contains(url)) {
-        PreloadInfo info;
-        info.as = LinkAsAttributeToString(entry.as);
-        info.crossorigin = CrossOriginAttributeToBlink(entry.cross_origin);
-        info.early_hints = true;
-        preload_records_.insert(url, std::move(info));
-      }
+  for (const auto& [url, entry] : resources) {
+    if (!preload_records_.Contains(url)) {
+      PreloadInfo info;
+      info.as = LinkAsAttributeToString(entry.as);
+      info.crossorigin = CrossOriginAttributeToBlink(entry.cross_origin);
+      info.early_hints = true;
+      preload_records_.insert(url, std::move(info));
     }
   }
   unused_early_hints_preloaded_resources_ = std::move(resources);
+}
+
+void ResourceFetcher::RecordPreconnect(const KURL& url,
+                                       CrossOriginAttributeValue crossorigin,
+                                       bool early_hints) {
+  if (!RuntimeEnabledFeatures::SpeculationMeasurementEnabled(
+          context_->GetFeatureContext())) {
+    return;
+  }
+  if (!url.IsValid()) {
+    return;
+  }
+  // Preconnect acts at origin granularity; collapse the URL to its origin.
+  const String origin = SecurityOrigin::Create(url)->ToString();
+  // Preconnects with distinct crossorigin values to the same origin are
+  // reported separately.
+  const String key =
+      origin + "|" + String::Number(static_cast<int>(crossorigin));
+  auto it = preconnect_records_.find(key);
+  if (it == preconnect_records_.end()) {
+    PreconnectInfo info;
+    info.origin = origin;
+    info.crossorigin = crossorigin;
+    info.early_hints = early_hints;
+    preconnect_records_.insert(key, std::move(info));
+  } else if (early_hints) {
+    // A duplicate that arrived via Early Hints upgrades the existing entry.
+    it->value.early_hints = true;
+  }
 }
 
 void ResourceFetcher::ScheduleWarnUnusedPreloads(
@@ -3375,12 +3387,9 @@ void ResourceFetcher::MarkEarlyHintConsumedIfNeeded(
   if (iter != unused_early_hints_preloaded_resources_.end()) {
     unused_early_hints_preloaded_resources_.erase(iter);
     // Mark as used in preload_records_ for the SpeculationMeasurement API.
-    if (RuntimeEnabledFeatures::SpeculationMeasurementEnabled(
-            context_->GetFeatureContext())) {
-      auto record_it = preload_records_.find(initial_url);
-      if (record_it != preload_records_.end()) {
-        record_it->value.used_time = base::TimeTicks::Now();
-      }
+    auto record_it = preload_records_.find(initial_url);
+    if (record_it != preload_records_.end()) {
+      record_it->value.used_time = base::TimeTicks::Now();
     }
     // The network service may not reuse the response fetched by the early hints
     // due to cache control policies.

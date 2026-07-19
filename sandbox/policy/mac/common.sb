@@ -20,6 +20,8 @@
 (define executable-path "EXECUTABLE_PATH")
 (define homedir-as-literal "USER_HOMEDIR_AS_LITERAL")
 (define log-file-path "LOG_FILE_PATH")
+(define network-user-dir-access "NETWORK_USER_DIR_ACCESS")
+(define odme-user-dir-access "ODME_USER_DIR_ACCESS")
 (define os-version (string->number (param "OS_VERSION")))
 (define darwin-user-cache-dir "DARWIN_USER_CACHE_DIR")
 (define darwin-user-dir "DARWIN_USER_DIR")
@@ -238,14 +240,12 @@
   (path "/System/Library/CoreServices/checkfixlist")
 )
 
-; From /System/Library/Sandbox/Profiles/dyld-support.sb on macOS 13.
-(if (>= os-version 1300)
-  (allow file-read* file-map-executable
-    (subpath "/System/Cryptexes/App")
-    (subpath "/System/Cryptexes/OS")
-    (subpath "/System/Volumes/Preboot/Cryptexes/App/System")
-    (subpath "/System/Volumes/Preboot/Cryptexes/OS")
-  )
+; From /System/Library/Sandbox/Profiles/dyld-support.sb.
+(allow file-read* file-map-executable
+  (subpath "/System/Cryptexes/App")
+  (subpath "/System/Cryptexes/OS")
+  (subpath "/System/Volumes/Preboot/Cryptexes/App/System")
+  (subpath "/System/Volumes/Preboot/Cryptexes/OS")
 )
 
 ; Reads from /usr.

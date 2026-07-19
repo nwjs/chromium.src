@@ -21,6 +21,7 @@
 #include "base/logging.h"
 #include "base/message_loop/message_pump_for_io.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/posix/eintr_wrapper.h"
 #include "base/synchronization/lock.h"
 #include "base/task/current_thread.h"
 #include "base/task/single_thread_task_runner.h"
@@ -29,6 +30,7 @@
 #include "base/types/fixed_array.h"
 #include "build/build_config.h"
 #include "mojo/public/cpp/platform/socket_utils_posix.h"
+#include "mojo/core/configuration.h"
 
 #if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID))
 #include "mojo/core/channel_linux.h"
@@ -67,7 +69,6 @@ class MessageView {
     if (message_ && base::ShouldRecordSubsampledMetric(
                         Channel::kMetricSubsamplingProbability)) {
       base::TimeDelta latency = base::TimeTicks::Now() - start_time_;
-      UMA_HISTOGRAM_TIMES("Mojo.Channel.WriteMessageLatency", latency);
       UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES("Mojo.Channel.WriteLatencyUs",
                                               latency, base::Microseconds(1),
                                               base::Seconds(1), 100);
@@ -252,6 +253,10 @@ void ChannelPosix::WaitForWriteOnIOThreadNoLock() {
 void ChannelPosix::ShutDownOnIOThread() {
   base::CurrentThread::Get()->RemoveDestructionObserver(this);
 
+  if (socket_.is_valid() && mojo::core::GetConfiguration().is_broker_process) {
+    std::ignore = HANDLE_EINTR(shutdown(socket_.get(), SHUT_RDWR));
+  }
+
   {
     base::AutoLock lock(write_lock_);
     reject_writes_ = true;
@@ -291,6 +296,13 @@ void ChannelPosix::OnFdReadable(int fd) {
   do {
     buffer_capacity = next_read_size;
     char* buffer = GetReadBuffer(&buffer_capacity);
+    // A null buffer means that computing the read size overflowed, which means
+    // we received a malformed message; bail.
+    if (!buffer) {
+      read_error = true;
+      validation_error = true;
+      break;
+    }
     DCHECK_GT(buffer_capacity, 0u);
 
     std::vector<base::ScopedFD> incoming_fds;

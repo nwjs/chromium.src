@@ -4,9 +4,12 @@
 
 #import "ios/chrome/browser/settings/autofill/utils/autofill_settings_ui_util.h"
 
+#import "base/apple/foundation_util.h"
 #import "base/i18n/message_formatter.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/autofill/core/common/autofill_features.h"
+#import "ios/chrome/browser/settings/autofill/autofill_ai/ui/autofill_ai_entity_item.h"
+#import "ios/chrome/browser/shared/ui/table_view/cells/table_view_item.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util.h"
 
@@ -33,21 +36,6 @@ NSString* GetDeletionConfirmationString(int profile_count,
                                         bool has_account_profile,
                                         bool has_home_work_name_email_profile,
                                         const std::u16string& user_email) {
-  if (!base::FeatureList::IsEnabled(
-          autofill::features::kAutofillEnableSupportForHomeAndWork)) {
-    if (has_account_profile) {
-      std::u16string pattern = l10n_util::GetStringUTF16(
-          IDS_IOS_SETTINGS_AUTOFILL_DELETE_ACCOUNT_ADDRESS_CONFIRMATION_TITLE);
-      std::u16string confirmationString =
-          base::i18n::MessageFormatter::FormatWithNamedArgs(
-              pattern, "email", user_email, "count", profile_count);
-      return base::SysUTF16ToNSString(confirmationString);
-    }
-    return l10n_util::GetPluralNSStringF(
-        IDS_IOS_SETTINGS_AUTOFILL_DELETE_LOCAL_ADDRESS_CONFIRMATION_TITLE,
-        profile_count);
-  }
-
   if (has_local_profile && has_account_profile &&
       has_home_work_name_email_profile) {
     return l10n_util::GetNSString(
@@ -93,4 +81,19 @@ NSString* GetDeletionConfirmationStringWithEntities(
   } else {
     return GetDeletionConfirmationTitleLocal();
   }
+}
+
+bool IsDeletableItem(TableViewItem* item) {
+  AutofillAIEntityItem* aiItem =
+      base::apple::ObjCCast<AutofillAIEntityItem>(item);
+  return aiItem && !aiItem.isServerWalletItem;
+}
+
+BOOL ContainsLocalEntity(NSArray<TableViewItem*>* items) {
+  for (TableViewItem* item in items) {
+    if (IsDeletableItem(item)) {
+      return YES;
+    }
+  }
+  return NO;
 }

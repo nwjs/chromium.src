@@ -399,8 +399,12 @@ ClientControlledShellSurface::ClientControlledShellSurface(
 ClientControlledShellSurface::~ClientControlledShellSurface() {
   // Reset the window delegate here so that we won't try to do any dragging
   // operation on a to-be-destroyed window. |widget_| can be nullptr in tests.
-  if (GetWidget())
-    GetWindowState()->SetDelegate(nullptr);
+  if (GetWidget()) {
+    auto* window_state = GetWindowState();
+    if (window_state && window_state->HasDelegate()) {
+      window_state->SetDelegate(nullptr);
+    }
+  }
   if (client_controlled_state_)
     client_controlled_state_->ResetDelegate();
   CloseWideFrame(views::Widget::ClosedReason::kUnspecified);
@@ -901,6 +905,12 @@ void ClientControlledShellSurface::OnWindowAddedToRootWindow(
 
 void ClientControlledShellSurface::WindowClosing() {
   CloseWideFrame(views::Widget::ClosedReason::kUnspecified);
+  if (GetWidget()) {
+    auto* window_state = GetWindowState();
+    if (window_state && window_state->HasDelegate()) {
+      window_state->SetDelegate(nullptr);
+    }
+  }
   ShellSurfaceBase::WindowClosing();
 }
 
@@ -926,6 +936,8 @@ std::unique_ptr<views::FrameView> ClientControlledShellSurface::CreateFrameView(
   auto frame_view = CreateFrameViewInternal(widget);
   immersive_fullscreen_controller_ =
       std::make_unique<chromeos::ImmersiveFullscreenController>();
+  immersive_fullscreen_controller_->SetImmersiveModeChangedCallback(
+      base::BindRepeating(&ash::window_util::UpdateUiForImmersiveFullscreen));
   static_cast<ash::FrameViewAsh*>(frame_view.get())
       ->InitImmersiveFullscreenControllerForView(
           immersive_fullscreen_controller_.get());

@@ -23,6 +23,7 @@
 #include "third_party/blink/renderer/platform/heap/prefinalizer.h"
 #include "third_party/blink/renderer/platform/text/layout_locale.h"
 #include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/size.h"
 
 namespace blink {
@@ -46,9 +47,19 @@ class CORE_EXPORT OffscreenCanvas final
   USING_PRE_FINALIZER(OffscreenCanvas, Dispose);
 
  public:
-  static OffscreenCanvas* Create(ScriptState*, unsigned width, unsigned height);
+  static OffscreenCanvas* Create(ScriptState*,
+                                 unsigned width,
+                                 unsigned height,
+                                 uint32_t client_id = 0,
+                                 uint32_t sink_id = 0,
+                                 DOMNodeId canvas_id = kInvalidDOMNodeId);
 
-  OffscreenCanvas(ExecutionContext*, gfx::Size);
+  OffscreenCanvas(ExecutionContext*,
+                  gfx::Size,
+                  uint32_t client_id,
+                  uint32_t sink_id,
+                  DOMNodeId canvas_id);
+
   void Dispose();
 
   bool IsOffscreenCanvas() const override { return true; }
@@ -80,7 +91,6 @@ class CORE_EXPORT OffscreenCanvas final
   static OffscreenCanvas* FromPlaceholderId(ExecutionContext* context,
                                             DOMNodeId canvas_id);
 
-  void SetPlaceholderCanvasId(DOMNodeId canvas_id);
   void DeregisterFromAnimationFrameProvider();
   DOMNodeId PlaceholderCanvasId() const { return placeholder_canvas_id_; }
   bool HasPlaceholderCanvas() const;
@@ -104,13 +114,10 @@ class CORE_EXPORT OffscreenCanvas final
   }
 
   void SetFrameSinkIdForTesting(uint32_t client_id, uint32_t sink_id) {
-    SetFrameSinkId(client_id, sink_id);
-  }
-
-  void SetFrameSinkId(uint32_t client_id, uint32_t sink_id) {
     client_id_ = client_id;
     sink_id_ = sink_id;
   }
+
   uint32_t ClientId() const { return client_id_; }
   uint32_t SinkId() const { return sink_id_; }
 
@@ -130,6 +137,11 @@ class CORE_EXPORT OffscreenCanvas final
   bool IsPageVisible() const override;
   void SetParentVisibility(bool visible) override;
   void DiscardResources() override;
+  void RecordRenderedText(const String& text,
+                          const gfx::RectF& bounds,
+                          float font_height) override;
+  void ClearRenderedText(const gfx::RectF& rect) override;
+  void ClearRenderedText() override;
 
   bool PushFrameIfNeeded();
   bool PushFrame(scoped_refptr<CanvasResource>&& frame) override;
@@ -137,13 +149,16 @@ class CORE_EXPORT OffscreenCanvas final
   using CanvasRenderingContextHost::DidDraw;
   bool ShouldAccelerate2dContext() const override;
   CanvasResourceDispatcher* GetOrCreateResourceDispatcher() override;
-  void DiscardResourceDispatcher() override { frame_dispatcher_ = nullptr; }
+  void DiscardResourceDispatcher() override {
+    placeholder_client_ = nullptr;
+    frame_dispatcher_ = nullptr;
+  }
   UkmParameters GetUkmParameters() override;
   bool IsWebGL1Enabled() const override { return true; }
   bool IsWebGL2Enabled() const override { return true; }
   bool IsWebGLBlocked() const override { return false; }
 
-  // CanvasResourceProvider::Delegate implementation
+  // CanvasResourceProviderDelegate implementation
   void NotifyGpuContextLost() override;
   void SetNeedsCompositingUpdate() override {}
 
@@ -264,6 +279,7 @@ class CORE_EXPORT OffscreenCanvas final
   bool disable_reading_from_canvas_ = false;
 
   std::unique_ptr<CanvasResourceDispatcher> frame_dispatcher_;
+  std::unique_ptr<OffscreenCanvasPlaceholder::Client> placeholder_client_;
 
   // Rect is in a canvas's space (i.e Size() is a full rect and not in a
   // CanvasResource space).
@@ -284,7 +300,6 @@ class CORE_EXPORT OffscreenCanvas final
   // then the following members would remain as initialized zero values.
   uint32_t client_id_ = 0;
   uint32_t sink_id_ = 0;
-
 };
 
 }  // namespace blink

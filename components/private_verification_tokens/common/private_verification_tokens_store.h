@@ -17,6 +17,7 @@
 #include "components/private_verification_tokens/common/private_verification_tokens_database.h"
 #include "components/private_verification_tokens/common/private_verification_tokens_public_key.h"
 #include "components/private_verification_tokens/common/private_verification_tokens_token.h"
+#include "url/origin.h"
 
 namespace private_verification_tokens {
 
@@ -38,10 +39,16 @@ class PrivateVerificationTokensStore {
 
   ~PrivateVerificationTokensStore();
 
-  const std::map<std::string, TokenWithId>& tokens() const;
-  const std::map<std::string, PrivateVerificationTokensPublicKey>& public_keys()
+  const std::map<url::Origin, TokenWithId>& tokens() const;
+  const std::map<url::Origin, PrivateVerificationTokensPublicKey>& public_keys()
       const;
   bool is_initialized() const { return initialized_; }
+
+  void DeleteAllTokens();
+  void DeleteTokens(base::Time delete_begin,
+                    base::Time delete_end,
+                    std::optional<std::vector<url::Origin>> issuers,
+                    base::OnceClosure callback);
 
  private:
   explicit PrivateVerificationTokensStore(
@@ -51,18 +58,19 @@ class PrivateVerificationTokensStore {
       base::OnceCallback<void()> cache_initialized_callback);
 
   void CacheKeys(std::vector<PrivateVerificationTokensPublicKey> keys);
-  void CacheTokens(std::map<std::string, TokenWithId> tokens);
+  void CacheTokens(std::map<url::Origin, TokenWithId> tokens);
   void OnCacheInitialized(base::OnceCallback<void()> callback);
   void InitializeCache(base::OnceCallback<void()> callback, bool file_exists);
+  void OnTokensDeleted(base::OnceClosure callback, bool success);
 
   base::SequenceBound<PrivateVerificationTokensDatabase> database_;
 
   // Holds a single token for each issuer. These tokens are read from the
   // database.
-  std::map<std::string, TokenWithId> tokens_;
+  std::map<url::Origin, TokenWithId> tokens_;
 
   // Holds cached public keys. Keys are read from the database.
-  std::map<std::string, PrivateVerificationTokensPublicKey> public_keys_;
+  std::map<url::Origin, PrivateVerificationTokensPublicKey> public_keys_;
 
   bool initialized_ = false;
 

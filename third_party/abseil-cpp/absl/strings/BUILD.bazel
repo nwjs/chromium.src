@@ -435,7 +435,6 @@ cc_library(
     visibility = [
         "//absl:friends",
         "//absl/status:__pkg__",
-        "//visibility:private",
     ],
     deps = [
         ":string_view",
@@ -1006,6 +1005,7 @@ cc_test(
         "//absl/base:config",
         "//absl/base:core_headers",
         "//absl/base:endian",
+        "//absl/base:hardening",
         "//absl/base:no_destructor",
         "//absl/container:fixed_array",
         "//absl/functional:function_ref",
@@ -1259,6 +1259,7 @@ cc_test(
         ":pow10_helper",
         ":strings",
         "//absl/base:config",
+        "//absl/cleanup",
         "//absl/log",
         "//absl/numeric:int128",
         "//absl/random",
@@ -1619,6 +1620,7 @@ cc_test(
         ":strings",
         "//absl/base:config",
         "//absl/base:core_headers",
+        "//absl/cleanup",
         "//absl/container:flat_hash_map",
         "//absl/log",
         "//absl/status",

@@ -4,26 +4,27 @@
 
 use rust_gtest_interop::prelude::*;
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 
 chromium::import! {
     "//mojo/public/rust/bindings";
     "//mojo/public/rust/bindings/test:bindings_unittests_mojom_rust";
     "//mojo/public/rust/system";
     "//mojo/public/rust/system/test_util";
-    "//base:sequenced_task_runner";
     "//base:run_loop";
-    "//base:sequenced_task_runner_test_bridge";
     "//base/test:task_environment";
+    "//base:sequenced_task_runner";
 }
 
-use bindings::receiver::PendingReceiver;
-use bindings::remote::PendingRemote;
+use bindings::message::MojomMessage;
+use bindings::message_header::{MessageHeader, MessageHeaderFlags};
+use bindings::receiver::{PendingAssociatedReceiver, PendingReceiver, Receiver};
+use bindings::remote::{PendingAssociatedRemote, PendingRemote, Remote};
 use bindings_unittests_mojom_rust::bindings_unittests as test_mojom;
 use run_loop::RunLoop;
 use system::mojo_types::UntypedHandle;
 
-use test_mojom::{HandleService, MathService, TwoInts, TypemapService};
+use test_mojom::{AssociatedSender, HandleService, MathService, TwoInts, TypemapService};
 
 use crate::state_objects::*;
 
@@ -513,4 +514,420 @@ fn test_typemapping() {
     });
 
     run_loop.run();
+}
+
+/// This is a helper function for setting up tests which use associated
+/// interfaces.
+///
+/// Initial setup: In order to ensure that associated endpoints work, we need
+/// to send messages between them. In order to do that, we need to
+/// 1. Set up a real message pipe
+/// 2. Send some pending associated endpoints across it
+/// 3. Send messages across the associated pairs.
+///
+/// In order to do (3), we store one end of each associated pair in the
+/// `AssociatedSenderImpl` object. We keep a clone of the object around which
+/// shares its data with the original, so we can access the contained
+/// endpoints during testing.
+///
+/// This function returns a set of associated interfaces, with one end of each
+/// pair contained in the returned `AssociatedSenderImpl` and the other ends are
+/// provided individually, in the same order as the fields in the `Impl`. The
+/// function also provides the original Remote and Receiver to keep the
+/// underlying message pipe alive.
+///
+/// This function also exercises the serialization code for associated
+/// endpoints, checking that it works both before and after the other endpoint
+/// is bound to a sequence.
+#[allow(clippy::type_complexity)] // Yes, yes it is.
+fn init_associated_test() -> (
+    Remote<dyn AssociatedSender>,
+    Receiver<AssociatedSenderImpl>,
+    AssociatedSenderImpl,
+    PendingAssociatedReceiver<dyn MathService>,
+    PendingAssociatedRemote<dyn MathService>,
+    PendingAssociatedRemote<dyn MathService>,
+    PendingAssociatedReceiver<dyn MathService>,
+) {
+    let (pending_remote, pending_receiver) =
+        PendingRemote::<dyn AssociatedSender>::new_pipe().unwrap();
+    // This state object holds the other end of associated endpoints that are sent
+    // across the pipe. We'll clone it so we can get them out again afterwards.
+    let assoc_impl = AssociatedSenderImpl::new();
+
+    let run_loop = RunLoop::new();
+    let quit = run_loop.get_quit_closure();
+
+    let mut remote = pending_remote.bind();
+    let receiver = pending_receiver.bind(assoc_impl.clone());
+
+    let (assoc_p_rem_1, assoc_p_rec_1) = PendingAssociatedRemote::new_pair();
+    let (assoc_p_rem_2, assoc_p_rec_2) = PendingAssociatedRemote::new_pair();
+    let assoc_p_rem_3: Arc<OnceLock<PendingAssociatedRemote<dyn MathService>>> =
+        Arc::new(OnceLock::new());
+    let assoc_p_rec_4: Arc<OnceLock<PendingAssociatedReceiver<dyn MathService>>> =
+        Arc::new(OnceLock::new());
+
+    let assoc_p_rem_3_clone = assoc_p_rem_3.clone();
+    let assoc_p_rec_4_clone = assoc_p_rec_4.clone();
+
+    remote.SendRemote(assoc_p_rem_1);
+    remote.SendReceiver(assoc_p_rec_2);
+    remote.RequestRemote(move |p_rem| {
+        assoc_p_rem_3_clone.set(p_rem).unwrap();
+    });
+    remote.RequestReceiver(move |p_rec| {
+        assoc_p_rec_4_clone.set(p_rec).unwrap();
+        quit();
+    });
+
+    run_loop.run();
+
+    return (
+        remote,
+        receiver,
+        assoc_impl,
+        assoc_p_rec_1,
+        assoc_p_rem_2,
+        Arc::into_inner(assoc_p_rem_3).unwrap().into_inner().unwrap(),
+        Arc::into_inner(assoc_p_rec_4).unwrap().into_inner().unwrap(),
+    );
+}
+
+/// Helper for creating a single-argument closure that increments the count in
+/// $arc, checks that it has an expected value, and also checks that the
+/// argument to closure itself has the expected value.
+///
+/// The final `quit` argument is optional. If present, `$quit()` will be run at
+/// the end of the closure.
+macro_rules! math_response_closure {
+    ($arc:ident, $expected_count:expr, $expected_arg:expr $(, $quit:ident)?) => {{
+        let arc_clone = Arc::clone(&$arc);
+        move |n| {
+            expect_eq!(n, $expected_arg);
+            let mut count = arc_clone.lock().unwrap();
+            expect_eq!(*count, $expected_count);
+            *count += 1;
+            $($quit())?
+        }
+    }};
+}
+
+#[gtest(RustBindingsAPI, TestAssociatedEndpoints)]
+fn test_associated_endpoints() {
+    let _task_env = task_environment::ffi::CreateTaskEnvironment();
+    test_util::set_default_process_error_handler(|msg: &str| panic!("Got a bad message: {}", msg));
+
+    let (_rem, _rec, assoc_impl, _assoc_p_rec_1, assoc_p_rem_2, assoc_p_rem_3, _assoc_p_rec_4) =
+        init_associated_test();
+
+    // Corresponds to the `PendingAssociatedReceiver<dyn MathService>` in
+    // `assoc_impl`
+    let mut wrapping_remote = assoc_p_rem_2.bind();
+    // Corresponds to the `AssociatedReceiver<SaturatingMathService>` in
+    // `assoc_impl`
+    let mut saturating_remote = assoc_p_rem_3.bind();
+    let _wrapping_receiver =
+        assoc_impl.send_receiver.lock().unwrap().take().unwrap().bind(WrappingMathService {});
+
+    let run_loop = RunLoop::new();
+    let quit = run_loop.get_quit_closure();
+
+    let responses_received = Arc::new(Mutex::new(0));
+
+    // Send some messages!
+    wrapping_remote.Add(1, 2, math_response_closure!(responses_received, 0, 3));
+    saturating_remote.Add(1, 2, math_response_closure!(responses_received, 1, 3));
+
+    wrapping_remote.Add(1, u32::MAX, math_response_closure!(responses_received, 2, 0));
+    saturating_remote.Add(1, u32::MAX, math_response_closure!(responses_received, 3, u32::MAX));
+
+    wrapping_remote
+        .AddTwoInts(TwoInts { a: 7, b: 12 }, math_response_closure!(responses_received, 4, 19));
+    saturating_remote.AddTwoInts(
+        TwoInts { a: 7, b: 12 },
+        math_response_closure!(responses_received, 5, 19, quit),
+    );
+
+    run_loop.run();
+}
+
+// Test that messages for an unbound endpoint aren't delivered until it's bound,
+// and that they block future messages.
+#[gtest(RustBindingsAPI, TestAssociatedLateBinding)]
+fn test_associated_late_binding() {
+    let _task_env = task_environment::ffi::CreateTaskEnvironment();
+    test_util::set_default_process_error_handler(|msg: &str| panic!("Got a bad message: {}", msg));
+
+    let (_rem, _rec, assoc_impl, _assoc_p_rec_1, assoc_p_rem_2, assoc_p_rem_3, _assoc_p_rec_4) =
+        init_associated_test();
+
+    // Corresponds to the `PendingAssociatedReceiver<dyn MathService>` in
+    // `assoc_impl`
+    let mut wrapping_remote = assoc_p_rem_2.bind();
+    // Corresponds to the `AssociatedReceiver<SaturatingMathService>` in
+    // `assoc_impl`
+    let mut saturating_remote = assoc_p_rem_3.bind();
+
+    let responses_received = Arc::new(Mutex::new(0));
+
+    let run_loop = RunLoop::new();
+    let quit = run_loop.get_quit_closure();
+
+    // This should be delivered and run immediately
+    saturating_remote.Add(1, u32::MAX, math_response_closure!(responses_received, 0, u32::MAX));
+
+    // We haven't bound the wrapping receiver yet, so this should be queued
+    // until we do
+    wrapping_remote.Add(1, u32::MAX, math_response_closure!(responses_received, 1, 0));
+
+    // This should be queued until the previous message is processed.
+    saturating_remote.Add(1, 9, math_response_closure!(responses_received, 2, 10, quit));
+
+    // Run until there's nothing left to do; this should run just the first task
+    let run_loop_idle = RunLoop::new();
+    run_loop_idle.run_until_idle();
+    expect_eq!(*responses_received.lock().unwrap(), 1);
+
+    // Now bind the receiver and try again
+    let _receiver =
+        assoc_impl.send_receiver.lock().unwrap().take().unwrap().bind(WrappingMathService {});
+
+    run_loop.run();
+
+    expect_eq!(*responses_received.lock().unwrap(), 3);
+}
+
+#[gtest(RustBindingsAPI, TestCppAssociatedSender)]
+fn test_cpp_associated_sender() {
+    let _task_env = task_environment::ffi::CreateTaskEnvironment();
+    test_util::set_default_process_error_handler(|msg: &str| panic!("Got a bad message: {}", msg));
+
+    {
+        let (pending_remote, pending_receiver) =
+            PendingRemote::<dyn AssociatedSender>::new_pipe().unwrap();
+
+        let receiver_wrapper =
+            system::scoped_handle_interop::ScopedMessagePipeHandleWrapper::from_message_endpoint(
+                pending_receiver.into_endpoint(),
+            );
+        crate::cxx::ffi::CreateCppAssociatedSender(receiver_wrapper);
+
+        let mut remote = pending_remote.bind();
+
+        let run_loop = RunLoop::new();
+        let quit = run_loop.get_quit_closure();
+
+        let count = Arc::new(Mutex::new(0));
+
+        // Vectors to keep endpoints alive
+        let active_remotes = Arc::new(Mutex::new(Vec::new()));
+        let active_receivers = Arc::new(Mutex::new(Vec::new()));
+
+        // 1. Send Remote to C++
+        let (math_rem, math_rec) = PendingAssociatedRemote::<dyn MathService>::new_pair();
+        let _math_receiver = math_rec.bind(crate::state_objects::NotifyingMathService {
+            f: math_response_closure!(count, 0, 3),
+        });
+        remote.SendRemote(math_rem);
+
+        // 2. Send Receiver to C++
+        let (math_rem2, math_rec2) = PendingAssociatedRemote::<dyn MathService>::new_pair();
+        let mut math_remote2 = math_rem2.bind();
+        remote.SendReceiver(math_rec2);
+
+        // Recall that C++ PlusSevenMathService adds 7 to the result
+        math_remote2.Add(10, 20, math_response_closure!(count, 1, 37));
+
+        // 3. Request Remote from C++
+        let response_handler = math_response_closure!(count, 2, 17);
+        let active_remotes_clone = active_remotes.clone();
+        remote.RequestRemote(move |math_rem| {
+            let mut math_remote = math_rem.bind();
+            math_remote.Add(5, 5, response_handler);
+            active_remotes_clone.lock().unwrap().push(math_remote);
+        });
+
+        // 4. Request Receiver from C++
+        let f = math_response_closure!(count, 2, 50, quit);
+        let active_receivers_clone = active_receivers.clone();
+        remote.RequestReceiver(move |math_rec| {
+            let receiver = math_rec.bind(crate::state_objects::NotifyingMathService { f });
+            active_receivers_clone.lock().unwrap().push(receiver);
+        });
+
+        run_loop.run();
+    }
+    // We need to make sure the disconnect handlers are actually run to avoid
+    // complaints about memory leaks.
+    let run_loop_idle = RunLoop::new();
+    run_loop_idle.run_until_idle();
+}
+
+#[gtest(RustBindingsAPI, TestAssociatedDisconnect)]
+fn test_associated_disconnect() {
+    let _task_env = task_environment::ffi::CreateTaskEnvironment();
+    test_util::set_default_process_error_handler(|msg: &str| panic!("Got a bad message: {}", msg));
+
+    let (
+        _remote,
+        _receiver,
+        assoc_impl,
+        assoc_p_rec_1,
+        assoc_p_rem_2,
+        _assoc_p_rem_3,
+        _assoc_p_rec_4,
+    ) = init_associated_test();
+
+    // 1. Test Remote-to-Receiver disconnection
+    {
+        let run_loop = RunLoop::new();
+        let quit = run_loop.get_quit_closure();
+
+        let _math_receiver_1 = assoc_p_rec_1.bind_with_options(
+            crate::state_objects::SaturatingMathService {},
+            None,
+            Some(Box::new(quit)),
+        );
+
+        // Drop the remote end, which is stored in assoc_impl.send_remote
+        drop(assoc_impl.send_remote.lock().unwrap().take());
+
+        run_loop.run();
+    }
+
+    // 2. Test Receiver-to-Remote disconnection
+    {
+        let run_loop = RunLoop::new();
+        let quit = run_loop.get_quit_closure();
+
+        let _math_remote_2 = assoc_p_rem_2.bind_with_options(None, Some(Box::new(quit)));
+
+        // Drop the receiver end, which is stored in assoc_impl.send_receiver
+        drop(assoc_impl.send_receiver.lock().unwrap().take());
+
+        run_loop.run();
+    }
+}
+
+#[gtest(RustBindingsAPI, TestBadControlMessage)]
+fn test_bad_control_message() {
+    let _task_env = task_environment::ffi::CreateTaskEnvironment();
+
+    let bad_message_flag = Arc::new(Mutex::new(None::<String>));
+    let bad_message_flag_clone = bad_message_flag.clone();
+    test_util::set_default_process_error_handler(move |msg: &str| {
+        *bad_message_flag_clone.lock().unwrap() = Some(msg.to_string());
+    });
+
+    let (handle0, handle1) = system::message_pipe::MessageEndpoint::create_pipe().unwrap();
+
+    let pending_receiver = PendingReceiver::<dyn MathService>::new(handle0);
+    let _receiver = pending_receiver.bind(crate::state_objects::WrappingMathService {});
+
+    // Send a bad control message on handle1 (wrong message name)
+    let header = MessageHeader::new(
+        u32::MAX, // CONTROL_INTERFACE_ID
+        0,        // Wrong message name (should be 0xFFFFFFFE)
+        MessageHeaderFlags::default(),
+        0,
+        0,
+    );
+    let msg = MojomMessage { header, payload: vec![], handles: vec![], raw_message_handle: None };
+    let (serialized, handles) = msg.into_data();
+    let raw_msg = system::message::RawMojoMessage::new_with_data(&serialized, handles).unwrap();
+    handle1.write(raw_msg).unwrap();
+
+    // Run the loop to process the message
+    let run_loop = RunLoop::new();
+    run_loop.run_until_idle();
+
+    // Check that bad message was reported
+    let reported = bad_message_flag.lock().unwrap().take();
+    expect_true!(reported.is_some());
+    expect_eq!(reported.unwrap(), "Control message has incorrect message ID");
+}
+
+// These types and functions provide us a way to set a disconnect handler for
+// C++ remotes/receivers that will end up calling back into rust so we can
+// easily track it. It stores a function that takes an integer so we can
+// distinguish different remotes/receivers calling their DC handlers.
+type DisconnectInfoCallback = Box<dyn Fn(i32) + Send>;
+static CPP_DISCONNECT_CALLBACK: Mutex<Option<DisconnectInfoCallback>> = Mutex::new(None);
+
+#[unsafe(no_mangle)]
+pub extern "C" fn rust_on_cpp_associated_disconnect(handler_type: i32) {
+    if let Some(cb) = CPP_DISCONNECT_CALLBACK.lock().unwrap().as_ref() {
+        cb(handler_type);
+    }
+}
+
+#[gtest(RustBindingsAPI, TestAssociatedDisconnectCpp)]
+fn test_associated_disconnect_cpp() {
+    let _task_env = task_environment::ffi::CreateTaskEnvironment();
+    test_util::set_default_process_error_handler(|msg: &str| panic!("Got a bad message: {}", msg));
+    {
+        // Set up the primary pipe
+        let (pending_remote, pending_receiver) =
+            PendingRemote::<dyn AssociatedSender>::new_pipe().unwrap();
+
+        // Pass the primary receiver to C++
+        crate::cxx::ffi::CreateCppAssociatedSender(
+            system::scoped_handle_interop::ScopedMessagePipeHandleWrapper::from_message_endpoint(
+                pending_receiver.into_endpoint(),
+            ),
+        );
+
+        let mut remote = pending_remote.bind();
+
+        // Test Rust to C++ disconnection
+        // We create a pair, send the receiver to C++, and drop the remote in Rust.
+        {
+            let (assoc_p_rem, assoc_p_rec) = PendingAssociatedRemote::new_pair();
+
+            remote.SendReceiver(assoc_p_rec);
+
+            let run_loop = RunLoop::new();
+            let quit = run_loop.get_quit_closure();
+
+            // Register the Rust callback for C++ disconnect
+            *CPP_DISCONNECT_CALLBACK.lock().unwrap() = Some(Box::new(move |handler_type| {
+                expect_eq!(handler_type, 2); // C++ PlusSevenMathService (type 2) disconnected
+                quit();
+            }));
+
+            // Drop the remote end on the Rust side
+            drop(assoc_p_rem);
+
+            // This loop won't terminate until the C++ DC callback executes
+            run_loop.run();
+        }
+
+        // Reset the C++ callback state
+        *CPP_DISCONNECT_CALLBACK.lock().unwrap() = None;
+
+        // Same as above, but in the other direction
+        {
+            let (assoc_p_rem, assoc_p_rec) = PendingAssociatedRemote::new_pair();
+
+            remote.SendRemote(assoc_p_rem);
+
+            let run_loop = RunLoop::new();
+            let quit = run_loop.get_quit_closure();
+
+            let _math_receiver = assoc_p_rec.bind_with_options(
+                crate::state_objects::SaturatingMathService {},
+                None,
+                Some(Box::new(quit)),
+            );
+
+            // Send a message that will drop the remote on the other side.
+            remote.ClearActiveEndpoints();
+
+            run_loop.run();
+        }
+    }
+
+    // Make sure to clean up the self-owned receiver on the other side
+    RunLoop::new().run_until_idle();
 }

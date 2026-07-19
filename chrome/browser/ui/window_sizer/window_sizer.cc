@@ -129,14 +129,14 @@ class DefaultStateProvider : public WindowSizer::StateProvider {
     // If a reference browser is set, use its window. Otherwise find last
     // active. Depending on the type of browser being created, different logic
     // determines if a particular browser can be a reference browser.
-    ui::BaseWindow* window = nullptr;
+    const ui::BaseWindow* window = nullptr;
     // Window may be null if browser is just starting up.
-    if (browser_ && browser_->window()) {
-      window = browser_->window();
+    if (browser_ && browser_->GetWindow()) {
+      window = browser_->GetWindow();
     } else if (web_app::AppBrowserController::IsWebApp(browser_)) {
       window = FindMostRecentWindow(
           [profile = browser_->profile(),
-           app_id = browser_->app_controller()->app_id(),
+           app_id = web_app::AppBrowserController::From(browser_)->app_id(),
            display = display::Screen::Get()->GetDisplayForNewWindows()](
               BrowserWindowInterface* browser) {
             if (browser->GetProfile() != profile) {
@@ -151,9 +151,7 @@ class DefaultStateProvider : public WindowSizer::StateProvider {
               return false;
             }
 #endif
-            if (!browser->GetBrowserForMigrationOnly()
-                     ->window()
-                     ->IsOnCurrentWorkspace())
+            if (!BrowserWindow::FromBrowser(browser)->IsOnCurrentWorkspace())
               return false;
             return true;
           });

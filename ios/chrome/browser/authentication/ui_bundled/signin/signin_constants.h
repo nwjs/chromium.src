@@ -93,6 +93,16 @@ using SigninCoordinatorCompletionCallback =
              SigninCoordinatorResult result,
              id<SystemIdentity> identity);
 
+// Callback called to notify whether a profile change can proceed.
+using SigninChangeProfileCallback = void (^)(BOOL canProceed);
+
+// Block called to check whether a profile change can occur. The result is
+// sent, synchronously or not, to the callback provided as argument.
+// nil represents the case where the user always accepts, that is,
+// `canProceed` is YES.
+using SigninChangeProfileConfirmationBlock =
+    void (^)(SigninChangeProfileCallback callback);
+
 // Name of the accessibility identifier for the History Sync view.
 extern NSString* const kHistorySyncViewAccessibilityIdentifier;
 // Name of accessibility identifier for the consistency sign-in consistency
@@ -188,8 +198,5 @@ inline constexpr base::TimeDelta kCanSignInToChromeCapabilityFetchTimeout =
 
 // URL to the learn more screen about managed profiles.
 extern NSString* const kManagedProfileLearnMoreURL;
-
-// URL to the learn more screen about age mismatch signout.
-extern NSString* const kAgeMismatchSignoutLearnMoreURL;
 
 #endif  // IOS_CHROME_BROWSER_AUTHENTICATION_UI_BUNDLED_SIGNIN_SIGNIN_CONSTANTS_H_

@@ -339,6 +339,10 @@ void AddChromeColorMixer(ui::ColorProvider* provider,
       kColorAvatarButtonHighlightDefault};
   mixer[kColorAvatarStroke] = {kColorToolbarButtonIcon};
   mixer[kColorAvatarFillForContrast] = {kColorToolbar};
+  mixer[kColorAiSubscriptionRingGradientStart] = {
+      SkColorSetRGB(0x31, 0x86, 0xFF)};
+  mixer[kColorAiSubscriptionRingGradientEnd] = {
+      SkColorSetRGB(0xA9, 0xA8, 0xFF)};
   mixer[kColorBookmarkBarBackground] = {kColorToolbar};
   mixer[kColorBookmarkBarForeground] = {kColorToolbarText};
   // Uses the alpha of kColorToolbarButtonIconInactive.
@@ -413,6 +417,8 @@ void AddChromeColorMixer(ui::ColorProvider* provider,
       kColorFeaturePromoBubbleBackground};
   mixer[kColorFeatureLensPromoBubbleForeground] = {
       kColorFeaturePromoBubbleForeground};
+  mixer[kColorFeatureShowcaseStepperCheck] = {ui::kColorAccent};
+  mixer[kColorFeatureShowcaseStepperDot] = {ui::kColorSubtleAccent};
   mixer[kColorFindBarBackground] = {ui::kColorTextfieldBackground};
   mixer[kColorFindBarButtonIcon] =
       ui::DeriveDefaultIconColor(ui::kColorTextfieldForeground);

@@ -788,7 +788,7 @@ IN_PROC_BROWSER_TEST_F(FullRestoreAppLaunchHandlerBrowserTest,
       ->RegisterIntegerPref(kRestoreIdPrefName, 0);
   local_state->SetInteger(kRestoreIdPrefName, browser->session_id().id());
   AddBlankTabAndShow(browser);
-  aura::Window* window = browser->window()->GetNativeWindow();
+  aura::Window* window = browser->GetWindow()->GetNativeWindow();
   ASSERT_NE(kCurrentBounds, window->bounds());
 
   // Ensure that |browser| is in a normal show state.
@@ -881,8 +881,8 @@ IN_PROC_BROWSER_TEST_F(FullRestoreAppLaunchHandlerBrowserTest,
                    /*foreground=*/true);
   navigation_observer.Wait();
 
-  new_browser->window()->Show();
-  new_browser->window()->SetBounds(expected_bounds);
+  new_browser->GetWindow()->Show();
+  new_browser->GetWindow()->SetBounds(expected_bounds);
 
   ASSERT_EQ(GlobalBrowserCollection::GetInstance()->GetSize(), 2u);
 
@@ -900,7 +900,7 @@ IN_PROC_BROWSER_TEST_F(FullRestoreAppLaunchHandlerBrowserTest,
 
   // Move the browser a bit and then close it. This is to make sure that when we
   // create a new browser, its bounds are actually coming from the template.
-  new_browser->window()->SetBounds(expected_bounds + gfx::Vector2d(10, 10));
+  new_browser->GetWindow()->SetBounds(expected_bounds + gfx::Vector2d(10, 10));
   web_app::CloseAndWait(new_browser);
 
   ASSERT_EQ(GlobalBrowserCollection::GetInstance()->GetSize(), 1u);
@@ -996,7 +996,7 @@ IN_PROC_BROWSER_TEST_F(FullRestoreAppLaunchHandlerChromeAppBrowserTest,
   Browser* non_restored_browser = Browser::Create(non_restored_params);
   AddBlankTabAndShow(non_restored_browser);
   aura::Window* non_restored_window =
-      non_restored_browser->window()->GetNativeWindow();
+      non_restored_browser->GetWindow()->GetNativeWindow();
 
   // Read from the restore data.
   auto app_launch_handler =

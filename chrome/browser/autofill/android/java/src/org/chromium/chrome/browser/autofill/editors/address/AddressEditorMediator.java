@@ -77,7 +77,7 @@ import org.chromium.components.autofill.AutofillAddressUiComponent;
 import org.chromium.components.autofill.AutofillProfile;
 import org.chromium.components.autofill.FieldType;
 import org.chromium.components.autofill.RecordType;
-import org.chromium.components.signin.base.CoreAccountInfo;
+import org.chromium.components.signin.base.AccountInfo;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.sync.SyncService;
 import org.chromium.components.sync.UserSelectableType;
@@ -216,6 +216,10 @@ public class AddressEditorMediator {
 
     public void setAllowDelete(boolean allowDelete) {
         mAllowDelete = allowDelete;
+    }
+
+    public @SaveUpdateAddressProfilePromptMode int getPromptMode() {
+        return mPromptMode;
     }
 
     void setCustomDoneButtonText(@Nullable String customDoneButtonText) {
@@ -555,8 +559,7 @@ public class AddressEditorMediator {
     }
 
     private @Nullable String getUserEmail() {
-        CoreAccountInfo accountInfo = mIdentityManager.getPrimaryAccountInfo();
-        return CoreAccountInfo.getEmailFrom(accountInfo);
+        return AccountInfo.getEmailFrom(mIdentityManager.getPrimaryAccountInfo());
     }
 
     private String getDeleteConfirmationTitle() {

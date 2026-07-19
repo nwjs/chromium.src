@@ -3756,18 +3756,6 @@
       ]
     },
     {
-      "id": 477,
-      "description": "Recreate FBO upon flush/finish/fencesync under certain conditions on Qualcomm GPUs",
-      "gl_vendor": "Qualcomm.*",
-      "driver_version": {
-        "op": "<",
-        "value": "878"
-      },
-      "features": [
-        "recreate_fbo_upon_flush"
-      ]
-    },
-    {
       "id": 478,
       "description": "Program binaries don't contain transform feedback varyings on Mali GPUs",
       "cr_bugs": [510589906],
@@ -3778,6 +3766,46 @@
       "gl_renderer": "Mali.*",
       "features": [
         "disable_program_caching_for_transform_feedback"
+      ]
+    },
+    {
+      "id": 479,
+      "description": "D3D12 AV1 encoding high and professional profiles query causes unexpected driver behavior on some older drivers.",
+      "os": {
+        "type": "win"
+      },
+      "vendor_id": "0x8086",
+      "driver_version": {
+        "op": "<",
+        "value": "32.0.101.6559"
+      },
+      "features": [
+        "limit_d3d12_av1_profile_to_main"
+      ]
+    },
+    {
+      "id": 480,
+      "cr_bugs": [520656244],
+      "description": "Reattach FBO depth/stencil attachments when they are reallocated on Qualcomm GPUs",
+      "gl_vendor": "Qualcomm.*",
+      "driver_version": {
+        "op": "<",
+        "value": "878"
+      },
+      "features": [
+        "reattach_fbo_depth_stencil_on_reallocation"
+      ]
+    },
+    {
+      "id": 481,
+      "cr_bugs": [443107135],
+      "description": "Disable Media Foundation D3D video processing on Qualcomm GPUs.",
+      "os": {
+        "type": "win"
+      },
+      "vendor_id": "0x4d4f4351",
+      "features": [
+        "disable_media_foundation_d3d_video_processing"
       ]
     }
   ]

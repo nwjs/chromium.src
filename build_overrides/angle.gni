@@ -1,12 +1,19 @@
 # Copyright 2019 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+import("//ui/gl/features.gni")
 
 # Override for angle_root
 angle_root = "//third_party/angle"
 
 # True if ANGLE can access build/, testing/ and other Chrome folders.
 angle_has_build = true
+
+# Whether ANGLE is being linked statically.
+angle_use_static_angle = use_static_angle
+
+# Whether ANGLE is using the shared Vulkan loader on Mac.
+angle_shared_libvulkan_on_mac = true
 
 # Overrides for ANGLE's dependencies
 angle_glslang_dir = "//third_party/glslang/src"
@@ -19,3 +26,11 @@ angle_spirv_tools_dir = "//third_party/spirv-tools/src"
 angle_vulkan_memory_allocator_dir = "//third_party/vulkan_memory_allocator"
 angle_wayland_dir = "//third_party/wayland/src"
 angle_dawn_dir = "//third_party/dawn"
+
+# In static ANGLE builds on desktop, Chromium still generates EGL/GLESv2 stubs
+# (libEGL.so/libGLESv2.so) for official build infra. To allow ANGLE standalone
+# tests to still link dynamically, we build the real shared libraries with a
+# "_test" suffix to avoid name collisions in the output directory.
+if (angle_use_static_angle && !is_android) {
+  angle_libs_suffix = "_test"
+}

@@ -22,6 +22,11 @@ class URLResponseHead;
 }  // namespace mojom
 
 // Checks if a single request header is safe to send.
+//
+// Per https://fetch.spec.whatwg.org/#forbidden-request-header, the method-
+// override headers are forbidden when their value parses to a forbidden
+// method. The logic is almost compatible but exclude some headers that would
+// be set by renderer's internal code.
 COMPONENT_EXPORT(NETWORK_CPP)
 bool IsRequestHeaderSafe(std::string_view key, std::string_view value);
 
@@ -36,7 +41,9 @@ bool AreRequestHeadersSafe(const net::HttpRequestHeaders& request_headers);
 // to prevent a compromised renderer from spoofing critical security headers,
 // which is outside the standard Fetch specification.
 COMPONENT_EXPORT(NETWORK_CPP)
-bool ContainsForbiddenSecurityHeader(net::HttpRequestHeaders& headers);
+bool ContainsForbiddenSecurityHeader(
+    net::HttpRequestHeaders& headers,
+    std::string* out_forbidden_header_name = nullptr);
 
 // Parses the referrer policy header if present. Returns
 // mojom::ReferrerPolicy::kDefault if the header is absent.

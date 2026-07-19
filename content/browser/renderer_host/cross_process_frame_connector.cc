@@ -186,10 +186,12 @@ void CrossProcessFrameConnector::SendIntrinsicSizingInfoToParent(
     blink::mojom::IntrinsicSizingInfoPtr sizing_info) {
   // The width/height should not be negative since gfx::SizeF will clamp
   // negative values to zero.
-  DCHECK((sizing_info->size.width() >= 0.f) &&
-         (sizing_info->size.height() >= 0.f));
-  DCHECK((sizing_info->aspect_ratio.width() >= 0.f) &&
-         (sizing_info->aspect_ratio.height() >= 0.f));
+  CHECK(
+      (sizing_info->size.width() >= 0.f) && (sizing_info->size.height() >= 0.f),
+      base::NotFatalUntil::M152);
+  CHECK((sizing_info->aspect_ratio.width() >= 0.f) &&
+            (sizing_info->aspect_ratio.height() >= 0.f),
+        base::NotFatalUntil::M152);
   if (!frame_proxy_in_parent_renderer_->is_render_frame_proxy_live())
     return;
   frame_proxy_in_parent_renderer_->GetAssociatedRemoteFrame()
@@ -205,8 +207,6 @@ void CrossProcessFrameConnector::SynchronizeVisualProperties(
   screen_infos_ = visual_properties.screen_infos;
   local_surface_id_ = visual_properties.local_surface_id;
 
-  capture_sequence_number_ = visual_properties.capture_sequence_number;
-
   SetRectInParentView(visual_properties.rect_in_local_root);
   SetLocalFrameSize(visual_properties.local_frame_size);
 
@@ -216,7 +216,7 @@ void CrossProcessFrameConnector::SynchronizeVisualProperties(
   view_->UpdateScreenInfo();
 
   RenderWidgetHostImpl* render_widget_host = view_->host();
-  DCHECK(render_widget_host);
+  CHECK(render_widget_host, base::NotFatalUntil::M152);
 
   render_widget_host->SetAutoResize(visual_properties.auto_resize_enabled,
                                     visual_properties.min_size_for_auto_resize,
@@ -258,9 +258,6 @@ const gfx::Rect& CrossProcessFrameConnector::GetRectInParentViewInDip() {
   return rect_in_parent_view_in_dip_;
 }
 
-uint32_t CrossProcessFrameConnector::GetCaptureSequenceNumber() {
-  return capture_sequence_number_;
-}
 
 void CrossProcessFrameConnector::UpdateCursor(const ui::Cursor& cursor) {
   RenderWidgetHostViewBase* root_view = GetRootRenderWidgetHostView();
@@ -335,8 +332,6 @@ void CrossProcessFrameConnector::OnSynchronizeVisualProperties(
   // changed, then the viz::LocalSurfaceId must also change.
   if ((last_received_local_frame_size_ != visual_properties.local_frame_size ||
        screen_infos_.current() != visual_properties.screen_infos.current() ||
-       GetCaptureSequenceNumber() !=
-           visual_properties.capture_sequence_number ||
        last_received_zoom_level_ != visual_properties.zoom_level ||
        last_received_css_zoom_factor_ != visual_properties.css_zoom_factor) &&
       local_surface_id_ == visual_properties.local_surface_id) {
@@ -462,7 +457,17 @@ CrossProcessFrameConnector::GetRootRenderWidgetHostView() {
   RenderFrameHostImpl* root =
       current_child_frame_host()
           ->GetOutermostMainFrameOrEmbedderExcludingProspectiveOwners();
-  return static_cast<RenderWidgetHostViewBase*>(root->GetView());
+
+  auto* view = static_cast<RenderWidgetHostViewBase*>(root->GetView());
+  // GetOutermostMainFrameOrEmbedderExcludingProspectiveOwners doesn't go
+  // outside to embedder if the WebContents is embedded via SurfaceEmbed. In
+  // that case, the root view that we got is a RenderWidgetHostViewChildFrame
+  // for the main frame of the inner WebContents and we need to get root view
+  // from it again for the real root view.
+  if (view && view->IsRenderWidgetHostViewChildFrame()) {
+    view = view->GetRootView();
+  }
+  return view;
 }
 
 RenderWidgetHostViewBase*

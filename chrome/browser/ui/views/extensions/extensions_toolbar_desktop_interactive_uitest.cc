@@ -2,8 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <optional>
 #include <string>
 
+#include "base/auto_reset.h"
+#include "base/command_line.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/strings/string_util.h"
@@ -51,6 +54,7 @@
 #include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
+#include "extensions/browser/host_access_request_helper.h"
 #include "extensions/browser/permissions/scripting_permissions_modifier.h"
 #include "extensions/browser/permissions_manager.h"
 #include "extensions/browser/process_manager.h"
@@ -66,6 +70,7 @@
 #include "ui/views/bubble/bubble_dialog_model_host.h"
 #include "ui/views/layout/animating_layout_manager_test_util.h"
 #include "ui/views/test/widget_test.h"
+#include "ui/views/views_switches.h"
 #include "ui/views/widget/widget.h"
 
 namespace {
@@ -108,12 +113,14 @@ class ExtensionsToolbarDesktopUITest : public ExtensionsToolbarUITest {
 
   void SetUpOnMainThread() override {
     ExtensionsToolbarUITest::SetUpOnMainThread();
+    base::CommandLine::ForCurrentProcess()->AppendSwitch(
+        views::switches::kDisableInputEventActivationProtectionForTesting);
     // InProcessBrowserTest will create the browser and request the hosting
     // NativeWidget's window activate. However, the NativeWidget's window can
     // resolve this activation request asynchronously. Showing the extension
     // popup is also done asynchronously.
     // Extension popups will close their bubble Widget if the hosting window
-    // recieves activation. If we do not wait for the activation first this
+    // receives activation. If we do not wait for the activation first this
     // results in a race condition whereby if the bubble is created first it is
     // immediately closed when the activation event is propagated. Thus ensure
     // we first wait for the browser window activation here.
@@ -1622,6 +1629,10 @@ class ExtensionsToolbarDesktopFeatureInteractiveTest
     InteractiveBrowserTest::SetUpOnMainThread();
     ASSERT_TRUE(embedded_test_server()->Start());
 
+    cooldown_reset_.emplace(
+        extensions::HostAccessRequestsHelper::SetCooldownForTesting(
+            base::TimeDelta()));
+
     permissions_manager_ = PermissionsManager::Get(browser()->profile());
   }
 
@@ -1687,6 +1698,7 @@ class ExtensionsToolbarDesktopFeatureInteractiveTest
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
   raw_ptr<PermissionsManager> permissions_manager_;
+  std::optional<base::AutoReset<base::TimeDelta>> cooldown_reset_;
 };
 
 // Verifies extensions can add site access requests on active and inactive tabs,

@@ -90,8 +90,7 @@ android_resources("minimal_java_resources") {
   sources = [
     "//components/payments/content/android/minimal_java_res/drawable/credit_card.xml",
     "//components/payments/content/android/minimal_java_res/drawable/google_pay.xml",
-    "//components/payments/content/android/minimal_java_res/drawable/googlepay_pill.xml",
-    "//components/payments/content/android/minimal_java_res/drawable/googlewallet.xml",
+    "//components/payments/content/android/minimal_java_res/drawable/googlewallet_icon_with_gradient.xml",
     "//components/payments/content/android/minimal_java_res/drawable/payments_icon.xml",
     "//components/payments/content/android/minimal_java_res/drawable/payments_item_background.xml",
     "//components/payments/content/android/minimal_java_res/drawable/payments_item_background_rounded.xml",
@@ -101,6 +100,7 @@ android_resources("minimal_java_resources") {
     "//components/payments/content/android/minimal_java_res/layout/payments_item.xml",
     "//components/payments/content/android/minimal_java_res/values-night/colors.xml",
     "//components/payments/content/android/minimal_java_res/values/colors.xml",
+    "//components/payments/content/android/minimal_java_res/values/drawables.xml",
   ]
 }
 
@@ -157,6 +157,7 @@ android_library("service_impl_java") {
     ":error_strings_generated_srcjar",
     ":payment_details_update_service_aidl",
     ":service_jni",
+    ":spc_validation_error_generated_enum",
   ]
 }
 
@@ -348,6 +349,12 @@ java_cpp_enum("payments_journey_logger_enum_javagen") {
 
 java_cpp_enum("spc_transaction_mode_generated_enum") {
   sources = [ "//components/payments/content/secure_payment_confirmation_transaction_mode.h" ]
+}
+
+java_cpp_enum("spc_validation_error_generated_enum") {
+  sources = [
+    "//components/payments/content/secure_payment_confirmation_validation.h",
+  ]
 }
 
 robolectric_library("junit_test_support") {

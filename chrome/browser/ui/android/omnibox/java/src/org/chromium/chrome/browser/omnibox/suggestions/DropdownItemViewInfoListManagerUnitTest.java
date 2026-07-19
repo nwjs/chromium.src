@@ -24,7 +24,10 @@ import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.ContextUtils;
+import org.chromium.base.supplier.ObservableSuppliers;
+import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.chrome.browser.omnibox.suggestions.SuggestionCommonProperties.RoundSides;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.components.omnibox.suggestions.OmniboxSuggestionUiType;
 import org.chromium.ui.modelutil.ListObservable.ListObserver;
@@ -48,7 +51,7 @@ public class DropdownItemViewInfoListManagerUnitTest {
     private @Mock ListObserver<Void> mListObserver;
 
     private ModelList mSuggestionModels;
-    private Context mContext;
+    private SettableNonNullObservableSupplier<Integer> mRoundSidesSupplier;
     private DropdownItemViewInfoListManager mManager;
 
     @Before
@@ -61,8 +64,11 @@ public class DropdownItemViewInfoListManagerUnitTest {
         mSuggestionModels = new ModelList();
         mSuggestionModels.addObserver(mListObserver);
 
-        mContext = ContextUtils.getApplicationContext();
-        mManager = new DropdownItemViewInfoListManager(mSuggestionModels, mContext);
+        Context context = ContextUtils.getApplicationContext();
+        mRoundSidesSupplier = ObservableSuppliers.createNonNull(RoundSides.TOP_AND_BOTTOM);
+        mManager =
+                new DropdownItemViewInfoListManager(
+                        mSuggestionModels, context, mRoundSidesSupplier);
         mManager.onNativeInitialized();
     }
 
@@ -85,7 +91,9 @@ public class DropdownItemViewInfoListManagerUnitTest {
      * Verify that PropertyModels of all suggestions on managed list reflect the expected values.
      */
     private void verifyPropertyValues(
-            int layoutDirection, @BrandedColorScheme int brandedColorScheme) {
+            int layoutDirection,
+            @BrandedColorScheme int brandedColorScheme,
+            boolean applySideSpacing) {
         for (int index = 0; index < mSuggestionModels.size(); index++) {
             assertEquals(
                     "Unexpected layout direction for suggestion at position " + index,
@@ -101,6 +109,25 @@ public class DropdownItemViewInfoListManagerUnitTest {
                             .get(index)
                             .model
                             .get(SuggestionCommonProperties.COLOR_SCHEME));
+            assertEquals(
+                    "Unexpected side spacing for suggestion at position " + index,
+                    applySideSpacing,
+                    mSuggestionModels
+                            .get(index)
+                            .model
+                            .get(SuggestionCommonProperties.APPLY_SIDE_SPACING));
+        }
+    }
+
+    private void verifyRoundSides(@RoundSides int roundSides) {
+        for (int index = 0; index < mSuggestionModels.size(); index++) {
+            PropertyModel model = mSuggestionModels.get(index).model;
+            if (model.containsKey(SuggestionCommonProperties.BG_ROUND_SIDES)) {
+                assertEquals(
+                        "Unexpected round sides for suggestion at position " + index,
+                        roundSides,
+                        model.get(SuggestionCommonProperties.BG_ROUND_SIDES));
+            }
         }
     }
 
@@ -154,16 +181,22 @@ public class DropdownItemViewInfoListManagerUnitTest {
 
         mManager.setSourceViewInfoList(list);
         verifyModelEquals(list);
-        verifyPropertyValues(View.LAYOUT_DIRECTION_INHERIT, BrandedColorScheme.LIGHT_BRANDED_THEME);
+        verifyPropertyValues(
+                View.LAYOUT_DIRECTION_INHERIT, BrandedColorScheme.LIGHT_BRANDED_THEME, true);
 
         mManager.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
-        verifyPropertyValues(View.LAYOUT_DIRECTION_RTL, BrandedColorScheme.LIGHT_BRANDED_THEME);
+        verifyPropertyValues(
+                View.LAYOUT_DIRECTION_RTL, BrandedColorScheme.LIGHT_BRANDED_THEME, true);
 
         mManager.setBrandedColorScheme(BrandedColorScheme.DARK_BRANDED_THEME);
-        verifyPropertyValues(View.LAYOUT_DIRECTION_RTL, BrandedColorScheme.DARK_BRANDED_THEME);
+        verifyPropertyValues(
+                View.LAYOUT_DIRECTION_RTL, BrandedColorScheme.DARK_BRANDED_THEME, true);
 
         mManager.setBrandedColorScheme(BrandedColorScheme.INCOGNITO);
-        verifyPropertyValues(View.LAYOUT_DIRECTION_RTL, BrandedColorScheme.INCOGNITO);
+        verifyPropertyValues(View.LAYOUT_DIRECTION_RTL, BrandedColorScheme.INCOGNITO, true);
+
+        mManager.setApplySideSpacing(false);
+        verifyPropertyValues(View.LAYOUT_DIRECTION_RTL, BrandedColorScheme.INCOGNITO, false);
 
         // Finally, set the new list and confirm that the values are still applied.
         list =
@@ -186,6 +219,30 @@ public class DropdownItemViewInfoListManagerUnitTest {
                                 SECTION_2_WITH_HEADER));
         mManager.setSourceViewInfoList(list);
         verifyModelEquals(list);
-        verifyPropertyValues(View.LAYOUT_DIRECTION_RTL, BrandedColorScheme.INCOGNITO);
+        verifyPropertyValues(View.LAYOUT_DIRECTION_RTL, BrandedColorScheme.INCOGNITO, false);
+    }
+
+    @Test
+    public void updateSuggestionsList_roundSidesArePropagatedToSuggestions() {
+        List<DropdownItemViewInfo> list =
+                Arrays.asList(
+                        new DropdownItemViewInfo(
+                                mHeaderProcessor,
+                                new PropertyModel(SuggestionCommonProperties.ALL_KEYS),
+                                SECTION_1_NO_HEADER),
+                        new DropdownItemViewInfo(
+                                mBasicSuggestionProcessor,
+                                new PropertyModel(SuggestionCommonProperties.ALL_KEYS),
+                                SECTION_1_NO_HEADER));
+        mManager.setSourceViewInfoList(list);
+
+        verifyModelEquals(list);
+        verifyRoundSides(RoundSides.TOP_AND_BOTTOM);
+
+        mRoundSidesSupplier.set(RoundSides.BOTTOM_ONLY);
+        verifyRoundSides(RoundSides.BOTTOM_ONLY);
+
+        mRoundSidesSupplier.set(RoundSides.NONE);
+        verifyRoundSides(RoundSides.NONE);
     }
 }

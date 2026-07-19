@@ -24,6 +24,7 @@
 #include "extensions/common/extension_id.h"
 #include "ui/base/mojom/themes.mojom.h"
 #include "ui/base/theme_provider.h"
+#include "ui/color/color_provider_key.h"
 #include "ui/color/system_theme.h"
 
 class BrowserThemePack;
@@ -42,11 +43,16 @@ class ThemeServiceTest;
 
 namespace ui {
 class ColorProvider;
+struct ColorProviderKey;
 }  // namespace ui
 
 namespace user_prefs {
 class PrefRegistrySyncable;
 }  // namespace user_prefs
+
+namespace waap {
+class PrewarmHelper;
+}  // namespace waap
 
 // A theme consists of a set of colors and images, including the NTP background
 // image. See CustomThemeSupplier for details. There are multiple sources for
@@ -61,11 +67,15 @@ class ThemeService : public KeyedService,
  public:
   // This is stored as an integer in the profile prefs, so entries should not be
   // renumbered and numeric values should never be reused.
+  //
+  // LINT.IfChange(BrowserColorScheme)
   enum class BrowserColorScheme {
     kSystem = 0,
     kLight = 1,
     kDark = 2,
+    kMaxValue = kDark,
   };
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/chrome/enums.xml:BrowserColorScheme)
 
   // This class keeps track of the number of existing |ThemeReinstaller|
   // objects. When that number reaches 0 then unused themes will be deleted.
@@ -315,7 +325,24 @@ class ThemeService : public KeyedService,
     raw_ptr<const BrowserThemeProviderDelegate> delegate_;
   };
   friend class BrowserThemeProvider;
+  friend class BrowserWidget;
+  friend class ProfilePickerWidget;
+  friend class InitialWebUIProfileService;
+  friend class ThemeColorsSourceManager;
   friend class theme_service_internal::ThemeServiceTest;
+  friend class waap::PrewarmHelper;
+
+  // Returns a ColorProviderKey configured with Profile-scoped state. The
+  // `profile` param is necessary as the service itself may be keyed to the
+  // original profile.
+  // Note: Do not use this directly - any UI using colors from this directly can
+  // encounter consistency and contrast issues when inserted into its UI tree,
+  // since theme context is determined at the granularity of a UI tree (e.g.
+  // widget) and not a profile. Please instead fetch the ColorProvider from the
+  // UI tree into which the element is inserted (i.e. the host widget, web
+  // contents etc).
+  ui::ColorProviderKey GetColorProviderKey(const ui::ColorProviderKey& base_key,
+                                           const Profile* profile) const;
 
   // virtual for testing.
   virtual void DoSetTheme(const extensions::Extension* extension,

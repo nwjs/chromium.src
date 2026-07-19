@@ -43,8 +43,6 @@
 #include "chrome/browser/ash/policy/status_collector/managed_session_service.h"
 #include "chrome/browser/ash/policy/uploading/status_uploader.h"
 #include "chrome/browser/ash/policy/uploading/system_log_uploader.h"
-#include "chrome/browser/browser_process.h"
-#include "chrome/common/pref_names.h"
 #include "chromeos/ash/components/install_attributes/install_attributes.h"
 #include "chromeos/ash/components/system/statistics_provider.h"
 #include "chromeos/constants/chromeos_features.h"
@@ -115,10 +113,14 @@ void DeviceCloudPolicyManagerAsh::Init(SchemaRegistry* registry) {
   }
 }
 
-void DeviceCloudPolicyManagerAsh::Initialize(PrefService* local_state) {
+void DeviceCloudPolicyManagerAsh::Initialize(
+    PrefService* local_state,
+    scoped_refptr<network::SharedURLLoaderFactory> shared_url_loader_factory) {
   CHECK(local_state);
+  CHECK(shared_url_loader_factory);
 
   local_state_ = local_state;
+  shared_url_loader_factory_ = std::move(shared_url_loader_factory);
 
   // If supported, we'll want to know about re-enrollment state keys.
   if (AutoEnrollmentTypeChecker::AreFREStateKeysSupported()) {
@@ -158,6 +160,8 @@ void DeviceCloudPolicyManagerAsh::Shutdown() {
   machine_certificate_uploader_.reset();
   external_data_manager_->Disconnect();
   state_keys_update_subscription_ = {};
+  shared_url_loader_factory_ = nullptr;
+  local_state_ = nullptr;
   CloudPolicyManager::Shutdown();
   signin_profile_forwarding_schema_registry_.reset();
   auth_screens_schema_registry_.reset();
@@ -167,13 +171,12 @@ void DeviceCloudPolicyManagerAsh::Shutdown() {
 void DeviceCloudPolicyManagerAsh::RegisterPrefs(PrefRegistrySimple* registry) {
   ReportingUserTracker::RegisterPrefs(registry);
 
-  registry->RegisterDictionaryPref(::prefs::kServerBackedDeviceState);
+  registry->RegisterDictionaryPref(ash::prefs::kServerBackedDeviceState);
   registry->RegisterBooleanPref(ash::prefs::kRemoveUsersRemoteCommand, false);
   registry->RegisterStringPref(ash::prefs::kLastRsuDeviceIdUploaded,
                                std::string());
-  registry->RegisterListPref(prefs::kStoreLogStatesAcrossReboots);
-  registry->RegisterDictionaryPref(
-      policy::prefs::kEventBasedLogLastUploadTimes);
+  registry->RegisterListPref(ash::prefs::kStoreLogStatesAcrossReboots);
+  registry->RegisterDictionaryPref(ash::prefs::kEventBasedLogLastUploadTimes);
 }
 
 void DeviceCloudPolicyManagerAsh::StartConnection(
@@ -211,10 +214,10 @@ void DeviceCloudPolicyManagerAsh::StartConnection(
   core()->StartRefreshScheduler();
   core()->RefreshSoon(PolicyFetchReason::kBrowserStart);
   core()->TrackRefreshDelayPref(local_state_,
-                                ::prefs::kDevicePolicyRefreshRate);
+                                ash::prefs::kDevicePolicyRefreshRate);
 
-  external_data_manager_->Connect(
-      g_browser_process->shared_url_loader_factory());
+  CHECK(shared_url_loader_factory_);
+  external_data_manager_->Connect(shared_url_loader_factory_);
 
   enrollment_certificate_uploader_ =
       std::make_unique<ash::attestation::EnrollmentCertificateUploaderImpl>(
@@ -222,11 +225,11 @@ void DeviceCloudPolicyManagerAsh::StartConnection(
   enrollment_id_upload_manager_ =
       std::make_unique<ash::attestation::EnrollmentIdUploadManager>(
           client(), enrollment_certificate_uploader_.get());
+  CHECK(local_state_);
   lookup_key_uploader_ = std::make_unique<LookupKeyUploader>(
-      device_store(), g_browser_process->local_state(),
-      enrollment_certificate_uploader_.get());
-  euicc_status_uploader_ = std::make_unique<EuiccStatusUploader>(
-      client(), g_browser_process->local_state());
+      device_store(), local_state_, enrollment_certificate_uploader_.get());
+  euicc_status_uploader_ =
+      std::make_unique<EuiccStatusUploader>(client(), local_state_);
 
   // Don't create a MachineCertificateUploader if machine cert requests are
   // disabled.

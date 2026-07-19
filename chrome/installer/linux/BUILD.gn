@@ -14,6 +14,7 @@ import("//chrome/installer/installers.gni")
 import("//chrome/installer/linux/common/key.gni")
 import("//chrome/version.gni")
 import("//components/optimization_guide/features.gni")
+import("//services/on_device_model/on_device_model.gni")
 import("//third_party/angle/gni/angle.gni")
 import("//third_party/widevine/cdm/widevine.gni")
 import("//ui/gl/features.gni")
@@ -68,12 +69,10 @@ packaging_files_executables = [
 
 packaging_files_shlibs = []
 
-if (!use_static_angle) {
-  packaging_files_shlibs += [
-    "$root_out_dir/lib/libEGL.so",
-    "$root_out_dir/lib/libGLESv2.so",
-  ]
-}
+packaging_files_shlibs += [
+  "$root_out_dir/lib/libEGL.so",
+  "$root_out_dir/lib/libGLESv2.so",
+]
 
 if (bundle_widevine_cdm) {
   packaging_files_shlibs +=
@@ -91,6 +90,9 @@ if (enable_swiftshader) {
 if (build_with_internal_optimization_guide) {
   packaging_files_shlibs +=
       [ "$root_out_dir/lib/liboptimization_guide_internal.so" ]
+  if (enable_ml_internal) {
+    packaging_files_shlibs += [ "$root_out_dir/libLiteRtWebGpuAccelerator.so" ]
+  }
 }
 
 packaging_files_binaries = packaging_files_executables + packaging_files_shlibs
@@ -219,12 +221,20 @@ strip_binary("strip_chrome_sandbox") {
 
 strip_binary("strip_libEGL_shlib") {
   binary_input = "$root_out_dir/lib/libEGL.so"
-  deps = [ "//third_party/angle:libEGL" ]
+  if (use_static_angle) {
+    deps = [ "//ui/gl:dummy_libEGL" ]
+  } else {
+    deps = [ "//third_party/angle:libEGL" ]
+  }
 }
 
 strip_binary("strip_libGLESv2_shlib") {
   binary_input = "$root_out_dir/lib/libGLESv2.so"
-  deps = [ "//third_party/angle:libGLESv2" ]
+  if (use_static_angle) {
+    deps = [ "//ui/gl:dummy_libGLESv2" ]
+  } else {
+    deps = [ "//third_party/angle:libGLESv2" ]
+  }
 }
 
 if (angle_shared_libvulkan && !is_chromeos) {
@@ -245,6 +255,12 @@ if (build_with_internal_optimization_guide) {
     deps = [
       "//components/optimization_guide/internal:optimization_guide_internal",
     ]
+  }
+  if (enable_ml_internal) {
+    strip_binary("strip_ml_drift_webgpu_accelerator") {
+      binary_input = "$root_out_dir/libLiteRtWebGpuAccelerator.so"
+      deps = [ "//components/optimization_guide/internal/third_party/odml:ml_drift_webgpu_accelerator_so" ]
+    }
   }
 }
 
@@ -456,10 +472,17 @@ group("installer_deps") {
   if (bundle_widevine_cdm) {
     public_deps += [ "//third_party/widevine/cdm" ]
   }
-  if (!use_static_angle) {
+  public_deps += [
+    ":strip_libEGL_shlib",
+    ":strip_libGLESv2_shlib",
+  ]
+  if (use_static_angle) {
     public_deps += [
-      ":strip_libEGL_shlib",
-      ":strip_libGLESv2_shlib",
+      "//ui/gl:dummy_libEGL",
+      "//ui/gl:dummy_libGLESv2",
+    ]
+  } else {
+    public_deps += [
       "//third_party/angle:libEGL",
       "//third_party/angle:libGLESv2",
     ]
@@ -485,6 +508,12 @@ group("installer_deps") {
       ":strip_optimization_guide",
       "//components/optimization_guide/internal:optimization_guide_internal",
     ]
+    if (enable_ml_internal) {
+      public_deps += [
+        ":strip_ml_drift_webgpu_accelerator",
+        "//components/optimization_guide/internal/third_party/odml:ml_drift_webgpu_accelerator_so",
+      ]
+    }
   }
   if (use_qt5) {
     public_deps += [
@@ -539,6 +568,7 @@ template("linux_package") {
       target_os,
       "--xz-nthreads",
       "$linux_debian_pkg_xz_nthreads",
+      "--use-static-angle=$use_static_angle",
     ]
     if (is_official_build) {
       args += [ "-f" ]
@@ -571,6 +601,7 @@ template("linux_package") {
         rebase_path(root_out_dir, root_build_dir),
         "-t",
         target_os,
+        "--use-static-angle=$use_static_angle",
       ]
       if (is_official_build) {
         args += [ "-f" ]

@@ -9,13 +9,12 @@ import static org.chromium.chrome.browser.flags.CustomTabProfileType.INCOGNITO;
 
 import android.app.Activity;
 
-import org.chromium.base.CommandLine;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider;
 import org.chromium.chrome.browser.customtabs.content.CustomTabActivityNavigationController;
-import org.chromium.chrome.browser.flags.ChromeSwitches;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.DestroyObserver;
 import org.chromium.chrome.browser.lifecycle.NativeInitObserver;
@@ -82,8 +81,7 @@ public class CustomTabIncognitoManager implements NativeInitObserver, DestroyObs
     }
 
     private void maybeCreateIncognitoTabSnapshotController() {
-        if (!CommandLine.getInstance()
-                .hasSwitch(ChromeSwitches.ENABLE_INCOGNITO_SNAPSHOTS_IN_ANDROID_RECENTS)) {
+        if (!ChromeFeatureList.sEnableAndroidEnterpriseScreenshotProtection.isEnabled()) {
             new IncognitoCustomTabSnapshotController(
                     mActivity, () -> mIntentDataProvider.getCustomTabMode() == INCOGNITO);
         }

@@ -96,7 +96,10 @@ targets.legacy_basic_suite(
             skylab = targets.skylab(
                 timeout_sec = 14400,
                 cros_ctp_suite_name = "chrome-uprev-hw",
-                cros_test_names_exclude_from_file = ["chromeos/tast_control_disabled_tests.txt"],
+                cros_test_names_exclude_from_file = [
+                    "chromeos/tast_control_disabled_tests.txt",
+                    "chromeos/tast_control_flaky_tests.txt",
+                ],
                 cros_test_tags = ["group:mainline", "dep:chrome"],
                 cros_test_tags_exclude = ["informational", "dep:no_chrome_dcheck"],
             ),
@@ -112,7 +115,10 @@ targets.legacy_basic_suite(
             ci_only = True,
             skylab = targets.skylab(
                 timeout_sec = 14400,
-                cros_test_names_exclude_from_file = ["chromeos/tast_control_disabled_tests.txt"],
+                cros_test_names_exclude_from_file = [
+                    "chromeos/tast_control_disabled_tests.txt",
+                    "chromeos/tast_control_flaky_tests.txt",
+                ],
                 cros_test_tags = ["group:mainline", "dep:chrome", "informational", "group:criticalstaging"],
                 cros_test_tags_exclude = ["dep:lacros", "dep:no_chrome_dcheck"],
             ),
@@ -134,6 +140,26 @@ targets.legacy_basic_suite(
             ),
             args = [
                 "-retries=0",
+            ],
+            experiment_percentage = 100,
+        ),
+    },
+)
+
+# Test suite for running flaky Tast tests to collect data.
+# The test suite should not be critical to builders.
+targets.legacy_basic_suite(
+    name = "chromeos_chrome_flaky_tast_tests",
+    tests = {
+        "chrome_flaky_tast_tests": targets.legacy_test_config(
+            ci_only = True,
+            skylab = targets.skylab(
+                timeout_sec = 7200,
+                cros_test_names_from_file = ["chromeos/tast_control_flaky_tests.txt"],
+                # TODO(yoshiki): set shard_level_retries_on_ctp when ready.
+            ),
+            args = [
+                "-retries=2",
             ],
             experiment_percentage = 100,
         ),
@@ -634,9 +660,7 @@ targets.legacy_basic_suite(
             ),
         ),
         "perfetto_unittests": targets.legacy_test_config(),
-        "puffin_unittests": targets.legacy_test_config(
-            experiment_percentage = 100,
-        ),
+        "puffin_unittests": targets.legacy_test_config(),
         # TODO(crbug.com/40274401): Enable this.
         # "rust_gtest_interop_unittests": None,
         "services_unittests": targets.legacy_test_config(),
@@ -1163,17 +1187,6 @@ targets.legacy_basic_suite(
 )
 
 targets.legacy_basic_suite(
-    name = "gpu_webgl_conformance_d3d9_passthrough_telemetry_tests",
-    tests = {
-        "webgl_conformance_d3d9_passthrough_tests": targets.legacy_test_config(
-            swarming = targets.swarming(
-                shards = 2,
-            ),
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
     name = "gpu_webgl_conformance_gl_passthrough_ganesh_telemetry_tests",
     tests = {
         "webgl_conformance_gl_passthrough_ganesh_tests": targets.legacy_test_config(
@@ -1565,15 +1578,21 @@ _CHROME_AI_WPT_TEST_CONFIG = targets.legacy_test_config(
         "has_native_resultdb_integration",
         "blink_tests_write_run_histories",
     ],
+    # Hardcoded '--child-processes=1' to enforce sequential execution by default
+    # and prevent timeouts. The slower x64 builder is sharded to 8 shards
+    # using the 'mac_x64_ai_wpt_shards' mixin to compensate for sequential
+    # execution.
     args = [
         "--release",
+        "--timeout-multiplier=5",
+        "--child-processes=1",
     ],
     mac_args = [
         "--driver-name",
         "Google Chrome",
     ],
     swarming = targets.swarming(
-        shards = 1,
+        shards = 4,
     ),
 )
 

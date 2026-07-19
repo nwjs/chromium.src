@@ -31,7 +31,6 @@ class RectF;
 
 namespace gpu {
 class ContextSupport;
-class RasterScopedAccess;
 struct Capabilities;
 
 namespace gles2 {
@@ -80,9 +79,10 @@ class MEDIA_EXPORT PaintCanvasVideoRenderer {
     // If true, then reinterpret the video frame as being in sRGB color space
     // (though preserving the original YUV to RGB matrix) when drawing.
     bool reinterpret_as_srgb = false;
-    // If true, video frames will be synchronously read back into an
-    // unaccelerated texture backing.
-    bool force_pixel_readback = false;
+    // If true, the texture backing for a video frame will not be bound to
+    // a viz::RasterContextProvider. This allows it to be passed to a different
+    // thread, to be bound and used on that thread.
+    bool acquire_texture_backing = false;
     // The transformation to apply to the video before the copy.
     VideoTransformation transformation = media::kNoTransformation;
   };
@@ -207,7 +207,7 @@ class MEDIA_EXPORT PaintCanvasVideoRenderer {
       scoped_refptr<VideoFrame> video_frame,
       gpu::gles2::GLES2Interface* gl,
       gpu::ContextSupport* context_support,
-      std::unique_ptr<gpu::RasterScopedAccess> ri_access = nullptr);
+      base::OnceCallback<gpu::SyncToken()> sync_callback);
 
   // Copies VideoFrame contents to the `destination` shared image. if
   // `use_visible_rect` is set to true, only `VideoFrame::visible_rect()`

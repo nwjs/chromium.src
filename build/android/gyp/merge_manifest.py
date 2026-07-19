@@ -21,13 +21,20 @@ _MANIFEST_MERGER_MAIN_CLASS = 'com.android.manifmerger.Merger'
 
 
 @contextlib.contextmanager
-def _ProcessMainManifest(manifest_path, manifest_package):
+def _ProcessMainManifest(manifest_path,
+                         manifest_package,
+                         inject_extract_native_libs=False):
   """Patches the main Android manifest"""
-  doc, manifest, _ = manifest_utils.ParseManifest(manifest_path)
+  doc, manifest, app_node = manifest_utils.ParseManifest(manifest_path)
   assert manifest_utils.GetPackage(manifest) or manifest_package, \
             'Must set manifest package in GN or in AndroidManifest.xml'
   if manifest_package:
     manifest.set('package', manifest_package)
+
+  if inject_extract_native_libs:
+    if manifest_utils.NamespacedGet(app_node, 'extractNativeLibs') is None:
+      manifest_utils.NamespacedSet(app_node, 'extractNativeLibs', 'false')
+
   tmp_prefix = manifest_path.replace(os.path.sep, '-')
   if len(tmp_prefix) > 100:
     tmp_prefix = tmp_prefix[-100:]
@@ -51,6 +58,14 @@ def _ProcessOtherManifest(manifest_path, min_sdk_version, target_sdk_version,
   changed_api = manifest_utils.SetTargetApiIfUnset(manifest, target_sdk_version)
 
   package_name = manifest_utils.GetPackage(manifest)
+  if package_name is None:
+    if feature_name := manifest.get('featureSplit'):
+      package_name = 'split.' + feature_name
+    else:
+      package_name = '<unnamed>'
+    manifest.set('package', package_name)
+    changed_api = True
+
   # Ignore minSdkVersion from androidx.pdf library. The client code will ensure
   # not to call into the library API on older Android versions.
   if package_name.startswith('androidx.pdf'):
@@ -101,6 +116,10 @@ def main(argv):
   parser.add_argument('--warnings-as-errors',
                       action='store_true',
                       help='Treat all warnings as errors.')
+  parser.add_argument(
+      '--inject-extract-native-libs',
+      action='store_true',
+      help='Inject android:extractNativeLibs="false" if not set.')
   args = parser.parse_args(argv)
 
   with action_helpers.atomic_output(args.output) as output:
@@ -126,7 +145,8 @@ def main(argv):
 
     with contextlib.ExitStack() as stack:
       root_manifest, package = stack.enter_context(
-          _ProcessMainManifest(args.root_manifest, args.manifest_package))
+          _ProcessMainManifest(args.root_manifest, args.manifest_package,
+                               args.inject_extract_native_libs))
       if extras:
         seen_package_names = collections.Counter()
         extras_processed = [

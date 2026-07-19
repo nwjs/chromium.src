@@ -5,6 +5,7 @@
 #include "third_party/blink/renderer/bindings/modules/v8/v8_context_snapshot_impl.h"
 
 #include <array>
+#include <tuple>
 
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_context_snapshot.h"
@@ -237,11 +238,13 @@ void DeserializeAPIWrapperCallback(v8::Local<v8::Object> holder,
   CHECK(deserializer_data->world.IsMainWorld());
   V8DOMWrapper::SetNativeInfo(deserializer_data->isolate, holder,
                               deserializer_data->html_document);
-  const bool result =
+  // The return value is discarded because whether SetWrapperInInlineStorage
+  // associates a new wrapper (true) or retains an existing wrapper (false),
+  // the Document is guaranteed to hold a valid wrapper in inline storage.
+  std::ignore =
       DOMDataStore::SetWrapperInInlineStorage</*entered_context=*/false>(
           deserializer_data->isolate, deserializer_data->html_document,
           V8HTMLDocument::GetWrapperTypeInfo(), holder);
-  CHECK(result);
 }
 
 // We only care for WrapperTypeInfo and do not supply an actual instance of
@@ -487,8 +490,8 @@ const intptr_t* V8ContextSnapshotImpl::GetReferenceTable() {
   // `size_bytes` bytes. We divide by the sizeof `intptr_t` to get the
   // number of elements.
   DCHECK(!(size_bytes % sizeof(intptr_t)));
-  auto unified_table_span =
-      UNSAFE_BUFFERS(base::span(unified_table, size_bytes / sizeof(intptr_t)));
+  auto unified_table_span = UNSAFE_BUFFERS(base::span(
+      base::unchecked, unified_table, size_bytes / sizeof(intptr_t)));
   size_t offset_count = 0;
   for (const auto& table : tables) {
     unified_table_span.subspan(offset_count, table.size())

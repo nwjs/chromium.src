@@ -41,7 +41,7 @@ namespace glic {
 class GlicActorClientSession;
 class GlicInstanceMetrics;
 class GlicActorJournalHandler;
-class GlicSharingManager;
+class GlicSharingManagerInternal;
 class GlicInstanceMetrics;
 class GlicActorClientSession;
 
@@ -63,13 +63,19 @@ class GlicActorTaskManager {
     virtual void OnTabAddedToTask(
         actor::TaskId task_id,
         const tabs::TabInterface::Handle& tab_handle) = 0;
+
+    virtual void OnTaskTabsVisibilityChanged(actor::TaskId task_id,
+                                             bool has_visible_tab) = 0;
+
+    virtual void OnTaskIdChanged(std::optional<int> task_id) = 0;
   };
-  explicit GlicActorTaskManager(Profile* profile,
-                                actor::ActorKeyedService* actor_keyed_service,
-                                GlicActorPolicyChecker& actor_policy_checker,
-                                GlicInstanceMetrics* instance_metrics,
-                                glic::GlicSharingManager* sharing_manager,
-                                Delegate* delegate);
+  explicit GlicActorTaskManager(
+      Profile* profile,
+      actor::ActorKeyedService* actor_keyed_service,
+      GlicActorPolicyChecker& actor_policy_checker,
+      GlicInstanceMetrics* instance_metrics,
+      glic::GlicSharingManagerInternal* sharing_manager,
+      Delegate* delegate);
   GlicActorTaskManager(const GlicActorTaskManager&) = delete;
   GlicActorTaskManager& operator=(const GlicActorTaskManager&) = delete;
   ~GlicActorTaskManager();
@@ -78,6 +84,12 @@ class GlicActorTaskManager {
 
   void CancelTask();
   bool IsActuating() const;
+
+  // Returns the last acted tabs for the current task.
+  std::vector<tabs::TabInterface*> GetLastActedTabs() const;
+
+  // Returns the ID of the current active task, if any.
+  std::optional<int> current_task_id() const;
 
   // Adds a callback that is run when the actuating state changes.
   base::CallbackListSubscription AddActuatingChangedCallback(
@@ -93,15 +105,15 @@ class GlicActorTaskManager {
   GlicActorClientSessionInterface* GetClientSessionForTesting();
 
  private:
-  void SetActuating(bool actuating);
+  void MaybeNotifyActuatingChanged();
   friend class GlicActorClientSession;
 
   raw_ptr<Profile> profile_;
   raw_ptr<actor::ActorKeyedService> actor_keyed_service_;
   const raw_ref<GlicActorPolicyChecker> actor_policy_checker_;
   raw_ptr<GlicInstanceMetrics> instance_metrics_;
-  raw_ptr<GlicSharingManager> sharing_manager_;
-  bool actuating_ = false;
+  raw_ptr<GlicSharingManagerInternal> sharing_manager_;
+  bool last_notified_actuating_state_ = false;
   base::RepeatingCallbackList<void(bool)> actuating_changed_callbacks_;
   raw_ptr<Delegate> delegate_;
   std::unique_ptr<GlicActorClientSession> session_;
@@ -121,6 +133,8 @@ class GlicActorClientSession : public GlicActorClientSessionInterface {
 
   // GlicActorClientSessionInterface:
   mojom::ActorClient* GetClient() override;
+
+  actor::TaskId current_task_id() const { return current_task_id_; }
 
   // mojom::ActorHandler:
   void GetContextForActorFromTab(
@@ -175,6 +189,8 @@ class GlicActorClientSession : public GlicActorClientSessionInterface {
   // ActorTaskDelegate:
   void OnTabAddedToTask(actor::TaskId task_id,
                         const tabs::TabInterface::Handle& tab_handle) override;
+  void OnTaskTabsVisibilityChanged(actor::TaskId task_id,
+                                   bool has_visible_tab) override;
   void RequestToShowCredentialSelectionDialog(
       actor::TaskId task_id,
       const base::flat_map<std::string, gfx::Image>& icons,
@@ -196,6 +212,9 @@ class GlicActorClientSession : public GlicActorClientSessionInterface {
       std::vector<autofill::ActorFormFillingRequest> requests,
       base::WeakPtr<actor::AutofillSelectionDialogEventHandler> event_handler,
       AutofillSuggestionSelectedCallback callback) override;
+  void RequestToShowGmailOtpOptInDialog(
+      actor::TaskId task_id,
+      actor::ActorTaskDelegate::GmailOtpOptInCallback callback) override;
   void AutofillSuggestionDialogOnFormPresented(
       int32_t task_id,
       actor::webui::mojom::AutofillSuggestionDialogOnFormPresentedParamsPtr

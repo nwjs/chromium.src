@@ -102,8 +102,6 @@ VIZ_COMMON_EXPORT extern const char kTargetForVSyncAnimation[];
 VIZ_COMMON_EXPORT extern const char kTargetForVSyncInteraction[];
 #endif
 
-VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kThrottleFrameSinksOnInteraction);
-VIZ_COMMON_EXPORT bool ShouldThrottleWhenInteractiveFrameSinks();
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kAllowUndamagedNonrootRenderPassToSkip);
 
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kOnBeginFrameThrottleVideo);
@@ -116,13 +114,31 @@ VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kEnableADPFWorkloadReset);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kEnableADPFScrollNoRendererMain);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kEnableADPFAsyncSetThreads);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kSelectFutureFrameDeadline);
+VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kAllowMultipleSwapsPerVsync);
 #if BUILDFLAG(IS_ANDROID)
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kUseAndroidCustomFrameDeadlines);
+VIZ_COMMON_EXPORT extern const base::FeatureParam<int>
+    kAndroidCustomFrameDeadlinePresentationOffset;
+
+VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kDeriveVSyncIntervalFromFrameTimelines);
+enum class DeriveVSyncIntervalFromFrameTimelinesMode {
+  kAlwaysDerive,
+  kDeriveIfLonger,
+};
+VIZ_COMMON_EXPORT extern const base::FeatureParam<
+    DeriveVSyncIntervalFromFrameTimelinesMode>
+    kDeriveVSyncIntervalFromFrameTimelinesModeParam;
+VIZ_COMMON_EXPORT extern const base::FeatureParam<double>
+    kDeriveVSyncIntervalFromFrameTimelinesSnapToleranceParam;
 #endif
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kUseDisplaySDRMaxLuminanceNits);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kHideDelegatedFrameHostMac);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kEvictionUnlocksResources);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kSingleVideoFrameRateThrottling);
+
+// If enabled, the FrameEvictionManager scales its limit of max number of saved
+// frames dynamically based on available memory.
+VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kScalableFrameEviction);
 
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kVizDirectCompositorThreadIpcNonRoot);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(

@@ -140,7 +140,8 @@ class NET_EXPORT_PRIVATE TcpConnectJob
   // Returns true if there are two live connectors. CHECKs if complete, since
   // both connectors are deleted at that point, which is probably not what
   // callers are trying to test.
-  bool has_two_connectors_for_testing() const;
+  size_t GetFreshConnectorCountForTesting() const;
+  size_t GetStaleConnectorCountForTesting() const;
 
  private:
   // Connectors manage the actual connection attempts. They keep on pulling
@@ -148,6 +149,63 @@ class NET_EXPORT_PRIVATE TcpConnectJob
   // until they either get a usable connection, or all addresses have been
   // tried.
   class Connector;
+
+  // Tracks the state of a set of connector attempts, either for fresh or stale
+  // DNS results.
+  //
+  // Optimistic DNS Fallback State Machine:
+  // When Optimistic DNS is enabled, TcpConnectJob maintains two parallel
+  // states: `stale_state_` and `fresh_state_`.
+  //
+  // 1. We fire up `stale_state_` immediately if `IsStaleWhileRefreshing()` is
+  //    true. This state pulls endpoints from the stale DNS cache and starts
+  //    racing connection attempts.
+  // 2. When fresh DNS results arrive, `fresh_state_` is initialized and begins
+  //    fetching endpoints from the fresh DNS results. We race both states.
+  // 3. If a stale connector's IP address perfectly matches an IP address from
+  //    the fresh DNS results, the stale connector is "promoted" and ownership
+  //    is transferred directly to `fresh_state_`.
+  // 4. Once fresh DNS completes, `stale_state_` finishes any currently active
+  //    in-flight connection attempts, but it is blocked from fetching any new
+  //    IPs. Once its active attempts fail, `stale_state_` naturally terminates.
+  struct ConnectionState {
+    base::OneShotTimer slow_timer;
+
+    // At the start, only `primary_connector` is non-null, and will try to
+    // alternate connecting to IPv6 and IPv4 addresses, based on what's
+    // available and on `prefer_ipv6`. Once the slow timer expires, there will
+    // always be two connectors, the primary always prefers to connect to IPv6
+    // destinations, and `ipv4_connector` will prefer IPv4 ones. If there are
+    // only untried IPv4 or IPv6 addresses available in the ServiceEndpoint
+    // indicated by `current_endpoint_index`, both jobs may try to connect to
+    // IPs of the same type. If the primary connector is doing an IPv4
+    // resolution when the timer expires, it will be moved into the
+    // `ipv4_connector` slot.
+    //
+    // This is a little awkward, but it avoids the need to swap active
+    // connectors when a connection attempt fails before we create a second
+    // Connector, so allows for a single function to resume a stalled connector
+    // on DNS complete, and a single function to get the next IP for the
+    // primary/secondary connector (which can be used by the resume function as
+    // well), and allows for sync completion of all calls when possible, without
+    // any post tasks, except when advancing `current_endpoint_index`.
+    std::unique_ptr<TcpConnectJob::Connector> primary_connector;
+    std::unique_ptr<TcpConnectJob::Connector> ipv4_connector;
+
+    // The index within the the ServiceEndpoint result of `dns_request_` that
+    // we're currently trying to connect to. Reset each time endpoint results
+    // are updated. This is both a performance optimization, to avoid searching
+    // through the same IPs again and again (Comparing them to
+    // `attempted_addresses_`), and has functional impact - it's only
+    // incremented once all endpoints within a ServiceEndpoint have been tried
+    // and failed, since they're in priority order.
+    size_t current_endpoint_index = 0;
+
+    // Set/cleared on error connecting to IPv6/IPv4. Affects what type of IP is
+    // preferred, if IPv6 and IPv4 IPs of equal priority are available. Only
+    // matters when there's only one Connector.
+    bool prefer_ipv6 = true;
+  };
 
   // Type used yo provide Connectors with IPEndPoints.
   using IPEndPointInfo = base::expected<IPEndPoint, Error>;
@@ -213,8 +271,28 @@ class NET_EXPORT_PRIVATE TcpConnectJob
   // error.
   void OnConnectorComplete(int result, Connector& connector);
 
-  // Called by `slow_timer_`. Creates and starts `ipv4_connector_`.
-  void OnSlow();
+  bool IsStaleConnector(const Connector& connector) const {
+    return stale_state_.primary_connector.get() == &connector ||
+           stale_state_.ipv4_connector.get() == &connector;
+  }
+
+  // Timer callback for the slow timer. `is_stale` indicates whether it fired
+  // for the `stale_state_` or the `fresh_state_`.
+  void OnSlow(bool is_stale);
+
+  // Advances the internal state machine of a given `ConnectionState`. This
+  // method handles evaluating the progress of both the primary and (if present)
+  // IPv4 connectors within that state. Returns ERR_IO_PENDING if the state
+  // needs to wait for more async events, or a final net::Error if the entire
+  // ConnectJob should complete.
+  int AdvanceConnectionState(ConnectionState& state, bool is_stale);
+
+  // Checks if any currently successful or pending stale connectors have
+  // resolved IPs that exactly match the newly arrived fresh DNS endpoints. If
+  // they do, those stale connectors are "promoted" (moved into the
+  // `fresh_state_`) so their progress is not discarded. Connectors that do not
+  // match the fresh results remain in the stale state.
+  void MaybePromoteStaleConnectors();
 
   // Returns the next `IPEndPoint` that `connector` should connect to, and logs
   // that endpoint has been attempted. Never returns the same IPEndPoint twice.
@@ -222,7 +300,10 @@ class NET_EXPORT_PRIVATE TcpConnectJob
   // Returns ERR_NAME_NOT_RESOLVED if there are no more IPEndPoints, and never
   // will be any more (i.e., the DNS request must be completed), ERR_IO_PENDING
   // if none are available yet. On any fatal DNS error, all work is cancelled,
-  // so this shouldn't return other error values.
+  // so this shouldn't return other error values. If the connector belongs to
+  // the stale state, this method will fail/return ERR_NAME_NOT_RESOLVED if we
+  // have started receiving fresh DNS results and stale endpoints are no
+  // longer valid.
   IPEndPointInfo GetNextIPEndPoint(const Connector& connector);
 
   // Returns whether `result` is usable for this connection. If `svcb_optional`
@@ -240,6 +321,15 @@ class NET_EXPORT_PRIVATE TcpConnectJob
   // Updates `is_svcb_optional_`. Called whenever more ServiceEndpoints are
   // available.
   void UpdateSvcbOptional();
+
+  // Resets the state of the connection, stopping the slow timer, destroying
+  // the connectors, and resetting the endpoint index and IPv6 preference to
+  // their default values.
+  void ResetConnectionState(ConnectionState& state);
+
+  // Returns true if both the primary and (if present) IPv4 connectors within
+  // the given `state` are done, or if the state has not started connecting yet.
+  static bool IsStateDone(const ConnectionState& state);
 
   // Sets `is_done_` to true, and destroys all connectors. Should only be called
   // when the entire TcpConnectJob is complete - either we've successfully
@@ -289,44 +379,18 @@ class NET_EXPORT_PRIVATE TcpConnectJob
 
   std::unique_ptr<HostResolver::ServiceEndpointRequest> dns_request_;
   bool dns_request_complete_ = false;
-  // The index within the the ServiceEndpoint result of `dns_request_` that
-  // we're currently trying to connect to. Reset each time endpoint results are
-  // updated. This is both a performance optimization, to avoid searching
-  // through the same IPs again and again (Comparing them to
-  // `attempted_addresses_`), and has functional impact - it's only incremented
-  // once all endpoints within a ServiceEndpoint have been tried and failed,
-  // since they're in priority order.
-  size_t current_service_endpoint_index_ = 0;
 
-  // At the start, only `primary_connector_` is non-null, and will try to
-  // alternate connecting to IPv6 and IPv4 addresses, based on what's available
-  // and on `prefer_ipv6_`. Once the slow timer expires, there will always be
-  // two connectors, the primary always prefers to connect to IPv6 destinations,
-  // and `ipv4_connector_` will prefer IPv4 ones. If there are only untried IPv4
-  // or IPv6 addresses available in the ServiceEndpoint indicated by
-  // `current_service_endpoint_index_`, both jobs may try to connect to IPs of
-  // the same type. If the primary connector is doing an IPv4 resolution when
-  // the timer expires, it will be moved into the `ipv4_connector_` slot.
-  //
-  // This is a little awkward, but it avoids the need to swap active connectors
-  // when a connection attempt fails before we create a second Connector, so
-  // allows for a single function to resume a stalled connector on DNS complete,
-  // and a single function to get the next IP for the primary/secondary
-  // connector (which can be used by the resume function as well), and allows
-  // for sync completion of all calls when possible, without any post tasks,
-  // except when advancing `current_service_endpoint_index_`.
-  std::unique_ptr<TcpConnectJob::Connector> primary_connector_;
-  std::unique_ptr<TcpConnectJob::Connector> ipv4_connector_;
+  // Tracks connection attempts for fresh DNS results. This is the primary
+  // state machine for standard connection attempts.
+  ConnectionState fresh_state_;
 
-  // Set/cleared on error connecting to IPv6/IPv4. Affects what type of IP is
-  // preferred, if IPv6 and IPv4 IPs of equal priority are available. Only
-  // matters when there's only one Connector.
-  bool prefer_ipv6_ = true;
+  // Tracks connection attempts based on stale DNS results when optimistic DNS
+  // is enabled. Operates independently until fresh results arrive, at which
+  // point active valid connectors may be promoted to `fresh_state_`.
+  ConnectionState stale_state_;
 
   ResolveErrorInfo resolve_error_info_;
   std::optional<ResolutionDetails> resolution_details_;
-
-  base::OneShotTimer slow_timer_;
 
   // This includes addresses that Connectors are currently attempting to connect
   // to. No address will ever be tried twice, even if it appears in multiple

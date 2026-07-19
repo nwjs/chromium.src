@@ -20,6 +20,14 @@
 #import <Security/Security.h>
 #endif  // BUILDFLAG(IS_APPLE)
 
+#if BUILDFLAG(IS_WIN)
+#include "base/win/windows_types.h"
+
+// NCRYPT_KEY_HANDLE is defined in <ncrypt.h>, but including it here would pull
+// in Windows headers. We use an alias instead.
+using NCRYPT_KEY_HANDLE = ULONG_PTR;
+#endif  // BUILDFLAG(IS_WIN)
+
 namespace crypto {
 
 class StatefulKey;
@@ -66,6 +74,11 @@ class CRYPTO_EXPORT UnexportableKey {
   // instance.
   virtual SecKeyRef GetSecKeyRef() const = 0;
 #endif  // BUILDFLAG(IS_APPLE)
+
+#if BUILDFLAG(IS_WIN)
+  // Returns the underlying NCrypt key handle owned by the current instance.
+  virtual NCRYPT_KEY_HANDLE GetNCryptKeyHandle() const = 0;
+#endif  // BUILDFLAG(IS_WIN)
 
   // Typesafe downcast to `StatefulKey`. Returns nullptr if the key is not
   // stateful.
@@ -174,6 +187,10 @@ class CRYPTO_EXPORT UnexportableKeyProvider {
   // SelectAlgorithm returns which signature algorithm from
   // |acceptable_algorithms| would be used if |acceptable_algorithms| was passed
   // to |GenerateSigningKeySlowly|.
+  //
+  // Note: on Windows, calling this function may trigger a synchronous load of
+  // `ncrypt.dll`. Therefore, to avoid blocking the UI thread (and potentially
+  // causing hangs), this function should be called on a background thread.
   virtual std::optional<SignatureVerifier::SignatureAlgorithm> SelectAlgorithm(
       base::span<const SignatureVerifier::SignatureAlgorithm>
           acceptable_algorithms) = 0;

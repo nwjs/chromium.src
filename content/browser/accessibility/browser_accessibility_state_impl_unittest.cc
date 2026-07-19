@@ -16,6 +16,7 @@
 #include "content/public/browser/scoped_accessibility_mode.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/scoped_accessibility_mode_override.h"
+#include "content/public/test/test_browser_context.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/accessibility/accessibility_features.h"
@@ -45,6 +46,10 @@ class BrowserAccessibilityStateImplTest : public ::testing::Test {
     // Set the initial time to something non-zero.
     task_environment_.FastForwardBy(base::Seconds(100));
     state_ = BrowserAccessibilityStateImpl::GetInstance();
+  }
+
+  void EnableAXModeFromPlatform(ui::AXMode mode) {
+    state_->EnableAXModeFromPlatform(mode);
   }
 
   raw_ptr<BrowserAccessibilityStateImpl> state_;
@@ -125,6 +130,61 @@ TEST_F(BrowserAccessibilityStateImplTest, PlatformActivationFiltering) {
               ui::kAXModeBasic);
     state_->SetActivationFromPlatformEnabled(false);
   }
+}
+
+// Tests that AXMode changes are blocked when IsAXModeChangeAllowed() is false.
+TEST_F(BrowserAccessibilityStateImplTest, AXModeChangeAllowedFiltering) {
+  // Allowed by default.
+  ASSERT_TRUE(state_->IsAXModeChangeAllowed());
+  // Platform activation is disabled by default in tests, so we need to enable
+  // it first to test the lock, otherwise it would be filtered out by platform
+  // activation filtering anyway.
+  state_->SetActivationFromPlatformEnabled(true);
+
+  ASSERT_EQ(state_->GetAccessibilityMode(), ui::AXMode());
+
+  {
+    // Adding a mode from the platform works when allowed.
+    auto complete = state_->CreateScopedModeForProcess(
+        ui::kAXModeComplete | ui::AXMode::kFromPlatform);
+    EXPECT_EQ(state_->GetAccessibilityMode(), ui::kAXModeComplete);
+
+    // Locking changes should remove the platform mode.
+    state_->SetAXModeChangeAllowed(false);
+    ASSERT_FALSE(state_->IsAXModeChangeAllowed());
+    EXPECT_EQ(state_->GetAccessibilityMode(), ui::AXMode());
+
+    // Unlocking should restore it.
+    state_->SetAXModeChangeAllowed(true);
+    EXPECT_EQ(state_->GetAccessibilityMode(), ui::kAXModeComplete);
+  }
+
+  // Clear the complete mode scoper by letting it go out of scope (handled by
+  // block in test). But wait, in the test it was in a nested block, so
+  // `complete` is already destroyed here. Let's verify: yes, `complete` was in
+  // `{ ... }` block, so it is destroyed. So effective mode should be back to
+  // empty now.
+  ASSERT_EQ(state_->GetAccessibilityMode(), ui::AXMode());
+
+  {
+    // Test EnableAXModeFromPlatform behavior under lock.
+    state_->SetAXModeChangeAllowed(false);
+    EnableAXModeFromPlatform(ui::kAXModeBasic);
+    // It should be blocked (effective mode is still empty).
+    EXPECT_EQ(state_->GetAccessibilityMode(), ui::AXMode());
+
+    // Unlocking should restore the mode enabled via EnableAXModeFromPlatform.
+    state_->SetAXModeChangeAllowed(true);
+    EXPECT_EQ(state_->GetAccessibilityMode(), ui::kAXModeBasic);
+
+    // Clean up platform_ax_mode_ for subsequent tests by resetting it.
+    // EnableAXModeFromPlatform overwrites it, so we can reset it by enabling
+    // empty mode.
+    EnableAXModeFromPlatform(ui::AXMode());
+  }
+
+  // Reset state.
+  state_->SetActivationFromPlatformEnabled(false);
 }
 
 #if BUILDFLAG(IS_WIN)
@@ -309,4 +369,56 @@ TEST(BrowserAccessibilityStateImplAndroidTest,
 }
 
 #endif  // BUILDFLAG(IS_ANDROID)
+
+TEST_F(BrowserAccessibilityStateImplTest,
+       NativeAdaptedWebContentsInvariantFiltering) {
+  TestBrowserContext browser_context;
+
+  {
+    // Mode with ONLY kNativeAdaptedWebContents should not trigger kWebContents.
+    // In fact, since kWebContents is not enabled, any higher bits (above
+    // NativeAPIs) are filtered out.
+    auto scoped_mode = state_->CreateScopedModeForProcess(
+        ui::AXMode::kNativeAdaptedWebContents);
+    EXPECT_EQ(ui::AXMode(),
+              state_->GetAccessibilityModeForBrowserContext(&browser_context));
+  }
+
+  {
+    // Mode with kNativeAdaptedWebContents and kNativeAPIs should upgrade to
+    // include kWebContents.
+    auto scoped_mode = state_->CreateScopedModeForProcess(
+        ui::AXMode::kNativeAdaptedWebContents | ui::AXMode::kNativeAPIs);
+    ui::AXMode result_mode =
+        state_->GetAccessibilityModeForBrowserContext(&browser_context);
+    EXPECT_TRUE(result_mode.has_mode(ui::AXMode::kNativeAdaptedWebContents));
+    EXPECT_TRUE(result_mode.has_mode(ui::AXMode::kNativeAPIs));
+    EXPECT_TRUE(result_mode.has_mode(ui::AXMode::kWebContents));
+  }
+}
+
+TEST_F(BrowserAccessibilityStateImplTest,
+       NativeAdaptedWebContentsMetricsAreStripped) {
+  base::HistogramTester histogram_tester;
+
+  {
+    // Applying kNativeAdaptedWebContents and kNativeAPIs should NOT record the
+    // kNativeAdaptedWebContents flag in process-wide histograms to avoid UMA
+    // pollution.
+    auto scoped_mode = state_->CreateScopedModeForProcess(
+        ui::AXMode::kNativeAdaptedWebContents | ui::AXMode::kNativeAPIs);
+
+    // We expect UMA_AX_MODE_NATIVE_APIS to be recorded, but NOT
+    // UMA_AX_MODE_NATIVE_ADAPTED_WEB_CONTENTS.
+    histogram_tester.ExpectBucketCount(
+        "Accessibility.ModeFlag",
+        ui::AXMode::ModeFlagHistogramValue::UMA_AX_MODE_NATIVE_APIS, 1);
+    histogram_tester.ExpectBucketCount(
+        "Accessibility.ModeFlag",
+        ui::AXMode::ModeFlagHistogramValue::
+            UMA_AX_MODE_NATIVE_ADAPTED_WEB_CONTENTS,
+        0);
+  }
+}
+
 }  // namespace content

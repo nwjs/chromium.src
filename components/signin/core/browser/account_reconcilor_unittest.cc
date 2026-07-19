@@ -33,6 +33,7 @@
 #include "components/signin/core/browser/mirror_account_reconcilor_delegate.h"
 #include "components/signin/core/browser/test_account_reconcilor_observer.h"
 #include "components/signin/public/base/account_consistency_method.h"
+#include "components/signin/public/base/bound_session_oauth_multilogin_delegate.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/base/list_accounts_test_utils.h"
 #include "components/signin/public/base/signin_buildflags.h"
@@ -41,12 +42,14 @@
 #include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/base/test_signin_client.h"
 #include "components/signin/public/identity_manager/account_capabilities_test_mutator.h"
+#include "components/signin/public/identity_manager/accounts_cookie_mutator.h"
 #include "components/signin/public/identity_manager/accounts_in_cookie_jar_info.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/signin/public/identity_manager/primary_account_mutator.h"
 #include "components/signin/public/identity_manager/set_accounts_in_cookie_result.h"
 #include "components/signin/public/identity_manager/test_identity_manager_observer.h"
+#include "components/signin/public/identity_manager/token_binding_info.h"
 #include "components/supervised_user/core/common/buildflags.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "google_apis/gaia/core_account_id.h"
@@ -54,6 +57,8 @@
 #include "google_apis/gaia/gaia_id.h"
 #include "google_apis/gaia/gaia_urls.h"
 #include "google_apis/gaia/google_service_auth_error.h"
+#include "net/base/features.h"
+#include "services/network/test/mock_device_bound_session_manager.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -70,6 +75,8 @@ using ::base::test::RunOnceClosure;
 using ::signin_metrics::AccountReconcilorState;
 using ::testing::_;
 using ::testing::InSequence;
+using ::testing::Return;
+using ::testing::SaveArgByMove;
 
 namespace {
 
@@ -316,6 +323,14 @@ class AccountReconcilorTest : public ::testing::Test {
       mock_reconcilor_->Shutdown();
     }
     mock_reconcilor_.reset();
+  }
+
+  void EnsureAccountsInCookieJarAreFresh() {
+    signin::IdentityManager* identity_manager =
+        identity_test_env()->identity_manager();
+    identity_manager->GetAccountsCookieMutator()->TriggerCookieJarUpdate();
+    base::RunLoop().RunUntilIdle();
+    ASSERT_TRUE(identity_manager->GetAccountsInCookieJar().AreAccountsFresh());
   }
 
   network::TestURLLoaderFactory test_url_loader_factory_;
@@ -694,9 +709,9 @@ class BaseAccountReconcilorTestTable : public AccountReconcilorTest {
     ConfigureCookieManagerService(cookies);
     std::vector<Cookie> cookies_after_reconcile = cookies;
 
-    // Call list accounts now so that the next call completes synchronously.
-    identity_test_env()->identity_manager()->GetAccountsInCookieJar();
-    base::RunLoop().RunUntilIdle();
+    // Ensure that accounts in cookie jar are fresh so the next call to
+    // GetAccountsInCookieJar() completes synchronously.
+    EnsureAccountsInCookieJarAreFresh();
 
     // Setup tokens. This triggers listing cookies so we need to setup cookies
     // before that.
@@ -1343,7 +1358,7 @@ TEST_F(AccountReconcilorDiceTest, DeleteCookieForNonSyncingSupervisedUsers) {
   AccountInfo account_info = identity_test_env()->MakePrimaryAccountAvailable(
       kFakeEmail, signin::ConsentLevel::kSignin);
 
-  AccountCapabilitiesTestMutator mutator(&account_info.capabilities);
+  AccountCapabilitiesTestMutator mutator(&account_info);
   mutator.set_is_subject_to_parental_controls(true);
   signin::UpdateAccountInfoForAccount(identity_manager, account_info);
 
@@ -1370,7 +1385,7 @@ TEST_F(AccountReconcilorDiceTest, DeleteCookieForSyncingSupervisedUsers) {
   AccountInfo account_info = identity_test_env()->MakePrimaryAccountAvailable(
       kFakeEmail, consent_level_for_reconcile_);
 
-  AccountCapabilitiesTestMutator mutator(&account_info.capabilities);
+  AccountCapabilitiesTestMutator mutator(&account_info);
   mutator.set_is_subject_to_parental_controls(true);
   signin::UpdateAccountInfoForAccount(identity_manager, account_info);
 
@@ -1958,6 +1973,45 @@ TEST_F(AccountReconcilorMirrorTest, StartReconcileNoop) {
   histogram_tester()->ExpectUniqueSample(
       AccountReconcilor::kTriggerNoopHistogramName,
       AccountReconcilor::Trigger::kCookieChange, 1);
+}
+
+TEST_F(AccountReconcilorMirrorTest, StartReconcileCookieJarFresh) {
+  AccountInfo account_info = ConnectProfileToAccount(kFakeEmail);
+
+  signin::SetListAccountsResponseOneAccount(
+      account_info.email, account_info.gaia, &test_url_loader_factory_);
+  EnsureAccountsInCookieJarAreFresh();
+
+  AccountReconcilor* reconcilor = GetMockReconcilor();
+  ASSERT_TRUE(reconcilor);
+  base::HistogramTester tester;
+  reconcilor->StartReconcile(AccountReconcilor::Trigger::kCookieChange);
+
+  // Cookie jar is fresh when StartReconcile is called, so it should record
+  // true.
+  tester.ExpectUniqueSample(AccountReconcilor::kCookieJarIsFreshHistogramName,
+                            true, 1);
+}
+
+TEST_F(AccountReconcilorMirrorTest, StartReconcileCookieJarStale) {
+  AccountInfo account_info = ConnectProfileToAccount(kFakeEmail);
+
+  // By default, the accounts in the cookie jar are stale/not fresh.
+  ASSERT_FALSE(identity_test_env()
+                   ->identity_manager()
+                   ->GetAccountsInCookieJar()
+                   .AreAccountsFresh());
+
+  AccountReconcilor* reconcilor = GetMockReconcilor();
+  ASSERT_TRUE(reconcilor);
+
+  base::HistogramTester tester;
+  reconcilor->StartReconcile(AccountReconcilor::Trigger::kCookieChange);
+
+  // Cookie jar is stale when StartReconcile is called, so it should record
+  // false.
+  tester.ExpectUniqueSample(AccountReconcilor::kCookieJarIsFreshHistogramName,
+                            false, 1);
 }
 
 TEST_F(AccountReconcilorMirrorTest, StartReconcileCookiesDisabled) {
@@ -2690,8 +2744,9 @@ TEST_F(AccountReconcilorMirrorTest, NoLoopWithBadPrimary) {
   base::RunLoop().RunUntilIdle();
   ASSERT_TRUE(reconcilor->is_reconcile_started_);
 
-  GoogleServiceAuthError error(
-      GoogleServiceAuthError::INVALID_GAIA_CREDENTIALS);
+  GoogleServiceAuthError error =
+      GoogleServiceAuthError::FromInvalidGaiaCredentialsReason(
+          GoogleServiceAuthError::InvalidGaiaCredentialsReason::UNKNOWN);
 
   // The primary cannot be added to cookie, so it fails.
   SimulateSetAccountsInCookieCompleted(
@@ -3333,3 +3388,257 @@ TEST_F(AccountReconcilorThrottlerTest, BlockFiveRequests) {
   histogram_tester()->ExpectTotalCount(
       "Signin.Reconciler.RejectedRequestsDueToThrottler.Update", 1);
 }
+
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+TEST_F(AccountReconcilorTest, DeviceBoundSessionsFetchBlocksReconciliation) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures({net::features::kDeviceBoundSessions,
+                                 switches::kEnableCookieBindingCookieUpgrade},
+                                {});
+
+  SetAccountConsistency(signin::AccountConsistencyMethod::kDice);
+  signin::SetListAccountsResponseNoAccounts(&test_url_loader_factory_);
+
+  // Make primary account available with a bound key first.
+  auto builder = identity_test_env()->CreateAccountAvailabilityOptionsBuilder();
+  builder.AsPrimary(signin::ConsentLevel::kSignin)
+      .WithRefreshTokenBindingInfo(signin::TokenBindingInfo(
+          /*wrapped_binding_key=*/{1, 2, 3, 4},
+          /*mtls_token_binding=*/false));
+  identity_test_env()->MakeAccountAvailable(builder.Build(kFakeEmail));
+  identity_test_env()->WaitForRefreshTokensLoaded();
+
+  network::MockDeviceBoundSessionManager mock_session_manager;
+  test_signin_client()->set_device_bound_session_manager(&mock_session_manager);
+
+  // Set expectation for GetAllSessions. We will capture the callback.
+  network::mojom::DeviceBoundSessionManager::GetAllSessionsCallback callback;
+  EXPECT_CALL(mock_session_manager, GetAllSessions)
+      .WillOnce(SaveArgByMove<0>(&callback));
+
+  // Create reconcilor.
+  AccountReconcilor* reconcilor = GetMockReconcilor();
+
+  // Try to start reconciliation manually.
+  reconcilor->StartReconcile(AccountReconcilor::Trigger::kCookieChange);
+
+  // Reconcilor should be blocked because sessions are not fetched yet.
+  EXPECT_EQ(reconcilor->GetState(), AccountReconcilorState::kScheduled);
+
+  // Set expectation on the mock reconcilor's action (e.g.
+  // PerformSetCookiesAction). This will be called once we unblock.
+  base::RunLoop run_loop;
+  EXPECT_CALL(*GetMockReconcilor(), PerformSetCookiesAction)
+      .WillOnce(RunOnceClosure(run_loop.QuitClosure()));
+
+  // Invoke the callback to finish session prefetch.
+  std::move(callback).Run({});
+
+  // Now the reconcilor should start reconciliation and proceed.
+  EXPECT_EQ(reconcilor->GetState(), AccountReconcilorState::kRunning);
+
+  run_loop.Run();
+}
+
+TEST_F(
+    AccountReconcilorTest,
+    DeviceBoundSessionsFetchDoesNotBlockReconciliationWhenPreconditionsNotMet) {
+  base::test::ScopedFeatureList feature_list;
+  // Disable cookie binding upgrade feature.
+  feature_list.InitWithFeatures({net::features::kDeviceBoundSessions},
+                                {switches::kEnableCookieBindingCookieUpgrade});
+
+  SetAccountConsistency(signin::AccountConsistencyMethod::kDice);
+  signin::SetListAccountsResponseNoAccounts(&test_url_loader_factory_);
+
+  // Make primary account available with a bound key first.
+  auto builder = identity_test_env()->CreateAccountAvailabilityOptionsBuilder();
+  builder.AsPrimary(signin::ConsentLevel::kSignin)
+      .WithRefreshTokenBindingInfo(signin::TokenBindingInfo(
+          /*wrapped_binding_key=*/{1, 2, 3, 4},
+          /*mtls_token_binding=*/false));
+  identity_test_env()->MakeAccountAvailable(builder.Build(kFakeEmail));
+  identity_test_env()->WaitForRefreshTokensLoaded();
+
+  network::MockDeviceBoundSessionManager mock_session_manager;
+  test_signin_client()->set_device_bound_session_manager(&mock_session_manager);
+
+  EXPECT_CALL(mock_session_manager, GetAllSessions).Times(0);
+
+  // Create reconcilor.
+  AccountReconcilor* reconcilor = GetMockReconcilor();
+
+  // Set expectation on PerformSetCookiesAction. It should be called
+  // immediately despite sessions not being fetched.
+  base::RunLoop run_loop;
+  EXPECT_CALL(*GetMockReconcilor(), PerformSetCookiesAction)
+      .WillOnce(RunOnceClosure(run_loop.QuitClosure()));
+
+  // Start reconciliation.
+  reconcilor->StartReconcile(AccountReconcilor::Trigger::kCookieChange);
+
+  // Reconcilor should not be blocked and should proceed to running.
+  EXPECT_EQ(reconcilor->GetState(), AccountReconcilorState::kRunning);
+
+  run_loop.Run();
+}
+
+TEST_F(AccountReconcilorTest,
+       CookieUpgradeTriggersMultiloginEvenIfCookiesMatch) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures({net::features::kDeviceBoundSessions,
+                                 switches::kEnableCookieBindingCookieUpgrade},
+                                {});
+
+  SetAccountConsistency(signin::AccountConsistencyMethod::kDice);
+
+  // Make primary account available with a bound key first.
+  auto builder = identity_test_env()->CreateAccountAvailabilityOptionsBuilder();
+  builder.AsPrimary(signin::ConsentLevel::kSignin)
+      .WithRefreshTokenBindingInfo(signin::TokenBindingInfo(
+          /*wrapped_binding_key=*/{1, 2, 3, 4},
+          /*mtls_token_binding=*/false));
+  AccountInfo account_info =
+      identity_test_env()->MakeAccountAvailable(builder.Build(kFakeEmail));
+  identity_test_env()->WaitForRefreshTokensLoaded();
+
+  // Set standard sessions fetched to empty.
+  AccountReconcilor* reconcilor = GetMockReconcilor();
+  reconcilor->OnDeviceBoundSessionsFetched({});
+
+  // Set cookie jar containing the same account.
+  signin::SetListAccountsResponseOneAccount(
+      /*email=*/account_info.email, /*gaia_id=*/account_info.gaia,
+      /*test_url_loader_factory=*/&test_url_loader_factory_);
+
+  // PerformSetCookiesAction should be called because we need to upgrade the
+  // cookie.
+  base::RunLoop run_loop;
+  EXPECT_CALL(*GetMockReconcilor(), PerformSetCookiesAction)
+      .WillOnce(RunOnceClosure(run_loop.QuitClosure()));
+
+  reconcilor->StartReconcile(AccountReconcilor::Trigger::kCookieChange);
+  run_loop.Run();
+}
+
+class MockBoundSessionOAuthMultiLoginDelegate
+    : public signin::BoundSessionOAuthMultiLoginDelegate {
+ public:
+  MockBoundSessionOAuthMultiLoginDelegate() = default;
+  ~MockBoundSessionOAuthMultiLoginDelegate() override = default;
+
+  MOCK_METHOD(void,
+              BeforeSetCookies,
+              (const OAuthMultiloginResult&),
+              (override));
+  MOCK_METHOD(void, OnCookiesSet, (), (override));
+  MOCK_METHOD((std::vector<std::pair<GURL, std::string>>),
+              GetAllSessions,
+              (),
+              (const, override));
+};
+
+TEST_F(AccountReconcilorTest, NeedsCookieBindingUpgradeTriggersUpgrade) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures({net::features::kDeviceBoundSessions,
+                                 switches::kEnableCookieBindingCookieUpgrade},
+                                {});
+
+  SetAccountConsistency(signin::AccountConsistencyMethod::kDice);
+
+  // Make primary account available with a bound key first.
+  auto builder = identity_test_env()->CreateAccountAvailabilityOptionsBuilder();
+  builder.AsPrimary(signin::ConsentLevel::kSignin)
+      .WithRefreshTokenBindingInfo(signin::TokenBindingInfo(
+          /*wrapped_binding_key=*/{1, 2, 3, 4},
+          /*mtls_token_binding=*/false));
+  identity_test_env()->MakeAccountAvailable(builder.Build(kFakeEmail));
+  identity_test_env()->WaitForRefreshTokensLoaded();
+
+  // Create reconcilor.
+  AccountReconcilor* reconcilor = GetMockReconcilor();
+
+  // Feed empty sessions (simulating prefetch returned no sessions).
+  reconcilor->OnDeviceBoundSessionsFetched({});
+
+  // Verify that NeedsCookieBindingUpgrade returns true because no sidts_session
+  // exists.
+  EXPECT_TRUE(reconcilor->NeedsCookieBindingUpgrade());
+}
+
+TEST_F(AccountReconcilorTest,
+       NeedsCookieBindingUpgradeNoUpgradeIfStandardSessionExists) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures({net::features::kDeviceBoundSessions,
+                                 switches::kEnableCookieBindingCookieUpgrade},
+                                {});
+
+  SetAccountConsistency(signin::AccountConsistencyMethod::kDice);
+
+  // Make primary account available with a bound key first.
+  auto builder = identity_test_env()->CreateAccountAvailabilityOptionsBuilder();
+  builder.AsPrimary(signin::ConsentLevel::kSignin)
+      .WithRefreshTokenBindingInfo(signin::TokenBindingInfo(
+          /*wrapped_binding_key=*/{1, 2, 3, 4},
+          /*mtls_token_binding=*/false));
+  identity_test_env()->MakeAccountAvailable(builder.Build(kFakeEmail));
+  identity_test_env()->WaitForRefreshTokensLoaded();
+
+  // Create reconcilor.
+  AccountReconcilor* reconcilor = GetMockReconcilor();
+
+  // Feed standard session matching secure google.com and sidts_session.
+  std::vector<net::device_bound_sessions::SessionKey> sessions;
+  sessions.emplace_back(
+      net::SchemefulSite(GaiaUrls::GetInstance()->secure_google_url()),
+      net::device_bound_sessions::SessionKey::Id("sidts_session"));
+  reconcilor->OnDeviceBoundSessionsFetched(sessions);
+
+  // Verify that NeedsCookieBindingUpgrade returns false since standard session
+  // exists.
+  EXPECT_FALSE(reconcilor->NeedsCookieBindingUpgrade());
+}
+
+TEST_F(AccountReconcilorTest,
+       NeedsCookieBindingUpgradeNoUpgradeIfPrototypeSessionExists) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures({net::features::kDeviceBoundSessions,
+                                 switches::kEnableCookieBindingCookieUpgrade},
+                                {});
+
+  SetAccountConsistency(signin::AccountConsistencyMethod::kDice);
+
+  // Make primary account available with a bound key first.
+  auto builder = identity_test_env()->CreateAccountAvailabilityOptionsBuilder();
+  builder.AsPrimary(signin::ConsentLevel::kSignin)
+      .WithRefreshTokenBindingInfo(signin::TokenBindingInfo(
+          /*wrapped_binding_key=*/{1, 2, 3, 4},
+          /*mtls_token_binding=*/false));
+  identity_test_env()->MakeAccountAvailable(builder.Build(kFakeEmail));
+  identity_test_env()->WaitForRefreshTokensLoaded();
+
+  // Setup prototype delegate to return a prototype session.
+  test_signin_client()->set_bound_session_oauth_multilogin_delegate_factory(
+      base::BindRepeating(
+          []() -> std::unique_ptr<signin::BoundSessionOAuthMultiLoginDelegate> {
+            auto mock_delegate = std::make_unique<
+                testing::NiceMock<MockBoundSessionOAuthMultiLoginDelegate>>();
+            std::vector<std::pair<GURL, std::string>> sessions;
+            sessions.emplace_back(GaiaUrls::GetInstance()->secure_google_url(),
+                                  "sidts_session");
+            ON_CALL(*mock_delegate, GetAllSessions)
+                .WillByDefault(Return(sessions));
+            return mock_delegate;
+          }));
+
+  // Create reconcilor.
+  AccountReconcilor* reconcilor = GetMockReconcilor();
+
+  // Feed empty standard sessions.
+  reconcilor->OnDeviceBoundSessionsFetched({});
+
+  // Verify that NeedsCookieBindingUpgrade returns false since prototype session
+  // exists.
+  EXPECT_FALSE(reconcilor->NeedsCookieBindingUpgrade());
+}
+#endif

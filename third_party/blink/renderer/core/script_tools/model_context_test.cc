@@ -22,6 +22,7 @@
 #include "third_party/blink/renderer/core/dom/abort_controller.h"
 #include "third_party/blink/renderer/core/dom/events/native_event_listener.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
+#include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
 #include "third_party/blink/renderer/core/page/validation_message_client.h"
 #include "third_party/blink/renderer/core/script_tools/model_context_supplement.h"
@@ -143,6 +144,14 @@ class ModelContextTestBase : public SimTest {
  protected:
   void SetUp() override {
     SimTest::SetUp();
+    // In SimTest, web security is disabled and universal/file access from file
+    // URLs is enabled by default. This forces documents to always use a
+    // universal non-origin-keyed agent, bypassing the mock navigation agent
+    // cluster key. We adjust these settings here to ensure the mock browser
+    // navigation's agent cluster key is respected.
+    GetDocument().GetSettings()->SetWebSecurityEnabled(true);
+    GetDocument().GetSettings()->SetAllowUniversalAccessFromFileURLs(false);
+    GetDocument().GetSettings()->SetAllowFileAccessFromFileURLs(false);
     GetDocument()
         .GetExecutionContext()
         ->GetBrowserInterfaceBroker()
@@ -202,9 +211,7 @@ TEST_F(ModelContextTest, ExecuteTool) {
     </script>
   )");
 
-  auto* model_context =
-      ModelContextSupplement::modelContext(*Window().navigator());
-  ASSERT_TRUE(model_context);
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
 
   base::RunLoop run_loop;
   String result;
@@ -277,9 +284,7 @@ TEST_F(ModelContextTest, ExecuteToolReturnsObject) {
     </script>
   )");
 
-  auto* model_context =
-      ModelContextSupplement::modelContext(*Window().navigator());
-  ASSERT_TRUE(model_context);
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
 
   base::RunLoop run_loop;
   String result;
@@ -311,9 +316,7 @@ TEST_F(ModelContextTest, ExecuteDeclarativeFormTool_Navigation) {
   )");
   test::RunPendingTasks();
 
-  auto* model_context =
-      ModelContextSupplement::modelContext(*Window().navigator());
-  ASSERT_TRUE(model_context);
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
 
   base::RunLoop run_loop;
   model_context->ExecuteTool(
@@ -340,9 +343,7 @@ TEST_F(ModelContextTest, ExecuteDeclarativeFormTool_InvalidInput) {
   )");
   test::RunPendingTasks();
 
-  auto* model_context =
-      ModelContextSupplement::modelContext(*Window().navigator());
-  ASSERT_TRUE(model_context);
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
 
   base::RunLoop run_loop;
   // Test with a field that doesn't exist in the form
@@ -375,9 +376,7 @@ TEST_F(ModelContextTest, ExecuteDeclarativeFormTool_InvalidSelectValue) {
   )");
   test::RunPendingTasks();
 
-  auto* model_context =
-      ModelContextSupplement::modelContext(*Window().navigator());
-  ASSERT_TRUE(model_context);
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
 
   base::RunLoop run_loop;
   model_context->ExecuteTool(
@@ -416,9 +415,7 @@ TEST_F(ModelContextTest, ExecuteDeclarativeFormTool_SPA) {
   )");
   test::RunPendingTasks();
 
-  auto* model_context =
-      ModelContextSupplement::modelContext(*Window().navigator());
-  ASSERT_TRUE(model_context);
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
 
   base::RunLoop run_loop;
   bool got_result = false;
@@ -461,9 +458,7 @@ TEST_F(ModelContextTest, ExecuteDeclarativeFormTool_SPA_Reject) {
   )");
   test::RunPendingTasks();
 
-  auto* model_context =
-      ModelContextSupplement::modelContext(*Window().navigator());
-  ASSERT_TRUE(model_context);
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
 
   base::RunLoop run_loop;
   bool got_result = false;
@@ -505,9 +500,7 @@ TEST_F(ModelContextTest, ExecuteDeclarativeFormTool_SPA_NoRespondWith) {
   )");
   test::RunPendingTasks();
 
-  auto* model_context =
-      ModelContextSupplement::modelContext(*Window().navigator());
-  ASSERT_TRUE(model_context);
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
 
   base::RunLoop run_loop;
   bool got_result = false;
@@ -546,9 +539,7 @@ TEST_F(ModelContextTest, ExecuteDeclarativeFormTool_ValidationFailure) {
   )");
   test::RunPendingTasks();
 
-  auto* model_context =
-      ModelContextSupplement::modelContext(*Window().navigator());
-  ASSERT_TRUE(model_context);
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
 
   base::RunLoop run_loop;
   bool got_result = false;
@@ -637,9 +628,7 @@ TEST_F(ModelContextValidationTest,
   )");
   test::RunPendingTasks();
 
-  auto* model_context =
-      ModelContextSupplement::modelContext(*Window().navigator());
-  ASSERT_TRUE(model_context);
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
 
   base::RunLoop run_loop;
   bool got_result = false;
@@ -688,9 +677,7 @@ TEST_F(ModelContextTest, ExecuteDeclarativeFormTool_SPA_NoPreventDefault) {
   )");
   test::RunPendingTasks();
 
-  auto* model_context =
-      ModelContextSupplement::modelContext(*Window().navigator());
-  ASSERT_TRUE(model_context);
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
 
   base::RunLoop run_loop;
   bool got_result = false;
@@ -765,9 +752,7 @@ TEST_F(ModelContextTest, ExecuteDeclarativeFormTool_LateRespondWithThrows) {
   )");
   test::RunPendingTasks();
 
-  auto* model_context =
-      ModelContextSupplement::modelContext(*Window().navigator());
-  ASSERT_TRUE(model_context);
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
 
   base::RunLoop run_loop;
   model_context->ExecuteTool(
@@ -827,9 +812,7 @@ TEST_F(ModelContextTest, ExecuteDeclarativeFormTool_PseudoClasses) {
   )");
   test::RunPendingTasks();
 
-  auto* model_context =
-      ModelContextSupplement::modelContext(*Window().navigator());
-  ASSERT_TRUE(model_context);
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
 
   base::RunLoop run_loop;
   model_context->ExecuteTool(
@@ -889,9 +872,7 @@ TEST_F(ModelContextTest, ExecuteDeclarativeFormTool_SPA_NoAutoSubmit) {
   )");
   test::RunPendingTasks();
 
-  auto* model_context =
-      ModelContextSupplement::modelContext(*Window().navigator());
-  ASSERT_TRUE(model_context);
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
 
   base::RunLoop run_loop;
   bool got_result = false;
@@ -959,9 +940,7 @@ TEST_F(ModelContextTest, ExecuteDeclarativeFormTool_FormPopulatedAtEvent) {
   )");
   test::RunPendingTasks();
 
-  auto* model_context =
-      ModelContextSupplement::modelContext(*Window().navigator());
-  ASSERT_TRUE(model_context);
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
 
   base::RunLoop run_loop;
   model_context->ExecuteTool(
@@ -999,9 +978,7 @@ TEST_F(ModelContextTest, ExecuteDeclarativeFormTool_PauseExecution) {
                            base::BindRepeating(&MockScriptToolHost::Bind,
                                                base::Unretained(&mock_host)));
 
-  auto* model_context =
-      ModelContextSupplement::modelContext(*Window().navigator());
-  ASSERT_TRUE(model_context);
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
 
   base::RunLoop run_loop;
   mock_host.set_run_loop(&run_loop);
@@ -1057,9 +1034,7 @@ TEST_F(ModelContextTest, CancelTool) {
   </script>
 )");
 
-  auto* model_context =
-      ModelContextSupplement::modelContext(*Window().navigator());
-  ASSERT_TRUE(model_context);
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
 
   base::RunLoop run_loop;
 
@@ -1105,9 +1080,7 @@ TEST_F(ModelContextTest, ToolEventsDispatched) {
   </script>
 )");
 
-  auto* model_context =
-      ModelContextSupplement::modelContext(*Window().navigator());
-  ASSERT_TRUE(model_context);
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
 
   base::RunLoop run_loop;
 
@@ -1146,9 +1119,7 @@ TEST_F(ModelContextTest, ExecuteDeclarativeFormTool_Reset_Cancels) {
   )");
   test::RunPendingTasks();
 
-  auto* model_context =
-      ModelContextSupplement::modelContext(*Window().navigator());
-  ASSERT_TRUE(model_context);
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
 
   base::RunLoop run_loop;
   bool got_error = false;
@@ -1210,9 +1181,7 @@ TEST_F(ModelContextTest, ToolSignalAborted) {
   </body>
 )");
 
-  auto* model_context =
-      ModelContextSupplement::modelContext(*Window().navigator());
-  ASSERT_TRUE(model_context);
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
 
   base::RunLoop run_loop;
 
@@ -1261,9 +1230,7 @@ TEST_F(ModelContextTest, ExecuteDeclarativeFormTool_FlexibleTypes) {
   )HTML");
   test::RunPendingTasks();
 
-  auto* model_context =
-      ModelContextSupplement::modelContext(*Window().navigator());
-  ASSERT_TRUE(model_context);
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
 
   base::RunLoop run_loop;
   String json_string = R"JSON(
@@ -1360,9 +1327,7 @@ TEST_F(ModelContextTest, CancelToolReentrancy) {
   </script>
 )");
 
-  auto* model_context =
-      ModelContextSupplement::modelContext(*Window().navigator());
-  ASSERT_TRUE(model_context);
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
 
   Window().addEventListener(
       event_type_names::kToolcancel,
@@ -1411,9 +1376,7 @@ TEST_F(ModelContextTest, ForEachScriptToolGC) {
   LoadURL("https://example.com/");
   main_resource.Complete("<body></body>");
 
-  auto* model_context =
-      ModelContextSupplement::modelContext(*Window().navigator());
-  ASSERT_TRUE(model_context);
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
 
   {
     auto* mock_tool = MakeGarbageCollected<MockDeclarativeTool>();
@@ -1471,9 +1434,7 @@ TEST_F(ModelContextTest, ListTools) {
     </script>
   )");
 
-  auto* model_context =
-      ModelContextSupplement::modelContext(*Window().navigator());
-  ASSERT_TRUE(model_context);
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
 
   HeapVector<Member<const ToolData>> tools = model_context->ListTools();
   ASSERT_EQ(3u, tools.size());
@@ -1502,9 +1463,7 @@ TEST_F(ModelContextTest, SourceLocation) {
     </script>
   )");
 
-  auto* model_context =
-      ModelContextSupplement::modelContext(*Window().navigator());
-  ASSERT_TRUE(model_context);
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
 
   HeapVector<Member<const ToolData>> tools = model_context->ListTools();
   ASSERT_EQ(2u, tools.size());
@@ -1536,9 +1495,7 @@ TEST_F(ModelContextTest, BackingFormElement) {
   )");
   test::RunPendingTasks();
 
-  auto* model_context =
-      ModelContextSupplement::modelContext(*Window().navigator());
-  ASSERT_TRUE(model_context);
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
 
   HeapVector<Member<const ToolData>> tools = model_context->ListTools();
   ASSERT_EQ(2u, tools.size());
@@ -1558,6 +1515,13 @@ class ModelContextMetricsTest : public SimTest {
       : SimTest(base::test::TaskEnvironment::TimeSource::MOCK_TIME) {}
 
  protected:
+  void SetUp() override {
+    SimTest::SetUp();
+    GetDocument().GetSettings()->SetWebSecurityEnabled(true);
+    GetDocument().GetSettings()->SetAllowUniversalAccessFromFileURLs(false);
+    GetDocument().GetSettings()->SetAllowFileAccessFromFileURLs(false);
+  }
+
   void EvalJsString(std::string_view script) {
     MainFrame().ExecuteScript(WebScriptSource(WebString::FromUtf8(script)));
   }
@@ -1813,9 +1777,7 @@ TEST_F(ModelContextTest, ExecuteTool_RespondWith_And_RemoveForm) {
   )");
   test::RunPendingTasks();
 
-  auto* model_context =
-      ModelContextSupplement::modelContext(*Window().navigator());
-  ASSERT_TRUE(model_context);
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
 
   base::RunLoop run_loop;
   bool got_result = false;
@@ -1859,9 +1821,7 @@ TEST_F(ModelContextTest, ExecuteTool_RespondWith_And_Navigate) {
   )HTML");
   test::RunPendingTasks();
 
-  auto* model_context =
-      ModelContextSupplement::modelContext(*Window().navigator());
-  ASSERT_TRUE(model_context);
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
 
   base::RunLoop run_loop;
   bool got_result = false;
@@ -1910,9 +1870,7 @@ TEST_F(ModelContextTest, ExecuteDeclarativeFormTool_UnrelatedSubmitAndRemove) {
     </script>
   )HTML");
   test::RunPendingTasks();
-  auto* model_context =
-      ModelContextSupplement::modelContext(*Window().navigator());
-  ASSERT_TRUE(model_context);
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
   base::RunLoop run_loop;
   bool got_callback = false;
   model_context->ExecuteTool(
@@ -1938,6 +1896,52 @@ TEST_F(ModelContextTest, ExecuteDeclarativeFormTool_UnrelatedSubmitAndRemove) {
 
   run_loop.Run();
   EXPECT_TRUE(got_callback);
+}
+
+TEST_F(ModelContextTest, fileURLAllowedWithoutOriginKeying) {
+  SimRequest main_resource("file:///tmp/test.html", "text/html");
+  LoadURL("file:///tmp/test.html");
+  v8::HandleScope handle_scope(Window().GetIsolate());
+  ScriptState::Scope script_scope(
+      ToScriptStateForMainWorld(Window().GetFrame()));
+
+  main_resource.Complete(R"HTML(
+    <body>
+    <script>
+    window.registerToolError = null;
+    window.registerToolMessage = null;
+    try {
+      document.modelContext.registerTool({
+        name: "test_tool",
+        description: "a test tool",
+        execute: () => "success",
+      });
+    } catch (e) {
+      window.registerToolError = e.name;
+      window.registerToolMessage = e.message;
+    }
+    </script>
+    </body>
+  )HTML");
+  test::RunPendingTasks();
+
+  EXPECT_TRUE(EvalJsBoolean("window.registerToolError === null"));
+  EXPECT_TRUE(EvalJsBoolean("window.registerToolMessage === null"));
+}
+
+TEST_F(ModelContextTest, fileURLAllowedForDeclarativeTool) {
+  SimRequest main_resource("file:///tmp/test.html", "text/html");
+  LoadURL("file:///tmp/test.html");
+  main_resource.Complete("<body></body>");
+
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
+
+  auto* mock_tool = MakeGarbageCollected<MockDeclarativeTool>();
+  model_context->RegisterDeclarativeTool(mock_tool);
+
+  HeapVector<Member<const ToolData>> tools = model_context->ListTools();
+  ASSERT_EQ(1u, tools.size());
+  EXPECT_EQ("test_tool", tools[0]->Name());
 }
 
 }  // namespace blink

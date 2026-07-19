@@ -155,6 +155,12 @@ COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 extern const base::FeatureParam<base::TimeDelta>
     kGetAIPageContentMainFrameTimeoutParam;
 
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+BASE_DECLARE_FEATURE(kGetAIPageContentGetImageBytesTimeoutEnabled);
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+extern const base::FeatureParam<base::TimeDelta>
+    kGetAIPageContentGetImageBytesTimeoutParam;
+
 typedef base::EnumSet<proto::RequestContext,
                       proto::RequestContext_MIN,
                       proto::RequestContext_MAX>
@@ -386,12 +392,6 @@ bool ShouldUseTextSafetyClassifierModel();
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 double GetOnDeviceModelLanguageDetectionMinimumReliability();
 
-// Whether the newer generalized safety model is used instead of the ULM-based
-// model as the text safety model. Irrelevant if
-// `ShouldUseTextSafetyClassifierModel()` returns false;
-COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
-bool ShouldUseGeneralizedSafetyModel();
-
 // These params configure the repetition checker. See HasRepeatingSuffix() in
 // repetition_checker.h for explanation. A value of 2 for num repeats and 16 for
 // min repeat chars would mean we will halt a response once it repeats at least
@@ -430,6 +430,11 @@ std::optional<base::TimeDelta> GetSubframeGetAIPageContentTimeout();
 // applied.
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 std::optional<base::TimeDelta> GetMainFrameGetAIPageContentTimeout();
+
+// Returns what the timeout for calls to GetImageBytes should be.
+// An empty return value indicates no timeout should be applied.
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+std::optional<base::TimeDelta> GetAIPageContentGetImageBytesTimeout();
 
 }  // namespace features
 }  // namespace optimization_guide

@@ -4,7 +4,9 @@
 
 /* #css_wrapper_metadata_start
  * #type=style-lit
+ * #import=//resources/cr_elements/cr_hidden_style_lit.css.js
  * #scheme=relative
+ * #include=cr-hidden-style-lit
  * #css_wrapper_metadata_end */
 
 :host {
@@ -12,8 +14,10 @@
   display: inline-flex;
   justify-content: center;
   position: relative;
-  height: var(--toolbar-button-height);
-  width: var(--toolbar-button-height);
+  --button-height: var(--toolbar-button-height);
+  --button-width: var(--toolbar-button-height);
+  height: var(--button-height);
+  width: var(--button-width);
 }
 
 cr-icon-button {
@@ -24,10 +28,45 @@ cr-icon-button {
   --cr-icon-button-fill-color: var(--color-toolbar-button-icon);
 }
 
+cr-button {
+  cursor: default;
+  margin: 0;
+  padding: 0;
+  min-width: var(--toolbar-button-height);
+  --cr-button-size: var(--toolbar-button-height);
+  --cr-button-height: var(--toolbar-button-height);
+  --cr-button-icon-size: var(--toolbar-button-icon-size);
+  --cr-button-fill-color: var(--color-toolbar-button-icon);
+  --cr-button-background-color: transparent;
+  --cr-button-border-color: transparent;
+  --cr-button-border: 0;
+}
+
 cr-icon-button[is-menu-open],
+cr-button[is-menu-open],
 :host(.anchor-highlight) cr-icon-button {
   background-color: var(--cr-active-background-color);
 }
+
+:host(.help-anchor-highlight) cr-icon-button {
+  animation: pulse 800ms infinite alternate ease-in-out;
+  --cr-icon-button-active-background-color: var(
+      --color-button-feature-attention-highlight);
+  background-color: var(--cr-icon-button-active-background-color);
+}
+
+@keyframes pulse {
+  from {
+    transform: scale(1);
+  }
+  to {
+    /* Scale so that the difference in size is 3px on any edge. Use the
+     * max dimension to ensure the inset is at most 3px. */
+    transform: scale(calc(
+      1 - 6 / (max(var(--button-height), var(--button-width)) / 1px)));
+  }
+}
+
 
 /* The "Blue Bar" status indicator that appears when a split is active */
 .status-indicator {
@@ -55,4 +94,15 @@ cr-icon-button[is-menu-open],
 cr-icon-button[is-activated] {
   --cr-icon-button-fill-color: var(--color-toolbar-action-item-engaged,
       var(--google-blue-600));
+}
+
+cr-button[is-activated] {
+  --cr-button-fill-color: var(--color-toolbar-action-item-engaged,
+      var(--google-blue-600));
+}
+
+icon-from-table {
+  width: var(--toolbar-button-icon-size);
+  height: var(--toolbar-button-icon-size);
+  --icon-size: var(--toolbar-button-icon-size);
 }

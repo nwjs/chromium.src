@@ -488,8 +488,9 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
 
     // Ensure that the omnibox doesn't start with javascript: scheme.
     EXPECT_EQ(test_url, new_contents->GetVisibleURL());
-    OmniboxView* omnibox_view =
-        browser()->window()->GetLocationBar()->GetOmniboxView();
+    OmniboxView* omnibox_view = BrowserWindow::FromBrowser(browser())
+                                    ->GetLocationBar()
+                                    ->GetOmniboxView();
     std::string omnibox_text = base::UTF16ToASCII(omnibox_view->GetText());
     EXPECT_THAT(omnibox_text, testing::Not(testing::StartsWith("javascript:")));
   }
@@ -2165,7 +2166,7 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
             EXPECT_FALSE(navigation_handle->HasCommitted());
             was_navigation_canceled = true;
           }));
-  incognito->window()->Close();
+  incognito->GetWindow()->Close();
   profile_destruction_waiter.Wait();
 
   // Make sure the navigation was canceled during profile destruction.
@@ -2223,7 +2224,7 @@ void ChromeNavigationBrowserTest::
   EXPECT_TRUE(sad_tab_helper->sad_tab());
   // Ensure that the omnibox URL is the crashed one.
   OmniboxView* omnibox_view =
-      browser()->window()->GetLocationBar()->GetOmniboxView();
+      BrowserWindow::FromBrowser(browser())->GetLocationBar()->GetOmniboxView();
   std::string omnibox_text = base::UTF16ToASCII(omnibox_view->GetText());
   EXPECT_EQ(omnibox_text, url_start.spec());
 

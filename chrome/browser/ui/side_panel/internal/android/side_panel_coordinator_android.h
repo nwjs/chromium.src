@@ -51,10 +51,13 @@ class SidePanelCoordinatorAndroid : public SidePanelUIBase {
 
   // Implements Java `SidePanelCoordinatorAndroid.Natives`. These methods are
   // called from Java via JNI, see `SidePanelCoordinatorAndroidImpl.java`.
+  void Init(JNIEnv* env);
   void Destroy(JNIEnv* env);
-  void NotifyCloseAnimationFinished(JNIEnv* env);
-  void NotifyOpenAnimationFinished(JNIEnv* env);
-  void OnWindowResized(JNIEnv* env, bool can_show_side_panel);
+  bool HasContentToShow(JNIEnv* env);
+  void OnContentRemoved(JNIEnv* env);
+  void OnContentPopulated(JNIEnv* env);
+  void OnWillAutoClose(JNIEnv* env);
+  void OnWillAutoRestore(JNIEnv* env);
 
   // Implements `SidePanelUI`:
   void ShowFrom(SidePanelEntryKey entry_key,
@@ -72,13 +75,10 @@ class SidePanelCoordinatorAndroid : public SidePanelUIBase {
   // Called when a tab is detached from this window's tab strip for reparenting
   // into another window.
   void OnTabReparented(tabs::TabInterface* tab);
-  bool IsClosing() const { return state_ == SidePanelState::kClosing; }
-  bool ShouldClose() const {
-    return state_ == SidePanelState::kShown ||
-           state_ == SidePanelState::kOpening;
-  }
 
   // Functions for testing:
+  SidePanelState GetStateForTesting();
+  int GetContainerWidthForTesting();
   SidePanelEntryWaiter* GetWaiterForTesting() { return waiter(); }
   const SidePanelDeferredEntryTracker& GetDeferredEntryTrackerForTesting()
       const {
@@ -106,11 +106,28 @@ class SidePanelCoordinatorAndroid : public SidePanelUIBase {
   // the window-scoped registry and all contextual (tab-scoped) registries.
   void ClearCachedEntryViews();
 
+  UniqueKey GetCurrentKeyNonNull() const;
+  SidePanelEntry* GetEntryForCurrentKeyNonNull() const;
+
   base::android::ScopedJavaLocalRef<jobject> java_coordinator() const;
 
   // Handles the JNI call to Java to populate the side panel UI.
   void PopulateJavaSidePanel(const base::android::JavaRef<jobject>& view,
                              bool suppress_animations);
+
+  // Handles opening a new entry, when none was previously showing.
+  void PopulateNewEntry(
+      SidePanelEntry* entry,
+      const UniqueKey& unique_key,
+      bool suppress_animations,
+      std::unique_ptr<SidePanelNativeViewAndroid> native_view);
+
+  // Handles replacing the active entry with a new one.
+  void ReplaceActiveEntry(
+      SidePanelEntry* new_entry,
+      const UniqueKey& new_key,
+      std::optional<SidePanelOpenTrigger> open_trigger,
+      std::unique_ptr<SidePanelNativeViewAndroid> native_view);
 
   bool CanShowEntryForKey(const UniqueKey& key) const;
 
@@ -122,10 +139,7 @@ class SidePanelCoordinatorAndroid : public SidePanelUIBase {
   SidePanelState state_ = SidePanelState::kClosed;
 
   // Tracks the hide reason for the current close operation.
-  // TODO(crbug.com/494001968): Consider using an optional or adding kUnknown.
-  // TODO(crbug.com/494001968): This may need to be a queue for many requests.
-  SidePanelEntryHideReason pending_hide_reason_ =
-      SidePanelEntryHideReason::kSidePanelClosed;
+  std::optional<SidePanelEntryHideReason> pending_hide_reason_;
 
   // A weak reference to the Java `SidePanelCoordinatorAndroid`, which is
   // the sole owner of the C++ `SidePanelCoordinatorAndroid`.
@@ -135,8 +149,8 @@ class SidePanelCoordinatorAndroid : public SidePanelUIBase {
   // until animations have completed and it is fully replaced.
   raw_ptr<SidePanelEntry> pending_replaced_entry_ = nullptr;
 
-  // Whether the window is too small to show a side panel.
-  bool is_window_too_small_ = false;
+  // Whether there is insufficient space to show the side panel.
+  bool has_insufficient_space_ = false;
 
   SidePanelDeferredEntryTracker deferred_entry_tracker_{browser()};
 

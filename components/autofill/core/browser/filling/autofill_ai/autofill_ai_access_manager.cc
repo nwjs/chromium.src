@@ -18,6 +18,7 @@
 #include "build/build_config.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/foundations/browser_autofill_manager.h"
+#include "components/autofill/core/browser/network/autofill_ai/personal_context_access_manager.h"
 #include "components/autofill/core/browser/network/autofill_ai/wallet_pass_access_manager.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/device_reauth/device_authenticator.h"
@@ -49,10 +50,7 @@ std::u16string GetAuthenticationMessage(const url::Origin& origin) {
 
 AutofillAiAccessManager::AutofillAiAccessManager(
     BrowserAutofillManager* manager)
-    : manager_(CHECK_DEREF(manager)) {
-  authenticator_ =
-      manager_->client().GetDeviceAuthenticator("Autofill.Ai.ReauthToFill");
-}
+    : manager_(CHECK_DEREF(manager)) {}
 
 AutofillAiAccessManager::~AutofillAiAccessManager() = default;
 
@@ -98,6 +96,7 @@ void AutofillAiAccessManager::Reset() {
   weak_ptr_factory_.InvalidateWeakPtrs();
   if (authenticator_ && is_authentication_in_progress_) {
     authenticator_->Cancel();
+    authenticator_.reset();
   }
   is_authentication_in_progress_ = false;
 }
@@ -131,6 +130,10 @@ void AutofillAiAccessManager::MaybeAuthenticate(
 void AutofillAiAccessManager::Authenticate(
     const url::Origin& origin,
     base::OnceCallback<void(bool)> callback) {
+  if (!authenticator_) {
+    authenticator_ =
+        manager_->client().GetDeviceAuthenticator("Autofill.Ai.ReauthToFill");
+  }
   if (!authenticator_ ||
       !authenticator_->CanAuthenticateWithBiometricOrScreenLock()) {
     // If the device is not capable of reauth or not set up, we assume success
@@ -153,6 +156,7 @@ void AutofillAiAccessManager::Authenticate(
               return;
             }
             self->is_authentication_in_progress_ = false;
+            self->authenticator_.reset();
             std::move(callback).Run(auth_succeeded);
           },
           weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
@@ -168,39 +172,53 @@ void AutofillAiAccessManager::MaybeUnmaskServerEntity(
   }
 
   EntityInstance entity = std::move(result).value();
+  CHECK(entity.IsServerInstance());
 
-  if (!manager_->client().GetWalletPassAccessManager()) {
-    std::move(callback).Run(base::unexpected(FailureReason::kFetchFailed),
-                            reauth_attempted);
-    return;
+  auto on_unmasked_entity_fetched = base::BindOnce(
+      [](base::WeakPtr<AutofillAiAccessManager> self,
+         OnEntityInstanceFetchedCallback callback, bool reauth_attempted,
+         std::optional<EntityInstance> fetched_entity) {
+        // Passing a weak pointer to `AutofillAiAccessManager` is
+        // needed to ensure that the callback is cancelled if
+        // `Reset()` was called during the fetching.
+        if (!self) {
+          return;
+        }
+        if (fetched_entity) {
+          std::move(callback).Run(std::move(*fetched_entity), reauth_attempted);
+        } else {
+          std::move(callback).Run(base::unexpected(FailureReason::kFetchFailed),
+                                  reauth_attempted);
+        }
+      },
+      weak_ptr_factory_.GetWeakPtr(), std::move(callback), reauth_attempted);
+
+  switch (entity.record_type()) {
+    case EntityInstance::RecordType::kServerWallet: {
+      if (!manager_->client().GetWalletPassAccessManager()) {
+        std::move(on_unmasked_entity_fetched).Run(std::nullopt);
+        return;
+      }
+      manager_->client()
+          .GetWalletPassAccessManager()
+          ->GetUnmaskedWalletEntityInstance(
+              entity.guid(), std::move(on_unmasked_entity_fetched));
+      break;
+    }
+    case EntityInstance::RecordType::kPersonalContext: {
+      if (!manager_->client().GetPersonalContextAccessManager()) {
+        std::move(on_unmasked_entity_fetched).Run(std::nullopt);
+        return;
+      }
+      manager_->client()
+          .GetPersonalContextAccessManager()
+          ->GetUnmaskedSpiiEntity(entity.guid(),
+                                  std::move(on_unmasked_entity_fetched));
+      break;
+    }
+    case EntityInstance::RecordType::kLocal:
+      NOTREACHED();
   }
-
-  manager_->client()
-      .GetWalletPassAccessManager()
-      ->GetUnmaskedWalletEntityInstance(
-          entity.guid(),
-          base::BindOnce(
-              [](base::WeakPtr<AutofillAiAccessManager> self,
-                 OnEntityInstanceFetchedCallback callback,
-                 bool reauth_attempted,
-                 std::optional<EntityInstance> fetched_entity) {
-                // Passing a weak pointer to `AutofillAiAccessManager` is needed
-                // to ensure that the callback is cancelled if `Reset()` was
-                // called during the fetching.
-                if (!self) {
-                  return;
-                }
-                if (fetched_entity) {
-                  std::move(callback).Run(std::move(*fetched_entity),
-                                          reauth_attempted);
-                } else {
-                  std::move(callback).Run(
-                      base::unexpected(FailureReason::kFetchFailed),
-                      reauth_attempted);
-                }
-              },
-              weak_ptr_factory_.GetWeakPtr(), std::move(callback),
-              reauth_attempted));
 }
 
 }  // namespace autofill

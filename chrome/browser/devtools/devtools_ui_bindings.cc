@@ -62,6 +62,7 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
+#include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/content_settings/core/common/features.h"
 #include "components/infobars/content/content_infobar_manager.h"
@@ -147,6 +148,7 @@
 #include "extensions/common/manifest_handlers/devtools_page_handler.h"
 #include "extensions/common/mojom/api_permission_id.mojom-shared.h"
 #include "extensions/common/permissions/permissions_data.h"
+#include "extensions/common/switches.h"
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
 using content::BrowserThread;
@@ -176,6 +178,18 @@ const char kConfigNetworkDiscoveryConfig[] = "networkDiscoveryConfig";
 // kLayoutTestMaxMessageChunkSize in
 // content/shell/browser/layout_test/devtools_protocol_test_bindings.cc.
 const size_t kMaxMessageChunkSize = IPC::mojom::kChannelMaximumMessageSize / 4;
+
+// DevTools Google Developer Profiles are not supported on Android.
+// If enabled, the underlying OAuth token request for the
+// "devprofiles.full_control" scope fails with a RestrictedClient error, which
+// can sign the user out of Chrome.
+bool IsDevToolsGdpProfilesSupported() {
+#if BUILDFLAG(IS_ANDROID)
+  return false;
+#else
+  return true;
+#endif
+}
 
 base::DictValue CreateFileSystemValue(
     DevToolsFileHelper::FileSystem file_system) {
@@ -534,6 +548,21 @@ void StreamWrite(DevToolsUIBindings* bindings,
   bindings->CallClientMethod("DevToolsAPI", "streamWrite",
                              base::Value(stream_id), std::move(chunkValue),
                              base::Value(encoded));
+}
+
+bool IsLocalDevToolsFrontendURL(const GURL& url) {
+  if (!url.is_valid() || url.IsAboutBlank() ||
+      !url.SchemeIs(content::kChromeDevToolsScheme) ||
+      url.host() != chrome::kChromeUIDevToolsHost) {
+    return false;
+  }
+  std::string_view path = url.path();
+  if (base::StartsWith(path, "/")) {
+    path = path.substr(1);
+  }
+  return base::StartsWith(path, chrome::kChromeUIDevToolsBundledPath) ||
+         base::StartsWith(path, chrome::kChromeUIDevToolsCustomPath) ||
+         base::StartsWith(path, chrome::kChromeUIDevToolsBlankPath);
 }
 
 }  // namespace
@@ -1285,10 +1314,7 @@ void DevToolsUIBindings::LoadNetworkResource(DispatchCallback callback,
   } else
   if (gurl.SchemeIsFile()) {
     GURL frontend_url = web_contents_->GetLastCommittedURL();
-    bool is_remote_frontend =
-        frontend_url.is_valid() && !frontend_url.IsAboutBlank() &&
-        IsValidRemoteFrontendURL(frontend_url);
-    if (is_remote_frontend) {
+    if (!IsLocalDevToolsFrontendURL(frontend_url)) {
       if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
               switches::kAllowUnsafeDevToolsRemoteFileLoading)) {
         base::DictValue response_dict;
@@ -2125,8 +2151,7 @@ base::DictValue DevToolsUIBindings::GetHostConfigDictionary(Profile* profile) {
   // default, this dict can be removed.
   if (base::FeatureList::IsEnabled(::features::kDevToolsGdpProfiles)) {
     base::DictValue gdp_profiles_dict;
-    gdp_profiles_dict.Set("enabled", base::FeatureList::IsEnabled(
-                                         ::features::kDevToolsGdpProfiles));
+    gdp_profiles_dict.Set("enabled", IsDevToolsGdpProfilesSupported());
     gdp_profiles_dict.Set("badgesEnabled",
                           features::kDevToolsGdpProfilesBadgesEnabled.Get());
     gdp_profiles_dict.Set(
@@ -2142,7 +2167,8 @@ base::DictValue DevToolsUIBindings::GetHostConfigDictionary(Profile* profile) {
 
   base::DictValue gdp_profiles_availability_dict;
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  gdp_profiles_availability_dict.Set("enabled", true);
+  gdp_profiles_availability_dict.Set("enabled",
+                                     IsDevToolsGdpProfilesSupported());
 #else
   gdp_profiles_availability_dict.Set("enabled", false);
 #endif
@@ -2207,11 +2233,23 @@ base::DictValue DevToolsUIBindings::GetHostConfigDictionary(Profile* profile) {
                         "enabled", base::FeatureList::IsEnabled(
                                        blink::features::kDevToolsAdsPanel)));
 
+  response_dict.Set("devToolsPlusButton",
+                    base::DictValue().Set(
+                        "enabled", GetFeatureStateForDevTools(
+                                       ::features::kDevToolsPlusButton,
+                                       enabled_by_flags, disabled_by_flags)));
+
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+  // We check AreExtensionsOnExtensionURLsAllowed() here because this is used to
+  // restrict access to chrome-extension:// URLs, and that helper covers both
+  // --extensions-on-extension-urls and the legacy --extensions-on-chrome-urls
+  // behavior.
   response_dict.Set(
-      "devToolsPlusButton",
+      "extensionsOnChromeUrls",
       base::DictValue().Set(
           "enabled",
-          base::FeatureList::IsEnabled(::features::kDevToolsPlusButton)));
+          extensions::switches::AreExtensionsOnExtensionURLsAllowed()));
+#endif
 
   return response_dict;
 }
@@ -3021,6 +3059,7 @@ void DevToolsUIBindings::ReadyToCommitNavigation(
       LOG(ERROR) << "Attempt to navigate to an invalid DevTools front-end URL: "
                  << navigation_handle->GetURL().spec();
       frontend_host_.reset();
+      extensions_api_.clear();
       return;
     }
     if (frontend_host_) {
@@ -3040,6 +3079,10 @@ void DevToolsUIBindings::ReadyToCommitNavigation(
         base::BindRepeating(
             &DevToolsUIBindings::HandleMessageFromDevToolsFrontend,
             base::Unretained(this)));
+    return;
+  }
+
+  if (!frontend_host_) {
     return;
   }
 

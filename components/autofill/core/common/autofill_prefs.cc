@@ -79,6 +79,13 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
       kAutofillPaymentCardBenefits, true,
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
 
+  registry->RegisterBooleanPref(
+      kAutofillGmailOtpFillingEnabled, false,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+  registry->RegisterTimePref(
+      kAutofillGmailOtpFillingActivationDismissalTimestamp, base::Time(),
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+
   registry->RegisterStringPref(
       kAutofillNameAndEmailProfileSignature, "",
       user_prefs::PrefRegistrySyncable::SYNCABLE_PRIORITY_PREF);
@@ -106,6 +113,7 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterDictionaryPref(kAutofillMetadataUploadEvents);
   registry->RegisterTimePref(kAutofillUploadEventsLastResetTimestamp, {});
   registry->RegisterDictionaryPref(kAutofillSyncTransportOptIn);
+  registry->RegisterListPref(kAutofillTypesBlocked);
 #if BUILDFLAG(IS_ANDROID)
   // Automotive devices require stricter data protection for user privacy, so
   // mandatory reauth for autofill payment methods should always be enabled.
@@ -161,17 +169,19 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
       kAutofillAmountExtractionAiTermsSeen, false,
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
 
-  if (base::FeatureList::IsEnabled(
-          features::kAutofillEnableSupportForHomeAndWork)) {
-    registry->RegisterDictionaryPref(
-        kAutofillHomeMetadata,
-        user_prefs::PrefRegistrySyncable::SYNCABLE_PRIORITY_PREF);
-    registry->RegisterDictionaryPref(
-        kAutofillWorkMetadata,
-        user_prefs::PrefRegistrySyncable::SYNCABLE_PRIORITY_PREF);
-    registry->RegisterIntegerPref(kAutofillSilentUpdatesToHomeAddress, 0);
-    registry->RegisterIntegerPref(kAutofillSilentUpdatesToWorkAddress, 0);
-  }
+  registry->RegisterDictionaryPref(
+      kAutofillAtMemoryTriggerInfo,
+      base::DictValue().Set("trigger", "@@").Set("is_shortcut", false),
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+
+  registry->RegisterDictionaryPref(
+      kAutofillHomeMetadata,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PRIORITY_PREF);
+  registry->RegisterDictionaryPref(
+      kAutofillWorkMetadata,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PRIORITY_PREF);
+  registry->RegisterIntegerPref(kAutofillSilentUpdatesToHomeAddress, 0);
+  registry->RegisterIntegerPref(kAutofillSilentUpdatesToWorkAddress, 0);
 
   // Deprecated prefs registered for migration.
   registry->RegisterBooleanPref(kAutofillEnabledDeprecated, true);
@@ -237,6 +247,10 @@ bool IsAutofillCreditCardManaged(const PrefService* prefs) {
   return prefs->IsManagedPreference(kAutofillCreditCardEnabled);
 }
 
+bool IsAutofillTypesBlockedManaged(const PrefService* prefs) {
+  return prefs->IsManagedPreference(kAutofillTypesBlocked);
+}
+
 bool IsAutofillProfileEnabled(const PrefService* prefs) {
   return prefs->GetBoolean(kAutofillProfileEnabled);
 }
@@ -260,6 +274,24 @@ void SetAutofillProfileEnabled(PrefService* prefs, bool enabled) {
   using enum AutofillAddressOptInChange;
   base::UmaHistogramEnumeration("Autofill.Address.IsEnabled.Change",
                                 enabled ? kOptIn : kOptOut);
+}
+
+bool IsAutofillGmailOtpFillingEnabled(const PrefService* prefs) {
+  return prefs->GetBoolean(kAutofillGmailOtpFillingEnabled);
+}
+
+void SetAutofillGmailOtpFillingEnabled(PrefService* prefs, bool enabled) {
+  prefs->SetBoolean(kAutofillGmailOtpFillingEnabled, enabled);
+}
+
+base::Time GetAutofillGmailOtpFillingActivationDismissalTimestamp(
+    const PrefService* prefs) {
+  return prefs->GetTime(kAutofillGmailOtpFillingActivationDismissalTimestamp);
+}
+
+void SetAutofillGmailOtpFillingActivationDismissalTimestamp(PrefService* prefs,
+                                                            base::Time time) {
+  prefs->SetTime(kAutofillGmailOtpFillingActivationDismissalTimestamp, time);
 }
 
 bool IsAutofillAiSyncedOptInStatusEnabled(const PrefService* prefs) {

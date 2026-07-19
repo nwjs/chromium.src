@@ -19,6 +19,7 @@
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_handle.h"
+#include "content/public/browser/reload_type.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -220,8 +221,8 @@ MimeHandlerStreamManager::GetStreamContainer(
   // It's possible to have multiple `extensions::StreamContainer`s under the
   // same frame tree node ID. Verify the original URL in the stream container to
   // avoid a potential URL spoof.
-  if (embedder_host->GetLastCommittedURL() !=
-      stream_info->stream()->original_url()) {
+  if (!embedder_host->GetLastCommittedURL().EqualsIgnoringRef(
+          stream_info->stream()->original_url())) {
     return nullptr;
   }
 
@@ -240,6 +241,18 @@ bool MimeHandlerStreamManager::IsExtensionHost(
                                     render_frame_host->GetFrameTreeNodeId());
 }
 
+bool MimeHandlerStreamManager::IsExtensionHostForUrl(
+    const content::RenderFrameHost* render_frame_host,
+    const GURL& url) const {
+  if (!IsExtensionHost(render_frame_host)) {
+    return false;
+  }
+  const extensions::StreamInfo* stream_info =
+      GetClaimedStreamInfo(render_frame_host->GetParent());
+  CHECK(stream_info);
+  return url.host() == stream_info->stream()->extension_id();
+}
+
 std::optional<ExtensionId>
 MimeHandlerStreamManager::GetTopLevelHandlerExtensionId() const {
   content::RenderFrameHost* main_rfh = web_contents()->GetPrimaryMainFrame();
@@ -255,7 +268,8 @@ MimeHandlerStreamManager::GetTopLevelHandlerExtensionId() const {
   // same frame tree node ID. Verify the original URL in the stream container
   // to avoid a potential URL spoof -- the same guard `GetStreamContainer()`
   // applies.
-  if (main_rfh->GetLastCommittedURL() != info->stream()->original_url()) {
+  if (!main_rfh->GetLastCommittedURL().EqualsIgnoringRef(
+          info->stream()->original_url())) {
     return std::nullopt;
   }
   return info->stream()->extension_id();
@@ -270,6 +284,19 @@ bool MimeHandlerStreamManager::IsExtensionFrameTreeNodeId(
              stream_info->extension_host_frame_tree_node_id() &&
          embedder_host->GetLastCommittedURL().EqualsIgnoringRef(
              stream_info->stream()->original_url());
+}
+
+bool MimeHandlerStreamManager::IsExtensionFrameTreeNodeIdForUrl(
+    const content::RenderFrameHost* embedder_host,
+    content::FrameTreeNodeId frame_tree_node_id,
+    const GURL& url) const {
+  if (!IsExtensionFrameTreeNodeId(embedder_host, frame_tree_node_id)) {
+    return false;
+  }
+  const extensions::StreamInfo* stream_info =
+      GetClaimedStreamInfo(embedder_host);
+  CHECK(stream_info);
+  return url.host() == stream_info->stream()->extension_id();
 }
 
 bool MimeHandlerStreamManager::DidExtensionFrameFinishNavigation(
@@ -348,8 +375,12 @@ void MimeHandlerStreamManager::AbortAndFallbackToNativeHandler(
   // the throttle's FTN-keyed peek matches the mark set here.
   content::NavigationController::LoadURLParams params(original_url);
   params.frame_tree_node_id = embedder_ftn;
-  params.should_replace_current_entry = true;
   params.transition_type = ui::PAGE_TRANSITION_CLIENT_REDIRECT;
+  // The embedder is already committed on this URL. Without a reload
+  // classification, re-navigating to the same URL is treated as a
+  // same-document scroll when it carries a fragment, so the response
+  // throttle never re-runs to hand the body to the native handler.
+  params.reload_type = content::ReloadType::NORMAL;
   web_contents()->GetController().LoadURLWithParams(params);
 }
 
@@ -683,6 +714,11 @@ void MimeHandlerStreamManager::NavigateToExtensionUrl(
       stream_info->stream()->handler_url());
   params.frame_tree_node_id = extension_host_frame_tree_node_id;
   params.source_site_instance = source_site_instance;
+
+  if (stream_info->delegate()->RequiresPerInstanceProcessIsolation()) {
+    params.requests_unique_instance_isolation = true;
+  }
+
   web_contents()->GetController().LoadURLWithParams(params);
 }
 
@@ -749,7 +785,14 @@ void MimeHandlerStreamManager::DeleteClaimedStreamInfo(
 
 bool MimeHandlerStreamManager::MaybeDeleteStreamOnExtensionHostChanged(
     content::RenderFrameHost* old_host) {
-  if (!IsExtensionHost(old_host)) {
+  content::RenderFrameHost* embedder_host = old_host->GetParent();
+  if (!embedder_host) {
+    return false;
+  }
+
+  auto* stream_info = GetClaimedStreamInfo(embedder_host);
+  if (!stream_info || old_host->GetFrameTreeNodeId() !=
+                          stream_info->extension_host_frame_tree_node_id()) {
     return false;
   }
 
@@ -760,9 +803,6 @@ bool MimeHandlerStreamManager::MaybeDeleteStreamOnExtensionHostChanged(
     return false;
   }
 
-  content::RenderFrameHost* embedder_host = old_host->GetParent();
-  CHECK(embedder_host);
-
   DeleteClaimedStreamInfo(embedder_host);
   // DO NOT add code past this point. `this` may have been deleted.
 
@@ -771,15 +811,24 @@ bool MimeHandlerStreamManager::MaybeDeleteStreamOnExtensionHostChanged(
 
 bool MimeHandlerStreamManager::MaybeDeleteStreamOnContentHostChanged(
     content::RenderFrameHost* old_host) {
-  if (!IsContentHost(old_host)) {
+  content::RenderFrameHost* extension_host = old_host->GetParent();
+  if (!extension_host) {
     return false;
   }
 
-  // `IsContentHost()` validated: parent is extension host, grandparent is
-  // embedder.
-  content::RenderFrameHost* embedder_host = old_host->GetParent()->GetParent();
-  CHECK(embedder_host);
+  content::RenderFrameHost* embedder_host = extension_host->GetParent();
+  if (!embedder_host) {
+    return false;
+  }
+
   auto* stream_info = GetClaimedStreamInfo(embedder_host);
+  if (!stream_info ||
+      extension_host->GetFrameTreeNodeId() !=
+          stream_info->extension_host_frame_tree_node_id() ||
+      old_host->GetFrameTreeNodeId() !=
+          stream_info->content_host_frame_tree_node_id()) {
+    return false;
+  }
 
   // Let the delegate validate content-frame invariants.
   stream_info->delegate()->ValidateContentFrameHost(old_host, stream_info);
@@ -793,7 +842,7 @@ bool MimeHandlerStreamManager::MaybeDeleteStreamOnContentHostChanged(
   if (url.is_empty()) {
     return false;
   }
-  CHECK(url == stream_info->stream()->original_url());
+  CHECK(url.EqualsIgnoringRef(stream_info->stream()->original_url()));
 
   DeleteClaimedStreamInfo(embedder_host);
   // DO NOT add code past this point. `this` may have been deleted.

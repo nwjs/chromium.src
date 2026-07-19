@@ -15,6 +15,12 @@ namespace tabs {
 class TabInterface;
 }
 
+#if !BUILDFLAG(IS_ANDROID)
+namespace actor {
+class ActorTabStripTrackerDesktop;
+}
+#endif
+
 namespace actor::ui {
 class ActorUiStateManager : public ActorUiStateManagerInterface {
  public:
@@ -26,6 +32,10 @@ class ActorUiStateManager : public ActorUiStateManagerInterface {
   void OnUiEvent(SyncUiEvent event) override;
 #if !BUILDFLAG(SKIP_ANDROID_UNMIGRATED_ACTOR_FILES)
   void MaybeShowToast(BrowserWindowInterface* bwi) override;
+#endif
+
+#if !BUILDFLAG(IS_ANDROID)
+  void LazyInitTabTracker() override;
 #endif
 
   std::optional<std::string> GetActorTaskTitle(TaskId id) override;
@@ -47,6 +57,11 @@ class ActorUiStateManager : public ActorUiStateManagerInterface {
   std::vector<tabs::TabInterface*> GetTabs(TaskId id);
 
  private:
+  UiTabState GetActorControlledUiTabState(TaskId task_id);
+  UiTabState GetActorControlledUiTabState(const tabs::TabInterface* tab);
+  void OnTransientTaskDelayExpired(TaskId task_id);
+  void StopTimer(TaskId task_id);
+
   ActorTask::TaskDuration GetDuration(const tabs::TabInterface* tab);
   // Notify profile scoped ui components about actor task state changes.
   void NotifyActorTaskStateChange(TaskId task_id);
@@ -66,9 +81,17 @@ class ActorUiStateManager : public ActorUiStateManagerInterface {
   // kGlicActorUiCompletedTaskExpiryDelaySeconds period of time.
   absl::flat_hash_map<TaskId, StoppedTaskInfo> stopped_task_info_;
 
+  // One-shot timers for active transient tasks UI delays.
+  absl::flat_hash_map<TaskId, std::unique_ptr<base::OneShotTimer>>
+      transient_task_timers_;
+
   base::OneShotTimer notify_actor_task_state_change_debounce_timer_;
 
   const raw_ref<ActorKeyedService> actor_service_;
+
+#if !BUILDFLAG(IS_ANDROID)
+  std::unique_ptr<actor::ActorTabStripTrackerDesktop> tab_strip_tracker_;
+#endif
 
   base::RepeatingCallbackList<void(TaskId)>
       actor_task_state_change_callback_list_;

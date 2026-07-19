@@ -18,7 +18,8 @@
                 "archive_name_prefix": "ios-asan",
                 "archive_subdir": "ios-asan",
                 "gs_acl": "public-read",
-                "gs_bucket": "chromium-browser-asan"
+                "gs_bucket": "chromium-browser-asan",
+                "use_archive_path": false
               },
               "execution_mode": "COMPILE_AND_TEST",
               "legacy_chromium_config": {
@@ -82,5 +83,5 @@
   "sheriff_rotations": [
     "ios"
   ],
-  "xcode_build_version": "17a400"
+  "xcode_build_version": "17f42"
 }

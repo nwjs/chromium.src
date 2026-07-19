@@ -88,6 +88,7 @@ class EmbeddedPermissionPromptInteractiveTest
     feature_list_.InitWithFeatures(
         {blink::features::kGeolocationElement,
          blink::features::kUserMediaElement,
+         blink::features::kUserMediaElementLegacy,
          blink::features::kBypassPepcSecurityForTesting},
         {});
   }
@@ -1064,10 +1065,10 @@ IN_PROC_BROWSER_TEST_P(EmbeddedPermissionPromptInteractiveTest,
         // again.
         Browser* focused_window = CreateBrowser(browser()->profile());
         ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(focused_window));
-        ASSERT_FALSE(browser()->window()->IsActive());
+        ASSERT_FALSE(browser()->GetWindow()->IsActive());
 
         ui_test_utils::BrowserActivationWaiter waiter(browser());
-        browser()->window()->Activate();
+        browser()->GetWindow()->Activate();
         waiter.WaitForActivation();
       }),
 
@@ -1237,6 +1238,7 @@ class EmbeddedPermissionPromptPositioningInteractiveTest
         {
             {blink::features::kGeolocationElement, {}},
             {blink::features::kUserMediaElement, {}},
+            {blink::features::kUserMediaElementLegacy, {}},
             {permissions::features::kPermissionElementPromptPositioning,
              {{"PermissionElementPromptPositioningParam", "near_element"}}},
             {blink::features::kBypassPepcSecurityForTesting, {}},
@@ -1628,7 +1630,7 @@ IN_PROC_BROWSER_TEST_P(EmbeddedPermissionPromptInteractiveTest,
   views::Widget::InitParams params(
       views::Widget::InitParams::CLIENT_OWNS_WIDGET,
       views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
-  params.context = browser()->window()->GetNativeWindow();
+  params.context = browser()->GetWindow()->GetNativeWindow();
   auto widget = std::make_unique<views::Widget>();
   widget->Init(std::move(params));
   widget->SetBounds(gfx::Rect(0, 0, 800, 600));

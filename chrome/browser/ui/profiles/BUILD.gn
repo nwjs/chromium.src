@@ -63,6 +63,7 @@ source_set("impl") {
   deps = [
     ":profiles",
     "//chrome/browser/feedback",
+    "//chrome/browser/ui:incognito_allowed_url",
     "//chrome/browser/ui:simple_message_box_headers",
   ]
   public_deps = []
@@ -80,9 +81,11 @@ source_set("impl") {
       "//chrome/browser/prefs",
       "//chrome/browser/profiles:profile_manager",
       "//chrome/browser/signin",
+      "//chrome/browser/subscription_eligibility",
       "//chrome/browser/sync",
       "//chrome/browser/themes",
       "//chrome/browser/ui:layout_constants",
+      "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/color:color_headers",
       "//chrome/browser/ui/dialogs",
@@ -189,7 +192,7 @@ source_set("browser_tests") {
   testonly = true
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
   sources = []
-  deps = []
+  deps = [ "//chrome/browser/ui:simple_message_box_internal" ]
 
   if (!is_android) {
     sources += [ "profile_error_browsertest.cc" ]

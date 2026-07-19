@@ -112,7 +112,6 @@
 #include "chrome/browser/ui/webui/ash/smb_shares/smb_credentials_dialog.h"
 #include "chrome/browser/ui/webui/ash/smb_shares/smb_share_dialog.h"
 #include "chrome/browser/ui/webui/ash/sys_internals/sys_internals_ui.h"
-#include "chrome/browser/ui/webui/ash/vm/vm_ui.h"
 #include "chrome/browser/ui/webui/chromeos/chrome_url_disabled/chrome_url_disabled_ui.h"
 #include "chrome/browser/ui/webui/nearby_internals/nearby_internals_ui.h"
 #include "chrome/browser/ui/webui/nearby_share/nearby_share_dialog_ui.h"
@@ -121,9 +120,6 @@
 #include "ui/webui/webui_util.h"
 #if !defined(OFFICIAL_BUILD)
 #include "ash/webui/sample_system_web_app_ui/sample_system_web_app_ui.h"
-#if !defined(USE_REAL_DBUS_CLIENTS)
-#include "chrome/browser/ui/webui/ash/emulator/device_emulator_ui.h"
-#endif  // !defined(USE_REAL_DBUS_CLIENTS)
 #endif  // !defined(OFFICIAL_BUILD)
 
 namespace content {
@@ -349,7 +345,6 @@ void RegisterAshChromeWebUIConfigs() {
                      policy::local_user_files::LocalFilesMigrationUIConfig>());
   map.AddWebUIConfig(
       std::make_unique<UrgentPasswordExpiryNotificationUIConfig>());
-  map.AddWebUIConfig(std::make_unique<VmUIConfig>());
   map.AddWebUIConfig(std::make_unique<vc_background_ui::VcBackgroundUIConfig>(
       base::BindRepeating(vc_background_ui::CreateVcBackgroundUI)));
   map.AddWebUIConfig(std::make_unique<GrowthInternalsUIConfig>());
@@ -357,9 +352,6 @@ void RegisterAshChromeWebUIConfigs() {
 #if !defined(OFFICIAL_BUILD)
   map.AddWebUIConfig(std::make_unique<SampleSystemWebAppUIConfig>());
   map.AddWebUIConfig(std::make_unique<StatusAreaInternalsUIConfig>());
-#if !defined(USE_REAL_DBUS_CLIENTS)
-  map.AddWebUIConfig(std::make_unique<DeviceEmulatorUIConfig>());
-#endif  // !defined(USE_REAL_DBUS_CLIENTS)
 #endif  // !defined(OFFICIAL_BUILD)
 }
 

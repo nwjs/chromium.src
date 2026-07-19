@@ -256,8 +256,6 @@ class COMPOSITOR_EXPORT Compositor
   // Set the current CGDirectDisplayID and update the private client.
   void SetVSyncDisplayID(const int64_t display_id);
   int64_t display_id() const;
-
-  void RefreshRateChangedOnSameDisplay();
 #endif
 
   const gfx::DisplayColorSpaces& display_color_spaces() const {
@@ -414,6 +412,8 @@ class COMPOSITOR_EXPORT Compositor
   void ApplyViewportChanges(const cc::ApplyViewportChangesArgs& args) override {
   }
   void UpdateCompositorScrollState(
+      const cc::CompositorCommitData& commit_data) override {}
+  void UpdateAnimatedImageState(
       const cc::CompositorCommitData& commit_data) override {}
   void RequestNewLayerTreeFrameSink() override;
   void DidInitializeLayerTreeFrameSink() override {}

@@ -33,6 +33,7 @@ import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.theme.ThemeColorProvider;
 import org.chromium.chrome.browser.ui.browser_window.ChromeAndroidTask;
+import org.chromium.chrome.browser.ui.browser_window.ChromeAndroidTaskFeature.InitInfo;
 import org.chromium.chrome.browser.ui.extensions.ExtensionActionsBridge;
 import org.chromium.chrome.browser.ui.extensions.ExtensionsToolbarBridge;
 import org.chromium.chrome.browser.user_education.IphCommandBuilder;
@@ -81,6 +82,7 @@ public class ExtensionsToolbarCoordinatorImpl
 
     private boolean mCanShowMenuIcon = true;
     private boolean mShowExtensionsMenuPending;
+    private boolean mIsDestroyed;
     private final ExtensionsToolbarBridge.Observer mExtensionsToolbarBridgeObserver =
             new ExtensionsToolbarBridge.Observer() {
                 @Override
@@ -96,6 +98,10 @@ public class ExtensionsToolbarCoordinatorImpl
     private Profile mProfile;
     private PrefService mPrefService;
     private PrefChangeRegistrar mPrefChangeRegistrar;
+    private @Nullable NullableObservableSupplier<Tab> mCurrentTabSupplier;
+    private int mLastDensityDpi;
+    private int mLastIconWidthPx;
+    private @Nullable Runnable mOnFeatureRemoved;
 
     @Override
     public void initializeWithNative(
@@ -111,10 +117,13 @@ public class ExtensionsToolbarCoordinatorImpl
             @Nullable ContextMenuPopulatorFactory contextMenuPopulatorFactory,
             @Nullable SelectionDropdownMenuDelegate selectionDropdownMenuDelegate,
             TabModelSelector tabModelSelector,
-            ModalDialogManager modalDialogManager) {
+            ModalDialogManager modalDialogManager,
+            @Nullable Runnable onFeatureRemoved) {
         mBridge = new ExtensionActionsBridge(task, profile);
         mWindowAndroid = windowAndroid;
         mProfile = profile;
+        mCurrentTabSupplier = currentTabSupplier;
+        mOnFeatureRemoved = onFeatureRemoved;
 
         extensionsToolbarStub.setLayoutResource(R.layout.extensions_toolbar_container);
         mContainer = (LinearLayout) extensionsToolbarStub.inflate();
@@ -176,10 +185,42 @@ public class ExtensionsToolbarCoordinatorImpl
         mWasWindowCompact =
                 context.getResources().getConfiguration().screenWidthDp
                         < COMPACT_WINDOW_THRESHOLD_DP;
+        mLastDensityDpi = context.getResources().getConfiguration().densityDpi;
+        mLastIconWidthPx =
+                context.getResources()
+                        .getDimensionPixelSize(R.dimen.extension_action_icon_canvas_width);
+    }
+
+    @Override
+    public void onAddedToTask(InitInfo initInfo) {
+        // Usually the native side of a {@code ChromeAndroidTaskFeature} should be
+        // initialized here (e.g., using {@code initInfo.nativeBrowserWindowPtr} to
+        // obtain a native `BrowserWindowInterface` pointer).
+        //
+        // However, initializing {@code ExtensionsToolbarCoordinator} requires various
+        // Activity and Toolbar UI dependencies (views, suppliers, dialog managers,
+        // etc.) that are created and owned by {@code ToolbarManager} and are not
+        // accessible via {@code InitInfo}. Therefore, initialization is performed
+        // explicitly via {@code initializeWithNative()} when {@code ToolbarManager}
+        // instantiates this feature, while its teardown lifecycle remains
+        // managed by {@code ChromeAndroidTask}.
+    }
+
+    @Override
+    public void onFeatureRemoved() {
+        if (mOnFeatureRemoved != null) {
+            mOnFeatureRemoved.run();
+        }
+        destroy();
     }
 
     @Override
     public void destroy() {
+        if (mIsDestroyed) {
+            return;
+        }
+        mIsDestroyed = true;
+
         if (mLayoutChangeListener != null && mContainer != null) {
             View anchorView = mContainer.findViewById(R.id.extensions_menu_button);
             if (anchorView != null) {
@@ -204,6 +245,7 @@ public class ExtensionsToolbarCoordinatorImpl
         mExtensionActionListCoordinator.destroy();
         mExtensionsToolbarBridge.destroy();
         mBridge.destroy();
+        mCurrentTabSupplier = null;
 
         LifetimeAssert.setSafeToGc(mLifetimeAssert, true);
     }
@@ -214,6 +256,23 @@ public class ExtensionsToolbarCoordinatorImpl
         if (isWindowCompact != mWasWindowCompact) {
             mWasWindowCompact = isWindowCompact;
             mExtensionAccessControlButtonCoordinator.requestVisibilityUpdate();
+        }
+
+        int densityDpi = newConfig.densityDpi;
+        int iconWidthPx =
+                mContainer
+                        .getContext()
+                        .getResources()
+                        .getDimensionPixelSize(R.dimen.extension_action_icon_canvas_width);
+        if (densityDpi != mLastDensityDpi || iconWidthPx != mLastIconWidthPx) {
+            mLastDensityDpi = densityDpi;
+            mLastIconWidthPx = iconWidthPx;
+            if (mCurrentTabSupplier != null) {
+                Tab currentTab = mCurrentTabSupplier.get();
+                if (currentTab != null && currentTab.getWebContents() != null) {
+                    mExtensionActionListCoordinator.updateAllIcons(currentTab.getWebContents());
+                }
+            }
         }
         // Force layout refresh to pick up new dimensions if density changed.
         ViewUtils.requestLayout(

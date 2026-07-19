@@ -21,8 +21,10 @@
 #import "components/signin/public/identity_manager/primary_account_change_event.h"
 #import "ios/chrome/browser/favicon/model/favicon_service_factory.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
+#import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_controller.h"
 #import "ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_configuration.h"
+#import "ios/chrome/browser/intelligence/bwg/model/gemini_page_context.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_tab_helper.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/intelligence/proto_wrappers/page_context_extractor_java_script_feature.h"
@@ -37,15 +39,18 @@
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_manager_ios.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
-#import "ios/chrome/browser/shared/public/commands/bwg_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/fullscreen_commands.h"
+#import "ios/chrome/browser/shared/public/commands/gemini_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
+#import "ios/chrome/browser/shared/public/snackbar/snackbar_message.h"
 #import "ios/chrome/browser/snapshots/model/fake_snapshot_generator_delegate.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_source_tab_helper.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_tab_helper.h"
 #import "ios/chrome/browser/web/model/web_view_proxy/web_view_proxy_tab_helper.h"
+#import "ios/chrome/common/app_group/app_group_constants.h"
+#import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
 #import "ios/web/find_in_page/find_in_page_java_script_feature.h"
 #import "ios/web/js_messaging/java_script_feature_manager.h"
@@ -57,9 +62,11 @@
 #import "ios/web/public/test/js_test_util.h"
 #import "ios/web/public/test/scoped_testing_web_client.h"
 #import "ios/web/public/test/web_task_environment.h"
+#import "testing/gtest_mac.h"
 #import "testing/platform_test.h"
 #import "third_party/ocmock/OCMock/OCMock.h"
 #import "third_party/ocmock/gtest_support.h"
+#import "ui/base/l10n/l10n_util.h"
 
 namespace {
 std::unique_ptr<KeyedService> BuildFeatureEngagementMockTracker(
@@ -75,8 +82,7 @@ class GeminiBrowserAgentTest : public PlatformTest {
       : web_client_(std::make_unique<web::FakeWebClient>()),
         task_environment_(base::test::TaskEnvironment::TimeSource::MOCK_TIME) {
     feature_list_.InitWithFeatures(
-        {kPageActionMenu, kPageContextExtractorRefactored, kGeminiCopresence},
-        {});
+        {kPageActionMenu, kPageContextExtractorRefactored}, {});
     static_cast<web::FakeWebClient*>(web_client_.Get())
         ->SetJavaScriptFeatures(
             {web::FindInPageJavaScriptFeature::GetInstance(),
@@ -108,10 +114,10 @@ class GeminiBrowserAgentTest : public PlatformTest {
     [browser_->GetCommandDispatcher()
         startDispatchingToTarget:mock_settings_handler_
                      forProtocol:@protocol(SettingsCommands)];
-    mock_bwg_handler_ = OCMProtocolMock(@protocol(BWGCommands));
+    mock_gemini_handler_ = OCMProtocolMock(@protocol(GeminiCommands));
     [browser_->GetCommandDispatcher()
-        startDispatchingToTarget:mock_bwg_handler_
-                     forProtocol:@protocol(BWGCommands)];
+        startDispatchingToTarget:mock_gemini_handler_
+                     forProtocol:@protocol(GeminiCommands)];
 
     std::unique_ptr<web::FakeWebState> web_state =
         std::make_unique<web::FakeWebState>();
@@ -169,7 +175,7 @@ class GeminiBrowserAgentTest : public PlatformTest {
     gemini_tab_helper_ = nullptr;
     optimization_guide_service_ = nullptr;
     mock_settings_handler_ = nullptr;
-    mock_bwg_handler_ = nullptr;
+    mock_gemini_handler_ = nullptr;
     fake_snapshot_delegate_ = nullptr;
     browser_.reset();
     profile_manager_.PrepareForDestruction();
@@ -200,11 +206,6 @@ class GeminiBrowserAgentTest : public PlatformTest {
     gemini_browser_agent_->is_floaty_invoked_ = is_invoked;
   }
 
-  // Clear `active_hiding_sources_`.
-  void ClearActiveHidingSources() {
-    gemini_browser_agent_->active_hiding_sources_.clear();
-  }
-
   // Setter for `is_floaty_temporarily_hidden_`.
   void SetIsFloatyTemporarilyHidden(bool is_hidden) {
     gemini_browser_agent_->is_floaty_temporarily_hidden_ = is_hidden;
@@ -222,6 +223,16 @@ class GeminiBrowserAgentTest : public PlatformTest {
   // Triggers `RequestPageContextGeneration()` in the browser agent.
   void RequestPageContextGeneration() {
     gemini_browser_agent_->RequestPageContextGeneration();
+  }
+
+  // Wrapper for `CreateGeminiConfiguration`.
+  GeminiConfiguration* CreateGeminiConfiguration(
+      UIViewController* base_view_controller,
+      GeminiStartupState* startup_state,
+      web::WebState* web_state,
+      GeminiPageContext* page_context) {
+    return gemini_browser_agent_->CreateGeminiConfiguration(
+        base_view_controller, startup_state, web_state, page_context);
   }
 
   // Setter for `processing_status_`.
@@ -247,7 +258,7 @@ class GeminiBrowserAgentTest : public PlatformTest {
   raw_ptr<web::FakeWebState> web_state_;
   raw_ptr<web::FakeWebFrame> fake_main_frame_;
   id mock_settings_handler_;
-  id mock_bwg_handler_;
+  id mock_gemini_handler_;
   FakeSnapshotGeneratorDelegate* fake_snapshot_delegate_;
   raw_ptr<feature_engagement::test::MockTracker> mock_tracker_;
 };
@@ -348,13 +359,11 @@ TEST_F(GeminiBrowserAgentTest, TestGeminiBrowserAgentStartGeminiFlow) {
   histogram_tester.ExpectUniqueSample(
       kGeminiInvocationPageTypeHistogram,
       IOSGeminiInvocationPageType::kExtractableWebPage, 1);
+  EXPECT_EQ(gemini_browser_agent_->GetEntryPoint(), gemini::EntryPoint::Promo);
 }
 
 // Tests that switching active web states handles observations correctly.
 TEST_F(GeminiBrowserAgentTest, TestActiveWebStateChanged) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(kGeminiCopresence);
-
   // Create a new browser to ensure the GeminiBrowserAgent is initialized with
   // the feature flag enabled.
 
@@ -513,40 +522,6 @@ TEST_F(GeminiBrowserAgentTest,
   EXPECT_EQ(ios::provider::GeminiViewState::kExpanded, GetLastShownViewState());
 }
 
-// Tests that the floaty remains hidden if the keyboard dismisses but a view
-// controller is still presenting.
-TEST_F(GeminiBrowserAgentTest,
-       TestFloatyRemainsHiddenWhenKeyboardDismissedIfViewPresent) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeatureWithParameters(
-      kGeminiCopresence, {{kGeminiCopresenceTrackSources, "true"}});
-  SetIsFloatyInvoked(true);
-  gemini_browser_agent_->HideFloatyIfInvoked(
-      /*animated=*/true, /*source=*/gemini::FloatyUpdateSource::ViewTransition);
-  gemini_browser_agent_->HideFloatyIfInvoked(
-      /*animated=*/true, /*source=*/gemini::FloatyUpdateSource::Keyboard);
-  gemini_browser_agent_->SetLastShownViewState(
-      ios::provider::GeminiViewState::kExpanded);
-
-  // Emulate a user typing for some time.
-  SetFloatyHiddenTimestamp(base::TimeTicks::Now() - base::Seconds(5));
-
-  // Emulate keyboard dismissing.
-  gemini_browser_agent_->ShowFloatyIfInvoked(
-      /*animated=*/true, /*source=*/gemini::FloatyUpdateSource::Keyboard);
-
-  // The floaty should still be considered temporarily hidden.
-  EXPECT_TRUE(IsFloatyTemporarilyHidden());
-
-  // Emulate view controller dismissing.
-  gemini_browser_agent_->ShowFloatyIfInvoked(
-      /*animated=*/true, /*source=*/gemini::FloatyUpdateSource::ViewTransition);
-
-  // The floaty should now be shown.
-  EXPECT_FALSE(IsFloatyTemporarilyHidden());
-  EXPECT_EQ(ios::provider::GeminiViewState::kExpanded, GetLastShownViewState());
-}
-
 // Tests that the floaty is not dismissed when `DismissFloaty` is called to
 // clean up properties but a user has not interacted with floaty UI to properly
 // dismiss it.
@@ -566,7 +541,6 @@ TEST_F(GeminiBrowserAgentTest, TestDismissFloatyWhenTemporarilyHidden) {
 // floaty i.e. when the floaty is shown.
 TEST_F(GeminiBrowserAgentTest, TestDismissFloatyWhenFloatyIsShown) {
   SetIsFloatyInvoked(true);
-  ClearActiveHidingSources();
   gemini_browser_agent_->DismissFloaty();
 
   EXPECT_FALSE(IsFloatyInvoked());
@@ -592,10 +566,10 @@ TEST_F(GeminiBrowserAgentTest, TestDismissGeminiFromOtherWindows) {
   BrowserList* browser_list = BrowserListFactory::GetForProfile(second_profile);
   browser_list->AddBrowser(second_browser.get());
 
-  id mock_second_handler = OCMProtocolMock(@protocol(BWGCommands));
+  id mock_second_handler = OCMProtocolMock(@protocol(GeminiCommands));
   [second_browser->GetCommandDispatcher()
       startDispatchingToTarget:mock_second_handler
-                   forProtocol:@protocol(BWGCommands)];
+                   forProtocol:@protocol(GeminiCommands)];
 
   [[mock_second_handler expect]
       dismissGeminiFlowWithCompletion:[OCMArg checkWithBlock:^BOOL(
@@ -616,7 +590,6 @@ TEST_F(GeminiBrowserAgentTest, TestDismissGeminiFromOtherWindows) {
 // Tests that the floaty is dismissed when the primary account changes.
 TEST_F(GeminiBrowserAgentTest, TestDismissedOnPrimaryAccountChanged) {
   SetIsFloatyInvoked(true);
-  ClearActiveHidingSources();
 
   signin::PrimaryAccountChangeEvent::State previous_state;
   CoreAccountInfo account_info;
@@ -765,10 +738,10 @@ TEST_F(GeminiBrowserAgentTest, TestStartGeminiFlowNoActiveWebState) {
   // Initialize browser agent on a browser with no active WebStates.
   std::unique_ptr<TestBrowser> empty_browser =
       std::make_unique<TestBrowser>(profile_);
-  id mock_bwg_handler = OCMProtocolMock(@protocol(BWGCommands));
+  id mock_gemini_handler = OCMProtocolMock(@protocol(GeminiCommands));
   [empty_browser->GetCommandDispatcher()
-      startDispatchingToTarget:mock_bwg_handler
-                   forProtocol:@protocol(BWGCommands)];
+      startDispatchingToTarget:mock_gemini_handler
+                   forProtocol:@protocol(GeminiCommands)];
   GeminiBrowserAgent::CreateForBrowser(empty_browser.get());
   GeminiBrowserAgent* empty_agent =
       GeminiBrowserAgent::FromBrowser(empty_browser.get());
@@ -790,6 +763,51 @@ TEST_F(GeminiBrowserAgentTest, TestOnLiveButtonTappedTriggersEvent) {
       NotifyEvent(testing::Eq(feature_engagement::events::kIOSGeminiLiveUsed)));
 
   gemini_browser_agent_->OnLiveButtonTapped();
+}
+
+// Tests that kIPHiOSGeminiLiveIPHFeature and kIPHiOSGeminiLiveNewBadgeFeature
+// are successfully triggered when starting the flow and dismissed when the
+// floaty is dismissed.
+TEST_F(GeminiBrowserAgentTest, TestGeminiLiveIPHAndNewBadgeFET) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures({kGeminiLive}, {});
+
+  // Setup mock tracker expectations for triggering
+  EXPECT_CALL(*mock_tracker_,
+              ShouldTriggerHelpUI(testing::Ref(
+                  feature_engagement::kIPHiOSGeminiLiveIPHFeature)))
+      .WillOnce(testing::Return(true));
+  EXPECT_CALL(*mock_tracker_,
+              ShouldTriggerHelpUI(testing::Ref(
+                  feature_engagement::kIPHiOSGeminiLiveNewBadgeFeature)))
+      .WillOnce(testing::Return(true));
+
+  UIViewController* base_view_controller = [[UIViewController alloc] init];
+  GeminiStartupState* startup_state =
+      [[GeminiStartupState alloc] initWithEntryPoint:gemini::EntryPoint::Promo];
+  GeminiPageContext* page_context = [[GeminiPageContext alloc] init];
+
+  // Call CreateGeminiConfiguration to trigger the features.
+  GeminiConfiguration* config = CreateGeminiConfiguration(
+      base_view_controller, startup_state, web_state_, page_context);
+
+  EXPECT_TRUE(config.shouldShowGeminiLiveIPH);
+  EXPECT_TRUE(config.shouldShowGeminiLiveNewBadge);
+
+  // Setup mock tracker expectations for dismissal
+  EXPECT_CALL(
+      *mock_tracker_,
+      Dismissed(testing::Ref(feature_engagement::kIPHiOSGeminiLiveIPHFeature)))
+      .Times(1);
+  EXPECT_CALL(*mock_tracker_,
+              Dismissed(testing::Ref(
+                  feature_engagement::kIPHiOSGeminiLiveNewBadgeFeature)))
+      .Times(1);
+
+  // Emulate the floaty being invoked so DismissFloaty actually runs fully.
+  SetIsFloatyInvoked(true);
+
+  gemini_browser_agent_->DismissFloaty();
 }
 
 // Tests that OnProcessingStatusChanged updates processing_status_ and switches
@@ -819,12 +837,155 @@ TEST_F(GeminiBrowserAgentTest, TestOnProcessingStatusChangedLiveDormant) {
 
   // Change status to kDormant.
   gemini_browser_agent_->OnProcessingStatusChanged(
-      ios::provider::GeminiClientMode::kDormant);
+      ios::provider::GeminiClientMode::kDormant,
+      ios::provider::GeminiDormantReason::kUnknown);
 
   // Should switch back to Floaty (text mode) and update the internal status.
   EXPECT_EQ(ios::provider::GetCurrentMode(),
             ios::provider::GeminiViewMode::kFloaty);
   EXPECT_EQ(GetProcessingStatus(), ios::provider::GeminiClientMode::kDormant);
+}
+
+// Tests that OnProcessingStatusChanged handles low volume dormant reason
+// with no snackbar when the dormant reasons feature is enabled.
+TEST_F(GeminiBrowserAgentTest,
+       TestOnProcessingStatusChangedLiveDormantLowVolume) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures({kGeminiLive, kGeminiLiveDormantReasons},
+                                       {});
+
+  id mock_snackbar_handler = OCMProtocolMock(@protocol(SnackbarCommands));
+  [browser_->GetCommandDispatcher()
+      startDispatchingToTarget:mock_snackbar_handler
+                   forProtocol:@protocol(SnackbarCommands)];
+  id mock_fullscreen_handler = OCMProtocolMock(@protocol(FullscreenCommands));
+  [browser_->GetCommandDispatcher()
+      startDispatchingToTarget:mock_fullscreen_handler
+                   forProtocol:@protocol(FullscreenCommands)];
+
+  SetIsFloatyInvoked(true);
+
+  // Put in Live mode.
+  ios::provider::SwitchToMode(ios::provider::GeminiViewMode::kLive,
+                              /*animated=*/false);
+  EXPECT_EQ(ios::provider::GetCurrentMode(),
+            ios::provider::GeminiViewMode::kLive);
+
+  // For low volume dormant reasons, we expect switch to Floaty, and NO snackbar
+  // shown.
+  OCMReject([mock_snackbar_handler showSnackbarMessage:[OCMArg any]
+                                          bottomOffset:0.0])
+      .ignoringNonObjectArgs();
+  OCMReject([mock_snackbar_handler showSnackbarMessage:[OCMArg any]]);
+
+  gemini_browser_agent_->OnProcessingStatusChanged(
+      ios::provider::GeminiClientMode::kDormant,
+      ios::provider::GeminiDormantReason::kLowVolumeInForeground);
+
+  // Should switch back to Floaty (text mode) and update the internal status.
+  EXPECT_EQ(ios::provider::GetCurrentMode(),
+            ios::provider::GeminiViewMode::kFloaty);
+  EXPECT_EQ(GetProcessingStatus(), ios::provider::GeminiClientMode::kDormant);
+
+  id self = nil;
+  OCMVerifyAll(mock_snackbar_handler);
+}
+
+// Tests that OnProcessingStatusChanged handles inactivity timeout dormant
+// reason with the correct continue session snackbar when the feature is
+// enabled.
+TEST_F(GeminiBrowserAgentTest,
+       TestOnProcessingStatusChangedLiveDormantTimeout) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures({kGeminiLive, kGeminiLiveDormantReasons},
+                                       {});
+
+  id mock_snackbar_handler = OCMProtocolMock(@protocol(SnackbarCommands));
+  [browser_->GetCommandDispatcher()
+      startDispatchingToTarget:mock_snackbar_handler
+                   forProtocol:@protocol(SnackbarCommands)];
+  id mock_fullscreen_handler = OCMProtocolMock(@protocol(FullscreenCommands));
+  [browser_->GetCommandDispatcher()
+      startDispatchingToTarget:mock_fullscreen_handler
+                   forProtocol:@protocol(FullscreenCommands)];
+
+  SetIsFloatyInvoked(true);
+
+  // Put in Live mode.
+  ios::provider::SwitchToMode(ios::provider::GeminiViewMode::kLive,
+                              /*animated=*/false);
+  EXPECT_EQ(ios::provider::GetCurrentMode(),
+            ios::provider::GeminiViewMode::kLive);
+
+  // Verify the correct timeout snackbar is shown.
+  OCMExpect([mock_snackbar_handler
+                showSnackbarMessage:[OCMArg checkWithBlock:^BOOL(id obj) {
+                  SnackbarMessage* message = (SnackbarMessage*)obj;
+                  NSString* expected_title = l10n_util::GetNSString(
+                      IDS_IOS_GEMINI_LIVE_CONTINUE_SESSION_SNACKBAR);
+                  return [message.title isEqualToString:expected_title];
+                }]
+                       bottomOffset:0.0])
+      .ignoringNonObjectArgs();
+
+  gemini_browser_agent_->OnProcessingStatusChanged(
+      ios::provider::GeminiClientMode::kDormant,
+      ios::provider::GeminiDormantReason::kInactivityTimeout);
+
+  EXPECT_EQ(ios::provider::GetCurrentMode(),
+            ios::provider::GeminiViewMode::kFloaty);
+  EXPECT_EQ(GetProcessingStatus(), ios::provider::GeminiClientMode::kDormant);
+
+  id self = nil;
+  OCMVerifyAll(mock_snackbar_handler);
+}
+
+// Tests that OnProcessingStatusChanged handles server pause dormant reason
+// with the correct server pause snackbar when the feature is enabled.
+TEST_F(GeminiBrowserAgentTest,
+       TestOnProcessingStatusChangedLiveDormantServerPause) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures({kGeminiLive, kGeminiLiveDormantReasons},
+                                       {});
+
+  id mock_snackbar_handler = OCMProtocolMock(@protocol(SnackbarCommands));
+  [browser_->GetCommandDispatcher()
+      startDispatchingToTarget:mock_snackbar_handler
+                   forProtocol:@protocol(SnackbarCommands)];
+  id mock_fullscreen_handler = OCMProtocolMock(@protocol(FullscreenCommands));
+  [browser_->GetCommandDispatcher()
+      startDispatchingToTarget:mock_fullscreen_handler
+                   forProtocol:@protocol(FullscreenCommands)];
+
+  SetIsFloatyInvoked(true);
+
+  // Put in Live mode.
+  ios::provider::SwitchToMode(ios::provider::GeminiViewMode::kLive,
+                              /*animated=*/false);
+  EXPECT_EQ(ios::provider::GetCurrentMode(),
+            ios::provider::GeminiViewMode::kLive);
+
+  // Verify the correct server pause snackbar is shown.
+  OCMExpect([mock_snackbar_handler
+                showSnackbarMessage:[OCMArg checkWithBlock:^BOOL(id obj) {
+                  SnackbarMessage* message = (SnackbarMessage*)obj;
+                  NSString* expected_title = l10n_util::GetNSString(
+                      IDS_IOS_GEMINI_LIVE_SERVER_PAUSE_SNACKBAR);
+                  return [message.title isEqualToString:expected_title];
+                }]
+                       bottomOffset:0.0])
+      .ignoringNonObjectArgs();
+
+  gemini_browser_agent_->OnProcessingStatusChanged(
+      ios::provider::GeminiClientMode::kDormant,
+      ios::provider::GeminiDormantReason::kServerPause);
+
+  EXPECT_EQ(ios::provider::GetCurrentMode(),
+            ios::provider::GeminiViewMode::kFloaty);
+  EXPECT_EQ(GetProcessingStatus(), ios::provider::GeminiClientMode::kDormant);
+
+  id self = nil;
+  OCMVerifyAll(mock_snackbar_handler);
 }
 
 // Tests that OnGeminiLiveUserDidBargeIn updates processing_status_ to
@@ -845,4 +1006,33 @@ TEST_F(GeminiBrowserAgentTest, TestOnGeminiLiveUserDidBargeIn) {
   // Status should be set to kTranscribing.
   EXPECT_EQ(GetProcessingStatus(),
             ios::provider::GeminiClientMode::kTranscribing);
+}
+
+// Tests that preparing the floaty to be shown temporarily disables fullscreen
+// mode, and verify that it is re-enabled once the Gemini UI did appear or when
+// the state collapses.
+TEST_F(GeminiBrowserAgentTest, TestPrepareFloatyToBeShownDisablesFullscreen) {
+  FullscreenController* controller =
+      FullscreenController::FromBrowser(browser_.get());
+  ASSERT_NE(controller, nullptr);
+  EXPECT_TRUE(controller->IsEnabled());
+
+  // Fullscreen should be disabled once the floaty is invoked.
+  InvokeFloaty([[GeminiConfiguration alloc] init]);
+  EXPECT_FALSE(controller->IsEnabled());
+
+  // Fullscreen should be re-enabled once the UI appears.
+  gemini_browser_agent_->OnGeminiUIDidAppear();
+  EXPECT_TRUE(controller->IsEnabled());
+
+  // Fullscreen should be disabled once the state transitions to expanded.
+  gemini_browser_agent_->OnViewStateChanged(
+      ios::provider::GeminiViewState::kExpanded);
+  EXPECT_FALSE(controller->IsEnabled());
+
+  // Fullscreen should be re-enabled once the state transitions back to
+  // collapsed.
+  gemini_browser_agent_->OnViewStateChanged(
+      ios::provider::GeminiViewState::kCollapsed);
+  EXPECT_TRUE(controller->IsEnabled());
 }

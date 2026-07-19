@@ -40,13 +40,13 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/location_bar/icon_label_bubble_view.h"
+#include "chrome/browser/ui/views/page_action/page_action_view_interface.h"
 #include "chrome/browser/ui/views/web_apps/progress_delay.h"
 #include "chrome/browser/ui/views/web_apps/web_app_icon_name_and_origin_view.h"
 #include "chrome/browser/ui/views/web_apps/web_app_install_dialog_delegate.h"
 #include "chrome/browser/ui/views/web_apps/web_app_install_intro_view.h"
 #include "chrome/browser/ui/views/web_apps/web_app_install_options_view.h"
 #include "chrome/browser/ui/views/web_apps/web_app_install_progress_view.h"
-#include "chrome/browser/ui/views/web_apps/web_app_testing_flags.h"
 #include "chrome/browser/ui/web_applications/web_app_dialogs.h"
 #include "chrome/browser/ui/web_applications/web_app_info_image_source.h"
 #include "chrome/browser/web_applications/model/dialog_image_info.h"
@@ -212,7 +212,8 @@ NewPageActionHighlight(content::WebContents& web_contents) {
   }
 
   views::Button* install_icon =
-      toolbar_button_provider->GetPageActionView(kActionInstallPwa);
+      toolbar_button_provider->GetPageActionViewInterface(kActionInstallPwa)
+          ->GetIconLabelBubbleViewNotMigrated();
 
   if (install_icon) {
     // TODO(crbug.com/40841129): move this to dialog->SetHighlightedElement.
@@ -221,8 +222,6 @@ NewPageActionHighlight(content::WebContents& web_contents) {
 
   return std::nullopt;
 }
-
-constexpr int kMinBoundsForInstallDialog = 50;
 
 }  // namespace
 
@@ -421,8 +420,18 @@ void WebAppInstallFlowDialogDelegate::OnAccept() {
   install_tracker_->ReportResult(webapps::MlInstallUserResponse::kAccepted);
   received_user_response_ = true;
 
+  bool should_auto_respond_for_test = false;
+  InstallDialogTestResponse auto_response =
+      GetPwaInstallationDialogAutoResponseForTesting();  // IN-TEST
+  if (auto_response != InstallDialogTestResponse::kNone) {
+    if (auto_response == InstallDialogTestResponse::kAcceptAndLaunch ||
+        auto_response == InstallDialogTestResponse::kAcceptNoLaunch) {
+      should_auto_respond_for_test = true;
+    }
+  }
+
   auto result_callback =
-      test::g_auto_accept_all_install_dialogs_for_testing
+      should_auto_respond_for_test
           ? base::BindOnce(&WebAppInstallFlowDialogDelegate::
                                OnAutoAcceptInstallResultForTesting,  // IN-TEST
                            AsWeakPtr())
@@ -481,20 +490,11 @@ void WebAppInstallFlowDialogDelegate::OnTextFieldChangedMaybeUpdateButton(
   }
 }
 
-bool WebAppInstallFlowDialogDelegate::
-    IsWidgetCurrentSizeSmallerThanPreferredSize(views::Widget* widget) {
-  const gfx::Size& current_size = widget->GetSize();
-  const gfx::Size& preferred_size =
-      widget->GetContentsView()->GetPreferredSize();
-  int min_width = preferred_size.width() - kMinBoundsForInstallDialog;
-  int min_height = preferred_size.height() - kMinBoundsForInstallDialog;
-  return current_size.width() < min_width || current_size.height() < min_height;
-}
-
 void WebAppInstallFlowDialogDelegate::OnWidgetBoundsChanged(
     views::Widget* widget,
     const gfx::Rect& new_bounds) {
-  if (IsWidgetCurrentSizeSmallerThanPreferredSize(widget)) {
+  if (IsWidgetCurrentSizeSmallerThanPreferredSize(
+          widget, GetMaxAllowedShrinkage(dialog_type_))) {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE,
         base::BindOnce(&WebAppInstallFlowDialogDelegate::CloseDialogAsIgnored,
@@ -663,11 +663,19 @@ void WebAppInstallFlowDialogDelegate::
         bool success,
         base::OnceClosure reparent_closure) {  // IN-TEST
   CHECK_IS_TEST();
-  // Decline/Cancel the dialog. Note: Since we are in mock testing and bypassing
-  // standard step transitions, closing the dialog this way results in metric
-  // close reasons of `views::Widget::ClosedReason::kCancelButtonClicked`. This
-  // is expected and does not affect functional browser tests.
-  DeclineForTesting();  // IN-TEST
+
+  if (GetPwaInstallationDialogAutoResponseForTesting() ==  // IN-TEST
+          InstallDialogTestResponse::kAcceptAndLaunch &&
+      success && reparent_closure) {
+    std::move(reparent_closure).Run();
+  } else {
+    // Decline/Cancel the dialog. Note: Since we are in mock testing and
+    // bypassing standard step transitions, closing the dialog this way
+    // results in metric close reasons of
+    // `views::Widget::ClosedReason::kCancelButtonClicked`. This is expected and
+    // does not affect functional browser tests.
+    DeclineForTesting();  // IN-TEST
+  }
 }
 
 void WebAppInstallFlowDialogDelegate::DeclineForTesting() {  // IN-TEST
@@ -886,17 +894,20 @@ WebAppInstallFlowDialogDelegate::Show(
 
   views::Widget* widget = constrained_window::ShowWebModalDialogViews(
       dialog.release(), web_contents);
-
-  if (IsWidgetCurrentSizeSmallerThanPreferredSize(widget)) {
+  if (IsWidgetCurrentSizeSmallerThanPreferredSize(
+          widget, GetMaxAllowedShrinkage(install_type))) {
     delegate_weak_ptr->CloseDialogAsIgnored();
     return nullptr;
   }
   delegate_weak_ptr->OnWidgetShownStartTracking(widget);
-  if (test::g_auto_decline_install_dialogs_for_testing) {
-    delegate_weak_ptr->DeclineForTesting();  // IN-TEST
-  }
-  if (test::g_auto_accept_all_install_dialogs_for_testing) {
-    delegate_weak_ptr->AcceptForTesting();  // IN-TEST
+  InstallDialogTestResponse auto_response =
+      GetPwaInstallationDialogAutoResponseForTesting();  // IN-TEST
+  if (auto_response != InstallDialogTestResponse::kNone) {
+    if (auto_response == InstallDialogTestResponse::kDeny) {
+      delegate_weak_ptr->DeclineForTesting();  // IN-TEST
+    } else {
+      delegate_weak_ptr->AcceptForTesting();  // IN-TEST
+    }
   }
   return delegate_weak_ptr;
 }

@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "base/check.h"
+#include "base/functional/bind.h"
 #include "base/strings/strcat.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
@@ -18,6 +19,7 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_widget.h"
 #include "chrome/browser/ui/views/permissions/chip/permission_chip_view.h"
+#include "chrome/browser/ui/views/toolbar/avatar_toolbar_button_interface.h"
 #include "chrome/browser/ui/webui/metrics_handler.h"
 #include "chrome/browser/ui/webui/metrics_reporter/metrics_reporter_service.h"
 #include "chrome/browser/ui/webui/theme_colors_source_manager.h"
@@ -36,15 +38,19 @@
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/webui_toolbar_resources.h"
 #include "chrome/grit/webui_toolbar_resources_map.h"
+#include "chrome/grit/webui_toolbar_shared_resources.h"
+#include "chrome/grit/webui_toolbar_shared_resources_map.h"
 #include "components/browser_apis/browser_controls/browser_controls_api.mojom.h"
 #include "components/browser_apis/ui_controllers/toolbar/toolbar_ui_api.mojom.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/user_education/webui/help_bubble_handler.h"
+#include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_data_source.h"
 #include "third_party/blink/public/common/features.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/views/widget/widget.h"
 #include "ui/webui/tracked_element/tracked_element_handler_document_singleton.h"
 #include "ui/webui/webui_util.h"
@@ -56,6 +62,7 @@ WebUIToolbarUI::WebUIToolbarUI(content::WebUI* web_ui)
     : TopChromeWebUIController(web_ui,
                                /*enable_chrome_send=*/true,
                                /*enable_chrome_histograms=*/true),
+      content::WebContentsObserver(web_ui->GetWebContents()),
       toolbar_channel_service_end_(
           toolbar_channel_client_end_.InitWithNewPipeAndPassReceiver()),
       browser_controls_channel_service_end_(
@@ -69,6 +76,8 @@ WebUIToolbarUI::WebUIToolbarUI(content::WebUI* web_ui)
       // go/keep-sorted start
       {"backButtonAccName", IDS_ACCNAME_BACK},
       {"backButtonTooltip", IDS_TOOLTIP_BACK},
+      {"batterySaverButtonAccName", IDS_BATTERY_SAVER_BUTTON_ACCNAME},
+      {"batterySaverButtonTooltip", IDS_BATTERY_SAVER_BUTTON_TOOLTIP},
       {"forwardButtonAccName", IDS_ACCNAME_FORWARD},
       {"forwardButtonTooltip", IDS_TOOLTIP_FORWARD},
       {"homeButtonAccName", IDS_ACCNAME_HOME},
@@ -86,17 +95,26 @@ WebUIToolbarUI::WebUIToolbarUI(content::WebUI* web_ui)
 
   WebUIToolbarLayoutCssHelper::SetAsRequestFilter(source);
 
+  source->AddBoolean("roundedIconsEnabled", features::IsRoundedIconsEnabled());
   source->AddBoolean("enableReloadButton",
                      features::IsWebUIReloadButtonEnabled());
   source->AddBoolean("enableHomeButton", features::IsWebUIHomeButtonEnabled());
+  source->AddBoolean("enableBatterySaverButton",
+                     features::IsWebUIBatterySaverButtonEnabled());
   source->AddBoolean("enableLocationBar",
                      features::IsWebUILocationBarEnabled());
   source->AddBoolean("enableBackForwardButtons",
                      features::IsWebUIBackForwardButtonEnabled());
   source->AddBoolean("enablePinnedToolbarActions",
                      features::IsWebUIPinnedToolbarActionsEnabled());
-  source->AddBoolean("enableAvatarButton",
-                     features::IsWebUIAvatarButtonEnabled());
+  source->AddBoolean("enableAppMenuButton",
+                     features::IsWebUIAppMenuButtonEnabled());
+  source->AddBoolean(
+      "enableAvatarButton",
+      features::IsWebUIAvatarButtonEnabled() &&
+          AvatarToolbarButtonInterface::CanShowForProfile(
+              Profile::FromBrowserContext(
+                  web_ui->GetWebContents()->GetBrowserContext())));
   source->AddBoolean("enableExtensionsContainer",
                      features::IsWebUIExtensionsContainerEnabled());
   source->AddBoolean(
@@ -107,21 +125,18 @@ WebUIToolbarUI::WebUIToolbarUI(content::WebUI* web_ui)
       webui::GetBrowserWindowInterface(web_ui->GetWebContents());
   webui_toolbar::PopulateSplitTabsDataSource(source, browser);
 
+  source->AddResourcePaths(kWebuiToolbarSharedResources);
+
   // Handles chrome.send() calls that records non-timestamp histograms.
   web_ui->AddMessageHandler(std::make_unique<MetricsHandler>());
 
   if (browser) {
-    // This use of unretained is safe because the
-    // TrackedElementHandlerDocumentSingleton only stores the callback for at
-    // most the lifetime of the WebContents, which is always shorter than the
-    // Browser.
+    auto context = BrowserElements::From(browser)->GetContext();
     ui::TrackedElementHandlerDocumentSingleton::Register(
         this, GetKnownElementIdentifiers(),
-        base::BindRepeating(
-            [](BrowserWindowInterface* browser) {
-              return BrowserElements::From(browser)->GetContext();
-            },
-            base::Unretained(browser)));
+        context ? base::BindRepeating([](ui::ElementContext c) { return c; },
+                                      context)
+                : base::RepeatingCallback<ui::ElementContext()>());
   }
 }
 
@@ -161,12 +176,6 @@ void WebUIToolbarUI::BindInterface(
 }
 
 void WebUIToolbarUI::BindInterface(
-    mojo::PendingReceiver<extensions_bar::mojom::PageHandlerFactory> receiver) {
-  extensions_bar_page_factory_receiver_.reset();
-  extensions_bar_page_factory_receiver_.Bind(std::move(receiver));
-}
-
-void WebUIToolbarUI::BindInterface(
     mojo::PendingReceiver<help_bubble::mojom::HelpBubbleHandlerFactory>
         receiver) {
   help_bubble_service_.reset();
@@ -177,6 +186,13 @@ void WebUIToolbarUI::OnNavigationControlsStateChanged(
     const toolbar_ui_api::mojom::NavigationControlsState& state) {
   if (toolbar_ui_service_) {
     toolbar_ui_service_->OnNavigationControlsStateChanged(state);
+  }
+}
+
+void WebUIToolbarUI::OnFocusRequested(
+    toolbar_ui_api::mojom::FocusRequestTarget target) {
+  if (toolbar_ui_service_) {
+    toolbar_ui_service_->OnFocusRequested(target);
   }
 }
 
@@ -210,9 +226,10 @@ void WebUIToolbarUI::InitBrowserControlsService(
           std::move(browser_controls_channel_service_end_),
           std::make_unique<browser_controls_api::BrowserControlsAdapterImpl>(
               webui::GetBrowserWindowInterface(web_contents),
-              dependency_provider.GetCommandUpdater()),
+              dependency_provider.GetCommandUpdater(), web_contents),
           metrics_service->metrics_reporter(),
-          dependency_provider.GetBrowserControlsDelegate());
+          dependency_provider.GetBrowserControlsDelegate(),
+          web_ui()->GetRenderFrameHost());
 }
 
 void WebUIToolbarUI::InitToolbarUIService(
@@ -254,6 +271,17 @@ WebUIToolbarUI::GetDisplayDisposition() const {
   return content::WebUIController::DisplayDisposition::kUIElement;
 }
 
+void WebUIToolbarUI::DidFinishNavigation(
+    content::NavigationHandle* navigation_handle) {
+  if (navigation_handle->HasCommitted() &&
+      navigation_handle->IsInPrimaryMainFrame() &&
+      !navigation_handle->IsSameDocument()) {
+    // Cache the navigation start time. This is the single source of truth
+    // for the active document's time origin.
+    navigation_start_ticks_ = navigation_handle->NavigationStart();
+  }
+}
+
 void WebUIToolbarUI::PopulateLocalResourceLoaderConfig(
     blink::mojom::LocalResourceLoaderConfig* config,
     const url::Origin& requesting_origin) {
@@ -275,18 +303,6 @@ void WebUIToolbarUI::CreateHelpBubbleHandler(
           web_ui()->GetRenderFrameHost()));
 }
 
-void WebUIToolbarUI::CreatePageHandler(
-    mojo::PendingRemote<extensions_bar::mojom::Page> page,
-    mojo::PendingReceiver<extensions_bar::mojom::PageHandler> receiver) {
-  BrowserWindowInterface* browser_interface =
-      webui::GetBrowserWindowInterface(web_ui()->GetWebContents());
-  if (browser_interface) {
-    static_cast<WebUIToolbarExtensionsContainer*>(
-        ExtensionsContainer::From(*browser_interface))
-        ->Bind(std::move(page), std::move(receiver));
-  }
-}
-
 const std::vector<ui::ElementIdentifier>
 WebUIToolbarUI::GetKnownElementIdentifiers() {
   static const base::NoDestructor<std::vector<ui::ElementIdentifier>> ids(
@@ -294,13 +310,15 @@ WebUIToolbarUI::GetKnownElementIdentifiers() {
        kReloadButtonElementId, kToolbarSplitTabsToolbarButtonElementId,
        kToolbarHomeButtonElementId, kToolbarBackButtonElementId,
        kToolbarForwardButtonElementId, kSharedTabGroupFeedbackElementId,
-       kSharedTabGroupCommentsActionElementId,
+       kToolbarAppMenuButtonElementId, kSharedTabGroupCommentsActionElementId,
        kPinnedToolbarActionShowSidePanelLensOverlayResultsElementId,
        kPinnedToolbarActionShowSidePanelBookmarksElementId,
+       kPinnedToolbarActionShowSidePanelContextualTasksElementId,
        kPinnedToolbarActionSendTabToSelfElementId,
        kToolbarAvatarButtonElementId,
        PermissionChipView::kPermissionRequestChipElementId,
-       PermissionChipView::kIndicatorChipElementId});
+       PermissionChipView::kIndicatorChipElementId,
+       kToolbarBatterySaverButtonElementId});
   auto pinned_ids = webui_toolbar::GetPinnedToolbarActionElementIds();
   pinned_ids.reserve(pinned_ids.size() + ids->size());
   pinned_ids.insert(pinned_ids.end(), ids->begin(), ids->end());

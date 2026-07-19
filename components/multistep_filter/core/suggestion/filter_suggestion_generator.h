@@ -27,6 +27,7 @@ class MultistepFilterLogRouter;
 struct FilterAnnotation;
 struct FilterSuggestionCandidate;
 
+
 // Responsible for orchestrating the suggestion generation process for a given
 // URL. This class is owned by the `MultistepFilterService` and shares its
 // lifecycle.
@@ -47,40 +48,29 @@ class FilterSuggestionGenerator {
   // one of `[success|failure]_callback` will be called.
   //
   // The generation process follows these steps:
-  // 1) Query the server via the `AnnotationIndexClient` to determine the
-  //    supported tasks for the current domain.
-  // 2) On the first server response (`OnSupportedTaskTypesFetched()`), query
-  //    the `FilterStore` to retrieve relevant historical user annotations.
-  // 3) On the store response (`OnAllAnnotationsFetched()`), query the server
-  //    via the `AnnotationIndexClient` a second time to evaluate these
-  //    candidates and generate concrete filter suggestions.
-  // 4) On the second server response (`OnFilterSuggestionCandidatesFetched()`),
-  //    invoke the `callback` with the first suggestion if available, or
-  //    std::nullopt otherwise.
+  // 1) Query the `FilterStore` to retrieve relevant historical user
+  //    annotations for the `supported_task_types`.
+  // 2) On the store response (`OnAllAnnotationsFetched()`), query the server
+  //    via the `AnnotationIndexClient` to evaluate these candidates and
+  //    generate concrete filter suggestions.
+  // 3) On the server response (`OnFilterSuggestionCandidatesFetched()`), invoke
+  //    the `callback` with the first suggestion if available, or std::nullopt
+  //    otherwise.
   virtual void GenerateSuggestion(
       const GURL& url,
+      std::vector<std::string> supported_task_types,
       base::OnceCallback<void(std::optional<UrlFilterSuggestion>)> callback,
-      int64_t navigation_id,
-      std::string_view domain);
+      int64_t navigation_id);
 
  private:
   // See documentation of `GenerateSuggestion()` for more details.
-  void OnSupportedTaskTypesFetched(
-      const GURL& url,
-      base::OnceCallback<void(std::optional<UrlFilterSuggestion>)>
-          success_callback,
-      base::ScopedClosureRunner failure_callback,
-      int64_t navigation_id,
-      std::string_view domain,
-      std::optional<std::vector<std::string>> supported_task_types);
   void OnAllAnnotationsFetched(
       const GURL& url,
       base::OnceCallback<void(std::optional<UrlFilterSuggestion>)>
           success_callback,
       base::ScopedClosureRunner failure_callback,
       int64_t navigation_id,
-      std::string_view domain,
-      std::vector<std::vector<FilterAnnotation>> filter_annotations);
+      std::vector<FilterAnnotation> filter_annotations);
   void OnFilterSuggestionCandidatesFetched(
       const GURL& url,
       base::OnceCallback<void(std::optional<UrlFilterSuggestion>)>
@@ -88,11 +78,7 @@ class FilterSuggestionGenerator {
       base::ScopedClosureRunner failure_callback,
       std::vector<FilterAnnotation> annotations,
       int64_t navigation_id,
-      std::string_view domain,
       std::optional<std::vector<FilterSuggestionCandidate>> candidates);
-
-  // Loads the cue configuration from file or feature flag.
-  void LoadCueConfig();
 
   // The client used to fetch supported task types and URL filter suggestions.
   // This is a non-owning reference. The lifetime of the `AnnotationIndexClient`
@@ -108,9 +94,6 @@ class FilterSuggestionGenerator {
 
   // Log router for the internals page.
   const raw_ptr<MultistepFilterLogRouter> log_router_;
-
-  // JSON config for cues, loaded from file or Finch.
-  base::DictValue cue_config_;
 
   // This should be kept at the end so that it is the first member to be
   // destroyed.

@@ -8,9 +8,14 @@ import("//build/config/features.gni")
 # singleton instance of the model. Without a component, we end up an
 # instance in each component that uses the library.
 component("core") {
+  _configs = configs
+  configs = []
+  configs = [ "//third_party/tflite:tflite_shim_config" ] + _configs
   sources = [
     "background_file.cc",
     "background_file.h",
+    "chinese_script_classifier.cc",
+    "chinese_script_classifier.h",
     "constants.h",
     "features.cc",
     "features.h",
@@ -27,6 +32,7 @@ component("core") {
     ":internals",
     "//base",
     "//components/optimization_guide/core:features",
+    "//third_party/icu",
     "//third_party/tflite",
     "//third_party/tflite_support",
     "//third_party/tflite_support:tflite_support_proto",
@@ -35,6 +41,9 @@ component("core") {
 }
 
 static_library("internals") {
+  _configs = configs
+  configs = []
+  configs = [ "//third_party/tflite:tflite_shim_config" ] + _configs
   visibility = [
     ":core",
     ":unit_tests",
@@ -63,6 +72,7 @@ source_set("unit_tests") {
   testonly = true
   sources = [
     "background_file_unittest.cc",
+    "chinese_script_classifier_test.cc",
     "language_detection_model_unittest.cc",
     "ngram_hash_ops_utils_unittest.cc",
     "quantization_utils_unittest.cc",

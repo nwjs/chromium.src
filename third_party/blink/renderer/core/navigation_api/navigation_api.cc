@@ -47,7 +47,9 @@
 #include "third_party/blink/renderer/core/navigation_api/navigation_transition.h"
 #include "third_party/blink/renderer/core/navigation_api/navigation_type_util.h"
 #include "third_party/blink/renderer/core/page/page.h"
+#include "third_party/blink/renderer/core/route_matching/navigation_state.h"
 #include "third_party/blink/renderer/core/route_matching/route_map.h"
+#include "third_party/blink/renderer/core/skeleton/skeleton_loader.h"
 #include "third_party/blink/renderer/core/timing/dom_window_performance.h"
 #include "third_party/blink/renderer/core/timing/event_timing.h"
 #include "third_party/blink/renderer/core/timing/responsiveness_metrics.h"
@@ -392,8 +394,6 @@ void NavigationApi::SetEntriesForRestore(
     if (it == keys_to_indices_.end() || entries_[it->value] != entry)
       disposed_entries->push_back(entry);
   }
-
-  FlushRestoreCallbacks();
 
   window_->GetTaskRunner(TaskType::kInternalDefault)
       ->PostTask(FROM_HERE, BindOnce(&FireDisposeEventsAsync,
@@ -873,13 +873,16 @@ NavigationApi::DispatchResult NavigationApi::DispatchNavigateEvent(
   ongoing_navigate_event_ = navigate_event;
 
   if (auto* routemap = RouteMap::Get(window_->document())) {
-    routemap->OnNavigationStart(window_->Url(), params->url);
+    routemap->OnNavigationStart(window_->Url(), params->url,
+                                params->source_element);
     if (params->frame_load_type == WebFrameLoadType::kBackForward &&
         routemap->HasHistoryRules() && destination_entry) {
       int previous_index = GetIndexFor(currentEntry());
       int next_index = GetIndexFor(destination_entry);
-      routemap->OnNavigationTraverse(
-          next_index < previous_index ? RouteMap::kBack : RouteMap::kForward);
+      NavigationState::HistoryTraverseType direction =
+          next_index < previous_index ? NavigationState::kBack
+                                      : NavigationState::kForward;
+      routemap->OnNavigationTraverse(direction);
     }
   }
 
@@ -938,6 +941,10 @@ NavigationApi::DispatchResult NavigationApi::DispatchNavigateEvent(
         navigate_event->destination());
     navigate_event->MaybeCommitImmediately(script_state);
   } else if (params->event_type == NavigateEventType::kCrossDocument) {
+    if (SkeletonLoader* skeleton_loader =
+            SkeletonLoader::Get(*window_->document())) {
+      skeleton_loader->NavigateTo(params->url);
+    }
     window_->document()->GetViewTransitions().StartNavigationPreviewIfNeeded();
     navigate_event->MaybeDeferCrossDocumentCommit(script_state, params);
   }
@@ -958,6 +965,9 @@ void NavigationApi::InformAboutCanceledNavigation(
     tracker->ResetSameDocumentNavigationTasks();
   }
 
+  if (auto* skeleton_loader = SkeletonLoader::Get(*window_->document())) {
+    skeleton_loader->CancelNavigation();
+  }
   window_->document()->GetViewTransitions().AbortNavigationPreview();
 
   if (reason == CancelNavigationReason::kDropped) {

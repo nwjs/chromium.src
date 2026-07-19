@@ -33,7 +33,7 @@ source_set("content_settings") {
 
 source_set("impl") {
   sources = []
-  deps = []
+  deps = [ "//chrome/browser/ui:collected_cookies_infobar_delegate" ]
 
   if (!is_android) {
     sources += [
@@ -58,6 +58,7 @@ source_set("impl") {
     "//chrome/browser/content_settings",
     "//chrome/browser/content_settings:content_settings_factory",
     "//chrome/browser/content_settings:content_settings_util",
+    "//chrome/browser/infobars",
     "//chrome/browser/media/webrtc",
     "//chrome/browser/permissions",
     "//chrome/browser/profiles:profile",
@@ -149,6 +150,7 @@ source_set("unit_tests") {
     "//components/custom_handlers:test_support",
     "//components/infobars/content",
     "//components/no_state_prefetch/browser",
+    "//components/tabs:test_support",
     "//services/data_decoder/public/cpp:test_support",
   ]
 }

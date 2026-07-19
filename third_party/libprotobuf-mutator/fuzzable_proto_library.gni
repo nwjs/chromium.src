@@ -28,30 +28,43 @@ template("fuzzable_proto_library") {
            "proto_library_deps is deprecated and not supported with " +
                "use_experimental_fuzzable_proto = true. Use deps instead.")
 
-    # TODO(crbug.com/505034799): Support proto_in_dir and proto_out_dir.
-    assert(!defined(invoker.proto_in_dir) && !defined(invoker.proto_out_dir),
-           "proto_in_dir and proto_out_dir are not supported yet with " +
-               "use_experimental_fuzzable_proto = true.")
+    _source_abspaths = rebase_path(invoker.sources, "//")
+    _rebased_root_gen_dir = rebase_path(root_gen_dir, "//") + "/"
 
-    _prepend_fuzzable_target = "${target_name}_prepend_fuzzable"
-    action_foreach(_prepend_fuzzable_target) {
-      script = "//third_party/libprotobuf-mutator/prepend_fuzzable.py"
-      sources = invoker.sources
-      _output_file = "$root_gen_dir/{{source_root_relative_dir}}/{{source_name_part}}_fuzzable.proto"
-      outputs = [ _output_file ]
-      args = [
-        "--infile",
-        "{{source}}",
-        "--outfile",
-        rebase_path(_output_file, root_build_dir),
+    _prepended_protos = []
+    _file_mappings_for_script = []
+
+    foreach(_source_abspath, _source_abspaths) {
+      # Strip root_gen_dir prefix for generated files.
+      _base_path = string_replace(_source_abspath, _rebased_root_gen_dir, "")
+
+      _dir = get_path_info(_base_path, "dir")
+      _name = get_path_info(_base_path, "name")
+      _prepended_proto = "$root_gen_dir/$_dir/${_name}_fuzzable.proto"
+      _prepended_protos += [ _prepended_proto ]
+
+      _input_file_for_script =
+          rebase_path("//" + _source_abspath, root_build_dir)
+      _output_file_for_script = rebase_path(_prepended_proto, root_build_dir)
+      _file_mappings_for_script += [
+        _input_file_for_script,
+        _output_file_for_script,
       ]
     }
 
-    _prepended_protos = []
-    foreach(source, invoker.sources) {
-      _dir = rebase_path(get_path_info(source, "dir"), "//")
-      _name = get_path_info(source, "name")
-      _prepended_protos += [ "$root_gen_dir/$_dir/${_name}_fuzzable.proto" ]
+    _prepend_fuzzable_target = "${target_name}_prepend_fuzzable"
+    action(_prepend_fuzzable_target) {
+      script = "//third_party/libprotobuf-mutator/prepend_fuzzable.py"
+      inputs = invoker.sources
+      outputs = _prepended_protos
+      response_file_contents = _file_mappings_for_script
+      args = [
+        "--file-list",
+        "{{response_file_name}}",
+      ]
+      if (defined(invoker.proto_deps)) {
+        deps = invoker.proto_deps
+      }
     }
 
     # Generate a unique export macro name for this proto.
@@ -62,21 +75,57 @@ template("fuzzable_proto_library") {
 
     _fuzzable_proto_target = "${target_name}_fuzzable__proto"
     proto_library(_fuzzable_proto_target) {
-      sources = _prepended_protos
-      proto_deps = [ ":$_prepend_fuzzable_target" ]
-
-      proto_in_dir = target_gen_dir
-      proto_out_dir = rebase_path(".", "//")
-
       forward_variables_from(invoker,
                              "*",
                              [
                                "sources",
+                               "deps",
+                               "proto_deps",
                                "proto_in_dir",
                                "proto_out_dir",
                                "component_build_force_source_set",
                                "use_experimental_fuzzable_proto",
+                               "import_dirs",
                              ])
+
+      testonly = true
+      sources = _prepended_protos
+      proto_deps = [ ":$_prepend_fuzzable_target" ]
+
+      if (defined(invoker.proto_in_dir)) {
+        _src_relative_in_dir = rebase_path(invoker.proto_in_dir, "//")
+      } else {
+        # Use the directory of the first source to match proto_library and
+        # strip root_gen_dir prefix for generated files.
+        # E.g.: //foo/bar/foo.proto -> foo/bar
+        # E.g.: //out/Debug/gen/foo/bar/foo.proto -> foo/bar
+        _sources = invoker.sources
+        _first_source_dir = rebase_path(get_path_info(_sources[0], "dir"), "//")
+        _src_relative_in_dir =
+            string_replace(_first_source_dir, _rebased_root_gen_dir, "")
+      }
+      proto_in_dir = "$root_gen_dir/$_src_relative_in_dir"
+      if (defined(invoker.proto_out_dir)) {
+        proto_out_dir = invoker.proto_out_dir
+      } else {
+        proto_out_dir = _src_relative_in_dir
+      }
+
+      if (defined(invoker.import_dirs)) {
+        _import_dirs_abspaths = rebase_path(invoker.import_dirs, "//")
+        import_dirs = []
+        foreach(_abspath, _import_dirs_abspaths) {
+          _base_path = string_replace(_abspath, _rebased_root_gen_dir, "")
+          import_dirs += [ "$root_gen_dir/$_base_path" ]
+        }
+      }
+
+      if (defined(invoker.deps)) {
+        deps = []
+        foreach(dep, invoker.deps) {
+          deps += [ get_label_info(dep, "label_no_toolchain") + "_fuzzable" ]
+        }
+      }
       component_build_force_source_set = true
 
       # Override LITE_RUNTIME settings in the protobuf files and export symbols.
@@ -93,9 +142,11 @@ template("fuzzable_proto_library") {
 
     # These groups are required by proto_library template in proto_library.gni.
     group("${target_name}_fuzzable_input_group") {
+      testonly = true
       public_deps = [ ":${_fuzzable_proto_target}_input_group" ]
     }
     group("${target_name}_fuzzable_gen") {
+      testonly = true
       public_deps = [ ":${_fuzzable_proto_target}_gen" ]
     }
 
@@ -136,7 +187,11 @@ template("fuzzable_proto_library") {
                              [
                                "proto_library_deps",
                                "component_build_force_source_set",
+                               "visibility",
                              ])
+      if (defined(invoker.visibility)) {
+        visibility = invoker.visibility + [ ":${target_name}" ]
+      }
       component_build_force_source_set = true
 
       if (defined(invoker.proto_library_deps)) {
@@ -174,6 +229,9 @@ template("fuzzable_proto_library") {
     component(target_name) {
       if (defined(invoker.testonly)) {
         testonly = invoker.testonly
+      }
+      if (defined(invoker.visibility)) {
+        visibility = invoker.visibility
       }
       sources = [ "//third_party/libprotobuf-mutator/dummy.cc" ]
       public_deps = [

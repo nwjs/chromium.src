@@ -215,6 +215,10 @@ class VIEWS_EXPORT TableView : public View, public ui::TableModelObserver {
   // Determines whether to draw the TableGrouper on the left side of the table.
   void SetGrouperVisibility(bool visible);
 
+  // Creates `hover_view_` which provides the TableView instance with row
+  // highlight when the mouse cursor hovers over a row(s).
+  void InitializeHoverView();
+
   // Returns the number of rows in the TableView.
   size_t GetRowCount() const;
 
@@ -293,6 +297,9 @@ class VIEWS_EXPORT TableView : public View, public ui::TableModelObserver {
   bool GetSelectOnRemove() const;
   void SetSelectOnRemove(bool select_on_remove);
 
+  bool GetSelectOnFocus() const;
+  void SetSelectOnFocus(bool select_on_focus);
+
   // WARNING: this function forces a sort on every paint, and is therefore
   // expensive! It assumes you are calling SchedulePaint() at intervals for
   // the whole table. If your model is properly notifying the table, this is
@@ -362,7 +369,6 @@ class VIEWS_EXPORT TableView : public View, public ui::TableModelObserver {
   std::u16string GetRenderedTooltipText(const gfx::Point& p) const override;
   bool HandleAccessibleAction(const ui::AXActionData& action_data) override;
   void OnBoundsChanged(const gfx::Rect& previous_bounds) override;
-  void OnThemeChanged() override;
 
   // ui::TableModelObserver overrides:
   void OnModelChanged() override;
@@ -491,6 +497,10 @@ class VIEWS_EXPORT TableView : public View, public ui::TableModelObserver {
   // Advances the active visible column (from the active visible column index)
   // in the specified direction.
   void AdvanceActiveVisibleColumn(AdvanceDirection direction);
+
+  // Selects the first row when the TableView gets focused based on whether
+  // the implementor of this View has explicitly requested it.
+  void MaybeSelectFirstRowWhenFocused();
 
   // Sets the selection to the specified index (in terms of the view).
   void SelectByViewIndex(std::optional<size_t> view_index);
@@ -692,6 +702,12 @@ class VIEWS_EXPORT TableView : public View, public ui::TableModelObserver {
   // is selected then.
   bool select_on_remove_ = true;
 
+  // If |select_on_focus_| is true: when the TableView itself gains focus,
+  // it will automatically select the first row.
+  // If |select_on_focus_| is false: when the TableView itself gains focus,
+  // the entire table itself will be focused.
+  bool select_on_focus_ = false;
+
   // TODO(327473315): Only one of raw_ptr in this class is dangling. Find which
   // one.
   raw_ptr<TableViewObserver, LeakedDanglingUntriaged> observer_ = nullptr;
@@ -743,17 +759,15 @@ class VIEWS_EXPORT TableView : public View, public ui::TableModelObserver {
   // tokens are refined on all platforms.
   bool hovering_enabled_ = false;
 
-  // Hover Layer used to highlight a row based on mouse cursor position.
-  ui::Layer hover_layer_{ui::LAYER_SOLID_COLOR};
+  // A 1x1 view which paints to a solid colored layer. The layer is used to
+  // highlight row(s) based on mouse cursor position.
+  raw_ptr<views::View> hover_view_ = nullptr;
 
   // RenderText cache from row,col.
   std::vector<std::vector<std::unique_ptr<gfx::RenderText>>> render_text_cache_;
 
-  // Callback subscriptions.
+  // Callback subscriptions for when the scroll view is scrolled.
   base::CallbackListSubscription on_scroll_view_scrolled_;
-
-  // Last received offset from the on_scroll_view_scrolled_ callback
-  gfx::Point scroll_offset_{0, 0};
 
   // Weak pointer factory, enables using PostTask safely.
   base::WeakPtrFactory<TableView> weak_factory_;

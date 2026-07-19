@@ -106,6 +106,7 @@ struct AXLocationAndScrollUpdates;
 }  // namespace ui
 
 namespace content {
+class BackForwardCacheImpl;
 class FrameTreeNode;
 class Page;
 class PrerenderHostRegistry;
@@ -217,7 +218,8 @@ class CONTENT_EXPORT RenderFrameHostDelegate {
   // the renderer process.
   virtual void UpdateFaviconURL(
       RenderFrameHostImpl* source,
-      const std::vector<blink::mojom::FaviconURLPtr>& candidates) {}
+      const std::vector<blink::mojom::FaviconURLPtr>& candidates,
+      blink::mojom::FaviconUpdateReason reason) {}
 
   // The frame changed its window.name property.
   virtual void DidChangeName(RenderFrameHostImpl* render_frame_host,
@@ -639,6 +641,9 @@ class CONTENT_EXPORT RenderFrameHostDelegate {
   // indication that the cache will be used.
   virtual bool IsBackForwardCacheSupported();
 
+  // Returns the BackForwardCache for this delegate.
+  virtual BackForwardCacheImpl& GetBackForwardCache();
+
   // The page is trying to open a new widget (e.g. a select popup). The
   // widget should be created associated with the given
   // |site_instance_group|, but it should not be shown yet. That should
@@ -706,8 +711,12 @@ class CONTENT_EXPORT RenderFrameHostDelegate {
       RenderFrameHost::LifecycleState old_state,
       RenderFrameHost::LifecycleState new_state) {}
 
-  // The page is trying to move the main frame's representation in the client.
+  // SetWindowRect is the legacy window.move*/resize* path used while
+  // kMoveResizeWindowToIPCs is disabled, while MoveWindowTo and ResizeWindowTo
+  // carry just the changing component for window.moveTo / window.resizeTo.
   virtual void SetWindowRect(const gfx::Rect& new_bounds) {}
+  virtual void MoveWindowTo(const gfx::Point& origin) {}
+  virtual void ResizeWindowTo(const gfx::Size& size) {}
 
   // The page's preferred size changed.
   virtual void UpdateWindowPreferredSize(RenderFrameHostImpl* render_frame_host,

@@ -56,6 +56,7 @@
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
+#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -77,6 +78,7 @@
 #include "chrome/browser/ui/views/location_bar/intent_chip_button.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_view.h"
+#include "chrome/browser/ui/views/page_action/test_support/page_action_test_support.h"
 #include "chrome/browser/ui/views/page_info/page_info_bubble_view.h"
 #include "chrome/browser/ui/views/page_info/page_info_view_factory.h"
 #include "chrome/browser/ui/views/toolbar/app_menu_control.h"
@@ -85,8 +87,8 @@
 #include "chrome/browser/ui/views/web_apps/frame_toolbar/web_app_frame_toolbar_view.h"
 #include "chrome/browser/ui/views/web_apps/frame_toolbar/web_app_toolbar_button_container.h"
 #include "chrome/browser/ui/views/web_apps/frame_toolbar/window_controls_overlay_toggle_button.h"
-#include "chrome/browser/ui/views/web_apps/sub_apps_install_dialog_controller.h"
-#include "chrome/browser/ui/views/web_apps/web_app_dialog_test_support.h"
+#include "chrome/browser/ui/views/web_apps/sub_apps/sub_apps_install_dialog_controller.h"
+#include "chrome/browser/ui/views/web_apps/web_app_install_flow_dialog_delegate.h"
 #include "chrome/browser/ui/views/web_apps/web_app_link_capturing_test_utils.h"
 #include "chrome/browser/ui/views/web_apps/web_app_update_review_dialog.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
@@ -796,17 +798,6 @@ WebAppSettingsPageHandler CreateAppManagementPageHandler(Profile* profile) {
 }
 #endif
 
-void WaitForAndAcceptInstallDialogForSite(Site site) {
-  std::string widget_name =
-      (site == Site::kScreenshots)     ? "WebAppDetailedInstallDialog"
-      : (site == Site::kNotPromotable) ? "WebAppDiyInstallDialog"
-                                       : "WebAppSimpleInstallDialog";
-  views::NamedWidgetShownWaiter waiter(views::test::AnyWidgetTestPasskey{},
-                                       widget_name);
-  views::Widget* widget = waiter.WaitIfNeededAndGet();
-  views::test::AcceptDialog(widget);
-}
-
 // Determines whether, when attempting to load a path, we want to, instead of
 // using the regular handler, load it from a file on disk.
 bool ShouldLoadResponseFromDisk(const base::FilePath& root,
@@ -1137,6 +1128,41 @@ void WebAppIntegrationTestDriver::TearDownOnMainThread() {
   LOG(INFO) << "TearDownOnMainThread: Complete.";
 }
 
+void WebAppIntegrationTestDriver::WaitForAndAcceptInstallDialogForSite(
+    Site site) {
+  if (base::FeatureList::IsEnabled(features::kWebAppInstallDialog)) {
+    views::NamedWidgetShownWaiter waiter(views::test::AnyWidgetTestPasskey{},
+                                         "WebAppInstallFlowDialog");
+    views::Widget* widget = waiter.WaitIfNeededAndGet();
+    ASSERT_TRUE(widget != nullptr);
+    views::test::WidgetDestroyedWaiter destroyed_waiter(widget);
+    views::DialogDelegate* dialog_delegate =
+        widget->widget_delegate()->AsDialogDelegate();
+    ASSERT_TRUE(dialog_delegate != nullptr);
+    // Install or move to install options.
+    dialog_delegate->AcceptDialog();
+    // Accept options if they are shown to install (we don't show on Linux)
+    if (ui::ElementTracker::GetElementTracker()->GetElementInAnyContext(
+            WebAppInstallFlowDialogDelegate::kOptionsViewId)) {
+      dialog_delegate->AcceptDialog();
+    }
+    // Wait for the install to finish happening.
+    provider()->command_manager().AwaitAllCommandsCompleteForTesting();
+    // Finally, accept the last view, which should launch the app.
+    dialog_delegate->AcceptDialog();
+    destroyed_waiter.Wait();
+  } else {
+    std::string widget_name =
+        (site == Site::kScreenshots)     ? "WebAppDetailedInstallDialog"
+        : (site == Site::kNotPromotable) ? "WebAppDiyInstallDialog"
+                                         : "WebAppSimpleInstallDialog";
+    views::NamedWidgetShownWaiter waiter(views::test::AnyWidgetTestPasskey{},
+                                         widget_name);
+    views::Widget* widget = waiter.WaitIfNeededAndGet();
+    views::test::AcceptDialog(widget);
+  }
+}
+
 void WebAppIntegrationTestDriver::OnWidgetShown(views::Widget* widget) {
   if (widget->GetName() == "WebAppUpdateReviewDialog") {
     active_update_dialog_widget_ = widget;
@@ -1267,7 +1293,7 @@ void WebAppIntegrationTestDriver::ClosePwa() {
 
   ui_test_utils::BrowserDestroyedObserver browser_destroyed_observer(
       app_browser());
-  app_browser()->window()->Close();
+  app_browser()->GetWindow()->Close();
   browser_destroyed_observer.Wait();
   app_browser_ = nullptr;
 
@@ -1413,13 +1439,15 @@ void WebAppIntegrationTestDriver::CreateShortcut(Site site,
   observer.BeginListening();
   BrowserAddedWaiter browser_added_waiter;
   {
-    std::unique_ptr<web_app::test::ScopedAutoCheckChromeOsOpenInWindow>
-        auto_check;
+    std::optional<base::AutoReset<CreateShortcutDialogCheckState>> auto_check;
     if (open_in_window) {
-      auto_check = std::make_unique<
-          web_app::test::ScopedAutoCheckChromeOsOpenInWindow>();
+      auto_check.emplace(
+          SetCreateShortcutDialogCheckStateForTesting(  // IN-TEST
+              CreateShortcutDialogCheckState::kChecked));
     }
-    web_app::test::ScopedAutoAcceptCreateShortcutDialog auto_accept;
+    base::AutoReset<InstallDialogTestResponse> auto_accept =
+        SetPwaInstallationAutoRespondForTesting(  // IN-TEST
+            InstallDialogTestResponse::kAcceptAndLaunch);
     CHECK(chrome::ExecuteCommand(browser(), IDC_CREATE_SHORTCUT));
     active_app_id_ = observer.Wait();
   }
@@ -1441,8 +1469,10 @@ void WebAppIntegrationTestDriver::InstallMenuOption(Site site) {
   BrowserAddedWaiter browser_added_waiter;
   WebAppTestInstallWithOsHooksObserver install_observer(profile());
   install_observer.BeginListening();
-  web_app::test::ScopedDontCloseInstallDialogsOnDeactivate
-      dont_close_bubble_on_deactivate;
+  base::AutoReset<web_app::InstallDialogDeactivateAction>
+      dont_close_bubble_on_deactivate =
+          web_app::SetPwaInstallationDialogDeactivateActionForTesting(
+              web_app::InstallDialogDeactivateAction::kKeepOpen);
 
   CHECK(chrome::ExecuteCommand(browser(), IDC_INSTALL_PWA));
 
@@ -1500,8 +1530,10 @@ void WebAppIntegrationTestDriver::InstallOmniboxIcon(InstallableSite site) {
         run_loop.Quit();
       }));
 
-  web_app::test::ScopedDontCloseInstallDialogsOnDeactivate
-      dont_close_bubble_on_deactivate;
+  base::AutoReset<web_app::InstallDialogDeactivateAction>
+      dont_close_bubble_on_deactivate =
+          web_app::SetPwaInstallationDialogDeactivateActionForTesting(
+              web_app::InstallDialogDeactivateAction::kKeepOpen);
 
   BrowserAddedWaiter browser_added_waiter;
   views::test::PropertyWaiter(
@@ -1518,7 +1550,7 @@ void WebAppIntegrationTestDriver::InstallOmniboxIcon(InstallableSite site) {
                     browser()->GetActions()->root_action_item())
         ->InvokeAction();
   } else {
-    browser()->window()->ExecutePageActionIconForTesting(
+    BrowserWindow::FromBrowser(browser())->ExecutePageActionIconForTesting(
         PageActionIconType::kPwaInstall);
   }
 
@@ -1652,24 +1684,23 @@ void WebAppIntegrationTestDriver::InstallSubApp(
 
   std::string sub_url = GetRelativeSubAppPath(sub_app);
 
-  // The argument of add() is a dictionary-valued dictionary:
-  // { $manifest_id : {'installURL' : $installURL} }
-  // In our case, both $manifest_id and $installURL are sub_url.
-  base::DictValue inner_dict;
-  inner_dict.Set("installURL", sub_url);
-  base::DictValue outer_dict;
-  outer_dict.Set(sub_url, std::move(inner_dict));
+  base::ListValue install_urls;
+  install_urls.Append(sub_url);
 
   std::string script =
-      content::JsReplace("navigator.subApps.add($1)", std::move(outer_dict));
+      content::JsReplace("window.subApps.add($1)", std::move(install_urls));
   const content::EvalJsResult add_result =
       content::EvalJs(web_contents, script);
 
   if (option == SubAppInstallDialogOptions::kUserDeny) {
     EXPECT_FALSE(add_result.is_ok());
   } else {
+    base::DictValue expected_installed;
+    expected_installed.Set(sub_url, sub_url);
+
     base::DictValue expected_output;
-    expected_output.Set(sub_url, "success");
+    expected_output.Set("installedApps", std::move(expected_installed));
+    expected_output.Set("failedApps", base::DictValue());
     EXPECT_EQ(expected_output, add_result);
   }
 
@@ -1687,11 +1718,14 @@ void WebAppIntegrationTestDriver::RemoveSubApp(Site parent_app, Site sub_app) {
   std::string sub_url = GetRelativeSubAppPath(sub_app);
 
   const content::EvalJsResult remove_result = content::EvalJs(
-      web_contents,
-      content::JsReplace("navigator.subApps.remove([$1])", sub_url));
+      web_contents, content::JsReplace("window.subApps.remove([$1])", sub_url));
+
+  base::ListValue expected_removed;
+  expected_removed.Append(sub_url);
 
   base::DictValue expected_output;
-  expected_output.Set(sub_url, "success");
+  expected_output.Set("removedApps", std::move(expected_removed));
+  expected_output.Set("failedApps", base::DictValue());
   EXPECT_EQ(expected_output, remove_result);
 
   AfterStateChangeAction();
@@ -1990,7 +2024,7 @@ void WebAppIntegrationTestDriver::LaunchFromLaunchIcon(Site site) {
   ASSERT_TRUE(app_browser_);
   ASSERT_TRUE(app_browser_->is_type_app());
   ASSERT_TRUE(AppBrowserController::IsForWebApp(app_browser_, app_id));
-  active_app_id_ = app_browser()->app_controller()->app_id();
+  active_app_id_ = web_app::AppBrowserController::From(app_browser())->app_id();
 
 #if !BUILDFLAG(IS_CHROMEOS)
   // In certain tests where window controls overlay is being tested, if the app
@@ -2023,7 +2057,8 @@ void WebAppIntegrationTestDriver::LaunchFromMenuOption(Site site) {
   active_app_id_ = app_id;
 
   ASSERT_TRUE(AppBrowserController::IsForWebApp(app_browser(), active_app_id_));
-  EXPECT_EQ(app_browser()->app_controller()->app_id(), app_id);
+  EXPECT_EQ(web_app::AppBrowserController::From(app_browser())->app_id(),
+            app_id);
   AfterStateChangeAction();
 }
 
@@ -2467,7 +2502,7 @@ void WebAppIntegrationTestDriver::NewAppTab(Site site) {
   if (!BeforeStateChangeAction(__FUNCTION__)) {
     return;
   }
-  chrome::NewTab(GetAppBrowserForSite(site));
+  chrome::NewTab(GetAppBrowserForSite(site), NewTabTypes::kNoUserAction);
   AfterStateChangeAction();
 }
 
@@ -2591,7 +2626,8 @@ void WebAppIntegrationTestDriver::OpenInChrome() {
     return;
   }
   ASSERT_TRUE(IsBrowserOpen(app_browser())) << "No current app browser.";
-  webapps::AppId app_id = app_browser()->app_controller()->app_id();
+  webapps::AppId app_id =
+      web_app::AppBrowserController::From(app_browser())->app_id();
   GURL app_url = GetCurrentTab(app_browser())->GetURL();
   ASSERT_TRUE(AppBrowserController::IsForWebApp(app_browser(), app_id));
   ui_test_utils::BrowserDestroyedObserver observer(app_browser());
@@ -3696,7 +3732,8 @@ void WebAppIntegrationTestDriver::CheckCustomToolbar() {
     return;
   }
   ASSERT_TRUE(app_browser());
-  EXPECT_TRUE(app_browser()->app_controller()->ShouldShowCustomTabBar());
+  EXPECT_TRUE(web_app::AppBrowserController::From(app_browser())
+                  ->ShouldShowCustomTabBar());
   BrowserView* app_view = BrowserView::GetBrowserViewForBrowser(app_browser());
   EXPECT_TRUE(app_view->toolbar()
                   ->custom_tab_bar()
@@ -3710,7 +3747,8 @@ void WebAppIntegrationTestDriver::CheckNoToolbar() {
     return;
   }
   ASSERT_TRUE(app_browser());
-  EXPECT_FALSE(app_browser()->app_controller()->ShouldShowCustomTabBar());
+  EXPECT_FALSE(web_app::AppBrowserController::From(app_browser())
+                   ->ShouldShowCustomTabBar());
   BrowserView* app_view = BrowserView::GetBrowserViewForBrowser(app_browser());
   EXPECT_FALSE(app_view->toolbar()->custom_tab_bar()->GetVisible());
   AfterStateCheckAction();
@@ -3985,8 +4023,13 @@ void WebAppIntegrationTestDriver::CheckWindowControlsOverlayToggle(
   ASSERT_TRUE(app_browser());
   EXPECT_TRUE(AppBrowserController::IsForWebApp(app_browser(),
                                                 GetAppIdBySiteMode(site)));
-  EXPECT_EQ(app_browser()->app_controller()->AppUsesWindowControlsOverlay(),
-            is_shown == IsShown::kShown);
+
+  bool expected_toggle_shown =
+      web_app::AppBrowserController::From(app_browser())
+          ->AppUsesWindowControlsOverlay() &&
+      !base::FeatureList::IsEnabled(
+          features::kDesktopPWAsWindowControlsOverlayWithNoToggle);
+  EXPECT_EQ(expected_toggle_shown, is_shown == IsShown::kShown);
   WebAppFrameToolbarView* toolbar =
       BrowserView::GetBrowserViewForBrowser(app_browser())
           ->web_app_frame_toolbar_for_testing();
@@ -4039,7 +4082,7 @@ void WebAppIntegrationTestDriver::CheckWindowDisplayMinimal() {
   }
   ASSERT_TRUE(app_browser());
   web_app::AppBrowserController* app_controller =
-      app_browser()->app_controller();
+      web_app::AppBrowserController::From(app_browser());
   ASSERT_TRUE(app_controller->AsWebAppBrowserController());
   std::optional<AppState> app_state = GetStateForAppId(
       after_state_change_action_state_.get(), profile(), active_app_id_);
@@ -4067,7 +4110,7 @@ void WebAppIntegrationTestDriver::CheckWindowDisplayTabbed() {
   ASSERT_TRUE(app_browser());
 
   web_app::AppBrowserController* app_controller =
-      app_browser()->app_controller();
+      web_app::AppBrowserController::From(app_browser());
   ASSERT_TRUE(app_controller->AsWebAppBrowserController());
   std::optional<AppState> app_state = GetStateForAppId(
       after_state_change_action_state_.get(), profile(), active_app_id_);
@@ -4095,7 +4138,7 @@ void WebAppIntegrationTestDriver::CheckWindowDisplayStandalone() {
   ASSERT_TRUE(app_browser());
 
   web_app::AppBrowserController* app_controller =
-      app_browser()->app_controller();
+      web_app::AppBrowserController::From(app_browser());
   ASSERT_TRUE(app_controller->AsWebAppBrowserController());
   std::optional<AppState> app_state = GetStateForAppId(
       after_state_change_action_state_.get(), profile(), active_app_id_);
@@ -4130,7 +4173,7 @@ void WebAppIntegrationTestDriver::CheckHasSubApp(Site parent_app,
   std::string sub_app_url = GetRelativeSubAppPath(sub_app);
 
   const content::EvalJsResult list_result =
-      content::EvalJs(web_contents, "navigator.subApps.list()");
+      content::EvalJs(web_contents, "window.subApps.list()");
 
   const base::DictValue& list_result_dict = list_result.ExtractDict();
 
@@ -4154,7 +4197,7 @@ void WebAppIntegrationTestDriver::CheckNotHasSubApp(Site parent_app,
   std::string sub_app_url = GetRelativeSubAppPath(sub_app);
 
   const content::EvalJsResult list_result =
-      content::EvalJs(web_contents, "navigator.subApps.list()");
+      content::EvalJs(web_contents, "window.subApps.list()");
 
   const base::DictValue& list_result_dict = list_result.ExtractDict();
 
@@ -4175,7 +4218,7 @@ void WebAppIntegrationTestDriver::CheckNoSubApps(Site parent_app) {
       << "No open tab or window for the parent app was found.";
 
   const content::EvalJsResult result =
-      content::EvalJs(web_contents, "navigator.subApps.list()");
+      content::EvalJs(web_contents, "window.subApps.list()");
 
   // Check that list() returned an empty dictionary.
   EXPECT_EQ(base::Value(base::Value::Type::DICT), result);
@@ -4733,7 +4776,7 @@ void WebAppIntegrationTestDriver::NavigateTabbedBrowserToSite(
   content::TestNavigationObserver url_observer(url);
   if (mode == NavigationMode::kNewTab) {
     url_observer.StartWatchingNewWebContents();
-    chrome::NewTab(browser());
+    chrome::NewTab(browser(), NewTabTypes::kNoUserAction);
     ASSERT_TRUE(ui_test_utils::NavigateToURLWithDisposition(
         browser(), GURL(url), WindowOpenDisposition::CURRENT_TAB,
         ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP));
@@ -5034,9 +5077,11 @@ std::vector<Profile*> WebAppIntegrationTestDriver::GetAllProfiles() {
 
 IconLabelBubbleView* WebAppIntegrationTestDriver::pwa_install_view() {
   IconLabelBubbleView* pwa_install_view =
-      BrowserView::GetBrowserViewForBrowser(browser())
-          ->toolbar_button_provider()
-          ->GetPageActionView(kActionInstallPwa);
+      page_actions::GetIconLabelBubbleViewForTesting(
+          BrowserView::GetBrowserViewForBrowser(browser())
+              ->toolbar_button_provider()
+              ->GetPageActionViewInterface(kActionInstallPwa),
+          kActionInstallPwa);
   CHECK(pwa_install_view);
   return pwa_install_view;
 }
@@ -5060,6 +5105,7 @@ WebAppIntegrationTestDriver::GetTestAppHomePageHandler(
 
 WebAppIntegrationTest::WebAppIntegrationTest() : helper_(this) {
   std::vector<base::test::FeatureRef> enabled_features;
+  std::vector<base::test::FeatureRef> disabled_features;
   enabled_features.push_back(blink::features::kSubApps);
   enabled_features.push_back(blink::features::kDesktopPWAsTabStrip);
   enabled_features.push_back(features::kDesktopPWAsTabStripSettings);
@@ -5072,9 +5118,11 @@ WebAppIntegrationTest::WebAppIntegrationTest() : helper_(this) {
   enabled_features.push_back(features::kPwaNavigationCapturing);
 #endif  // !BUILDFLAG(IS_CHROMEOS)
   enabled_features.push_back(blink::features::kWebAppMigrationApi);
+  enabled_features.push_back(features::kWebAppInstallDialog);
+  disabled_features.push_back(
+      features::kDesktopPWAsWindowControlsOverlayWithNoToggle);
 
-  scoped_feature_list_.InitWithFeatures(enabled_features,
-                                        {features::kWebAppInstallDialog});
+  scoped_feature_list_.InitWithFeatures(enabled_features, disabled_features);
 }
 
 WebAppIntegrationTest::~WebAppIntegrationTest() = default;

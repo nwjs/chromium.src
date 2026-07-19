@@ -171,9 +171,10 @@ void SecurePaymentConfirmationAppFactory::Create(
       }
 
       // PaymentRequest::Init should have already validated the request.
-      std::string unused_error_message;
-      CHECK(IsValidSecurePaymentConfirmationRequest(
-          method_data->secure_payment_confirmation, &unused_error_message));
+      CHECK_EQ(IsValidSecurePaymentConfirmationRequest(
+                   method_data->secure_payment_confirmation,
+                   delegate->GetFrameSecurityOrigin()),
+               SecurePaymentConfirmationRequestValidationError::kOk);
 
       mojom::SecurePaymentConfirmationRequestPtr spc_request =
           method_data->secure_payment_confirmation.Clone();
@@ -183,7 +184,8 @@ void SecurePaymentConfirmationAppFactory::Create(
       // than 2 logos are provided.
       if (spc_request->payment_entities_logos.size() > 2) {
         spc_request->payment_entities_logos.erase(
-            spc_request->payment_entities_logos.begin() + 2);
+            spc_request->payment_entities_logos.begin() + 2,
+            spc_request->payment_entities_logos.end());
       }
 
       // Record if the user will be offered an opt-out experience. Technically

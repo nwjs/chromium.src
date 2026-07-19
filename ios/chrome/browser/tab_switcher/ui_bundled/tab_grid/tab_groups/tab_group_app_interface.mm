@@ -6,6 +6,7 @@
 
 #import "base/strings/string_number_conversions.h"
 #import "base/strings/sys_string_conversions.h"
+#import "base/test/gmock_callback_support.h"
 #import "components/collaboration/public/pref_names.h"
 #import "components/data_sharing/public/data_sharing_service.h"
 #import "components/data_sharing/public/features.h"
@@ -23,7 +24,10 @@
 #import "ios/chrome/browser/saved_tab_groups/model/tab_group_sync_service_factory.h"
 #import "ios/chrome/browser/share_kit/model/share_kit_service_factory.h"
 #import "ios/chrome/browser/share_kit/model/test_share_kit_service.h"
+#import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
+#import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/tab_groups_commands.h"
 #import "ios/chrome/test/app/chrome_test_util.h"
 #import "ios/chrome/test/app/sync_test_util.h"
 
@@ -86,15 +90,6 @@ tab_groups::SavedTabGroup CreateGroup(
       title, tab_groups::TabGroupColorId::kOrange, saved_tabs,
       /*position=*/std::nullopt, group_id);
   return saved_group;
-}
-
-// testing::InvokeArgument<N> does not work with base::OnceCallback. Use this
-// gmock action template to invoke base::OnceCallback. `k` is the k-th argument
-// and `T` is the callback's type.
-ACTION_TEMPLATE(InvokeCallbackArgument,
-                HAS_2_TEMPLATE_PARAMS(int, k, typename, T),
-                AND_1_VALUE_PARAMS(p0)) {
-  std::move(const_cast<T&>(std::get<k>(args))).Run(p0);
 }
 
 }  // namespace
@@ -178,12 +173,7 @@ ACTION_TEMPLATE(InvokeCallbackArgument,
       sharedDataPreview;
   ON_CALL(*mockPreviewProxy,
           GetSharedDataPreview(testing::_, testing::_, testing::_))
-      .WillByDefault(
-          InvokeCallbackArgument<
-              2,
-              base::OnceCallback<void(const data_sharing::DataSharingService::
-                                          SharedDataPreviewOrFailureOutcome&)>>(
-              outcome));
+      .WillByDefault(base::test::RunOnceCallback<2>(outcome));
 }
 
 + (void)addSharedTabToGroupAtIndex:(unsigned int)index {
@@ -231,6 +221,14 @@ ACTION_TEMPLATE(InvokeCallbackArgument,
   collaboration::CollaborationService* collaboration_service =
       collaboration::CollaborationServiceFactory::GetForProfile(profile);
   return IsSharedTabGroupsCreateEnabled(collaboration_service);
+}
+
++ (void)triggerDoubleEmptyTabGroupCreation {
+  Browser* browser = chrome_test_util::GetCurrentBrowser();
+  id<TabGroupsCommands> tabGroupsHandler =
+      HandlerForProtocol(browser->GetCommandDispatcher(), TabGroupsCommands);
+  [tabGroupsHandler showTabGroupCreationWithoutTabs];
+  [tabGroupsHandler showTabGroupCreationWithoutTabs];
 }
 
 @end

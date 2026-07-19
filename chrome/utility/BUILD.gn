@@ -43,6 +43,7 @@ static_library("utility") {
     "//components/on_device_translation/buildflags",
     "//components/paint_preview/buildflags",
     "//components/password_manager/services/csv_password:lib",
+    "//components/private_ai/oak_session_service",
     "//components/safe_browsing:buildflags",
     "//components/search_engines",
     "//components/services/paint_preview_compositor",
@@ -141,8 +142,8 @@ static_library("utility") {
     deps += [
       "//chrome/common:mojo_bindings",
       "//chrome/common/importer:interfaces",
+      "//chrome/services/reading_mode_metrics:lib",
       "//components/autofill/core/common",
-      "//components/private_ai/oak_session_service",
       "//components/user_data_importer/common",
       "//components/user_data_importer/content",
       "//components/user_data_importer/utility:bookmarks",

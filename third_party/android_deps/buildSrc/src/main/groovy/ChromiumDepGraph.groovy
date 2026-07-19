@@ -33,6 +33,9 @@ class ChromiumDepGraph {
             com_android_extensions_xr_extensions_xr: new PropertyOverride(
                     licenseUrl: 'https://www.apache.org/licenses/LICENSE-2.0.txt',
                     licenseName: 'Apache-2.0'),
+            com_github_kevinstern_software_and_algorithms: new PropertyOverride(
+                    licenseUrl: 'https://raw.githubusercontent.com/KevinStern/software-and-algorithms/master/LICENSE',
+                    licenseName: 'MIT'),
             com_google_android_datatransport_transport_api: new PropertyOverride(
                     description: 'Interfaces for data logging in gmscore SDKs.'),
             com_google_android_gms_play_services_cloud_messaging: new PropertyOverride(
@@ -49,11 +52,6 @@ class ChromiumDepGraph {
                     licenseName: 'Apache 2.0'),
             com_google_auto_value_auto_value_annotations: new PropertyOverride(
                     licenseUrl: 'https://www.apache.org/licenses/LICENSE-2.0.txt',
-                    licenseName: 'Apache 2.0'),
-            com_google_code_gson_gson: new PropertyOverride(
-                    cpePrefix: 'cpe:/a:google:gson',
-                    description: 'A Java serialization/deserialization library to convert Java Objects into JSON and back',
-                    licenseUrl: 'https://raw.githubusercontent.com/google/gson/master/LICENSE',
                     licenseName: 'Apache 2.0'),
             com_google_errorprone_error_prone_annotation: new PropertyOverride(
                     // Robolectric has a (seemingly unnecessary) dep on this. It's meant to be needed
@@ -87,12 +85,18 @@ class ChromiumDepGraph {
                     description: 'Bridge interfaces for Firebase analytics into gmscore.'),
             com_google_firebase_firebase_messaging: new PropertyOverride(
                     description: 'Firebase Cloud Messaging SDK to send and receive push messages via FCM.'),
+            com_google_googlejavaformat_google_java_format: new PropertyOverride(
+                    licenseUrl: 'https://www.apache.org/licenses/LICENSE-2.0.txt',
+                    licenseName: 'Apache-2.0'),
             com_google_guava_failureaccess: new PropertyOverride(
                     licenseUrl: 'https://www.apache.org/licenses/LICENSE-2.0.txt',
                     licenseName: 'Apache 2.0'),
             com_google_guava_guava: new PropertyOverride(
                     cpePrefix: 'cpe:/a:google:guava',
                     licenseUrl: 'https://www.apache.org/licenses/LICENSE-2.0.txt',
+                    licenseName: 'Apache 2.0'),
+            com_google_jimfs_jimfs: new PropertyOverride(
+                    licenseUrl: 'https://raw.githubusercontent.com/google/jimfs/refs/heads/master/LICENSE',
                     licenseName: 'Apache 2.0'),
             com_google_mlkit_common: new PropertyOverride(
                     licenseUrl: 'https://www.apache.org/licenses/LICENSE-2.0.txt',
@@ -130,13 +134,11 @@ class ChromiumDepGraph {
                     cpePrefix: 'cpe:/a:google:protobuf-javalite',
                     licenseUrl: 'https://raw.githubusercontent.com/protocolbuffers/protobuf/master/LICENSE',
                     licenseName: 'BSD'),
-            io_grpc_grpc_android: new PropertyOverride(
-                    cpePrefix: 'cpe:/a:grpc:grpc',
-                    licenseUrl: 'https://raw.githubusercontent.com/grpc/grpc-java/refs/heads/master/LICENSE',
-                    licenseName: 'Apache 2.0'),
-            io_grpc_grpc_binder: new PropertyOverride(
-                    cpePrefix: 'cpe:/a:grpc:grpc',
-                    licenseUrl: 'https://raw.githubusercontent.com/grpc/grpc-java/refs/heads/master/LICENSE',
+            io_github_eisop_dataflow_errorprone: new PropertyOverride(
+                    licenseName: 'GPL-2.0-with-classpath-exception',
+                    licenseUrl: 'https://www.gnu.org/software/classpath/license.html'),
+            io_github_java_diff_utils_java_diff_utils: new PropertyOverride(
+                    licenseUrl: 'https://raw.githubusercontent.com/java-diff-utils/java-diff-utils/refs/heads/master/LICENSE',
                     licenseName: 'Apache 2.0'),
             io_grpc_grpc_api: new PropertyOverride(
                     cpePrefix: 'cpe:/a:grpc:grpc',
@@ -150,23 +152,7 @@ class ChromiumDepGraph {
                     cpePrefix: 'cpe:/a:grpc:grpc',
                     licenseUrl: 'https://raw.githubusercontent.com/grpc/grpc-java/refs/heads/master/LICENSE',
                     licenseName: 'Apache 2.0'),
-            io_grpc_grpc_protobuf_lite: new PropertyOverride(
-                    cpePrefix: 'cpe:/a:grpc:grpc',
-                    licenseUrl: 'https://raw.githubusercontent.com/grpc/grpc-java/refs/heads/master/LICENSE',
-                    licenseName: 'Apache 2.0'),
             io_grpc_grpc_stub: new PropertyOverride(
-                    cpePrefix: 'cpe:/a:grpc:grpc',
-                    licenseUrl: 'https://raw.githubusercontent.com/grpc/grpc-java/refs/heads/master/LICENSE',
-                    licenseName: 'Apache 2.0'),
-            io_grpc_grpc_testing: new PropertyOverride(
-                    cpePrefix: 'cpe:/a:grpc:grpc',
-                    licenseUrl: 'https://raw.githubusercontent.com/grpc/grpc-java/refs/heads/master/LICENSE',
-                    licenseName: 'Apache 2.0'),
-            io_grpc_grpc_inprocess: new PropertyOverride(
-                    cpePrefix: 'cpe:/a:grpc:grpc',
-                    licenseUrl: 'https://raw.githubusercontent.com/grpc/grpc-java/refs/heads/master/LICENSE',
-                    licenseName: 'Apache 2.0'),
-            io_grpc_grpc_util: new PropertyOverride(
                     cpePrefix: 'cpe:/a:grpc:grpc',
                     licenseUrl: 'https://raw.githubusercontent.com/grpc/grpc-java/refs/heads/master/LICENSE',
                     licenseName: 'Apache 2.0'),
@@ -225,19 +211,19 @@ class ChromiumDepGraph {
                     licenseUrl: 'https://www.apache.org/licenses/LICENSE-2.0.txt',
                     licenseName: 'Apache 2.0'),
             org_ow2_asm_asm: new PropertyOverride(
-                    licenseUrl: 'https://gitlab.ow2.org/asm/asm/raw/master/LICENSE.txt',
+                    licenseUrl: 'https://raw.githubusercontent.com/llbit/ow2-asm/f83ab1a894ba4d369dd18c318da0ae35a7ec114a/LICENSE.txt',
                     licenseName: 'BSD'),
             org_ow2_asm_asm_analysis: new PropertyOverride(
-                    licenseUrl: 'https://gitlab.ow2.org/asm/asm/raw/master/LICENSE.txt',
+                    licenseUrl: 'https://raw.githubusercontent.com/llbit/ow2-asm/f83ab1a894ba4d369dd18c318da0ae35a7ec114a/LICENSE.txt',
                     licenseName: 'BSD'),
             org_ow2_asm_asm_commons: new PropertyOverride(
-                    licenseUrl: 'https://gitlab.ow2.org/asm/asm/raw/master/LICENSE.txt',
+                    licenseUrl: 'https://raw.githubusercontent.com/llbit/ow2-asm/f83ab1a894ba4d369dd18c318da0ae35a7ec114a/LICENSE.txt',
                     licenseName: 'BSD'),
             org_ow2_asm_asm_tree: new PropertyOverride(
-                    licenseUrl: 'https://gitlab.ow2.org/asm/asm/raw/master/LICENSE.txt',
+                    licenseUrl: 'https://raw.githubusercontent.com/llbit/ow2-asm/f83ab1a894ba4d369dd18c318da0ae35a7ec114a/LICENSE.txt',
                     licenseName: 'BSD'),
             org_ow2_asm_asm_util: new PropertyOverride(
-                    licenseUrl: 'https://gitlab.ow2.org/asm/asm/raw/master/LICENSE.txt',
+                    licenseUrl: 'https://raw.githubusercontent.com/llbit/ow2-asm/f83ab1a894ba4d369dd18c318da0ae35a7ec114a/LICENSE.txt',
                     licenseName: 'BSD'),
             org_robolectric_annotations: new PropertyOverride(
                     licenseName: 'Apache-2.0, MIT',
@@ -312,6 +298,7 @@ class ChromiumDepGraph {
             'https://scripts.sil.org/cms/scripts/page.php?item_id=OFL_web': 'licenses/SIL_Open_Font.txt',
             'https://www.unicode.org/copyright.html#License': 'licenses/Unicode.txt',
             'https://www.unicode.org/license.html': 'licenses/Unicode.txt',
+            'https://www.gnu.org/software/classpath/license.html': 'licenses/GNU_v2_with_Classpath_Exception_1991.txt',
     ]
 
     final Map<String, DependencyDescription> dependencies = [:] as ConcurrentHashMap<String, DependencyDescription>
@@ -659,18 +646,6 @@ class ChromiumDepGraph {
     }
 
     private void customizeLicenses(DependencyDescription dep, PropertyOverride overrides) {
-        for (LicenseSpec license : dep.licenses) {
-            if (!license.url) {
-                continue
-            }
-            String normalizedLicenseUrl = license.url.replace('http://', 'https://')
-            String licenseOverridePath = LICENSE_OVERRIDES[normalizedLicenseUrl]
-            if (licenseOverridePath) {
-                license.url = ''
-                license.path = licenseOverridePath
-            }
-        }
-
         if (dep.id?.startsWith('com_google_android_')) {
             logger.debug("Using Android license for $dep.id")
             dep.licenses.clear()
@@ -693,6 +668,21 @@ class ChromiumDepGraph {
                     throw new IllegalStateException('PropertyOverride must specify "licenseName" if either ' +
                             '"licensePath" or "licenseUrl" is specified.')
                 }
+            }
+        }
+
+        for (LicenseSpec license : dep.licenses) {
+            if (license.path) {
+                continue
+            }
+            if (!license.url) {
+                continue
+            }
+            String normalizedLicenseUrl = license.url.replace('http://', 'https://')
+            String licenseOverridePath = LICENSE_OVERRIDES[normalizedLicenseUrl]
+            if (licenseOverridePath) {
+                license.url = ''
+                license.path = licenseOverridePath
             }
         }
     }

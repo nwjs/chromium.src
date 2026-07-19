@@ -128,10 +128,14 @@ int GetEventModifiers(int modifiers,
 
 base::TimeTicks GetEventTimeTicks(const std::optional<double>& timestamp) {
   // Convert timestamp, in seconds since unix epoch, to an event timestamp
-  // which is time ticks since platform start time.
-  return timestamp.has_value()
-             ? base::Seconds(timestamp.value()) + base::TimeTicks::UnixEpoch()
-             : base::TimeTicks::Now();
+  // which is time ticks since platform start time. Anchor both clocks to the
+  // current instant to map the wall-clock time onto the TimeTicks timeline.
+  if (!timestamp.has_value()) {
+    return base::TimeTicks::Now();
+  }
+  const base::Time event_time =
+      base::Time::UnixEpoch() + base::Seconds(timestamp.value());
+  return base::TimeTicks::Now() - (base::Time::Now() - event_time);
 }
 
 bool SetKeyboardEventText(
@@ -1479,7 +1483,7 @@ void InputHandler::OnWidgetForDispatchDragEvent(
       static_cast<blink::DragOperationsMask>(data->GetDragOperationsMask());
   std::unique_ptr<DropData> drop_data =
       std::make_unique<DropData>(ProtocolDragDataToDropData(std::move(data)));
-  drop_data->view_id = widget_host->GetRoutingID();
+  widget_host->FilterDropData(drop_data.get());
   int event_modifiers =
       GetEventModifiers(modifiers.value_or(blink::WebInputEvent::kNoModifiers),
                         false, false, 0, 0);

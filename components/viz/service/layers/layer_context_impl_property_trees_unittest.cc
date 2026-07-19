@@ -621,6 +621,39 @@ TEST_F(LayerContextImplUpdateDisplayTreeTransformNodeTest,
 }
 
 TEST_F(LayerContextImplUpdateDisplayTreeTransformNodeTest,
+       UpdateTransformTreePropertiesInvalidNodeIds) {
+  {
+    auto update = CreateDefaultUpdate();
+    auto tree_props = mojom::TransformTreeUpdate::New();
+    tree_props->page_scale_factor = 1.5f;
+    tree_props->device_scale_factor = 2.0f;
+    tree_props->device_transform_scale_factor = 2.5f;
+    // An out-of-bounds node ID.
+    tree_props->nodes_affected_by_outer_viewport_bounds_delta = {999999};
+    update->transform_tree_update = std::move(tree_props);
+    update->page_scale_factor = 1.5f;
+
+    auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+    EXPECT_FALSE(result.has_value());
+  }
+
+  {
+    auto update = CreateDefaultUpdate();
+    auto tree_props = mojom::TransformTreeUpdate::New();
+    tree_props->page_scale_factor = 1.5f;
+    tree_props->device_scale_factor = 2.0f;
+    tree_props->device_transform_scale_factor = 2.5f;
+    // An out-of-bounds node ID.
+    tree_props->nodes_affected_by_safe_area_bottom = {999999};
+    update->transform_tree_update = std::move(tree_props);
+    update->page_scale_factor = 1.5f;
+
+    auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+    EXPECT_FALSE(result.has_value());
+  }
+}
+
+TEST_F(LayerContextImplUpdateDisplayTreeTransformNodeTest,
        UpdateDrawnElasticOverscroll) {
   cc::LayerTreeImpl* active_tree =
       layer_context_impl_->host_impl()->active_tree();
@@ -1005,6 +1038,21 @@ TEST_F(LayerContextImplUpdateDisplayTreeTransformNodeTest,
   auto node_update = mojom::TransformNode::New();
   // Use an ID that is not a root ID.
   node_update->id = AddTransformNode(update.get(), cc::kRootPropertyNodeId);
+  node_update->parent_id = cc::kInvalidPropertyNodeId;  // Invalid parent
+  update->transform_nodes.push_back(std::move(node_update));
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(),
+            "Invalid parent_id for non-root property tree node");
+}
+
+TEST_F(LayerContextImplUpdateDisplayTreeTransformNodeTest,
+       InvalidParentIdForSecondaryRootTransformNode) {
+  auto update = CreateDefaultUpdate();
+  auto node_update = mojom::TransformNode::New();
+  // Attempt to update the secondary root transform node with an invalid parent.
+  node_update->id = cc::kSecondaryRootPropertyNodeId;
   node_update->parent_id = cc::kInvalidPropertyNodeId;  // Invalid parent
   update->transform_nodes.push_back(std::move(node_update));
 

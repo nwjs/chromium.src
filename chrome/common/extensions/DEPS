@@ -1,4 +1,5 @@
 include_rules = [
+  "+ash/constants/ash_extension_constants.h",
   "+ash/keyboard/ui/resources",  # For virtual keyboard
   "+components/app_constants/constants.h",
   "+components/device_signals/core/common",
@@ -13,7 +14,7 @@ include_rules = [
 specific_include_rules = {
   # The extensions client interface is the master arbiter of which
   # API schemas exist, so it needs to know about app APIs.
-  "chrome_extensions_client\.cc": [
+  "chrome_extensions_client\\.cc": [
      "+apps/common/api/generated_schemas.h",
      "+services/network/public/mojom/cors_origin_pattern.mojom.h",
   ],

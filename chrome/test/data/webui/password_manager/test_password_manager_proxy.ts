@@ -4,7 +4,7 @@
 
 /** @fileoverview Test implementation of PasswordManagerProxy. */
 
-import {PasswordManagerActionableError} from 'chrome://password-manager/password_manager.js';
+import {ExportPasswordsResult, ExportProgressStatus, PageCallbackRouter, PasswordManagerActionableError} from 'chrome://password-manager/password_manager.js';
 import type {AccountStorageActiveStateChangedListener, BlockedSite, BlockedSitesListChangedListener, CredentialsChangedListener, PasswordCheckInteraction, PasswordCheckStatusChangedListener, PasswordManagerActionableErrorChangedListener, PasswordManagerAuthTimeoutListener, PasswordManagerProxy, PasswordsFileExportProgressListener, PasswordViewPageInteractions, ShouldShowAccountStorageToggleChangedListener} from 'chrome://password-manager/password_manager.js';
 import {TestBrowserProxy} from 'chrome://webui-test/test_browser_proxy.js';
 
@@ -16,6 +16,8 @@ import {makeFamilyFetchResults, makePasswordCheckStatus} from './test_util.js';
  */
 export class TestPasswordManagerProxy extends TestBrowserProxy implements
     PasswordManagerProxy {
+  callbackRouter: PageCallbackRouter = new PageCallbackRouter();
+  callbackRouterRemote = this.callbackRouter.$.bindNewPipeAndPassRemote();
   data: {
     blockedSites: BlockedSite[],
     actorLoginPermissions: ActorLoginPermission[],
@@ -64,6 +66,9 @@ export class TestPasswordManagerProxy extends TestBrowserProxy implements
     fileName: '',
   };
 
+  private exportPasswordsResult_: ExportPasswordsResult =
+      ExportPasswordsResult.kSuccess;
+
   constructor() {
     super([
       'addPassword',
@@ -107,7 +112,7 @@ export class TestPasswordManagerProxy extends TestBrowserProxy implements
       'requestChangePassword',
       'sharePassword',
       'showAddShortcutDialog',
-      'showExportedFileInShell',
+      'showLastExportedFileInShell',
       'startBulkPasswordCheck',
       'switchBiometricAuthBeforeFillingState',
       'undoRemoveSavedPasswordOrException',
@@ -217,11 +222,6 @@ export class TestPasswordManagerProxy extends TestBrowserProxy implements
 
   startBulkPasswordCheck() {
     this.methodCalled('startBulkPasswordCheck');
-    if (this.data.checkStatus.state ===
-        chrome.passwordsPrivate.PasswordCheckState.NO_PASSWORDS) {
-      return Promise.reject(new Error('error'));
-    }
-    return Promise.resolve();
   }
 
   recordPasswordCheckInteraction(interaction: PasswordCheckInteraction) {
@@ -295,13 +295,16 @@ export class TestPasswordManagerProxy extends TestBrowserProxy implements
 
   requestExportProgressStatus() {
     this.methodCalled('requestExportProgressStatus');
-    return Promise.resolve(
-        chrome.passwordsPrivate.ExportProgressStatus.NOT_STARTED);
+    return Promise.resolve(ExportProgressStatus.kNotStarted);
   }
 
   exportPasswords() {
     this.methodCalled('exportPasswords');
-    return Promise.resolve();
+    return Promise.resolve(this.exportPasswordsResult_);
+  }
+
+  setExportPasswordsResult(result: ExportPasswordsResult) {
+    this.exportPasswordsResult_ = result;
   }
 
   addPasswordsFileExportProgressListener(
@@ -331,8 +334,8 @@ export class TestPasswordManagerProxy extends TestBrowserProxy implements
     this.methodCalled('undoRemoveSavedPasswordOrException');
   }
 
-  showExportedFileInShell() {
-    this.methodCalled('showExportedFileInShell');
+  showLastExportedFileInShell() {
+    this.methodCalled('showLastExportedFileInShell');
   }
 
   getUrlCollection(url: string) {

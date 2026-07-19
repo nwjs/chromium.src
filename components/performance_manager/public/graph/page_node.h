@@ -11,6 +11,7 @@
 
 #include "base/byte_size.h"
 #include "base/containers/flat_set.h"
+#include "base/memory/raw_ptr.h"
 #include "base/observer_list_types.h"
 #include "base/time/time.h"
 #include "base/unguessable_token.h"
@@ -19,6 +20,7 @@
 #include "components/performance_manager/public/mojom/lifecycle.mojom.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "third_party/blink/public/common/permissions/permission_utils.h"
+#include "third_party/blink/public/mojom/favicon/favicon_url.mojom-forward.h"
 
 class GURL;
 
@@ -40,6 +42,8 @@ enum class PageType {
   kTab,
   // An extension background page.
   kExtension,
+  // A non-tab WebUI surface (e.g., Top Chrome WebUI, Side Panel).
+  kNonTabWebUI,
   // Anything else.
   kUnknown,
 };
@@ -48,7 +52,7 @@ enum class PageType {
 // These may correspond to normal tabs, WebViews, Chrome Apps or Extensions.
 class PageNode : public TypedNode<PageNode> {
  public:
-  using NodeSet = base::flat_set<const Node*>;
+  using NodeSet = base::flat_set<raw_ptr<const Node>>;
   template <class NodeViewPtr>
   using NodeSetView = NodeSetView<NodeSet, NodeViewPtr>;
 
@@ -365,7 +369,8 @@ class PageNodeObserver : public base::CheckedObserver {
 
   // Fired when the favicon associated with a page is updated. This property is
   // not directly reflected on the node.
-  virtual void OnFaviconUpdated(const PageNode* page_node) {}
+  virtual void OnFaviconUpdated(const PageNode* page_node,
+                                blink::mojom::FaviconUpdateReason reason) {}
 
   // Fired after `new_page_node` is created but before `page_node` is deleted
   // from being discarded. See the equivalent function on `WebContentsObserver`

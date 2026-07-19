@@ -4,24 +4,32 @@
 
 import 'chrome://resources/cr_components/composebox/composebox.js';
 
-import {ComposeboxFile} from 'chrome://resources/cr_components/composebox/common.js';
+import {ComposeboxFile, TabUploadOrigin} from 'chrome://resources/cr_components/composebox/common.js';
 import type {ComposeboxElement} from 'chrome://resources/cr_components/composebox/composebox.js';
 import {PageCallbackRouter, PageHandlerRemote} from 'chrome://resources/cr_components/composebox/composebox.mojom-webui.js';
 import type {ComposeboxInputElement} from 'chrome://resources/cr_components/composebox/composebox_input.js';
 import {ComposeboxProxyImpl} from 'chrome://resources/cr_components/composebox/composebox_proxy.js';
 import type {ContextualEntrypointAndMenuElement} from 'chrome://resources/cr_components/composebox/contextual_entrypoint_and_menu.js';
+import type {ContextualEntrypointButtonElement} from 'chrome://resources/cr_components/composebox/contextual_entrypoint_button.js';
 import {WindowProxy} from 'chrome://resources/cr_components/composebox/window_proxy.js';
 import {createAutocompleteResultForTesting, createSearchMatchForTesting} from 'chrome://resources/cr_components/searchbox/searchbox_browser_proxy.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
+import type {TabInfo} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {PageRemote as SearchboxPageRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {InputType} from 'chrome://resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
-import type {UnguessableToken} from 'chrome://resources/mojo/mojo/public/mojom/base/unguessable_token.mojom-webui.js';
-import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {assertEquals, assertFalse, assertNotEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import type {TestMock} from 'chrome://webui-test/test_mock.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
+import {getTrustedHtml} from 'chrome://webui-test/trusted_html.js';
 
-import {installMock, MockInputState} from './composebox_test_utils.js';
+import {installMock} from './composebox_test_utils.js';
+
+interface TestComposeboxElement extends ComposeboxElement {
+  keepMenuOpenForMultiSelection: () => Promise<void>;
+  keepMenuOpenOnTabSelectForRealbox: boolean;
+  composeboxSource: string;
+}
 
 suite('ComposeboxTest', () => {
   let composebox: ComposeboxElement;
@@ -71,6 +79,9 @@ suite('ComposeboxTest', () => {
       composeboxDeleteFileTitle: 'Delete',
       contextManagementInComposeboxEnabled: false,
       tabFaviconChipsToCoinsEnabled: false,
+      maxFilesReachedError: 'Max files reached',
+      composeboxFileUploadInvalidTooLarge: 'File too large',
+      composeboxFileUploadStartedText: 'Upload started',
     });
 
     handler = installMock(
@@ -168,125 +179,6 @@ suite('ComposeboxTest', () => {
   });
 
   test(
-      'Shift+Enter allows inserting a newline when input is focused and not empty',
-      async () => {
-        const composeboxDiv =
-            composebox.shadowRoot.querySelector('#composebox');
-        assertTrue(!!composeboxDiv);
-
-        composebox.input = 'Some text';
-        await composebox.updateComplete;
-
-        const inputElement = composebox.getInputElement();
-        inputElement.inputElement.focus();
-
-        let preventDefaultCalled = false;
-        const event = new KeyboardEvent('keydown', {
-          key: 'Enter',
-          shiftKey: true,
-          bubbles: true,
-          cancelable: true,
-        });
-
-        Object.defineProperty(event, 'preventDefault', {
-          value: () => {
-            preventDefaultCalled = true;
-          },
-        });
-
-        assertEquals(composebox.getActiveElement(), inputElement);
-
-        composeboxDiv.dispatchEvent(event);
-
-        assertFalse(
-            preventDefaultCalled, 'preventDefault should not be called');
-      });
-
-  test(
-      'Enter prevents inserting a newline and attempts to submit query when focus is not in dropdown',
-      () => {
-        const composeboxDiv =
-            composebox.shadowRoot.querySelector('#composebox');
-        assertTrue(!!composeboxDiv);
-
-        let preventDefaultCalled = false;
-        const event = new KeyboardEvent('keydown', {
-          key: 'Enter',
-          shiftKey: false,
-          bubbles: true,
-          cancelable: true,
-        });
-
-        Object.defineProperty(event, 'preventDefault', {
-          value: () => {
-            preventDefaultCalled = true;
-          },
-        });
-
-        assertFalse(
-            composebox.getActiveElement() === composebox.getDropdownElement());
-
-        composeboxDiv.dispatchEvent(event);
-
-        assertTrue(preventDefaultCalled, 'preventDefault should be called');
-      });
-
-  test(
-      'Shift+Enter submits dropdown selection when focus is in dropdown',
-      () => {
-        const composeboxDiv =
-            composebox.shadowRoot.querySelector('#composebox');
-        assertTrue(!!composeboxDiv);
-
-        let preventDefaultCalled = false;
-        const event = new KeyboardEvent('keydown', {
-          key: 'Enter',
-          shiftKey: true,
-          bubbles: true,
-          cancelable: true,
-        });
-
-        Object.defineProperty(event, 'preventDefault', {
-          value: () => {
-            preventDefaultCalled = true;
-          },
-        });
-
-        const originalGetActiveElement = composebox.getActiveElement;
-        composebox.getActiveElement = () => composebox.getDropdownElement();
-
-        composeboxDiv.dispatchEvent(event);
-
-        assertTrue(preventDefaultCalled, 'preventDefault should be called');
-
-        composebox.getActiveElement = originalGetActiveElement;
-      });
-
-  test('autocomplete matches are cleared on submit', async () => {
-    composebox.getInputElement().inputElement.value = 'Some text';
-    composebox.getInputElement().inputElement.dispatchEvent(
-        new CustomEvent('input', {bubbles: true, cancelable: true}));
-    await composebox.updateComplete;
-
-    const composeboxDiv = composebox.shadowRoot.querySelector('#composebox');
-    assertTrue(!!composeboxDiv);
-
-    const event = new KeyboardEvent('keydown', {
-      key: 'Enter',
-      shiftKey: false,
-      bubbles: true,
-      cancelable: true,
-    });
-    composeboxDiv.dispatchEvent(event);
-
-    const clearResult = await searchboxHandler.whenCalled('stopAutocomplete');
-    assertTrue(clearResult);
-    assertFalse(composebox.showDropdown);
-    assertEquals(null, composebox.result);
-    assertEquals('', composebox.lastQueriedInput);
-  });
-
-  test(
       'smartComposeEnabled forwards from <cr-composebox> to <cr-composebox-input>',
       async () => {
         loadTimeData.overrideValues({composeboxSmartComposeEnabled: true});
@@ -302,264 +194,6 @@ suite('ComposeboxTest', () => {
         await input.updateComplete;
 
         assertTrue(input.hasAttribute('smart-compose-enabled'));
-      });
-
-  test('smartComposeInlineHint is sliced on sequential typing', async () => {
-    composebox.smartComposeEnabled = true;
-    composebox.input = 'hello';
-    composebox.smartComposeInlineHint = ' world';
-    await composebox.updateComplete;
-
-    const inputElem = composebox.getInputElement();
-    const innerInput = inputElem.inputElement;
-
-    // User types the space.
-    innerInput.value = 'hello ';
-    innerInput.dispatchEvent(
-        new Event('input', {bubbles: true, composed: true}));
-    await composebox.updateComplete;
-
-    assertEquals('world', composebox.smartComposeInlineHint);
-    assertEquals('hello ', composebox.input);
-
-    // User types 'w'.
-    innerInput.value = 'hello w';
-    innerInput.dispatchEvent(
-        new Event('input', {bubbles: true, composed: true}));
-    await composebox.updateComplete;
-
-    assertEquals('orld', composebox.smartComposeInlineHint);
-  });
-
-  test('smartComposeInlineHint is cleared on non-matching typing', async () => {
-    composebox.smartComposeEnabled = true;
-    composebox.input = 'hello';
-    composebox.smartComposeInlineHint = ' world';
-    await composebox.updateComplete;
-
-    const inputElem = composebox.getInputElement();
-    const innerInput = inputElem.inputElement;
-
-    // User types something else (unexpected char).
-    innerInput.value = 'hello!';
-    innerInput.dispatchEvent(
-        new Event('input', {bubbles: true, composed: true}));
-    await composebox.updateComplete;
-
-    assertEquals('', composebox.smartComposeInlineHint);
-  });
-
-  test(
-      'filters tabs from carousel when tab chips to coins flag is enabled',
-      async () => {
-        // Override the feature flag to true before creating the component.
-        loadTimeData.overrideValues({
-          tabFaviconChipsToCoinsEnabled: true,
-        });
-
-        document.body.innerHTML = window.trustedTypes!.emptyHTML;
-        const freshComposebox = document.createElement('cr-composebox');
-        document.body.appendChild(freshComposebox);
-
-        // Prepare mock files: one regular file, one tab (identified by having a
-        // 'url').
-        const regularFile = {name: 'image.png', type: 'image/png'} as any;
-        const tabFile = {name: 'Google', url: 'about:blank'} as any;
-        freshComposebox.files =
-            new Map([['uuid-1', regularFile], ['uuid-2', tabFile]]);
-
-        freshComposebox.requestUpdate();
-        await freshComposebox.updateComplete;
-
-        // Retrieve the carousel component for assertions.
-        const carousel = freshComposebox.shadowRoot.querySelector(
-            'cr-composebox-file-carousel');
-        assertTrue(!!carousel);
-
-        // Assert: The carousel should only receive 1 file (the regular image).
-        // The tab file should be successfully filtered out.
-        assertEquals(1, carousel.files.length);
-        assertEquals('image.png', carousel.files[0]!.name);
-      });
-
-  test('does not filter tabs from carousel when flag is disabled', async () => {
-    // Override the feature flag to false.
-    loadTimeData.overrideValues({
-      tabFaviconChipsToCoinsEnabled: false,
-    });
-
-    document.body.innerHTML = window.trustedTypes!.emptyHTML;
-    const freshComposebox = document.createElement('cr-composebox');
-    document.body.appendChild(freshComposebox);
-
-    // Prepare mock files: one regular file, one tab (identified by having a
-    // 'url').
-    const regularFile = {name: 'image.png', type: 'image/png'} as any;
-    const tabFile = {name: 'Google', url: 'about:blank'} as any;
-    freshComposebox.files =
-        new Map([['uuid-1', regularFile], ['uuid-2', tabFile]]);
-
-    freshComposebox.requestUpdate();
-    await freshComposebox.updateComplete;
-
-    // Retrieve the carousel component for assertions.
-    const carousel =
-        freshComposebox.shadowRoot.querySelector('cr-composebox-file-carousel');
-    assertTrue(!!carousel);
-
-    // Assert: When the flag is disabled, no filtering occurs.
-    // The carousel should receive both files exactly as they were added.
-    assertEquals(2, carousel.files.length);
-  });
-
-  test('incompatible files are deleted on input state change', async () => {
-    // Add a file to composebox.
-    const token = 'uuid-1' as unknown as UnguessableToken;
-    const file = new ComposeboxFile(
-        token, 'image.png', 'image/png', InputType.kLensImage, {
-          isDeletable: true,
-        });
-    composebox.files = new Map([[token, file]]);
-    await composebox.updateComplete;
-
-    // Verify it is there.
-    assertEquals(1, composebox.files.size);
-
-    // Trigger input state change with kLensImage in disabledInputTypes.
-    const inputState = new MockInputState({
-      allowedInputTypes: [InputType.kLensImage, InputType.kLensFile],
-      disabledInputTypes: [InputType.kLensImage],  // Image is disabled
-    });
-
-    searchboxCallbackRouterRemote.onInputStateChanged(inputState);
-    await searchboxCallbackRouterRemote.$.flushForTesting();
-    await microtasksFinished();
-    await composebox.updateComplete;
-
-    // Verify the file was deleted.
-    assertEquals(0, composebox.files.size);
-  });
-
-  test('queryAutocomplete passes cursor position', async () => {
-    composebox.input = 'hello';
-    await composebox.updateComplete;
-
-    const inputElement = composebox.getInputElement();
-    inputElement.inputElement.focus();
-    inputElement.inputElement.selectionStart = 3;
-    inputElement.inputElement.selectionEnd = 3;
-
-    // Clear the `queryAutocomplete` called for ZPS.
-    searchboxHandler.resetResolver('queryAutocomplete');
-    composebox.queryAutocomplete(/*clearMatches=*/ false);
-
-    const args = await searchboxHandler.whenCalled('queryAutocomplete');
-    assertDeepEquals(args, ['hello', false, 3]);
-  });
-
-  test(
-      'queryAutocomplete passes cursor position when input is out of sync',
-      async () => {
-        composebox.input = 'hello';
-        await composebox.updateComplete;
-
-        const inputElement = composebox.getInputElement();
-        inputElement.inputElement.focus();
-        inputElement.inputElement.selectionStart = 3;
-        inputElement.inputElement.selectionEnd = 3;
-
-        // Simulate a programming update of the input as happens when, e.g., the
-        // user closes the composebox. This update won't be immediately
-        // reflected in the DOM.
-        composebox.input = 'hello world';
-
-        // Clear the `queryAutocomplete` called for ZPS.
-        searchboxHandler.resetResolver('queryAutocomplete');
-        composebox.queryAutocomplete(/*clearMatches=*/ false);
-
-        const args = await searchboxHandler.whenCalled('queryAutocomplete');
-        assertDeepEquals(args, ['hello world', false, 11]);
-      });
-
-  test('clears selected tabs on submit', async () => {
-    // Selected Tab (ID: 100) checked by the user.
-    const tokenTab = 'test-token-tab' as unknown as UnguessableToken;
-    const selectedTabId = 100;
-    const mockTabFile = new ComposeboxFile(
-        tokenTab, 'Selected Tab', 'tab', InputType.kBrowserTab, {
-          isDeletable: true,
-          tabId: selectedTabId,
-          url: 'about:blank',
-        });
-
-    // Add the selected tab to the active files and added tabs maps.
-    composebox.files = new Map([[tokenTab, mockTabFile]]);
-    composebox.addedTabsIds = new Map([[selectedTabId, tokenTab]]);
-
-    await composebox.updateComplete;
-
-    composebox.submitCleanup();
-
-    // Verify: The selected Tab 100 must be completely removed from the
-    // current active selection.
-    assertFalse(composebox.addedTabsIds.has(selectedTabId));
-    assertFalse(composebox.files.has(tokenTab));
-  });
-
-  test(
-      'refreshTabSuggestions() dedupes restored and current tabs', async () => {
-        const tab1 = {
-          tabId: 0,
-          title: 'Tab 1',
-          url: 'about:blank?1',
-          showInCurrentTabChip: false,
-          showInPreviousTabChip: false,
-          lastActive: {internalValue: 0n},
-        };
-        const tab2Restored = {
-          tabId: 0,
-          title: 'Tab 2',
-          url: 'about:blank?2',
-          showInCurrentTabChip: false,
-          showInPreviousTabChip: false,
-          lastActive: {internalValue: 0n},
-        };
-        const tab2Recent = {
-          tabId: 2,
-          title: 'Tab 2',
-          url: 'about:blank?2',
-          showInCurrentTabChip: false,
-          showInPreviousTabChip: false,
-          lastActive: {internalValue: 0n},
-        };
-        const tab3 = {
-          tabId: 3,
-          title: 'Tab 3',
-          url: 'about:blank?3',
-          showInCurrentTabChip: false,
-          showInPreviousTabChip: false,
-          lastActive: {internalValue: 0n},
-        };
-
-        // Mock searchboxHandler.getRecentTabs to return tab2Recent and tab3.
-        searchboxHandler.setResultFor(
-            'getRecentTabs', Promise.resolve({tabs: [tab2Recent, tab3]}));
-
-        // Set aimThreadRestoredTabs to contain tab1 and tab2Restored.
-        composebox.aimThreadRestoredTabs = [tab1, tab2Restored];
-
-        await composebox.refreshTabSuggestions();
-
-        // Expected tabSuggestions: [tab1, tab2Restored, tab3]
-        // (tab2Recent from recent tabs should be filtered out because its URL
-        // matches tab2Restored)
-        assertEquals(3, composebox.tabSuggestions.length);
-        assertEquals(0, composebox.tabSuggestions[0]!.tabId);
-        assertEquals('about:blank?1', composebox.tabSuggestions[0]!.url);
-        assertEquals(0, composebox.tabSuggestions[1]!.tabId);
-        assertEquals('about:blank?2', composebox.tabSuggestions[1]!.url);
-        assertEquals(3, composebox.tabSuggestions[2]!.tabId);
-        assertEquals('about:blank?3', composebox.tabSuggestions[2]!.url);
       });
 
   test(
@@ -619,8 +253,7 @@ suite('ComposeboxTest', () => {
         await composebox.updateComplete;
 
         // Verify the class was added and opacity turned to 0.
-        assertTrue(
-            glow.classList.contains('embedded-permission-prompt-showing'));
+        assertTrue(glow.classList.contains('permission-prompt-showing'));
         assertEquals('0', window.getComputedStyle(audioWave).opacity);
       });
 
@@ -681,8 +314,7 @@ suite('ComposeboxTest', () => {
         await composebox.updateComplete;
 
         // Verify the class was added and opacity turned to 0.
-        assertTrue(
-            glow.classList.contains('embedded-permission-prompt-showing'));
+        assertTrue(glow.classList.contains('permission-prompt-showing'));
         assertEquals('0', window.getComputedStyle(recordingWave).opacity);
       });
 
@@ -736,11 +368,205 @@ suite('ComposeboxTest', () => {
         await voiceSearch.updateComplete;
 
         // Verify the class was added and opacity turned to 0.
-        assertTrue(
-            voiceSearch.classList.contains(
-                'embedded-permission-prompt-showing'));
+        assertTrue(voiceSearch.classList.contains('permission-prompt-showing'));
         assertEquals('0', window.getComputedStyle(bottomActions).opacity);
       });
+
+  test('connectedCallback calls getSmartTabSharingActive when' +
+        ' smartTabSharingVisible pre-set to true', async () => {
+    handler.setResultMapperFor(
+        'getSmartTabSharingActive',
+        () => Promise.resolve({active: true}));
+
+    const newComposebox = document.createElement('cr-composebox');
+    newComposebox.smartTabSharingVisible = true;
+    document.body.appendChild(newComposebox);
+    await handler.whenCalled('getSmartTabSharingActive');
+    await microtasksFinished();
+
+    assertEquals(1, handler.getCallCount('getSmartTabSharingActive'));
+    assertTrue(newComposebox.smartTabSharingActive);
+  });
+
+  test('connectedCallback does NOT call getSmartTabSharingActive when' +
+        ' smartTabSharingVisible is false', () => {
+    const newComposebox = document.createElement('cr-composebox');
+    newComposebox.smartTabSharingVisible = false;
+    document.body.appendChild(newComposebox);
+
+    assertEquals(0, handler.getCallCount('getSmartTabSharingActive'));
+    assertFalse(newComposebox.smartTabSharingActive);
+  });
+
+  test('host template .prop binding triggers getSmartTabSharingActive' +
+        ' at child mount', async () => {
+    handler.setResultMapperFor(
+        'getSmartTabSharingActive',
+        () => Promise.resolve({active: true}));
+
+    document.body.innerHTML = getTrustedHtml(`
+      <cr-composebox smart-tab-sharing-visible></cr-composebox>
+    `);
+
+    const newComposebox =
+        document.body.querySelector<ComposeboxElement>('cr-composebox');
+    assertTrue(!!newComposebox);
+
+    await handler.whenCalled('getSmartTabSharingActive');
+    await microtasksFinished();
+
+    assertEquals(1, handler.getCallCount('getSmartTabSharingActive'));
+    assertTrue(newComposebox.smartTabSharingActive);
+  });
+
+  test('UpdateAutoSuggestedTabContext_NullDoesNotDelete', () => {
+    loadTimeData.overrideValues({webUIOmniboxAskGAboutThisPageEnabled: true});
+    const token = {high: 0n, low: 1n} as any;
+    const mockFile =
+        new ComposeboxFile(token, 'Auto Tab', 'tab', InputType.kBrowserTab, {
+          isDeletable: true,
+          tabId: 1,
+          url: 'http://example.com',
+        });
+    composebox.setAutomaticActiveTabForTesting(mockFile);
+
+    let deleteFileCalled = false;
+    const originalDeleteFile = composebox.deleteFile;
+    composebox.deleteFile = (_uuid) => {
+      deleteFileCalled = true;
+      return null;
+    };
+
+    // Call with null, should NOT delete.
+    composebox.updateAutoSuggestedTabContextForTesting(null);
+    assertFalse(deleteFileCalled);
+
+    // Call with different URL, SHOULD delete.
+    const differentTab: TabInfo = {
+      tabId: 2,
+      title: 'Different Tab',
+      url: 'http://different.com',
+      showInCurrentTabChip: false,
+      showInPreviousTabChip: false,
+      lastActive: {internalValue: BigInt(1)} as any,
+    };
+    composebox.updateAutoSuggestedTabContextForTesting(differentTab);
+    assertTrue(deleteFileCalled);
+
+    // Restore
+    composebox.deleteFile = originalDeleteFile;
+  });
+
+  test('UpdateAutoSuggestedTabContext_NullDeletesIfFeatureDisabled', () => {
+    loadTimeData.overrideValues({webUIOmniboxAskGAboutThisPageEnabled: false});
+    const token = {high: 0n, low: 1n} as any;
+    const mockFile =
+        new ComposeboxFile(token, 'Auto Tab', 'tab', InputType.kBrowserTab, {
+          isDeletable: true,
+          tabId: 1,
+          url: 'http://example.com',
+        });
+    composebox.setAutomaticActiveTabForTesting(mockFile);
+
+    let deleteFileCalled = false;
+    const originalDeleteFile = composebox.deleteFile;
+    composebox.deleteFile = (_uuid) => {
+      deleteFileCalled = true;
+      return null;
+    };
+
+    // Call with null, should delete because feature is disabled.
+    composebox.updateAutoSuggestedTabContextForTesting(null);
+    assertTrue(deleteFileCalled);
+
+    // Restore
+    composebox.deleteFile = originalDeleteFile;
+  });
+});
+
+suite('Composebox tab flyout', () => {
+  let composebox: ComposeboxElement;
+
+  setup(async () => {
+    loadTimeData.overrideValues({
+      'contextManagementInComposeboxEnabled': true,
+    });
+
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    composebox = document.createElement('cr-composebox');
+    document.body.appendChild(composebox);
+    await composebox.updateComplete;
+  });
+
+  test(
+      'keepMenuOpenForMultiSelection is gated' +
+          ' by keepMenuOpenOnTabSelectForRealbox',
+      async () => {
+        let openMenuCalled = false;
+        composebox.getContextEntrypointElement = () => {
+          return {
+            openMenuForMultiSelection: () => {
+              openMenuCalled = true;
+            },
+          } as unknown as ContextualEntrypointButtonElement;
+        };
+
+        const testElement = composebox as TestComposeboxElement;
+
+        // Omnibox source: always returns early
+        testElement.composeboxSource = 'Omnibox';
+        await testElement.keepMenuOpenForMultiSelection();
+        assertFalse(openMenuCalled);
+
+        // NewTabPage source, flag off: returns early
+        testElement.composeboxSource = 'NewTabPage';
+        testElement.keepMenuOpenOnTabSelectForRealbox = false;
+        await testElement.keepMenuOpenForMultiSelection();
+        assertFalse(openMenuCalled);
+
+        // NewTabPage source, flag on: calls openMenuForMultiSelection
+        testElement.composeboxSource = 'NewTabPage';
+        testElement.keepMenuOpenOnTabSelectForRealbox = true;
+        await testElement.keepMenuOpenForMultiSelection();
+        assertTrue(openMenuCalled);
+      });
+
+  test(
+      'keepMenuOpenForMultiSelection called on add/delete tab context',
+      async () => {
+        let keepMenuOpenCalled = false;
+        const testElement = composebox as TestComposeboxElement;
+        testElement.keepMenuOpenForMultiSelection = () => {
+          keepMenuOpenCalled = true;
+          return Promise.resolve();
+        };
+
+        await composebox.onAddTabContext(new CustomEvent('add-tab-context', {
+          detail: {
+            id: 1,
+            title: 'Test',
+            url: 'about:blank',  // Mojo converts obj to str.
+            delayUpload: false,
+            origin: TabUploadOrigin.CONTEXT_MENU,
+          },
+        }));
+        assertTrue(keepMenuOpenCalled);
+
+        keepMenuOpenCalled = false;
+        await composebox.onDeleteTabContext(
+            new CustomEvent('delete-tab-context', {
+              detail: {
+                uuid: '0',
+              },
+            }));
+        assertTrue(keepMenuOpenCalled);
+      });
+
+  test('onContextMenuClosed sets shareTabsFlyoutOpen to false', async () => {
+    composebox.shareTabsFlyoutOpen = true;
+    await composebox.onContextMenuClosed();
+    assertFalse(composebox.shareTabsFlyoutOpen);
+  });
 });
 
 suite('composeboxSharedMountAutoRepositionDefault', () => {
@@ -781,9 +607,8 @@ suite('composeboxSharedMountAutoRepositionDefault', () => {
       composeboxContextMenuEnableMultiTabSelection: false,
       composeboxShowContextMenuTabPreviews: false,
       ShowContextMenuHeaders: false,
-      composeboxSmartTabSharingVisible: false,
       menu: 'menu',
-      addContextTile: 'Add context',
+      addContextTitle: 'Add context',
       addContext: 'Add context',
       composeboxShowTypedSuggest: false,
       composeboxCancelButtonTitleInput: 'Cancel input',
@@ -801,8 +626,10 @@ suite('composeboxSharedMountAutoRepositionDefault', () => {
       dismissButton: 'Dismiss',
       composeboxDragAndDropHint: 'Hint',
       removeSuggestion: 'Remove',
+      voiceStop: 'Stop',
       contextManagementInComposeboxEnabled: false,
       tabFaviconChipsToCoinsEnabled: false,
+      removeToolChipAriaLabel: 'Remove $1',
     });
 
     const handler = installMock(
@@ -813,9 +640,12 @@ suite('composeboxSharedMountAutoRepositionDefault', () => {
     handler.setResultMapperFor(
         'getSmartTabSharingActive', () => Promise.resolve({active: false}));
 
-    installMock(
+    const searchboxHandler = installMock(
         SearchboxPageHandlerRemote,
         mock => ComposeboxProxyImpl.getInstance().searchboxHandler = mock);
+    searchboxHandler.setResultFor(
+        'getPageClassification',
+        Promise.resolve({metricSource: 'NTP_REALBOX'}));
 
     composebox = document.createElement('cr-composebox');
     composebox.showMenuOnClick = true;
@@ -841,5 +671,268 @@ suite('composeboxSharedMountAutoRepositionDefault', () => {
     const crActionMenu = contextualActionMenu.$.menu;
     assertTrue(crActionMenu.autoReposition);
     assertTrue(crActionMenu.hasAttribute('auto-reposition'));
+  });
+
+  test('voice search is absolute when listening', async () => {
+    // Mock WindowProxy to enable voice search.
+    const windowProxy = installMock(WindowProxy);
+    windowProxy.setResultFor('hasWebkitSpeechRecognition', true);
+    windowProxy.setResultMapperFor('matchMedia', () => ({
+                                                   addListener() {},
+                                                   addEventListener() {},
+                                                   removeListener() {},
+                                                   removeEventListener() {},
+                                                 }));
+
+    // Recreate composebox so updated loadTimeData and WindowProxy mock take
+    // effect.
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    composebox = document.createElement('cr-composebox');
+    composebox.showVoiceSearch = true;
+    document.body.appendChild(composebox);
+    await composebox.updateComplete;
+
+    const voiceSearch =
+        composebox.shadowRoot.querySelector('cr-composebox-voice-search');
+    assertTrue(!!voiceSearch);
+    const container = voiceSearch.shadowRoot.querySelector('#container');
+    assertTrue(!!container);
+
+    // Turn on voice search mode (sets `isListening` to true automatically).
+    composebox.inVoiceSearchMode = true;
+    await composebox.updateComplete;
+
+    // Turn off listening manually to test non-listening state.
+    composebox.isListening = false;
+    await composebox.updateComplete;
+
+    // Not listening yet. Should be static to influence height.
+    assertEquals('static', window.getComputedStyle(voiceSearch).position);
+    // Should still be absolute since permission prompt is not open and there is
+    // no error.
+    assertNotEquals('static', window.getComputedStyle(container).position);
+
+    // Turn on listening manually.
+    composebox.isListening = true;
+    await composebox.updateComplete;
+
+    // Should be absolute since listening is on (and no permission prompt is
+    // open, and no error).
+    assertEquals('absolute', window.getComputedStyle(voiceSearch).position);
+    assertEquals('0px', window.getComputedStyle(voiceSearch).top);
+    assertEquals('absolute', window.getComputedStyle(container).position);
+
+    // Turn off voice search mode.
+    composebox.inVoiceSearchMode = false;
+    await composebox.updateComplete;
+
+    // Since voice search mode is off, should be static.
+    assertEquals('static', window.getComputedStyle(voiceSearch).position);
+    // Should still be absolute since permission prompt is not open and there is
+    // no error.
+    assertEquals('absolute', window.getComputedStyle(container).position);
+  });
+
+  test(
+      'voice permission event adds classes in animated glow and ' +
+          'changes isListening and container bounds correctly',
+      async () => {
+        // Mock WindowProxy to enable voice search.
+        const windowProxy = installMock(WindowProxy);
+        windowProxy.setResultFor('hasWebkitSpeechRecognition', true);
+        windowProxy.setResultMapperFor('matchMedia', () => ({
+                                                       addListener() {},
+                                                       addEventListener() {},
+                                                       removeListener() {},
+                                                       removeEventListener() {},
+                                                     }));
+
+        // Recreate composebox so updated loadTimeData and WindowProxy mock take
+        // effect.
+        document.body.innerHTML = window.trustedTypes!.emptyHTML;
+
+        composebox = document.createElement('cr-composebox');
+        composebox.showVoiceSearch = true;
+        document.body.appendChild(composebox);
+        await composebox.updateComplete;
+
+        // Open voice search without using UI.
+        composebox.inVoiceSearchMode = true;
+        composebox.hasVoiceSearchError = false;
+        composebox.isListening = true;
+        await composebox.updateComplete;
+
+        const voiceSearch =
+            composebox.shadowRoot.querySelector('cr-composebox-voice-search');
+        assertTrue(!!voiceSearch);
+
+        const animatedGlow =
+            composebox.shadowRoot.querySelector('search-animated-glow');
+        assertTrue(!!animatedGlow);
+
+        let eventFired = false;
+        let eventDetail: any = null;
+        composebox.addEventListener(
+            'voice-permission-prompt-changed', (e: Event) => {
+              eventFired = true;
+              eventDetail = (e as CustomEvent).detail;
+            });
+
+        // Fire opened event:
+        voiceSearch.dispatchEvent(new CustomEvent('voice-permission-changed', {
+          detail: {
+            isOpened: true,
+            height: 100,
+            width: 100,
+          },
+        }));
+        await composebox.updateComplete;
+
+        // Verify that resizing occurs.
+        assertTrue(eventFired);
+        assertEquals(100, eventDetail.height);
+        assertEquals(100, eventDetail.width);
+        assertTrue(eventDetail.isOpened);
+        assertFalse(composebox.isListening);
+        // Verify that class to stop voice animation is added.
+        assertTrue(
+            animatedGlow.classList.contains('permission-prompt-showing'));
+
+        // Reset event tracker:
+        eventFired = false;
+        eventDetail = null;
+
+        // Fire closed event (query the element again in case of recreation):
+        const voiceSearch2 =
+            composebox.shadowRoot.querySelector('cr-composebox-voice-search');
+        assertTrue(!!voiceSearch2);
+        voiceSearch2.dispatchEvent(new CustomEvent('voice-permission-changed', {
+          detail: {
+            isOpened: false,
+            height: 0,
+            width: 0,
+          },
+        }));
+        await composebox.updateComplete;
+
+        // Verify that reverts back to original auto-size.
+        assertTrue(eventFired);
+        assertFalse(eventDetail.isOpened);
+        assertTrue(composebox.isListening);
+        // Verify that class to stop voice animation is removed.
+        assertFalse(
+            animatedGlow.classList.contains('permission-prompt-showing'));
+      });
+
+  test('voice permission opened event not fired if size is 0', async () => {
+    // Mock WindowProxy to enable voice search.
+    const windowProxy = installMock(WindowProxy);
+    windowProxy.setResultFor('hasWebkitSpeechRecognition', true);
+    windowProxy.setResultMapperFor('matchMedia', () => ({
+                                                   addListener() {},
+                                                   addEventListener() {},
+                                                   removeListener() {},
+                                                   removeEventListener() {},
+                                                 }));
+
+    // Recreate composebox so updated loadTimeData and WindowProxy mock take
+    // effect.
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    composebox = document.createElement('cr-composebox');
+    composebox.showVoiceSearch = true;
+    document.body.appendChild(composebox);
+    await composebox.updateComplete;
+
+    // Open voice search without using UI.
+    composebox.inVoiceSearchMode = true;
+    composebox.hasVoiceSearchError = false;
+    composebox.isListening = true;
+    await composebox.updateComplete;
+
+    const voiceSearch =
+        composebox.shadowRoot.querySelector('cr-composebox-voice-search');
+    assertTrue(!!voiceSearch);
+
+    let eventFired = false;
+    composebox.addEventListener('voice-permission-prompt-changed', () => {
+      eventFired = true;
+    });
+
+    // Fire opened event but with height 0 width 0.
+    voiceSearch.dispatchEvent(new CustomEvent('voice-permission-changed', {
+      detail: {
+        isOpened: true,
+        height: 0,
+        width: 0,
+      },
+    }));
+    await composebox.updateComplete;
+
+    // Should not be fired by composebox upwards to omnibox aim app
+    // because height and width are 0. No component resizing (done by
+    // omnibox aim app) required.
+    assertFalse(eventFired);
+    // Should be 'waiting' state since a permission prompt is still open.
+    assertFalse(composebox.isListening);
+  });
+
+  test('animated glow voice search slots hide when not listening', async () => {
+    // Mock WindowProxy to enable voice search.
+    const windowProxy = installMock(WindowProxy);
+    windowProxy.setResultFor('hasWebkitSpeechRecognition', true);
+    windowProxy.setResultMapperFor('matchMedia', () => ({
+                                                   addListener() {},
+                                                   addEventListener() {},
+                                                   removeListener() {},
+                                                   removeEventListener() {},
+                                                 }));
+
+    // Recreate composebox so updated loadTimeData and WindowProxy mock take
+    // effect.
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    composebox = document.createElement('cr-composebox');
+    composebox.showVoiceSearch = true;
+    document.body.appendChild(composebox);
+    await composebox.updateComplete;
+
+    // Open voice search without using UI.
+    composebox.voiceSearchCoherenceEnabled = true;
+    composebox.inVoiceSearchMode = true;
+    composebox.isListening = true;
+    composebox.showFileCarousel = true;
+    composebox.inToolMode = true;
+    await composebox.updateComplete;
+
+    const animatedGlow =
+        composebox.shadowRoot.querySelector('search-animated-glow');
+    assertTrue(!!animatedGlow);
+
+    // Verify voice chip slots are present when listening.
+    let carouselSlot =
+        animatedGlow.shadowRoot.querySelector('slot[name="carousel"]');
+    let toolChipSlot =
+        animatedGlow.shadowRoot.querySelector('slot[name="tool-chip"]');
+    assertTrue(!!carouselSlot);
+    assertTrue(!!toolChipSlot);
+
+    // Verify recording wave is present.
+    let recordingWave = animatedGlow.shadowRoot.querySelector('#recordingWave');
+    assertTrue(!!recordingWave);
+
+    // Turn off listening.
+    composebox.isListening = false;
+    await composebox.updateComplete;
+
+    // Verify voice chip slots are gone.
+    carouselSlot =
+        animatedGlow.shadowRoot.querySelector('slot[name="carousel"]');
+    toolChipSlot =
+        animatedGlow.shadowRoot.querySelector('slot[name="tool-chip"]');
+    assertFalse(!!carouselSlot);
+    assertFalse(!!toolChipSlot);
+
+    // Verify recording wave is still present.
+    recordingWave = animatedGlow.shadowRoot.querySelector('#recordingWave');
+    assertTrue(!!recordingWave);
   });
 });

@@ -33,7 +33,6 @@ constexpr const char kSecondSessionId[] =
 
 constexpr int64_t kFirstMapId = 10;
 constexpr int64_t kSecondMapId = 11;
-constexpr int64_t kNextMapId = 12;
 
 constexpr base::ByteSize kMapTotalSize{312};
 
@@ -54,7 +53,8 @@ class DomStorageDatabaseTest : public testing::Test {
   }
 
   void OpenLocalStorageLevelDB(std::unique_ptr<LocalStorageLevelDB>* result) {
-    auto instance = std::make_unique<LocalStorageLevelDB>(GetPassKey());
+    auto instance = std::make_unique<LocalStorageLevelDB>(
+        GetPassKey(), /*write_exp_tag=*/false);
     DbStatus status = instance->Open(/*directory=*/base::FilePath(),
                                      /*memory_dump_id=*/std::nullopt);
     ASSERT_TRUE(status.ok()) << status.ToString();
@@ -72,7 +72,8 @@ class DomStorageDatabaseTest : public testing::Test {
 
   void OpenSessionStorageLevelDB(
       std::unique_ptr<SessionStorageLevelDB>* result) {
-    auto instance = std::make_unique<SessionStorageLevelDB>(GetPassKey());
+    auto instance = std::make_unique<SessionStorageLevelDB>(
+        GetPassKey(), /*write_exp_tag=*/false);
     DbStatus status = instance->Open(
         /*directory=*/base::FilePath(),
         /*memory_dump_id=*/std::nullopt);
@@ -114,7 +115,6 @@ TEST_F(DomStorageDatabaseTest, MigrateLocalStorageWithEmptyDatabase) {
   ASSERT_OK_AND_ASSIGN(DomStorageDatabase::Metadata metadata,
                        destination->ReadAllMetadata());
   EXPECT_TRUE(metadata.map_metadata.empty());
-  EXPECT_EQ(metadata.next_map_id, std::nullopt);
 }
 
 TEST_F(DomStorageDatabaseTest, MigrateLocalStorageWithSingleMap) {
@@ -162,7 +162,6 @@ TEST_F(DomStorageDatabaseTest, MigrateLocalStorageWithSingleMap) {
       },
   };
   ExpectEqualsMapMetadataSpan(metadata.map_metadata, kExpectedMapMetadata);
-  EXPECT_EQ(metadata.next_map_id, std::nullopt);
 }
 
 TEST_F(DomStorageDatabaseTest, MigrateLocalStorageWithMultipleMaps) {
@@ -219,8 +218,6 @@ TEST_F(DomStorageDatabaseTest, MigrateLocalStorageWithMultipleMaps) {
   // Verify metadata for both maps.
   ASSERT_OK_AND_ASSIGN(DomStorageDatabase::Metadata metadata,
                        destination->ReadAllMetadata());
-
-  EXPECT_EQ(metadata.next_map_id, std::nullopt);
   ASSERT_EQ(metadata.map_metadata.size(), 2u);
 
   // Each map must have a unique ID.
@@ -296,7 +293,6 @@ TEST_F(DomStorageDatabaseTest, MigrateSessionStorageWithSingleMap) {
   };
 
   DomStorageDatabase::Metadata metadata;
-  metadata.next_map_id = kNextMapId;
   metadata.map_metadata = CloneMapMetadataVector(kExpectedMapMetadata);
 
   DbStatus status = source->PutMetadata(std::move(metadata));
@@ -326,8 +322,6 @@ TEST_F(DomStorageDatabaseTest, MigrateSessionStorageWithSingleMap) {
   // Verify metadata was migrated.
   ASSERT_OK_AND_ASSIGN(DomStorageDatabase::Metadata dest_metadata,
                        destination->ReadAllMetadata());
-
-  EXPECT_EQ(dest_metadata.next_map_id, kNextMapId);
   ExpectEqualsMapMetadataSpan(dest_metadata.map_metadata, kExpectedMapMetadata);
 }
 
@@ -343,7 +337,6 @@ TEST_F(DomStorageDatabaseTest, MigrateSessionStorageWithClonedMap) {
   expected_map_metadata[0].map_locator.AddSession(kSecondSessionId);
 
   DomStorageDatabase::Metadata metadata;
-  metadata.next_map_id = kNextMapId;
   metadata.map_metadata = CloneMapMetadataVector(expected_map_metadata);
 
   DbStatus status = source->PutMetadata(std::move(metadata));
@@ -374,8 +367,6 @@ TEST_F(DomStorageDatabaseTest, MigrateSessionStorageWithClonedMap) {
   // Verify the cloned map's metadata migrated.
   ASSERT_OK_AND_ASSIGN(DomStorageDatabase::Metadata dest_metadata,
                        destination->ReadAllMetadata());
-
-  EXPECT_EQ(dest_metadata.next_map_id, kNextMapId);
   ExpectEqualsMapMetadataSpan(dest_metadata.map_metadata,
                               expected_map_metadata);
 }
@@ -397,7 +388,6 @@ TEST_F(DomStorageDatabaseTest, MigrateSessionStorageWithMultipleMaps) {
   };
 
   DomStorageDatabase::Metadata metadata;
-  metadata.next_map_id = kNextMapId;
   metadata.map_metadata = CloneMapMetadataVector(kExpectedMapMetadata);
 
   DbStatus status = source->PutMetadata(std::move(metadata));
@@ -442,8 +432,6 @@ TEST_F(DomStorageDatabaseTest, MigrateSessionStorageWithMultipleMaps) {
   // Verify metadata for both maps.
   ASSERT_OK_AND_ASSIGN(DomStorageDatabase::Metadata dest_metadata,
                        destination->ReadAllMetadata());
-
-  EXPECT_EQ(dest_metadata.next_map_id, kNextMapId);
   ExpectEqualsMapMetadataSpan(dest_metadata.map_metadata, kExpectedMapMetadata);
 }
 

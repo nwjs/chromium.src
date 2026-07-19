@@ -23,6 +23,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/simple_test_tick_clock.h"
 #include "base/test/test_future.h"
+#include "base/test/test_timeouts.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/values.h"
 #include "build/build_config.h"
@@ -66,6 +67,7 @@
 #include "extensions/browser/api_test_utils.h"
 #include "extensions/browser/event_router.h"
 #include "extensions/browser/extension_function_dispatcher.h"
+#include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/test_event_router_observer.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/error_utils.h"
@@ -1201,16 +1203,12 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, ExtensionAPICannotNavigateDevtools) {
 }
 
 #if BUILDFLAG(IS_MAC)
-// https://crbug.com/41385204
+// Mac is intentionally unsupported (crbug.com/41385204).
 #define MAYBE_AcceptState DISABLED_AcceptState
 #else
 #define MAYBE_AcceptState AcceptState
 #endif
 IN_PROC_BROWSER_TEST_F(ExtensionWindowCreateTest, MAYBE_AcceptState) {
-#if BUILDFLAG(IS_MAC)
-  ui::test::ScopedFakeNSWindowFullscreen fake_fullscreen;
-#endif
-
   auto function = base::MakeRefCounted<WindowsCreateFunction>();
   scoped_refptr<const Extension> extension(ExtensionBuilder("Test").Build());
   function->set_extension(extension.get());
@@ -1242,9 +1240,10 @@ IN_PROC_BROWSER_TEST_F(ExtensionWindowCreateTest, MAYBE_AcceptState) {
   // DesktopWindowTreeHostX11::IsMinimized() relies on an asynchronous update
   // from the window server
   views::test::PropertyWaiter minimize_waiter(
-      base::BindRepeating(&BrowserWindow::IsMinimized,
-                          base::Unretained(new_browser->window())),
-      true);
+      base::BindRepeating(
+          &BrowserWindow::IsMinimized,
+          base::Unretained(BrowserWindow::FromBrowser(new_browser))),
+      true, TestTimeouts::action_timeout());
   EXPECT_TRUE(minimize_waiter.Wait());
 #elif BUILDFLAG(SUPPORTS_OZONE_WAYLAND)
   // TODO(crbug.com/40252593): Find a fix/workaround for wayland and add
@@ -1267,7 +1266,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionWindowCreateTest, MAYBE_AcceptState) {
   ASSERT_TRUE(new_controller);
   EXPECT_TRUE(error.empty());
   ui_test_utils::WaitForBrowserSetLastActive(new_controller->GetBrowser());
-  EXPECT_TRUE(new_controller->GetBrowser()->window()->IsFullscreen());
+  EXPECT_TRUE(new_controller->GetBrowser()->GetWindow()->IsFullscreen());
 
   // Let the message loop run so that |fake_fullscreen| finishes transition.
   content::RunAllPendingInMessageLoop();
@@ -1443,6 +1442,26 @@ class ExtensionIwaTestBase : public InProcessBrowserTest {
     return bundle->InstallChecked(profile());
   }
 
+  BrowserWindowInterface* OpenIwa(
+      const web_app::IsolatedWebAppUrlInfo& url_info) {
+    scoped_refptr<const Extension> extension =
+        ExtensionBuilder("IwaOpenerExtension").Build();
+    auto function = base::MakeRefCounted<WindowsCreateFunction>();
+    function->set_extension(extension);
+
+    std::string args = base::StringPrintf(
+        R"([{"url": "%s"}])", url_info.origin().GetURL().spec().c_str());
+
+    bool result = api_test_utils::RunFunction(
+        function.get(), args, profile(), api_test_utils::FunctionMode::kNone);
+    EXPECT_TRUE(result) << function->GetError();
+
+    BrowserWindowInterface* iwa_browser =
+        GetLastActiveBrowserWindowInterfaceWithAnyProfile();
+    EXPECT_TRUE(iwa_browser);
+    return iwa_browser;
+  }
+
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
   web_app::OsIntegrationManager::ScopedSuppressForTesting os_hooks_suppress_;
@@ -1565,31 +1584,80 @@ INSTANTIATE_TEST_SUITE_P(
     [](const testing::TestParamInfo<ExtensionWindowCreateIwaTest::ParamType>&
            info) { return info.param.test_name; });
 
-class ExtensionApiTabsIwaMoveTest : public ExtensionIwaTestBase {
- public:
-  ExtensionApiTabsIwaMoveTest() = default;
+using ExtensionApiTabsIwaMoveTest = ExtensionIwaTestBase;
 
- protected:
-  BrowserWindowInterface* OpenIwa(
-      const web_app::IsolatedWebAppUrlInfo& url_info) {
-    scoped_refptr<const Extension> extension =
-        ExtensionBuilder("IwaOpenerExtension").Build();
-    auto function = base::MakeRefCounted<WindowsCreateFunction>();
-    function->set_extension(extension);
+using ExtensionApiTabsIwaNavigateTest = ExtensionIwaTestBase;
+using ExtensionApiTabsIwaDuplicateTest = ExtensionIwaTestBase;
 
-    std::string args = base::StringPrintf(
-        R"([{"url": "%s"}])", url_info.origin().GetURL().spec().c_str());
+// `tabs.create` does not support `isolated-app:` URLs, even when targeting an
+// existing IWA window. `windows.create` is the supported entry point and
+// always opens IWAs at their `start_url`.
+IN_PROC_BROWSER_TEST_F(ExtensionApiTabsIwaNavigateTest,
+                       TabsCreateRejectsIwaUrl) {
+  auto url_info = InstallAndTrustBundle();
+  BrowserWindowInterface* iwa_browser = OpenIwa(url_info);
+  int iwa_window_id = ExtensionTabUtil::GetWindowId(iwa_browser);
 
-    bool result = api_test_utils::RunFunction(
-        function.get(), args, profile(), api_test_utils::FunctionMode::kNone);
-    EXPECT_TRUE(result) << function->GetError();
+  TabListInterface* iwa_tab_list = TabListInterface::From(iwa_browser);
+  ASSERT_EQ(iwa_tab_list->GetTabCount(), 1);
+  auto* iwa_web_contents = iwa_tab_list->GetActiveTab()->GetContents();
+  content::WaitForLoadStop(iwa_web_contents);
 
-    BrowserWindowInterface* iwa_browser =
-        GetLastActiveBrowserWindowInterfaceWithAnyProfile();
-    EXPECT_TRUE(iwa_browser);
-    return iwa_browser;
-  }
-};
+  GURL deep_url = url_info.origin().GetURL().Resolve("/deep/page.html");
+  std::string args = base::StringPrintf(R"([{"url": "%s", "windowId": %d}])",
+                                        deep_url.spec().c_str(), iwa_window_id);
+
+  scoped_refptr<const Extension> extension =
+      ExtensionBuilder("ExtensionApiTabsIwaNavigateTest").Build();
+  auto function = base::MakeRefCounted<TabsCreateFunction>();
+  function->set_extension(extension);
+
+  std::string error = api_test_utils::RunFunctionAndReturnError(
+      function.get(), args, profile());
+  EXPECT_EQ(error,
+            "URLs with the 'isolated-app:' scheme cannot be opened with "
+            "tabs.create. Use windows.create instead.");
+
+  // Only the original IWA window remains, still showing the start URL.
+  ASSERT_EQ(GlobalBrowserCollection::GetInstance()->GetSize(), 1ul);
+  ASSERT_EQ(iwa_tab_list->GetTabCount(), 1);
+  EXPECT_EQ(iwa_web_contents->GetLastCommittedURL(),
+            url_info.origin().GetURL());
+}
+
+// `tabs.update` cannot be used to navigate any tab (IWA or otherwise) to an
+// `isolated-app:` URL; IWA navigations are only supported via the launch entry
+// point used by `windows.create`.
+IN_PROC_BROWSER_TEST_F(ExtensionApiTabsIwaNavigateTest,
+                       TabsUpdateRejectsIwaUrl) {
+  auto url_info = InstallAndTrustBundle();
+  BrowserWindowInterface* iwa_browser = OpenIwa(url_info);
+
+  TabListInterface* iwa_tab_list = TabListInterface::From(iwa_browser);
+  ASSERT_EQ(iwa_tab_list->GetTabCount(), 1);
+  auto* iwa_web_contents = iwa_tab_list->GetActiveTab()->GetContents();
+  content::WaitForLoadStop(iwa_web_contents);
+  int iwa_tab_id = ExtensionTabUtil::GetTabId(iwa_web_contents);
+
+  GURL deep_url = url_info.origin().GetURL().Resolve("/deep/page.html");
+  std::string args = base::StringPrintf(R"([%d, {"url": "%s"}])", iwa_tab_id,
+                                        deep_url.spec().c_str());
+
+  scoped_refptr<const Extension> extension =
+      ExtensionBuilder("ExtensionApiTabsIwaNavigateTest").Build();
+  auto function = base::MakeRefCounted<TabsUpdateFunction>();
+  function->set_extension(extension);
+
+  std::string error = api_test_utils::RunFunctionAndReturnError(
+      function.get(), args, profile());
+  EXPECT_EQ(error,
+            "Cannot navigate to a URL with the 'isolated-app:' scheme via "
+            "tabs.update. Use windows.create instead.");
+
+  // The IWA tab is still at its start URL.
+  EXPECT_EQ(iwa_web_contents->GetLastCommittedURL(),
+            url_info.origin().GetURL());
+}
 
 IN_PROC_BROWSER_TEST_F(ExtensionApiTabsIwaMoveTest, CannotMoveIwaTab) {
   auto url_info = InstallAndTrustBundle();
@@ -1637,6 +1705,35 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTabsIwaMoveTest,
       function.get(), args, profile());
 
   EXPECT_EQ(error, "The tab of an Isolated Web App cannot be moved.");
+}
+
+// Tests that duplicating an IWA tab via the chrome.tabs.duplicate Extension API
+// is disallowed.
+IN_PROC_BROWSER_TEST_F(ExtensionApiTabsIwaDuplicateTest,
+                       DuplicateTabDisallowed) {
+  web_app::IsolatedWebAppUrlInfo url_info = InstallAndTrustBundle();
+  BrowserWindowInterface* iwa_browser = OpenIwa(url_info);
+  ASSERT_TRUE(iwa_browser);
+
+  TabListInterface* iwa_tab_list = TabListInterface::From(iwa_browser);
+  ASSERT_EQ(iwa_tab_list->GetTabCount(), 1);
+  auto* iwa_web_contents = iwa_tab_list->GetActiveTab()->GetContents();
+  content::WaitForLoadStop(iwa_web_contents);
+  int iwa_tab_id = ExtensionTabUtil::GetTabId(iwa_web_contents);
+
+  scoped_refptr<const Extension> extension =
+      ExtensionBuilder("ExtensionApiTabsIwaDuplicateTest")
+          .AddAPIPermission("tabs")
+          .Build();
+
+  auto function = base::MakeRefCounted<TabsDuplicateFunction>();
+  function->set_extension(extension);
+
+  std::string args = base::StringPrintf("[%d]", iwa_tab_id);
+  std::string error = api_test_utils::RunFunctionAndReturnError(
+      function.get(), args, profile());
+
+  EXPECT_EQ(error, "The tab of an Isolated Web App cannot be duplicated.");
 }
 
 IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, DuplicateTab) {
@@ -2079,6 +2176,251 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, DiscardWithInvalidId) {
 
   // Check error message.
   EXPECT_TRUE(base::MatchPattern(error, ExtensionTabUtil::kTabNotFoundError));
+}
+
+// Tests chrome.tabs.discard for an incognito tab when the extension doesn't
+// have incognito access.
+IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, DiscardIncognitoWithoutPermission) {
+  // Create an extra normal tab so we have more to discard.
+  GetTabListInterface()->OpenTab(GURL(url::kAboutBlankURL), -1);
+
+  // Create an incognito browser with several tabs.
+  BrowserWindowInterface* incognito_browser = CreateIncognitoBrowserWindow();
+  TabListInterface* incognito_tab_list =
+      TabListInterface::From(incognito_browser);
+  incognito_tab_list->OpenTab(GURL(url::kAboutBlankURL), -1);
+  incognito_tab_list->OpenTab(GURL(url::kAboutBlankURL), -1);
+  incognito_tab_list->OpenTab(GURL(url::kAboutBlankURL), -1);
+  content::WebContents* incognito_web_contents =
+      incognito_tab_list->GetTab(1)->GetContents();
+  content::WaitForLoadStop(incognito_web_contents);
+  EXPECT_FALSE(incognito_web_contents->WasDiscarded());
+
+  // Set up the function with an extension that does not have incognito access,
+  // but does have the "tabs" permission.
+  scoped_refptr<const Extension> extension =
+      ExtensionBuilder("Test").AddAPIPermission("tabs").Build();
+  auto discard = base::MakeRefCounted<TabsDiscardFunction>();
+  discard->set_extension(extension.get());
+
+  int tab_id = ExtensionTabUtil::GetTabId(incognito_web_contents);
+
+  // First try discarding the incognito tab based on the tab ID. The tab should
+  // not be discarded and we should get an error.
+  std::string error = utils::RunFunctionAndReturnError(
+      discard.get(), base::StringPrintf("[%u]", tab_id), profile());
+  EXPECT_FALSE(incognito_web_contents->WasDiscarded());
+  EXPECT_TRUE(base::MatchPattern(error, ExtensionTabUtil::kTabNotFoundError));
+
+  // Now run without passing an id. The extension only has access to the normal
+  // tabs, so only the normal tabs should be discardable.
+  int normal_tab_count = GetTabListInterface()->GetTabCount();
+  // Note: To avoid having to deal with any platform differences between default
+  // tabs when creating a browser changing the total count, we just validate we
+  // have more than 0 tabs, so we know the loop below actually does something.
+  EXPECT_GT(normal_tab_count, 0);
+
+  std::vector<base::DictValue> results;
+  for (int i = 0; i < normal_tab_count; ++i) {
+    auto discard_no_id = base::MakeRefCounted<TabsDiscardFunction>();
+    discard_no_id->set_extension(extension.get());
+    std::optional<base::Value> result_value =
+        utils::RunFunctionAndReturnSingleResult(discard_no_id.get(), "[]",
+                                                profile());
+    if (result_value) {
+      results.push_back(utils::ToDict(std::move(*result_value)));
+    }
+  }
+
+  // We should have discarded all normal tabs.
+  EXPECT_EQ(static_cast<size_t>(normal_tab_count), results.size());
+  for (const auto& result : results) {
+    // Check that the returned tab does not have sensitive incognito
+    // information. It must be a normal tab. Since the extension has "tabs"
+    // permission, it should include url and title for the normal tab.
+    EXPECT_FALSE(api_test_utils::GetBoolean(result, "incognito"));
+    EXPECT_TRUE(result.contains("url"));
+    EXPECT_TRUE(result.contains("title"));
+  }
+
+  // The next attempt to discard without an ID should fail.
+  auto discard_fail = base::MakeRefCounted<TabsDiscardFunction>();
+  discard_fail->set_extension(extension.get());
+  std::string fail_error =
+      utils::RunFunctionAndReturnError(discard_fail.get(), "[]", profile());
+  EXPECT_EQ("Cannot find a tab to discard.", fail_error);
+}
+
+IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, DiscardIncognitoSplitMode) {
+  // Create an extra normal tab so we have more to discard.
+  GetTabListInterface()->OpenTab(GURL(url::kAboutBlankURL), -1);
+
+  // Create an incognito browser with several tabs.
+  BrowserWindowInterface* incognito_browser = CreateIncognitoBrowserWindow();
+  TabListInterface* incognito_tab_list =
+      TabListInterface::From(incognito_browser);
+  incognito_tab_list->OpenTab(GURL(url::kAboutBlankURL), -1);
+  incognito_tab_list->OpenTab(GURL(url::kAboutBlankURL), -1);
+  incognito_tab_list->OpenTab(GURL(url::kAboutBlankURL), -1);
+
+  // Set up the extension with incognito: split and tabs permission.
+  scoped_refptr<const Extension> extension =
+      ExtensionBuilder("Test")
+          .SetManifestKey("incognito", "split")
+          .AddAPIPermission("tabs")
+          .Build();
+  // Grant incognito access.
+  ExtensionPrefs::Get(profile())->SetIsIncognitoEnabled(extension->id(), true);
+
+  // 1. Test Regular Profile Context
+  // The regular profile context only sees normal tabs, all of which should be
+  // discardable.
+  int normal_tab_count = GetTabListInterface()->GetTabCount();
+  // Note: To avoid having to deal with any platform differences between default
+  // tabs when creating a browser changing the total count, we just validate we
+  // have more than 0 tabs, so we know the loop below actually does something.
+  EXPECT_GT(normal_tab_count, 0);
+
+  std::vector<base::DictValue> regular_results;
+  for (int i = 0; i < normal_tab_count; ++i) {
+    auto discard = base::MakeRefCounted<TabsDiscardFunction>();
+    discard->set_extension(extension.get());
+    std::optional<base::Value> result_value =
+        utils::RunFunctionAndReturnSingleResult(discard.get(), "[]", profile());
+    if (result_value) {
+      regular_results.push_back(utils::ToDict(std::move(*result_value)));
+    }
+  }
+
+  EXPECT_EQ(static_cast<size_t>(normal_tab_count), regular_results.size());
+  for (const auto& result : regular_results) {
+    // Regular context should only see normal tabs.
+    EXPECT_FALSE(api_test_utils::GetBoolean(result, "incognito"));
+    EXPECT_TRUE(result.contains("url"));
+  }
+
+  // The next attempt from the regular context should fail.
+  auto discard_regular_fail = base::MakeRefCounted<TabsDiscardFunction>();
+  discard_regular_fail->set_extension(extension.get());
+  std::string regular_fail_error = utils::RunFunctionAndReturnError(
+      discard_regular_fail.get(), "[]", profile());
+  EXPECT_EQ("Cannot find a tab to discard.", regular_fail_error);
+
+  // 2. Test Incognito Profile Context
+  // The incognito context only sees incognito tabs. We created several tabs in
+  // the incognito browser, all of which should be discardable.
+  int incognito_tab_count = incognito_tab_list->GetTabCount();
+  // Note: To avoid having to deal with any platform differences between default
+  // tabs when creating a browser changing the total count, we just validate we
+  // have more than 0 tabs, so we know the loop below actually does something.
+  EXPECT_GT(incognito_tab_count, 0);
+
+  // Add a few more regular tabs, as all the previous ones are already
+  // discarded.
+  GetTabListInterface()->OpenTab(GURL(url::kAboutBlankURL), -1);
+  GetTabListInterface()->OpenTab(GURL(url::kAboutBlankURL), -1);
+
+  Profile* incognito_profile = incognito_browser->GetProfile();
+  std::vector<base::DictValue> incognito_results;
+  for (int i = 0; i < incognito_tab_count; ++i) {
+    auto discard_incognito = base::MakeRefCounted<TabsDiscardFunction>();
+    discard_incognito->set_extension(extension.get());
+    std::optional<base::Value> incognito_result_value =
+        utils::RunFunctionAndReturnSingleResult(
+            discard_incognito.get(), "[]", incognito_profile,
+            api_test_utils::FunctionMode::kIncognito);
+    if (incognito_result_value) {
+      incognito_results.push_back(
+          utils::ToDict(std::move(*incognito_result_value)));
+    }
+  }
+
+  EXPECT_EQ(static_cast<size_t>(incognito_tab_count), incognito_results.size());
+  for (const auto& result : incognito_results) {
+    // Incognito split context should only see incognito tabs.
+    EXPECT_TRUE(api_test_utils::GetBoolean(result, "incognito"));
+    EXPECT_TRUE(result.contains("url"));
+  }
+
+  // The next attempt from the incognito context should fail.
+  auto discard_incognito_fail = base::MakeRefCounted<TabsDiscardFunction>();
+  discard_incognito_fail->set_extension(extension.get());
+  std::string incognito_fail_error = utils::RunFunctionAndReturnError(
+      discard_incognito_fail.get(), "[]", incognito_profile,
+      api_test_utils::FunctionMode::kIncognito);
+  EXPECT_EQ("Cannot find a tab to discard.", incognito_fail_error);
+}
+
+IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, DiscardIncognitoSpanningMode) {
+  // Create an extra normal tab so we have more to discard.
+  GetTabListInterface()->OpenTab(GURL(url::kAboutBlankURL), -1);
+
+  // Create an incognito browser with several tabs.
+  BrowserWindowInterface* incognito_browser = CreateIncognitoBrowserWindow();
+  TabListInterface* incognito_tab_list =
+      TabListInterface::From(incognito_browser);
+  incognito_tab_list->OpenTab(GURL(url::kAboutBlankURL), -1);
+  incognito_tab_list->OpenTab(GURL(url::kAboutBlankURL), -1);
+
+  // Set up the extension with incognito: spanning and tabs permission.
+  scoped_refptr<const Extension> extension =
+      ExtensionBuilder("Test")
+          .SetManifestKey("incognito", "spanning")
+          .AddAPIPermission("tabs")
+          .Build();
+  // Grant incognito access.
+  ExtensionPrefs::Get(profile())->SetIsIncognitoEnabled(extension->id(), true);
+
+  // Test Regular Profile Context
+  // In spanning mode, the extension shares a single process for both normal and
+  // incognito contexts. All tabs across both windows are discardable.
+  // We determine the number of tabs dynamically rather than using a hardcoded
+  // value because some platforms (like Android) may create an extra initial
+  // tab in some window creation scenarios.
+  int total_tab_count =
+      GetTabListInterface()->GetTabCount() + incognito_tab_list->GetTabCount();
+  // Note: To avoid having to deal with any platform differences between default
+  // tabs when creating a browser changing the total count, we just validate we
+  // have more than 0 tabs, so we know the loop below actually does something.
+  EXPECT_GT(total_tab_count, 0);
+
+  std::vector<base::DictValue> results;
+  bool saw_incognito = false;
+  bool saw_normal = false;
+  for (int i = 0; i < total_tab_count; ++i) {
+    auto discard = base::MakeRefCounted<TabsDiscardFunction>();
+    discard->set_extension(extension.get());
+    std::optional<base::Value> result_value =
+        utils::RunFunctionAndReturnSingleResult(
+            discard.get(), "[]", profile(),
+            api_test_utils::FunctionMode::kIncognito);
+    if (result_value) {
+      base::DictValue dict = utils::ToDict(std::move(*result_value));
+      if (api_test_utils::GetBoolean(dict, "incognito")) {
+        saw_incognito = true;
+      } else {
+        saw_normal = true;
+      }
+      results.push_back(std::move(dict));
+    }
+  }
+
+  EXPECT_EQ(static_cast<size_t>(total_tab_count), results.size());
+  // A spanning extension should receive info about both normal and incognito
+  // tabs and they should contain URL info since it has tabs permission.
+  EXPECT_TRUE(saw_incognito);
+  EXPECT_TRUE(saw_normal);
+  for (const auto& result : results) {
+    EXPECT_TRUE(result.contains("url"));
+  }
+
+  // The next attempt should fail.
+  auto discard_fail = base::MakeRefCounted<TabsDiscardFunction>();
+  discard_fail->set_extension(extension.get());
+  std::string fail_error = utils::RunFunctionAndReturnError(
+      discard_fail.get(), "[]", profile(),
+      api_test_utils::FunctionMode::kIncognito);
+  EXPECT_EQ("Cannot find a tab to discard.", fail_error);
 }
 
 // TODO(crbug.com/487907630): Flaky on macos
@@ -2849,7 +3191,7 @@ class ExtensionApiPdfTest : public base::test::WithFeatureOverride,
 IN_PROC_BROWSER_TEST_P(ExtensionApiPdfTest, TemporaryAddressSpoof) {
   content::WebContents* first_web_contents = GetActiveWebContents();
   ASSERT_TRUE(first_web_contents);
-  chrome::NewTab(browser());
+  chrome::NewTab(browser(), NewTabTypes::kNoUserAction);
   content::WebContents* second_web_contents = GetActiveWebContents();
   ASSERT_NE(first_web_contents, second_web_contents);
   GURL url = embedded_test_server()->GetURL(
@@ -5195,6 +5537,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsWebContentsDiscardDisabledTest,
   // Wait for the JS test to catch the event and send "success".
   ASSERT_TRUE(success_listener.WaitUntilSatisfied());
 }
+
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 }  // namespace extensions

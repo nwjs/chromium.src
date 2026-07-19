@@ -148,8 +148,12 @@ class FirstRunIntroPixelTest
         ProfileManagementFlowController::Step::kIntro,
         /*step_controller_factory=*/
         base::BindRepeating([](ProfilePickerWebContentsHost* host) {
-          return CreateIntroStep(host, base::DoNothing(),
-                                 /*enable_animations=*/false);
+          return CreateIntroStep(
+              host, /*choice_callback=*/base::DoNothing(),
+              /*enable_animations=*/false,
+              /*query_effects_callback=*/base::BindRepeating([] {
+                return false;
+              }));
         }));
     profile_picker_view_->ShowAndWait(
         GetParam().use_fixed_size
@@ -159,6 +163,13 @@ class FirstRunIntroPixelTest
     if (GetParam().use_longer_strings) {
       EXPECT_EQ(true, content::EvalJs(profile_picker_view_->GetPickerContents(),
                                       GetMakeCardDescriptionLongerJsString()));
+    }
+    if (GetParam().use_refresh) {
+      // Explicitly wait for the animations to load to avoid flakiness.
+      CHECK_EQ(
+          content::EvalJs(profile_picker_view_->GetPickerContents(),
+                          GetWaitForAnimationsScript("sign-in-promo-refresh")),
+          true);
     }
   }
 

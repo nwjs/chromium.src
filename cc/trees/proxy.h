@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "base/memory/shared_memory_mapping.h"
 #include "base/threading/platform_thread.h"
@@ -57,7 +58,7 @@ class CC_EXPORT Proxy {
     SetNeedsAnimate(reason, false);
   }
   virtual void SetNeedsUpdateLayers() = 0;
-  virtual void SetNeedsCommit() = 0;
+  virtual void SetNeedsCommit(bool urgent = false) = 0;
   virtual void SetNeedsRedraw(const gfx::Rect& damage_rect) = 0;
   virtual void SetTargetLocalSurfaceId(
       const viz::LocalSurfaceId& target_local_surface_id) = 0;
@@ -96,7 +97,6 @@ class CC_EXPORT Proxy {
 
   virtual bool CommitRequested() const = 0;
 
-  virtual void SetShouldThrottleFrameRate(bool flag) = 0;
   virtual void SetRequestHighFramerate(bool flag) {}
 
   // Must be called before using the proxy.
@@ -150,6 +150,14 @@ class CC_EXPORT Proxy {
   // frame of a renderer and inside a cross-document view transition.
   // Only implemented for the proxy_main.
   virtual void SendImmediateBeginMainFrame() {}
+
+  // Callbacks for unbounded element frames.
+  virtual void SetUnboundedFrameSink(
+      std::unique_ptr<LayerTreeFrameSink> unbounded_frame_sink,
+      const viz::LocalSurfaceId& local_surface_id) {}
+  virtual void DismissUnboundedFrameSink() {}
+  virtual void SetUnboundedLocalSurfaceId(
+      const viz::LocalSurfaceId& local_surface_id) {}
 };
 
 }  // namespace cc

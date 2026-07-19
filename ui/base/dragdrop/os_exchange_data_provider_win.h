@@ -169,6 +169,15 @@ class COMPONENT_EXPORT(UI_BASE) OSExchangeDataProviderWin
           filenames_and_contents,
       DWORD tymed,
       bool show_cfhdrop_without_data) override;
+  // Test only method that builds a virtual file descriptor where the entries at
+  // `directory_indices` are flagged as folders (FILE_ATTRIBUTE_DIRECTORY) with
+  // no backing content stream, mirroring how a ZIP "compressed folder"
+  // advertises a directory entry alongside its files.
+  void SetVirtualFileContentsWithDirectoriesForTesting(
+      const std::vector<std::pair<base::FilePath, base::span<const uint8_t>>>&
+          filenames_and_contents,
+      const std::vector<size_t>& directory_indices,
+      DWORD tymed);
   void SetPickledData(const ClipboardFormatType& format,
                       const base::Pickle& data) override;
   void SetFileContents(const base::FilePath& filename,

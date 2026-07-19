@@ -12,7 +12,7 @@
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
 #include "chrome/android/chrome_jni_headers/PersonalContextFirstRunBottomSheetBridge_jni.h"
-#include "components/accessibility_annotator/core/url_constants.h"
+#include "components/personal_context/core/url_constants.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/android/window_android.h"
 
@@ -56,9 +56,8 @@ bool PersonalContextFirstRunBottomSheetBridge::PerformShowContent() {
   }
   JNIEnv* env = base::android::AttachCurrentThread();
   return Java_PersonalContextFirstRunBottomSheetBridge_show(
-      env, java_obj_,
-      accessibility_annotator::kAccessibilityAnnotatorSettingsURL,
-      accessibility_annotator::kAccessibilityAnnotatorLearnMoreURL);
+      env, java_obj_, kPersonalContextSettingsURL,
+      kPersonalContextLearnMoreURL);
 }
 
 void PersonalContextFirstRunBottomSheetBridge::Show() {
@@ -80,7 +79,7 @@ void PersonalContextFirstRunBottomSheetBridge::Hide() {
   }
 }
 
-void PersonalContextFirstRunBottomSheetBridge::OnInfoAcknowledged(JNIEnv* env) {
+void PersonalContextFirstRunBottomSheetBridge::OnNoticeAcknowledged(JNIEnv* env) {
   if (callback_) {
     std::move(callback_).Run(NoticeResult::kAcknowledged);
     base::UmaHistogramEnumeration(kNoticeInteractionsHistogramName,
@@ -99,7 +98,7 @@ void PersonalContextFirstRunBottomSheetBridge::OnLearnMoreClicked(JNIEnv* env) {
       base::UserMetricsAction("PersonalContext.Notice.LearnMoreLinkClick"));
 }
 
-void PersonalContextFirstRunBottomSheetBridge::OnInfoDismissed(JNIEnv* env) {
+void PersonalContextFirstRunBottomSheetBridge::OnNoticeDismissed(JNIEnv* env) {
   if (callback_) {
     std::move(callback_).Run(NoticeResult::kNotAcknowledged);
     base::UmaHistogramEnumeration(kNoticeInteractionsHistogramName,

@@ -11,6 +11,7 @@
 #include <tuple>
 
 #include "base/command_line.h"
+#include "base/feature_list.h"
 #include "base/hash/hash.h"
 #include "base/i18n/time_formatting.h"
 #include "base/logging.h"
@@ -834,11 +835,55 @@ base::DictValue AboutSigninInternals::SigninStatus::ToValue(
         entry.Set("isBound", identity_manager->HasAccountWithBoundRefreshToken(
                                  account_info.account_id));
       }
+      if (base::FeatureList::IsEnabled(switches::kEnableMtlsTokenBinding)) {
+        entry.Set("mtlsTokenBinding",
+                  identity_manager->HasAccountWithRefreshTokenBoundToMtls(
+                      account_info.account_id));
+      }
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
       account_info_section.Append(std::move(entry));
     }
   }
   signin_status.Set("accountInfo", std::move(account_info_section));
+
+  // Account capabilities section
+  base::ListValue account_capabilities_section;
+  for (const CoreAccountInfo& account_info : accounts_with_refresh_tokens) {
+    base::DictValue account_caps_entry;
+    account_caps_entry.Set("accountId", account_info.account_id.ToString());
+
+    AccountInfo extended_info =
+        identity_manager->FindExtendedAccountInfoByAccountId(
+            account_info.account_id);
+    AccountCapabilities capabilities = extended_info.GetAccountCapabilities();
+    const auto& overrides = capabilities.GetCapabilityOverrides();
+
+    base::ListValue capabilities_list;
+    for (std::string_view cap_name :
+         AccountCapabilities::GetSupportedAccountCapabilityNames()) {
+      base::DictValue cap_entry;
+      cap_entry.Set("name", std::string(cap_name));
+      cap_entry.Set("label",
+                    AccountCapabilities::GetCapabilityDisplayName(cap_name));
+
+      signin::Tribool current_value =
+          capabilities.GetFetchedCapabilityByName(cap_name);
+      cap_entry.Set("value", signin::TriboolToString(current_value));
+
+      auto override_it = overrides.find(cap_name);
+      if (override_it != overrides.end()) {
+        cap_entry.Set("override", signin::TriboolToString(override_it->second));
+      } else {
+        cap_entry.Set("override", "");
+      }
+
+      capabilities_list.Append(std::move(cap_entry));
+    }
+    account_caps_entry.Set("capabilities", std::move(capabilities_list));
+    account_capabilities_section.Append(std::move(account_caps_entry));
+  }
+  signin_status.Set("accountCapabilities",
+                    std::move(account_capabilities_section));
 
   // Refresh token events section
   base::ListValue refresh_token_events_value;

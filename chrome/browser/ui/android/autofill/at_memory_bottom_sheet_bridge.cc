@@ -14,7 +14,10 @@
 #include "base/strings/string_util.h"
 #include "chrome/browser/android/resource_mapper.h"
 #include "chrome/browser/autofill/android/at_memory_bottom_sheet_delegate.h"
+#include "chrome/browser/personal_context/first_run/personal_context_first_run_service_factory.h"
+#include "chrome/browser/profiles/profile.h"
 #include "components/autofill/core/browser/ui/autofill_resource_utils.h"
+#include "components/personal_context/first_run/personal_context_first_run_service.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/android/window_android.h"
 
@@ -46,20 +49,28 @@ base::android::ScopedJavaLocalRef<jobject> CreateJavaSuggestion(
   }
 
   return Java_AtMemoryBottomSheetBridge_createAutofillSuggestion(
-      env,
-      base::android::ConvertUTF16ToJavaString(env, suggestion.main_text.value),
-      base::android::ConvertUTF16ToJavaString(env, sub_label), android_icon_id,
+      env, suggestion.main_text.value, sub_label, android_icon_id,
       std::to_underlying(suggestion.type));
 }
 
 }  // namespace
 
 AtMemoryBottomSheetBridge::AtMemoryBottomSheetBridge(
-    ui::WindowAndroid* window_android) {
+    ui::WindowAndroid* window_android,
+    Profile* profile) {
   CHECK(window_android);
+  CHECK(profile);
+  // AtMemoryBottomSheetBridge creates Java bottom sheet UI which depends on
+  // `PersonalContextFirstRunService` to determine whether to show a notice
+  // to the user.
+  //
+  // If AtMemory bottom sheet is shown, then `PersonalContextFirstRunService`
+  // must exist for that profile.
+  CHECK(PersonalContextFirstRunServiceFactory::GetForProfile(profile));
+
   java_object_ = Java_AtMemoryBottomSheetBridge_create(
       base::android::AttachCurrentThread(), reinterpret_cast<intptr_t>(this),
-      window_android->GetJavaObject());
+      window_android->GetJavaObject(), profile);
 }
 
 AtMemoryBottomSheetBridge::~AtMemoryBottomSheetBridge() {
@@ -93,11 +104,44 @@ void AtMemoryBottomSheetBridge::RequestShowContent(
                                       std::move(java_suggestions));
 }
 
+void AtMemoryBottomSheetBridge::Hide() {
+  if (java_object_) {
+    Java_AtMemoryBottomSheetBridge_hide(base::android::AttachCurrentThread(),
+                                        java_object_);
+  }
+}
+
 void AtMemoryBottomSheetBridge::OnDismissed(JNIEnv* env) {
   if (delegate_) {
     delegate_->OnDismissed();
   }
   ResetDelegate();
+}
+
+void AtMemoryBottomSheetBridge::OnQuerySubmitted(JNIEnv* env,
+                                                 const std::u16string& query) {
+  if (delegate_) {
+    delegate_->OnQuerySubmitted(query);
+  }
+}
+
+void AtMemoryBottomSheetBridge::OnQueryTextChanged(
+    JNIEnv* env,
+    const std::u16string& query) {
+  if (delegate_) {
+    delegate_->OnQueryTextChanged(query);
+  }
+}
+
+void AtMemoryBottomSheetBridge::OnSuggestionSelected(JNIEnv* env,
+                                                     int position) {
+  if (delegate_) {
+    delegate_->OnSuggestionSelected(position);
+  }
+}
+
+bool AtMemoryBottomSheetBridge::IsSearching(JNIEnv* env) {
+  return delegate_ && delegate_->IsSearching();
 }
 
 void AtMemoryBottomSheetBridge::ResetDelegate() {

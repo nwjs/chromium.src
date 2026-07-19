@@ -20,6 +20,7 @@
 #include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/test/bind.h"
 #include "base/test/gmock_callback_support.h"
@@ -112,6 +113,7 @@
 #include "components/skills/features.h"
 #include "components/skills/public/skill.h"
 #include "components/skills/public/skills_service.h"
+#include "components/subscription_eligibility/subscription_eligibility_prefs.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/variations/synthetic_trial_registry.h"
 #include "content/public/browser/render_frame_host.h"
@@ -243,7 +245,6 @@ class GlicApiTest : public NonInteractiveGlicApiTest, public WithTestParams {
     features_.InitWithFeaturesAndParameters(
         /*enabled_features=*/
         {{features::kGlicScrollTo, {}},
-         {features::kGlicApiActivationGating, {}},
          {mojom::features::kGlicMultiTab, {}},
          {features::kGlicWebContentsWarming,
           {
@@ -426,7 +427,6 @@ class DISABLED_GlicApiTestWithOneTabAndPreloading
               {features::kGlicPreLoadingTimeMs.name, "20"},
               {features::kGlicMinLoadingTimeMs.name, "40"},
           }},
-         {features::kGlicApiActivationGating, {}},
          {features::kGlicWarming,
           {{features::kGlicWarmingDelayMs.name, "0"},
            {features::kGlicWarmingJitterMs.name, "0"}}}},
@@ -550,6 +550,9 @@ class GlicApiTestWithGeminiActOnWebPolicy : public GlicApiTestWithOneTab {
     identity_manager_ = IdentityManagerFactory::GetForProfile(GetProfile());
     SimulatePrimaryAccountChangedSignIn("foo@bar.com", "");
 
+    GetProfile()->GetPrefs()->SetInteger(
+        subscription_eligibility::prefs::kAiSubscriptionTier, 1);
+
     policy_provider_.SetupPolicyServiceForPolicyUpdates(
         browser()->profile()->GetProfilePolicyConnector()->policy_service());
   }
@@ -582,7 +585,7 @@ class GlicApiTestWithGeminiActOnWebPolicy : public GlicApiTestWithOneTab {
     AccountInfo account_info = identity_test_env_->MakePrimaryAccountAvailable(
         std::string(email), signin::ConsentLevel::kSignin);
 
-    AccountCapabilitiesTestMutator mutator(&account_info.capabilities);
+    AccountCapabilitiesTestMutator mutator(&account_info);
     mutator.set_can_use_model_execution_features(true);
     mutator.set_is_subject_to_enterprise_features(!host_domain.empty());
 
@@ -636,7 +639,9 @@ class GlicApiTestGeminiEnterpriseSettingsDisabled
 
 class GlicApiTestGeminiEnterpriseSettingsPolicy : public GlicApiTestWithOneTab {
  public:
-  GlicApiTestGeminiEnterpriseSettingsPolicy() {
+  GlicApiTestGeminiEnterpriseSettingsPolicy()
+      : GlicApiTestWithOneTab(GlicTestEnvironmentConfig{
+            .default_account_hosted_domain = "enterprise.com"}) {
     scoped_feature_list_.InitAndEnableFeature(
         features::kGlicGeminiEnterpriseSettingsEnabled);
   }
@@ -726,9 +731,7 @@ IN_PROC_BROWSER_TEST_P(GlicApiTestGeminiEnterpriseSettingsPolicyUnset,
   ExecuteJsTest();
 }
 
-// TODO(crbug.com/486793948): Fix and re-enable or remove the test.
-IN_PROC_BROWSER_TEST_P(GlicApiTestWithOneTab,
-                       DISABLED_testDefaultInvocationSource) {
+IN_PROC_BROWSER_TEST_P(GlicApiTestWithOneTab, testDefaultInvocationSource) {
   RunTestSequence(CloseGlic(), WaitForGlicClose(),
                   ToggleGlicWindowFromSource(
                       GlicWindowMode::kAttached, kGlicButtonElementId,
@@ -816,73 +819,6 @@ IN_PROC_BROWSER_TEST_P(GlicApiTest, testRequestHeader) {
   EXPECT_THAT(cross_origin_rpc_request->headers, request_header_matcher);
 }
 
-IN_PROC_BROWSER_TEST_P(GlicApiTest, testCreateTab) {
-  RunTestSequence(OpenGlic(GlicInstrumentMode::kHostAndContents),
-                  CheckTabCount(1));
-
-  TabStripModel* tab_strip_model = browser()->tab_strip_model();
-  // Add a tab after the active tab to ensure we're not just appending.
-  ASSERT_TRUE(AddTabAtIndex(1, GURL("about:blank"), ui::PAGE_TRANSITION_TYPED));
-  tab_strip_model->ActivateTabAt(0);
-
-  tab_strip_model->AddToNewGroup({0});
-  std::optional<tab_groups::TabGroupId> group_id =
-      tab_strip_model->GetTabGroupForTab(0);
-  ASSERT_TRUE(group_id.has_value());
-
-  ExecuteJsTest();
-  RunTestSequence(CheckTabCount(3));
-
-  // The new tab should be at index 1 (next to the active tab) and inherit the
-  // tab group.
-  EXPECT_EQ(1, tab_strip_model->active_index());
-  EXPECT_EQ(group_id, tab_strip_model->GetTabGroupForTab(1));
-}
-
-IN_PROC_BROWSER_TEST_P(GlicApiTest, testCreateTabFailsWithUnsupportedScheme) {
-  RunTestSequence(OpenGlic(GlicInstrumentMode::kHostAndContents),
-                  CheckTabCount(1));
-  ExecuteJsTest();
-  RunTestSequence(CheckTabCount(1));
-}
-
-IN_PROC_BROWSER_TEST_P(GlicApiTest, testCreateTabInBackground) {
-  RunTestSequence(OpenGlic(GlicInstrumentMode::kHostAndContents),
-                  CheckTabCount(1));
-
-  TabStripModel* tab_strip_model = browser()->tab_strip_model();
-  // Add a tab after the active tab to ensure we're not just appending.
-  ASSERT_TRUE(AddTabAtIndex(1, GURL("about:blank"), ui::PAGE_TRANSITION_TYPED));
-  tab_strip_model->ActivateTabAt(0);
-
-  tab_strip_model->AddToNewGroup({0});
-  std::optional<tab_groups::TabGroupId> group_id =
-      tab_strip_model->GetTabGroupForTab(0);
-  ASSERT_TRUE(group_id.has_value());
-
-  // Creating a new tab via the glic API in the foreground should change the
-  // active tab.
-  ExecuteJsTest();
-  RunTestSequence(CheckTabCount(3));
-  tabs::TabInterface* active_tab = tab_strip_model->GetActiveTab();
-  ASSERT_THAT(active_tab->GetContents()->GetURL().spec(),
-              testing::EndsWith("#foreground"));
-
-  EXPECT_EQ(1, tab_strip_model->active_index());
-  EXPECT_EQ(group_id, tab_strip_model->GetTabGroupForTab(1));
-
-  // Creating a new tab via the glic API in the background should not change the
-  // active tab.
-  ContinueJsTest();
-  RunTestSequence(CheckTabCount(4));
-  active_tab = tab_strip_model->GetActiveTab();
-  ASSERT_THAT(active_tab->GetContents()->GetURL().spec(),
-              testing::EndsWith("#foreground"));
-
-  EXPECT_EQ(1, tab_strip_model->active_index());
-  EXPECT_EQ(group_id, tab_strip_model->GetTabGroupForTab(2));
-}
-
 // Tests that the response to a user confirmation dialog is correctly ordered
 // w.r.t. other Glic API calls. See b/465690937 and associated CLs for details.
 IN_PROC_BROWSER_TEST_P(GlicApiTest, testDialogResponseCallOrder) {
@@ -939,107 +875,12 @@ IN_PROC_BROWSER_TEST_P(GlicApiTest, testDialogResponseCallOrder) {
             actor::ActorTask::State::kWaitingOnUser);
 }
 
-// TODO(crbug.com/469210106): Re-enable this test on ChromeOS.
-// TODO(crbug.com/515495117): Fix and re-enable this test on Mac.
-// TODO(crbug.com/517282139): Fix and re-enable this test on Linux Msan.
-#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC) || \
-    (BUILDFLAG(IS_LINUX) && defined(MEMORY_SANITIZER))
-#define MAYBE_testCreateTabByClickingOnLink \
-  DISABLED_testCreateTabByClickingOnLink
-#else
-#define MAYBE_testCreateTabByClickingOnLink testCreateTabByClickingOnLink
-#endif
-IN_PROC_BROWSER_TEST_P(GlicApiTest, MAYBE_testCreateTabByClickingOnLink) {
-  RunTestSequence(OpenGlic(GlicInstrumentMode::kHostAndContents),
-                  CheckTabCount(1));
-
-  TabStripModel* tab_strip_model = browser()->tab_strip_model();
-  // Add a tab after the active tab to ensure we're not just appending.
-  ASSERT_TRUE(AddTabAtIndex(1, GURL("about:blank"), ui::PAGE_TRANSITION_TYPED));
-  tab_strip_model->ActivateTabAt(0);
-
-  tab_strip_model->AddToNewGroup({0});
-  std::optional<tab_groups::TabGroupId> group_id =
-      tab_strip_model->GetTabGroupForTab(0);
-  ASSERT_TRUE(group_id.has_value());
-
-  // Have the test track this tab's glic instance.
-  TrackGlicInstanceWithId(GetGlicInstance()->id());
-  content::RenderFrameHost* guest_frame = FindGlicGuestMainFrame();
-  ASSERT_TRUE(guest_frame);
-  ExecuteJsTest();
-  ASSERT_TRUE(base::test::RunUntil([&]() {
-    return tab_strip_model->count() == 3;
-  })) << "Timed out waiting for tab count to increase. Tab count = "
-      << tab_strip_model->count();
-  // The guest frame shouldn't change.
-  ASSERT_EQ(guest_frame, FindGlicGuestMainFrame());
-
-  // Link click opens next to opener and inherits group.
-  EXPECT_EQ(1, tab_strip_model->active_index());
-  EXPECT_EQ(group_id, tab_strip_model->GetTabGroupForTab(1));
-
-  // This test is a regression test for b/416464184.
-  // Audio ducking should still work after clicking a link.
-  AudioDucker* audio_ducker =
-      AudioDucker::GetForPage(FindGlicGuestMainFrame()->GetPage());
-  ASSERT_TRUE(audio_ducker);
-  ASSERT_EQ(audio_ducker->GetAudioDuckingState(),
-            AudioDucker::AudioDuckingState::kDucking);
-
-  ContinueJsTest();
-
-  ASSERT_TRUE(base::test::RunUntil([&]() {
-    return audio_ducker->GetAudioDuckingState() ==
-           AudioDucker::AudioDuckingState::kNoDucking;
-  }));
-}
 
 IN_PROC_BROWSER_TEST_P(GlicApiTest, testPopupOpens) {
   RunTestSequence(OpenGlic(GlicInstrumentMode::kHostAndContents),
                   CheckPopupCount(0));
   ExecuteJsTest();
   RunTestSequence(CheckPopupCount(1));
-}
-
-class GlicApiTestWithDaisyChain : public GlicApiTest {
- public:
-  GlicApiTestWithDaisyChain() {
-    daisy_chain_features_.InitAndEnableFeature(
-        features::kGlicDaisyChainNewTabs);
-  }
-
-  void SetUpOnMainThread() override {
-    GlicApiTest::SetUpOnMainThread();
-    browser()->profile()->GetPrefs()->SetBoolean(
-        prefs::kGlicKeepSidepanelOpenOnNewTabsEnabled, true);
-  }
-
- private:
-  base::test::ScopedFeatureList daisy_chain_features_;
-};
-
-IN_PROC_BROWSER_TEST_P(GlicApiTestWithDaisyChain,
-                       testCreateTabByClickingOnLinkDaisyChains) {
-  RunTestSequence(OpenGlic(GlicInstrumentMode::kHostAndContents),
-                  CheckTabCount(1));
-
-  ExecuteJsTest();
-}
-
-IN_PROC_BROWSER_TEST_P(GlicApiTest, testCreateTabFailsIfNotActive) {
-  RunTestSequence(OpenGlic(GlicInstrumentMode::kHostAndContents));
-  ExecuteJsTest();
-}
-
-IN_PROC_BROWSER_TEST_P(GlicApiTest, testCreateTabSucceedsIfInvoking) {
-  RunTestSequence(OpenGlic(GlicInstrumentMode::kHostAndContents));
-  GetGlicInstanceImpl()->host().NotifyIsInvoking(true);
-  auto options = mojom::InvokeOptions::New();
-  options->invocation_source = mojom::InvocationSource::kTopChromeButton;
-  GetGlicInstanceImpl()->host().GetPrimaryWebClient()->Invoke(
-      std::move(options), base::DoNothing());
-  ExecuteJsTest();
 }
 
 IN_PROC_BROWSER_TEST_P(GlicApiTest, testInvoke) {
@@ -1077,6 +918,23 @@ IN_PROC_BROWSER_TEST_P(GlicApiTestWithOneTab,
                   Do([this]() { ExecuteJsTest(); }),
                   WaitForWebContentsReady(kPasswordManagerTab, settings_url));
 }
+
+class GlicApiTestWithDaisyChain : public GlicApiTest {
+ public:
+  GlicApiTestWithDaisyChain() {
+    daisy_chain_features_.InitAndEnableFeature(
+        features::kGlicDaisyChainNewTabs);
+  }
+
+  void SetUpOnMainThread() override {
+    GlicApiTest::SetUpOnMainThread();
+    browser()->profile()->GetPrefs()->SetBoolean(
+        prefs::kGlicKeepSidepanelOpenOnNewTabsEnabled, true);
+  }
+
+ private:
+  base::test::ScopedFeatureList daisy_chain_features_;
+};
 
 IN_PROC_BROWSER_TEST_P(GlicApiTestWithDaisyChain,
                        testCanAttachPanelToFallbackEmbedder) {
@@ -1342,7 +1200,7 @@ IN_PROC_BROWSER_TEST_P(GlicApiTest, testTabSwitchDoesNotLogActivationMetric) {
   ExecuteJsTest({.params = base::Value("second")});
 
   ASSERT_TRUE(base::test::RunUntil([&]() {
-    return GetInstanceCoordinatorImpl().GetInstancesForTesting().size() == 1u;
+    return GetInstanceCoordinatorImpl().GetInstances().size() == 1u;
   }));
   ASSERT_EQ("A", GetGlicInstanceImpl()->conversation_id());
 
@@ -1488,7 +1346,7 @@ IN_PROC_BROWSER_TEST_P(GlicApiTest, testPanelActiveWithMicrophone) {
   // Activating the other tab should take focus away from Floaty. Floaty should
   // still remain active.
   browser()->tab_strip_model()->ActivateTabAt(1);
-  browser()->window()->Activate();
+  browser()->GetWindow()->Activate();
 
   EXPECT_TRUE(GetGlicInstance()->IsActive());
 
@@ -1498,7 +1356,7 @@ IN_PROC_BROWSER_TEST_P(GlicApiTest, testPanelActiveWithMicrophone) {
   // considered active.
   GetHost()->OnMicrophoneStatusChanged(mojom::MicrophoneStatus::kNotListening);
   browser()->tab_strip_model()->ActivateTabAt(1);
-  browser()->window()->Activate();
+  browser()->GetWindow()->Activate();
 
   ASSERT_TRUE(
       base::test::RunUntil([&]() { return !GetGlicInstance()->IsActive(); }));
@@ -1524,31 +1382,6 @@ IN_PROC_BROWSER_TEST_P(GlicApiTestWithOneTab, testGetFormFactor) {
   ExecuteJsTest();
 }
 
-IN_PROC_BROWSER_TEST_P(GlicApiTest, testEnableDragResize) {
-  // TODO: resize is not yet implemented for multi-instance.
-  SKIP_TEST_FOR_MULTI_INSTANCE();
-  RunTestSequence(OpenGlic(GlicInstrumentMode::kHostAndContents));
-  ExecuteJsTest();
-  RunTestSequence(WaitForCanResizeEnabled(/*enabled=*/true));
-}
-
-IN_PROC_BROWSER_TEST_P(GlicApiTest, testDisableDragResize) {
-  // TODO: resize is not yet implemented for multi-instance.
-  SKIP_TEST_FOR_MULTI_INSTANCE();
-  // Check the default resize setting here.
-  RunTestSequence(OpenGlic(GlicInstrumentMode::kHostAndContents),
-                  WaitForCanResizeEnabled(/*enabled=*/true));
-  ExecuteJsTest();
-  RunTestSequence(WaitForCanResizeEnabled(/*enabled=*/false));
-}
-
-IN_PROC_BROWSER_TEST_P(GlicApiTest, testInitiallyNotResizable) {
-  // TODO: resize is not yet implemented for multi-instance.
-  SKIP_TEST_FOR_MULTI_INSTANCE();
-  RunTestSequence(OpenGlic(GlicInstrumentMode::kHostAndContents));
-  ExecuteJsTest();
-  RunTestSequence(WaitForCanResizeEnabled(/*enabled=*/false));
-}
 
 IN_PROC_BROWSER_TEST_P(GlicApiTestWithMqlsIdGetterEnabled,
                        testGetModelQualityClientIdFeatureEnabled) {
@@ -1603,7 +1436,8 @@ IN_PROC_BROWSER_TEST_P(GlicOnboardingApiTest, testSetOnboardingCompleted) {
   GlicLauncherConfiguration::SetCheckDefaultBrowserCallbackForTesting(
       run_loop.QuitClosure());
 
-  EXPECT_EQ(0, user_action_tester->GetActionCount("Glic.Fre.Accept"));
+  EXPECT_EQ(0,
+            user_action_tester->GetActionCount("Glic.Onboarding.OptInAccept"));
 
   ContinueJsTest();
 
@@ -1616,7 +1450,8 @@ IN_PROC_BROWSER_TEST_P(GlicOnboardingApiTest, testSetOnboardingCompleted) {
   GlicLauncherConfiguration::SetCheckDefaultBrowserCallbackForTesting(
       base::RepeatingClosure());
 
-  EXPECT_EQ(1, user_action_tester->GetActionCount("Glic.Fre.Accept"));
+  EXPECT_EQ(1,
+            user_action_tester->GetActionCount("Glic.Onboarding.OptInAccept"));
 
   ContinueJsTest();
 }
@@ -2021,34 +1856,6 @@ IN_PROC_BROWSER_TEST_P(GlicApiTestWithOneTab, DISABLED_testMetrics) {
   histogram_tester->ExpectTotalCount("Glic.TabContext.UploadTime", 1);
 }
 
-IN_PROC_BROWSER_TEST_P(GlicApiTestWithOneTab, testScrollToFindsText) {
-  // TODO(b/446757683): GlicAnnotationManager doesn't work for multi-instance.
-  SKIP_TEST_FOR_MULTI_INSTANCE();
-  ExecuteJsTest({.params = base::Value(base::DictValue().Set(
-                     "documentId", GetDocumentIdForTab(kFirstTab)))});
-}
-
-IN_PROC_BROWSER_TEST_P(GlicApiTestWithOneTab,
-                       testScrollToFindsTextNoTabContextPermission) {
-  // TODO(b/446757683): GlicAnnotationManager doesn't work for multi-instance.
-  SKIP_TEST_FOR_MULTI_INSTANCE();
-  ExecuteJsTest({.params = base::Value(base::DictValue().Set(
-                     "documentId", GetDocumentIdForTab(kFirstTab)))});
-}
-
-IN_PROC_BROWSER_TEST_P(GlicApiTestWithOneTab, testScrollToFailsWhenInactive) {
-  // TODO(b/446757683): GlicAnnotationManager doesn't work for multi-instance.
-  SKIP_TEST_FOR_MULTI_INSTANCE();
-  ExecuteJsTest({.params = base::Value(base::DictValue().Set(
-                     "documentId", GetDocumentIdForTab(kFirstTab)))});
-}
-
-IN_PROC_BROWSER_TEST_P(GlicApiTestWithOneTab, testScrollToNoMatchFound) {
-  // TODO(b/446757683): GlicAnnotationManager doesn't work for multi-instance.
-  SKIP_TEST_FOR_MULTI_INSTANCE();
-  ExecuteJsTest({.params = base::Value(base::DictValue().Set(
-                     "documentId", GetDocumentIdForTab(kFirstTab)))});
-}
 
 IN_PROC_BROWSER_TEST_P(GlicApiTestWithOneTab, testSetSyntheticExperimentState) {
   ExecuteJsTest();
@@ -2129,7 +1936,17 @@ IN_PROC_BROWSER_TEST_P(GlicApiTest,
   ExecuteJsTest({.params = base::Value("verify")});
 }
 
-IN_PROC_BROWSER_TEST_P(GlicApiTest, testPanelWillOpenHasPromptSuggestion) {
+// TODO(crbug.com/517682376): Flaky on ASan, MSan, and Linux/ChromeOS debug.
+#if defined(ADDRESS_SANITIZER) || defined(MEMORY_SANITIZER) || \
+    (!defined(NDEBUG) && (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)))
+#define MAYBE_testPanelWillOpenHasPromptSuggestion \
+  DISABLED_testPanelWillOpenHasPromptSuggestion
+#else
+#define MAYBE_testPanelWillOpenHasPromptSuggestion \
+  testPanelWillOpenHasPromptSuggestion
+#endif
+IN_PROC_BROWSER_TEST_P(GlicApiTest,
+                       MAYBE_testPanelWillOpenHasPromptSuggestion) {
   // Simulate click on contextual cue with prompt suggestion.
   glic::GlicInvokeOptions options(glic::mojom::InvocationSource::kNudge);
   options.prompts.push_back("Prompt Suggestion");
@@ -2193,82 +2010,6 @@ IN_PROC_BROWSER_TEST_P(GlicApiTestWithOneTab, testGetOsHotkeyState) {
   ContinueJsTest();
   g_browser_process->local_state()->SetString(prefs::kGlicLauncherHotkey, "");
   ContinueJsTest();
-}
-
-IN_PROC_BROWSER_TEST_P(GlicApiTest, testSetMinimumWidgetSize) {
-  NavigateTabAndOpenGlicFloating();
-  ExecuteJsTest();
-  ASSERT_TRUE(step_data()->is_dict());
-  const auto& min_size = step_data()->GetDict();
-  const int width = min_size.FindInt("width").value();
-  const int height = min_size.FindInt("height").value();
-
-  auto expected_size = glic::GlicWidget::GetInitialSize();
-  expected_size.SetToMax(gfx::Size(width, height));
-  EXPECT_EQ(GetGlicWidget()->GetMinimumSize(), expected_size);
-
-  ContinueJsTest();
-}
-
-IN_PROC_BROWSER_TEST_P(GlicApiTest, testManualResizeChanged) {
-  NavigateTabAndOpenGlicFloating();
-  GetGlicWidget()->OnNativeWidgetUserResizeStarted();
-
-  // Check that the web client is notified of the beginning of the user
-  // initiated resizing event.
-  ExecuteJsTest();
-
-  GetGlicWidget()->OnNativeWidgetUserResizeEnded();
-
-  // Check that the web client is notified of the ending of the user
-  // initiated resizing event.
-  ContinueJsTest();
-}
-
-IN_PROC_BROWSER_TEST_P(GlicApiTest, testResizeWindowTooSmall) {
-  NavigateTabAndOpenGlicFloating();
-  // Web client requests the window to be resized to 0x0, bellow the minimum
-  // dimensions, so it gets discarded in favor of the initial size.
-  gfx::Size expected_size = GlicWidget::GetInitialSize();
-  GlicWidget* glic_widget = static_cast<GlicWidget*>(GetGlicWidget());
-  ASSERT_TRUE(glic_widget);
-
-  ExecuteJsTest();
-
-  gfx::Rect final_widget_bounds = glic_widget->GetWindowBoundsInScreen();
-  ASSERT_EQ(expected_size,
-            glic_widget->WidgetToVisibleBounds(final_widget_bounds).size());
-}
-
-IN_PROC_BROWSER_TEST_P(GlicApiTest, testResizeWindowTooLarge) {
-  NavigateTabAndOpenGlicFloating();
-  // Web client requests the window to be resized to 20000x20000, above the
-  // maximum dimensions, so it gets discarded in favor of the max size. This max
-  // size is still larger than the display work area so we clamp the dimensions
-  // down to fit on screen.
-  ExecuteJsTest();
-  gfx::Rect display_bounds =
-      display::Screen::Get()->GetPrimaryDisplay().work_area();
-  GlicWidget* glic_widget = static_cast<GlicWidget*>(GetGlicWidget());
-  ASSERT_TRUE(glic_widget);
-  gfx::Rect final_widget_bounds = glic_widget->GetWindowBoundsInScreen();
-
-  ASSERT_TRUE(display_bounds.Contains(final_widget_bounds));
-}
-
-IN_PROC_BROWSER_TEST_P(GlicApiTest, testResizeWindowWithinBounds) {
-  NavigateTabAndOpenGlicFloating();
-  // Web client requests the window to be resized to 800x700, which are valid
-  // dimensions.
-  gfx::Size expected_size = gfx::Size(800, 700);
-  ExecuteJsTest(
-      {.params = base::Value(base::DictValue()
-                                 .Set("width", expected_size.width())
-                                 .Set("height", expected_size.height()))});
-  GlicWidget* glic_widget = static_cast<GlicWidget*>(GetGlicWidget());
-  gfx::Rect final_widget_bounds = glic_widget->GetWindowBoundsInScreen();
-  ASSERT_EQ(expected_size,
-            glic_widget->WidgetToVisibleBounds(final_widget_bounds).size());
 }
 
 IN_PROC_BROWSER_TEST_P(GlicApiTestWithDaisyChain,
@@ -2441,7 +2182,7 @@ IN_PROC_BROWSER_TEST_P(GlicApiTestWithFastTimeout,
 }
 
 // TODO(crbug.com/410881522): Re-enable this test
-#if BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 #define MAYBE_testNavigateToBadPage DISABLED_testNavigateToBadPage
 #else
 #define MAYBE_testNavigateToBadPage testNavigateToBadPage
@@ -2481,9 +2222,8 @@ IN_PROC_BROWSER_TEST_P(GlicApiTest, testCallingApiWhileHiddenRecordsMetrics) {
       "Glic.Api.RequestCounts.CreateTab",
       GlicRequestEvent::kRequestReceivedWhileInactive, 1);
 
-  // Confirm that this request that is response-receiving but not allowed while
-  // hidden (aka "gated"), does not get latency metrics recorded.
-  histogram_tester.ExpectTotalCount("Glic.Api.RequestHostLatency.CreateTab", 0);
+  // Confirm that this request gets latency metrics recorded.
+  histogram_tester.ExpectTotalCount("Glic.Api.RequestHostLatency.CreateTab", 1);
 }
 
 IN_PROC_BROWSER_TEST_P(GlicApiTestWithOneTab, testPinTabs) {
@@ -2815,7 +2555,7 @@ IN_PROC_BROWSER_TEST_P(GlicApiTestWithOneTab,
   ExecuteJsTest({.params = base::Value(can_fetch_screenshot)});
 
   browser()->tab_strip_model()->SelectPreviousTab();
-  browser()->window()->Minimize();
+  browser()->GetWindow()->Minimize();
 
   ContinueJsTest();
 }
@@ -2965,7 +2705,7 @@ IN_PROC_BROWSER_TEST_P(MAYBE_GlicApiTestWithOneTabMoreDebounceDelay,
 
 IN_PROC_BROWSER_TEST_P(GlicApiTestWithOneTab, testGetPinCandidatesSingleTab) {
   // In multi-instance mode, the tab is automatically pinned. Unpin it now.
-  GetGlicInstanceImpl()->sharing_manager().UnpinAllTabs();
+  GetGlicInstanceImpl()->GetSharingManagerInternal().UnpinAllTabs();
   ExecuteJsTest();
 }
 
@@ -2979,17 +2719,6 @@ IN_PROC_BROWSER_TEST_P(GlicApiTestWithOneTab,
   // Opens the panel again.
   RunTestSequence(ToggleGlicWindow(GlicWindowMode::kDetached));
   ContinueJsTest();
-}
-
-IN_PROC_BROWSER_TEST_P(GlicApiTest, testRemoveBlankInstanceOnClose) {
-  RunTestSequence(
-      InstrumentTab(kFirstTab),
-      OpenGlic(GlicInstrumentMode::kNone, /*conversation_id=*/std::nullopt));
-  ASSERT_EQ(1u, GetInstanceCoordinatorImpl().GetInstancesForTesting().size());
-  ExecuteJsTest();
-  ASSERT_TRUE(base::test::RunUntil([&]() {
-    return GetInstanceCoordinatorImpl().GetInstancesForTesting().size() == 0u;
-  }));
 }
 
 IN_PROC_BROWSER_TEST_P(GlicApiTestWithOneTab,
@@ -3008,7 +2737,7 @@ IN_PROC_BROWSER_TEST_P(GlicApiTestWithOneTab,
   ExecuteJsTest({.params = base::Value("second")});
 
   ASSERT_TRUE(base::test::RunUntil([&]() {
-    return GetInstanceCoordinatorImpl().GetInstancesForTesting().size() == 1u;
+    return GetInstanceCoordinatorImpl().GetInstances().size() == 1u;
   }));
   ASSERT_EQ("id_hello", GetGlicInstanceImpl()->conversation_id());
 
@@ -3166,63 +2895,6 @@ IN_PROC_BROWSER_TEST_P(GlicGetHostCapabilityApiTest, testGetHostCapabilities) {
   ExecuteJsTest({.params = base::Value(std::move(expected_capabilities))});
 }
 
-IN_PROC_BROWSER_TEST_P(GlicApiTestWithOneTab, testGetPageMetadata) {
-  ExecuteJsTest();
-}
-
-IN_PROC_BROWSER_TEST_P(GlicApiTestWithOneTab, testGetPageMetadataInvalidTabId) {
-  ExecuteJsTest();
-}
-
-IN_PROC_BROWSER_TEST_P(GlicApiTestWithOneTab, testGetPageMetadataEmptyNames) {
-  ExecuteJsTest();
-}
-
-IN_PROC_BROWSER_TEST_P(GlicApiTestWithOneTab,
-                       testGetPageMetadataMultipleSubscriptions) {
-  ExecuteJsTest();
-}
-
-IN_PROC_BROWSER_TEST_P(GlicApiTestWithOneTab, testGetPageMetadataUpdates) {
-  // Runs the JS test until the first `advanceToNextStep()`.
-  ExecuteJsTest();
-
-  // The JS test is now paused. We can now modify the page.
-  content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
-  ASSERT_TRUE(web_contents);
-
-  // Change the content of the 'author' meta tag from "George" to "Ruth".
-  const char* script =
-      "document.querySelector('meta[name=\"author\"]').setAttribute('content', "
-      "'Ruth')";
-  ASSERT_TRUE(content::ExecJs(web_contents, script));
-
-  // Continue the JS test to verify the metadata update.
-  ContinueJsTest();
-}
-
-// TODO(crbug.com/449764057): Flakes/fails on all by windows.
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_testGetPageMetadataOnNavigation testGetPageMetadataOnNavigation
-#else
-#define MAYBE_testGetPageMetadataOnNavigation \
-  DISABLED_testGetPageMetadataOnNavigation
-#endif
-IN_PROC_BROWSER_TEST_P(GlicApiTestWithOneTab,
-                       MAYBE_testGetPageMetadataOnNavigation) {
-  // Runs the JS test until the first `advanceToNextStep()`.
-  ExecuteJsTest();
-
-  // The JS test is now paused. We can now navigate the tab.
-  RunTestSequence(NavigateWebContents(
-      kFirstTab,
-      InProcessBrowserTest::embedded_test_server()->GetURL("/title1.html")));
-
-  // Continue the JS test to verify the metadata update.
-  ContinueJsTest();
-}
-
 IN_PROC_BROWSER_TEST_P(GlicApiTestWithOneTab, testAdditionalContext) {
   // Runs the JS test until the first `advanceToNextStep()`.
   ExecuteJsTest();
@@ -3308,44 +2980,6 @@ IN_PROC_BROWSER_TEST_P(GlicApiTestWithOneTab, testAdditionalContext) {
   instance->SendAdditionalContext(std::move(context));
 
   // Continue the JS test to verify the additional context is received.
-  ContinueJsTest();
-}
-
-// TODO(crbug.com/454086033): Re-enable this test once I figure out how to
-// doscard the tab while preserving the test harness.
-IN_PROC_BROWSER_TEST_P(GlicApiTestWithOneTab,
-                       DISABLED_testGetPageMetadataWebContentsChanged) {
-  // Runs the JS test until the first `advanceToNextStep()`.
-  ExecuteJsTest();
-
-  // The JS test is now paused.
-  content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
-  ASSERT_TRUE(web_contents);
-
-  // Discard the tab. This will destroy the WebContents.
-  resource_coordinator::TabLifecycleUnitExternal::FromWebContents(web_contents)
-      ->DiscardTab(::mojom::LifecycleUnitDiscardReason::PROACTIVE);
-
-  // Wait for the tab to be discarded.
-  ASSERT_TRUE(
-      base::test::RunUntil([&]() { return web_contents->WasDiscarded(); }));
-
-  // Select the tab to reload it. This will create a new WebContents.
-  browser()->tab_strip_model()->ActivateTabAt(
-      browser()->tab_strip_model()->active_index());
-  content::WebContents* new_web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
-  ASSERT_TRUE(new_web_contents);
-  ASSERT_TRUE(content::WaitForLoadStop(new_web_contents));
-
-  // Change the content of the 'author' meta tag from "George" to "Ruth".
-  const char* script =
-      "document.querySelector('meta[name=\"author\"]').setAttribute('content', "
-      "'Ruth')";
-  ASSERT_TRUE(content::ExecJs(new_web_contents, script));
-
-  // Continue the JS test to verify the metadata update.
   ContinueJsTest();
 }
 

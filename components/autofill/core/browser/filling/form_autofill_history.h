@@ -58,8 +58,6 @@ class FormAutofillHistory {
     // because fields that are autofilled might be reset to still autofilled
     // field, considering cases where autofill is allowed to override autofilled
     // fields.
-    // TODO(crbug.com/393114125): Remove after launching
-    // `kAutofillFixIsAutofilled`.
     bool is_autofilled_according_to_renderer;
 
     // The sequence of modifiers that have affected the field.
@@ -99,14 +97,11 @@ class FormAutofillHistory {
   ~FormAutofillHistory();
 
   // Adds a new history entry in the beginning of the list.
-  // FormFieldData's are needed to get the most recent value of a field.
-  // AutofillField's are needed to get the type of a field.
-  // TODO(crbug.com/40232021): Only pass AutofillFields.
-  void AddFormFillingEntry(
-      base::span<const FormFieldData* const> filled_fields,
-      base::span<const AutofillField* const> filled_autofill_fields,
-      FillingProduct filling_product,
-      bool is_refill);
+  // `filled_fields` contain the state of the fields that were filled BEFORE
+  // the filling operation happened.
+  void AddFormFillingEntry(base::span<const AutofillField* const> filled_fields,
+                           FillingProduct filling_product,
+                           bool is_refill);
 
   // Erases the field history information corresponding to all `field_ids` from
   // `filling_entry`. If `filling_entry` becomes empty afterwards, the function

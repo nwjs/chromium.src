@@ -551,6 +551,10 @@ targets.tests.gtest_test(
 )
 
 targets.tests.gtest_test(
+    name = "chrome_flaky_tast_tests",
+)
+
+targets.tests.gtest_test(
     name = "chrome_elf_unittests",
 )
 
@@ -1611,10 +1615,6 @@ targets.tests.isolated_script_test(
 
 targets.tests.isolated_script_test(
     name = "ios_net_unittests",
-)
-
-targets.tests.isolated_script_test(
-    name = "ios_swift_interop_xcuitests_module",
 )
 
 targets.tests.isolated_script_test(
@@ -2750,6 +2750,10 @@ targets.tests.gtest_test(
 )
 
 targets.tests.gtest_test(
+    name = "gtk_unittests",
+)
+
+targets.tests.gtest_test(
     name = "views_ax_chromeos_browser_tests",
     args = [
         "--enable-features=ViewsAccessibilitySerializeOnDataChanged",
@@ -3064,20 +3068,6 @@ targets.tests.gpu_telemetry_test(
         "has_native_resultdb_integration",
         "gpu_force_command_decoder_passthrough",
         "gpu_force_angle_d3d11",
-        "gpu_force_high_performance_gpu",
-        "gpu_integration_test_webgl1_args",
-        "gpu_integration_test_common_args",
-    ],
-    module_scheme = "flat",
-)
-
-targets.tests.gpu_telemetry_test(
-    name = "webgl_conformance_d3d9_passthrough_tests",
-    telemetry_test_name = "webgl1_conformance",
-    mixins = [
-        "has_native_resultdb_integration",
-        "gpu_force_command_decoder_passthrough",
-        "gpu_force_angle_d3d9",
         "gpu_force_high_performance_gpu",
         "gpu_integration_test_webgl1_args",
         "gpu_integration_test_common_args",

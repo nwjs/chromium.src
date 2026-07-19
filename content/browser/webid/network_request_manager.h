@@ -11,7 +11,6 @@
 #include "base/functional/callback.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/frame_tree_node_id.h"
-#include "services/data_decoder/public/cpp/data_decoder.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/cpp/simple_url_loader.h"
@@ -51,8 +50,7 @@ struct FetchStatus {
 };
 
 using ParseJsonCallback =
-    base::OnceCallback<void(FetchStatus,
-                            data_decoder::DataDecoder::ValueOrError)>;
+    base::OnceCallback<void(FetchStatus, std::optional<base::DictValue>)>;
 
 GURL ExtractEndpoint(const GURL& provider,
                      const base::DictValue& response,
@@ -61,9 +59,10 @@ GURL ExtractEndpoint(const GURL& provider,
 CONTENT_EXPORT std::optional<GURL> ComputeWellKnownUrl(const GURL& provider,
                                                        const std::string& path);
 
-// Computes the "web-identity" subdomain well-known URL for `provider`, e.g.
-// https://web-identity.<eTLD+1><path>. Returns std::nullopt if `provider`
-// has no eTLD+1 (e.g. an IP literal) or for localhost.
+// Computes the "web-identity.well-known" subdomain well-known URL for
+// `provider`, e.g. https://web-identity.well-known.<eTLD+1><path>. Returns
+// std::nullopt if `provider` has no eTLD+1 (e.g. an IP literal) or for
+// localhost.
 CONTENT_EXPORT std::optional<GURL> ComputeWebIdentitySubdomainWellKnownUrl(
     const GURL& provider,
     const std::string& path);

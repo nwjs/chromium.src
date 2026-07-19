@@ -39,6 +39,9 @@ enum class TipsNotificationType;
 // YES if the current interface language uses RTL layout.
 + (BOOL)isRTL;
 
+// Returns YES if the application window is in windowed mode (multitasking).
++ (BOOL)isWindowedMode;
+
 // Clears browsing history and waits for history to finish clearing before
 // returning. Returns nil on success, or else an NSError indicating why the
 // operation failed.
@@ -299,14 +302,6 @@ enum class TipsNotificationType;
 // operation failed, otherwise nil.
 + (NSError*)tapWebStateElementWithID:(NSString*)elementID;
 
-// Waits for the current web state to contain an element matching `selector`.
-// If not succeed returns an NSError indicating  why the operation failed,
-// otherwise nil.
-+ (NSError*)waitForWebStateContainingElement:(ElementSelector*)selector;
-
-// Waits for the current web state to no longer contain an element matching
-// `selector`. On failure, returns an NSError, otherwise nil.
-+ (NSError*)waitForWebStateNotContainingElement:(ElementSelector*)selector;
 
 // Waits for the current web state's frames to contain `text`.
 // If not succeed returns an NSError indicating  why the operation failed,
@@ -454,6 +449,12 @@ enum class TipsNotificationType;
                                     (NSDictionary<NSString*, NSString*>*)
                                         formFieldData;
 
+// Adds a fake Send Tab To Self entry with the given text fragment to the fake
+// sync server and returns its GUID.
++ (NSString*)addFakeSendTabToSelfEntryWithURL:(NSString*)url
+                                        title:(NSString*)title
+                                 textFragment:(NSString*)textFragment;
+
 // Checks if the local Send Tab To Self model contains an entry with the given
 // GUID.
 + (BOOL)hasSendTabToSelfEntryWithGUID:(NSString*)guid;
@@ -584,9 +585,6 @@ enum class TipsNotificationType;
 // Returns YES if DemographicMetricsReporting feature is enabled.
 + (BOOL)isDemographicMetricsReportingEnabled [[nodiscard]];
 
-// Returns YES if AskGeminiChip is enabled.
-+ (BOOL)isAskGeminiChipEnabled [[nodiscard]];
-
 // Returns YES if ProactiveSuggestionsFramework is enabled.
 + (BOOL)isProactiveSuggestionsFrameworkEnabled [[nodiscard]];
 
@@ -608,6 +606,9 @@ enum class TipsNotificationType;
 // Returns whether the UseLensToSearchForImage feature is enabled.
 + (BOOL)isUseLensToSearchForImageEnabled;
 
+// Returns whether the YourSavedInfoSettingsPageIos feature is enabled.
++ (BOOL)isYourSavedInfoSettingsPageIosEnabled;
+
 // Returns whether the current layout is showing the bottom omnibox.
 + (BOOL)isCurrentLayoutBottomOmnibox;
 
@@ -616,6 +617,12 @@ enum class TipsNotificationType;
 
 // Returns whether chrome next is enabled.
 + (BOOL)isChromeNextEnabled;
+
+// Returns whether overflow menu refactoring on the NTP is enabled.
++ (BOOL)isOverflowMenuNTPRefactorEnabled;
+
+// Returns whether the chrome next share icon is visible.
++ (BOOL)isChromeNextShareIconVisible;
 
 #pragma mark - ContentSettings
 

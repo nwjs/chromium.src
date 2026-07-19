@@ -122,6 +122,20 @@ class CORE_EXPORT InspectorPageAgent final
   protocol::Response enable(
       std::optional<bool> enable_file_chooser_opened_event) override;
   protocol::Response disable() override;
+  protocol::Response addScriptToEvaluateOnLoad(const String& script_source,
+                                               const String& browser_generated_identifier,
+                                               String* identifier) override;
+  protocol::Response removeScriptToEvaluateOnLoad(
+      const String& identifier) override;
+  protocol::Response addScriptToEvaluateOnNewDocument(
+      const String& source,
+      std::optional<String> world_name,
+      std::optional<bool> include_command_line_api,
+      std::optional<bool> runImmediately,
+      const String& browser_generated_identifier,
+      String* identifier) override;
+  protocol::Response removeScriptToEvaluateOnNewDocument(
+      const String& identifier) override;
   protocol::Response setLifecycleEventsEnabled(bool) override;
   protocol::Response reload(std::optional<bool> bypass_cache,
                             std::optional<String> script_to_evaluate_on_load,
@@ -176,6 +190,7 @@ class CORE_EXPORT InspectorPageAgent final
       const String& frame_id,
       std::optional<String> world_name,
       std::optional<bool> grant_universal_access,
+      std::optional<String> content_security_policy,
       std::unique_ptr<CreateIsolatedWorldCallback>) override;
   protocol::Response setFontFamilies(
       std::unique_ptr<protocol::Page::FontFamilies>,
@@ -261,13 +276,16 @@ class CORE_EXPORT InspectorPageAgent final
     IsolatedWorldRequest() = delete;
     IsolatedWorldRequest(String world_name,
                          bool grant_universal_access,
+                         String content_security_policy,
                          std::unique_ptr<CreateIsolatedWorldCallback> callback)
-        : world_name(world_name),
+        : world_name(std::move(world_name)),
           grant_universal_access(grant_universal_access),
+          content_security_policy(std::move(content_security_policy)),
           callback(std::move(callback)) {}
 
     const String world_name;
     const bool grant_universal_access;
+    const String content_security_policy;
     std::unique_ptr<CreateIsolatedWorldCallback> callback;
   };
 
@@ -284,7 +302,8 @@ class CORE_EXPORT InspectorPageAgent final
       std::unique_ptr<SearchInResourceCallback>);
   DOMWrapperWorld* EnsureDOMWrapperWorld(LocalFrame* frame,
                                          const String& world_name,
-                                         bool grant_universal_access);
+                                         bool grant_universal_access,
+                                         const String& content_security_policy);
 
   static KURL UrlWithoutFragment(const KURL&);
 
@@ -299,8 +318,9 @@ class CORE_EXPORT InspectorPageAgent final
   std::unique_ptr<protocol::Page::FrameResourceTree> BuildObjectForResourceTree(
       LocalFrame*);
   void CreateIsolatedWorldImpl(LocalFrame& frame,
-                               String world_name,
+                               const String& world_name,
                                bool grant_universal_access,
+                               const String& content_security_policy,
                                std::unique_ptr<CreateIsolatedWorldCallback>);
   void EvaluateScriptOnNewDocument(LocalFrame&,
                                    const String& script_identifier);

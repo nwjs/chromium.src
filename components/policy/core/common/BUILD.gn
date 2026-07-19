@@ -152,6 +152,8 @@ source_set("internal") {
     "config_dir_policy_loader.h",
     "configuration_policy_provider.cc",
     "configuration_policy_provider.h",
+    "enterprise_management_metrics_service.cc",
+    "enterprise_management_metrics_service.h",
     "external_data_fetcher.cc",
     "external_data_fetcher.h",
     "external_data_manager.h",
@@ -241,6 +243,7 @@ source_set("internal") {
     "//components/enterprise/common/proto:chrome_reporting_entity",
     "//components/enterprise/common/proto:upload_request_response",
     "//components/enterprise/connectors/core:constants",
+    "//components/keyed_service/core",
     "//components/policy/resources/webui/mojom:mojo_bindings",
     "//components/prefs",
     "//components/signin/public/identity_manager",
@@ -329,10 +332,15 @@ source_set("internal") {
       "android/android_combined_policy_provider.h",
       "android/policy_converter.cc",
       "android/policy_converter.h",
+      "android/policy_feature_map.cc",
       "android/policy_map_android.cc",
       "android/policy_map_android.h",
       "android/policy_service_android.cc",
       "android/policy_service_android.h",
+      "management/android_enterprise_info.cc",
+      "management/android_enterprise_info.h",
+      "management/platform_management_status_provider_android.cc",
+      "management/platform_management_status_provider_android.h",
     ]
     deps += [ "//components/policy/android:jni_headers" ]
   }
@@ -536,6 +544,7 @@ source_set("unit_tests") {
     "cloud/user_info_fetcher_unittest.cc",
     "cloud/user_policy_metrics_recorder_unittest.cc",
     "command_line_policy_provider_unittest.cc",
+    "enterprise_management_metrics_service_unittest.cc",
     "generate_policy_source_unittest.cc",
     "local_test_policy_loader_unittest.cc",
     "management/management_service_unittest.cc",
@@ -605,6 +614,8 @@ source_set("unit_tests") {
       "android/policy_converter_unittest.cc",
       "android/policy_map_android_unittest.cc",
       "android/policy_service_android_unittest.cc",
+      "management/android_enterprise_info_unittest.cc",
+      "management/platform_management_status_provider_android_unittest.cc",
     ]
   } else {
     sources += [ "async_policy_provider_unittest.cc" ]

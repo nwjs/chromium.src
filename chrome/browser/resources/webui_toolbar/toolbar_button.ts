@@ -2,7 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import {loadTimeData} from '//resources/js/load_time_data.js';
+import type {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import {MenuSourceType} from '//resources/mojo/ui/base/mojom/menu_source_type.mojom-webui.js';
+import {HelpBubbleMixinLit} from 'chrome://resources/cr_components/help_bubble/help_bubble_mixin_lit.js';
+import type {HelpBubbleMixinLitInterface} from 'chrome://resources/cr_components/help_bubble/help_bubble_mixin_lit.js';
 import {isMac} from 'chrome://resources/js/platform.js';
 
 import {EventDispositionFlag} from './browser_proxy.js';
@@ -16,6 +20,52 @@ export const BUTTON_RIGHT = 2;
 export interface GetEventDispositionFlagsOptions {
   ignoreCtrlKey?: boolean;
   ignoreShiftKey?: boolean;
+}
+
+type Constructor<T> = new (...args: any[]) => T;
+
+export interface HelpBubbleAnchor {
+  hasHelpBubble: boolean;
+  adjustTooltipForHelpBubble(original: string): string;
+}
+
+/**
+ * A mixin for components that can be targeted by a help bubble (IPH).
+ * Centralizes the `hasHelpBubble` property and tooltip suppression logic.
+ */
+export const HelpBubbleAnchorMixin =
+    <T extends Constructor<CrLitElement>>(superClass: T): T&
+    Constructor<HelpBubbleMixinLitInterface>&Constructor<HelpBubbleAnchor> => {
+      class HelpBubbleAnchorMixin extends HelpBubbleMixinLit
+      (superClass) {
+        static get properties() {
+          return {
+            hasHelpBubble: {
+              type: Boolean,
+            },
+          };
+        }
+
+        accessor hasHelpBubble: boolean = false;
+
+        /**
+         * Helper to suppress the tooltip when a help bubble is visible.
+         *
+         * @param original The original tooltip text.
+         * @returns The tooltip text to display.
+         */
+        adjustTooltipForHelpBubble(original: string): string {
+          return this.hasHelpBubble ? '' : original;
+        }
+      }
+
+      return HelpBubbleAnchorMixin as T &
+          Constructor<HelpBubbleMixinLitInterface>&
+          Constructor<HelpBubbleAnchor>;
+    };
+
+export function setHasHelpBubble(el: Element, value: boolean) {
+  (el as unknown as HelpBubbleAnchor).hasHelpBubble = value;
 }
 
 // Tracks state used for deciding whether to display a context menu instead of
@@ -36,6 +86,18 @@ interface ContextMenuState {
   longPressTimer: TimerHelper;
 
   initialY: number;
+}
+
+// Tests if a mouse event occurred over the given HTMLElement. Since shadow DOM
+// interfered with using getElementFromPoint() and checking `target` contains
+// it, instead checks that the mouse is in the DOMRect of `target`.
+function isMouseEventOverTarget(e: MouseEvent, target: HTMLElement) {
+  const targetRect: DOMRect = target.getBoundingClientRect();
+  // Note that the area an element occupies is [left, right) and [top, bottom),
+  // hence this check only allows equality for the left and top edges, and not
+  // the right and bottom ones.
+  return e.clientX >= targetRect.left && e.clientX < targetRect.right &&
+      e.clientY >= targetRect.top && e.clientY < targetRect.bottom;
 }
 
 /**
@@ -89,6 +151,10 @@ export class PressHandler {
   private onShortPress_: (e: MouseEvent) => void;
 
   private contextMenuState_: ContextMenuState|null = null;
+
+  // Do we expect the pointer to be captured between pointerDown and pointerUp?
+  // Mostly true, but false for screen reader synthetic mouse clicks.
+  private expectPointerCapture_: boolean = true;
 
   constructor(
       onLongPress: (source: MenuSourceType) => void,
@@ -162,13 +228,19 @@ export class PressHandler {
       return;
     }
 
+    // On Mac, Ctrl+LeftClick is a Context Menu action. We return early to
+    // bypass pointer capture and short-press logic, and let the native
+    // contextmenu event handle it.
     if (isMac && e.button === BUTTON_LEFT && e.ctrlKey) {
-      this.onLongPress_(getContextMenuSourceType(e));
       return;
     }
 
     const target = e.currentTarget as HTMLElement;
     target.setPointerCapture(e.pointerId);
+
+    // With some screen readers, mouse clicks coming from the keyboard aren't
+    // able to hold pointer capture as the pointer isn't involved.
+    this.expectPointerCapture_ = target.hasPointerCapture(e.pointerId);
 
     if (e.button === BUTTON_RIGHT) {
       // The TypeScript code should only handle long press for the
@@ -204,9 +276,10 @@ export class PressHandler {
     const target = e.currentTarget as HTMLElement;
     // Ignore pointers that are not captured, indicating that there was no
     // corresponding pointer down event over this button.
-    if (!target.hasPointerCapture(e.pointerId)) {
+    if (this.expectPointerCapture_ && !target.hasPointerCapture(e.pointerId)) {
       return;
     }
+
     // It's not necessary to release captured pointers on pointer up, since that
     // will be done automatically.
 
@@ -217,12 +290,21 @@ export class PressHandler {
       return;
     }
 
+    // Do nothing and reset state on release events that were not over the event
+    // target, which can happen when mouse down occurs over one element and then
+    // the mouse is captured by that element, and then mouse up occurs over
+    // another.
+    if (!isMouseEventOverTarget(e, target)) {
+      this.resetContextMenuState_();
+      return;
+    }
+
     if (e.button === BUTTON_RIGHT) {
       this.resetContextMenuState_();
       return;
     }
 
-    // If it's Ctrl+LeftClick on Mac, skip the rest.
+    // If it's Ctrl+LeftClick on Mac, abort the click.
     if (isMac && e.button === BUTTON_LEFT && e.ctrlKey) {
       this.resetContextMenuState_();
       return;
@@ -250,13 +332,9 @@ export class PressHandler {
 
   onContextmenu = (e: PointerEvent) => {
     e.preventDefault();
-    // If it's a Mac Ctrl+LeftClick, the browser natively fires a contextmenu
-    // event. We already showed the menu in pointerdown. We MUST suppress the
-    // native contextmenu event.
-    if (isMac && e.button === BUTTON_LEFT && e.ctrlKey) {
-      return;
-    }
-
+    // For Mac Ctrl+LeftClick, the browser natively fires this event immediately
+    // after pointerdown (no wait for pointerup), perfectly matching Views'
+    // context menu timing.
     this.onLongPress_(getContextMenuSourceType(e));
   };
 }
@@ -329,4 +407,8 @@ export function getEventDispositionFlags(
     flags.push(EventDispositionFlag.kAltGrKeyDown);
   }
   return flags;
+}
+
+export function roundedIconsEnabled() {
+  return loadTimeData.getBoolean('roundedIconsEnabled');
 }

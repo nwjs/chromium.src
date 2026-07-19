@@ -60,31 +60,9 @@
 
 namespace send_tab_to_self {
 
-namespace {
-
-// TODO(crbug.com/492072882): Inefficiently fetches the whole sorted list just
-// to find one device by GUID. There should exist
-// SendTabToSelfModel::GetTargetDeviceInfo(guid)
-syncer::DeviceInfo::FormFactor GetFormFactorForDevice(
-    SendTabToSelfModel* model,
-    const std::string& target_device_guid) {
-  if (!model) {
-    return syncer::DeviceInfo::FormFactor::kUnknown;
-  }
-  const std::vector<TargetDeviceInfo> devices =
-      model->GetTargetDeviceInfoSortedList();
-  std::vector<TargetDeviceInfo>::const_iterator it = std::ranges::find(
-      devices, target_device_guid, &TargetDeviceInfo::cache_guid);
-  return it != devices.end() ? it->form_factor
-                             : syncer::DeviceInfo::FormFactor::kUnknown;
-}
-
-}  // namespace
-
 SendTabToSelfBubbleController::~SendTabToSelfBubbleController() {
   HideBubble();
 }
-
 
 void SendTabToSelfBubbleController::HideBubble() {
   if (send_tab_to_self_bubble_view_) {
@@ -92,11 +70,15 @@ void SendTabToSelfBubbleController::HideBubble() {
   }
 }
 
-void SendTabToSelfBubbleController::ShowBubble(bool show_back_button) {
+void SendTabToSelfBubbleController::ShowBubble(ShareEntryPoint entry_point,
+                                               bool show_back_button) {
   // Avoid re-creation if a bubble is already being shown for this controller.
   if (send_tab_to_self_bubble_view_) {
     return;
   }
+
+  entry_point_ = entry_point;
+  RecordEntryPointInvoked(entry_point);
 
   show_back_button_ = show_back_button;
 
@@ -167,6 +149,16 @@ void SendTabToSelfBubbleController::ShowBubbleWithAnchor(
     }
     anchor = new_anchor;
   }
+
+  size_t device_count = 0;
+  if (reason == EntryPointDisplayReason::kOfferFeature) {
+    device_count = GetValidDevices().size();
+  }
+  // Note: `entry_point_` should always be populated here, since it's set in
+  // ShowBubble() which must've been called earlier. If it's not (e.g. in some
+  // unit tests), `kShareSheet` is used as a generic fallback.
+  RecordTargetDeviceCount(entry_point_.value_or(ShareEntryPoint::kShareSheet),
+                          reason, device_count);
 
   std::unique_ptr<SendTabToSelfBubbleView> bubble_view;
   switch (reason) {
@@ -260,15 +252,26 @@ void SendTabToSelfBubbleController::OnDeviceSelected(
       SendTabToSelfPageHandler::GetOrCreateForWebContents(&GetWebContents());
 
   syncer::DeviceInfo::FormFactor form_factor =
-      GetFormFactorForDevice(GetModel(), target_device_guid);
+      syncer::DeviceInfo::FormFactor::kUnknown;
+  if (send_tab_to_self::SendTabToSelfModel* model = GetModel()) {
+    std::optional<send_tab_to_self::TargetDeviceInfo> device =
+        model->GetTargetDeviceInfo(target_device_guid);
+    if (device) {
+      form_factor = device->form_factor;
+    }
+  }
 
   const GURL url = GetWebContents().GetLastCommittedURL();
+  // Note: `entry_point_` should always be populated here, since it's set in
+  // ShowBubble() which must've been called earlier. If it's not (e.g. in some
+  // unit tests), `kShareSheet` is used as a generic fallback.
   handler->SendTabToDevice(
       target_device_guid, url, base::UTF16ToUTF8(GetWebContents().GetTitle()),
       base::BindOnce(
           &SendTabToSelfBubbleController::HandleSendTabToDeviceResult,
           weak_ptr_factory_.GetWeakPtr(), url, std::string(device_name),
-          form_factor));
+          form_factor),
+      entry_point_.value_or(ShareEntryPoint::kShareSheet));
 }
 
 void SendTabToSelfBubbleController::OnManageDevicesClicked(
@@ -286,9 +289,14 @@ void SendTabToSelfBubbleController::OnManageDevicesClicked(
   Navigate(&params);
 }
 
+void SendTabToSelfBubbleController::PrimaryPageChanged(content::Page& page) {
+  HideBubble();
+}
+
 void SendTabToSelfBubbleController::OnWidgetDestroying(views::Widget* widget) {
   widget_observation_.Reset();
   send_tab_to_self_bubble_view_ = nullptr;
+  entry_point_ = std::nullopt;
   BrowserWindowInterface* browser =
       GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
           &GetWebContents());
@@ -355,12 +363,6 @@ void SendTabToSelfBubbleController::SetSelectorGenerationTimeoutForTesting(
       ->SetSelectorGenerationTimeoutForTesting(timeout);
 }
 
-void SendTabToSelfBubbleController::OnEntriesAddedRemotely(
-    const std::vector<const SendTabToSelfEntry*>& new_entries) {}
-
-void SendTabToSelfBubbleController::OnEntriesRemovedRemotely(
-    const std::vector<std::string>& guids) {}
-
 void SendTabToSelfBubbleController::OnModelReady() {
   model_observation_.Reset();
 
@@ -398,7 +400,8 @@ void SendTabToSelfBubbleController::RegisterProfilePrefs(
 SendTabToSelfBubbleController::SendTabToSelfBubbleController(
     content::WebContents* web_contents)
     : content::WebContentsUserData<SendTabToSelfBubbleController>(
-          *web_contents) {}
+          *web_contents),
+      content::WebContentsObserver(web_contents) {}
 
 WEB_CONTENTS_USER_DATA_KEY_IMPL(SendTabToSelfBubbleController);
 

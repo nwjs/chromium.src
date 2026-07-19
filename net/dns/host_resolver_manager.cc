@@ -533,18 +533,21 @@ std::unique_ptr<HostResolver::ResolveHostRequest>
 HostResolverManager::CreateRequest(
     std::variant<url::SchemeHostPort, HostPortPair> host,
     NetworkAnonymizationKey network_anonymization_key,
+    handles::NetworkHandle target_network,
     NetLogWithSource net_log,
     std::optional<ResolveHostParameters> optional_parameters,
     ResolveContext* resolve_context) {
   return CreateRequest(HostResolver::Host(std::move(host)),
-                       std::move(network_anonymization_key), std::move(net_log),
-                       std::move(optional_parameters), resolve_context);
+                       std::move(network_anonymization_key), target_network,
+                       std::move(net_log), std::move(optional_parameters),
+                       resolve_context);
 }
 
 std::unique_ptr<HostResolver::ResolveHostRequest>
 HostResolverManager::CreateRequest(
     HostResolver::Host host,
     NetworkAnonymizationKey network_anonymization_key,
+    handles::NetworkHandle target_network,
     NetLogWithSource net_log,
     std::optional<ResolveHostParameters> optional_parameters,
     ResolveContext* resolve_context) {
@@ -555,11 +558,20 @@ HostResolverManager::CreateRequest(
   // ResolveContexts must register (via RegisterResolveContext()) before use to
   // ensure cached data is invalidated on network and configuration changes.
   DCHECK(registered_contexts_.HasObserver(resolve_context));
+  // Multi-network support for Cronet and CCT was originally implemented by
+  // creating multiple URLRequestContexts/HostResolverManagers. Until this
+  // historical artifact is removed, make sure these two mechanisms are not used
+  // at the same time.
+  // TODO(crbug.com/495684670): Clean this up once multi-network Cronet and CCT
+  // no longer depend on network-bound URLRequestContexts.
+  CHECK(target_network_ == handles::kInvalidNetworkHandle ||
+        target_network == handles::kInvalidNetworkHandle);
 
   return std::make_unique<RequestImpl>(
       std::move(net_log), std::move(host), std::move(network_anonymization_key),
-      std::move(optional_parameters), resolve_context->GetWeakPtr(),
-      weak_ptr_factory_.GetWeakPtr(), tick_clock_);
+      target_network, std::move(optional_parameters),
+      resolve_context->GetWeakPtr(), weak_ptr_factory_.GetWeakPtr(),
+      tick_clock_);
 }
 
 std::unique_ptr<HostResolver::ProbeRequest>
@@ -596,6 +608,7 @@ std::unique_ptr<HostResolver::ServiceEndpointRequest>
 HostResolverManager::CreateServiceEndpointRequest(
     HostResolver::Host host,
     NetworkAnonymizationKey network_anonymization_key,
+    handles::NetworkHandle target_network,
     NetLogWithSource net_log,
     ResolveHostParameters parameters,
     ResolveContext* resolve_context) {
@@ -606,9 +619,18 @@ HostResolverManager::CreateServiceEndpointRequest(
     DCHECK(registered_contexts_.HasObserver(resolve_context));
   }
 
+  // Multi-network support for Cronet and CCT was originally implemented by
+  // creating multiple URLRequestContexts/HostResolverManagers. Until this
+  // historical artifact is removed, make sure these two mechanisms are not used
+  // at the same time.
+  // TODO(crbug.com/495684670): Clean this up once multi-network Cronet and CCT
+  // no longer depend on network-bound URLRequestContexts.
+  CHECK(target_network_ == handles::kInvalidNetworkHandle ||
+        target_network == handles::kInvalidNetworkHandle);
+
   return std::make_unique<ServiceEndpointRequestImpl>(
-      std::move(host), std::move(network_anonymization_key), std::move(net_log),
-      std::move(parameters),
+      std::move(host), std::move(network_anonymization_key), target_network,
+      std::move(net_log), std::move(parameters),
       resolve_context ? resolve_context->GetWeakPtr() : nullptr,
       weak_ptr_factory_.GetWeakPtr(), tick_clock_);
 }
@@ -820,7 +842,10 @@ void HostResolverManager::InitializeJobKeyAndIPAddress(
   // query, so the code requesting the resolution should be amenable to
   // receiving an IPv6 resolution.
   if (!use_local_ipv6 && !is_ip && !last_ipv6_probe_result_ &&
-      !ipv6_reachability_override_) {
+      !ipv6_reachability_override_ &&
+      // TODO(crbug.com/519138300): Until we support non-default network
+      // IPv6 connectivity checks, always assume IPv6 connectivity.
+      out_job_key.GetTargetNetwork() == handles::kInvalidNetworkHandle) {
     out_job_key.flags |= HOST_RESOLVER_DEFAULT_FAMILY_SET_DUE_TO_NO_IPV6;
     effective_types.Remove(DnsQueryType::AAAA);
   }
@@ -1524,12 +1549,33 @@ void HostResolverManager::FinishIPv6ReachabilityCheck(
 }
 
 int HostResolverManager::StartIPv6ReachabilityCheck(
+    handles::NetworkHandle target_network,
     const NetLogWithSource& net_log,
     ClientSocketFactory* client_socket_factory,
     CompletionOnceCallback callback) {
+  // Multi-network support for Cronet and CCT was originally implemented by
+  // creating multiple URLRequestContexts/HostResolverManagers. Until this
+  // historical artifact is removed, make sure these two mechanisms are not used
+  // at the same time.
+  // TODO(crbug.com/495684670): Clean this up once multi-network Cronet and CCT
+  // no longer depend on network-bound URLRequestContexts.
+  CHECK(target_network_ == handles::kInvalidNetworkHandle ||
+        target_network == handles::kInvalidNetworkHandle);
+
+  if (target_network != handles::kInvalidNetworkHandle) {
+    // TODO(crbug.com/519138300): Start caching results for non-default
+    // networks. Until then, we don't run the probe because we have no way to
+    // store or use the result without clobbering the default network cache.
+    // Instead, always assume IPv6 connectivity.
+    return OK;
+  }
+
   // Don't bother checking if the request will use WiFi and IPv6 is assumed to
   // not work on WiFi.
-  if (!check_ipv6_on_wifi_ && RequestWillUseWiFi(target_network_)) {
+  if (!check_ipv6_on_wifi_ &&
+      // TODO(crbug.com/519138300): Once results for non-default networks are
+      // correctly cached, pass `target_network` instead.
+      RequestWillUseWiFi(target_network_)) {
     probing_ipv6_ = false;
     last_ipv6_probe_result_ = false;
     last_ipv6_probe_time_ = base::TimeTicks();
@@ -1549,7 +1595,13 @@ int HostResolverManager::StartIPv6ReachabilityCheck(
           kIPv6ProbePeriodMs) {
     probing_ipv6_ = true;
     rv = StartGloballyReachableCheck(
-        IPAddress(kIPv6ProbeAddress), net_log, client_socket_factory,
+        IPAddress(kIPv6ProbeAddress),
+        // This intentionally passes `target_network` instead of
+        // `target_network_`. This codepath should only be used by the new way
+        // of doing multi-networking (i.e., with a single URLRequestContext).
+        // TODO(crbug.com/519138300): remove this comment once the old way
+        // of doing multi-networking is no longer supported.
+        target_network, net_log, client_socket_factory,
         base::BindOnce(&HostResolverManager::FinishIPv6ReachabilityCheck,
                        weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
     if (rv != ERR_IO_PENDING) {
@@ -1573,12 +1625,14 @@ void HostResolverManager::SetLastIPv6ProbeResult(bool last_ipv6_probe_result) {
 
 int HostResolverManager::StartGloballyReachableCheck(
     const IPAddress& dest,
+    handles::NetworkHandle target_network,
     const NetLogWithSource& net_log,
     ClientSocketFactory* client_socket_factory,
     CompletionOnceCallback callback) {
   std::unique_ptr<DatagramClientSocket> probing_socket =
       client_socket_factory->CreateDatagramClientSocket(
-          DatagramSocket::DEFAULT_BIND, net_log.net_log(), net_log.source());
+          DatagramSocket::DEFAULT_BIND, target_network, net_log.net_log(),
+          net_log.source());
   DatagramClientSocket* probing_socket_ptr = probing_socket.get();
   auto refcounted_socket = base::MakeRefCounted<
       base::RefCountedData<std::unique_ptr<DatagramClientSocket>>>(
@@ -1638,14 +1692,20 @@ void HostResolverManager::RunLoopbackProbeJob() {
 }
 
 void HostResolverManager::RemoveAllJobs(const ResolveContext* context) {
+  // Job destructor can re-enter jobs_.erase() (e.g., via HostResolverNat64Task
+  // destructor destroying a nested RequestImpl whose CancelRequest
+  // synchronously removes a different Job). Collect the Jobs first and destroy
+  // them after the iteration loop to prevent iterator invalidation.
+  std::vector<std::unique_ptr<Job>> jobs_to_destroy;
   for (auto it = jobs_.begin(); it != jobs_.end();) {
     const JobKey& key = it->first;
     if (&*key.resolve_context == context) {
-      RemoveJob(it++);
+      jobs_to_destroy.push_back(RemoveJob(it++));
     } else {
       ++it;
     }
   }
+  jobs_to_destroy.clear();
 }
 
 void HostResolverManager::AbortJobsWithoutTargetNetwork(bool in_progress_only) {

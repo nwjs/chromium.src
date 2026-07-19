@@ -4,8 +4,6 @@
 
 source_set("key_distribution") {
   sources = [
-    "features.cc",
-    "features.h",
     "iwa_key_distribution_histograms.h",
     "iwa_key_distribution_info_provider.cc",
     "iwa_key_distribution_info_provider.h",
@@ -13,8 +11,8 @@ source_set("key_distribution") {
 
   public_deps = [
     "//base",
-    "//chrome/browser/web_applications/isolated_web_apps/key_distribution/proto",
     "//chrome/browser/web_applications/isolated_web_apps/runtime_data",
+    "//components/webapps/isolated_web_apps/key_distribution/proto",
     "//components/webapps/isolated_web_apps/public",
   ]
 }

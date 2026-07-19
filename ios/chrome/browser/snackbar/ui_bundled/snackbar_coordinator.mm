@@ -10,8 +10,8 @@
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
-#import "ios/chrome/browser/shared/public/commands/bwg_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/gemini_commands.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/shared/public/snackbar/snackbar_message.h"
 #import "ios/chrome/browser/shared/public/snackbar/snackbar_message_action.h"
@@ -31,7 +31,7 @@
   __weak id<SnackbarCoordinatorDelegate> _delegate;
   SnackbarView* _snackbarView;
   ChromeOverlayWindow* _overlay_window;
-  __weak id<BWGCommands> _geminiHandler;
+  __weak id<GeminiCommands> _geminiHandler;
 }
 
 - (instancetype)initWithBaseViewController:(UIViewController*)baseViewController
@@ -43,10 +43,8 @@
   self = [super initWithBaseViewController:baseViewController browser:browser];
   if (self) {
     _delegate = delegate;
-    if (IsGeminiCopresenceEnabled()) {
-      _geminiHandler =
-          HandlerForProtocol(self.browser->GetCommandDispatcher(), BWGCommands);
-    }
+    _geminiHandler = HandlerForProtocol(self.browser->GetCommandDispatcher(),
+                                        GeminiCommands);
   }
   return self;
 }
@@ -169,22 +167,11 @@
     _snackbarView.message.completionHandler(NO);
   }
 
-  __weak id<BWGCommands> weakGeminiHandler = _geminiHandler;
-  [_snackbarView
-      dismissAnimated:animated
-           completion:^() {
-             if ([weakGeminiHandler
-                     respondsToSelector:@selector
-                     (updateFloatyVisibilityIfEligibleAnimated:fromSource:)]) {
-               [weakGeminiHandler
-                   updateFloatyVisibilityIfEligibleAnimated:NO
-                                                 fromSource:
-                                                     gemini::
-                                                         FloatyUpdateSource::
-                                                             Snackbar];
-             }
-           }];
-  [_overlay_window deactivateOverlay:_snackbarView];
+  __weak __typeof(self) weakSelf = self;
+  [_snackbarView dismissAnimated:animated
+                      completion:^() {
+                        [weakSelf didCompleteDismissalForSnackbar:snackbarView];
+                      }];
   _snackbarView.delegate = nil;
   _snackbarView = nil;
 }
@@ -216,6 +203,19 @@
 }
 
 #pragma mark - Private
+
+// Called when a snackbar finishes its dismiss animation.
+- (void)didCompleteDismissalForSnackbar:(SnackbarView*)snackbarView {
+  [_overlay_window deactivateOverlay:snackbarView];
+  if ([_geminiHandler
+          respondsToSelector:@selector(updateFloatyVisibilityIfEligibleAnimated:
+                                       fromSource:)]) {
+    [_geminiHandler
+        updateFloatyVisibilityIfEligibleAnimated:NO
+                                      fromSource:gemini::FloatyUpdateSource::
+                                                     Snackbar];
+  }
+}
 
 // Dismisses any currently visible snackbar, then creates, configures and
 // presents a new `SnackbarView`, hiding the Gemini floaty by default.

@@ -19,8 +19,6 @@ std::string_view GetSkipFieldFillLogMessage(
       return "Skipped: Only fill when focused";
     case FieldFillingSkipReason::kUnrecognizedAutocompleteAttribute:
       return "Skipped: Unrecognized autocomplete attribute";
-    case FieldFillingSkipReason::kFormChanged:
-      return "Skipped: Form has changed";
     case FieldFillingSkipReason::kInvisibleField:
       return "Skipped: Invisible field";
     case FieldFillingSkipReason::kValuePrefilled:
@@ -33,15 +31,14 @@ std::string_view GetSkipFieldFillLogMessage(
       return "Skipped: Refill field group different from initial filling group";
     case FieldFillingSkipReason::kFillingLimitReachedType:
       return "Skipped: Field type filling limit reached";
-    case FieldFillingSkipReason::kFieldTypeUnrelated:
-      return "Skipped: The field type is not related to the data used for "
-             "filling.";
     case FieldFillingSkipReason::kNoValueToFill:
       return "Skipped: No value to fill.";
     case FieldFillingSkipReason::kAutofilledValueDidNotChange:
       return "Skipped: Field already autofilled with same value.";
     case FieldFillingSkipReason::kBlockedByOtherFillingOperationOrProduct:
       return "Skipped: Blocked by other filling operation or product.";
+    case FieldFillingSkipReason::kIframeSecurityPolicy:
+      return "Skipped: Field violates the iframe security policy.";
     case FieldFillingSkipReason::kNotSkipped:
       return "Fillable";
     case FieldFillingSkipReason::kUnknown:

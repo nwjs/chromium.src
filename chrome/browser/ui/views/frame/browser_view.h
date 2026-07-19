@@ -25,6 +25,7 @@
 #include "chrome/browser/ui/bookmarks/bookmark_bar_controller.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/immersive/immersive_mode_controller.h"
 #include "chrome/browser/ui/tabs/projects/projects_panel_state_controller.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
@@ -34,7 +35,6 @@
 #include "chrome/browser/ui/views/frame/contents_container_view.h"
 #include "chrome/browser/ui/views/frame/contents_web_view.h"
 #include "chrome/browser/ui/views/frame/horizontal_tab_strip_region_view.h"
-#include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
 #include "chrome/browser/ui/views/frame/layout/browser_view_layout_params.h"
 #include "chrome/browser/ui/views/frame/shadow_overlay_view.h"
 #include "chrome/browser/ui/views/intent_picker_bubble_view.h"
@@ -46,6 +46,7 @@
 #include "components/user_education/common/feature_promo/feature_promo_handle.h"
 #include "components/viz/common/frame_timing_details.h"
 #include "components/webapps/browser/banners/app_banner_manager.h"
+#include "content/public/browser/desktop_capture_pip_utils.h"
 #include "content/public/browser/page_user_data.h"
 #include "content/public/browser/permission_controller.h"
 #include "content/public/browser/permission_result.h"
@@ -328,6 +329,9 @@ class BrowserView : public BrowserWindow,
 
   // Accessor for the BrowserView's TabSearchBubbleHost instance.
   TabSearchBubbleHost* GetTabSearchBubbleHost();
+
+  // Setter for the BrowserView's TabSearchBubbleHost instance.
+  void UpdateTabSearchBubbleHost();
 
   // Accessor for the ExclusiveAccessBubble.
   ExclusiveAccessBubbleViews* GetExclusiveAccessBubble();
@@ -800,8 +804,8 @@ class BrowserView : public BrowserWindow,
   // It returns > 1 elements when there is a split view that is active.
   std::vector<ContentsWebView*> GetAllVisibleContentsWebViews();
 
-  bool should_show_window_controls_overlay_toggle() const {
-    return should_show_window_controls_overlay_toggle_;
+  bool is_window_controls_overlay_available() const {
+    return is_window_controls_overlay_available_;
   }
 
   void SetLoadingAnimationStateChangeClosureForTesting(
@@ -853,8 +857,6 @@ class BrowserView : public BrowserWindow,
   FRIEND_TEST_ALL_PREFIXES(BrowserViewTest, AccessibleWindowTitle);
   FRIEND_TEST_ALL_PREFIXES(PermissionChipUnitTest, AccessibleName);
 
-  class AccessibilityModeObserver;
-
   // Modes that require reparenting of views. For example, tab strip and web app
   // views must be reparented to top_container in certain modes. This state is
   // track which combination of states the browser is in so we only reparent in
@@ -873,9 +875,6 @@ class BrowserView : public BrowserWindow,
   // Returns the state of the bookmark bar.
   BookmarkBar::State bookmark_bar_state() const;
 
-  // Setter for the BrowserView's TabSearchBubbleHost instance.
-  void UpdateTabSearchBubbleHost();
-
   // Display the current active split view as a series of multiple side-by-side
   // web contents.
   void ShowSplitView(bool focus_active_view);
@@ -887,11 +886,6 @@ class BrowserView : public BrowserWindow,
   // Update the index of the active split based on the active tab's web
   // contents.
   void UpdateActiveTabInSplitView();
-
-  // Updates the contents in the active split view.
-  void UpdateContentsInSplitView(
-      const std::vector<std::pair<tabs::TabInterface*, int>>& prev_tabs,
-      const std::vector<std::pair<tabs::TabInterface*, int>>& new_tabs);
 
   // True if an activation from `old_contents` to `new_contents` happens between
   // tabs that are already in a split-view configuration.
@@ -1074,17 +1068,14 @@ private:
 
   extensions::SizeConstraints size_constraints_, saved_size_constraints_;
 
-  // Attempts to show IPH promo for the tab search toolbar button.
-  void MaybeShowTabStripToolbarButtonIPH();
-
   // Attempts showing the IPH promo listing benefits for signed-in users
   // after the sync-to-signin migration.
   void MaybeShowSignInBenefitsIPH();
 
   void UpdateWindowControlsOverlayEnabled();
 
-  // Updates the visibility of the Window Controls Overlay toggle button.
-  void UpdateWindowControlsOverlayToggleVisible();
+  // Updates the Window Controls Overlay availability in this window.
+  void UpdateWindowControlsOverlayAvailable();
 
   // Updates the variable keeping track of the Window Management permission,
   // which together with `unframed_mode_enabled_` controls whether the title bar
@@ -1390,9 +1381,13 @@ private:
 #endif
 
   bool window_controls_overlay_enabled_ = false;
-  bool should_show_window_controls_overlay_toggle_ = false;
+  bool is_window_controls_overlay_available_ = false;
   bool unframed_mode_enabled_ = false;
   bool window_management_permission_granted_ = false;
+#if BUILDFLAG(IS_WIN)
+  class PipExclusionObserverImpl;
+  std::unique_ptr<PipExclusionObserverImpl> pip_exclusion_observer_;
+#endif
   std::optional<content::PermissionController::SubscriptionId>
       window_management_subscription_id_;
 

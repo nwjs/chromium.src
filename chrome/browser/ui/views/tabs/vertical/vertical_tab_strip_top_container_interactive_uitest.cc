@@ -4,7 +4,6 @@
 
 #include "base/test/metrics/user_action_tester.h"
 #include "build/build_config.h"
-#include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
@@ -22,8 +21,6 @@
 #include "ui/base/test/ui_controls.h"
 #include "ui/events/event_constants.h"
 #include "ui/gfx/scoped_animation_duration_scale_mode.h"
-#include "ui/views/controls/menu/menu_item_view.h"
-#include "ui/views/interaction/interactive_views_test.h"
 
 namespace {
 
@@ -173,18 +170,17 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripTopContainerInteractiveUiTest,
             vertical_tab_strip_state_controller()->IsExpandOnHoverEnabled();
       }),
       MoveMouseTo(kVerticalTabStripCollapseButtonElementId),
-      MayInvolveNativeContextMenu(
-          ClickMouse(ui_controls::RIGHT),
-          WaitForShow(VerticalTabStripTopContainer::
-                          kToggleVerticalTabsExpandOnHoverElementId),
-          SelectMenuItem(VerticalTabStripTopContainer::
-                             kToggleVerticalTabsExpandOnHoverElementId),
-          CheckResult(
-              [this, &initial_state]() {
-                return vertical_tab_strip_state_controller()
-                           ->IsExpandOnHoverEnabled() != initial_state;
-              },
-              true)));
+      ClickMouse(ui_controls::RIGHT),
+      WaitForShow(VerticalTabStripTopContainer::
+                      kToggleVerticalTabsExpandOnHoverElementId),
+      SelectMenuItem(VerticalTabStripTopContainer::
+                         kToggleVerticalTabsExpandOnHoverElementId),
+      CheckResult(
+          [this, &initial_state]() {
+            return vertical_tab_strip_state_controller()
+                       ->IsExpandOnHoverEnabled() != initial_state;
+          },
+          true));
 }
 
 IN_PROC_BROWSER_TEST_F(VerticalTabStripTopContainerInteractiveUiTest,

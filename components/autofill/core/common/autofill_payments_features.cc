@@ -39,6 +39,11 @@ BASE_FEATURE(kAutofillEnableAiBasedAmountExtraction,
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS)
 
+// When enabled, AI-based card recommendations will be offered on Autofill
+// when at least two credit card suggestions are shown.
+BASE_FEATURE(kAutofillEnableAiCardRecommendation,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, Chrome will extract the checkout amount from the checkout page
 // of the allowlisted merchant websites.
 BASE_FEATURE(kAutofillEnableAmountExtraction,
@@ -54,6 +59,16 @@ BASE_FEATURE(kAutofillEnableAmountExtraction,
 // This flag will allow amount extraction to run on any website when a CC
 // form is clicked. This flag should never be enabled.
 BASE_FEATURE(kAutofillEnableAmountExtractionTesting,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, buy now pay later (BNPL) for Affirm will be offered in
+// international markets.
+BASE_FEATURE(kAutofillEnableBnplAffirmInternationalization,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, buy now pay later (BNPL) for Klarna will be offered in
+// international markets.
+BASE_FEATURE(kAutofillEnableBnplKlarnaInternationalization,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_IOS)
@@ -145,11 +160,6 @@ BASE_FEATURE(kAutofillEnableCardBenefitsSync,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
-// When enabled, runtime retrieval of CVC along with card number and expiry
-// from issuer for enrolled cards will be enabled during form fill.
-BASE_FEATURE(kAutofillEnableCardInfoRuntimeRetrieval,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // When enabled, this will enhance the CVV storage project. The enhancement will
 // enable CVV storage suggestions for standalone CVC fields.
 BASE_FEATURE(kAutofillEnableCvcStorageAndFillingStandaloneFormEnhancement,
@@ -226,6 +236,11 @@ BASE_FEATURE(kAutofillEnablePayNowPayLaterTabs,
 // When enabled, risk data is prefetched during payments autofill flows to
 // reduce user-perceived latency.
 BASE_FEATURE(kAutofillEnablePrefetchingRiskDataForRetrieval,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, users that have previously turned off payments autofill will be
+// prompted to turn it back on in instances where they can benefit from it.
+BASE_FEATURE(kAutofillEnableResurrectingPaymentsUsers,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, the 'Save and Fill' suggestion will be offered in the credit
@@ -329,15 +344,6 @@ BASE_FEATURE(kAutofillUpstream, base::FEATURE_DISABLED_BY_DEFAULT);
 // in a week, as the strike database enforces a 7-day delay between strikes.
 BASE_FEATURE(kAutofillUpstreamEnforceStrikeDelay,
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// When enabled, updates the VCN strike database with different values of
-// kExpiryTimeDelta as part of of the VCN strike optimization experiment.
-// See go/vcn-strike-optimization-design.
-BASE_FEATURE(kAutofillVcnEnrollStrikeExpiryTime,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-const base::FeatureParam<int> kAutofillVcnEnrollStrikeExpiryTimeDays{
-    &kAutofillVcnEnrollStrikeExpiryTime, "autofill_vcn_strike_expiry_time_days",
-    /*default_value=*/180};
 
 bool ShouldShowImprovedUserConsentForCreditCardSave() {
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX)

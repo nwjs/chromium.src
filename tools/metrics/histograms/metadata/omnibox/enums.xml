@@ -78,6 +78,20 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//chrome/browser/ui/android/omnibox/java/src/org/chromium/chrome/browser/omnibox/fusebox/FuseboxMetrics.java:AiModeActivationSource,//ios/chrome/browser/composebox/shared/metrics/composebox_metrics_recorder.h:AiModeActivationSource) -->
 
+<!-- LINT.IfChange(AiModePageActionIconSource) -->
+
+<enum name="AiModePageActionIconSource">
+  <summary>The source of the icon for the AI mode page action.</summary>
+  <int value="0" label="kInvisible"/>
+  <int value="1" label="kVectorIcon"/>
+  <int value="2" label="kMemoryFaviconCache"/>
+  <int value="3" label="kDiskDbFaviconCache"/>
+  <int value="4" label="kNetworkFetch"/>
+  <int value="5" label="kFailedIcon"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/omnibox/ai_mode_page_action_controller.h:AiModePageActionIconSource) -->
+
 <!-- LINT.IfChange(AutocompleteRequestType) -->
 
 <enum name="AutocompleteRequestType">
@@ -156,6 +170,21 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//components/contextual_search/contextual_search_types.h:ContextUploadStatus) -->
 
+<!-- LINT.IfChange(CrossDeviceTabProviderEligibility) -->
+
+<enum name="CrossDeviceTabProviderEligibility">
+  <int value="0" label="Match created"/>
+  <int value="1" label="No sync service"/>
+  <int value="2" label="No open tabs delegate"/>
+  <int value="3" label="No foreign sessions"/>
+  <int value="4" label="No tabs"/>
+  <int value="5" label="Tab too old"/>
+  <int value="6" label="Invalid URL"/>
+  <int value="7" label="Local session not recent"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/omnibox/browser/cross_device_tab_provider.h:CrossDeviceTabProviderEligibility) -->
+
 <enum name="DocumentProviderAllowedReason">
   <int value="0" label="Allowed"/>
   <int value="1" label="Unknown"/>
@@ -220,6 +249,7 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="Clipboard"/>
   <int value="6" label="Suggested Tab"/>
   <int value="7" label="Recent Tab"/>
+  <int value="8" label="Drive Files"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/ui/android/omnibox/java/src/org/chromium/chrome/browser/omnibox/fusebox/FuseboxMetrics.java:FuseboxAttachmentButtonType,//ios/chrome/browser/composebox/shared/metrics/composebox_metrics_recorder.h:FuseboxAttachmentButtonType) -->
@@ -309,6 +339,17 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="Closed popup and cleared user input"/>
   <int value="5" label="Blurred"/>
 </enum>
+
+<!-- LINT.IfChange(OmniboxInlineLocationSuggestionShown) -->
+
+<enum name="OmniboxInlineLocationSuggestionShown">
+  <int value="0" label="No eligible suggestion found"/>
+  <int value="1"
+      label="Only parent suggestion shown (no inline location suggestion)"/>
+  <int value="2" label="Inline location suggestion shown"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/omnibox/browser/geolocation_header_service.h:OmniboxInlineLocationSuggestionShown) -->
 
 <enum name="OmniboxInputType">
   <int value="0" label="empty"/>

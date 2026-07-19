@@ -627,9 +627,7 @@ cbor::Value BuildPINRenewalRequest(std::string cert_xml,
   request.emplace(enclave::kRecoveryKeyStoreSigXml, ToVector(sig_xml));
   request.emplace(enclave::kRequestWrappedSecretKey, wrapped_secret);
   request.emplace(enclave::kRequestWrappedPINDataKey, wrapped_pin);
-  if (base::FeatureList::IsEnabled(device::kWebAuthnNewRefreshFlow)) {
-    request.emplace(enclave::kRecoveryKeyStoreCreateNewVault, true);
-  }
+  request.emplace(enclave::kRecoveryKeyStoreCreateNewVault, true);
 
   return cbor::Value(std::move(request));
 }
@@ -2003,8 +2001,7 @@ class EnclaveManager::StateMachine {
 
     manager_->identity_key_ = base::MakeRefCounted<
         unexportable_keys::RefCountedUnexportableSigningKey>(
-        std::move(std::get_if<KeyReady>(&event)->value().second),
-        unexportable_keys::UnexportableSigningKeyId());
+        std::move(std::get_if<KeyReady>(&event)->value().second));
 
     if (manager_->user_verifying_key_) {
       const std::vector<uint8_t> uv_public_key =
@@ -2997,9 +2994,7 @@ class EnclaveManager::StateMachine {
       base::span<const uint8_t> security_domain_secret) {
     cbor::Value::MapValue map;
     map.emplace(1, base::span<const uint8_t>(hashed_pin.hashed));
-    if (base::FeatureList::IsEnabled(device::kWebAuthnSendPinGeneration)) {
-      map.emplace(2, 0);  // Generation number.
-    }
+    // Key 2 used to be the generation number and is now obsolete.
     map.emplace(3, claim_key);
     map.emplace(4, base::as_byte_span(
                        vault_details.vault->vault_parameters().counter_id()));
@@ -3472,7 +3467,7 @@ void EnclaveManager::GetIdentityKeyForSignature(
         }
         enclave_manager->identity_key_ = base::MakeRefCounted<
             unexportable_keys::RefCountedUnexportableSigningKey>(
-            std::move(key), unexportable_keys::UnexportableSigningKeyId());
+            std::move(key));
         std::move(callback).Run(enclave_manager->identity_key_);
       },
       weak_ptr_factory_.GetWeakPtr(), primary_account_info_->account_id,
@@ -4459,9 +4454,7 @@ void EnclaveManager::HandleIdentityChange(bool is_post_load) {
     // If the user has signed out of any non-primary accounts, erase their
     // enclave state.
     const base::flat_set<GaiaId> gaia_ids_in_cookie_jar =
-        base::STLSetUnion<base::flat_set<GaiaId>>(
-            GetGaiaIDs(in_jar.GetPotentiallyInvalidSignedInAccounts()),
-            GetGaiaIDs(in_jar.GetSignedOutAccounts()));
+        GetGaiaIDs(in_jar.GetAllAccounts());
     const base::flat_set<GaiaId> gaia_ids_in_state =
         GetGaiaIDs(local_state_->users());
     to_remove = base::STLSetDifference<base::flat_set<GaiaId>>(

@@ -28,6 +28,11 @@ namespace {
 SkillCategoryToSkillMap Translate1PSkills(const SkillProtoList& skills_list) {
   SkillCategoryToSkillMap translated_map;
   for (const auto& skill : skills_list) {
+    // Skills belonging to the "Internal" category are used programmatically
+    // (e.g., by Indigo) and should be hidden from the WebUI browser.
+    if (skill.category() == "Internal") {
+      continue;
+    }
     Skill translated_skill;
     translated_skill.id = skill.id();
     translated_skill.name = skill.name();
@@ -35,8 +40,12 @@ SkillCategoryToSkillMap Translate1PSkills(const SkillProtoList& skills_list) {
     translated_skill.prompt = skill.prompt();
     translated_skill.description = skill.description();
     translated_skill.curated_by = skill.curated_by();
-    translated_skill.image_url = GURL(skill.image_url());
     translated_skill.source = sync_pb::SkillSource::SKILL_SOURCE_FIRST_PARTY;
+
+    GURL image_url(skill.image_url());
+    if (SkillsService::IsValidSkillImageUrl(image_url)) {
+      translated_skill.image_url = std::move(image_url);
+    }
     translated_map[skill.category()].push_back(std::move(translated_skill));
   }
   return translated_map;

@@ -42,6 +42,21 @@ namespace {
 BASE_FEATURE(kMacSandboxDistributedNotifications,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// If enabled, the macOS sandbox for the Network process will allow read and
+// write file access to the user's cache and temp directory
+// (https://crbug.com/527885521).
+// TODO(bryanoltman): remove this feature once we have determined the scope of
+// access needed by the Network process, if any.
+BASE_FEATURE(kMacSandboxNetworkUserDirAccess,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If enabled, the macOS sandbox for the On-Device Model Execution (ODME)
+// process will allow read and write file access to the user directory, as well
+// as the user's cache and temp directories (https://crbug.com/527915149).
+// TODO(bryanoltman): remove this feature once we have determined the scope of
+// access needed by the ODME process, if any.
+BASE_FEATURE(kMacSandboxOdmeUserDirAccess, base::FEATURE_DISABLED_BY_DEFAULT);
+
 std::optional<base::FilePath>& GetNetworkTestCertsDirectory() {
   // Set by SetNetworkTestCertsDirectoryForTesting().
   static base::NoDestructor<std::optional<base::FilePath>>
@@ -175,6 +190,10 @@ void SetupNetworkSandboxParameters(sandbox::SandboxSerializer* serializer,
         sandbox::policy::GetCanonicalPath(*GetNetworkTestCertsDirectory())
             .value()));
   }
+
+  CHECK(serializer->SetBooleanParameter(
+      sandbox::policy::kParamNetworkUserDirAccess,
+      base::FeatureList::IsEnabled(kMacSandboxNetworkUserDirAccess)));
 }
 
 bool SetupGpuSandboxParameters(sandbox::SandboxSerializer* serializer,
@@ -185,6 +204,10 @@ bool SetupGpuSandboxParameters(sandbox::SandboxSerializer* serializer,
       sandbox::policy::kParamDisableMetalShaderCache,
       command_line.HasSwitch(
           sandbox::policy::switches::kDisableMetalShaderCache)));
+
+  CHECK(serializer->SetBooleanParameter(
+      sandbox::policy::kParamOdmeUserDirAccess,
+      base::FeatureList::IsEnabled(kMacSandboxOdmeUserDirAccess)));
 
   base::FilePath helper_bundle_path =
       base::apple::GetInnermostAppBundlePath(command_line.GetProgram());
@@ -208,6 +231,18 @@ bool SetupGpuSandboxParameters(sandbox::SandboxSerializer* serializer,
   return true;
 }
 
+void SetupProxyResolverSandboxParameters(
+    sandbox::SandboxSerializer* serializer,
+    const base::CommandLine& command_line) {
+  SetupCommonSandboxParameters(serializer, command_line);
+
+  // Controls whether the sandbox allows the network access needed to fetch and
+  // execute PAC/WPAD scripts.
+  // TODO(crbug.com/442313607): Set this to true when PAC/WPAD is implemented.
+  CHECK(serializer->SetBooleanParameter(
+      sandbox::policy::kParamSystemProxyNetworkAccess, /*value=*/false));
+}
+
 }  // namespace
 
 bool SetupSandboxParameters(sandbox::mojom::Sandbox sandbox_type,
@@ -222,9 +257,11 @@ bool SetupSandboxParameters(sandbox::mojom::Sandbox sandbox_type,
     case sandbox::mojom::Sandbox::kRenderer:
     case sandbox::mojom::Sandbox::kService:
     case sandbox::mojom::Sandbox::kServiceWithJit:
-    case sandbox::mojom::Sandbox::kProxyResolver:
     case sandbox::mojom::Sandbox::kUtility:
       SetupCommonSandboxParameters(serializer, command_line);
+      break;
+    case sandbox::mojom::Sandbox::kProxyResolver:
+      SetupProxyResolverSandboxParameters(serializer, command_line);
       break;
     case sandbox::mojom::Sandbox::kOnDeviceModelExecution:
     case sandbox::mojom::Sandbox::kGpu:

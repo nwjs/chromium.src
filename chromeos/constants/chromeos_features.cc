@@ -39,15 +39,17 @@ BASE_FEATURE(kBlinkExtensionKiosk, base::FEATURE_DISABLED_BY_DEFAULT);
 // cros-jellybean-team@google.com.
 BASE_FEATURE(kCrosComponents, base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables the Blink extension APIs for Isolated Web Apps on ChromeOS.
+// Enables the setShape Blink extension for Isolated Web Apps on ChromeOS.
 BASE_FEATURE(kCrosIsolatedWebAppSetShape, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables the allowlist for the setShape Blink extension for Isolated Web Apps
+// on ChromeOS. This is intended to be used as the kill switch for the feature.
+BASE_FEATURE(kCrosIsolatedWebAppSetShapeAllowlist,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables denying file access to dlp protected files in MyFiles.
 BASE_FEATURE(kDataControlsFileAccessDefaultDeny,
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables data migration.
-BASE_FEATURE(kDataMigration, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables Essential Search in Omnibox for both launcher and browser.
 BASE_FEATURE(kEssentialSearch, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -265,6 +267,10 @@ BASE_FEATURE(kVidsAppPreinstall, base::FEATURE_ENABLED_BY_DEFAULT);
 // Controls whether Vids is preinstalled for consumers.
 BASE_FEATURE(kVidsAppConsumerPreinstall, base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Controls whether Vids is preinstalled for existing consumer users.
+BASE_FEATURE(kVidsAppExistingConsumerPreinstall,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 bool IsBatteryBadgeIconEnabled() {
   return base::FeatureList::IsEnabled(kBatteryBadgeIcon);
 }
@@ -297,12 +303,12 @@ bool IsCrosIsolatedWebAppSetShapeEnabled() {
   return base::FeatureList::IsEnabled(kCrosIsolatedWebAppSetShape);
 }
 
-bool IsDataControlsFileAccessDefaultDenyEnabled() {
-  return base::FeatureList::IsEnabled(kDataControlsFileAccessDefaultDeny);
+bool IsCrosIsolatedWebAppSetShapeAllowlistEnabled() {
+  return base::FeatureList::IsEnabled(kCrosIsolatedWebAppSetShapeAllowlist);
 }
 
-bool IsDataMigrationEnabled() {
-  return base::FeatureList::IsEnabled(kDataMigration);
+bool IsDataControlsFileAccessDefaultDenyEnabled() {
+  return base::FeatureList::IsEnabled(kDataControlsFileAccessDefaultDeny);
 }
 
 bool IsEssentialSearchEnabled() {

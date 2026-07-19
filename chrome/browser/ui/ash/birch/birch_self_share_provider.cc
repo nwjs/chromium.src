@@ -13,6 +13,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/send_tab_to_self_sync_service_factory.h"
 #include "components/prefs/pref_service.h"
+#include "components/send_tab_to_self/metrics_util.h"
 #include "components/send_tab_to_self/send_tab_to_self_entry.h"
 #include "components/send_tab_to_self/send_tab_to_self_model.h"
 #include "components/send_tab_to_self/target_device_info.h"
@@ -94,23 +95,14 @@ void BirchSelfShareProvider::RequestBirchDataFetch() {
       const std::string entry_guid = entry->GetGUID();
       const std::string device_cache_guid =
           entry->GetTargetDeviceSyncCacheGuid();
-      std::vector<send_tab_to_self::TargetDeviceInfo> device_info_list =
-          model->GetTargetDeviceInfoSortedList();
-      // Find the origin device that the entry was shared from using its
-      // `target_device_sync_cache_guid_`.
-      auto it = std::find_if(
-          device_info_list.begin(), device_info_list.end(),
-          [&device_cache_guid](
-              const send_tab_to_self::TargetDeviceInfo& device_info) {
-            return device_info.cache_guid == device_cache_guid;
-          });
+      std::optional<send_tab_to_self::TargetDeviceInfo> device_info =
+          model->GetTargetDeviceInfo(device_cache_guid);
 
       // We set the `secondary_icon_type` of the birch item based on the origin
       // device's form factor.
       SecondaryIconType secondary_icon_type = SecondaryIconType::kNoIcon;
-      if (it != device_info_list.end()) {
-        send_tab_to_self::TargetDeviceInfo* matched_device_info = &(*it);
-        switch (matched_device_info->form_factor) {
+      if (device_info) {
+        switch (device_info->form_factor) {
           case syncer::DeviceInfo::FormFactor::kDesktop:
             secondary_icon_type = SecondaryIconType::kTabFromDesktop;
             break;
@@ -138,6 +130,8 @@ void BirchSelfShareProvider::RequestBirchDataFetch() {
 void BirchSelfShareProvider::OnItemPressed(const std::string& guid) {
   send_tab_to_self::SendTabToSelfModel* model =
       sync_service_->GetSendTabToSelfModel();
+  send_tab_to_self::RecordActivatedEntryPoint(
+      send_tab_to_self::ShareActivatedEntryPoint::kChromeOSBirch);
   model->MarkEntryOpened(guid);
 }
 

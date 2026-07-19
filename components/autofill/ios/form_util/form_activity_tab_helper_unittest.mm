@@ -110,7 +110,7 @@ constexpr NSString* kTestHTMLFormWithIframes =
 
 }  // namespace
 
-// Tests fixture for autofill::FormActivityTabHelper class.
+// Tests fixture for FormActivityTabHelper class.
 class FormActivityTabHelperTest : public AutofillTestWithWebState {
  public:
   FormActivityTabHelperTest()
@@ -190,12 +190,12 @@ TEST_F(FormActivityTabHelperTest, TestPasswordSymbolSetOnNewElement) {
   LoadHtml(@"<div />");
 
   web::WebFramesManager* frames_manager =
-      autofill::AutofillJavaScriptFeature::GetInstance()->GetWebFramesManager(
+      AutofillJavaScriptFeature::GetInstance()->GetWebFramesManager(
           web_state());
   web::WebFrame* main_frame = frames_manager->GetMainWebFrame();
   ASSERT_TRUE(main_frame);
 
-  autofill::FormHandlersJavaScriptFeature::GetInstance()->TrackFormMutations(
+  FormHandlersJavaScriptFeature::GetInstance()->TrackFormMutations(
       main_frame, /*mutation_tracking_delay=*/200);
 
   // Adds a password input in the page to see if the mutation callback
@@ -218,12 +218,12 @@ TEST_F(FormActivityTabHelperTest, TestPasswordSymbolSetOnTypeChange) {
             "<input type='password' id='pw'/>");
 
   web::WebFramesManager* frames_manager =
-      autofill::AutofillJavaScriptFeature::GetInstance()->GetWebFramesManager(
+      AutofillJavaScriptFeature::GetInstance()->GetWebFramesManager(
           web_state());
   web::WebFrame* main_frame = frames_manager->GetMainWebFrame();
   ASSERT_TRUE(main_frame);
 
-  autofill::FormHandlersJavaScriptFeature::GetInstance()->TrackFormMutations(
+  FormHandlersJavaScriptFeature::GetInstance()->TrackFormMutations(
       main_frame, /*mutation_tracking_delay=*/200);
 
   // Loading the page should have set the attribute since the input is a
@@ -251,12 +251,12 @@ TEST_F(FormActivityTabHelperTest, TestPasswordSymbolFeatureDisabled) {
   LoadHtml(@"<input type='password' id='pw'/>");
 
   web::WebFramesManager* frames_manager =
-      autofill::AutofillJavaScriptFeature::GetInstance()->GetWebFramesManager(
+      AutofillJavaScriptFeature::GetInstance()->GetWebFramesManager(
           web_state());
   web::WebFrame* main_frame = frames_manager->GetMainWebFrame();
   ASSERT_TRUE(main_frame);
 
-  autofill::FormHandlersJavaScriptFeature::GetInstance()->TrackFormMutations(
+  FormHandlersJavaScriptFeature::GetInstance()->TrackFormMutations(
       main_frame, /*mutation_tracking_delay=*/200);
 
   // The Has Been Password symbol is not set since the feature is disabled
@@ -278,8 +278,8 @@ TEST_F(FormActivityTabHelperTest, TestObserverDocumentSubmitted) {
 
   ExecuteJavaScript(@"document.getElementById('button').click();");
   ASSERT_TRUE(observer_->submit_document_info());
-  EXPECT_EQ(web_state(), observer_->submit_document_info()->web_state);
-  EXPECT_EQ(main_frame, observer_->submit_document_info()->sender_frame);
+  EXPECT_EQ(main_frame->GetFrameId(),
+            observer_->submit_document_info()->sender_frame_id);
   EXPECT_THAT(
       WithoutUnserializedData(observer_->submit_document_info()->form_data),
       FormDataEq(WithoutUnserializedData(test_form_data)));
@@ -339,8 +339,8 @@ TEST_F(FormActivityTabHelperTest,
       base::test::ios::kWaitForJSCompletionTimeout, ^bool {
         return observer_->form_activity_info() != nullptr;
       }));
-  EXPECT_EQ(web_state(), observer_->form_activity_info()->web_state);
-  EXPECT_EQ(main_frame, observer_->form_activity_info()->sender_frame);
+  EXPECT_EQ(main_frame->GetFrameId(),
+            observer_->form_activity_info()->sender_frame_id);
   EXPECT_EQ("form-name",
             observer_->form_activity_info()->form_activity.form_name);
   EXPECT_EQ("text", observer_->form_activity_info()->form_activity.field_type);
@@ -435,7 +435,7 @@ class FormMutationTest : public base::test::WithFeatureOverride,
  public:
   FormMutationTest()
       : base::test::WithFeatureOverride(
-            autofill::features::kAutofillTrackFormMutationsOptimizationIos) {}
+            features::kAutofillTrackFormMutationsOptimizationIos) {}
   void SetUp() override { FormActivityTabHelperTest::SetUp(); }
 
  protected:
@@ -483,8 +483,7 @@ class FormMutationTest : public base::test::WithFeatureOverride,
     web::WebFrame* main_frame = WaitForMainFrame();
     CHECK(main_frame);
 
-    EXPECT_EQ(web_state(), info->web_state);
-    EXPECT_EQ(main_frame, info->sender_frame);
+    EXPECT_EQ(main_frame->GetFrameId(), info->sender_frame_id);
     EXPECT_THAT(info->form_removal_params.frame_id,
                 StrEq(main_frame->GetFrameId()));
 
@@ -789,7 +788,7 @@ TEST_P(FormMutationTest, RemovedAndAddedFormsRegistered_WithDroppedMessages) {
   }));
 
   if (base::FeatureList::IsEnabled(
-          autofill::features::kAutofillTrackFormMutationsOptimizationIos)) {
+          features::kAutofillTrackFormMutationsOptimizationIos)) {
     EXPECT_THAT(
         observer_->form_removal_info()->form_removal_params.removed_forms,
         UnorderedElementsAre(FormRendererId(1), FormRendererId(3)));
@@ -920,8 +919,11 @@ TEST_P(FormMutationTest, OptimizedFormMutations_ThrottledAcrossTicks) {
   // Confirm only 1 event was received by the observer (the second was dropped).
   EXPECT_EQ(observer_->number_of_events_received(), 1);
 
+  bool optimization_enabled = base::FeatureList::IsEnabled(
+      autofill::features::kAutofillTrackFormMutationsOptimizationIos);
+  int expected_drop_count = optimization_enabled ? 0 : 1;
   histogram_tester_.ExpectUniqueSample("Autofill.iOS.FormActivity.DropCount",
-                                       /*sample=*/1,
+                                       /*sample=*/expected_drop_count,
                                        /*expected_bucket_count=*/1);
   histogram_tester_.ExpectUniqueSample("Autofill.iOS.FormActivity.SendCount",
                                        /*sample=*/1,
@@ -1009,8 +1011,7 @@ class FormSubmittedHookTest : public FormActivityTabHelperTest {
     web::FakeWebClient* web_client =
         static_cast<web::FakeWebClient*>(GetWebClient());
 
-    renderer_id_feature_ =
-        autofill::test::CreateRendererIdTestJavaScriptFeature();
+    renderer_id_feature_ = test::CreateRendererIdTestJavaScriptFeature();
 
     web_client->SetJavaScriptFeatures({
         FormHandlersJavaScriptFeature::GetInstance(),
@@ -1051,9 +1052,6 @@ TEST_F(FormSubmittedHookTest, TestFormSubmittedHook) {
   WebFrame* main_frame = WaitForMainFrame();
   ASSERT_TRUE(main_frame);
 
-  AutofillFormFeaturesJavaScriptFeature::GetInstance()
-      ->SetAutofillIsolatedContentWorld(main_frame, true);
-
   web::test::ExecuteJavaScriptForFeature(
       web_state(),
       @"var form = document.forms[0];"
@@ -1075,7 +1073,8 @@ TEST_F(FormSubmittedHookTest, TestFormSubmittedHook) {
   FormData test_form_data = BuildTestFormData(main_frame->GetFrameId());
 
   ASSERT_TRUE(observer_->submit_document_info());
-  EXPECT_EQ(main_frame, observer_->submit_document_info()->sender_frame);
+  EXPECT_EQ(main_frame->GetFrameId(),
+            observer_->submit_document_info()->sender_frame_id);
   EXPECT_THAT(
       WithoutUnserializedData(observer_->submit_document_info()->form_data),
       FormDataEq(WithoutUnserializedData(test_form_data)));
@@ -1094,22 +1093,14 @@ TEST_F(FormSubmittedHookTest, TestFormSubmittedHook) {
 // Validate that programmatic form submissions are detected and sent to
 // observers of the tab helper.
 TEST_F(FormSubmittedHookTest, TestFormSubmittedHookAcrossIframes) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      autofill::features::kAutofillAcrossIframesIos);
+
   LoadHtml(kTestHTMLFormWithIframes);
 
   WebFrame* main_frame = WaitForMainFrame();
   ASSERT_TRUE(main_frame);
-
-  // Set feature flags in both worlds.
-  AutofillFormFeaturesJavaScriptFeature::GetInstance()
-      ->SetAutofillIsolatedContentWorld(main_frame, true);
-  AutofillFormFeaturesJavaScriptFeature::GetInstance()
-      ->SetAutofillAcrossIframes(main_frame, true);
-  AutofillFormFeaturesJavaScriptFeature::GetInstance()
-      ->SetAutofillIsolatedContentWorld(
-          WaitForMainFrame(web::ContentWorld::kPageContentWorld), true);
-  AutofillFormFeaturesJavaScriptFeature::GetInstance()
-      ->SetAutofillAcrossIframes(
-          WaitForMainFrame(web::ContentWorld::kPageContentWorld), true);
 
   // Trigger form extraction so child frame tokens are set in the isolated
   // world. Page scripts will be able to access the tokens through the fallback

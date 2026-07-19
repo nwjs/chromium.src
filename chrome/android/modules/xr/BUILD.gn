@@ -60,6 +60,7 @@ android_library("java") {
     "internal/java/src/org/chromium/chrome/browser/xr/scenecore/XrSceneCoreSessionInitializerImpl.java",
     "internal/java/src/org/chromium/chrome/browser/xr/scenecore/XrSceneCoreSessionManagerImpl.java",
     "internal/java/src/org/chromium/chrome/browser/xr/scenecore/XrSurfaceEntityHolderImpl.java",
+    "internal/java/src/org/chromium/chrome/browser/xr/scenecore/XrSurfaceEntityUtils.java",
     "internal/java/src/org/chromium/chrome/browser/xr/scenecore/XrTransformableEntityHolderImpl.java",
   ]
   deps = [
@@ -118,6 +119,7 @@ robolectric_binary("xr_immersive_playback_junit_tests") {
     "//chrome/android:chrome_java",
     "//chrome/browser/android/lifecycle:java",
     "//components/thin_webview:java",
+    "//content/public/android:content_main_dex_java",
     "//third_party/android_deps:material_design_java",
     "//third_party/androidx:androidx_activity_activity_java",
     "//third_party/androidx:androidx_test_rules_java",
@@ -140,12 +142,14 @@ robolectric_binary("xr_junit_tests") {
   sources = [
     "internal/junit/src/org/chromium/chrome/browser/xr/scenecore/XrEntityHolderFactoryTest.java",
     "internal/junit/src/org/chromium/chrome/browser/xr/scenecore/XrInteractableComponentImplTest.java",
+    "internal/junit/src/org/chromium/chrome/browser/xr/scenecore/XrMeshDataTest.java",
     "internal/junit/src/org/chromium/chrome/browser/xr/scenecore/XrMovableComponentImplTest.java",
     "internal/junit/src/org/chromium/chrome/browser/xr/scenecore/XrPanelEntityHolderImplTest.java",
     "internal/junit/src/org/chromium/chrome/browser/xr/scenecore/XrResizableComponentImplTest.java",
     "internal/junit/src/org/chromium/chrome/browser/xr/scenecore/XrSceneCoreSessionInitializerImplTest.java",
     "internal/junit/src/org/chromium/chrome/browser/xr/scenecore/XrSceneCoreSessionManagerImplTest.java",
     "internal/junit/src/org/chromium/chrome/browser/xr/scenecore/XrSurfaceEntityHolderImplTest.java",
+    "internal/junit/src/org/chromium/chrome/browser/xr/scenecore/XrSurfaceEntityUtilsTest.java",
   ]
   deps = [
     ":java",

@@ -59,6 +59,7 @@
 #import "ios/chrome/browser/intents/model/intents_constants.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_util.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
+#import "ios/chrome/browser/popup_menu/overflow_menu/public/features.h"
 #import "ios/chrome/browser/search_engines/model/search_engines_util.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/sessions/model/session_restoration_service.h"
@@ -79,6 +80,7 @@
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/util/omnibox_util.h"
 #import "ios/chrome/browser/shared/ui/util/rtl_geometry.h"
+#import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/sync/model/send_tab_to_self_sync_service_factory.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/chrome/browser/tips_notifications/model/utils.h"
@@ -223,6 +225,10 @@ UIViewController* FindBrowserViewController(UIViewController* root) {
 
 + (BOOL)isRTL {
   return UseRTLLayout();
+}
+
++ (BOOL)isWindowedMode {
+  return IsWindowedMode([self keyWindow]);
 }
 
 + (NSError*)clearBrowsingHistory {
@@ -625,7 +631,15 @@ UIViewController* FindBrowserViewController(UIViewController* root) {
   if (@available(iOS 26.0, *)) {
     // For iOS26 windowing, ensure the new window doesn't fully overlap the
     // prior window.
-    options.placement = [UIWindowSceneProminentPlacement prominentPlacement];
+    BOOL should_skip_prominent_placement = NO;
+#if TARGET_OS_SIMULATOR
+    // Workaround Metal compositor crash on iOS 27.0 beta simulator.
+    should_skip_prominent_placement = base::ios::IsRunningOnOrLater(27, 0, 0) &&
+                                      !base::ios::IsRunningOnOrLater(27, 0, 1);
+#endif
+    if (!should_skip_prominent_placement) {
+      options.placement = [UIWindowSceneProminentPlacement prominentPlacement];
+    }
   }
 
   [UIApplication.sharedApplication
@@ -777,34 +791,6 @@ UIViewController* FindBrowserViewController(UIViewController* root) {
                       @"Failed to tap web state element with ID=%@! Error: %@",
                       elementID, error];
     return testing::NSErrorWithLocalizedDescription(errorDescription);
-  }
-  return nil;
-}
-
-+ (NSError*)waitForWebStateContainingElement:(ElementSelector*)selector {
-  bool success = WaitUntilConditionOrTimeout(kWaitForPageLoadTimeout, ^bool {
-    return web::test::IsWebViewContainingElement(
-        chrome_test_util::GetCurrentWebState(), selector);
-  });
-  if (!success) {
-    NSString* NSErrorDescription = [NSString
-        stringWithFormat:@"Failed waiting for web state containing element %@",
-                         selector.selectorDescription];
-    return testing::NSErrorWithLocalizedDescription(NSErrorDescription);
-  }
-  return nil;
-}
-
-+ (NSError*)waitForWebStateNotContainingElement:(ElementSelector*)selector {
-  bool success = WaitUntilConditionOrTimeout(kWaitForPageLoadTimeout, ^bool {
-    return !web::test::IsWebViewContainingElement(
-        chrome_test_util::GetCurrentWebState(), selector);
-  });
-  if (!success) {
-    NSString* NSErrorDescription = [NSString
-        stringWithFormat:@"Failed waiting for web state without element %@",
-                         selector.selectorDescription];
-    return testing::NSErrorWithLocalizedDescription(NSErrorDescription);
   }
   return nil;
 }
@@ -1042,6 +1028,17 @@ UIViewController* FindBrowserViewController(UIViewController* root) {
   std::string guid = chrome_test_util::AddSendTabToSelfEntryToFakeSyncServer(
       GURL(base::SysNSStringToUTF8(url)), base::SysNSStringToUTF8(title),
       "target_device", "cache_guid_target_device", formFields);
+
+  return base::SysUTF8ToNSString(guid);
+}
+
++ (NSString*)addFakeSendTabToSelfEntryWithURL:(NSString*)url
+                                        title:(NSString*)title
+                                 textFragment:(NSString*)textFragment {
+  std::string guid = chrome_test_util::AddSendTabToSelfEntryToFakeSyncServer(
+      GURL(base::SysNSStringToUTF8(url)), base::SysNSStringToUTF8(title),
+      "target_device", "cache_guid_target_device", /*form_fields=*/{},
+      base::SysNSStringToUTF8(textFragment));
 
   return base::SysUTF8ToNSString(guid);
 }
@@ -1395,10 +1392,6 @@ UIViewController* FindBrowserViewController(UIViewController* root) {
   return base::FeatureList::IsEnabled(metrics::kDemographicMetricsReporting);
 }
 
-+ (BOOL)isAskGeminiChipEnabled {
-  return IsAskGeminiChipEnabled();
-}
-
 + (BOOL)isProactiveSuggestionsFrameworkEnabled {
   return IsProactiveSuggestionsFrameworkEnabled();
 }
@@ -1432,6 +1425,10 @@ UIViewController* FindBrowserViewController(UIViewController* root) {
          search_engines::SupportsSearchImageWithLens(service);
 }
 
++ (BOOL)isYourSavedInfoSettingsPageIosEnabled {
+  return IsYourSavedInfoSettingsPageIosEnabled();
+}
+
 + (BOOL)isCurrentLayoutBottomOmnibox {
   return IsCurrentLayoutBottomOmnibox(chrome_test_util::GetCurrentBrowser());
 }
@@ -1442,6 +1439,14 @@ UIViewController* FindBrowserViewController(UIViewController* root) {
 
 + (BOOL)isChromeNextEnabled {
   return IsChromeNextIaEnabled();
+}
+
++ (BOOL)isOverflowMenuNTPRefactorEnabled {
+  return IsOverflowMenuNTPRefactorEnabled();
+}
+
++ (BOOL)isChromeNextShareIconVisible {
+  return IsChromeNextIaShareIconVisible();
 }
 
 #pragma mark - ContentSettings

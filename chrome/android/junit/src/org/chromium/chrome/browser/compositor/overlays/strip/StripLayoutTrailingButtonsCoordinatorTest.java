@@ -16,6 +16,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
 import android.app.Activity;
 import android.view.MotionEvent;
 import android.view.View;
@@ -32,8 +33,11 @@ import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
+import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.MathUtils;
+import org.chromium.base.UnownedUserDataHost;
+import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -48,12 +52,21 @@ import org.chromium.chrome.browser.compositor.layouts.components.TintedComposito
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutTrailingButtonsCoordinator.StripLayoutTrailingButtonsObserver;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.glic.GlicButtonDelegate;
+import org.chromium.chrome.browser.glic.GlicButtonStateController.ButtonState;
 import org.chromium.chrome.browser.glic.GlicEnabling;
 import org.chromium.chrome.browser.glic.GlicKeyedService;
+import org.chromium.chrome.browser.glic.GlicKeyedServiceFactory;
+import org.chromium.chrome.browser.glic.GlicNudgeDelegate;
+import org.chromium.chrome.browser.glic.GlicNudgeDelegateBridge;
+import org.chromium.chrome.browser.glic.GlicNudgeDelegateBridgeJni;
 import org.chromium.chrome.browser.glic.GlicPrefNames;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.ui.browser_window.ChromeAndroidTask;
 import org.chromium.chrome.browser.ui.browser_window.ChromeAndroidTaskTracker;
+import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiId;
+import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiShowability;
+import org.chromium.chrome.browser.ui.side_ui.SideUiObserver;
+import org.chromium.chrome.browser.ui.side_ui.SideUiStateProvider;
 import org.chromium.components.prefs.PrefChangeRegistrar;
 import org.chromium.components.prefs.PrefChangeRegistrarJni;
 import org.chromium.components.prefs.PrefService;
@@ -63,10 +76,11 @@ import org.chromium.ui.base.TestActivity;
 import org.chromium.ui.base.WindowAndroid;
 
 import java.lang.ref.WeakReference;
+import java.util.Collections;
 import java.util.List;
 
 @RunWith(BaseRobolectricTestRunner.class)
-@EnableFeatures(ChromeFeatureList.GLIC)
+@EnableFeatures({ChromeFeatureList.GLIC, ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL})
 public class StripLayoutTrailingButtonsCoordinatorTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -85,6 +99,11 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
     @Mock private ChromeAndroidTaskTracker mTaskTracker;
     @Mock private ChromeAndroidTask mTask;
     @Mock private ActorKeyedService mActorKeyedService;
+    @Mock private GlicNudgeDelegateBridge.Natives mGlicNudgeDelegateBridgeJniMock;
+    private final OneshotSupplierImpl<SideUiStateProvider> mSideUiStateProviderSupplier =
+            new OneshotSupplierImpl<>();
+    @Mock private SideUiStateProvider mSideUiStateProvider;
+    @Mock private TintedCompositorButton mModelSelectorButton;
     @Captor private ArgumentCaptor<List<Animator>> mAnimatorsListCaptor;
 
     private Activity mActivity;
@@ -92,12 +111,14 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
     private TintedCompositorTextButton mGlicButton;
     private TintedCompositorButton mGlicDismissButton;
     private TintedCompositorTextButton mGlicActorButton;
+    private static final float BUTTON_WIDTH = 42.0f;
     private final long mBwiPtr = 123L;
     private boolean mIsIncognito;
 
     @Before
     public void setUp() {
         GlicEnabling.setEnabledForTesting(ChromeFeatureList.isEnabled(ChromeFeatureList.GLIC));
+        GlicNudgeDelegateBridgeJni.setInstanceForTesting(mGlicNudgeDelegateBridgeJniMock);
 
         PrefChangeRegistrarJni.setInstanceForTesting(mPrefChangeRegistrarJniMock);
         UserPrefsJni.setInstanceForTesting(mUserPrefsJniMock);
@@ -105,11 +126,13 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
         when(mPrefService.getBoolean(GlicPrefNames.GLIC_PINNED_TO_TABSTRIP)).thenReturn(true);
 
         ActorKeyedServiceFactory.setForTesting(mActorKeyedService);
-        when(mActorKeyedService.getActiveTasks()).thenReturn(java.util.Collections.emptyList());
+        when(mActorKeyedService.getActiveTasks()).thenReturn(Collections.emptyList());
+        GlicKeyedServiceFactory.setForTesting(mGlicKeyedService);
 
         mActivity = Robolectric.buildActivity(TestActivity.class).setup().get();
         mActivity.setTheme(R.style.Theme_BrowserUI_DayNight);
         when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
+        when(mWindowAndroid.getUnownedUserDataHost()).thenReturn(new UnownedUserDataHost());
         when(mToolbarContainerView.getRootView()).thenReturn(mToolbarContainerView);
         when(mToolbarContainerView.getResources()).thenReturn(mActivity.getResources());
 
@@ -122,6 +145,9 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
         PrefChangeRegistrarJni.setInstanceForTesting(mPrefChangeRegistrarJniMock);
         when(mPrefChangeRegistrarJniMock.init(any(), any())).thenReturn(1L);
 
+        when(mSideUiStateProvider.canShowSideUi(SideUiId.SIDE_PANEL)).thenReturn(true);
+        mSideUiStateProviderSupplier.set(mSideUiStateProvider);
+
         mCoordinator =
                 new StripLayoutTrailingButtonsCoordinator(
                         mActivity,
@@ -130,16 +156,17 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
                         mWindowAndroid,
                         mGlicClickHandler,
                         /* density= */ 1.0f,
-                        /* stripEndPadding= */ 0.0f,
                         mToolbarContainerView,
                         /* keyboardFocusHandler= */ null,
                         /* isAppInDesktopWindow= */ false,
                         /* isTopResumedActivity= */ false,
-                        mGlicKeyedService,
                         mTaskTracker,
-                        () -> mIsIncognito,
+                        mIsIncognito,
                         () -> null,
+                        mSideUiStateProviderSupplier,
+                        mModelSelectorButton,
                         mObserver);
+        ShadowLooper.idleMainLooper();
         mCoordinator.onProfileAvailable(mProfile);
         mCoordinator.setLayerTitleCache(mLayerTitleCache);
         mCoordinator.onSizeChanged(1000.f, 0.f, 0.f, 0.f);
@@ -167,13 +194,33 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
     }
 
     @Test
-    public void testGlicButton_HiddenInIncognito() {
+    public void testGlicButton_VisibleInIncognito() {
         assertTrue("Glic button should be visible initially.", mCoordinator.shouldGlicBeVisible());
 
         mIsIncognito = true;
 
+        assertTrue(
+                "Glic button should be visible even when supplier indicates incognito window.",
+                mCoordinator.shouldGlicBeVisible());
+    }
+
+    @Test
+    public void testGlicButton_HiddenWhenSidePanelNotShowable() {
+        assertTrue("Glic button should be visible initially.", mCoordinator.shouldGlicBeVisible());
+
+        when(mSideUiStateProvider.canShowSideUi(SideUiId.SIDE_PANEL)).thenReturn(false);
+
+        // Notify observer of updates
+        ArgumentCaptor<SideUiObserver> observerCaptor =
+                ArgumentCaptor.forClass(SideUiObserver.class);
+        verify(mSideUiStateProvider).addObserver(observerCaptor.capture());
+        observerCaptor
+                .getValue()
+                .onShowableSideUisUpdated(
+                        new SideUiShowability(List.of(), List.of(SideUiId.SIDE_PANEL)));
+
         assertFalse(
-                "Glic button should be hidden when supplier indicates incognito window.",
+                "Glic button should be hidden when side panel is not showable.",
                 mCoordinator.shouldGlicBeVisible());
     }
 
@@ -189,9 +236,11 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
                 /* topPadding= */ 0f);
 
         // Set text while on large screen
-        when(mLayerTitleCache.getUpdatedGlicButtonText(any(), anyBoolean())).thenReturn(123);
+        when(mLayerTitleCache.getUpdatedGlicButtonText(any(), anyBoolean(), anyBoolean()))
+                .thenReturn(123);
         when(mLayerTitleCache.getButtonTextWidth(any())).thenReturn(100);
-        mCoordinator.setGlicButtonText("Actor Text", /* isActor= */ true);
+        mCoordinator.setGlicButtonText("Actor Text", /* isActor= */ true, /* forceUpdate= */ false);
+        mCoordinator.updateButtonTextProperties(mGlicActorButton);
 
         assertEquals(
                 "Actor button text should be set on large screen.",
@@ -217,6 +266,7 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
 
     @Test
     public void testSetGlicActorButtonText() {
+        showGlicActorButton();
         verifySetButtonText(mGlicActorButton, "Actor Text", /* isActor= */ true);
     }
 
@@ -226,14 +276,25 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
 
         // Start with no-text state button
         StripLayoutTrailingButtonsCoordinator coordinatorSpy = Mockito.spy(mCoordinator);
-        coordinatorSpy.setGlicButtonText(null, isActor);
+        boolean textChanged = button.getText() != null;
+        button.setText(null);
+        if (textChanged) {
+            coordinatorSpy.updateButtonTextProperties(button);
+            Mockito.verify(coordinatorSpy)
+                    .startAnimations(mAnimatorsListCaptor.capture(), Mockito.any());
+            for (Animator animator : mAnimatorsListCaptor.getValue()) {
+                animator.end();
+            }
+            Mockito.clearInvocations(coordinatorSpy);
+        }
         float initialWidth = button.getWidth();
-        when(mLayerTitleCache.getUpdatedGlicButtonText(any(), anyBoolean())).thenReturn(123);
+        when(mLayerTitleCache.getUpdatedGlicButtonText(any(), anyBoolean(), anyBoolean()))
+                .thenReturn(123);
         when(mLayerTitleCache.getButtonTextWidth(any())).thenReturn(100);
-        Mockito.clearInvocations(coordinatorSpy);
 
         // Set text
-        coordinatorSpy.setGlicButtonText(text, isActor);
+        button.setText(text);
+        coordinatorSpy.updateButtonTextProperties(button);
         Mockito.verify(coordinatorSpy)
                 .startAnimations(mAnimatorsListCaptor.capture(), Mockito.any());
 
@@ -244,13 +305,15 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
         Mockito.clearInvocations(coordinatorSpy);
 
         // Assert the button has expanded in width
-        verify(mLayerTitleCache).getUpdatedGlicButtonText(text, isActor);
+        verify(mLayerTitleCache, Mockito.atLeastOnce())
+                .getUpdatedGlicButtonText(Mockito.eq(text), Mockito.eq(isActor), anyBoolean());
         assertTrue(
                 "Button width should increase to accommodate text.",
                 button.getWidth() > initialWidth);
 
         // Set text back to null
-        coordinatorSpy.setGlicButtonText(null, isActor);
+        button.setText(null);
+        coordinatorSpy.updateButtonTextProperties(button);
         Mockito.verify(coordinatorSpy)
                 .startAnimations(mAnimatorsListCaptor.capture(), Mockito.any());
 
@@ -291,8 +354,9 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
 
     @Test
     public void testGlicDismissNudgeButton() {
-        mCoordinator.setGlicButtonText("Glic Nudge Text", /* isActor= */ false);
-        mCoordinator.setGlicDismissNudgeButtonVisible(true);
+        mCoordinator
+                .getGlicNudgeDelegateForTesting()
+                .onTriggerGlicNudgeUi("Glic Nudge Text", "", "");
 
         // Verify initial state: Dismiss button visible, Glic button text correct.
         assertNotNull("Dismiss button should exist", mGlicDismissButton);
@@ -308,6 +372,63 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
                 "Glic button text should have been restored to default",
                 mActivity.getString(R.string.glic_button_entrypoint_ask_gemini_label),
                 mGlicButton.getText());
+    }
+
+    @Test
+    public void testOnTabModelSwitched() {
+        // 1. Trigger the nudge in normal mode.
+        mCoordinator
+                .getGlicNudgeDelegateForTesting()
+                .onTriggerGlicNudgeUi("Glic Nudge Text", "", "");
+
+        // Verify initial state.
+        assertEquals(
+                "Glic button text should match nudge text.",
+                "Glic Nudge Text",
+                mGlicButton.getText());
+        assertTrue("Dismiss button should be visible.", mGlicDismissButton.isVisible());
+
+        int initialTint = mGlicButton.getTint();
+        int initialBgTint = mGlicButton.getBackgroundTint();
+
+        // 2. Switch to incognito mode.
+        mIsIncognito = true;
+        mCoordinator.onTabModelSwitched(true);
+
+        // Verify that:
+        // - Glic button text is reset to default in incognito mode.
+        assertEquals(
+                "Glic button text should be restored to default in incognito mode.",
+                mActivity.getString(R.string.glic_button_entrypoint_ask_gemini_label),
+                mGlicButton.getText());
+        // - Dismiss nudge button is hidden in incognito mode.
+        assertFalse(
+                "Glic dismiss nudge button should be hidden in incognito mode.",
+                mGlicDismissButton.isVisible());
+        // - Tints are updated for incognito mode.
+        assertTrue("Tint should change in incognito mode.", initialTint != mGlicButton.getTint());
+        assertTrue(
+                "Background tint should change in incognito mode.",
+                initialBgTint != mGlicButton.getBackgroundTint());
+
+        // 3. Switch back to normal mode.
+        mIsIncognito = false;
+        mCoordinator.onTabModelSwitched(false);
+
+        // Verify that:
+        // - Glic button text is restored to nudge text when returning to normal mode.
+        assertEquals(
+                "Glic button text should be restored to nudge text.",
+                "Glic Nudge Text",
+                mGlicButton.getText());
+        // - Dismiss nudge button is visible again when returning to normal mode.
+        assertTrue("Dismiss button should be visible again.", mGlicDismissButton.isVisible());
+        // - Tints are restored.
+        assertEquals("Tint should be restored.", initialTint, mGlicButton.getTint());
+        assertEquals(
+                "Background tint should be restored.",
+                initialBgTint,
+                mGlicButton.getBackgroundTint());
     }
 
     @Test
@@ -355,7 +476,7 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
 
     @Test
     public void testStandardClick_TrailingButtons() {
-        mCoordinator.setGlicActorButtonVisible(true);
+        showGlicActorButton();
         assertNotNull("Glic Actor button should be created.", mGlicActorButton);
 
         // 1. Test click routing on Glic Button coordinates
@@ -378,7 +499,7 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
     @Test
     public void testOnDown_TrailingButtons() {
         assertNotNull("Glic button should be created.", mGlicButton);
-        mCoordinator.setGlicActorButtonVisible(true);
+        showGlicActorButton();
         assertNotNull("Glic Actor button should be created.", mGlicActorButton);
 
         // 1. Simulate tactile touch-down on Glic button
@@ -399,7 +520,7 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
     @Test
     public void testHoverLifecycle_TrailingButtons() {
         assertNotNull("Glic button should be created.", mGlicButton);
-        mCoordinator.setGlicActorButtonVisible(true);
+        showGlicActorButton();
         assertNotNull("Glic Actor button should be created.", mGlicActorButton);
 
         float glicX = mGlicButton.getDrawX() + mGlicButton.getWidth() / 2;
@@ -437,15 +558,15 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
         assertNotNull("Glic button should be created.", mGlicButton);
         assertNotNull("Glic Actor button should be created.", mGlicActorButton);
 
-        when(mLayerTitleCache.getUpdatedGlicButtonText(any(), anyBoolean())).thenReturn(123);
+        when(mLayerTitleCache.getUpdatedGlicButtonText(any(), anyBoolean(), anyBoolean()))
+                .thenReturn(123);
         when(mLayerTitleCache.getButtonTextWidth(any())).thenReturn(100);
 
         // Create a unified spy of the coordinator for sequential transition verification
         StripLayoutTrailingButtonsCoordinator coordinatorSpy = Mockito.spy(mCoordinator);
 
         // 1. Test Glic Button Expansion Transition (Simulating contextual cueing nudge)
-        coordinatorSpy.setGlicDismissNudgeButtonVisible(true);
-        coordinatorSpy.setGlicButtonText("Glic Nudge", /* isActor= */ false);
+        coordinatorSpy.setNudgeLabelForTesting("Glic Nudge");
         Mockito.verify(coordinatorSpy, Mockito.atLeastOnce())
                 .startAnimations(mAnimatorsListCaptor.capture(), Mockito.any());
         assertEquals(
@@ -458,8 +579,7 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
 
         // 2. Test Glic Button Shrink/Collapse Transition (Simulating contextual cueing nudge
         // dismissal)
-        coordinatorSpy.setGlicDismissNudgeButtonVisible(false);
-        coordinatorSpy.setGlicButtonText(null, /* isActor= */ false);
+        coordinatorSpy.setNudgeLabelForTesting(null);
         Mockito.verify(coordinatorSpy, Mockito.atLeastOnce())
                 .startAnimations(mAnimatorsListCaptor.capture(), Mockito.any());
         assertEquals(
@@ -471,7 +591,9 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
         Mockito.clearInvocations(coordinatorSpy);
 
         // 3. Test Glic Actor Button Expansion Transition (Simulating actor task nudge)
-        coordinatorSpy.setGlicButtonText("Actor Nudge", /* isActor= */ true);
+        coordinatorSpy.setGlicButtonText(
+                "Actor Nudge", /* isActor= */ true, /* forceUpdate= */ false);
+        coordinatorSpy.updateButtonTextProperties(mGlicActorButton);
         Mockito.verify(coordinatorSpy, Mockito.atLeastOnce())
                 .startAnimations(mAnimatorsListCaptor.capture(), Mockito.any());
         assertEquals(
@@ -479,5 +601,123 @@ public class StripLayoutTrailingButtonsCoordinatorTest {
                         + " opacity).",
                 2,
                 mAnimatorsListCaptor.getValue().size());
+    }
+
+    @Test
+    public void testActorButtonStateChangedLifecycle() {
+        StripLayoutTrailingButtonsCoordinator coordinatorSpy = Mockito.spy(mCoordinator);
+        TintedCompositorTextButton actorButton = coordinatorSpy.getGlicActorButton();
+        TintedCompositorTextButton glicButton = coordinatorSpy.getGlicButton();
+
+        // Stub startAnimations to immediately complete synchronously.
+        Mockito.doAnswer(
+                        invocation -> {
+                            AnimatorListenerAdapter listener = invocation.getArgument(1);
+                            if (listener != null) {
+                                listener.onAnimationEnd(null);
+                            }
+                            return null;
+                        })
+                .when(coordinatorSpy)
+                .startAnimations(Mockito.any(), Mockito.any());
+
+        // --- 1. Start State: Inactive ---
+        assertFalse("Initially, Glic Actor button should be hidden.", actorButton.isVisible());
+        assertEquals(
+                "Initially, Glic primary button text should be default.",
+                mActivity.getString(R.string.glic_button_entrypoint_ask_gemini_label),
+                glicButton.getText());
+
+        // --- 2. Transition: Active (task starts acting) ---
+        Mockito.doReturn(true).when(coordinatorSpy).shouldGlicActorBeVisible();
+
+        coordinatorSpy.onGlicActorButtonStateChanged(ButtonState.WORKING, false);
+
+        // Verify actor button is shown (with no text) and primary button text is cleared.
+        assertTrue("Actor button should become visible.", actorButton.isVisible());
+        assertNull("Actor button text should be null in active state.", actorButton.getText());
+        assertNull(
+                "Primary Glic button text should be null when actor button is active.",
+                glicButton.getText());
+
+        // --- 3. Transition: Done (task finishes) ---
+        coordinatorSpy.onGlicActorButtonStateChanged(ButtonState.DONE, false);
+
+        // Verify actor button is still visible and text becomes "Done".
+        assertTrue("Actor button should remain visible.", actorButton.isVisible());
+        assertEquals(
+                "Actor button text should become 'Done'.",
+                mActivity.getString(R.string.glic_button_status_done),
+                actorButton.getText());
+        assertNull(
+                "Primary Glic button text should remain null in done state.", glicButton.getText());
+
+        // --- 4. Transition: Return to Inactive (task is dismissed/cancelled) ---
+        Mockito.doReturn(false).when(coordinatorSpy).shouldGlicActorBeVisible();
+
+        coordinatorSpy.onGlicActorButtonStateChanged(ButtonState.DEFAULT, false);
+
+        // Verify actor button hides and primary Glic button text is restored.
+        assertFalse("Actor button should collapse and hide.", actorButton.isVisible());
+        assertEquals(
+                "Primary Glic button text should be restored to default.",
+                mActivity.getString(R.string.glic_button_entrypoint_ask_gemini_label),
+                glicButton.getText());
+    }
+
+    @Test
+    public void testGlicNudgeDelegate() {
+        assertNotNull("Glic button should be created.", mGlicButton);
+        assertNotNull("Glic dismiss button should be created.", mGlicDismissButton);
+
+        GlicNudgeDelegate delegate = mCoordinator.getGlicNudgeDelegateForTesting();
+        assertNotNull("Glic nudge delegate should be created.", delegate);
+        assertFalse("Nudge should not be showing initially.", delegate.getIsShowingGlicNudge());
+
+        // 1. Trigger the nudge via delegate method
+        delegate.onTriggerGlicNudgeUi("Nudge Text", "", "");
+
+        assertTrue("Nudge should be showing after triggering.", delegate.getIsShowingGlicNudge());
+        assertEquals("Glic text should match trigger label.", "Nudge Text", mGlicButton.getText());
+        assertTrue("Dismiss button should be visible.", mGlicDismissButton.isVisible());
+
+        // 2. Hide the nudge via delegate method
+        delegate.onHideGlicNudgeUi();
+
+        assertFalse("Nudge should not be showing after hiding.", delegate.getIsShowingGlicNudge());
+        assertFalse("Dismiss button should not be visible.", mGlicDismissButton.isVisible());
+        assertEquals(
+                "Glic text should have been restored to default.",
+                mActivity.getString(R.string.glic_button_entrypoint_ask_gemini_label),
+                mGlicButton.getText());
+    }
+
+    private void showGlicActorButton() {
+        mCoordinator.setGlicActorButtonVisible(true, /* animate= */ false);
+        mGlicActorButton.setWidth(BUTTON_WIDTH);
+        mGlicActorButton.setOpacity(1.0f);
+        mCoordinator.updateButtonPositions();
+    }
+
+    @Test
+    public void testShouldShowDivider() {
+        // Initially mCoordinator is created with isAppInDesktopWindow = false,
+        // and shouldShowDivider should return false.
+        assertFalse(
+                "Divider should not be shown when not in desktop windowing.",
+                mCoordinator.shouldShowDivider());
+
+        // Update isAppInDesktopWindow = true.
+        mCoordinator.updateGlicButtonOpacity(
+                /* isAppInDesktopWindow= */ true, /* isTopResumedActivity= */ true);
+        assertTrue(
+                "Divider should be shown when in desktop windowing.",
+                mCoordinator.shouldShowDivider());
+
+        // Hide Glic button.
+        mCoordinator.setGlicButtonVisible(false);
+        assertFalse(
+                "Divider should not be shown when Glic button is not visible.",
+                mCoordinator.shouldShowDivider());
     }
 }

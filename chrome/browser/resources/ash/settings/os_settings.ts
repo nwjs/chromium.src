@@ -66,6 +66,8 @@ export {ApnDetailDialog} from 'chrome://resources/ash/common/network/apn_detail_
 export {ApnSelectionDialog} from 'chrome://resources/ash/common/network/apn_selection_dialog.js';
 export {ApnSelectionDialogListItem} from 'chrome://resources/ash/common/network/apn_selection_dialog_list_item.js';
 export {CrPolicyNetworkBehaviorMojo} from 'chrome://resources/ash/common/network/cr_policy_network_behavior_mojo.js';
+export {browserProxyFactory as appManagementBrowserProxyFactory} from 'chrome://resources/cr_components/app_management/app_management.mojom-webui.js';
+export {MetricsBrowserProxy} from 'chrome://resources/cr_components/app_management/metrics_browser_proxy.js';
 export type {OpenWindowProxy} from 'chrome://resources/js/open_window_proxy.js';
 export {OpenWindowProxyImpl} from 'chrome://resources/js/open_window_proxy.js';
 export {getTrustedHTML} from 'chrome://resources/js/static_types.js';
@@ -79,7 +81,6 @@ export type {PaperTooltipElement} from 'chrome://resources/polymer/v3_0/paper-to
 export {AppLanguageSelectionDialogEntryPoint} from './common/app_language_selection_dialog/app_language_selection_dialog.js';
 export type {AppManagementActions} from './common/app_management/actions.js';
 export {addApp, changeApp, removeApp, updateSelectedAppId, updateSubAppToParentAppId} from './common/app_management/actions.js';
-export {AppManagementBrowserProxy, AppManagementComponentBrowserProxy} from './common/app_management/browser_proxy.js';
 export {reduceAction, updateApps} from './common/app_management/reducers.js';
 export type {AppManagementPageState} from './common/app_management/store.js';
 export {AppManagementStore} from './common/app_management/store.js';
@@ -179,8 +180,6 @@ export {OsAboutPageElement} from './os_about_page/os_about_page.js';
 export type {AndroidAppsBrowserProxy} from './os_apps_page/android_apps_browser_proxy.js';
 export {AndroidAppsBrowserProxyImpl} from './os_apps_page/android_apps_browser_proxy.js';
 export {AppManagementFileHandlingItemElement} from './os_apps_page/app_management_page/file_handling_item.js';
-export type {PluginVmBrowserProxy} from './os_apps_page/app_management_page/plugin_vm_page/plugin_vm_browser_proxy.js';
-export {PluginVmBrowserProxyImpl} from './os_apps_page/app_management_page/plugin_vm_page/plugin_vm_browser_proxy.js';
 export {AppManagementReadOnlyPermissionItemElement} from './os_apps_page/app_management_page/read_only_permission_item.js';
 export {AppManagementSupportedLinksItemElement} from './os_apps_page/app_management_page/supported_links_item.js';
 export {AppManagementToggleRowElement} from './os_apps_page/app_management_page/toggle_row.js';

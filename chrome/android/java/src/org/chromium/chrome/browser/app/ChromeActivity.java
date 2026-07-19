@@ -33,6 +33,7 @@ import android.util.Pair;
 import android.util.Size;
 import android.util.TypedValue;
 import android.view.Display.Mode;
+import android.view.KeyEvent;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
@@ -115,15 +116,14 @@ import org.chromium.chrome.browser.customtabs.PopupCreatorFactory;
 import org.chromium.chrome.browser.desktop_site.DesktopSiteUtils;
 import org.chromium.chrome.browser.device.DeviceClassManager;
 import org.chromium.chrome.browser.devtools.DevToolsWindowAndroid;
-import org.chromium.chrome.browser.dom_distiller.DomDistillerUiUtils;
 import org.chromium.chrome.browser.dom_distiller.ReaderModeManager;
 import org.chromium.chrome.browser.download.DownloadManagerService;
 import org.chromium.chrome.browser.download.DownloadUtils;
 import org.chromium.chrome.browser.download.items.OfflineContentAggregatorNotificationBridgeUiFactory;
-import org.chromium.chrome.browser.enterprise.util.EnterpriseInfo;
 import org.chromium.chrome.browser.ephemeraltab.EphemeralTabCoordinator;
 import org.chromium.chrome.browser.ephemeraltab.EphemeralTabCoordinatorSupplier;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
+import org.chromium.chrome.browser.feedback.FeedbackPolicyManager;
 import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncherImpl;
 import org.chromium.chrome.browser.firstrun.ForcedSigninProcessor;
 import org.chromium.chrome.browser.flags.ActivityType;
@@ -143,6 +143,7 @@ import org.chromium.chrome.browser.keyboard_accessory.ManualFillingComponent;
 import org.chromium.chrome.browser.keyboard_accessory.ManualFillingComponentFactory;
 import org.chromium.chrome.browser.keyboard_accessory.ManualFillingComponentSupplier;
 import org.chromium.chrome.browser.layouts.LayoutManagerAppUtils;
+import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.media.FullscreenVideoPictureInPictureController;
 import org.chromium.chrome.browser.merchant_viewer.PageInfoStoreInfoController.StoreInfoActionHandler;
@@ -167,9 +168,8 @@ import org.chromium.chrome.browser.partnercustomizations.PartnerBrowserCustomiza
 import org.chromium.chrome.browser.pdf.PdfPage;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
-import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.price_tracking.PriceDropNotificationManagerFactory;
-import org.chromium.chrome.browser.printing.TabPrinter;
+import org.chromium.chrome.browser.printing.PrintHelper;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.profiles.ProfileManagerUtils;
@@ -177,6 +177,7 @@ import org.chromium.chrome.browser.profiles.ProfileProvider;
 import org.chromium.chrome.browser.provider.PageContentProviderImpl;
 import org.chromium.chrome.browser.provider.PageContentProviderMetrics;
 import org.chromium.chrome.browser.readaloud.ReadAloudController;
+import org.chromium.chrome.browser.screenshot_protection.ScreenshotProtectionController;
 import org.chromium.chrome.browser.selection.SelectionPopupBackPressHandler;
 import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
 import org.chromium.chrome.browser.share.ShareDelegate;
@@ -230,7 +231,6 @@ import org.chromium.chrome.browser.ui.messages.snackbar.Snackbar;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager.SnackbarManageable;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManagerProvider;
-import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.chrome.browser.ui.signin.StartupSigninStateCheckController;
 import org.chromium.chrome.browser.ui.system.StatusBarColorController;
 import org.chromium.chrome.browser.webapps.AppInstallMenuHandler;
@@ -252,6 +252,7 @@ import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.page_info.PageInfoController.OpenedFromSource;
 import org.chromium.components.policy.CombinedPolicyProvider;
 import org.chromium.components.policy.CombinedPolicyProvider.PolicyChangeListener;
+import org.chromium.components.policy.EnterpriseInfo;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.profile_metrics.BrowserProfileType;
 import org.chromium.components.user_prefs.UserPrefs;
@@ -264,10 +265,8 @@ import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.SelectionPopupController;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.common.ContentSwitches;
-import org.chromium.printing.PrintManagerDelegateImpl;
-import org.chromium.printing.PrintingController;
-import org.chromium.printing.PrintingControllerImpl;
 import org.chromium.ui.UiUtils;
+import org.chromium.ui.base.AcceleratorManager;
 import org.chromium.ui.base.ActivityWindowAndroid;
 import org.chromium.ui.base.ApplicationViewportInsetTracker;
 import org.chromium.ui.base.Clipboard;
@@ -281,12 +280,10 @@ import org.chromium.ui.insets.InsetObserver;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.theme.ThemeResourceWrapper;
 import org.chromium.ui.theme.ThemeResourceWrapperProvider;
-import org.chromium.ui.widget.Toast;
 import org.chromium.url.GURL;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Supplier;
 
 /**
  * A {@link AsyncInitializationActivity} that builds and manages a {@link CompositorViewHolder} and
@@ -323,6 +320,9 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
     @SuppressWarnings("HidingField")
     protected final SettableMonotonicObservableSupplier<EdgeToEdgeController>
             mEdgeToEdgeControllerSupplier = ObservableSuppliers.createMonotonic();
+
+    protected final SettableMonotonicObservableSupplier<ScreenshotProtectionController>
+            mScreenshotProtectionControllerSupplier = ObservableSuppliers.createMonotonic();
 
     protected final SettableMonotonicObservableSupplier<ManualFillingComponent>
             mManualFillingComponentSupplier = ObservableSuppliers.createMonotonic();
@@ -422,6 +422,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
     private boolean mDidAddPolicyChangeListener;
 
     private StartupMetricsTracker mStartupMetricsTracker;
+    private @Nullable AcceleratorManager mAcceleratorManager;
 
     /** Whether or not the activity is in started state. */
     private boolean mStarted;
@@ -599,6 +600,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
                 });
 
         super.performPreInflationStartup();
+        mAcceleratorManager = AcceleratorManager.getOrCreate(getWindowAndroid());
 
         // Force a partner customizations refresh if it has yet to be initialized.  This can happen
         // if Chrome is killed and you refocus a previous activity from Android recents, which does
@@ -863,7 +865,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
             if (mBaseChromeLayout != null) {
                 setContentViewToBaseLayout();
             } else {
-                setContentView(MainLayoutSwitcher.getMainLayoutRes());
+                setContentView(MainLayoutSwitcher.getMainLayoutRes(this));
             }
             TraceEvent.end("setContentView(R.layout.main)");
             if (getControlContainerLayoutId() != ActivityUtils.NO_RESOURCE_ID) {
@@ -902,7 +904,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
     private void setContentViewToBaseLayout() {
         getLayoutInflater()
                 .inflate(
-                        MainLayoutSwitcher.getMainLayoutRes(),
+                        MainLayoutSwitcher.getMainLayoutRes(this),
                         mBaseChromeLayout,
                         /* attachToRoot= */ true);
         setContentView(mBaseChromeLayout);
@@ -1100,9 +1102,6 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
             @Nullable MultiInstanceManager multiInstanceManager) {
         try (TraceEvent e = TraceEvent.scoped("ChromeActivity.initializeChromeAndroidTask")) {
             var chromeAndroidTaskTracker = ChromeAndroidTaskTrackerFactory.getInstance();
-            if (chromeAndroidTaskTracker == null) {
-                return;
-            }
 
             // 1. Obtain ChromeAndroidTask dependencies.
             var activityWindowAndroid = getWindowAndroid();
@@ -1458,16 +1457,21 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
             return mActorPipController;
         }
 
-        mActorPipController =
-                new ActorPictureInPictureController(
-                        this,
-                        () -> mTabModelProfileSupplier.get(),
-                        () -> findViewById(android.R.id.content),
-                        getTabModelSelectorSupplier(),
-                        this::exitOverviewModeOnActorPiPExpand,
-                        this::toggleGlic,
-                        getLastNormalSizeBeforeEnteringActorPiP(),
-                        this::onActorPictureInPictureChanged);
+        try {
+            mActorPipController =
+                    new ActorPictureInPictureController(
+                            this,
+                            () -> mTabModelProfileSupplier.get(),
+                            () -> findViewById(android.R.id.content),
+                            getTabModelSelectorSupplier(),
+                            this::exitOverviewModeOnActorPiPExpand,
+                            this::toggleGlic,
+                            getLastNormalSizeBeforeEnteringActorPiP(),
+                            this::onActorPictureInPictureChanged);
+        } catch (RuntimeException e) {
+            Log.w(TAG, "Activity does not support Picture-in-Picture", e);
+            return null;
+        }
         return mActorPipController;
     }
 
@@ -2078,14 +2082,27 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
     }
 
     /**
-     * Override this to perform destruction tasks.  Note that by the time this is called, the
-     * {@link CompositorViewHolder} will be destroyed, but the {@link WindowAndroid} and
-     * {@link TabModelSelector} will not.
-     * <p>
-     * After returning from this, the {@link TabModelSelector} will be destroyed followed
-     * by the {@link WindowAndroid}.
+     * Override this to perform destruction tasks. Note that by the time this is called, the {@link
+     * CompositorViewHolder} will be destroyed, but the {@link WindowAndroid} and {@link
+     * TabModelSelector} will not.
+     *
+     * <p>After returning from this, the {@link TabModelSelector} will be destroyed followed by the
+     * {@link WindowAndroid}.
      */
-    protected void onDestroyInternal() {}
+    protected void onDestroyInternal() {
+        if (mAcceleratorManager != null) {
+            mAcceleratorManager.destroy();
+            mAcceleratorManager = null;
+        }
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if (mAcceleratorManager != null && mAcceleratorManager.processKeyEvent(event)) {
+            return true;
+        }
+        return super.dispatchKeyEvent(event);
+    }
 
     /** Returns snackbar manager for all snackbar related operations. */
     @Override
@@ -2182,6 +2199,16 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
 
         getProfileProviderSupplier().runSyncOrOnAvailable(this::initializeManualFillingComponent);
 
+        if (ChromeFeatureList.sEnableAndroidEnterpriseScreenshotProtection.isEnabled()) {
+            mScreenshotProtectionControllerSupplier.set(
+                    new ScreenshotProtectionController(
+                            this,
+                            getLifecycleDispatcher(),
+                            getTabModelSelector(),
+                            isCustomTab(),
+                            SupplierUtils.upcast(
+                                    mLayoutManagerSupplier, LayoutStateProvider.class)));
+        }
         mTabReparentingControllerSupplier.set(
                 new TabReparentingController(
                         ReparentingDelegateFactory.createReparentingControllerDelegate(
@@ -2364,6 +2391,15 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
     @Override
     public MonotonicObservableSupplier<EdgeToEdgeController> getEdgeToEdgeSupplier() {
         return mEdgeToEdgeControllerSupplier;
+    }
+
+    /**
+     * Returns a supplier of the {@link ScreenshotProtectionController} instance, if enabled from
+     * the EnableAndroidEnterpriseScreenshotProtection flag
+     */
+    public MonotonicObservableSupplier<ScreenshotProtectionController>
+            getScreenshotProtectionController() {
+        return mScreenshotProtectionControllerSupplier;
     }
 
     @Override
@@ -2806,9 +2842,17 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
         int type = Profile.getBrowserProfileTypeFromProfile(getCurrentTabModel().getProfile());
 
         if (id == R.id.preferences_id) {
-            SettingsNavigation settingsNavigation =
-                    SettingsNavigationFactory.createSettingsNavigation();
-            settingsNavigation.startSettings(this);
+            if (ChromeFeatureList.isEnabled(ChromeFeatureList.SETTINGS_IN_TAB)) {
+                LoadUrlParams params =
+                        new LoadUrlParams(UrlConstants.SETTINGS_URL, PageTransition.LINK);
+                // Settings are associated with the on-the-record profile, never incognito.
+                getTabCreator(/* incognito= */ false)
+                        .createNewTab(params, TabLaunchType.FROM_CHROME_UI, getActivityTab());
+            } else {
+                SettingsNavigation settingsNavigation =
+                        SettingsNavigationFactory.createSettingsNavigation();
+                settingsNavigation.startSettings(this);
+            }
             RecordUserAction.record("MobileMenuSettings");
             RecordHistogram.recordEnumeratedHistogram(
                     "Settings.OpenSettingsFromMenu.PerProfileType",
@@ -2843,6 +2887,9 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
         }
 
         if (id == R.id.feedback_form || id == R.id.report_issue_menu_id) {
+            if (!FeedbackPolicyManager.getInstance().isUserFeedbackAllowed()) {
+                return true;
+            }
             String url = currentTab != null ? currentTab.getUrl().getSpec() : "";
             String helpContextId =
                     HelpAndFeedbackLauncherImpl.getHelpContextIdFromUrl(
@@ -3020,7 +3067,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
 
         if (id == R.id.print_id) {
             RecordUserAction.record("MobileMenuPrint");
-            return doPrintShare(this, mActivityTabProvider);
+            return PrintHelper.printTab(mActivityTabProvider.get());
         }
 
         if (id == R.id.universal_install) {
@@ -3074,11 +3121,6 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
                         this, profile, url.getSpec(), getModalDialogManager());
             }
 
-            return true;
-        }
-
-        if (id == R.id.reader_mode_prefs_id) {
-            DomDistillerUiUtils.openDialogSettings(currentTab.getWebContents());
             return true;
         }
 
@@ -3363,32 +3405,6 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
     public SettableMonotonicObservableSupplier<EdgeToEdgeController>
             getEdgeToEdgeControllerSupplierForTesting() {
         return mEdgeToEdgeControllerSupplier;
-    }
-
-    /** Returns whether the print action was successfully started. */
-    private boolean doPrintShare(Activity activity, Supplier<Tab> currentTabSupplier) {
-        var windowAndroid = getWindowAndroid();
-        assert windowAndroid != null;
-        PrintingController printingController = PrintingControllerImpl.getInstance(windowAndroid);
-
-        Tab currentTab = currentTabSupplier.get();
-        if (currentTab == null) return false;
-        if (printingController == null || printingController.isBusy()) return false;
-        if (!UserPrefs.get(currentTab.getProfile()).getBoolean(Pref.PRINTING_ENABLED)) {
-            return false;
-        }
-
-        if (currentTab.isNativePage()) {
-            NativePage nativePage = currentTab.getNativePage();
-            if (nativePage != null && !nativePage.isPdf()) {
-                Toast.makeText(activity, R.string.toast_disallow_print, Toast.LENGTH_LONG).show();
-                return false;
-            }
-        }
-
-        printingController.startPrint(
-                new TabPrinter(currentTab), new PrintManagerDelegateImpl(activity));
-        return true;
     }
 
     /** Returns a {@link CompositorViewHolder} instance for testing. */

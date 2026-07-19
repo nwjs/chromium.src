@@ -42,6 +42,7 @@ import org.chromium.net.test.EmbeddedTestServerRule;
 import org.chromium.net.test.util.TestWebServer;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.Random;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -1617,6 +1618,43 @@ public class JsJavaInteractionTest extends AwParameterizedTest {
     @Test
     @SmallTest
     @Feature({"AndroidWebView", "JsJavaInteraction"})
+    public void testBridgePrototypeChainEndsInIsolatedWorld() throws Throwable {
+        String isolatedWorld = "testWorld";
+        registerWorld(mAwContents, isolatedWorld);
+
+        addWebMessageListenerOnUiThreadInIsolatedWorld(
+                mAwContents, JS_OBJECT_NAME, new String[] {"*"}, mListener, isolatedWorld);
+
+        final String script =
+                String.format(
+                        Locale.ROOT,
+                        """
+                            let p = %s;
+                            while (Object.getPrototypeOf(p)) {
+                                p = Object.getPrototypeOf(p);
+                            }
+                            %s.postMessage(p === Object.prototype ? 'true' : 'false');
+                        """,
+                        JS_OBJECT_NAME,
+                        JS_OBJECT_NAME);
+
+        addJavaScriptOnEventOnUiThread(
+                mAwContents,
+                script,
+                DocumentInjectionTime.DOCUMENT_START,
+                new String[] {"*"},
+                isolatedWorld);
+
+        loadUrlFromPath(POST_MESSAGE_SIMPLE_HTML);
+
+        TestWebMessageListener.Data data = mListener.waitForOnPostMessage();
+        Assert.assertEquals("true", data.getAsString());
+        Assert.assertTrue(mListener.hasNoMoreOnPostMessage());
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"AndroidWebView", "JsJavaInteraction"})
     public void testAddJavaScriptOnEvent_unregisteredWorldThrowsException() throws Throwable {
         String unregisteredWorld = "unregisteredWorld";
 
@@ -2166,8 +2204,7 @@ public class JsJavaInteractionTest extends AwParameterizedTest {
     }
 
     private static ScriptHandler addDocumentStartJavaScriptOnUiThread(
-            final AwContents awContents, final String script, final String[] allowedOriginRules)
-            throws Exception {
+            final AwContents awContents, final String script, final String[] allowedOriginRules) {
         AwActivityTestRule.checkJavaScriptEnabled(awContents);
         return ThreadUtils.runOnUiThreadBlocking(
                 () -> awContents.addDocumentStartJavaScript(script, allowedOriginRules));
@@ -2177,14 +2214,13 @@ public class JsJavaInteractionTest extends AwParameterizedTest {
             final AwContents awContents,
             final String jsObjectName,
             final String[] allowedOriginRules,
-            final WebMessageListener listener)
-            throws Exception {
+            final WebMessageListener listener) {
         TestWebMessageListener.addWebMessageListenerOnUiThread(
                 awContents, jsObjectName, allowedOriginRules, listener);
     }
 
     private static void removeWebMessageListenerOnUiThread(
-            final AwContents awContents, final String jsObjectName) throws Exception {
+            final AwContents awContents, final String jsObjectName) {
         TestWebMessageListener.removeWebMessageListenerOnUiThread(awContents, jsObjectName);
     }
 
@@ -2252,8 +2288,7 @@ public class JsJavaInteractionTest extends AwParameterizedTest {
             final String script,
             @DocumentInjectionTime.EnumType int injectionEvent,
             final String[] allowedOriginRules,
-            final String worldName)
-            throws Exception {
+            final String worldName) {
         AwActivityTestRule.checkJavaScriptEnabled(awContents);
         return ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -2267,8 +2302,7 @@ public class JsJavaInteractionTest extends AwParameterizedTest {
             final String script,
             @DocumentInjectionTime.EnumType int injectionEvent,
             final String[] allowedOriginRules,
-            final String worldName)
-            throws Exception {
+            final String worldName) {
         AwActivityTestRule.checkJavaScriptEnabled(awContents);
         return ThreadUtils.runOnUiThreadBlocking(
                 () -> {

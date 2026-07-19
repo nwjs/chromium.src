@@ -11,6 +11,7 @@ import static org.chromium.build.NullUtil.assertNonNull;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.graphics.Rect;
 import android.media.AudioManager;
@@ -30,7 +31,6 @@ import org.chromium.base.Log;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.blink.mojom.DisplayMode;
-import org.chromium.blink.mojom.ImmersivePlaybackConfirmationStatus;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
@@ -69,6 +69,9 @@ import org.chromium.chrome.browser.util.PictureInPictureWindowOptions;
 import org.chromium.chrome.browser.util.WindowFeatures;
 import org.chromium.components.embedder_support.contextmenu.ContextMenuUtils;
 import org.chromium.components.embedder_support.delegate.WebContentsDelegateAndroid;
+import org.chromium.content_public.browser.ImmersivePlaybackConfirmationStatus;
+import org.chromium.content_public.browser.ImmersiveProjectionType;
+import org.chromium.content_public.browser.ImmersiveStereoMode;
 import org.chromium.content_public.browser.RenderFrameHost;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.common.ResourceRequestBody;
@@ -577,6 +580,16 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
     }
 
     @Override
+    public boolean canEnterFullscreenModeForTab(RenderFrameHost renderFrameHost) {
+        if (ChromeFeatureList.sEnableExclusiveAccessManager.isEnabled()) {
+            if (mExclusiveAccessManager != null) {
+                return mExclusiveAccessManager.canEnterFullscreenModeForTab(renderFrameHost);
+            }
+        }
+        return super.canEnterFullscreenModeForTab(renderFrameHost);
+    }
+
+    @Override
     public void enterFullscreenModeForTab(
             RenderFrameHost renderFrameHost,
             boolean prefersNavigationBar,
@@ -602,19 +615,25 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
     }
 
     @Override
-    public void requestImmersivePlaybackConfirmation(JniOnceCallback<Integer> callback) {
+    public void requestImmersivePlaybackConfirmation(
+            @ImmersiveStereoMode int stereoMode,
+            @ImmersiveProjectionType int projectionType,
+            JniOnceCallback<Integer> callback) {
         if (!isImmersivePlaybackEnabled() || mImmersivePlaybackSnackbarController == null) {
             callback.onResult(ImmersivePlaybackConfirmationStatus.FAILED);
             return;
         }
 
         mImmersivePlaybackSnackbarController.show(
-                (status, stereoMode, projectionType) -> {
+                (status, selectedStereoMode, selectedProjectionType) -> {
                     // Pack the results into a single integer:
                     // status (4 bits) | stereoMode (4 bits) | projectionType (4 bits).
-                    int packedResult = status | (stereoMode << 4) | (projectionType << 8);
+                    int packedResult =
+                            status | (selectedStereoMode << 4) | (selectedProjectionType << 8);
                     callback.onResult(packedResult);
                 },
+                stereoMode,
+                projectionType,
                 // TODO(b/512831252): Instead of using a delay, we should properly handle
                 // interference with the ExclusiveAccess feature snackbars.
                 /* delayMs= */ 2000);
@@ -663,14 +682,53 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
                 : false;
     }
 
+    private boolean hasRepositionWindowsPermission() {
+        // Query if the system has granted us the permission to reposition and resize windows, which
+        // is required to create a movable task for Document Picture-in-Picture. This permission is
+        // granted automatically to the app currently set as the system's default web browser.
+        return ApiCompatibilityUtils.checkPermission(
+                        ContextUtils.getApplicationContext(),
+                        android.Manifest.permission.REPOSITION_SELF_WINDOWS,
+                        android.os.Process.myPid(),
+                        android.os.Process.myUid())
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    /**
+     * Checks if the OS currently prevents the creation of a Document Picture-in-Picture window.
+     * This check blocks window creation synchronously if:
+     *
+     * <ul>
+     *   <li>The current browser does not have the permission to reposition its windows.
+     *   <li>The app is in system-fullscreen mode.
+     * </ul>
+     *
+     * @return true if the creation of a Document Picture-in-Picture window is blocked by the
+     *     system.
+     */
     @Override
     protected boolean isDocumentPictureInPictureBlockedBySystem() {
+        if (!hasRepositionWindowsPermission()) {
+            Log.w(
+                    TAG,
+                    "isDocumentPictureInPictureBlockedBySystem: Blocked because the current browser"
+                            + " does not have the REPOSITION_SELF_WINDOWS permission.");
+            return true;
+        }
         // Document PiP requires launching a new movable task with PiP bounds.
         // This is blocked by the OS (throws InfeasibleActivityOptionsException)
         // if the current activity is in app fullscreen (i.e. not in multi-window mode).
         // TODO(b/504784078): Once the fullscreen limitation is resolved, we should update this
         // check.
-        return mActivity == null || !MultiWindowUtils.getInstance().isInMultiWindowMode(mActivity);
+        boolean blockedByFullscreen =
+                mActivity == null || !MultiWindowUtils.getInstance().isInMultiWindowMode(mActivity);
+        if (blockedByFullscreen) {
+            Log.w(
+                    TAG,
+                    "isDocumentPictureInPictureBlockedBySystem: Blocked because the current browser"
+                            + " is in app fullscreen (not in multi-window mode).");
+        }
+        return blockedByFullscreen;
     }
 
     @Override

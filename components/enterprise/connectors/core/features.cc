@@ -22,7 +22,7 @@ BASE_FEATURE_PARAM(size_t,
                    kMaxContentAnalysisFileSizeMB,
                    &kEnableNewUploadSizeLimit,
                    "max_file_size_mb",
-                   /*default_value=*/2048);
+                   /*default_value=*/250);
 
 // Controls the new upload count limit for content analysis.
 BASE_FEATURE(kEnableNewUploadCountLimit, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -53,5 +53,7 @@ BASE_FEATURE(kEnableCancelUploadOnContentAnalysis,
 
 BASE_FEATURE(kEnableAuditOnlyNetworkRequestConnector,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kContentAnalysisClipboardCopy, base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace enterprise_connectors

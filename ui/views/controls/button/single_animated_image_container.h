@@ -6,6 +6,7 @@
 #define UI_VIEWS_CONTROLS_BUTTON_SINGLE_ANIMATED_IMAGE_CONTAINER_H_
 
 #include <memory>
+#include <vector>
 
 #include "base/memory/raw_ptr.h"
 #include "base/time/time.h"
@@ -44,17 +45,23 @@ class VIEWS_EXPORT SingleAnimatedImageContainer : public SingleImageContainer,
   struct AnimationDefinition {
     int resource_id;
     SkColor color;
-  };
-
-  // Defines the configuration of the animation to play.
-  struct AnimationConfig {
     AnimationDirection direction;
     AnimationEndBehavior end_behavior;
   };
 
-  SingleAnimatedImageContainer(
-      LabelButton* button,
-      base::TimeDelta animation_duration = base::Milliseconds(250));
+  struct AnimationBoundary {
+    float start_offset;
+    float end_offset;
+  };
+
+  // Defines the configuration of the animation to play.
+  struct AnimationConfig {
+    std::optional<AnimationBoundary> boundary;
+    gfx::Tween::Type tween = gfx::Tween::LINEAR;
+    base::TimeDelta duration = base::Milliseconds(0);
+  };
+
+  explicit SingleAnimatedImageContainer(LabelButton* button);
   SingleAnimatedImageContainer(const SingleAnimatedImageContainer&) = delete;
   SingleAnimatedImageContainer& operator=(const SingleAnimatedImageContainer&) =
       delete;
@@ -62,10 +69,12 @@ class VIEWS_EXPORT SingleAnimatedImageContainer : public SingleImageContainer,
 
   bool IsShowingAnimation() const;
   bool HasAnimatedImage(int resource_id) const;
+  std::optional<float> animation_progress() const;
 
   // Play the animation based on the provided definition and the configuration.
+  void PlayAnimation(AnimationDefinition definition, AnimationConfig config);
   void PlayAnimation(AnimationDefinition definition,
-                     AnimationConfig config = AnimationConfig());
+                     const std::vector<AnimationConfig>& config_cycles);
 
   // Stops the animation and resets it back to using static images.
   void ResetAnimation();
@@ -85,13 +94,22 @@ class VIEWS_EXPORT SingleAnimatedImageContainer : public SingleImageContainer,
 
   struct AnimationState {
     AnimationDefinition definition;
-    AnimationEndBehavior end_behavior;
+    std::vector<AnimationConfig> config;
+    float start_offset = 0.0f;
+    float end_offset = 1.0f;
+    size_t cycle_index = 0;
   };
 
   raw_ptr<LabelButton> button_;
   gfx::SlideAnimation slide_animation_;
   std::optional<AnimationState> playing_animation_;
   base::flat_map<int, std::unique_ptr<lottie::Animation>> animated_images_;
+
+ private:
+  void ValidateSequence(
+      const AnimationDefinition& definition,
+      const std::vector<AnimationConfig>& config_cycles) const;
+  void PlayNextAnimationCycle();
 };
 
 }  // namespace views

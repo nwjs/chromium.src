@@ -53,6 +53,9 @@ class ContextualTasksPanelController {
   // Close the panel.
   virtual void Close() = 0;
 
+  // Open the panel in zero state, or reset to zero state if already open.
+  virtual void OpenInZeroState() = 0;
+
   // State checks.
   // Check if the panel is currently opening for ContextualTask as another
   // feature might also show panel.
@@ -68,6 +71,12 @@ class ContextualTasksPanelController {
                              base::Uuid task_id) = 0;
   // Called when there is an AI interaction in the panel.
   virtual void OnAiInteraction() = 0;
+
+  // Sets a task to be used once the side panel opens. Used to open a specific
+  // task without associating a web contents (which would inherently get added
+  // as context).
+  virtual void SetPendingTaskForTab(tabs::TabInterface* tab,
+                                    const base::Uuid& task_id) = 0;
 
   // WebContents & session management.
   // Returns the currently active WebContents, or NULL if there is none.

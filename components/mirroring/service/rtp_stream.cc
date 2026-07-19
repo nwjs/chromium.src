@@ -112,42 +112,4 @@ void VideoRtpStream::OnRefreshTimerFired() {
   client_->RequestRefreshFrame();
 }
 
-//------------------------------------------------------------------
-// AudioRtpStream
-//------------------------------------------------------------------
-
-AudioRtpStream::AudioRtpStream(
-    std::unique_ptr<media::cast::AudioSender> audio_sender,
-    base::WeakPtr<RtpStreamClient> client)
-    : audio_sender_(std::move(audio_sender)), client_(std::move(client)) {
-  DCHECK(audio_sender_);
-  DCHECK(client_);
-}
-
-AudioRtpStream::~AudioRtpStream() = default;
-
-void AudioRtpStream::InsertAudio(std::unique_ptr<media::AudioBus> audio_bus,
-                                 base::TimeTicks capture_time) {
-  audio_sender_->InsertAudio(std::move(audio_bus), capture_time);
-}
-
-void AudioRtpStream::SetTargetPlayoutDelay(base::TimeDelta playout_delay) {
-  audio_sender_->SetTargetPlayoutDelay(playout_delay);
-}
-
-base::TimeDelta AudioRtpStream::GetTargetPlayoutDelay() const {
-  return audio_sender_->GetTargetPlayoutDelay();
-}
-
-int AudioRtpStream::GetEncoderBitrate() const {
-  return audio_sender_->GetEncoderBitrate();
-}
-
-base::DictValue AudioRtpStream::GetStats() const {
-  base::DictValue stats;
-  stats.Set("FRAMES_INSERTED", audio_sender_->GetFramesInserted());
-  stats.Set("FRAMES_DROPPED", audio_sender_->GetFramesDropped());
-  return stats;
-}
-
 }  // namespace mirroring

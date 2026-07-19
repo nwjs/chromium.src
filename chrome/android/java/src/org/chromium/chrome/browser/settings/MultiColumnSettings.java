@@ -31,7 +31,6 @@ import org.chromium.build.annotations.EnsuresNonNull;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.settings.search.EmptyFragment;
 import org.chromium.chrome.browser.settings.search.SettingsSearchCoordinator;
@@ -60,15 +59,15 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat {
          */
         default void onHeaderLayoutUpdated() {}
 
+        /**
+         * Called when the detail pane layout is updated i.e. its width is updated as the window is
+         * resized. This is only effective in two pane mode.
+         */
+        default void onDetailLayoutUpdated() {}
+
         /** Called when the sliding state is updated. */
         default void onSlideStateUpdated(@SlideState int newState) {}
     }
-
-    /**
-     * Thresdhold window DP between narrow header and wide header. If the window width is as same or
-     * wider than this, the wider header should be used.
-     */
-    private static final int WIDE_HEADER_SCREEN_WIDTH_DP = 1200;
 
     /** Represents the current state of sliding pane. */
     @IntDef({SlideState.CLOSING, SlideState.CLOSED, SlideState.OPENING, SlideState.OPENED})
@@ -80,16 +79,10 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat {
         int OPENED = 3;
     }
 
-    /** Caches the view of the header panel. */
-    private View mHeaderView;
+    /** Caches the view of the detail panel. */
+    private View mDetailView;
 
     private @Nullable MainSettings mMainSettings;
-
-    /**
-     * Caches whether currently it is running in single pane mode or two pane mode to detect the
-     * mode changes
-     */
-    private boolean mSlideable;
 
     private boolean mCanBeBackToMain;
 
@@ -97,7 +90,7 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat {
 
     private InnerOnBackPressedCallback mOnBackPressedCallback;
 
-    private Runnable mOnCreateViewRunnable;
+    private @Nullable Runnable mOnCreateViewRunnable;
 
     private @Nullable Intent mPendingFragmentIntent;
 
@@ -155,8 +148,8 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat {
         mOnCreateViewRunnable = runnable;
     }
 
-    View getHeaderView() {
-        return mHeaderView;
+    View getDetailView() {
+        return mDetailView;
     }
 
     /**
@@ -333,40 +326,34 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat {
             @Nullable ViewGroup container,
             @Nullable Bundle savedInstanceState) {
         View view = super.onCreateView(inflater, container, savedInstanceState);
-        boolean searchEnabled = ChromeFeatureList.sSearchInSettings.isEnabled();
-        if (searchEnabled) {
-            addTitleContainer(inflater, (SlidingPaneLayout) view);
-        }
-        mHeaderView = view.findViewById(R.id.preferences_header);
+        addTitleContainer(inflater, (SlidingPaneLayout) view);
 
-        // Set up the initial width of child views.
-        {
-            var resources = view.getResources();
-            View detailView =
-                    view.findViewById(
-                            searchEnabled ? R.id.preferences_detail_pane : R.id.preferences_detail);
-            LayoutParams params = detailView.getLayoutParams();
-            // Set the minimum required width of detailed view here, so that the
-            // SlidingPaneLayout handles single/multi column switch.
-            params.width =
-                    resources.getDimensionPixelSize(R.dimen.settings_min_multi_column_screen_width)
-                            - resources.getDimensionPixelSize(R.dimen.settings_narrow_header_width);
-            detailView.setLayoutParams(params);
-        }
-        // Register the callback to update header size if needed.
-        view.addOnLayoutChangeListener(
-                (View v,
-                        int left,
-                        int top,
-                        int right,
-                        int bottom,
-                        int oldLeft,
-                        int oldTop,
-                        int oldRight,
-                        int oldBottom) -> {
-                    updateHeaderLayout(v.findViewById(R.id.preferences_header));
+        var resources = view.getResources();
+        View headerView = view.findViewById(R.id.preferences_header);
+        LayoutParams headerParams = headerView.getLayoutParams();
+        headerParams.width = resources.getDimensionPixelSize(R.dimen.settings_narrow_header_width);
+        headerView.setLayoutParams(headerParams);
+
+        View detailView = view.findViewById(R.id.preferences_detail_pane);
+        LayoutParams params = detailView.getLayoutParams();
+        // Set the minimum required width of detailed view here, so that the SlidingPaneLayout
+        // handles single/multi column switch.
+        params.width =
+                resources.getDimensionPixelSize(R.dimen.settings_min_multi_column_screen_width)
+                        - resources.getDimensionPixelSize(R.dimen.settings_narrow_header_width);
+        detailView.setLayoutParams(params);
+        detailView.addOnLayoutChangeListener(
+                (v, l, t, r, b, ol, ot, or, ob) -> {
+                    if (r - l != or - ol) {
+                        for (Observer o : mObservers) o.onDetailLayoutUpdated();
+                    }
                 });
-        if (mOnCreateViewRunnable != null) view.post(mOnCreateViewRunnable);
+        view.post(
+                () -> {
+                    for (Observer o : mObservers) o.onHeaderLayoutUpdated();
+                    if (mOnCreateViewRunnable != null) mOnCreateViewRunnable.run();
+                });
+        mDetailView = detailView;
         return view;
     }
 
@@ -413,38 +400,6 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat {
         slidingPaneLayout.addView(newDetailedView, detailLayoutParams);
     }
 
-    /**
-     * Updates the header layout depending on the current screen size.
-     *
-     * @param view The header view instance.
-     */
-    private void updateHeaderLayout(View view) {
-        var resources = view.getResources();
-        int screenWidthDp = resources.getConfiguration().screenWidthDp;
-        int headerWidth =
-                resources.getDimensionPixelSize(
-                        screenWidthDp >= WIDE_HEADER_SCREEN_WIDTH_DP
-                                ? R.dimen.settings_wide_header_width
-                                : R.dimen.settings_narrow_header_width);
-
-        boolean menuLayoutUpdated = mSlideable != getSlidingPaneLayout().isSlideable();
-        mSlideable = getSlidingPaneLayout().isSlideable();
-
-        // Update only when changed to avoid requesting re-layout to the system.
-        LayoutParams params = view.getLayoutParams();
-        if (headerWidth != params.width) {
-            params.width = headerWidth;
-            view.setLayoutParams(params);
-            menuLayoutUpdated = true;
-        }
-
-        if (menuLayoutUpdated) {
-            for (Observer o : mObservers) {
-                o.onHeaderLayoutUpdated();
-            }
-        }
-    }
-
     /** Returns whether the current layout is in two-column mode. */
     boolean isTwoColumn() {
         return !getSlidingPaneLayout().isSlideable();
@@ -475,6 +430,11 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat {
                 int oldBottom) {
             boolean prevSlideable = mSlideable;
             mSlideable = getSlidingPaneLayout().isSlideable();
+            if (prevSlideable != mSlideable) {
+                for (Observer o : mObservers) {
+                    o.onHeaderLayoutUpdated();
+                }
+            }
             if (prevSlideable == mSlideable) {
                 return;
             }

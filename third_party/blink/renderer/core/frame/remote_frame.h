@@ -152,8 +152,6 @@ class CORE_EXPORT RemoteFrame final : public Frame,
                               bool is_pinch_gesture_active);
   // Called when the local root's visible viewport changes size.
   void DidChangeVisibleViewportSize(const gfx::Size& visible_viewport_size);
-  // Called when the local root's capture sequence number has changed.
-  void UpdateCaptureSequenceNumber(uint32_t sequence_number);
   // Called when the cursor accessibility scale factor changed.
   void CursorAccessibilityScaleFactorChanged(float scale_factor);
 
@@ -173,6 +171,7 @@ class CORE_EXPORT RemoteFrame final : public Frame,
       const scoped_refptr<const SecurityOrigin>& origin,
       bool is_potentially_trustworthy_unique_origin) override;
   void SetReplicatedIsAdFrame(bool is_ad_frame) override;
+  void SetReplicatedIsSecureContextRoot(bool is_secure_context_root) override;
   void SetReplicatedName(const String& name,
                          const String& unique_name) override;
   void DispatchLoadEventForFrameOwner() override;

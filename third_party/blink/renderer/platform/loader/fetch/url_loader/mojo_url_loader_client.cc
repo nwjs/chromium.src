@@ -253,7 +253,8 @@ MojoURLLoaderClient::MojoURLLoaderClient(
     base::OnceCallback<void(mojom::blink::RendererEvictionReason)>
         evict_from_bfcache_callback,
     base::RepeatingCallback<void(size_t)>
-        did_buffer_load_while_in_bfcache_callback)
+        did_buffer_load_while_in_bfcache_callback,
+    bool keepalive)
     : back_forward_cache_timeout_(
           base::Seconds(GetLoadingTasksUnfreezableParamAsInt(
               "grace_period_to_finish_loading_in_seconds",
@@ -266,7 +267,8 @@ MojoURLLoaderClient::MojoURLLoaderClient(
       last_loaded_url_(request_url),
       evict_from_bfcache_callback_(std::move(evict_from_bfcache_callback)),
       did_buffer_load_while_in_bfcache_callback_(
-          std::move(did_buffer_load_while_in_bfcache_callback)) {}
+          std::move(did_buffer_load_while_in_bfcache_callback)),
+      keepalive_(keepalive) {}
 
 MojoURLLoaderClient::~MojoURLLoaderClient() = default;
 
@@ -383,17 +385,21 @@ void MojoURLLoaderClient::OnReceiveRedirect(
   base::TimeTicks redirect_ipc_arrival_time = base::TimeTicks::Now();
   DCHECK(!has_received_response_head_);
   if (freeze_mode_ == LoaderFreezeMode::kBufferIncoming) {
-    // Evicting a page from the bfcache and aborting the request is not good for
-    // a request with keepalive set, which is why we block bfcache when we find
-    // such a request.
-    // TODO(crbug.com/1356128): This will not be a problem when we move the
-    // keepalive request infrastructure to the browser process.
+    if (!(base::FeatureList::IsEnabled(
+              features::kKeepAliveInBrowserMigration) &&
+          keepalive_)) {
+      // When keepalive is migrated to the browser process with the flag, the
+      // page no longer needs to be evicted upon keepalive redirect requests.
+      // This is because the redirect is processed on the browser side, and the
+      // renderer only buffers the notification.
+      // For normal (non-keepalive) redirects, the page still needs to be
+      // evicted.
+      EvictFromBackForwardCache(
+          mojom::blink::RendererEvictionReason::kNetworkRequestRedirected);
 
-    EvictFromBackForwardCache(
-        mojom::blink::RendererEvictionReason::kNetworkRequestRedirected);
-
-    OnComplete(network::URLLoaderCompletionStatus(net::ERR_ABORTED));
-    return;
+      OnComplete(network::URLLoaderCompletionStatus(net::ERR_ABORTED));
+      return;
+    }
   }
 
   // In manual redirect mode (opaque redirects), the redirect is not actually
@@ -501,7 +507,7 @@ void MojoURLLoaderClient::FlushDeferredMessages() {
   //  - transfer size change
   //  - completion
   // These two types of messages are dispatched later.
-  for (size_t index = 0; index < messages.size(); ++index) {
+  for (wtf_size_t index = 0; index < messages.size(); ++index) {
     if (messages[index]->IsCompletionMessage()) {
       // The completion message arrives at the end of the message queue.
       DCHECK(!has_completion_message);
@@ -515,8 +521,9 @@ void MojoURLLoaderClient::FlushDeferredMessages() {
       return;
     if (freeze_mode_ != LoaderFreezeMode::kNone) {
       deferred_messages_.reserve(messages.size() - index - 1);
-      for (size_t i = index + 1; i < messages.size(); ++i)
+      for (wtf_size_t i = index + 1; i < messages.size(); ++i) {
         deferred_messages_.emplace_back(std::move(messages[i]));
+      }
       return;
     }
   }

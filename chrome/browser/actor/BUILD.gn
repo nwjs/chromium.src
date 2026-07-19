@@ -18,6 +18,7 @@ if (is_android) {
 source_set("actor") {
   public = [
     "actor_container_config.h",
+    "actor_container_config_slot.h",
     "actor_keyed_service.h",
     "actor_keyed_service_factory.h",
     "actor_metrics.h",
@@ -27,9 +28,6 @@ source_set("actor") {
     "actor_task.h",
     "actor_task_metadata.h",
     "actor_util.h",
-    "aggregated_journal_file_serializer.h",
-    "aggregated_journal_in_memory_serializer.h",
-    "aggregated_journal_serializer.h",
     "enterprise_policy_checker.h",
     "execution_engine.h",
     "site_policy.h",
@@ -62,7 +60,6 @@ source_set("actor") {
     "//base",
     "//chrome/browser/actor/ui:dom_node_geometry",
     "//chrome/browser/page_content_annotations:fetcher",
-    "//chrome/browser/password_manager/actor_login:service",
     "//chrome/browser/profiles",
     "//chrome/browser/search",
     "//chrome/browser/subscription_eligibility",
@@ -75,6 +72,7 @@ source_set("actor") {
     "//components/download/content/public",
     "//components/optimization_guide/content/browser",
     "//components/optimization_guide/proto:optimization_guide_proto",
+    "//components/origin_gating/core",
     "//components/page_content_annotations/content/browser",
     "//components/page_content_annotations/content/mojom",
     "//components/password_manager/core/browser/actor_login:common",
@@ -107,6 +105,7 @@ source_set("impl") {
     "action_tracker_for_metrics.cc",
     "action_tracker_for_metrics.h",
     "actor_container_config.cc",
+    "actor_container_config_slot.cc",
     "actor_keyed_service.cc",
     "actor_keyed_service_factory.cc",
     "actor_metrics.cc",
@@ -118,11 +117,8 @@ source_set("impl") {
     "actor_task.cc",
     "actor_task_metadata.cc",
     "actor_util.cc",
-    "aggregated_journal_file_serializer.cc",
-    "aggregated_journal_in_memory_serializer.cc",
     "aggregated_journal_render_frame_binder.cc",
     "aggregated_journal_render_frame_binder.h",
-    "aggregated_journal_serializer.cc",
     "execution_engine.cc",
     "site_policy.cc",
     "tab_observation_controller.cc",
@@ -190,7 +186,7 @@ source_set("impl") {
     "//chrome/browser/lookalikes",
     "//chrome/browser/optimization_guide",
     "//chrome/browser/page_content_annotations:fetcher",
-    "//chrome/browser/password_manager/actor_login:service_impl",
+    "//chrome/browser/password_manager/actor_login:client",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/profiles:profile_io_data",
     "//chrome/browser/safe_browsing",
@@ -209,8 +205,10 @@ source_set("impl") {
     "//components/content_settings/core/common",
     "//components/favicon/core",
     "//components/lookalikes/core",
+    "//components/optimization_guide/proto:optimization_guide_proto",
     "//components/page_load_metrics/browser",
     "//components/password_manager/core/browser",
+    "//components/password_manager/core/browser/actor_login:actor_login_service_impl",
     "//components/password_manager/core/browser/features:password_features",
     "//components/safe_browsing:buildflags",
     "//components/safe_browsing/core/common:safe_browsing_prefs",
@@ -220,11 +218,13 @@ source_set("impl") {
     "//content/public/browser",
     "//net",
     "//pdf:features",
+    "//skia",
     "//third_party/abseil-cpp:absl",
     "//third_party/perfetto:libperfetto",
     "//third_party/perfetto/protos/perfetto/config:zero_gen",
     "//third_party/perfetto/protos/perfetto/trace/perfetto:zero_gen",
     "//ui/base/metadata",
+    "//ui/gfx/codec",
     "//url",
   ]
 
@@ -330,6 +330,7 @@ source_set("test_support") {
 source_set("unit_tests") {
   testonly = true
   sources = [
+    "actor_container_config_slot_unittest.cc",
     "actor_container_config_unittest.cc",
     "actor_keyed_service_unittest.cc",
     "actor_metrics_unittest.cc",
@@ -338,13 +339,13 @@ source_set("unit_tests") {
     "actor_task_metadata_unittest.cc",
     "actor_task_unittest.cc",
     "actor_test_util_unittest.cc",
-    "aggregated_journal_serializer_unittest.cc",
     "execution_engine_unittest.cc",
     "site_policy_unittest.cc",
     "tab_observation_strategy_unittest.cc",
     "tools/attempt_form_filling_tool_request_unittest.cc",
     "tools/attempt_login_tool_request_unittest.cc",
     "tools/attempt_otp_filling_tool_request_unittest.cc",
+    "tools/click_tool_request_unittest.cc",
   ]
   deps = [
     ":actor",
@@ -386,6 +387,7 @@ source_set("tools_test_support") {
     "//chrome/browser/glic",
     "//chrome/browser/optimization_guide:test_support",
     "//chrome/browser/page_content_annotations:test_support",
+    "//chrome/browser/password_manager/actor_login:client",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/zoom",
     "//chrome/test:test_support",
@@ -404,6 +406,7 @@ source_set("browser_tests") {
 
   sources = [
     "actor_keyed_service_browsertest.cc",
+    "actor_keyed_service_browsertest.h",
     "actor_util_browsertest.cc",
     "tools/attempt_login_tool_browsertest.cc",
   ]
@@ -420,6 +423,7 @@ source_set("browser_tests") {
     "ui:event_dispatcher",
     "//chrome/browser:chrome_content_browser_client",
     "//chrome/browser/affiliations",
+    "//chrome/browser/autofill/actor",
     "//chrome/browser/glic",
     "//chrome/browser/glic/actor:browser_tests",
     "//chrome/browser/glic/test_support",
@@ -452,6 +456,7 @@ source_set("browser_tests") {
     deps += [ "//chrome/test:test_support_ui_android" ]
   } else {
     deps += [ "//chrome/test:test_support_ui" ]
+    sources += [ "actor_keyed_service_browsertest_desktop.cc" ]
   }
 
   if (is_linux) {
@@ -480,6 +485,7 @@ source_set("browser_tests") {
       "tools/observation_delay_metrics_browsertest.cc",
       "tools/page_stability_browsertest.cc",
       "tools/page_stability_metrics_browsertest.cc",
+      "tools/page_target_util_browsertest.cc",
       "tools/page_tool_browsertest.cc",
       "tools/script_tool_browsertest.cc",
       "tools/scroll_to_tool_browsertest.cc",
@@ -495,6 +501,7 @@ source_set("browser_tests") {
     deps += [
       "//chrome/browser/autofill",
       "//chrome/browser/autofill/actor:test_support",
+      "//chrome/browser/download:test_support",
       "//chrome/browser/ui/views:file_system_access_test_support",
       "//components/autofill/core/browser:test_support",
     ]
@@ -507,6 +514,7 @@ if (!skip_android_unmigrated_actor_files) {
     defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
     sources = [
       "tools/attempt_login_tool_interactive_ui_test.cc",
+      "tools/click_tool_interactive_ui_test.cc",
       "tools/select_tool_interactive_ui_test.cc",
     ]
     deps = [
@@ -520,6 +528,7 @@ if (!skip_android_unmigrated_actor_files) {
       "//chrome/browser/ui:ui_features",
       "//components/favicon/core/test:test_support",
       "//content/test:browsertest_support",
+      "//pdf:features",
       "//testing/gtest",
       "//ui/base/interaction:test_support",
     ]

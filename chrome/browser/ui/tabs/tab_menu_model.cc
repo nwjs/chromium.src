@@ -16,7 +16,6 @@
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/glic/browser_ui/glic_vector_icon_manager.h"
-#include "chrome/browser/glic/host/glic_features.mojom.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
@@ -27,6 +26,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
+#include "chrome/browser/ui/immersive/immersive_mode_controller.h"
 #include "chrome/browser/ui/send_tab_to_self/send_tab_to_self_context_menu_delegate.h"
 #include "chrome/browser/ui/tabs/existing_tab_group_sub_menu_model.h"
 #include "chrome/browser/ui/tabs/existing_window_sub_menu_model.h"
@@ -42,7 +42,6 @@
 #include "chrome/browser/ui/tabs/tab_utils.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/ui_features.h"
-#include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
 #include "chrome/browser/ui/web_applications/web_app_tabbed_utils.h"
 #include "chrome/browser/user_education/user_education_service.h"
 #include "chrome/common/chrome_features.h"
@@ -142,7 +141,8 @@ void TabMenuModel::BuildForWebApp(int index) {
 void TabMenuModel::BuildSendTabToSelfSubmenu(int index) {
   send_tab_to_self_submenu_delegate_ =
       std::make_unique<send_tab_to_self::SendTabToSelfContextMenuDelegate>(
-          tab_strip_->GetWebContentsAt(index));
+          tab_strip_->GetWebContentsAt(index),
+          send_tab_to_self::ShareEntryPoint::kTabMenu);
   send_tab_to_self_submenu_ = std::make_unique<ui::SimpleMenuModel>(
       send_tab_to_self_submenu_delegate_.get());
 
@@ -150,9 +150,20 @@ void TabMenuModel::BuildSendTabToSelfSubmenu(int index) {
       send_tab_to_self_submenu_.get());
 
 #if BUILDFLAG(IS_MAC)
-  AddSubMenuWithStringId(TabStripModel::CommandSendTabToSelf,
-                         IDS_MENU_SEND_TAB_TO_SELF,
-                         send_tab_to_self_submenu_.get());
+  if (features::IsMenuSimplificationEnabled()) {
+    AddSubMenuWithStringIdAndIcon(
+        TabStripModel::CommandSendTabToSelf, IDS_MENU_SEND_TAB_TO_SELF,
+        send_tab_to_self_submenu_.get(),
+        ui::ImageModel::FromVectorIcon(
+            features::IsRoundedIconsEnabled()   ? kDevicesIcon
+            : features::IsRoundedIconsEnabled() ? vector_icons::kDevicesIcon
+                                                : kDevicesOldIcon,
+            ui::kColorMenuIcon, kTabMenuIconSize));
+  } else {
+    AddSubMenuWithStringId(TabStripModel::CommandSendTabToSelf,
+                           IDS_MENU_SEND_TAB_TO_SELF,
+                           send_tab_to_self_submenu_.get());
+  }
 #else
   AddSubMenuWithStringIdAndIcon(
       TabStripModel::CommandSendTabToSelf, IDS_MENU_SEND_TAB_TO_SELF,
@@ -173,8 +184,18 @@ void TabMenuModel::BuildSendTabToSelfSubmenu(int index) {
 
 void TabMenuModel::BuildLegacySendTabToSelfItem() {
 #if BUILDFLAG(IS_MAC)
-  AddItem(TabStripModel::CommandSendTabToSelf,
-          l10n_util::GetStringUTF16(IDS_MENU_SEND_TAB_TO_SELF));
+  if (features::IsMenuSimplificationEnabled()) {
+    AddItemWithIcon(
+        TabStripModel::CommandSendTabToSelf,
+        l10n_util::GetStringUTF16(IDS_MENU_SEND_TAB_TO_SELF),
+        ui::ImageModel::FromVectorIcon(
+            features::IsRoundedIconsEnabled()   ? kDevicesIcon
+            : features::IsRoundedIconsEnabled() ? vector_icons::kDevicesIcon
+                                                : kDevicesOldIcon));
+  } else {
+    AddItem(TabStripModel::CommandSendTabToSelf,
+            l10n_util::GetStringUTF16(IDS_MENU_SEND_TAB_TO_SELF));
+  }
 #else
   AddItemWithIcon(
       TabStripModel::CommandSendTabToSelf,
@@ -434,8 +455,7 @@ void TabMenuModel::Build(int index) {
   }
 
   const bool show_glic_items =
-      glic::GlicEnabling::IsReadyForProfile(tab_strip_->profile()) &&
-      base::FeatureList::IsEnabled(features::kGlicMITabContextMenu);
+      glic::GlicEnabling::IsReadyForProfile(tab_strip_->profile());
   bool glic_displayed = false;
   if (features::IsMenuSimplificationEnabled() && show_glic_items) {
     AddSeparator(ui::NORMAL_SEPARATOR);
@@ -487,28 +507,21 @@ void TabMenuModel::Build(int index) {
   }
 
   if (tabs::kVerticalTabsToggleInTabContextMenu.Get() && controller) {
-    // TODO(crbug.com/475222200): When in immersive, swapping between tab
-    // strip types create duplicate tab strips. Until that is resolved,
-    // disable the ability to swap between tab strips while in immersive.
-    BrowserWindowInterface* bwi =
-        tab_strip_->delegate()->GetBrowserWindowInterface();
-    if (bwi && !bwi->GetFeatures().immersive_mode_controller()->IsEnabled()) {
-      AddSeparator(ui::NORMAL_SEPARATOR);
-      if (controller->ShouldDisplayVerticalTabs()) {
-        AddItemWithStringId(TabStripModel::CommandToggleVertical,
-                            IDS_SWITCH_TO_HORIZONTAL_TAB);
-      } else {
-        AddItemWithStringId(TabStripModel::CommandToggleVertical,
-                            IDS_SWITCH_TO_VERTICAL_TAB);
-        const bool use_preview_badge =
-            base::FeatureList::IsEnabled(tabs::kVerticalTabsPreviewBadge);
-        const user_education::DisplayNewBadge show_badge =
-            UserEducationService::MaybeShowNewBadge(
-                tab_strip_->profile(), use_preview_badge
-                                           ? tabs::kVerticalTabsPreviewBadge
-                                           : tabs::kVerticalTabsNewBadge);
-        SetIsNewFeatureAt(GetItemCount() - 1, show_badge);
-      }
+    AddSeparator(ui::NORMAL_SEPARATOR);
+    if (controller->ShouldDisplayVerticalTabs()) {
+      AddItemWithStringId(TabStripModel::CommandToggleVertical,
+                          IDS_SWITCH_TO_HORIZONTAL_TAB);
+    } else {
+      AddItemWithStringId(TabStripModel::CommandToggleVertical,
+                          IDS_SWITCH_TO_VERTICAL_TAB);
+      const bool use_preview_badge =
+          base::FeatureList::IsEnabled(tabs::kVerticalTabsPreviewBadge);
+      const user_education::DisplayNewBadge show_badge =
+          UserEducationService::MaybeShowNewBadge(
+              tab_strip_->profile(), use_preview_badge
+                                         ? tabs::kVerticalTabsPreviewBadge
+                                         : tabs::kVerticalTabsNewBadge);
+      SetIsNewFeatureAt(GetItemCount() - 1, show_badge);
     }
   }
 

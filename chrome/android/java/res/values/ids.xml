@@ -59,7 +59,11 @@ found in the LICENSE file.
     <item type="id" name="contextmenu_save_page" />
     <item type="id" name="contextmenu_share_page" />
     <item type="id" name="contextmenu_print_page" />
+    <item type="id" name="contextmenu_back" />
+    <item type="id" name="contextmenu_forward" />
+    <item type="id" name="contextmenu_reload" />
     <item type="id" name="contextmenu_lens_overlay" />
+    <item type="id" name="contextmenu_open_in_reading_mode" />
     <item type="id" name="contextmenu_inspect_element" />
     <item type="id" name="contextmenu_view_page_source" />
 
@@ -177,8 +181,10 @@ found in the LICENSE file.
     <item type="id" name="all_bookmarks_menu_id" />
     <item type="id" name="toggle_bookmarks_bar_menu_id" />
     <item type="id" name="bookmarks_parent_menu_id" />
+    <item type="id" name="bookmarks_header_menu_id" />
     <item type="id" name="reading_list_parent_menu_id" />
     <item type="id" name="tab_groups_parent_menu_id" />
+    <item type="id" name="tab_groups_header_menu_id" />
     <item type="id" name="create_new_tab_group_menu_id" />
     <item type="id" name="tab_group_menu_item_id" />
     <item type="id" name="tab_group_tab_menu_item" />
@@ -186,6 +192,14 @@ found in the LICENSE file.
     <item type="id" name="show_reading_list_menu_id" />
     <item type="id" name="bookmark_this_page_menu_id" />
     <item type="id" name="recent_tabs_menu_id" />
+    <item type="id" name="recent_tabs_header_menu_id" />
+    <item type="id" name="your_devices_header_menu_id" />
+    <item type="id" name="recent_entry_menu_item" />
+    <item type="id" name="recent_entry_tab_menu_item" />
+    <item type="id" name="recent_entry_window_menu_item" />
+    <item type="id" name="recent_entry_window_tab_menu_item" />
+    <item type="id" name="recent_entry_group_menu_item" />
+    <item type="id" name="recent_entry_foreign_tab_menu_item" />
     <item type="id" name="extensions_parent_menu_id" />
     <item type="id" name="extensions_menu_menu_id" />
     <item type="id" name="manage_extensions_menu_id" />
@@ -239,7 +253,6 @@ found in the LICENSE file.
     <item type="id" name="new_tab_to_the_right_menu_id" />
     <item type="id" name="add_tab_to_reading_list_menu_id" />
     <item type="id" name="send_to_your_devices_menu_id" />
-    <item type="id" name="show_tabs_vertically_menu_id" />
     <item type="id" name="toggle_tab_layout_menu_id" />
 
     <!-- Custom Tabs -->

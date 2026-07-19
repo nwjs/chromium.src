@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/check.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
@@ -36,6 +37,7 @@
 #include "content/common/input/synthetic_gesture_target.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_widget_host_view.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/frame/frame_visual_properties.h"
 #include "third_party/blink/public/common/input/web_touch_event.h"
 #include "third_party/blink/public/mojom/frame/intrinsic_sizing_info.mojom.h"
@@ -86,8 +88,16 @@ RenderWidgetHostViewChildFrame::~RenderWidgetHostViewChildFrame() {
   if (frame_connector_)
     DetachFromTouchSelectionClientManagerIfNecessary();
 
-  if (is_frame_sink_id_owner() && GetHostFrameSinkManager()) {
-    GetHostFrameSinkManager()->InvalidateFrameSinkId(frame_sink_id_, this, {});
+  if (auto* frame_sink_manager = GetHostFrameSinkManager()) {
+    if (has_frame_sink_hierarchy_registered_) {
+      CHECK(parent_frame_sink_id_.is_valid());
+      frame_sink_manager->UnregisterFrameSinkHierarchy(parent_frame_sink_id_,
+                                                       frame_sink_id_);
+      has_frame_sink_hierarchy_registered_ = false;
+    }
+    if (is_frame_sink_id_owner()) {
+      frame_sink_manager->InvalidateFrameSinkId(frame_sink_id_, this, {});
+    }
   }
 }
 
@@ -153,7 +163,7 @@ void RenderWidgetHostViewChildFrame::SetFrameConnector(
       frame_connector_->GetParentRenderWidgetHostView();
 
   if (parent_view) {
-    DCHECK(parent_view->GetFrameSinkId().is_valid());
+    CHECK(parent_view->GetFrameSinkId().is_valid(), base::NotFatalUntil::M152);
     SetParentFrameSinkId(parent_view->GetFrameSinkId());
   }
 
@@ -180,12 +190,23 @@ void RenderWidgetHostViewChildFrame::SetFrameConnector(
 #endif
     }
   }
+
+  if (frame_connector_ && pending_sizing_info_) {
+    CHECK(base::FeatureList::IsEnabled(blink::features::kResponsiveIframes),
+          base::NotFatalUntil::M152);
+    frame_connector_->SendIntrinsicSizingInfoToParent(
+        std::move(pending_sizing_info_));
+  }
 }
 
 void RenderWidgetHostViewChildFrame::UpdateIntrinsicSizingInfo(
     blink::mojom::IntrinsicSizingInfoPtr sizing_info) {
-  if (frame_connector_)
+  if (frame_connector_) {
     frame_connector_->SendIntrinsicSizingInfoToParent(std::move(sizing_info));
+  } else if (base::FeatureList::IsEnabled(
+                 blink::features::kResponsiveIframes)) {
+    pending_sizing_info_ = std::move(sizing_info);
+  }
 }
 
 std::unique_ptr<SyntheticGestureTarget>
@@ -239,17 +260,6 @@ bool RenderWidgetHostViewChildFrame::HasFocus() {
 
 bool RenderWidgetHostViewChildFrame::IsSurfaceAvailableForCopy() {
   return GetLocalSurfaceId().is_valid();
-}
-
-void RenderWidgetHostViewChildFrame::EnsureSurfaceSynchronizedForWebTest() {
-  // The capture sequence number which would normally be updated here is
-  // actually retrieved from the frame connector.
-}
-
-uint32_t RenderWidgetHostViewChildFrame::GetCaptureSequenceNumber() const {
-  if (!frame_connector_)
-    return 0u;
-  return frame_connector_->GetCaptureSequenceNumber();
 }
 
 void RenderWidgetHostViewChildFrame::ShowWithVisibility(
@@ -327,7 +337,7 @@ gfx::Size RenderWidgetHostViewChildFrame::GetVisibleViewportSize() {
   // this method would not even be called, the main frame's value should be
   // used instead. However a nested WebContents will have a ChildFrame view used
   // for the main frame.
-  DCHECK(host()->owner_delegate());
+  CHECK(host()->owner_delegate(), base::NotFatalUntil::M152);
 
   gfx::Rect requested_rect(GetRequestedRendererSize());
   requested_rect.Inset(insets_);
@@ -339,7 +349,7 @@ gfx::Size RenderWidgetHostViewChildFrame::GetVisibleViewportSizeDevicePx() {
   // this method would not even be called, the main frame's value should be
   // used instead. However a nested WebContents will have a ChildFrame view used
   // for the main frame.
-  DCHECK(host()->owner_delegate());
+  CHECK(host()->owner_delegate(), base::NotFatalUntil::M152);
 
   gfx::Rect requested_rect(GetRequestedRendererSizeDevicePx());
   auto scaled_insets = ScaleToCeiledInsets(insets_, GetDeviceScaleFactor());
@@ -382,11 +392,12 @@ void RenderWidgetHostViewChildFrame::UpdateFrameSinkIdRegistration() {
 }
 
 void RenderWidgetHostViewChildFrame::UpdateBackgroundColor() {
-  DCHECK(GetBackgroundColor());
+  CHECK(GetBackgroundColor(), base::NotFatalUntil::M152);
 
   SkColor color = *GetBackgroundColor();
-  DCHECK(SkColorGetA(color) == SK_AlphaOPAQUE ||
-         SkColorGetA(color) == SK_AlphaTRANSPARENT);
+  CHECK(SkColorGetA(color) == SK_AlphaOPAQUE ||
+            SkColorGetA(color) == SK_AlphaTRANSPARENT,
+        base::NotFatalUntil::M152);
   if (host()->owner_delegate()) {
     host()->owner_delegate()->SetBackgroundOpaque(SkColorGetA(color) ==
                                                   SK_AlphaOPAQUE);
@@ -638,7 +649,7 @@ void RenderWidgetHostViewChildFrame::RegisterFrameSinkId() {
 }
 
 void RenderWidgetHostViewChildFrame::UnregisterFrameSinkId() {
-  DCHECK(host());
+  CHECK(host(), base::NotFatalUntil::M152);
   if (host()->delegate() && host()->delegate()->GetInputEventRouter()) {
     host()->delegate()->GetInputEventRouter()->RemoveFrameSinkIdOwner(
         frame_sink_id_);
@@ -654,7 +665,8 @@ void RenderWidgetHostViewChildFrame::UpdateViewportIntersection(
         !intersection_state.viewport_intersection.IsEmpty());
 
     // Do not send |visual_properties| to main frames.
-    DCHECK(!visual_properties.has_value() || !host()->owner_delegate());
+    CHECK(!visual_properties.has_value() || !host()->owner_delegate(),
+          base::NotFatalUntil::M152);
 
     bool is_fenced_frame = host()->frame_tree()->is_fenced_frame();
     if (!host()->owner_delegate() || is_fenced_frame) {
@@ -730,18 +742,23 @@ void RenderWidgetHostViewChildFrame::SetParentFrameSinkId(
 
   auto* host_frame_sink_manager = GetHostFrameSinkManager();
 
-  // Unregister hierarchy for the current parent, only if set.
-  if (parent_frame_sink_id_.is_valid()) {
-    host_frame_sink_manager->UnregisterFrameSinkHierarchy(parent_frame_sink_id_,
-                                                          frame_sink_id_);
+  // Unregister hierarchy for the current parent, only if set and registered.
+  if (parent_frame_sink_id_.is_valid() &&
+      has_frame_sink_hierarchy_registered_) {
+    if (host_frame_sink_manager) {
+      host_frame_sink_manager->UnregisterFrameSinkHierarchy(
+          parent_frame_sink_id_, frame_sink_id_);
+    }
+    has_frame_sink_hierarchy_registered_ = false;
   }
 
   parent_frame_sink_id_ = parent_frame_sink_id;
 
   // Register hierarchy for the new parent, only if set.
-  if (parent_frame_sink_id_.is_valid()) {
-    host_frame_sink_manager->RegisterFrameSinkHierarchy(parent_frame_sink_id_,
-                                                        frame_sink_id_);
+  if (parent_frame_sink_id_.is_valid() && host_frame_sink_manager) {
+    has_frame_sink_hierarchy_registered_ =
+        host_frame_sink_manager->RegisterFrameSinkHierarchy(
+            parent_frame_sink_id_, frame_sink_id_);
   }
 }
 
@@ -909,8 +926,8 @@ bool RenderWidgetHostViewChildFrame::IsRenderWidgetHostViewChildFrame() const {
 
 void RenderWidgetHostViewChildFrame::
     InvalidateLocalSurfaceIdAndAllocationGroup() {
-  // This should only be handled by the top frame.
-  NOTREACHED();
+  // Child frames do not manage their own LocalSurfaceId or allocation groups in
+  // the browser process.
 }
 
 #if BUILDFLAG(IS_MAC)

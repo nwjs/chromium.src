@@ -8,6 +8,7 @@
 #import <Foundation/Foundation.h>
 
 #import "base/ios/block_types.h"
+#import "components/signin/public/base/signin_deep_link_payload.h"
 #import "components/signin/public/base/signin_metrics.h"
 #import "ios/chrome/browser/authentication/ui_bundled/change_profile_continuation_provider.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
@@ -42,6 +43,8 @@ enum class AuthenticationOperation {
   // It is a CHECK failure if history_sync::GetSkipReason does not return
   // `history_sync::HistorySyncSkipReason::kNone`.
   kHistorySync,
+  // Operation to trigger the deep link sign-in flow.
+  kDeepLinkSignin,
 };
 
 // A command to perform a sign in operation.
@@ -57,6 +60,7 @@ enum class AuthenticationOperation {
 // `completion` if its non-nil.
 - (instancetype)initWithOperation:(AuthenticationOperation)operation
                              identity:(id<SystemIdentity>)identity
+                   targetAccountEmail:(NSString*)targetAccountEmail
                           accessPoint:(signin_metrics::AccessPoint)accessPoint
                           promoAction:(signin_metrics::PromoAction)promoAction
                            completion:
@@ -64,6 +68,8 @@ enum class AuthenticationOperation {
                  prepareChangeProfile:(ProceduralBlock)prepareChangeProfile
     changeProfileContinuationProvider:
         (const ChangeProfileContinuationProvider&)provider
+                   externalEntryPoint:
+                       (signin::ExternalEntryPoint)externalEntryPoint
     NS_DESIGNATED_INITIALIZER;
 
 // Initializes a command to perform, without pre-profile-switch.
@@ -108,6 +114,14 @@ enum class AuthenticationOperation {
     changeProfileContinuationProvider:
         (const ChangeProfileContinuationProvider&)provider;
 
+// Initializes a ShowSigninCommand for deep link sign-in operation.
+- (instancetype)initWithOperation:(AuthenticationOperation)operation
+               targetAccountEmail:(NSString*)targetAccountEmail
+                      accessPoint:(signin_metrics::AccessPoint)accessPoint
+                      promoAction:(signin_metrics::PromoAction)promoAction
+               externalEntryPoint:
+                   (signin::ExternalEntryPoint)externalEntryPoint;
+
 // Replaces `self.completion` by a function calling both `self.completion` and
 // `completion`.
 - (void)addSigninCompletion:(SigninCoordinatorCompletionCallback)completion;
@@ -127,6 +141,16 @@ enum class AuthenticationOperation {
 // The operation to perform during the sign-in flow.
 @property(nonatomic, readonly) AuthenticationOperation operation;
 
+// Prefilled email for the sign-in flow (e.g. for deep link flow). This is
+// distinct from the `identity` parameter: if the account is not yet present on
+// the device, `identity` will be nil, but `targetAccountEmail` is still used to
+// prefill the sign-in/add-account flow.
+@property(nonatomic, copy, readonly) NSString* targetAccountEmail;
+
+// The external entry point for the deep link sign-in flow.
+@property(nonatomic, assign, readonly)
+    signin::ExternalEntryPoint externalEntryPoint;
+
 // Customize content on sign-in and history sync screens.
 // Default: `kDefault`.
 @property(nonatomic, assign) SigninContextStyle contextStyle;
@@ -143,6 +167,12 @@ enum class AuthenticationOperation {
 
 // The user action from the sign-in promo to trigger the sign-in operation.
 @property(nonatomic, readonly) signin_metrics::PromoAction promoAction;
+
+// A block called if the successful authentication flow would cause a profile
+// switch in order to get the user to decide whether they want this switch to
+// occur or not.
+@property(nonatomic, copy)
+    SigninChangeProfileConfirmationBlock confirmChangeProfile;
 
 // A block to execute before the change of profile.
 @property(nonatomic, readonly) ProceduralBlock prepareChangeProfile;

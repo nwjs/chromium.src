@@ -6,11 +6,19 @@
 #define CHROME_BROWSER_DICTATION_FEATURES_H_
 
 #include "base/feature_list.h"
+#include "base/metrics/field_trial_params.h"
 
 namespace dictation {
 
 // Enables the dictation feature.
 BASE_DECLARE_FEATURE(kDictation);
+
+// If true, uses the component extension for dictation. Can be set to false
+// which prevents installation of the component extension and relies on the user
+// or test installing a regular extension to handle communication via the
+// dictationPrivate API. This is used in tests and for local development of the
+// extension.
+extern const base::FeatureParam<bool> kUseComponentExtension;
 
 }  // namespace dictation
 

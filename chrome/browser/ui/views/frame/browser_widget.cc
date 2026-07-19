@@ -31,18 +31,20 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window_state.h"
+#include "chrome/browser/ui/immersive/immersive_mode_controller.h"
 #include "chrome/browser/ui/unload_controller.h"
 #include "chrome/browser/ui/views/frame/browser_frame_view.h"
 #include "chrome/browser/ui/views/frame/browser_native_widget.h"
 #include "chrome/browser/ui/views/frame/browser_native_widget_factory.h"
 #include "chrome/browser/ui/views/frame/browser_root_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
 #include "chrome/browser/ui/views/frame/system_menu_model_builder.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
+#include "content/public/browser/desktop_capture_pip_utils.h"
+#include "media/capture/capture_switches.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/mojom/menu_source_type.mojom-forward.h"
 #include "ui/base/mojom/themes.mojom.h"
@@ -52,6 +54,7 @@
 #include "ui/events/event_handler.h"
 #include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/widget/native_widget.h"
+#include "ui/wm/core/window_properties.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
@@ -101,19 +104,6 @@ bool IsUsingLinuxSystemTheme(Profile* profile) {
 #else
   return false;
 #endif
-}
-
-ui::ColorProviderKey::SchemeVariant GetSchemeVariant(
-    ui::mojom::BrowserColorVariant color_variant) {
-  using BCV = ui::mojom::BrowserColorVariant;
-  using SV = ui::ColorProviderKey::SchemeVariant;
-  static constexpr auto kSchemeVariantMap = base::MakeFixedFlatMap<BCV, SV>({
-      {BCV::kTonalSpot, SV::kTonalSpot},
-      {BCV::kNeutral, SV::kNeutral},
-      {BCV::kVibrant, SV::kVibrant},
-      {BCV::kExpressive, SV::kExpressive},
-  });
-  return kSchemeVariantMap.at(color_variant);
 }
 
 }  // namespace
@@ -182,6 +172,17 @@ bool BrowserWidget::InitBrowserWidget() {
     // https://crbug.com/40273014 for more details.
     params.remove_standard_frame = true;
 #endif  // !BUILDFLAG(IS_WIN)
+
+#if BUILDFLAG(IS_WIN)
+    // Apply screen capture exclusion at initialization. Note that while this
+    // uses Aura window properties, the underlying behavior is currently
+    // Windows-only.
+    if (base::FeatureList::IsEnabled(features::kExcludePipFromScreenCapture) &&
+        content::desktop_capture::IsPipExcludedFromScreenCapture()) {
+      params.init_properties_container.SetProperty(
+          wm::kExcludeFromScreenCaptureKey, true);
+    }
+#endif
   }
 
 #if BUILDFLAG(IS_OZONE)
@@ -339,7 +340,7 @@ bool BrowserWidget::GetAccelerator(int command_id,
 
 const ui::ThemeProvider* BrowserWidget::GetThemeProvider() const {
   Browser* browser = browser_view_->browser();
-  auto* app_controller = browser->app_controller();
+  auto* app_controller = web_app::AppBrowserController::From(browser);
   // Ignore the system theme for web apps with window-controls-overlay as the
   // display_override so the web contents can blend with the overlay by using
   // the developer-provided theme color for a better experience. Context:
@@ -359,7 +360,7 @@ ui::ColorProviderKey::ThemeInitializerSupplier* BrowserWidget::GetCustomTheme()
   }
 
   Browser* browser = browser_view_->browser();
-  auto* app_controller = browser->app_controller();
+  auto* app_controller = web_app::AppBrowserController::From(browser);
   // Ignore the system theme for web apps with window-controls-overlay as the
   // display_override so the web contents can blend with the overlay by using
   // the developer-provided theme color for a better experience. Context:
@@ -475,7 +476,25 @@ void BrowserWidget::OnNativeThemeUpdated(ui::NativeTheme* observed_theme) {
 ui::ColorProviderKey BrowserWidget::GetColorProviderKey() const {
   auto key = Widget::GetColorProviderKey();
 
-  key.app_controller = browser_view_->browser()->app_controller();
+  Profile* profile = browser_view_->browser()->profile();
+  const auto* theme_service = ThemeServiceFactory::GetForProfile(profile);
+  CHECK(theme_service);
+
+  key = theme_service->GetColorProviderKey(key, profile);
+
+  // Re-apply Widget overrides because GetColorProviderKey might have
+  // overwritten them.
+  if (color_mode_override().has_value()) {
+    key.color_mode = color_mode_override().value();
+  }
+  if (user_color_override().has_value()) {
+    key.user_color = user_color_override().value();
+    key.user_color_source = ui::ColorProviderKey::UserColorSource::kAccent;
+  }
+
+  // Apply BrowserWidget overrides:
+  key.app_controller =
+      web_app::AppBrowserController::From(browser_view_->browser());
 
 #if BUILDFLAG(IS_CHROMEOS)
   // ChromeOS SystemWebApps use the OS theme all the time.
@@ -484,76 +503,13 @@ ui::ColorProviderKey BrowserWidget::GetColorProviderKey() const {
   }
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-  const auto* theme_service =
-      ThemeServiceFactory::GetForProfile(browser_view_->browser()->profile());
-  CHECK(theme_service);
-
-  // color_mode.
-  [this, &key, theme_service]() {
-    // Currently the incognito browser is implemented as unthemed dark mode.
-    if (IsIncognitoBrowser()) {
-      key.color_mode = ui::ColorProviderKey::ColorMode::kDark;
-      return;
-    }
-
-    const auto browser_color_scheme = theme_service->GetBrowserColorScheme();
-    if (browser_color_scheme != ThemeService::BrowserColorScheme::kSystem) {
-      key.color_mode =
-          browser_color_scheme == ThemeService::BrowserColorScheme::kLight
-              ? ui::ColorProviderKey::ColorMode::kLight
-              : ui::ColorProviderKey::ColorMode::kDark;
-    }
-  }();
-
-  // user_color.
-  // Device theme retains the user_color from `Widget`.
-  if (!theme_service->UsingDeviceTheme()) {
-    if (theme_service->UsingPolicyTheme()) {
-      // For policy themes, use the policy color directly since it's not stored
-      // in the autogenerated theme preference.
-      key.user_color = theme_service->GetPolicyThemeColor();
-    } else if (theme_service->UsingAutogeneratedTheme()) {
-      key.user_color = theme_service->GetAutogeneratedThemeColor();
-    } else if (auto user_color = theme_service->GetUserColor()) {
-      key.user_color = user_color;
-    }
-  }
-
-  if (user_color_override().has_value()) {
-    key.user_color = user_color_override().value();
-  }
-
-  // user_color_source.
-  if (IsIncognitoBrowser()) {
-    key.user_color_source = ui::ColorProviderKey::UserColorSource::kGrayscale;
-  } else if (user_color_override().has_value()) {
-    key.user_color_source = ui::ColorProviderKey::UserColorSource::kAccent;
-  } else if (theme_service->UsingDeviceTheme()) {
-    key.user_color_source = ui::ColorProviderKey::UserColorSource::kAccent;
-  } else if (theme_service->GetIsGrayscale()) {
-    key.user_color_source = ui::ColorProviderKey::UserColorSource::kGrayscale;
-  } else if (theme_service->GetIsBaseline()) {
-    key.user_color_source = ui::ColorProviderKey::UserColorSource::kBaseline;
-  } else {
-    CHECK(key.user_color.has_value());
-    key.user_color_source = ui::ColorProviderKey::UserColorSource::kAccent;
-  }
-
-  // scheme_variant.
-  ui::mojom::BrowserColorVariant color_variant =
-      theme_service->GetBrowserColorVariant();
-  if (!theme_service->UsingDeviceTheme() &&
-      color_variant != ui::mojom::BrowserColorVariant::kSystem) {
-    key.scheme_variant = GetSchemeVariant(color_variant);
-  }
-
   // frame_type.
   const bool use_custom_frame =
       browser_native_widget_ && browser_native_widget_->UseCustomFrame();
   key.frame_type = use_custom_frame ? ui::ColorProviderKey::FrameType::kChromium
                                     : ui::ColorProviderKey::FrameType::kNative;
 #if BUILDFLAG(IS_WIN)
-  if (theme_service && theme_service->UsingDeviceTheme() && use_custom_frame) {
+  if (theme_service->UsingDeviceTheme() && use_custom_frame) {
     key.frame_style = ui::ColorProviderKey::FrameStyle::kSystem;
   }
 #endif

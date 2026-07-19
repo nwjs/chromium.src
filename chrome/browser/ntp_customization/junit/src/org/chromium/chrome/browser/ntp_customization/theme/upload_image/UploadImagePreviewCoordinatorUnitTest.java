@@ -12,6 +12,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -33,6 +34,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
@@ -52,6 +54,8 @@ import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils.NtpBackgroundType;
 import org.chromium.chrome.browser.ntp_customization.R;
 import org.chromium.chrome.browser.ntp_customization.theme.NtpThemeProperty;
+import org.chromium.chrome.browser.ntp_customization.theme_sync.data.NtpBackgroundDataBase;
+import org.chromium.chrome.browser.ntp_customization.theme_sync.data.NtpBackgroundDataUploadImage;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeUtils;
@@ -61,6 +65,7 @@ import org.chromium.ui.modelutil.PropertyModel;
 /** Unit tests for {@link UploadImagePreviewCoordinator}. */
 @RunWith(BaseRobolectricTestRunner.class)
 public class UploadImagePreviewCoordinatorUnitTest {
+    private static final String TEST_FILE_ID_HASH = "test_file_id_hash";
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -99,7 +104,8 @@ public class UploadImagePreviewCoordinatorUnitTest {
         when(mTemplateUrlService.isDefaultSearchEngineGoogle()).thenReturn(true);
 
         mUploadImagePreviewCoordinator =
-                new UploadImagePreviewCoordinator(mActivity, mProfile, mBitmap, mOnClickedCallback);
+                new UploadImagePreviewCoordinator(
+                        mActivity, mProfile, mBitmap, TEST_FILE_ID_HASH, mOnClickedCallback);
         mDialog = ShadowDialog.getLatestDialog();
         View contentView = mDialog.findViewById(android.R.id.content);
         mSaveButton = contentView.findViewById(R.id.save_button);
@@ -131,7 +137,8 @@ public class UploadImagePreviewCoordinatorUnitTest {
         HistogramWatcher histogramWatcher =
                 HistogramWatcher.newSingleRecordWatcher(histogramName, true);
         mUploadImagePreviewCoordinator =
-                new UploadImagePreviewCoordinator(mActivity, mProfile, mBitmap, mOnClickedCallback);
+                new UploadImagePreviewCoordinator(
+                        mActivity, mProfile, mBitmap, TEST_FILE_ID_HASH, mOnClickedCallback);
 
         histogramWatcher.assertExpected();
     }
@@ -328,7 +335,7 @@ public class UploadImagePreviewCoordinatorUnitTest {
                 mConfigManager.getBackgroundType());
         assertTrue(
                 "The background image file should have been saved.",
-                NtpCustomizationUtils.createBackgroundImageFile().exists());
+                NtpCustomizationUtils.createUploadImageFileInDir(TEST_FILE_ID_HASH).exists());
 
         // Verifies the on clicked callback was invoked.
         verify(mOnClickedCallback).onResult(eq(true));
@@ -352,7 +359,7 @@ public class UploadImagePreviewCoordinatorUnitTest {
         verify(mOnClickedCallback).onResult(eq(false));
         assertFalse(
                 "The background image file should not have been saved.",
-                NtpCustomizationUtils.createBackgroundImageFile().exists());
+                NtpCustomizationUtils.createUploadImageFileInDir(TEST_FILE_ID_HASH).exists());
         assertNull(
                 "The matrices should not have been saved.",
                 NtpCustomizationUtils.readNtpBackgroundImageInfo());
@@ -446,7 +453,8 @@ public class UploadImagePreviewCoordinatorUnitTest {
         when(mComposeplateUtilsJni.isAimEntrypointEligible(any())).thenReturn(true);
 
         mUploadImagePreviewCoordinator =
-                new UploadImagePreviewCoordinator(mActivity, mProfile, mBitmap, mOnClickedCallback);
+                new UploadImagePreviewCoordinator(
+                        mActivity, mProfile, mBitmap, TEST_FILE_ID_HASH, mOnClickedCallback);
 
         PropertyModel model = mUploadImagePreviewCoordinator.getPropertyModelForTesting();
 
@@ -583,6 +591,16 @@ public class UploadImagePreviewCoordinatorUnitTest {
                 /* expectTappable= */ false);
     }
 
+    @Test
+    public void testOnSaveButtonClicked_NonNullFileIdHash() {
+        testOnSaveButtonClickedImpl(/* hasFileIdHash= */ true);
+    }
+
+    @Test
+    public void testOnSaveButtonClicked_NullFileIdHash() {
+        testOnSaveButtonClickedImpl(/* hasFileIdHash= */ false);
+    }
+
     /** Helper method that centralizes the Arrange/Act/Assert for window insets testing. */
     private void verifyWindowInsetsApplied(
             int topInset,
@@ -665,7 +683,8 @@ public class UploadImagePreviewCoordinatorUnitTest {
 
         // Re-create coordinator to run constructor logic
         mUploadImagePreviewCoordinator =
-                new UploadImagePreviewCoordinator(mActivity, mProfile, mBitmap, mOnClickedCallback);
+                new UploadImagePreviewCoordinator(
+                        mActivity, mProfile, mBitmap, TEST_FILE_ID_HASH, mOnClickedCallback);
 
         mPropertyModel = mUploadImagePreviewCoordinator.getPropertyModelForTesting();
 
@@ -684,5 +703,31 @@ public class UploadImagePreviewCoordinatorUnitTest {
         View searchBoxContainer =
                 ShadowDialog.getLatestDialog().findViewById(R.id.search_box_container);
         return (ConstraintLayout.LayoutParams) searchBoxContainer.getLayoutParams();
+    }
+
+    private void testOnSaveButtonClickedImpl(boolean hasFileIdHash) {
+        String fileIdHash = hasFileIdHash ? TEST_FILE_ID_HASH : null;
+        NtpCustomizationConfigManager configManager = mock(NtpCustomizationConfigManager.class);
+        NtpCustomizationConfigManager.setInstanceForTesting(configManager);
+        try {
+            new UploadImagePreviewCoordinator(
+                    mActivity, mProfile, mBitmap, fileIdHash, mOnClickedCallback);
+
+            Dialog dialog = ShadowDialog.getLatestDialog();
+            View saveButton = dialog.findViewById(R.id.save_button);
+            saveButton.performClick();
+
+            verify(mOnClickedCallback).onResult(/* result= */ true);
+
+            ArgumentCaptor<NtpBackgroundDataBase> captor =
+                    ArgumentCaptor.forClass(NtpBackgroundDataBase.class);
+            verify(configManager).onBackgroundDataChanged(eq(mActivity), captor.capture());
+            assertTrue(captor.getValue() instanceof NtpBackgroundDataUploadImage);
+            NtpBackgroundDataUploadImage uploadImage =
+                    (NtpBackgroundDataUploadImage) captor.getValue();
+            assertEquals(fileIdHash, uploadImage.getFileIdHash());
+        } finally {
+            NtpCustomizationConfigManager.setInstanceForTesting(null);
+        }
     }
 }

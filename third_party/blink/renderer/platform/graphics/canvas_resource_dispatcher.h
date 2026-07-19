@@ -16,6 +16,8 @@
 #include "mojo/public/cpp/bindings/remote.h"
 #include "services/viz/public/mojom/compositing/compositor_frame_sink.mojom-blink.h"
 #include "third_party/blink/public/mojom/frame_sinks/embedded_frame_sink.mojom-blink.h"
+#include "third_party/blink/renderer/platform/graphics/dom_node_id.h"
+#include "third_party/blink/renderer/platform/graphics/offscreen_canvas_placeholder.h"
 #include "third_party/blink/renderer/platform/graphics/resource_id_traits.h"
 #include "third_party/blink/renderer/platform/platform_export.h"
 #include "third_party/blink/renderer/platform/timer.h"
@@ -24,7 +26,6 @@
 
 namespace blink {
 
-class CanvasResource;
 class ExportedCanvasResource;
 
 class CanvasResourceDispatcherClient {
@@ -38,31 +39,7 @@ class PLATFORM_EXPORT CanvasResourceDispatcher
  public:
   static constexpr unsigned kMaxPendingCompositorFrames = 2;
 
-  // We set a limit to the number of placeholder resources that have been posted
-  // to the main thread but not yet received on that thread.
-  static constexpr unsigned kMaxPendingPlaceholderResources = 50;
-
-  base::WeakPtr<CanvasResourceDispatcher> GetWeakPtr() {
-    return weak_ptr_factory_.GetWeakPtr();
-  }
-
   CanvasResourceDispatcherClient* Client() { return client_; }
-
-  enum {
-    kInvalidPlaceholderCanvasId = -1,
-  };
-
-  enum class AnimationState {
-    // Animation should be active, and use the real sync signal from viz.
-    kActive,
-
-    // Animation should be active, but should use a synthetic sync signal.  This
-    // is useful when viz won't provide us with one.
-    kActiveWithSyntheticTiming,
-
-    // Animation should be suspended.
-    kSuspended,
-  };
 
   // `task_runner` is the task runner this object is associated with and
   // executes on. `agent_group_scheduler_compositor_task_runner` is the
@@ -70,28 +47,26 @@ class PLATFORM_EXPORT CanvasResourceDispatcher
   CanvasResourceDispatcher(
       CanvasResourceDispatcherClient*,
       scoped_refptr<base::SingleThreadTaskRunner> task_runner,
-      scoped_refptr<base::SingleThreadTaskRunner>
-          agent_group_scheduler_compositor_task_runner,
       uint32_t client_id,
       uint32_t sink_id,
-      int placeholder_canvas_id,
       const gfx::Size&);
 
   ~CanvasResourceDispatcher() override;
   void SetNeedsBeginFrame(bool);
-  void SetAnimationState(AnimationState animation_state);
-  AnimationState GetAnimationStateForTesting() const {
+  void SetAnimationState(
+      OffscreenCanvasPlaceholder::AnimationState animation_state);
+  OffscreenCanvasPlaceholder::AnimationState GetAnimationStateForTesting()
+      const {
     return animation_state_;
   }
   bool NeedsBeginFrame() const { return needs_begin_frame_; }
   bool IsAnimationSuspended() const {
-    return animation_state_ == AnimationState::kSuspended;
+    return animation_state_ ==
+           OffscreenCanvasPlaceholder::AnimationState::kSuspended;
   }
-  void DispatchFrame(scoped_refptr<CanvasResource>&&,
+  void DispatchFrame(scoped_refptr<ExportedCanvasResource>&&,
                      const gfx::Rect& damage_rect,
                      bool is_opaque);
-  // virtual for mocking
-  virtual void OnMainThreadReceivedImage();
   void ReplaceBeginFrameAck(const viz::BeginFrameArgs& args) {
     current_begin_frame_ack_ = viz::BeginFrameAck(args, true);
   }
@@ -112,7 +87,6 @@ class PLATFORM_EXPORT CanvasResourceDispatcher
   void OnSurfaceEvicted(const viz::LocalSurfaceId& local_surface_id) final {}
 
   void SetFilterQuality(cc::PaintFlags::FilterQuality filter_quality);
-  void SetPlaceholderCanvasDispatcher(int placeholder_canvas_id);
 
  private:
   friend class OffscreenCanvasPlaceholderTest;
@@ -135,7 +109,8 @@ class PLATFORM_EXPORT CanvasResourceDispatcher
 
   gfx::Size size_;
   bool change_size_for_next_commit_;
-  AnimationState animation_state_ = AnimationState::kActive;
+  OffscreenCanvasPlaceholder::AnimationState animation_state_ =
+      OffscreenCanvasPlaceholder::AnimationState::kActive;
   bool needs_begin_frame_ = false;
   unsigned pending_compositor_frames_ = 0;
 
@@ -145,16 +120,9 @@ class PLATFORM_EXPORT CanvasResourceDispatcher
   // state has actually changed or not.
   void UpdateBeginFrameSource();
 
-  void PostImageToPlaceholderIfNotBlocked(
-      scoped_refptr<ExportedCanvasResource>);
-  // virtual for testing
-  virtual void PostImageToPlaceholder(scoped_refptr<ExportedCanvasResource>&&);
-
   mojo::Remote<viz::mojom::blink::CompositorFrameSink> sink_;
   mojo::Remote<mojom::blink::SurfaceEmbedder> surface_embedder_;
   mojo::Receiver<viz::mojom::blink::CompositorFrameSinkClient> receiver_{this};
-
-  int placeholder_canvas_id_;
 
   viz::ResourceIdGenerator id_generator_;
 
@@ -165,22 +133,11 @@ class PLATFORM_EXPORT CanvasResourceDispatcher
 
   viz::FrameTokenGenerator next_frame_token_;
 
-  // The latest_unposted_resource_ always refers to the frame
-  // resource used by the latest_unposted_resource_.
-  scoped_refptr<ExportedCanvasResource> latest_unposted_resource_;
-  unsigned num_pending_placeholder_resources_;
-
   viz::BeginFrameAck current_begin_frame_ack_;
 
   raw_ptr<CanvasResourceDispatcherClient> client_;
 
-  scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
-  scoped_refptr<base::SingleThreadTaskRunner>
-      agent_group_scheduler_compositor_task_runner_;
-
   TaskRunnerTimer<CanvasResourceDispatcher> fake_frame_timer_;
-
-  base::WeakPtrFactory<CanvasResourceDispatcher> weak_ptr_factory_{this};
 };
 
 }  // namespace blink

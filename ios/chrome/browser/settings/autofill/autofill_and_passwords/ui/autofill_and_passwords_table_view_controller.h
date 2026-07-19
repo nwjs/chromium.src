@@ -6,10 +6,13 @@
 #define IOS_CHROME_BROWSER_SETTINGS_AUTOFILL_AUTOFILL_AND_PASSWORDS_UI_AUTOFILL_AND_PASSWORDS_TABLE_VIEW_CONTROLLER_H_
 
 #import "ios/chrome/browser/settings/autofill/autofill_and_passwords/ui/autofill_and_passwords_consumer.h"
+#import "ios/chrome/browser/settings/autofill/autofill_and_passwords/ui/autofill_and_passwords_signin_promo_consumer.h"
 #import "ios/chrome/browser/settings/ui_bundled/settings_controller_protocol.h"
 #import "ios/chrome/browser/settings/ui_bundled/settings_root_table_view_controller.h"
 
 @class AutofillAndPasswordsTableViewController;
+@class SigninPromoViewConfigurator;
+@protocol SigninPromoViewDelegate;
 
 // Delegate for presentation events related to
 // AutofillAndPasswordsTableViewController.
@@ -43,16 +46,32 @@
 - (void)autofillAndPasswordsTableViewControllerDidSelectAutofillSettings:
     (AutofillAndPasswordsTableViewController*)controller;
 
+// Called when the view controller has loaded its model.
+- (void)autofillAndPasswordsTableViewControllerDidLoadContent:
+    (AutofillAndPasswordsTableViewController*)controller;
+
+// Called when the sign-in promo progress state changes.
+- (void)autofillAndPasswordsTableViewControllerPromoProgressStateDidChange:
+    (AutofillAndPasswordsTableViewController*)controller;
+
+// Called when the user taps the close button on the sign-in promo.
+- (void)autofillAndPasswordsTableViewControllerDidTapSigninPromoClose:
+    (AutofillAndPasswordsTableViewController*)controller;
+
 @end
 
 // The TableView for Autofill and passwords settings page.
 @interface AutofillAndPasswordsTableViewController
     : SettingsRootTableViewController <AutofillAndPasswordsConsumer,
+                                       AutofillAndPasswordsSigninPromoConsumer,
                                        SettingsControllerProtocol>
 
 // Presentation delegate.
 @property(nonatomic, weak) id<AutofillAndPasswordsTableViewControllerDelegate>
     delegate;
+
+// Delegate for sign-in promo view events.
+@property(nonatomic, weak) id<SigninPromoViewDelegate> signinPromoDelegate;
 
 - (instancetype)initWithStyle:(UITableViewStyle)style NS_DESIGNATED_INITIALIZER;
 

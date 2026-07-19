@@ -197,16 +197,6 @@ BASE_FEATURE_PARAM(int,
 BASE_FEATURE(kWebAuthnIWARemoteDesktopAllowedOriginsPolicy,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Deprecation flag. Disabled by default in M142. Remove in or after M145.
-BASE_FEATURE(kWebAuthnSendPinGeneration,
-             "WebAuthenticationSendPinGeneration",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enabled by default in M146. Remove in or after M149.
-BASE_FEATURE(kWebAuthnNewRefreshFlow,
-             "WebAuthenticationNewRefreshFlow",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Disabled by default.
 BASE_FEATURE(kWebAuthnOpportunisticRetrieval,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -220,13 +210,6 @@ BASE_FEATURE_PARAM(int,
 // Enabled by default in M148. Remove in or after M152.
 BASE_FEATURE(kWebAuthnDoNotAlwaysTerminateStateMachineDuringIdentityChange,
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enabled by default in M144. Remove in or after M147.
-BASE_FEATURE(kWebAuthnEnableRefreshingStateOfGpmEnclaveController,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enabled by default in M146. Remove in or after M149.
-BASE_FEATURE(kWebAuthnHmacSecretMcExtension, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enabled by default in M149. Remove in or after M152.
 COMPONENT_EXPORT(FIDO_PUBLIC)
@@ -251,5 +234,15 @@ BASE_FEATURE(kWebAuthnSocketMaxPriorityMode, base::FEATURE_ENABLED_BY_DEFAULT);
 COMPONENT_EXPORT(FIDO_PUBLIC)
 BASE_FEATURE(kWebAuthnStripUnusedEnclaveParameters,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Disabled by default.
+COMPONENT_EXPORT(FIDO_PUBLIC)
+BASE_FEATURE(kWebAuthnGpmPasskeyEmbeddedRecoveryUrl,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Not yet enabled by default.
+COMPONENT_EXPORT(FIDO_PUBLIC)
+BASE_FEATURE(kWebAuthnEnclaveUseAuthDataFromEnclave,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace device

@@ -1463,17 +1463,18 @@ void ChromeContentRendererClient::
   if (base::FeatureList::IsEnabled(subresource_filter::kAdTagging))
     blink::WebRuntimeFeatures::EnableAdTagging(true);
 
+  auto state = base::FeatureList::GetStateIfOverridden(
+      features::kIncomingCallNotifications);
+  if (state.has_value()) {
+    blink::WebRuntimeFeatures::EnableIncomingCallNotifications(state.value());
+  }
+
   if (IsStandaloneContentExtensionProcess()) {
     // These Web API features are exposed in extensions.
     blink::WebRuntimeFeatures::EnableWebUSBOnServiceWorkers(true);
 #if !BUILDFLAG(IS_ANDROID)
     blink::WebRuntimeFeatures::EnableWebHIDOnServiceWorkers(true);
 #endif  // !BUILDFLAG(IS_ANDROID)
-    if (blink::WebRuntimeFeatures::IsAIPromptAPIForExtensionEnabled() &&
-        base::FeatureList::IsEnabled(
-            blink::features::kAIPromptAPIForExtension)) {
-      blink::WebRuntimeFeatures::EnableAIPromptAPI(true);
-    }
     blink::WebRuntimeFeatures::EnableAIPromptAPIForWorkers(true);
     blink::WebRuntimeFeatures::EnableAIPromptAPILegacyIdentifiers(true);
     blink::WebRuntimeFeatures::EnableAIPromptAPILegacyParams(true);

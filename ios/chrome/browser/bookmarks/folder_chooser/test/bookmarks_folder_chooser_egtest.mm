@@ -27,7 +27,7 @@
 #import "ios/chrome/test/earl_grey/chrome_earl_grey_ui.h"
 #import "ios/chrome/test/earl_grey/chrome_matchers.h"
 #import "ios/chrome/test/earl_grey/chrome_matchers_app_interface.h"
-#import "ios/chrome/test/earl_grey/web_http_server_chrome_test_case.h"
+#import "ios/chrome/test/earl_grey/chrome_test_case.h"
 #import "ios/testing/earl_grey/earl_grey_test.h"
 #import "net/test/embedded_test_server/embedded_test_server.h"
 #import "ui/base/l10n/l10n_util.h"
@@ -42,7 +42,6 @@ using chrome_test_util::ContextBarLeadingButtonWithLabel;
 using chrome_test_util::KindOfTest;
 using chrome_test_util::ScrollToTop;
 using chrome_test_util::SearchBar;
-using chrome_test_util::TabGridEditButton;
 using chrome_test_util::TappableBookmarkNodeWithLabel;
 
 BookmarkStorageType kindOfTestToStorageType(KindOfTest kind) {
@@ -56,7 +55,7 @@ BookmarkStorageType kindOfTestToStorageType(KindOfTest kind) {
 }
 
 // Bookmark folders integration tests for Chrome.
-@interface BookmarksFolderChooserTestCase : WebHttpServerChromeTestCase
+@interface BookmarksFolderChooserTestCase : ChromeTestCase
 @end
 
 @implementation BookmarksFolderChooserTestCase
@@ -1550,7 +1549,7 @@ BookmarkStorageType kindOfTestToStorageType(KindOfTest kind) {
   [[EarlGrey
       selectElementWithMatcher:grey_accessibilityID(
                                    kBookmarksFolderPickerSearchScrimIdentifier)]
-      assertWithMatcher:grey_sufficientlyVisible()];
+      assertWithMatcher:grey_minimumVisiblePercent(0.5)];
 
   // Search for "Folder 2" and check the others disappeared.
   [[EarlGrey selectElementWithMatcher:SearchBar()]

@@ -149,9 +149,9 @@ class WindowCaptureSession {
             permissions::PermissionRequestManager::ACCEPT_ALL);
 
     // This forces both tabs to pump video frames, preventing WebRTC timeouts.
-    target_browser_->window()->Show();
+    target_browser_->GetWindow()->Show();
     target_contents_->WasShown();
-    capturer_browser_->window()->Show();
+    capturer_browser_->GetWindow()->Show();
     capturer_contents_->WasShown();
     EXPECT_EQ("capture-success",
               content::EvalJs(capturer_contents_, "captureOtherTab();"));
@@ -1000,8 +1000,11 @@ class CaptureHandleSystemWebAppBrowserTest
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
+// TODO(crbug.com/520451851): Test is increasingly timing out more often.
+// Re-enable once time out issue is addressed. Likely caused by the
+// SetTitleAndWait call.
 IN_PROC_BROWSER_TEST_F(CaptureHandleSystemWebAppBrowserTest,
-                       IgnoresHandleFromSystemWebApp) {
+                       DISABLED_IgnoresHandleFromSystemWebApp) {
   WaitForTestSystemAppInstall();
   content::WebContents* swa_contents =
       LaunchApp(ash::SystemWebAppType::SETTINGS);

@@ -299,6 +299,13 @@ void LoyaltyCardSuggestionGenerator::GenerateSuggestions(
     const AutofillField* trigger_autofill_field,
     AutofillClient& client,
     base::FunctionRef<void(ReturnedSuggestions)> callback) {
+  if (client.IsAutofillTypeBlockedByPolicy(
+          client.GetLastCommittedPrimaryMainFrameURL(),
+          AutofillClient::AutofillPolicyDataCategory::kPayments)) {
+    callback({SuggestionDataSource::kLoyaltyCard, {}});
+    return;
+  }
+
   if (!trigger_autofill_field || !client.GetValuablesDataManager() ||
       trigger_autofill_field->Type().GetTypes().contains_none(
           {LOYALTY_MEMBERSHIP_ID, EMAIL_OR_LOYALTY_MEMBERSHIP_ID})) {
@@ -368,8 +375,7 @@ void LoyaltyCardSuggestionGenerator::GenerateSuggestions(
     base::Extend(suggestions,
                  GetLoyaltyCardsFooterSuggestions(
                      // TODO(crbug.com/393114125): Change to use
-                     // `AutofillField::field_modifiers_`
-                     // after launching `kAutofillFixIsAutofilled`.
+                     // `AutofillField::field_modifiers_`.
                      trigger_field.is_autofilled_according_to_renderer()));
     callback({SuggestionDataSource::kLoyaltyCard, std::move(suggestions)});
     return;
@@ -400,8 +406,7 @@ void LoyaltyCardSuggestionGenerator::GenerateSuggestions(
   base::Extend(suggestions,
                GetLoyaltyCardsFooterSuggestions(
                    // TODO(crbug.com/393114125): Change to use
-                   // `AutofillField::field_modifiers_`
-                   // after launching `kAutofillFixIsAutofilled`.
+                   // `AutofillField::field_modifiers_`.
                    trigger_field.is_autofilled_according_to_renderer()));
   callback({SuggestionDataSource::kLoyaltyCard, std::move(suggestions)});
 }

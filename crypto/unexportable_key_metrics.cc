@@ -219,16 +219,23 @@ void MeasureTpmOperationsInternal(UnexportableKeyProvider::Config config) {
     return;
   }
 
-  auto delete_key = [&provider](UnexportableSigningKey* key) {
+  auto delete_key = [&provider](UnexportableKey* key) {
     if (StatefulUnexportableKeyProvider* stateful_provider =
             provider->AsStatefulUnexportableKeyProvider()) {
       stateful_provider->DeleteWrappedKeysSlowly({key->GetWrappedKey()});
     }
     delete key;
   };
+
+  auto wrap_delete_key =
+      [delete_key]<typename KeyT>(std::unique_ptr<KeyT> key) {
+        return std::unique_ptr<KeyT, decltype(delete_key)>(
+            std::move(key).release(), delete_key);
+      };
+
   base::ElapsedTimer key_creation_timer;
-  std::unique_ptr<UnexportableSigningKey, decltype(delete_key)> current_key(
-      provider->GenerateSigningKeySlowly(kAllAlgorithms).release(), delete_key);
+  auto current_key =
+      wrap_delete_key(provider->GenerateSigningKeySlowly(kAllAlgorithms));
   ReportUmaTpmOperation(TPMOperation::kNewKeyCreation, supported_algo,
                         key_creation_timer.Elapsed(), current_key != nullptr);
   if (!current_key) {
@@ -236,13 +243,36 @@ void MeasureTpmOperationsInternal(UnexportableKeyProvider::Config config) {
   }
 
   base::ElapsedTimer wrapped_key_creation_timer;
-  std::unique_ptr<UnexportableSigningKey, decltype(delete_key)> wrapped_key(
-      provider->FromWrappedSigningKeySlowly(current_key->GetWrappedKey())
-          .release(),
-      delete_key);
+  auto wrapped_key = wrap_delete_key(
+      provider->FromWrappedSigningKeySlowly(current_key->GetWrappedKey()));
   ReportUmaTpmOperation(TPMOperation::kWrappedKeyCreation, supported_algo,
                         wrapped_key_creation_timer.Elapsed(),
                         wrapped_key != nullptr);
+
+  base::ElapsedTimer attestation_key_creation_timer;
+  auto attestation_key =
+      wrap_delete_key(provider->GenerateAttestationKeySlowly(kAllAlgorithms));
+  ReportUmaTpmOperation(
+      TPMOperation::kNewAttestationKeyCreation, supported_algo,
+      attestation_key_creation_timer.Elapsed(), attestation_key != nullptr);
+
+  if (attestation_key) {
+    base::ElapsedTimer wrapped_attestation_key_creation_timer;
+    auto wrapped_attestation_key =
+        wrap_delete_key(provider->FromWrappedAttestationKeySlowly(
+            attestation_key->GetWrappedKey()));
+    ReportUmaTpmOperation(TPMOperation::kWrappedAttestationKeyCreation,
+                          supported_algo,
+                          wrapped_attestation_key_creation_timer.Elapsed(),
+                          wrapped_attestation_key != nullptr);
+
+    base::ElapsedTimer certification_timer;
+    std::optional<AttestationStatement> certification =
+        attestation_key->CertifySlowly(*current_key, {5, 6, 7, 8});
+    ReportUmaTpmOperation(TPMOperation::kKeyCertification, supported_algo,
+                          certification_timer.Elapsed(),
+                          certification.has_value());
+  }
 
   const uint8_t msg[] = {1, 2, 3, 4};
   base::ElapsedTimer message_signing_timer;
@@ -296,6 +326,14 @@ std::string OperationToString(TPMOperation operation) {
       return "SelectAlgorithm";
     case TPMOperation::kKeyDeletion:
       return "KeyDeletion";
+    case TPMOperation::kKeyCertification:
+      return "KeyCertification";
+    case TPMOperation::kNewAttestationKeyCreation:
+      return "NewAttestationKeyCreation";
+    case TPMOperation::kWrappedAttestationKeyCreation:
+      return "WrappedAttestationKeyCreation";
+    case TPMOperation::kWrappedAttestationKeyExport:
+      return "WrappedAttestationKeyExport";
   }
 }
 

@@ -9,6 +9,7 @@ assert(toolkit_views)
 
 source_set("send_tab_to_self") {
   sources = [
+    "send_tab_to_self_activation_tracker.h",
     "send_tab_to_self_bubble.h",
     "send_tab_to_self_context_menu_delegate.h",
     "send_tab_to_self_toolbar_icon_controller.h",
@@ -29,6 +30,7 @@ source_set("send_tab_to_self") {
 
 source_set("impl") {
   sources = [
+    "send_tab_to_self_activation_tracker.cc",
     "send_tab_to_self_context_menu_delegate.cc",
     "send_tab_to_self_toolbar_icon_controller.cc",
     "send_tab_to_self_util.cc",
@@ -93,7 +95,10 @@ source_set("interactive_ui_tests") {
 
 source_set("unit_tests") {
   testonly = true
-  sources = [ "send_tab_to_self_context_menu_delegate_unittest.cc" ]
+  sources = [
+    "send_tab_to_self_activation_tracker_unittest.cc",
+    "send_tab_to_self_context_menu_delegate_unittest.cc",
+  ]
   deps = [
     ":send_tab_to_self",
     "//base",

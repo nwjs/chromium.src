@@ -62,13 +62,13 @@ enum class WebNNOrtDeviceUma {
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/webnn/enums.xml:WebNNOrtDeviceUma)
 
-void RecordFirstSelectedEP(base::cstring_view ep_name) {
+void RecordFirstSelectedEP(std::string_view ep_name) {
   // It is expected that `ep_name` is one of the execution providers defined in
   // `services/webnn/public/cpp/execution_providers_info.h`. If a new EP is
   // added, it should be added to this map as well. Otherwise, it will be
   // recorded as `kOther`.
   static constexpr auto kEPUmaMap =
-      base::MakeFixedFlatMap<base::cstring_view, WebNNOrtEPUma>({
+      base::MakeFixedFlatMap<std::string_view, WebNNOrtEPUma>({
           {kCPUExecutionProvider, WebNNOrtEPUma::kCPU},
           {kDmlExecutionProvider, WebNNOrtEPUma::kDml},
           {kWebGpuExecutionProvider, WebNNOrtEPUma::kWebGpu},
@@ -120,6 +120,7 @@ std::unique_ptr<WebNNContextImpl, OnTaskRunnerDeleter> ContextImplOrt::Create(
     mojo::ScopedDataPipeConsumerHandle write_tensor_consumer,
     mojo::ScopedDataPipeProducerHandle read_tensor_producer,
     scoped_refptr<Environment> env,
+    scoped_refptr<SessionOptions> session_options,
     std::unique_ptr<GpuTaskScheduler> gpu_task_scheduler,
     scoped_refptr<gpu::MemoryTracker> memory_tracker,
     scoped_refptr<base::SingleThreadTaskRunner> owning_task_runner,
@@ -135,8 +136,6 @@ std::unique_ptr<WebNNContextImpl, OnTaskRunnerDeleter> ContextImplOrt::Create(
   // attributes from WebNN context options to determine ORT device type.
   OrtHardwareDeviceType device_type = WebnnToOrtDeviceType(options->device);
   const EpWorkarounds ep_workarounds = env->GetEpWorkarounds(device_type);
-  scoped_refptr<SessionOptions> session_options =
-      SessionOptions::Create(device_type, env);
 
   // The ONNX Runtime default CPU EP has a limitation that DequantizeLinear with
   // type int32 should have no zero point or all zero points should be 0. This
@@ -196,8 +195,8 @@ ContextImplOrt::ContextImplOrt(
   const OrtEpDevice* first_selected_device =
       session_options_->first_selected_device();
 
-  const char* ep_name = ort_api->EpDevice_EpName(first_selected_device);
-  RecordFirstSelectedEP(UNSAFE_BUFFERS(base::cstring_view(ep_name)));
+  std::string_view ep_name = ort_api->EpDevice_EpName(first_selected_device);
+  RecordFirstSelectedEP(ep_name);
 
   OrtHardwareDeviceType hardware_device_type = ort_api->HardwareDevice_Type(
       ort_api->EpDevice_Device(first_selected_device));
@@ -205,6 +204,27 @@ ContextImplOrt::ContextImplOrt(
 
   if (base::FeatureList::IsEnabled(kUseDeviceTensor)) {
     device_allocator_ = DeviceAllocator::Create(session_options_, env_);
+  }
+
+  ScopedOrtExternalResourceImporter external_resource_importer;
+  const OrtInteropApi* ort_interop_api =
+      PlatformFunctions::GetInstance()->ort_interop_api();
+  if (ort_interop_api) {
+    ScopedOrtStatus status(
+        ort_interop_api->CreateExternalResourceImporterForDevice(
+            first_selected_device, ScopedOrtExternalResourceImporter::Receiver(
+                                       external_resource_importer)
+                                       .get()));
+    if (!status.is_valid() && external_resource_importer != nullptr) {
+      bool can_import = false;
+      CHECK_STATUS(ort_interop_api->CanImportMemory(
+          external_resource_importer.get(),
+          ORT_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_HEAP, &can_import));
+
+      if (can_import) {
+        external_resource_importer_ = std::move(external_resource_importer);
+      }
+    }
   }
 }
 
@@ -507,12 +527,10 @@ ContextImplOrt::CreateTensorImpl(
   const OrtApi* ort_api = PlatformFunctions::GetInstance()->ort_api();
 
   OrtAllocator* allocator = nullptr;
-  bool can_access_on_cpu = true;
-  // Use the device allocator if it's present and should be used. Otherwise, use
-  // the default allocator which is CPU based and non-arena.
-  if (device_allocator_ && device_allocator_->ShouldUse(tensor_info)) {
+  // Use the device allocator if it's present. Otherwise, use the default
+  // allocator which is CPU based and non-arena.
+  if (device_allocator_) {
     allocator = device_allocator_->get();
-    can_access_on_cpu = device_allocator_->CanAccessOnCPU();
   } else {
     // `GetAllocatorWithDefaultOptions()` always returns the same pointer to the
     // same default allocator and its returned value should NOT be freed.
@@ -543,7 +561,7 @@ ContextImplOrt::CreateTensorImpl(
 
   return base::MakeRefCounted<TensorImplOrt>(
       std::move(receiver), *this, std::move(tensor_info), size,
-      std::move(tensor), can_access_on_cpu, device_allocator_);
+      std::move(tensor), device_allocator_);
 }
 
 base::expected<scoped_refptr<WebNNTensorImpl>, mojom::ErrorPtr>
@@ -551,28 +569,16 @@ ContextImplOrt::CreateTensorFromSharedImageImpl(
     mojo::PendingAssociatedReceiver<mojom::WebNNTensor> receiver,
     mojom::TensorInfoPtr tensor_info,
     WebNNTensorImpl::RepresentationPtr representation) {
-  ComPtr<ID3D12Resource> d3d12_buffer;
-  // Shared image is thread-safe, directly get the backend representation.
-  if (representation->is_thread_safe()) {
-    d3d12_buffer = representation->GetD3D12Buffer();
-  } else {
-    // Shared image representation must be retrieved on the main thread. If
-    // WebNN runs on its own thread, a task is posted to the main thread and
-    // waits to retrieve the backend representation. Otherwise, if WebNN is
-    // already running on the main thread, it directly gets the backend
-    // representation.
-    WebNNTensorImpl::RunOrPostTaskAndWaitOnSequence(
-        main_task_runner(),
-        base::BindOnce(
-            [](gpu::WebNNTensorRepresentation* representation,
-               ComPtr<ID3D12Resource>* out_buffer) {
-              *out_buffer = representation->GetD3D12Buffer();
-            },
-            // Safe to use base::Unretained because we must run or wait for the
-            // post task to complete and `representation` cannot destruct while
-            // the task is running.
-            base::Unretained(representation.get()), &d3d12_buffer));
+  // ORT requires a thread-safe shared image representation because it accesses
+  // shared image data on the WebNN sequence.
+  DCHECK(representation->is_thread_safe());
+  if (!representation->is_thread_safe()) {
+    return base::unexpected(
+        mojom::Error::New(mojom::Error::Code::kNotSupportedError,
+                          "WebGPU interop is not supported."));
   }
+
+  ComPtr<ID3D12Resource> d3d12_buffer = representation->GetD3D12Buffer();
 
   CHECK(d3d12_buffer)
       << "[WebNN] Failed to get D3D12 buffer from shared image.";
@@ -587,38 +593,96 @@ ContextImplOrt::CreateTensorFromSharedImageImpl(
                                               "Failed to create tensor."));
   }
 
-  // CreateTensorWithDataAsOrtValue only allows CPU memory.
-  void* mapped_ptr = nullptr;
-  HRESULT hr = d3d12_buffer->Map(0, nullptr, &mapped_ptr);
-  if (FAILED(hr)) {
-    LOG(ERROR) << "[WebNN] Failed to map D3D12 buffer: "
-               << logging::SystemErrorCodeToString(hr);
-    return base::unexpected(
-        mojom::Error::New(mojom::Error::Code::kNotSupportedError,
-                          "WebGPU interop is not supported."));
+  base::win::ScopedHandle d3d12_heap_handle;
+  if (external_resource_importer_.is_valid()) {
+    d3d12_heap_handle = representation->GetD3D12HeapHandle();
   }
 
   const OrtApi* ort_api = PlatformFunctions::GetInstance()->ort_api();
 
+  ScopedOrtExternalMemoryHandle external_memory_handle;
+  ScopedOrtValue tensor;
   ONNXTensorElementDataType ort_data_type =
       WebnnToOnnxDataType(tensor_info->descriptor.data_type());
   std::vector<int64_t> ort_shape =
       WebnnToOnnxShape(tensor_info->descriptor.shape());
+  bool can_access_on_cpu = false;
+  if (d3d12_heap_handle.is_valid()) {
+    const OrtInteropApi* ort_interop_api =
+        PlatformFunctions::GetInstance()->ort_interop_api();
 
-  ScopedOrtMemoryInfo memory_info;
-  CHECK_STATUS(ort_api->CreateCpuMemoryInfo(
-      OrtDeviceAllocator, OrtMemTypeCPU,
-      ScopedOrtMemoryInfo::Receiver(memory_info).get()));
+    OrtExternalMemoryDescriptor memory_descriptor{};
+    memory_descriptor.version = ORT_API_VERSION;
+    memory_descriptor.handle_type = ORT_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_HEAP;
+    memory_descriptor.size_bytes = buffer_size;
+    memory_descriptor.native_handle = d3d12_heap_handle.get();
+    ScopedOrtExternalMemoryHandle memory_handle;
+    ScopedOrtStatus status(ort_interop_api->ImportMemory(
+        external_resource_importer_.get(), &memory_descriptor,
+        ScopedOrtExternalMemoryHandle::Receiver(memory_handle).get()));
+    if (!status.is_valid()) {
+      OrtExternalTensorDescriptor tensor_descriptor{};
+      tensor_descriptor.version = ORT_API_VERSION;
+      tensor_descriptor.element_type = ort_data_type;
+      tensor_descriptor.shape = ort_shape.data();
+      tensor_descriptor.rank = ort_shape.size();
 
-  ScopedOrtValue tensor;
-  CHECK_STATUS(ort_api->CreateTensorWithDataAsOrtValue(
-      memory_info.get(), mapped_ptr, buffer_size, ort_shape.data(),
-      ort_shape.size(), ort_data_type, ScopedOrtValue::Receiver(tensor).get()));
-  CHECK(tensor.get());
+      CHECK_STATUS(ort_interop_api->CreateTensorFromMemory(
+          external_resource_importer_.get(), memory_handle.get(),
+          &tensor_descriptor, ScopedOrtValue::Receiver(tensor).get()));
+      // Successfully imported the D3D12 buffer as an ORT tensor.
+      external_memory_handle = std::move(memory_handle);
 
+      // The OrtValue owns the lifetime of this OrtMemoryInfo.
+      const OrtMemoryInfo* memory_info;
+      CHECK_STATUS(ort_api->GetTensorMemoryInfo(tensor.get(), &memory_info));
+      can_access_on_cpu = ort_api->MemoryInfoGetDeviceMemType(memory_info) ==
+                          OrtDeviceMemoryType_HOST_ACCESSIBLE;
+    } else {
+      LOG(WARNING) << "[WebNN] ImportMemory failed for D3D12 buffer. Falling "
+                      "back to using mapped buffers.";
+    }
+  }
+
+  // If external resource importer is not available or import fails, fall back
+  // to using mapped D3D12 buffer.
+  if (tensor.get() == nullptr) {
+    void* mapped_ptr = nullptr;
+    HRESULT hr = d3d12_buffer->Map(0, nullptr, &mapped_ptr);
+    if (FAILED(hr)) {
+      return base::unexpected(
+          mojom::Error::New(mojom::Error::Code::kNotSupportedError,
+                            "WebGPU interop is not supported."));
+    }
+
+    // CreateTensorWithDataAsOrtValue only allows CPU memory.
+    ScopedOrtMemoryInfo memory_info;
+    CHECK_STATUS(ort_api->CreateCpuMemoryInfo(
+        OrtDeviceAllocator, OrtMemTypeCPU,
+        ScopedOrtMemoryInfo::Receiver(memory_info).get()));
+
+    CHECK_STATUS(ort_api->CreateTensorWithDataAsOrtValue(
+        memory_info.get(), mapped_ptr, buffer_size, ort_shape.data(),
+        ort_shape.size(), ort_data_type,
+        ScopedOrtValue::Receiver(tensor).get()));
+    CHECK(tensor.get());
+    can_access_on_cpu = true;
+  }
+
+  if (!can_access_on_cpu &&
+      (tensor_info->usage.Has(MLTensorUsageFlags::kRead) ||
+       tensor_info->usage.Has(MLTensorUsageFlags::kWrite))) {
+    return base::unexpected(mojom::Error::New(
+        mojom::Error::Code::kNotSupportedError,
+        "CPU read/write access is not supported with exportable tensors."));
+  }
+
+  // ORT requires that we keep the OrtExternalMemoryHandle alive as long as the
+  // tensor is alive, so we also need to pass the handle to TensorImplOrt.
   return base::MakeRefCounted<TensorImplOrt>(
       std::move(receiver), *this, std::move(tensor_info),
-      std::move(representation), buffer_size, std::move(tensor));
+      std::move(representation), buffer_size, std::move(external_memory_handle),
+      std::move(tensor));
 }
 
 std::string_view ContextImplOrt::GetBackendName() const {

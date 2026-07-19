@@ -481,6 +481,9 @@ class LayerTreeHostDelegateForTesting
   void UpdateCompositorScrollState(
       const CompositorCommitData& commit_data) override {}
 
+  void UpdateAnimatedImageState(
+      const CompositorCommitData& commit_data) override {}
+
   void RequestNewLayerTreeFrameSink() override {
     test_hooks_->RequestNewLayerTreeFrameSink();
   }
@@ -608,10 +611,10 @@ class LayerTreeHostForTesting : public LayerTreeHost {
     return host_impl;
   }
 
-  void SetNeedsCommit() override {
+  void SetNeedsCommit(bool urgent) override {
     if (!test_started_)
       return;
-    LayerTreeHost::SetNeedsCommit();
+    LayerTreeHost::SetNeedsCommit(urgent);
   }
 
   void SetNeedsUpdateLayers() override {

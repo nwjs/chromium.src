@@ -301,7 +301,7 @@ IN_PROC_BROWSER_TEST_F(CommandsApiTest, Basic) {
 
   // Test that there are two browser actions in the toolbar.
   auto* toolbar_model = ToolbarActionsModel::Get(profile());
-  ASSERT_EQ(2, toolbar_model->action_ids().size());
+  ASSERT_EQ(2u, toolbar_model->action_ids().size());
 
   ASSERT_TRUE(NavigateToURL(
       GetActiveWebContents(),
@@ -630,7 +630,8 @@ IN_PROC_BROWSER_TEST_F(CommandsApiTest, TabParameter) {
 }
 
 // Test Keybinding in incognito mode.
-IN_PROC_BROWSER_TEST_P(IncognitoCommandsApiTest, IncognitoMode) {
+// Disabled because flaky: crbug.com/519947934
+IN_PROC_BROWSER_TEST_P(IncognitoCommandsApiTest, DISABLED_IncognitoMode) {
 #if defined(MEMORY_SANITIZER)
   if (base::FeatureList::IsEnabled(features::kInitialWebUI)) {
     GTEST_SKIP() << "Skipping test on MSAN with InitialWebUI enabled. "

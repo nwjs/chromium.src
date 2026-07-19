@@ -255,7 +255,7 @@ void IndividualSettings::Reset() {
   policy_blocked_hosts.ClearPatterns();
   policy_allowed_hosts.ClearPatterns();
   blocked_install_message.clear();
-  toolbar_pin = ManagedToolbarPinMode::kDefaultUnpinned;
+  toolbar_pin = ManagedToolbarPinMode::kNotSet;
 }
 
 GlobalSettings::GlobalSettings() = default;
@@ -265,7 +265,6 @@ GlobalSettings::~GlobalSettings() = default;
 void GlobalSettings::Reset() {
   install_sources.reset();
   allowed_types.reset();
-  manifest_v2_setting = ManifestV2Setting::kDefault;
   unpublished_availability_setting = UnpublishedAvailability::kAllowUnpublished;
 }
 

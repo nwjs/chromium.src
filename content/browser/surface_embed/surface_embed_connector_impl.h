@@ -98,7 +98,6 @@ class CONTENT_EXPORT SurfaceEmbedConnectorImpl
   const viz::LocalSurfaceId& GetLocalSurfaceId() override;
   const blink::mojom::ViewportIntersectionState& GetIntersectionState()
       override;
-  uint32_t GetCaptureSequenceNumber() override;
   const gfx::Rect& GetRectInParentViewInDip() override;
   const gfx::Size& GetLocalFrameSizeInDip() override;
   const gfx::Size& GetLocalFrameSizeInPixels() override;
@@ -126,8 +125,6 @@ class CONTENT_EXPORT SurfaceEmbedConnectorImpl
   input::RenderWidgetHostViewInput* GetParentViewInput() override;
   input::RenderWidgetHostViewInput* GetRootViewInput() override;
 
-  void OnRenderFrameCreated();
-
   // Updates the `view_` member to track the current RenderWidgetHostView
   // associated with the child WebContents.
   void UpdateViewForCurrentRenderFrameHost();
@@ -140,6 +137,7 @@ class CONTENT_EXPORT SurfaceEmbedConnectorImpl
 
  private:
   class WCObserver;
+  class ParentWCObserver;
 
   friend class SurfaceEmbedConnector;
   friend class SurfaceEmbedConnectorImplBrowserTest;
@@ -166,12 +164,19 @@ class CONTENT_EXPORT SurfaceEmbedConnectorImpl
 
   RenderFrameHostImpl* current_child_frame_host() const;
 
-  // Observes the child web contents to send notifications to the connector.
+  void ParentVisibilityChanged(Visibility visibility);
+  void UpdateChildVisibility();
+
+  // Observes the child WebContents to send notifications to the connector.
   std::unique_ptr<WCObserver> wc_observer_;
+  // Observes the parent WebContents to propagate visibility changes.
+  std::unique_ptr<ParentWCObserver> parent_wc_observer_;
 
   raw_ptr<SurfaceEmbedConnector::Delegate> delegate_ = nullptr;
 
   raw_ptr<WebContentsImpl> child_web_contents_;  // Owns this object.
+  // WeakPtr to the parent WebContents. Automatically clears to nullptr when the
+  // observed parent is destroyed, safely notifying all consumers.
   base::WeakPtr<WebContents> parent_web_contents_;
   raw_ptr<RenderWidgetHostViewChildFrame> view_ = nullptr;
 
@@ -185,8 +190,6 @@ class CONTENT_EXPORT SurfaceEmbedConnectorImpl
   // process which is set through CSS or scrolling.
   blink::mojom::FrameVisibility visibility_ =
       blink::mojom::FrameVisibility::kRenderedInViewport;
-
-  uint32_t capture_sequence_number_ = 0u;
 
   display::ScreenInfos screen_infos_;
   blink::mojom::ViewportIntersectionState intersection_state_;

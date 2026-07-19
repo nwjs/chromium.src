@@ -18,8 +18,6 @@
 #include "components/signin/public/identity_manager/account_capabilities_test_mutator.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
-#include "components/subscription_eligibility/subscription_eligibility_prefs.h"
-#include "components/subscription_eligibility/subscription_eligibility_service.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -44,11 +42,6 @@ class MockPersonalContextEnablementServiceObserver
 class PersonalContextEnablementServiceImplTest : public testing::Test {
  public:
   PersonalContextEnablementServiceImplTest() {
-    scoped_feature_list_.InitWithFeatures(
-        /*enabled_features=*/{features::kPersonalContext,
-                              features::kPersonalContextFirstRun},
-        /*disabled_features=*/{});
-
     SetPrefs();
     CreateService("us");
     SignIn("test@gmail.com");
@@ -78,29 +71,18 @@ class PersonalContextEnablementServiceImplTest : public testing::Test {
                      const std::string& locale = "en-US") {
     service_ = std::make_unique<PersonalContextEnablementServiceImpl>(
         &mock_account_settings_service_, identity_test_env_.identity_manager(),
-        subscription_eligibility_service_.get(), &pref_service_,
-        GeoIpCountryCode(base::ToUpperASCII(country_code)), locale);
+        &pref_service_, GeoIpCountryCode(base::ToUpperASCII(country_code)),
+        locale);
   }
 
   void SetPrefs() {
     personal_context::prefs::RegisterProfilePrefs(pref_service_.registry());
-    pref_service_.SetBoolean(
-        personal_context::prefs::kPersonalContextInAutofillNoticeHasBeenShown,
-        true);
     pref_service_.SetBoolean(
         personal_context::prefs::kPersonalContextInAutofillNoticeShouldBeShown,
         false);
     pref_service_.SetBoolean(
         personal_context::prefs::kPersonalContextInAutofillSettingsToggleStatus,
         true);
-    subscription_eligibility::prefs::RegisterProfilePrefs(
-        pref_service_.registry());
-    pref_service_.SetInteger(
-        subscription_eligibility::prefs::kAiSubscriptionTier, 1);
-    subscription_eligibility_service_ = std::make_unique<
-        subscription_eligibility::SubscriptionEligibilityService>(
-        &pref_service_);
-
     // Enable all by default to satisfy requirements.
     ON_CALL(mock_account_settings_service_, GetBoolean(testing::_))
         .WillByDefault(Return(true));
@@ -112,8 +94,6 @@ class PersonalContextEnablementServiceImplTest : public testing::Test {
   signin::IdentityTestEnvironment identity_test_env_;
   base::test::ScopedFeatureList scoped_feature_list_;
   sync_preferences::TestingPrefServiceSyncable pref_service_;
-  std::unique_ptr<subscription_eligibility::SubscriptionEligibilityService>
-      subscription_eligibility_service_;
   testing::NiceMock<account_settings::MockAccountSettingService>
       mock_account_settings_service_;
   std::unique_ptr<PersonalContextEnablementServiceImpl> service_;
@@ -137,15 +117,6 @@ TEST_F(PersonalContextEnablementServiceImplTest, ForcedEnablementState) {
         features::debug::kPersonalContextForceEnablementState,
         {{"state", "1"}});
     EXPECT_EQ(service().GetEnablementState(),
-              PersonalContextEnablementState::kDisabledShouldShowNotice);
-  }
-
-  {
-    base::test::ScopedFeatureList feature_list;
-    feature_list.InitAndEnableFeatureWithParameters(
-        features::debug::kPersonalContextForceEnablementState,
-        {{"state", "2"}});
-    EXPECT_EQ(service().GetEnablementState(),
               PersonalContextEnablementState::kDisabledNeedsOptIn);
   }
 
@@ -153,7 +124,7 @@ TEST_F(PersonalContextEnablementServiceImplTest, ForcedEnablementState) {
     base::test::ScopedFeatureList feature_list;
     feature_list.InitAndEnableFeatureWithParameters(
         features::debug::kPersonalContextForceEnablementState,
-        {{"state", "3"}});
+        {{"state", "2"}});
     EXPECT_EQ(service().GetEnablementState(),
               PersonalContextEnablementState::
                   kDisabledViaPersonalIntelligenceInAutofillToggle);
@@ -163,7 +134,7 @@ TEST_F(PersonalContextEnablementServiceImplTest, ForcedEnablementState) {
     base::test::ScopedFeatureList feature_list;
     feature_list.InitAndEnableFeatureWithParameters(
         features::debug::kPersonalContextForceEnablementState,
-        {{"state", "4"}});
+        {{"state", "3"}});
     EXPECT_EQ(service().GetEnablementState(),
               PersonalContextEnablementState::kEnabledShouldShowNotice);
   }
@@ -172,35 +143,10 @@ TEST_F(PersonalContextEnablementServiceImplTest, ForcedEnablementState) {
     base::test::ScopedFeatureList feature_list;
     feature_list.InitAndEnableFeatureWithParameters(
         features::debug::kPersonalContextForceEnablementState,
-        {{"state", "5"}});
+        {{"state", "4"}});
     EXPECT_EQ(service().GetEnablementState(),
               PersonalContextEnablementState::kEnabled);
   }
-}
-
-// Verifies that the service is disabled when all related feature flags are off.
-TEST_F(PersonalContextEnablementServiceImplTest, DisabledWhenFeaturesAreOff) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatures(
-      /*enabled_features=*/{},
-      /*disabled_features=*/{features::kPersonalContext,
-                             features::kPersonalContextFirstRun});
-
-  EXPECT_EQ(PersonalContextEnablementServiceImplTestApi(&service())
-                .ComputeEnablementState(),
-            PersonalContextEnablementState::kDisabledNotEligible);
-}
-
-// Verifies that the main feature flag (kPersonalContext) is a hard requirement.
-TEST_F(PersonalContextEnablementServiceImplTest, DisabledWhenMainFeatureIsOff) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatures(
-      /*enabled_features=*/{features::kPersonalContextFirstRun},
-      /*disabled_features=*/{features::kPersonalContext});
-
-  EXPECT_EQ(PersonalContextEnablementServiceImplTestApi(&service())
-                .ComputeEnablementState(),
-            PersonalContextEnablementState::kDisabledNotEligible);
 }
 
 // Verifies that the service is enabled when all feature flags and other
@@ -210,82 +156,55 @@ TEST_F(PersonalContextEnablementServiceImplTest, EnabledWhenAllFeaturesAreOn) {
             PersonalContextEnablementState::kEnabled);
 }
 
-// Verifies that the state is `kEnabled` when the notice has been shown and
-// acknowledged, and the toggle is "on".
+// Verifies that the state is `kEnabled` when the notice no longer needs to be
+// shown and the toggle is "on".
 TEST_F(PersonalContextEnablementServiceImplTest,
-       EnabledWhenNoticeWasShownAndAcknowledgedAndToggleIsOn) {
-  pref_service_.SetBoolean(
-      personal_context::prefs::kPersonalContextInAutofillNoticeHasBeenShown,
-      true);
-  pref_service_.SetBoolean(
-      personal_context::prefs::kPersonalContextInAutofillSettingsToggleStatus,
-      true);
+       EnabledShouldNotShowNoticeAndToggleIsOn) {
   pref_service_.SetBoolean(
       personal_context::prefs::kPersonalContextInAutofillNoticeShouldBeShown,
       false);
+  pref_service_.SetBoolean(
+      personal_context::prefs::kPersonalContextInAutofillSettingsToggleStatus,
+      true);
   EXPECT_EQ(service().GetEnablementState(),
             PersonalContextEnablementState::kEnabled);
 }
 
-// Verifies that the state is `kEnabledShouldShowNotice` when the notice has
-// been shown (which also enables the toggle), but not yet acknowledged.
+// Verifies that the state is `kEnabledShouldShowNotice` when the notice still
+// needs to be shown and the toggle is "on".
 TEST_F(PersonalContextEnablementServiceImplTest,
-       EnabledShouldShowNoticeWhenNoticeShouldBeShown) {
+       EnabledShouldShowNoticeAndToggleIsOn) {
   pref_service_.SetBoolean(
-      personal_context::prefs::kPersonalContextInAutofillNoticeHasBeenShown,
+      personal_context::prefs::kPersonalContextInAutofillNoticeShouldBeShown,
       true);
   pref_service_.SetBoolean(
       personal_context::prefs::kPersonalContextInAutofillSettingsToggleStatus,
-      true);
-  pref_service_.SetBoolean(
-      personal_context::prefs::kPersonalContextInAutofillNoticeShouldBeShown,
       true);
   EXPECT_EQ(service().GetEnablementState(),
             PersonalContextEnablementState::kEnabledShouldShowNotice);
 }
 
 // Verifies that the state is `kDisabledViaPersonalIntelligenceInAutofillToggle`
-// when the notice has been shown but the toggle is off.
+// when the toggle is off.
 TEST_F(PersonalContextEnablementServiceImplTest, DisabledViaToggle) {
   pref_service_.SetBoolean(
-      personal_context::prefs::kPersonalContextInAutofillNoticeHasBeenShown,
-      true);
-  pref_service_.SetBoolean(
       personal_context::prefs::kPersonalContextInAutofillSettingsToggleStatus,
       false);
 
-  // Even if the notice should still be shown (which is impossible), the toggle
-  // would take precedence.
+  // The toggle takes precedence no matter if the notice should still be shown.
   pref_service_.SetBoolean(
       personal_context::prefs::kPersonalContextInAutofillNoticeShouldBeShown,
-      true);
+      false);
   EXPECT_EQ(service().GetEnablementState(),
             PersonalContextEnablementState::
                 kDisabledViaPersonalIntelligenceInAutofillToggle);
 
   pref_service_.SetBoolean(
       personal_context::prefs::kPersonalContextInAutofillNoticeShouldBeShown,
-      false);
+      true);
   EXPECT_EQ(service().GetEnablementState(),
             PersonalContextEnablementState::
                 kDisabledViaPersonalIntelligenceInAutofillToggle);
-}
-
-// Verifies that the state is `kDisabledShouldShowNotice` when the notice
-// has never been shown and the toggle is "off".
-TEST_F(PersonalContextEnablementServiceImplTest,
-       DisabledShouldShowNoticeWhenNoticeHasNeverBeenShown) {
-  pref_service_.SetBoolean(
-      personal_context::prefs::kPersonalContextInAutofillNoticeHasBeenShown,
-      false);
-  pref_service_.SetBoolean(
-      personal_context::prefs::kPersonalContextInAutofillSettingsToggleStatus,
-      false);
-  pref_service_.SetBoolean(
-      personal_context::prefs::kPersonalContextInAutofillNoticeShouldBeShown,
-      true);
-  EXPECT_EQ(service().GetEnablementState(),
-            PersonalContextEnablementState::kDisabledShouldShowNotice);
 }
 
 #if !BUILDFLAG(IS_CHROMEOS)  // Signing out does not work on ChromeOS.
@@ -303,17 +222,12 @@ TEST_F(PersonalContextEnablementServiceImplTest, ClearsPrefOnSignout) {
       personal_context::prefs::kPersonalContextInAutofillNoticeShouldBeShown,
       false);
   pref_service_.SetBoolean(
-      personal_context::prefs::kPersonalContextInAutofillNoticeHasBeenShown,
-      true);
-  pref_service_.SetBoolean(
       personal_context::prefs::kPersonalContextInAutofillSettingsToggleStatus,
-      true);
+      false);
   identity_test_env_.ClearPrimaryAccount();
   EXPECT_TRUE(pref_service_.GetBoolean(
       personal_context::prefs::kPersonalContextInAutofillNoticeShouldBeShown));
-  EXPECT_FALSE(pref_service_.GetBoolean(
-      personal_context::prefs::kPersonalContextInAutofillNoticeHasBeenShown));
-  EXPECT_FALSE(pref_service_.GetBoolean(
+  EXPECT_TRUE(pref_service_.GetBoolean(
       personal_context::prefs::kPersonalContextInAutofillSettingsToggleStatus));
 }
 #endif  // !BUILDFLAG(IS_CHROMEOS)
@@ -334,23 +248,14 @@ TEST_F(PersonalContextEnablementServiceImplTest, DisabledWhenManaged) {
             PersonalContextEnablementState::kDisabledNotEligible);
 }
 
-// Verifies that the service is disabled if the user's AI subscription tier
-// is not eligible.
-TEST_F(PersonalContextEnablementServiceImplTest, DisabledWhenTierNotEligible) {
-  pref_service_.SetInteger(subscription_eligibility::prefs::kAiSubscriptionTier,
-                           3);
 
-  EXPECT_EQ(service().GetEnablementState(),
-            PersonalContextEnablementState::kDisabledNotEligible);
-}
 
 // Verifies that the service fails safe (disabled) if the required
 // `AccountSettingService` is missing.
 TEST_F(PersonalContextEnablementServiceImplTest,
        DisabledWhenAccountSettingsServiceNotAvailable) {
   service_ = std::make_unique<PersonalContextEnablementServiceImpl>(
-      nullptr, identity_test_env_.identity_manager(),
-      subscription_eligibility_service_.get(), &pref_service_,
+      nullptr, identity_test_env_.identity_manager(), &pref_service_,
       GeoIpCountryCode("US"), "en-US");
 
   EXPECT_EQ(service().GetEnablementState(),
@@ -448,7 +353,7 @@ TEST_F(PersonalContextEnablementServiceImplTest,
   ASSERT_EQ(service().GetEnablementState(),
             PersonalContextEnablementState::kEnabled);
 
-  // Trigger a change to `kDisabledShouldShowNotice` by setting a pref.
+  // Trigger a change to `kEnabledShouldShowNotice` by setting a pref.
   EXPECT_CALL(observer,
               OnEnablementStateChanged(
                   PersonalContextEnablementState::kEnabledShouldShowNotice));
@@ -513,16 +418,11 @@ TEST_F(PersonalContextEnablementServiceImplTest,
 
 TEST_F(PersonalContextEnablementServiceImplTest,
        DisabledWhenAccountSettingsServiceNotAvailableAndOptInEnabled) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatures(
-      /*enabled_features=*/{features::kPersonalContext,
-                            features::kPersonalContextFirstRun,
-                            features::kPersonalContextFirstRunOptIn},
-      /*disabled_features=*/{});
+  base::test::ScopedFeatureList feature_list{
+      features::kPersonalContextFirstRunOptIn};
 
   service_ = std::make_unique<PersonalContextEnablementServiceImpl>(
-      nullptr, identity_test_env_.identity_manager(),
-      subscription_eligibility_service_.get(), &pref_service_,
+      nullptr, identity_test_env_.identity_manager(), &pref_service_,
       GeoIpCountryCode("US"), "en-US");
 
   EXPECT_EQ(service().GetEnablementState(),
@@ -531,12 +431,8 @@ TEST_F(PersonalContextEnablementServiceImplTest,
 
 TEST_F(PersonalContextEnablementServiceImplTest,
        NeedsOptInWhenAccountOptedOutOfContextAndOptInEnabled) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatures(
-      /*enabled_features=*/{features::kPersonalContext,
-                            features::kPersonalContextFirstRun,
-                            features::kPersonalContextFirstRunOptIn},
-      /*disabled_features=*/{});
+  base::test::ScopedFeatureList feature_list{
+      features::kPersonalContextFirstRunOptIn};
 
   PersonalContextEnablementServiceImplTestApi(&service())
       .ComputeEnablementState();
@@ -554,12 +450,8 @@ TEST_F(PersonalContextEnablementServiceImplTest,
 
 TEST_F(PersonalContextEnablementServiceImplTest,
        NeedsOptInWhenNoContextSourcesEnabledAndOptInEnabled) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatures(
-      /*enabled_features=*/{features::kPersonalContext,
-                            features::kPersonalContextFirstRun,
-                            features::kPersonalContextFirstRunOptIn},
-      /*disabled_features=*/{});
+  base::test::ScopedFeatureList feature_list{
+      features::kPersonalContextFirstRunOptIn};
 
   PersonalContextEnablementServiceImplTestApi(&service())
       .ComputeEnablementState();

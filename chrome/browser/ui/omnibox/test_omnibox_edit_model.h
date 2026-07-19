@@ -12,6 +12,7 @@
 #include "base/time/time.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
+#include "components/contextual_search/contextual_search_session_handle.h"
 #include "components/omnibox/browser/autocomplete_enums.h"
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/prefs/pref_service.h"
@@ -59,10 +60,20 @@ class TestOmniboxEditModel : public OmniboxEditModel {
 
   void SetCurrentMatchForTest(const AutocompleteMatch& match);
 
-  bool HasTemporaryText() { return has_temporary_text_; }
+  void NavigateToAiModeWithContextualizerOnContextualizationCompleteForTesting(
+      const std::u16string& query_text,
+      WindowOpenDisposition disposition,
+      base::WeakPtr<contextual_search::ContextualSearchSessionHandle>
+          session_handle);
 
   const std::u16string& text() const { return text_; }
   bool is_temporary_text() const { return is_temporary_text_; }
+
+  using OmniboxEditModel::NavigateToThirdPartyAiMode;
+  using OmniboxEditModel::RecordAiModeMetrics;
+
+  using OmniboxEditModel::has_temporary_text_;
+  using OmniboxEditModel::user_input_in_progress_;
 
  protected:
   PrefService* GetPrefService() override;

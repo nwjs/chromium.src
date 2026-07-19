@@ -6,6 +6,7 @@
 
 #import "components/optimization_guide/proto/features/actions_data.pb.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/actor_tool.h"
+#import "ios/chrome/browser/intelligence/actor/tools/model/attempt_login_tool.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/click_tool.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/history_tool.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/navigate_tool.h"
@@ -19,39 +20,49 @@
 
 namespace actor {
 
-ActorToolFactory::ActorToolFactory() = default;
+ActorToolFactory::ActorToolFactory(ProfileIOS* profile) : profile_(profile) {}
 ActorToolFactory::~ActorToolFactory() = default;
 
 base::expected<std::unique_ptr<ActorTool>, ToolExecutionResult>
 ActorToolFactory::CreateTool(const optimization_guide::proto::Action& action,
-                             ProfileIOS* profile) {
+                             ToolDelegate* tool_delegate) {
+  if (IsToolDisabled(action.action_case())) {
+    return base::unexpected(
+        ToolExecutionResult(InternalToolErrorCode::kToolDisabledByFeature));
+  }
+
   // LINT.IfChange(CreateTool)
   switch (action.action_case()) {
     case optimization_guide::proto::Action::kNavigate:
-      return NavigateTool::Create(action.navigate(), profile);
+      return NavigateTool::Create(action.navigate(), profile_);
     case optimization_guide::proto::Action::kClick:
-      return ClickTool::Create(action.click(), profile);
+      return ClickTool::Create(action.click(), profile_);
     case optimization_guide::proto::Action::kBack:
-      return HistoryTool::Create(action.back(), profile);
+      return HistoryTool::Create(action.back(), profile_);
     case optimization_guide::proto::Action::kForward:
-      return HistoryTool::Create(action.forward(), profile);
+      return HistoryTool::Create(action.forward(), profile_);
     case optimization_guide::proto::Action::kSelect:
-      return SelectTool::Create(action.select(), profile);
+      return SelectTool::Create(action.select(), profile_);
     case optimization_guide::proto::Action::kType:
-      return TypeTool::Create(action.type(), profile);
+      return TypeTool::Create(action.type(), profile_);
     case optimization_guide::proto::Action::kWait:
-      return WaitTool::Create(action.wait(), profile);
+      return WaitTool::Create(action.wait(), profile_);
     case optimization_guide::proto::Action::kScroll:
-      return ScrollTool::Create(action.scroll(), profile);
+      return ScrollTool::Create(action.scroll(), profile_);
     case optimization_guide::proto::Action::kScrollTo:
-      return ScrollToTool::Create(action.scroll_to(), profile);
+      return ScrollToTool::Create(action.scroll_to(), profile_);
+    case optimization_guide::proto::Action::kAttemptLogin:
+      return AttemptLoginTool::Create(action.attempt_login(), tool_delegate,
+                                      profile_);
     default:
       return base::unexpected(
           ToolExecutionResult(InternalToolErrorCode::kUnsupportedAction));
   }
   // LINT.ThenChange(
   //   //ios/chrome/browser/intelligence/actor/tools/model/actor_tool_factory.mm:SupportedCapabilities,
-  //   //ios/chrome/browser/intelligence/bwg/model/gemini_actuation_handler.mm:InjectTabIdIntoAction
+  //   //ios/chrome/browser/intelligence/bwg/model/gemini_actuation_handler.mm:InjectTabIdIntoAction,
+  //   //ios/chrome/browser/intelligence/actor/tools/model/actor_tool_request.mm:GetToolType,
+  //   //ios/chrome/browser/intelligence/actor/tools/model/actor_tool_request.mm:GetTargetWebStateId
   // )
 }
 
@@ -68,6 +79,7 @@ ActorToolFactory::GetSupportedCapabilities() const {
       optimization_guide::proto::Action::kScroll,
       optimization_guide::proto::Action::kScrollTo,
       optimization_guide::proto::Action::kSelect,
+      optimization_guide::proto::Action::kAttemptLogin,
   };
   // LINT.ThenChange(//ios/chrome/browser/intelligence/actor/tools/model/actor_tool_factory.mm:CreateTool)
 

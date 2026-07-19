@@ -12,6 +12,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -43,6 +44,7 @@ import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.RobolectricUtil;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.cc.input.BrowserControlsState;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.actor.ActorKeyedService;
@@ -63,6 +65,7 @@ import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.findinpage.FindToolbarManager;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
+import org.chromium.chrome.browser.glic.GlicEnabling;
 import org.chromium.chrome.browser.glic.GlicKeyedService;
 import org.chromium.chrome.browser.glic.GlicKeyedServiceFactory;
 import org.chromium.chrome.browser.keyboard_accessory.ManualFillingComponent;
@@ -91,8 +94,11 @@ import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.signin.services.SigninManager;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabBrowserControlsConstraintsHelper;
 import org.chromium.chrome.browser.tab.TabObscuringHandler;
 import org.chromium.chrome.browser.tab.TabViewManager;
+import org.chromium.chrome.browser.tab_bottom_sheet.TabBottomSheetManager;
+import org.chromium.chrome.browser.tab_bottom_sheet.TabBottomSheetUtils;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tab_ui.TabModelDotInfo;
 import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider;
@@ -119,16 +125,19 @@ import org.chromium.chrome.browser.ui.edge_to_edge.TopInsetProvider;
 import org.chromium.chrome.browser.ui.favicon.FaviconHelper;
 import org.chromium.chrome.browser.ui.favicon.FaviconHelperJni;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
+import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.chrome.browser.ui.system.StatusBarColorController;
 import org.chromium.components.browser_ui.accessibility.PageZoomManager;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager;
 import org.chromium.components.browser_ui.device_lock.DeviceLockActivityLauncher;
 import org.chromium.components.browser_ui.styles.IncognitoColors;
+import org.chromium.components.browser_ui.util.BrowserControlsVisibilityDelegate;
 import org.chromium.components.browser_ui.widget.scrim.ScrimManager;
 import org.chromium.components.favicon.LargeIconBridge;
 import org.chromium.components.favicon.LargeIconBridgeJni;
 import org.chromium.components.feature_engagement.Tracker;
+import org.chromium.components.omnibox.AutocompleteInput;
 import org.chromium.components.omnibox.OmniboxFocusReason;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.search_engines.TemplateUrlService;
@@ -148,6 +157,7 @@ import org.chromium.ui.util.TokenHolder;
 import org.chromium.url.GURL;
 
 import java.lang.ref.WeakReference;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.function.Supplier;
 
@@ -156,7 +166,8 @@ import java.util.function.Supplier;
 @EnableFeatures({
     ChromeFeatureList.HTTPS_FIRST_DIALOG_UI,
     SigninFeatures.ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT,
-    SigninFeatures.ENABLE_SEAMLESS_SIGNIN
+    SigninFeatures.ENABLE_SEAMLESS_SIGNIN,
+    ChromeFeatureList.GLIC
 })
 @DisableFeatures({SigninFeatures.MAKE_IDENTITY_MANAGER_SOURCE_OF_ACCOUNTS})
 public class ToolbarManagerUnitTest {
@@ -229,6 +240,7 @@ public class ToolbarManagerUnitTest {
     @Mock private PropertyModel mActionPropertyModel;
     @Mock private ActorKeyedService mActorKeyedService;
     @Mock private GlicKeyedService mGlicKeyedService;
+    @Mock private TabBottomSheetManager mTabBottomSheetManager;
     @Mock private PrefService mPrefService;
     @Mock private TabModel mIncognitoTabModel;
     @Mock private Profile mIncognitoProfile;
@@ -244,6 +256,7 @@ public class ToolbarManagerUnitTest {
     public void setUp() {
         ActorKeyedServiceFactory.setForTesting(mActorKeyedService);
         GlicKeyedServiceFactory.setForTesting(mGlicKeyedService);
+        GlicEnabling.setEnabledForTesting(true);
         ComposeboxQueryControllerBridge.setInstanceForTesting(null);
         ChromeAutocompleteSchemeClassifierJni.setInstanceForTesting(
                 mChromeAutocompleteSchemeClassifierJni);
@@ -442,7 +455,8 @@ public class ToolbarManagerUnitTest {
                         mOmniboxChipManager,
                         mBottomBarHostManager,
                         mActionRegistry,
-                        /* toggleGlicCallback= */ (preventClose, invocationSource) -> {});
+                        /* toggleGlicCallback= */ (preventClose, invocationSource) -> {},
+                        /* suppressTabStripAtStart= */ false);
 
         NonNullObservableSupplier<TabModelDotInfo> dotSupplier =
                 ObservableSuppliers.createNonNull(mTabModelDotInfo);
@@ -468,15 +482,15 @@ public class ToolbarManagerUnitTest {
 
     @Test
     public void testSetUrlBarFocusAfterDestroy() {
-        mToolbarManager.setUrlBarFocus(true, OmniboxFocusReason.OMNIBOX_TAP);
+        mToolbarManager.beginFuseboxInput(new AutocompleteInput(OmniboxFocusReason.OMNIBOX_TAP));
         assertTrue(mToolbarManager.isUrlBarFocused());
 
-        mToolbarManager.setUrlBarFocus(false, OmniboxFocusReason.OMNIBOX_TAP);
+        mToolbarManager.endFuseboxInput();
         assertFalse(mToolbarManager.isUrlBarFocused());
 
         mToolbarManager.destroy();
 
-        mToolbarManager.setUrlBarFocus(true, OmniboxFocusReason.OMNIBOX_TAP);
+        mToolbarManager.beginFuseboxInput(new AutocompleteInput(OmniboxFocusReason.OMNIBOX_TAP));
         assertFalse(mToolbarManager.isUrlBarFocused());
     }
 
@@ -541,5 +555,181 @@ public class ToolbarManagerUnitTest {
                 actualColor);
 
         mToolbarManager.destroy();
+    }
+
+    @Test
+    public void testHomeButtonClickCollapsesBottomSheet() {
+        TabBottomSheetUtils.attachManagerToWindow(mWindowAndroid, mTabBottomSheetManager);
+
+        AppCompatActivity activity = mActivityController.get();
+        View homeButton = activity.findViewById(R.id.home_button);
+        assertNotNull("Home button should be present", homeButton);
+        homeButton.performClick();
+
+        verify(mTabBottomSheetManager).setSheetExpanded(false);
+
+        mToolbarManager.destroy();
+    }
+
+    @Test
+    @EnableFeatures(
+            ChromeFeatureList.ANDROID_BOTTOM_BAR
+                    + ":ntp_scroll_off_enabled/true/disable_on_ntp/false")
+    public void testBottomBarConstraintsSupplier_ntpScrollOffEnabled() {
+        var supplier = mToolbarManager.getBottomBarConstraintsSupplierForTesting();
+        Tab ntpTab = mockTab(/* isNtp= */ true);
+        BrowserControlsVisibilityDelegate visibilityDelegate =
+                new BrowserControlsVisibilityDelegate(BrowserControlsState.SHOWN);
+        setMockConstraintsHelper(ntpTab, visibilityDelegate);
+
+        mActivityTabProvider.setForTesting(ntpTab);
+        RobolectricUtil.runAllBackgroundAndUi();
+
+        // Because NTP scroll-off returns true, the supplier should return BOTH even though the tab
+        // constraints are SHOWN.
+        assertEquals(BrowserControlsState.BOTH, supplier.get().intValue());
+
+        mToolbarManager.destroy();
+    }
+
+    @Test
+    @EnableFeatures(
+            ChromeFeatureList.ANDROID_BOTTOM_BAR
+                    + ":ntp_scroll_off_enabled/false/disable_on_ntp/false")
+    public void testBottomBarConstraintsSupplier_ntpScrollOffDisabledButForcedBoth() {
+        var supplier = mToolbarManager.getBottomBarConstraintsSupplierForTesting();
+        Tab ntpTab = mockTab(/* isNtp= */ true);
+        BrowserControlsVisibilityDelegate visibilityDelegate =
+                new BrowserControlsVisibilityDelegate(BrowserControlsState.SHOWN);
+        setMockConstraintsHelper(ntpTab, visibilityDelegate);
+
+        mActivityTabProvider.setForTesting(ntpTab);
+        RobolectricUtil.runAllBackgroundAndUi();
+
+        // Even if scroll-off is disabled, we force BOTH on NTP to allow screenshots.
+        assertEquals(BrowserControlsState.BOTH, supplier.get().intValue());
+
+        mToolbarManager.destroy();
+    }
+
+    @Test
+    @EnableFeatures(
+            ChromeFeatureList.ANDROID_BOTTOM_BAR
+                    + ":ntp_scroll_off_enabled/true/disable_on_ntp/true")
+    public void testBottomBarConstraintsSupplier_disableOnNtpEnabled() {
+        var supplier = mToolbarManager.getBottomBarConstraintsSupplierForTesting();
+        Tab ntpTab = mockTab(/* isNtp= */ true);
+        BrowserControlsVisibilityDelegate visibilityDelegate =
+                new BrowserControlsVisibilityDelegate(BrowserControlsState.SHOWN);
+        setMockConstraintsHelper(ntpTab, visibilityDelegate);
+
+        mActivityTabProvider.setForTesting(ntpTab);
+        RobolectricUtil.runAllBackgroundAndUi();
+
+        // If bottom bar is disabled on NTP, we should not force BOTH constraints (should return
+        // SHOWN).
+        assertEquals(BrowserControlsState.SHOWN, supplier.get().intValue());
+
+        mToolbarManager.destroy();
+    }
+
+    @Test
+    @EnableFeatures(
+            ChromeFeatureList.ANDROID_BOTTOM_BAR
+                    + ":ntp_scroll_off_enabled/true/disable_on_ntp/false")
+    public void testBottomBarConstraintsSupplier_normalPage() {
+        var supplier = mToolbarManager.getBottomBarConstraintsSupplierForTesting();
+        Tab normalTab = mockTab(/* isNtp= */ false);
+        BrowserControlsVisibilityDelegate visibilityDelegate =
+                new BrowserControlsVisibilityDelegate(BrowserControlsState.SHOWN);
+        setMockConstraintsHelper(normalTab, visibilityDelegate);
+
+        mActivityTabProvider.setForTesting(normalTab);
+        RobolectricUtil.runAllBackgroundAndUi();
+
+        // On a normal page, the supplier should respect the tab constraints (SHOWN).
+        assertEquals(BrowserControlsState.SHOWN, supplier.get().intValue());
+
+        mToolbarManager.destroy();
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
+    public void testBottomBarConstraintsSupplier_bottomBarFeatureDisabled() {
+        var supplier = mToolbarManager.getBottomBarConstraintsSupplierForTesting();
+        Tab ntpTab = mockTab(/* isNtp= */ true);
+        BrowserControlsVisibilityDelegate visibilityDelegate =
+                new BrowserControlsVisibilityDelegate(BrowserControlsState.SHOWN);
+        setMockConstraintsHelper(ntpTab, visibilityDelegate);
+
+        mActivityTabProvider.setForTesting(ntpTab);
+        RobolectricUtil.runAllBackgroundAndUi();
+
+        // When the bottom bar feature is disabled, the constraints should not be forced to BOTH.
+        assertEquals(Integer.valueOf(BrowserControlsState.SHOWN), supplier.get());
+
+        mToolbarManager.destroy();
+    }
+
+    @Test
+    @EnableFeatures(
+            ChromeFeatureList.ANDROID_BOTTOM_BAR
+                    + ":ntp_scroll_off_enabled/true/disable_on_ntp/false")
+    public void testBottomBarConstraintsSupplier_incognitoNtpForcedBoth() {
+        var supplier = mToolbarManager.getBottomBarConstraintsSupplierForTesting();
+        Tab ntpTab = mockTab(/* isNtp= */ true, /* isIncognito= */ true);
+        BrowserControlsVisibilityDelegate visibilityDelegate =
+                new BrowserControlsVisibilityDelegate(BrowserControlsState.SHOWN);
+        setMockConstraintsHelper(ntpTab, visibilityDelegate);
+
+        mActivityTabProvider.setForTesting(ntpTab);
+        RobolectricUtil.runAllBackgroundAndUi();
+
+        // For bottom controls, we force BOTH constraints on incognito NTP to allow screenshot
+        // updates,
+        // even though tab constraints are SHOWN.
+        assertEquals(BrowserControlsState.BOTH, supplier.get().intValue());
+
+        mToolbarManager.destroy();
+    }
+
+    private Tab mockTab(boolean isNtp) {
+        return mockTab(isNtp, false);
+    }
+
+    private Tab mockTab(boolean isNtp, boolean isIncognito) {
+        Tab tab = mock(Tab.class);
+        when(tab.getProfile()).thenReturn(isIncognito ? mIncognitoProfile : mProfile);
+        when(tab.getTabViewManager()).thenReturn(mTabViewManager);
+        UserDataHost userDataHost = new UserDataHost();
+        when(tab.getUserDataHost()).thenReturn(userDataHost);
+        when(tab.isInitialized()).thenReturn(true);
+        when(tab.getUrl()).thenReturn(GURL.emptyGURL());
+        when(tab.isIncognito()).thenReturn(isIncognito);
+
+        if (isNtp) {
+            NativePage ntpPage = mock(NativePage.class);
+            when(ntpPage.getHost()).thenReturn("newtab");
+            when(tab.getNativePage()).thenReturn(ntpPage);
+        } else {
+            when(tab.getNativePage()).thenReturn(null);
+        }
+        return tab;
+    }
+
+    private void setMockConstraintsHelper(
+            Tab tab, BrowserControlsVisibilityDelegate visibilityDelegate) {
+        try {
+            TabBrowserControlsConstraintsHelper helper =
+                    mock(TabBrowserControlsConstraintsHelper.class);
+            Field field =
+                    TabBrowserControlsConstraintsHelper.class.getDeclaredField(
+                            "mVisibilityDelegate");
+            field.setAccessible(true);
+            field.set(helper, visibilityDelegate);
+            TabBrowserControlsConstraintsHelper.setForTesting(tab, helper);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }

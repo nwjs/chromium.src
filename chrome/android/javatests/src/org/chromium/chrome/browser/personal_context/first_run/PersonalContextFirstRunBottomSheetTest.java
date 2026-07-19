@@ -113,9 +113,9 @@ public class PersonalContextFirstRunBottomSheetTest {
 
         BottomSheetTestSupport.waitForOpen(mBottomSheetController);
 
-        onView(withText(R.string.accessibility_annotator_info_primary_button)).perform(click());
+        onView(withText(R.string.personal_context_notice_primary_button)).perform(click());
 
-        verify(mDelegate).onInfoAcknowledged();
+        verify(mDelegate).onNoticeAcknowledged();
     }
 
     @Test
@@ -167,7 +167,7 @@ public class PersonalContextFirstRunBottomSheetTest {
 
         BottomSheetTestSupport.waitForOpen(mBottomSheetController);
 
-        onView(withText(R.string.accessibility_annotator_info_secondary_button)).perform(click());
+        onView(withText(R.string.personal_context_notice_secondary_button)).perform(click());
 
         verify(mDelegate).onManageSettingsClicked();
     }

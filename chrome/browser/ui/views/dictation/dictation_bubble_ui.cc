@@ -4,9 +4,11 @@
 
 #include "chrome/browser/ui/views/dictation/dictation_bubble_ui.h"
 
+#include "base/memory/raw_ptr.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
 #include "chrome/browser/ui/views/interaction/browser_elements_views.h"
+#include "chrome/grit/branded_strings.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
 #include "ui/base/interaction/element_identifier.h"
@@ -38,6 +40,8 @@ DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(DictationBubbleUi,
                                       kViewElementIdForTesting);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(DictationBubbleUi,
                                       kCloseButtonElementIdForTesting);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(DictationBubbleUi,
+                                      kToggleButtonElementIdForTesting);
 
 namespace {
 
@@ -45,21 +49,30 @@ namespace {
 class DictationToastView : public views::View {
   METADATA_HEADER(DictationToastView, views::View)
  public:
-  explicit DictationToastView(base::RepeatingClosure close_callback);
+  explicit DictationToastView(
+      base::RepeatingClosure close_callback,
+      base::RepeatingClosure toggle_active_stream_callback);
   ~DictationToastView() override;
 
   void Init();
+  void UpdateForState(DictationBubbleUi::State state);
 
  private:
   base::RepeatingClosure close_callback_;
+  base::RepeatingClosure toggle_active_stream_callback_;
+  raw_ptr<views::Label> label_view_ = nullptr;
+  raw_ptr<views::MdTextButton> toggle_button_ = nullptr;
 };
 
 }  // namespace
 
 // --- DictationToastView ---
 
-DictationToastView::DictationToastView(base::RepeatingClosure close_callback)
-    : close_callback_(std::move(close_callback)) {
+DictationToastView::DictationToastView(
+    base::RepeatingClosure close_callback,
+    base::RepeatingClosure toggle_active_stream_callback)
+    : close_callback_(std::move(close_callback)),
+      toggle_active_stream_callback_(std::move(toggle_active_stream_callback)) {
   SetProperty(views::kElementIdentifierKey,
               DictationBubbleUi::kViewElementIdForTesting);
 }
@@ -77,9 +90,18 @@ void DictationToastView::Init() {
   // TODO(b/510738735): Finalize placeholder strings.
   // TODO(b/512495405): Wrap the visual aspects of the view into a model so this
   // setup is common across elements..
+  views::ImageView* mic_icon =
+      AddChildView(std::make_unique<views::ImageView>());
+  mic_icon->SetImage(ui::ImageModel::FromVectorIcon(
+      vector_icons::kMicIcon, ui::kColorSysOnSurface,
+      lp->GetDistanceMetric(DISTANCE_TOAST_BUBBLE_ICON_SIZE)));
+
+  // TODO(b/527101202): Replace this placeholder label with the actual waveform
+  // icon once it is implemented.
   views::Label* label_view = AddChildView(
       std::make_unique<views::Label>(u"<placehold>", CONTEXT_TOAST_BODY_TEXT));
-  label_view->SetEnabledColor(ui::kColorToastForeground);
+  label_view_ = label_view;
+  label_view->SetEnabledColor(ui::kColorSysOnSurface);
   label_view->SetMultiLine(false);
   label_view->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   label_view->SetAllowCharacterBreak(false);
@@ -94,35 +116,37 @@ void DictationToastView::Init() {
   label_view->SetProperty(
       views::kFlexBehaviorKey,
       views::FlexSpecification(views::LayoutOrientation::kHorizontal,
-                               views::MinimumFlexSizeRule::kScaleToZero));
+                               views::MinimumFlexSizeRule::kPreferred,
+                               views::MaximumFlexSizeRule::kPreferred));
 
-  views::MdTextButton* done_button =
+  views::MdTextButton* toggle_button =
       AddChildView(std::make_unique<views::MdTextButton>(
-          base::RepeatingClosure(), l10n_util::GetStringUTF16(IDS_DONE)));
-  done_button->SetEnabledTextColors(ui::kColorToastButton);
-  done_button->SetBgColorIdOverride(ui::kColorToastBackgroundProminent);
-  done_button->SetStrokeColorIdOverride(ui::kColorToastButton);
-  done_button->SetPreferredSize(gfx::Size(
-      done_button->GetPreferredSize().width(),
+          toggle_active_stream_callback_, l10n_util::GetStringUTF16(IDS_DONE)));
+  toggle_button_ = toggle_button;
+  toggle_button->SetPreferredSize(gfx::Size(
+      toggle_button->GetPreferredSize().width(),
       lp->GetDistanceMetric(DISTANCE_TOAST_BUBBLE_HEIGHT_ACTION_BUTTON)));
-  done_button->SetStyle(ui::ButtonStyle::kProminent);
-  done_button->SetProperty(
+  toggle_button->SetStyle(ui::ButtonStyle::kProminent);
+  toggle_button->SetProperty(
       views::kMarginsKey,
       gfx::Insets::TLBR(
           0,
           lp->GetDistanceMetric(
               DISTANCE_TOAST_BUBBLE_BETWEEN_LABEL_ACTION_BUTTON_SPACING),
           0, 0));
+  toggle_button->SetProperty(
+      views::kElementIdentifierKey,
+      DictationBubbleUi::kToggleButtonElementIdForTesting);
 
   views::ImageButton* close_button =
       AddChildView(views::CreateVectorImageButtonWithNativeTheme(
           close_callback_,
           features::IsRoundedIconsEnabled()
-              ? vector_icons::kCloseSmallIcon
+              ? vector_icons::kCloseIcon
               : vector_icons::kCloseChromeRefreshOldIcon,
           lp->GetDistanceMetric(DISTANCE_TOAST_BUBBLE_ICON_SIZE),
-          ui::kColorToastForeground, ui::kColorIconDisabled,
-          ui::kColorToastForeground));
+          ui::kColorSysOnSurface, ui::kColorIconDisabled,
+          ui::kColorSysOnSurface));
   const gfx::Insets insets =
       lp->GetInsetsMetric(views::InsetsMetric::INSETS_VECTOR_IMAGE_BUTTON);
   close_button->SetBorder(views::CreateEmptyBorder(insets));
@@ -137,21 +161,65 @@ void DictationToastView::Init() {
                             DictationBubbleUi::kCloseButtonElementIdForTesting);
 }
 
+void DictationToastView::UpdateForState(DictationBubbleUi::State state) {
+  if (label_view_) {
+    // TODO(b/525859441): Replace the placeholder label_view_
+    // with the waveform animated icon.
+    switch (state) {
+      case DictationBubbleUi::State::kInactive:
+        label_view_->SetText(u"Inactive");
+        break;
+      case DictationBubbleUi::State::kInitializing:
+        label_view_->SetText(u"Initializing...");
+        break;
+      case DictationBubbleUi::State::kTranscribing:
+        label_view_->SetText(u"Listening...");
+        break;
+      case DictationBubbleUi::State::kFinalizing:
+        label_view_->SetText(u"Finalizing...");
+        break;
+    }
+  }
+
+  if (toggle_button_) {
+    switch (state) {
+      case DictationBubbleUi::State::kInactive:
+        // TODO(b/510738735): Finalize placeholder strings.
+        toggle_button_->SetText(
+            l10n_util::GetStringUTF16(IDS_DICTATION_BUTTON_START));
+        toggle_button_->SetEnabled(true);
+        break;
+      case DictationBubbleUi::State::kInitializing:
+      case DictationBubbleUi::State::kTranscribing:
+        toggle_button_->SetText(l10n_util::GetStringUTF16(IDS_DONE));
+        toggle_button_->SetEnabled(true);
+        break;
+      case DictationBubbleUi::State::kFinalizing:
+        toggle_button_->SetText(l10n_util::GetStringUTF16(IDS_DONE));
+        toggle_button_->SetEnabled(false);
+        break;
+    }
+  }
+}
+
 BEGIN_METADATA(DictationToastView)
 END_METADATA
 
 // --- DictationToastBubbleDelegate ---
 
-DictationBubbleUi::DictationBubbleUi(views::View* anchor_view,
-                                     base::RepeatingClosure close_callback)
+DictationBubbleUi::DictationBubbleUi(
+    views::View* anchor_view,
+    base::RepeatingClosure close_callback,
+    base::RepeatingClosure toggle_active_stream_callback)
     : BubbleDialogDelegate(anchor_view, views::BubbleBorder::NONE) {
-  SetBackgroundColor(ui::kColorToastBackgroundProminent);
+  SetBackgroundColor(ui::kColorBubbleBackground);
   SetShowCloseButton(false);
   DialogDelegate::SetButtons(static_cast<int>(ui::mojom::DialogButton::kNone));
   set_corner_radius(ChromeLayoutProvider::Get()->GetDistanceMetric(
       DISTANCE_TOAST_BUBBLE_HEIGHT));
   set_close_on_deactivate(false);
-  SetContentsView(std::make_unique<DictationToastView>(close_callback));
+  SetContentsView(std::make_unique<DictationToastView>(
+      std::move(close_callback), std::move(toggle_active_stream_callback)));
 
   // TODO(crbug.com/509983464): Update this to call an undeprecated factory
   // function when this bug is fixed.
@@ -169,9 +237,22 @@ void DictationBubbleUi::Show() {
   widget_->ShowInactive();
 }
 
+void DictationBubbleUi::SetState(State state) {
+  state_ = state;
+  if (GetContentsView()) {
+    views::AsViewClass<DictationToastView>(GetContentsView())
+        ->UpdateForState(state);
+  }
+  if (GetWidget()) {
+    SizeToContents();
+  }
+}
+
 void DictationBubbleUi::Init() {
   CHECK(GetContentsView());
-  views::AsViewClass<DictationToastView>(GetContentsView())->Init();
+  auto* toast_view = views::AsViewClass<DictationToastView>(GetContentsView());
+  toast_view->Init();
+  toast_view->UpdateForState(state_);
 
   const auto* const layout_provider = ChromeLayoutProvider::Get();
   const gfx::Insets insets = layout_provider->GetInsetsMetric(
@@ -198,7 +279,7 @@ void DictationBubbleUi::Init() {
 
 gfx::Rect DictationBubbleUi::GetBubbleBounds() {
   views::View* anchor_view = GetAnchorView();
-  if (!anchor_view) {
+  if (!anchor_view || !GetWidget()) {
     return gfx::Rect();
   }
 
@@ -214,7 +295,10 @@ gfx::Rect DictationBubbleUi::GetBubbleBounds() {
                std::max(anchor_bounds.width() - 2 * minimum_margin, 0));
   const int x = anchor_bounds.x() + ((anchor_bounds.width() - width) / 2);
 
-  const int y = anchor_bounds.bottom() - (preferred_size.height() / 2);
+  // Overlap the bottom of the toolbar/omnibox by only a few pixels (e.g. 10
+  // dip).
+  constexpr int kOverlapAmount = 10;
+  const int y = anchor_bounds.bottom() - kOverlapAmount;
   return gfx::Rect(x, y, width, preferred_size.height());
 }
 

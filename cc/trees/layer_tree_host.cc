@@ -794,9 +794,6 @@ void LayerTreeHost::OnDeferCommitsChanged(bool defer_status,
   client_->OnDeferCommitsChanged(defer_status, reason);
 }
 
-void LayerTreeHost::SetShouldThrottleFrameRate(bool flag) {
-  proxy_->SetShouldThrottleFrameRate(flag);
-}
 
 ScopedRequestHighFramerate::ScopedRequestHighFramerate(LayerTreeHost* host)
     : host_(host->weak_ptr_factory_.GetWeakPtr()) {
@@ -842,9 +839,10 @@ void LayerTreeHost::SetNeedsUpdateLayers() {
   events_metrics_manager_.SaveActiveEventMetrics();
 }
 
-void LayerTreeHost::SetNeedsCommit() {
+void LayerTreeHost::SetNeedsCommit(bool urgent) {
+  TRACE_EVENT("cc", __PRETTY_FUNCTION__, "urgent", urgent);
   DCHECK(IsMainThread());
-  proxy_->SetNeedsCommit();
+  proxy_->SetNeedsCommit(urgent);
   swap_promise_manager_.NotifyLatencyInfoSwapPromiseMonitors();
   events_metrics_manager_.SaveActiveEventMetrics();
 }
@@ -1243,6 +1241,7 @@ void LayerTreeHost::ApplyCompositorChanges(CompositorCommitData* commit_data) {
   }
 
   client_->UpdateCompositorScrollState(*commit_data);
+  client_->UpdateAnimatedImageState(*commit_data);
 
   // This needs to happen after scroll deltas have been sent to prevent top
   // controls from clamping the layout viewport both on the compositor and
@@ -1301,9 +1300,9 @@ void LayerTreeHost::UpdateBrowserControlsState(
 void LayerTreeHost::AnimateLayers(base::TimeTicks monotonic_time) {
   std::unique_ptr<MutatorEvents> events = mutator_host()->CreateEvents();
 
-  if (mutator_host()->TickAnimations(monotonic_time,
-                                     property_trees()->scroll_tree(), true,
-                                     events.get())) {
+  AnimationTickResult tick_result = mutator_host()->TickAnimations(
+      monotonic_time, property_trees()->scroll_tree(), true, events.get());
+  if (tick_result.animated) {
     mutator_host()->UpdateAnimationState(true, events.get());
   }
 
@@ -1477,14 +1476,16 @@ void LayerTreeHost::SetViewportRectAndScale(
     const gfx::Rect& device_viewport_rect,
     float device_scale_factor,
     const viz::LocalSurfaceId& local_surface_id_from_parent) {
+  TRACE_EVENT("cc", __PRETTY_FUNCTION__);
   const viz::LocalSurfaceId previous_local_surface_id =
       pending_commit_state()->local_surface_id_from_parent;
   SetLocalSurfaceIdFromParent(local_surface_id_from_parent);
 
+  const auto size_track =
+      perfetto::NamedTrack::FromPointer("LayerTreeHostSize", this);
   TRACE_EVENT_END("cc", /*"LayerTreeHostSize"*/
-                  perfetto::Track::FromPointer(this), "id", id_);
-  TRACE_EVENT_BEGIN("cc", "LayerTreeHostSize",
-                    perfetto::Track::FromPointer(this), "size",
+                  size_track, "id", id_);
+  TRACE_EVENT_BEGIN("cc", "LayerTreeHostSize", size_track, "size",
                     device_viewport_rect.ToString(), "lsid",
                     local_surface_id_from_parent.ToString());
 
@@ -1520,7 +1521,10 @@ void LayerTreeHost::SetViewportRectAndScale(
   if (device_viewport_rect_changed || painted_device_scale_factor_changed ||
       device_scale_factor_changed) {
     SetPropertyTreesNeedRebuild();
-    SetNeedsCommit();
+    // Urgent because we want resize to be reflected immediately. For instance
+    // if a side panel is expanding / contracting, we want the content to reflow
+    // as quickly as possible.
+    SetNeedsCommit(/*urgent=*/true);
   }
 }
 
@@ -2180,6 +2184,28 @@ void LayerTreeHost::DropActiveScrollDeltaNextCommit(ElementId scroll_element) {
   pending_commit_state()->scrollers_clobbering_active_value.insert(
       scroll_element);
   SetNeedsCommit();
+}
+
+void LayerTreeHost::SetUnboundedFrameSink(
+    std::unique_ptr<LayerTreeFrameSink> unbounded_frame_sink,
+    const viz::LocalSurfaceId& local_surface_id) {
+  DCHECK(settings_.enable_unbounded_element);
+  DCHECK(IsMainThread());
+  proxy_->SetUnboundedFrameSink(std::move(unbounded_frame_sink),
+                                local_surface_id);
+}
+
+void LayerTreeHost::DismissUnboundedFrameSink() {
+  DCHECK(settings_.enable_unbounded_element);
+  DCHECK(IsMainThread());
+  proxy_->DismissUnboundedFrameSink();
+}
+
+void LayerTreeHost::SetUnboundedLocalSurfaceId(
+    const viz::LocalSurfaceId& local_surface_id) {
+  DCHECK(settings_.enable_unbounded_element);
+  DCHECK(IsMainThread());
+  proxy_->SetUnboundedLocalSurfaceId(local_surface_id);
 }
 
 }  // namespace cc

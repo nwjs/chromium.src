@@ -6,6 +6,8 @@
 #define SERVICES_DEVICE_USB_MOJO_DEVICE_IMPL_H_
 
 #include <stdint.h>
+
+#include <optional>
 #include <vector>
 
 #include "base/containers/flat_set.h"
@@ -70,6 +72,15 @@ class DeviceImpl : public mojom::UsbDevice, public device::UsbDevice::Observer {
       uint8_t request,
       uint16_t index);
 
+  const mojom::UsbInterfaceInfo* FindInterface(
+      const mojom::UsbConfigurationInfo* config,
+      uint8_t interface_number) const;
+  std::optional<uint8_t> FindBlockedClass(
+      const mojom::UsbInterfaceInfo* interface) const;
+  bool HasProtectedInterface(const mojom::UsbConfigurationInfo* config) const;
+  bool AllowAndLog(WebUsbControlTransferPermissionOutcome outcome);
+  bool BlockAndLog(WebUsbControlTransferPermissionOutcome outcome);
+
   // Handles completion of an open request.
   static void OnOpen(base::WeakPtr<DeviceImpl> device,
                      OpenCallback callback,
@@ -123,6 +134,9 @@ class DeviceImpl : public mojom::UsbDevice, public device::UsbDevice::Observer {
   void OnDeviceRemoved(scoped_refptr<device::UsbDevice> device) override;
 
   void OnInterfaceClaimed(ClaimInterfaceCallback callback, bool success);
+  void OnSetInterfaceAlternateSettingComplete(
+      SetInterfaceAlternateSettingCallback callback,
+      bool success);
   void OnSetConfigurationComplete(SetConfigurationCallback callback,
                                   bool success);
   void OnResetComplete(ResetCallback callback, bool success);

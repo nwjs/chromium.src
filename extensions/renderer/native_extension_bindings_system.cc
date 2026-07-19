@@ -50,7 +50,6 @@
 #include "extensions/renderer/get_script_context.h"
 #include "extensions/renderer/ipc_message_sender.h"
 #include "extensions/renderer/module_system.h"
-#include "extensions/renderer/polyfill_util.h"
 #include "extensions/renderer/renderer_extension_registry.h"
 #include "extensions/renderer/renderer_frame_context_data.h"
 #include "extensions/renderer/script_context.h"
@@ -669,15 +668,15 @@ void NativeExtensionBindingsSystem::UpdateBindingsForContext(
   const Extension* extension = context->extension();
   //  Create if this is an MV3+ extension script context.
   if (extension && extension->manifest_version() >= 3 &&
-      IsExtensionBrowserNamespaceAndPolyfillSupportEnabledForExtension(
-          extension)) {
+      chrome_manifest_urls::GetDevToolsPage(extension).is_empty()) {
     set_accessor_on_browser = true;
-  } else if (is_webpage && CanWebpageContextConnectExternally(context) &&
-             base::FeatureList::IsEnabled(
-                 extensions_features::
-                     kExtensionBrowserNamespaceAndPolyfillSupport)) {
+  } else if (is_webpage &&
+             (CanWebpageContextConnectExternally(context) ||
+              base::FeatureList::IsEnabled(
+                  extensions_features::kExtensionBrowserNamespaceOnWebPages))) {
     //  Create if this is a web page and it can communicate with an extension
-    //  (meaning it will have an extension API enabled for it).
+    //  (meaning it will have an extension API enabled for it) or we've
+    //  explicitly enabled it for webpages.
     set_accessor_on_browser = true;
   }
 
@@ -825,10 +824,13 @@ void NativeExtensionBindingsSystem::UpdateBindingsForContext(
       }
     }
 
+    if (set_accessor_on_browser && !browser) {
+      browser = GetOrCreateGlobalObjectProperty(v8_context, "browser");
+    }
+
     set_accessor_hidden("app");
     set_accessor_hidden("runtime");
     set_accessor_nw("Window");
-
     UpdateContentCapabilities(context);
     return;
   }
@@ -913,6 +915,11 @@ void NativeExtensionBindingsSystem::UpdateBindingsForContext(
       }
     }
   }
+
+  // We don't need to check if `browser` was created here for extension
+  // contexts because they are guaranteed to have at least one API registered
+  // (e.g., 'runtime'), which will force the creation of the `browser` object
+  // in `set_accessor`.
 }
 
 void NativeExtensionBindingsSystem::DispatchEventInContext(
@@ -1010,7 +1017,7 @@ void NativeExtensionBindingsSystem::BindingAccessorHidden(
     const v8::PropertyCallbackInfo<v8::Value>& info) {
   v8::Isolate* isolate = info.GetIsolate();
   v8::HandleScope handle_scope(isolate);
-  v8::Local<v8::Context> context = info.HolderV2()->GetCreationContextChecked();
+  v8::Local<v8::Context> context = info.Holder()->GetCreationContextChecked();
 
   // Force binding creation in the owning context (even if another context is
   // calling in). This is also important to ensure that objects created through

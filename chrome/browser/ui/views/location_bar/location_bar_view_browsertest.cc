@@ -43,10 +43,12 @@
 #include "chrome/browser/ui/views/page_action/page_action_icon_controller.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_view.h"
+#include "chrome/browser/ui/views/page_action/test_support/page_action_test_support.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/lens/lens_features.h"
+#include "components/omnibox/browser/aim_eligibility_service_features.h"
 #include "components/omnibox/browser/location_bar_model_impl.h"
 #include "components/omnibox/browser/omnibox_field_trial.h"
 #include "components/omnibox/browser/omnibox_prefs.h"
@@ -130,7 +132,9 @@ class LocationBarViewBrowserTest : public InProcessBrowserTest {
     auto* toolbar_button_provider =
         BrowserView::GetBrowserViewForBrowser(browser())
             ->toolbar_button_provider();
-    return toolbar_button_provider->GetPageActionView(kActionZoomNormal);
+    return page_actions::GetIconLabelBubbleViewForTesting(
+        toolbar_button_provider->GetPageActionViewInterface(kActionZoomNormal),
+        kActionZoomNormal);
   }
 
   ContentSettingImageView& GetContentSettingImageView(
@@ -248,7 +252,7 @@ IN_PROC_BROWSER_TEST_F(LocationBarViewBrowserTest, BubblesCloseOnHide) {
   EXPECT_TRUE(zoom_view->GetVisible());
   EXPECT_TRUE(zoom_bubble_coordinator_->bubble());
 
-  chrome::NewTab(browser());
+  chrome::NewTab(browser(), NewTabTypes::kNoUserAction);
   chrome::SelectNextTab(browser());
 
   base::RunLoop().RunUntilIdle();
@@ -528,7 +532,7 @@ class LocationBarViewPageActionsMigrationTest
         {{::features::kPageActionsMigration,
           {{::features::kPageActionsMigrationBookmarkStar.name, "false"}}},
          {lens::features::kLensOverlayOmniboxEntryPoint, {}}},
-        {omnibox::kAiModeOmniboxEntryPoint});
+        {});
   }
   ~LocationBarViewPageActionsMigrationTest() override = default;
 

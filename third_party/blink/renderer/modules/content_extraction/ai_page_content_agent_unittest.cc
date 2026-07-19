@@ -12,14 +12,18 @@
 
 #include "base/functional/bind.h"
 #include "base/logging.h"
+#include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
+#include "base/test/bind.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/mock_log.h"
 #include "base/trace_event/trace_event.h"
+#include "mojo/public/cpp/base/big_buffer.h"
 #include "mojo/public/cpp/test_support/test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/frame/frame_ad_evidence.h"
 #include "third_party/blink/public/common/input/web_mouse_event.h"
-#include "third_party/blink/public/mojom/content_extraction/ai_page_content.mojom-shared.h"
+#include "third_party/blink/public/mojom/content_extraction/ai_page_content.mojom.h"
 #include "third_party/blink/public/web/web_script_source.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_testing.h"
 #include "third_party/blink/renderer/core/accessibility/ax_context.h"
@@ -203,12 +207,14 @@ class AIPageContentAgentTest : public testing::Test {
   }
 
   void CheckImageNode(const mojom::blink::AIPageContentNode& node,
-                      const String& expected_caption) {
+                      const String& expected_caption,
+                      const KURL& expected_url) {
     const auto& attributes = *node.content_attributes;
     EXPECT_EQ(attributes.attribute_type,
               mojom::blink::AIPageContentAttributeType::kImage);
     ASSERT_TRUE(attributes.image_info);
     EXPECT_EQ(attributes.image_info->image_caption, expected_caption);
+    EXPECT_EQ(attributes.image_info->url, expected_url);
   }
 
   void CheckAnchorNode(
@@ -221,7 +227,7 @@ class AIPageContentAgentTest : public testing::Test {
     ASSERT_TRUE(attributes.anchor_data);
     EXPECT_EQ(attributes.anchor_data->url, expected_url);
     ASSERT_EQ(attributes.anchor_data->rel.size(), expected_rels.size());
-    for (size_t i = 0; i < expected_rels.size(); ++i) {
+    for (wtf_size_t i = 0; i < expected_rels.size(); ++i) {
       EXPECT_EQ(attributes.anchor_data->rel[i], expected_rels[i]);
     }
   }
@@ -257,6 +263,18 @@ class AIPageContentAgentTest : public testing::Test {
     const auto& attributes = *node.content_attributes;
     EXPECT_EQ(attributes.attribute_type,
               mojom::blink::AIPageContentAttributeType::kContainer);
+  }
+
+  void CheckModalDialogNode(const mojom::blink::AIPageContentNode& node) {
+    const auto& attributes = *node.content_attributes;
+    EXPECT_EQ(attributes.attribute_type,
+              mojom::blink::AIPageContentAttributeType::kDialogModal);
+  }
+
+  void CheckModelessDialogNode(const mojom::blink::AIPageContentNode& node) {
+    const auto& attributes = *node.content_attributes;
+    EXPECT_EQ(attributes.attribute_type,
+              mojom::blink::AIPageContentAttributeType::kDialogModeless);
   }
 
   void CheckHeadingNode(const mojom::blink::AIPageContentNode& node) {
@@ -472,7 +490,7 @@ class AIPageContentAgentTest : public testing::Test {
           *node->content_attributes->dom_node_id == dom_node_id) {
         return node;
       }
-      for (size_t i = node->children_nodes.size(); i > 0; --i) {
+      for (wtf_size_t i = node->children_nodes.size(); i > 0; --i) {
         stack.push_back(node->children_nodes[i - 1].get());
       }
     }
@@ -935,13 +953,44 @@ TEST_F(AIPageContentAgentTest, Image) {
   EXPECT_EQ(root.children_nodes.size(), 1u);
 
   auto& image_node = *root.children_nodes[0];
-  CheckImageNode(image_node, "missing");
+  CheckImageNode(image_node, "missing", KURL());
   CheckGeometry(image_node, gfx::Rect(-20, -10, 30, 40),
                 gfx::Rect(0, 0, 10, 30));
   ASSERT_TRUE(image_node.content_attributes->image_info);
   ASSERT_TRUE(image_node.content_attributes->image_info->source_origin);
   EXPECT_TRUE(
       image_node.content_attributes->image_info->source_origin->IsOpaque());
+}
+
+TEST_F(AIPageContentAgentTest, ImageWithUrl) {
+  url_test_helpers::RegisterMockedURLLoad(
+      url_test_helpers::ToKURL("https://example.com/image.jpg"),
+      test::CoreTestDataPath("white-1x1.png"), "image/png");
+
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<body>"
+      "  <img id='img' src='https://example.com/image.jpg' alt='hello alt "
+      "text'></img>"
+      "</body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContentWithActionableElements();
+
+  const auto& root = ContentRootNode();
+  EXPECT_EQ(root.children_nodes.size(), 1u);
+
+  auto& image_node = *root.children_nodes[0];
+  CheckImageNode(image_node, "hello alt text",
+                 blink::KURL("https://example.com/image.jpg"));
+  ASSERT_TRUE(image_node.content_attributes->image_info);
+  ASSERT_TRUE(image_node.content_attributes->image_info->source_origin);
+  EXPECT_EQ(
+      image_node.content_attributes->image_info->source_origin->ToString(),
+      "https://example.com");
+
+  url_test_helpers::RegisterMockedURLUnregister(
+      url_test_helpers::ToKURL("https://example.com/image.jpg"));
 }
 
 TEST_F(AIPageContentAgentTest, ImageWithAriaLabel) {
@@ -2189,7 +2238,7 @@ TEST_F(AIPageContentAgentTest, Anchors) {
   CheckTextNode(link_with_rel_text, "YouTube");
 }
 
-TEST_F(AIPageContentAgentTest, TopLayerContainer) {
+TEST_F(AIPageContentAgentTest, NativeModalDialog) {
   frame_test_helpers::LoadHTMLString(
       helper_.LocalMainFrame(),
       "<body>"
@@ -2212,11 +2261,100 @@ TEST_F(AIPageContentAgentTest, TopLayerContainer) {
   CheckContainerNode(backdrop);
 
   const auto& dialog = *root.children_nodes[1];
-  CheckContainerNode(dialog);
+  CheckModalDialogNode(dialog);
 
   ASSERT_EQ(dialog.children_nodes.size(), 1u);
   const auto& dialog_text = *dialog.children_nodes[0];
   CheckTextNode(dialog_text, "This is a dialog.");
+}
+
+TEST_F(AIPageContentAgentTest, NativeModelessDialog) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<body>"
+      "  <dialog id='welcomeDialog'>This is a modeless dialog.</dialog>"
+      "  <script>"
+      "    const dialog = document.getElementById('welcomeDialog');"
+      "    dialog.show();"
+      "  </script>"
+      "</body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContent();
+
+  const auto& root = ContentRootNode();
+  ASSERT_EQ(root.children_nodes.size(), 1u);
+
+  const auto& dialog = *root.children_nodes[0];
+  CheckModelessDialogNode(dialog);
+
+  ASSERT_EQ(dialog.children_nodes.size(), 1u);
+  const auto& dialog_text = *dialog.children_nodes[0];
+  CheckTextNode(dialog_text, "This is a modeless dialog.");
+}
+
+TEST_F(AIPageContentAgentTest, AriaModalDialog) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<body>"
+      "  <div role='dialog' aria-modal='true'>This is an ARIA modal dialog."
+      "</div>"
+      "</body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContent();
+
+  const auto& root = ContentRootNode();
+  ASSERT_EQ(root.children_nodes.size(), 1u);
+
+  const auto& dialog = *root.children_nodes[0];
+  CheckModalDialogNode(dialog);
+
+  ASSERT_EQ(dialog.children_nodes.size(), 1u);
+  const auto& dialog_text = *dialog.children_nodes[0];
+  CheckTextNode(dialog_text, "This is an ARIA modal dialog.");
+}
+
+TEST_F(AIPageContentAgentTest, AriaModelessDialog) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<body>"
+      "  <div role='dialog'>This is an ARIA modeless dialog.</div>"
+      "</body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContent();
+
+  const auto& root = ContentRootNode();
+  ASSERT_EQ(root.children_nodes.size(), 1u);
+
+  const auto& dialog = *root.children_nodes[0];
+  CheckModelessDialogNode(dialog);
+
+  ASSERT_EQ(dialog.children_nodes.size(), 1u);
+  const auto& dialog_text = *dialog.children_nodes[0];
+  CheckTextNode(dialog_text, "This is an ARIA modeless dialog.");
+}
+
+TEST_F(AIPageContentAgentTest, AriaAlertDialogDefaultsToModal) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<body>"
+      "  <div role='alertdialog'>This is an ARIA alert dialog.</div>"
+      "</body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContent();
+
+  const auto& root = ContentRootNode();
+  ASSERT_EQ(root.children_nodes.size(), 1u);
+
+  const auto& dialog = *root.children_nodes[0];
+  CheckModalDialogNode(dialog);
+
+  ASSERT_EQ(dialog.children_nodes.size(), 1u);
+  const auto& dialog_text = *dialog.children_nodes[0];
+  CheckTextNode(dialog_text, "This is an ARIA alert dialog.");
 }
 
 TEST_F(AIPageContentAgentTest, TableWithAnonymousCells) {
@@ -6697,7 +6835,7 @@ TEST_F(AIPageContentAgentTest, InlineWithOnlyFloatGeometry) {
       break;
     }
     // Push children in reverse so traversal order matches natural order.
-    for (size_t i = node->children_nodes.size(); i > 0; --i) {
+    for (wtf_size_t i = node->children_nodes.size(); i > 0; --i) {
       stack.push_back(node->children_nodes[i - 1].get());
     }
   }
@@ -7085,7 +7223,7 @@ TEST_F(AIPageContentAgentTest, TableTextClippedByScrollerAfterScroll) {
   const auto& fragments = geometry.fragment_visible_bounding_boxes;
   const ComputedStyle& after_style = text->GetLayoutObject()->StyleRef();
   std::string fragments_trace;
-  for (size_t i = 0; i < fragments.size(); ++i) {
+  for (wtf_size_t i = 0; i < fragments.size(); ++i) {
     if (!fragments_trace.empty()) {
       fragments_trace.append("; ");
     }
@@ -7180,7 +7318,7 @@ TEST_F(AIPageContentAgentTest, IframeInlineTextClippedWhenViewportScrolled) {
   const auto& fragments = geometry.fragment_visible_bounding_boxes;
   const ComputedStyle& iframe_style = inner_text->GetLayoutObject()->StyleRef();
   std::string fragments_trace;
-  for (size_t i = 0; i < fragments.size(); ++i) {
+  for (wtf_size_t i = 0; i < fragments.size(); ++i) {
     if (!fragments_trace.empty()) {
       fragments_trace.append("; ");
     }
@@ -8526,6 +8664,165 @@ TEST_F(AIPageContentAgentTest, ZeroSizeContainerWithVisibleChild) {
   EXPECT_TRUE(found);
 }
 
+TEST_F(AIPageContentAgentTest, GetImageBytes) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<body>"
+      "  <img alt=testimg></img>"
+      "</body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+  auto& document = *helper_.LocalMainFrame()->GetFrame()->GetDocument();
+  document.getElementsByTagName(AtomicString("img"))
+      ->item(0)
+      ->setAttribute(html_names::kSrcAttr, AtomicString(kSmallImage));
+
+  test::RunPendingTasks();
+
+  GetAIPageContentWithActionableElements();
+
+  const auto& root = ContentRootNode();
+  ASSERT_EQ(root.children_nodes.size(), 1u);
+
+  auto& image_node = *root.children_nodes[0];
+  CheckImageNode(image_node, "testimg", KURL());
+  ASSERT_TRUE(image_node.content_attributes->dom_node_id.has_value());
+  int32_t dom_node_id = image_node.content_attributes->dom_node_id.value();
+
+  auto* agent = AIPageContentAgent::From(document);
+  ASSERT_TRUE(agent);
+
+  base::HistogramTester histogram_tester;
+
+  base::RunLoop run_loop;
+  agent->GetImageBytes(
+      dom_node_id,
+      base::BindLambdaForTesting(
+          [&](mojom::blink::AIPageContentImageBytesResultPtr result) {
+            ASSERT_TRUE(result);
+            EXPECT_GT(result->image_bytes.size(), 0u);
+            EXPECT_EQ(result->image_info->mime_type, "image/jpeg");
+            ASSERT_TRUE(result->image_info);
+            EXPECT_EQ(result->image_info->image_caption, "testimg");
+            run_loop.Quit();
+          }));
+  run_loop.Run();
+
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.AIPageContent.GetImageBytes.Status", 0 /* kSuccess */,
+      1);
+}
+
+TEST_F(AIPageContentAgentTest, GetImageBytesFailures) {
+  base::HistogramTester histogram_tester;
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<body>"
+      "  <img id='img' alt='testimg'></img>"
+      "  <div id='not-image'>hello</div>"
+      "</body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+  auto& document = *helper_.LocalMainFrame()->GetFrame()->GetDocument();
+  document.getElementById(AtomicString("img"))
+      ->setAttribute(html_names::kSrcAttr, AtomicString(kSmallImage));
+
+  test::RunPendingTasks();
+
+  auto* agent = AIPageContentAgent::GetOrCreateForTesting(document);
+  ASSERT_TRUE(agent);
+
+  int32_t image_node_id =
+      DOMNodeIds::IdForNode(document.getElementById(AtomicString("img")));
+  int32_t div_node_id =
+      DOMNodeIds::IdForNode(document.getElementById(AtomicString("not-image")));
+
+  // 1. Invalid Node ID
+  {
+    base::RunLoop run_loop;
+    agent->GetImageBytes(
+        image_node_id + 9999,
+        base::BindLambdaForTesting(
+            [&](mojom::blink::AIPageContentImageBytesResultPtr result) {
+              EXPECT_FALSE(result);
+              run_loop.Quit();
+            }));
+    run_loop.Run();
+    histogram_tester.ExpectBucketCount(
+        "OptimizationGuide.AIPageContent.GetImageBytes.Status",
+        1 /* kNodeNotFound */, 1);
+  }
+
+  // 2. Cross-Tree Query (different LocalFrameRoot / different WebView)
+  {
+    frame_test_helpers::WebViewHelper helper2;
+    helper2.Initialize();
+    frame_test_helpers::LoadHTMLString(
+        helper2.LocalMainFrame(),
+        "<body>"
+        "  <img id='img2' alt='testimg2'></img>"
+        "</body>",
+        url_test_helpers::ToKURL("http://foobar2.com"));
+    auto& document2 = *helper2.LocalMainFrame()->GetFrame()->GetDocument();
+    document2.getElementById(AtomicString("img2"))
+        ->setAttribute(html_names::kSrcAttr, AtomicString(kSmallImage));
+
+    test::RunPendingTasks();
+
+    int32_t helper2_image_node_id =
+        DOMNodeIds::IdForNode(document2.getElementById(AtomicString("img2")));
+
+    base::RunLoop run_loop;
+    agent->GetImageBytes(
+        helper2_image_node_id,
+        base::BindLambdaForTesting(
+            [&](mojom::blink::AIPageContentImageBytesResultPtr result) {
+              EXPECT_FALSE(result);
+              run_loop.Quit();
+            }));
+    run_loop.Run();
+    histogram_tester.ExpectBucketCount(
+        "OptimizationGuide.AIPageContent.GetImageBytes.Status",
+        4 /* kCrossTreeQuery */, 1);
+  }
+
+  // 3. Non-Image Node
+  {
+    base::RunLoop run_loop;
+    agent->GetImageBytes(
+        div_node_id,
+        base::BindLambdaForTesting(
+            [&](mojom::blink::AIPageContentImageBytesResultPtr result) {
+              EXPECT_FALSE(result);
+              run_loop.Quit();
+            }));
+    run_loop.Run();
+    histogram_tester.ExpectBucketCount(
+        "OptimizationGuide.AIPageContent.GetImageBytes.Status",
+        5 /* kNotAnImage */, 1);
+  }
+
+  // 4. Image resource error (broken image)
+  {
+    document.getElementById(AtomicString("img"))
+        ->setAttribute(html_names::kSrcAttr,
+                       AtomicString("data:image/jpeg;base64,invalid"));
+    document.UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+    test::RunPendingTasks();
+
+    base::RunLoop run_loop;
+    agent->GetImageBytes(
+        image_node_id,
+        base::BindLambdaForTesting(
+            [&](mojom::blink::AIPageContentImageBytesResultPtr result) {
+              EXPECT_FALSE(result);
+              run_loop.Quit();
+            }));
+    run_loop.Run();
+    histogram_tester.ExpectBucketCount(
+        "OptimizationGuide.AIPageContent.GetImageBytes.Status",
+        6 /* kImageError */, 1);
+  }
+}
+
 class AIPageContentAgentTestTextEncoding : public AIPageContentAgentTest {
  private:
   // All of these tests assume the UTF-8 conversion feature is enabled.
@@ -8587,7 +8884,7 @@ TEST_F(AIPageContentAgentTestTextEncoding, ImageCaptionCorrected) {
   GetAIPageContentWithActionableElements();
 
   auto* image_node = FindNodeBySelector("#wrong");
-  CheckImageNode(*image_node, String(u"Hello\uFFFD"));
+  CheckImageNode(*image_node, String(u"Hello\uFFFD"), KURL());
 }
 
 TEST_F(AIPageContentAgentTestTextEncoding, SVGRootCorrected) {

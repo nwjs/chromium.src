@@ -252,6 +252,7 @@ class CORE_EXPORT CanvasRenderingContext
   virtual void PreFinalizeFrame() {}
   virtual void FinalizeFrame(FlushReason) {}
   void FinalizeFrame() { return FinalizeFrame(FlushReason::kOther); }
+  virtual void DidFlush() {}
 
   // Thread::TaskObserver implementation
   void DidProcessTask(const base::PendingTask&) override;
@@ -269,6 +270,10 @@ class CORE_EXPORT CanvasRenderingContext
   virtual void LangAttributeChanged() {}
   virtual String GetIdFromControl(const Element* element) { return String(); }
   virtual int LayerCount() const { return 0; }
+  virtual scoped_refptr<const cc::AnimatedImageFrameIndexMap>
+  GetAnimatedImageFrameIndexMap(uint32_t id) const {
+    return nullptr;
+  }
   virtual void DisableAccelerationForCanvas2D() { NOTREACHED(); }
 
   virtual const std::optional<cc::PaintRecord>& GetLastRecording() {
@@ -307,7 +312,11 @@ class CORE_EXPORT CanvasRenderingContext
   virtual base::ByteSize AllocatedBufferSize() const = 0;
 
   // OffscreenCanvas-specific methods.
-  virtual bool PushFrame() { return false; }
+  virtual scoped_refptr<CanvasResource> GetResourceForPushFrame(
+      bool& should_call_push_frame) {
+    should_call_push_frame = false;
+    return nullptr;
+  }
   virtual ImageBitmap* TransferToImageBitmap(ScriptState* script_state,
                                              ExceptionState& exception_state) {
     return nullptr;
@@ -357,13 +366,16 @@ class CORE_EXPORT CanvasRenderingContext
   void RenderTaskEnded();
   bool did_draw_in_current_task_ = false;
   bool did_print_in_current_task_ = false;
-  bool accessibility_ukm_recorded_ = false;
+  bool did_record_accessibility_ukm_ = false;
+  bool did_schedule_accessibility_ukm_recording_ = false;
   bool did_process_task_ = false;
   bool did_draw_text_ = false;
 
   const CanvasRenderingAPI canvas_rendering_type_;
 
   bool is_context_being_restored_ = false;
+
+  void RecordUKMCanvasAccessibility();
 };
 
 }  // namespace blink

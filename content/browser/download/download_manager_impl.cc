@@ -43,7 +43,6 @@
 #include "components/download/public/common/url_download_handler_factory.h"
 #include "content/browser/bad_message.h"
 #include "content/browser/blob_storage/chrome_blob_storage_context.h"
-#include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/data_url_loader_factory.h"
 #include "content/browser/devtools/devtools_instrumentation.h"
 #include "content/browser/download/embedder_download_data.pb.h"
@@ -1505,28 +1504,6 @@ void DownloadManagerImpl::GetAllDownloads(
   for (const auto& it : downloads_by_guid_) {
     downloads->push_back(it.second);
   }
-}
-
-void DownloadManagerImpl::GetAllDownloadsAsync(
-    download::SimpleDownloadManager::GetAllDownloadsCallback callback) {
-  download::SimpleDownloadManager::DownloadVector downloads;
-  GetAllDownloads(&downloads);
-  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE, base::BindOnce(std::move(callback), std::move(downloads)));
-}
-
-void DownloadManagerImpl::GetDownloadByGuidAsync(
-    const std::string& guid,
-    download::SimpleDownloadManager::GetDownloadCallback callback) {
-  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE, base::BindOnce(std::move(callback), GetDownloadByGuid(guid)));
-}
-
-void DownloadManagerImpl::GetDownloadAsync(
-    uint32_t id,
-    download::SimpleDownloadManager::GetDownloadCallback callback) {
-  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE, base::BindOnce(std::move(callback), GetDownload(id)));
 }
 
 void DownloadManagerImpl::GetUninitializedActiveDownloadsIfAny(

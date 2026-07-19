@@ -45,7 +45,8 @@ class SchedulingEmbedder
                      GetEmbeddingsCallback get_embeddings_callback,
                      size_t max_jobs,
                      size_t scheduled_max_batch_size,
-                     bool use_performance_scenario);
+                     bool use_performance_scenario,
+                     bool execute_for_gemma = false);
   ~SchedulingEmbedder() override;
 
   // Embedder:
@@ -57,9 +58,9 @@ class SchedulingEmbedder
 
  protected:
   // Embedder:
-  void ReprioritizeTasks(PassagePriority priority,
-                         const std::set<TaskId>& tasks) override;
-  bool TryCancel(TaskId task_id) override;
+  void ReprioritizeJobs(PassagePriority priority,
+                        const std::set<uint64_t>& job_ids) override;
+  bool TryCancel(uint64_t job_id) override;
 
  private:
   // A job consists of multiple passages, and each passage must have its
@@ -69,7 +70,7 @@ class SchedulingEmbedder
   // down so that partial progress is made across multiple work submissions.
   struct Job {
     Job(PassagePriority priority,
-        TaskId task_id,
+        uint64_t job_id,
         std::vector<std::string> passages,
         ComputePassagesEmbeddingsCallback callback);
     ~Job();
@@ -80,11 +81,9 @@ class SchedulingEmbedder
 
     // Data for the job is saved from calls to `ComputePassagesEmbeddings`.
     PassagePriority priority;
-    TaskId task_id;
+    uint64_t job_id;
     std::vector<std::string> passages;
     ComputePassagesEmbeddingsCallback callback;
-
-    bool in_progress = false;
 
     // Completed embeddings; may be partial.
     std::vector<Embedding> embeddings;
@@ -119,22 +118,24 @@ class SchedulingEmbedder
   // Returns true if currently in a work ready performance scenario state.
   bool IsPerformanceScenarioReady();
 
-  // Call the callback with status, etc. and record relevant histograms.
-  static void FinishJob(Job job, ComputeEmbeddingsStatus status);
+  // Finds the job with the worst priority that is not in progress.
+  // Returns jobs.end() if no such job exists.
+  static std::deque<Job>::iterator FindWorstJob(std::deque<Job>& jobs);
 
-  // When this is non-empty, the embedder is working and its results will be
-  // applied from front to back when `OnEmbeddingsComputed` is called. Not all
-  // of these jobs are necessarily being worked on by the embedder. It may
-  // contain a mix of in-progress, partially completed, and not-yet-started
-  // jobs. In-progress jobs are ordered first, and in the same order as
-  // submitted to the embedder. Partially completed jobs may follow,
-  // still in the order they were last submitted to the embedder.
-  // Not-yet-started jobs are ordered last. All jobs will be re-ordered by
-  // priority before submitting the next batch to the embedder.
-  std::deque<Job> jobs_;
+  // Call the callback with status, etc. and record relevant histograms.
+  static void FinishJob(Job job,
+                        ComputeEmbeddingsStatus status,
+                        bool record_histograms);
+
+  // Jobs that are waiting to be scheduled or resumed. They are ordered by
+  // priority before submitting a batch to the embedder.
+  std::deque<Job> pending_jobs_;
+
+  // Jobs that have passages in the current in-flight batch.
+  std::deque<Job> active_jobs_;
 
   // ID to assign to the next Job.
-  TaskId next_task_id_ = 1;
+  uint64_t next_job_id_ = 1;
 
   // Whether the embedder is currently working on some passages. Note, this
   // is not the same concept as having a job in progress since multiple
@@ -169,6 +170,8 @@ class SchedulingEmbedder
 
   base::ScopedObservation<EmbedderMetadataProvider, EmbedderMetadataObserver>
       embedder_metadata_observation_{this};
+
+  const bool execute_for_gemma_ = false;
 
   base::WeakPtrFactory<SchedulingEmbedder> weak_ptr_factory_{this};
 };

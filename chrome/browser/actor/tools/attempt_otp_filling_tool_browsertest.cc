@@ -22,6 +22,8 @@
 #include "chrome/browser/actor/actor_test_util.h"
 #include "chrome/browser/actor/tools/attempt_otp_filling_tool_request.h"
 #include "chrome/browser/actor/tools/tools_test_util.h"
+#include "chrome/browser/autofill/actor/one_time_tokens/actor_login_context.h"
+#include "chrome/browser/autofill/actor/one_time_tokens/actor_one_time_token_filling_service.h"
 #include "chrome/browser/autofill/one_time_token_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "components/actor/core/aggregated_journal.h"
@@ -220,6 +222,38 @@ IN_PROC_BROWSER_TEST_F(AttemptOtpFillingToolBrowserTest,
           "AttemptOtpFillingTool::OnOtpRetrieved;.*otp_received=true")));
 }
 
+IN_PROC_BROWSER_TEST_F(AttemptOtpFillingToolBrowserTest,
+                       ConsumesLoginContextOnInvoke) {
+  const GURL url = embedded_https_test_server().GetURL("example.com",
+                                                       "/actor/otp_page.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+  ASSERT_NO_FATAL_FAILURE(WaitForTabObservation());
+  ASSERT_OK_AND_ASSIGN(DomNode otp_field,
+                       GetDomNodeOnPage(*main_frame(), "#otp"));
+  std::unique_ptr<ToolRequest> request =
+      std::make_unique<AttemptOtpFillingToolRequest>(
+          active_tab()->GetHandle(), std::vector<PageTarget>{otp_field},
+          /*for_signin=*/true);
+  SetExpectedOtp("1234");
+
+  actor_task()
+      .GetExecutionEngine()
+      .GetActorOneTimeTokenFillingService()
+      .OnPasswordFillingStarted(active_tab()->GetHandle(),
+                                url::Origin::Create(url),
+                                /*should_use_strong_matching=*/true, {});
+
+  ActResultFuture result;
+  actor_task().Act(ToRequestList(std::move(request)), result.GetCallback());
+
+  ExpectOkResult(result);
+  EXPECT_FALSE(actor_task()
+                   .GetExecutionEngine()
+                   .GetActorOneTimeTokenFillingService()
+                   .ConsumeLoginContext()
+                   .has_value());
+}
+
 // The tool fails when OTP retrieval returns an error.
 IN_PROC_BROWSER_TEST_F(AttemptOtpFillingToolBrowserTest,
                        ToolFailsWhenOtpRetrievalReturnsError) {
@@ -342,6 +376,106 @@ IN_PROC_BROWSER_TEST_F(AttemptOtpFillingToolBrowserTest,
   EXPECT_THAT(JournalEntries(),
               testing::Contains(testing::ContainsRegex(
                   "AttemptOtpFillingTool::Invoke;.*for_signin=false")));
+}
+
+// The tool fails when the target tab is closed before invocation.
+IN_PROC_BROWSER_TEST_F(AttemptOtpFillingToolBrowserTest,
+                       ToolFailsWhenTabIsNull) {
+  // Add a new tab to the browser.
+  int index = browser()->tab_strip_model()->count();
+  std::unique_ptr<content::WebContents> new_contents =
+      content::WebContents::Create(
+          content::WebContents::CreateParams(GetProfile()));
+  browser()->tab_strip_model()->AppendWebContents(std::move(new_contents),
+                                                  /*foreground=*/true);
+  tabs::TabInterface* new_tab =
+      browser()->tab_strip_model()->GetTabAtIndex(index);
+  tabs::TabHandle target_tab_handle = new_tab->GetHandle();
+
+  DomNode dummy_field = {.node_id = 1, .document_identifier = "dummy"};
+  std::unique_ptr<ToolRequest> request =
+      std::make_unique<AttemptOtpFillingToolRequest>(
+          target_tab_handle, std::vector<PageTarget>{dummy_field},
+          /*for_signin=*/true);
+
+  // Close the newly added tab.
+  browser()->tab_strip_model()->CloseWebContentsAt(index,
+                                                   TabCloseTypes::CLOSE_NONE);
+
+  ActResultFuture result;
+  actor_task().Act(ToRequestList(std::move(request)), result.GetCallback());
+
+  ExpectErrorResult(result, mojom::ActionResultCode::kTabWentAway);
+}
+
+// The tool fails when the tab was not observed, resulting in a null
+// observation.
+IN_PROC_BROWSER_TEST_F(AttemptOtpFillingToolBrowserTest,
+                       ToolFailsWhenNoLastTabObservation) {
+  const GURL url = embedded_https_test_server().GetURL("example.com",
+                                                       "/actor/otp_page.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+  // Skip WaitForTabObservation() so last_observation is null.
+
+  DomNode dummy_field = {.node_id = 1, .document_identifier = "dummy"};
+  std::unique_ptr<ToolRequest> request =
+      std::make_unique<AttemptOtpFillingToolRequest>(
+          active_tab()->GetHandle(), std::vector<PageTarget>{dummy_field},
+          /*for_signin=*/true);
+
+  ActResultFuture result;
+  actor_task().Act(ToRequestList(std::move(request)), result.GetCallback());
+
+  ExpectErrorResult(result,
+                    mojom::ActionResultCode::kFormFillingNoLastTabObservation);
+}
+
+// The tool fails when a trigger field is not found on the page.
+IN_PROC_BROWSER_TEST_F(AttemptOtpFillingToolBrowserTest,
+                       ToolFailsWhenTriggerFieldNotFound) {
+  const GURL url = embedded_https_test_server().GetURL("example.com",
+                                                       "/actor/otp_page.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+  ASSERT_NO_FATAL_FAILURE(WaitForTabObservation());
+
+  // Create a DomNode with a non-existent query selector/node_id.
+  DomNode nonexistent_field = {.node_id = -1,
+                               .document_identifier = "nonexistent"};
+  std::unique_ptr<ToolRequest> request =
+      std::make_unique<AttemptOtpFillingToolRequest>(
+          active_tab()->GetHandle(), std::vector<PageTarget>{nonexistent_field},
+          /*for_signin=*/true);
+
+  ActResultFuture result;
+  actor_task().Act(ToRequestList(std::move(request)), result.GetCallback());
+
+  ExpectErrorResult(result, mojom::ActionResultCode::kFormFillingFieldNotFound);
+}
+
+// The tool fails with an autofill error when targeting a non-OTP field (e.g. a
+// button).
+IN_PROC_BROWSER_TEST_F(AttemptOtpFillingToolBrowserTest,
+                       ToolFailsWhenFillingFails) {
+  const GURL url = embedded_https_test_server().GetURL("example.com",
+                                                       "/actor/otp_page.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+  ASSERT_NO_FATAL_FAILURE(WaitForTabObservation());
+
+  // Target the submit button instead of the OTP field.
+  ASSERT_OK_AND_ASSIGN(
+      DomNode submit_button,
+      GetDomNodeOnPage(*main_frame(), "#single-submit-button"));
+  std::unique_ptr<ToolRequest> request =
+      std::make_unique<AttemptOtpFillingToolRequest>(
+          active_tab()->GetHandle(), std::vector<PageTarget>{submit_button},
+          /*for_signin=*/true);
+  SetExpectedOtp("1234");
+
+  ActResultFuture result;
+  actor_task().Act(ToRequestList(std::move(request)), result.GetCallback());
+
+  ExpectErrorResult(result,
+                    mojom::ActionResultCode::kFormFillingUnknownAutofillError);
 }
 
 }  // namespace

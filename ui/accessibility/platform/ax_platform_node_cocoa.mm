@@ -1157,7 +1157,8 @@ const ui::CocoaActionList& GetCocoaActionListForTesting() {
       DCHECK(markersTextRange.anchor()->GetAnchor() ==
              markersTextRange.focus()->GetAnchor());
       DCHECK(markers_anchor) << "Markers anchor should not be null.";
-      DCHECK(markers_anchor->GetRole() == ax::mojom::Role::kStaticText);
+      DCHECK(markers_anchor->GetRole() == ax::mojom::Role::kStaticText ||
+             markers_anchor->GetRole() == ax::mojom::Role::kLineBreak);
     }
 
     // Add misspelling information
@@ -1679,13 +1680,14 @@ const ui::CocoaActionList& GetCocoaActionListForTesting() {
   // children-counting logic, which results in the position announcement
   // being dropped for the last item in the list. WebKit/Safari only exposes
   // these attributes when explicit aria-posinset/aria-setsize are set.
-  if (ui::IsItemLike(role) &&
-      _node->HasIntAttribute(ax::mojom::IntAttribute::kPosInSet)) {
-    [axAttributes addObject:NSAccessibilityARIAPosInSetAttribute];
-  }
-  if (ui::IsSetLike(role) &&
-      _node->HasIntAttribute(ax::mojom::IntAttribute::kSetSize)) {
-    [axAttributes addObject:NSAccessibilityARIASetSizeAttribute];
+  if (ui::IsItemLike(role)) {
+    if (_node->HasIntAttribute(ax::mojom::IntAttribute::kSetSize)) {
+      [axAttributes addObject:NSAccessibilityARIASetSizeAttribute];
+    }
+
+    if (_node->HasIntAttribute(ax::mojom::IntAttribute::kPosInSet)) {
+      [axAttributes addObject:NSAccessibilityARIAPosInSetAttribute];
+    }
   }
 
   if ([[self accessibilityRole] isEqualToString:NSAccessibilityWebAreaRole]) {
@@ -2219,6 +2221,7 @@ const ui::CocoaActionList& GetCocoaActionListForTesting() {
     case ax::mojom::InvalidState::kTrue:
       return @"true";
   }
+  NOTREACHED();
 }
 
 - (NSNumber*)AXIsMultiSelectable {
@@ -2281,6 +2284,7 @@ const ui::CocoaActionList& GetCocoaActionListForTesting() {
     case ax::mojom::HasPopup::kDialog:
       return @"dialog";
   }
+  NOTREACHED();
 }
 
 - (NSNumber*)AXRequired {
@@ -2345,6 +2349,12 @@ const ui::CocoaActionList& GetCocoaActionListForTesting() {
   // -accessibilityCustomContent below), so if the description is from ARIA,
   // don't provide it as AXHelp, and return nothing.
   if ([self descriptionIsFromAriaDescription]) {
+    // VoiceOver does not announce AXCustomContent for fieldsets, so we fall
+    // back to exposing the ARIA description as AXHelp for them.
+    if ([[self getStringAttribute:ax::mojom::StringAttribute::kHtmlTag]
+            isEqualToString:@"fieldset"]) {
+      return [self getStringAttribute:ax::mojom::StringAttribute::kDescription];
+    }
     return nil;
   }
 
@@ -2581,8 +2591,12 @@ const ui::CocoaActionList& GetCocoaActionListForTesting() {
 }
 
 - (id)AXStringForRange:(id)parameter {
+  // SAFETY: Apple documents -[NSValue objCType] as returning "a C string"
+  // (https://developer.apple.com/documentation/foundation/nsvalue/objctype),
+  // and @encode(...) is a NUL-terminated string literal. Foundation exposes
+  // no length-bearing counterpart, so strcmp is the documented comparison.
   if (![parameter isKindOfClass:[NSValue class]] ||
-      (0 != UNSAFE_TODO(strcmp([parameter objCType], @encode(NSRange))))) {
+      (0 != UNSAFE_BUFFERS(strcmp([parameter objCType], @encode(NSRange))))) {
     return nil;
   }
 
@@ -3835,6 +3849,13 @@ const ui::CocoaActionList& GetCocoaActionListForTesting() {
   // Only descriptions originating from ARIA are returned as custom content.
   // (Non-ARIA descriptions are returned as AXHelp.)
   if (![self descriptionIsFromAriaDescription]) {
+    return nil;
+  }
+
+  // VoiceOver does not announce AXCustomContent for fieldsets, so we do not
+  // expose it here.
+  if ([[self getStringAttribute:ax::mojom::StringAttribute::kHtmlTag]
+          isEqualToString:@"fieldset"]) {
     return nil;
   }
 

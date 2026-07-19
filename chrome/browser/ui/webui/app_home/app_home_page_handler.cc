@@ -17,8 +17,10 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "chrome/browser/apps/app_service/app_icon_source.h"
+#include "chrome/browser/extensions/chrome_app_deprecation.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_ui_util.h"
+#include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/extensions/launch_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
@@ -33,7 +35,6 @@
 #include "chrome/browser/ui/views/apps/app_info_dialog/app_info_dialog_container.h"
 #include "chrome/browser/ui/webui/app_home/app_home.mojom-shared.h"
 #include "chrome/browser/ui/webui/extensions/extension_icon_source.h"
-#include "chrome/browser/web_applications/extension_status_utils.h"
 #include "chrome/browser/web_applications/extensions/launch.h"
 #include "chrome/browser/web_applications/locks/app_lock.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
@@ -136,8 +137,8 @@ void AppHomePageHandler::LoadDeprecatedAppsDialogIfRequired() {
                                         kForceInstallDialogQueryString,
                                         &app_id)) {
     if (extensions::IsExtensionUnsupportedDeprecatedApp(profile_, app_id) &&
-        extensions::IsExtensionForceInstalled(profile_, app_id, nullptr)) {
-      if (extensions::IsPreinstalledAppId(app_id)) {
+        extensions::util::IsExtensionForceInstalled(app_id, profile_)) {
+      if (extensions::chrome_app_deprecation::IsPreinstalledAppId(app_id)) {
         TabDialogs::FromWebContents(web_contents)
             ->ShowForceInstalledPreinstalledDeprecatedAppDialog(app_id,
                                                                 web_contents);
@@ -156,13 +157,13 @@ void AppHomePageHandler::LaunchAppInternal(
     app_home::mojom::ClickEventPtr click_event) {
   if (extensions::IsExtensionUnsupportedDeprecatedApp(profile_, app_id) &&
       base::FeatureList::IsEnabled(features::kChromeAppsDeprecation)) {
-    if (!extensions::IsExtensionForceInstalled(profile_, app_id, nullptr)) {
+    if (!extensions::util::IsExtensionForceInstalled(app_id, profile_)) {
       TabDialogs::FromWebContents(web_ui_->GetWebContents())
           ->ShowDeprecatedAppsDialog(app_id, deprecated_app_ids_,
                                      web_ui_->GetWebContents());
       return;
     } else {
-      if (extensions::IsPreinstalledAppId(app_id)) {
+      if (extensions::chrome_app_deprecation::IsPreinstalledAppId(app_id)) {
         TabDialogs::FromWebContents(web_ui_->GetWebContents())
             ->ShowForceInstalledPreinstalledDeprecatedAppDialog(
                 app_id, web_ui_->GetWebContents());
@@ -308,7 +309,7 @@ void AppHomePageHandler::CreateWebAppShortcut(const std::string& app_id,
                                               base::OnceClosure done) {
   Browser* browser = GetCurrentBrowser();
   chrome::ShowCreateChromeAppShortcutsDialog(
-      browser->window()->GetNativeWindow(), browser->profile(), app_id,
+      browser->GetWindow()->GetNativeWindow(), browser->profile(), app_id,
       base::BindOnce(
           [](base::OnceClosure done, bool success) {
             base::UmaHistogramBoolean(
@@ -323,7 +324,7 @@ void AppHomePageHandler::CreateExtensionAppShortcut(
     base::OnceClosure done) {
   Browser* browser = GetCurrentBrowser();
   chrome::ShowCreateChromeAppShortcutsDialog(
-      browser->window()->GetNativeWindow(), browser->profile(), extension,
+      browser->GetWindow()->GetNativeWindow(), browser->profile(), extension,
       base::IgnoreArgs<bool>(std::move(done)));
 }
 
@@ -478,8 +479,8 @@ void AppHomePageHandler::FillExtensionInfoList(
     const bool is_deprecated_app =
         extensions::IsExtensionUnsupportedDeprecatedApp(context,
                                                         extension->id());
-    if (is_deprecated_app && !extensions::IsExtensionForceInstalled(
-                                 context, extension->id(), nullptr)) {
+    if (is_deprecated_app && !extensions::util::IsExtensionForceInstalled(
+                                 extension->id(), context)) {
       deprecated_app_ids_.insert(extension->id());
     }
     result->emplace_back(CreateAppInfoPtrFromExtension(extension.get()));
@@ -519,7 +520,8 @@ void AppHomePageHandler::UninstallWebApp(const std::string& web_app_id) {
   Browser* browser = GetCurrentBrowser();
   CHECK(browser);
   web_app_provider_->ui_manager().PresentUserUninstallDialog(
-      web_app_id, webapps::WebappUninstallSource::kAppsPage, browser->window(),
+      web_app_id, webapps::WebappUninstallSource::kAppsPage,
+      BrowserWindow::FromBrowser(browser),
       std::move(uninstall_success_callback));
   return;
 }
@@ -528,7 +530,7 @@ extensions::ExtensionUninstallDialog*
 AppHomePageHandler::CreateExtensionUninstallDialog() {
   Browser* browser = GetCurrentBrowser();
   extension_uninstall_dialog_ = extensions::ExtensionUninstallDialog::Create(
-      profile_, browser->window()->GetNativeWindow(), this);
+      profile_, browser->GetWindow()->GetNativeWindow(), this);
   return extension_uninstall_dialog_.get();
 }
 
@@ -545,7 +547,7 @@ void AppHomePageHandler::UninstallExtensionApp(const Extension* extension) {
 
   Browser* browser = GetCurrentBrowser();
   extension_uninstall_dialog_ = extensions::ExtensionUninstallDialog::Create(
-      profile_, browser->window()->GetNativeWindow(), this);
+      profile_, browser->GetWindow()->GetNativeWindow(), this);
 
   extension_uninstall_dialog_->ConfirmUninstall(
       extension, extensions::UNINSTALL_REASON_USER_INITIATED,

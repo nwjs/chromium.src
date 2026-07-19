@@ -23,6 +23,10 @@
 #include "third_party/metrics_proto/omnibox_event.pb.h"
 #include "url/gurl.h"
 
+#if BUILDFLAG(IS_ANDROID)
+#include "base/android/device_info.h"
+#endif
+
 #if !BUILDFLAG(IS_IOS)
 #include "components/history_clusters/core/config.h"  // nogncheck
 #endif
@@ -88,6 +92,9 @@ int AutocompleteClassifier::DefaultOmniboxProviders(bool is_low_memory_device) {
       AutocompleteProvider::TYPE_ZERO_SUGGEST |
       AutocompleteProvider::TYPE_ZERO_SUGGEST_LOCAL_HISTORY |
       (base::FeatureList::IsEnabled(omnibox::kDocumentProvider)
+#if BUILDFLAG(IS_ANDROID)
+               && base::android::device_info::is_desktop()
+#endif
            ? AutocompleteProvider::TYPE_DOCUMENT
            : 0) |
       (OmniboxFieldTrial::IsOnDeviceHeadSuggestEnabledForAnyMode()
@@ -135,7 +142,7 @@ int AutocompleteClassifier::DefaultOmniboxProviders(bool is_low_memory_device) {
 
 void AutocompleteClassifier::Classify(
     const std::u16string& text,
-    bool prefer_keyword,
+    bool in_keyword_mode,
     bool allow_exact_keyword_match,
     metrics::OmniboxEventProto::PageClassification page_classification,
     AutocompleteMatch* match,
@@ -146,15 +153,7 @@ void AutocompleteClassifier::Classify(
   base::AutoReset<bool> reset(&inside_classify_, true);
   AutocompleteInput input(text, page_classification, *scheme_classifier_);
   input.set_prevent_inline_autocomplete(true);
-  // If the user in keyword mode (which is often the case when |prefer_keyword|
-  // is true), ideally we'd set |input|'s keyword_mode_entry_method field.
-  // However, in the context of this code, we don't know how the keyword mode
-  // was entered. Moreover, we cannot add that as a parameter to Classify()
-  // because many callers do not know how keyword mode was entered. Luckily,
-  // Classify()'s purpose is to determine the default match, and at this time
-  // |keyword_mode_entry_method| only ends up affecting the ranking of
-  // lower-down suggestions.
-  input.set_prefer_keyword(prefer_keyword);
+  input.set_in_keyword_mode(in_keyword_mode);
   input.set_allow_exact_keyword_match(allow_exact_keyword_match);
   input.set_omit_asynchronous_matches(true);
   controller_->Start(input);

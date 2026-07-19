@@ -34,6 +34,7 @@
 #import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/base/signin_metrics.h"
 #import "components/signin/public/identity_manager/identity_test_utils.h"
+#import "components/sync/test/test_sync_service.h"
 #import "ios/chrome/browser/enterprise/identifiers/profile_id_service_factory_ios.h"
 #import "ios/chrome/browser/policy/model/browser_policy_connector_ios.h"
 #import "ios/chrome/browser/policy/model/profile_policy_connector_mock.h"
@@ -52,6 +53,8 @@
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/chrome/browser/signin/model/identity_test_environment_browser_state_adaptor.h"
 #import "ios/chrome/browser/signin/model/signin_client_factory.h"
+#import "ios/chrome/browser/sync/model/sync_service_factory.h"
+#import "ios/chrome/browser/sync/model/test_sync_service_utils.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
 #import "ios/web/public/test/web_task_environment.h"
 #import "services/network/test/test_network_connection_tracker.h"
@@ -144,6 +147,8 @@ class ProfileReportGeneratorIOSTest
         IdentityManagerFactory::GetInstance(),
         base::BindRepeating(IdentityTestEnvironmentBrowserStateAdaptor::
                                 BuildIdentityManagerForTests));
+    builder.AddTestingFactory(SyncServiceFactory::GetInstance(),
+                              base::BindRepeating(&CreateTestSyncService));
     if (affiliation == Affiliation::kAffiliated) {
       InitProfileAffiliation();
     }
@@ -264,7 +269,7 @@ class ProfileReportGeneratorIOSTest
     const base::FilePath path = profile_->GetStatePath();
     base::test::TestFuture<std::unique_ptr<em::ChromeUserProfileInfo>>
         test_future;
-    generator_.MaybeGenerate(path, ReportType::kFull,
+    generator_.MaybeGenerate(path, ReportType::kBrowser,
                              SecuritySignalsMode::kSignalsAttached,
                              test_future.GetCallback());
     auto report = test_future.Take();
@@ -292,8 +297,7 @@ class ProfileReportGeneratorIOSTest
     return profile_->GetProfileName();
   }
 
-  ReportingDelegateFactoryIOS delegate_factory_;
-  ProfileReportGenerator generator_;
+  ProfileReportGenerator* generator() { return &generator_; }
 
  private:
   base::test::ScopedFeatureList feature_list_;
@@ -303,15 +307,17 @@ class ProfileReportGeneratorIOSTest
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
   std::unique_ptr<policy::MockCloudPolicyStore> policy_store_;
   TestProfileManagerIOS profile_manager_;
-  raw_ptr<ProfileIOS> profile_;
+  raw_ptr<ProfileIOS> profile_ = nullptr;
 
   policy::SchemaRegistry schema_registry_;
   policy::PolicyMap policy_map_;
-  raw_ptr<AuthenticationService> authentication_service_;
-  raw_ptr<ChromeAccountManagerService> account_manager_service_;
+  raw_ptr<AuthenticationService> authentication_service_ = nullptr;
+  raw_ptr<ChromeAccountManagerService> account_manager_service_ = nullptr;
   std::unique_ptr<policy::FakeBrowserDMTokenStorage> browser_dm_token_storage_;
   std::unique_ptr<policy::MachineLevelUserCloudPolicyManager>
       machine_policy_manager_;
+  ReportingDelegateFactoryIOS delegate_factory_;
+  ProfileReportGenerator generator_;
 };
 
 TEST_P(ProfileReportGeneratorIOSTest, UnsignedInProfile) {
@@ -343,14 +349,14 @@ TEST_P(ProfileReportGeneratorIOSTest, PoliciesReportedOnlyWhenEnabled) {
 
   // Make sure policies are no longer reported when `set_policies_enabled` is
   // set to false.
-  generator_.set_policies_enabled(false);
+  generator()->set_policies_enabled(false);
   report = GenerateReport();
   ASSERT_TRUE(report);
   EXPECT_EQ(0, report->chrome_policies_size());
 
   // Make sure policies are once again being reported after setting
   // `set_policies_enabled` back to true.
-  generator_.set_policies_enabled(true);
+  generator()->set_policies_enabled(true);
   report = GenerateReport();
   ASSERT_TRUE(report);
   EXPECT_EQ(2, report->chrome_policies_size());

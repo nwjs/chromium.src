@@ -64,6 +64,7 @@ import org.chromium.blink.mojom.HandwritingGestureResult;
 import org.chromium.blink.mojom.InputCursorAnchorInfo;
 import org.chromium.blink.mojom.StylusWritingGestureData;
 import org.chromium.blink_public.web.WebInputEventModifier;
+import org.chromium.blink_public.web.WebTextInputFlags;
 import org.chromium.blink_public.web.WebTextInputMode;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -425,6 +426,15 @@ public class ImeAdapterImpl
         getStylusWritingImeCallback().handleStylusWritingGestureAction(-1, gestureData);
     }
 
+    /** Signals to Blink to cancel and clear any active handwriting preview spans. */
+    public void cancelPreviewGesture() {
+        if (mNativeImeAdapterAndroid == 0) {
+            Log.e(TAG, "cancelPreviewGesture called after native adapter was destroyed.");
+            return;
+        }
+        ImeAdapterImplJni.get().cancelPreviewGesture(mNativeImeAdapterAndroid);
+    }
+
     void handleGesture(OngoingGesture request) {
         mOngoingGestures.put(request.getId(), request);
         StylusWritingGestureData gestureData = request.getGestureData();
@@ -619,6 +629,11 @@ public class ImeAdapterImpl
     }
 
     @Override
+    public InputMethodManagerWrapper getInputMethodManagerWrapper() {
+        return mInputMethodManagerWrapper;
+    }
+
+    @Override
     public void setAllowFullscreenIme(boolean allow) {
         mAllowFullscreenIme = allow;
     }
@@ -796,7 +811,10 @@ public class ImeAdapterImpl
             }
 
             boolean editable = focusedNodeEditable();
-            boolean password = textInputType == TextInputType.PASSWORD;
+            boolean password =
+                    textInputType == TextInputType.PASSWORD
+                            || (textInputFlags & WebTextInputFlags.HAS_BEEN_PASSWORD_FIELD) != 0
+                            || (textInputFlags & WebTextInputFlags.HAS_BEEN_CUSTOM_PASSWORD) != 0;
             updateNodeAttributes(editable, password);
             if (mCursorAnchorInfoController != null
                     && (!TextUtils.equals(mLastText, text)
@@ -1185,6 +1203,12 @@ public class ImeAdapterImpl
 
     public boolean performEditorAction(int actionCode) {
         if (!isValid()) return false;
+
+        // Only hide the keyboard on DONE if fullscreen IME is allowed/enabled.
+        // See crbug.com/498324340.
+        if (actionCode == EditorInfo.IME_ACTION_DONE && mAllowFullscreenIme) {
+            hideKeyboard();
+        }
 
         // If mTextInputAction has been specified (indicating an enterKeyHint
         // has been specified in the HTML) then we do will send the enter key
@@ -2224,6 +2248,8 @@ public class ImeAdapterImpl
         // Stylus Writing
         void handleStylusWritingGestureAction(
                 long nativeImeAdapterAndroid, int id, ByteBuffer gestureData);
+
+        void cancelPreviewGesture(long nativeImeAdapterAndroid);
 
         void performSpellCheck(long nativeImeAdapterAndroid);
 

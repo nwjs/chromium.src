@@ -206,7 +206,6 @@
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/containers/id_map.h"
-#include "content/browser/webauth/webauth_request_security_checker.h"
 #else
 #include "third_party/blink/public/mojom/hid/hid.mojom-forward.h"
 #endif
@@ -272,9 +271,14 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kDoNotEvictOnAXLocationChange);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kEnforceUserActivationForBeforeUnload);
 }  // namespace features
 
+namespace webauthn {
+class RemoteValidation;
+}
+
 namespace content {
 
 class AgentSchedulingGroupHost;
+class UnboundedSurfaceWindow;
 class BrowsingContextState;
 class CodeCacheHostImpl;
 class CrossOriginEmbedderPolicyReporter;
@@ -290,6 +294,7 @@ class GuestPageHolderImpl;
 class IdleManagerImpl;
 class NavigationEarlyHintsManager;
 class NavigationRequest;
+class InitiatorNavigationStateImpl;
 class PeerConnectionTrackerHost;
 class PendingNavigation;
 class PrefetchedSignedExchangeCache;
@@ -310,6 +315,7 @@ class ServiceWorkerClient;
 class SiteInfo;
 class SpeechSynthesisImpl;
 class WebAuthRequestSecurityChecker;
+class WebAuthRequestSecurityCheckerImpl;
 class WebUIImpl;
 struct ResourceTimingInfo;
 
@@ -318,6 +324,10 @@ struct ResourceTimingInfo;
 typedef base::RepeatingCallback<
     void(RenderFrameHostImpl*, ax::mojom::Event, int)>
     AccessibilityCallbackForTesting;
+
+using CachedPermissionMap =
+    std::optional<base::flat_map<blink::mojom::PermissionName,
+                                 blink::mojom::PermissionStatus>>;
 
 class CONTENT_EXPORT RenderFrameHostImpl
     : public RenderFrameHost,
@@ -444,18 +454,9 @@ class CONTENT_EXPORT RenderFrameHostImpl
   static void SetCodeCacheHostReceiverHandlerForTesting(
       CodeCacheHostReceiverHandler handler);
 
-  // Get the PolicyContainerHost associated with `frame_token`.
-  static PolicyContainerHost* GetPolicyContainerHost(
-      const blink::LocalFrameToken* frame_token,
-      int initiator_process_id,
-      StoragePartitionImpl* storage_partition);
-
-  // Get the SiteInstance for the RenderFrameHost associated with `frame_token`,
-  // looking it up via NavigationStateKeepAlive in the case that the
-  // RenderFrameHost has already been deleted after initiating a scheduled
-  // navigation. The `storage_partition` parameter is used for looking up
-  // NavigationStateKeepAlives when needed.
-  static SiteInstanceImpl* GetSourceSiteInstanceFromFrameToken(
+  // Get the InitiatorNavigationStateImpl associated with `frame_token`.
+  static scoped_refptr<InitiatorNavigationState>
+  GetInitiatorNavigationStateFromFrameToken(
       const blink::LocalFrameToken* frame_token,
       int initiator_process_id,
       StoragePartitionImpl* storage_partition);
@@ -490,6 +491,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
   RenderFrameHostImpl* GetParentOrOuterDocumentOrEmbedder() const override;
   RenderFrameHostImpl* GetMainFrame() override;
   PageImpl& GetPage() override;
+  scoped_refptr<WebAuthRequestSecurityChecker>
+  GetWebAuthRequestSecurityChecker() override;
   bool IsInPrimaryMainFrame() override;
   RenderFrameHostImpl* GetOutermostMainFrame() override;
   RenderFrameHostImpl* GetOutermostMainFrameOrEmbedder() override;
@@ -516,7 +519,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
   const net::NetworkIsolationKey& GetNetworkIsolationKey() override;
   const net::IsolationInfo& GetIsolationInfoForSubresources() override;
   net::IsolationInfo GetPendingIsolationInfoForSubresources() override;
-  std::optional<base::UnguessableToken> GetNetworkRestrictionsID() override;
+  base::UnguessableToken GetNetworkRestrictionsID() override;
   gfx::NativeView GetNativeView() override;
   void AddMessageToConsole(blink::mojom::ConsoleMessageLevel level,
                            const std::string& message) override;
@@ -628,6 +631,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
   bool HasPolicyContainerHost() const override;
   const network::CrossOriginEmbedderPolicy& GetCrossOriginEmbedderPolicy()
       const override;
+  const network::ConnectionAllowlists& GetConnectionAllowlists() const override;
 
   // Additional non-override const version of GetMainFrame.
   const RenderFrameHostImpl* GetMainFrame() const;
@@ -772,6 +776,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
   bool ShouldSuppressAXLoadComplete() override;
   WebContentsAccessibility* AccessibilityGetWebContentsAccessibility() override;
   bool AccessibilityIsWebContentSource() override;
+  ui::AXMode GetScopedAccessibilityMode() const override;
 
   // ui::AXNodeIdDelegate:
   ui::AXPlatformNodeId GetOrCreateAXNodeUniqueId(
@@ -1826,6 +1831,10 @@ class CONTENT_EXPORT RenderFrameHostImpl
     return broker_holder_->broker_receiver();
   }
   bool has_broker_holder_for_testing() { return broker_holder_.has_value(); }
+  const blink::mojom::LocalResourceLoaderConfigPtr&
+  local_resource_loader_config_for_testing() const {
+    return local_resource_loader_config_;
+  }
   void SetKeepAliveTimeoutForTesting(base::TimeDelta timeout);
 
   network::mojom::WebSandboxFlags active_sandbox_flags();
@@ -2208,6 +2217,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
 
   void BindFederatedAuthRequestReceiver(
       mojo::PendingReceiver<blink::mojom::FederatedAuthRequest> receiver);
+  void BindFederatedRequestServiceReceiver(
+      mojo::PendingReceiver<blink::mojom::FederatedRequestService> receiver);
 
   void BindRestrictedCookieManager(
       mojo::PendingReceiver<network::mojom::RestrictedCookieManager> receiver);
@@ -2302,7 +2313,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // Called when the Activate IPC is sent to the renderer. Puts the
   // MojoPolicyBinderApplier in "loose" mode via PrepareToGrantAll() until
   // DidActivateForPrerending() is called.
-  void RendererWillActivateForPrerenderingOrPreview();
+  void RendererWillActivateForPrerendering();
 
   // Prerender2:
   // Called when the Activate IPC is acknowledged by the renderer. Relinquishes
@@ -2468,8 +2479,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
 
   bool DocumentUsedWebOTP() override;
 
-  scoped_refptr<WebAuthRequestSecurityChecker>
-  GetWebAuthRequestSecurityChecker();
+  scoped_refptr<WebAuthRequestSecurityCheckerImpl>
+  GetWebAuthRequestSecurityCheckerImpl();
 
   base::WeakPtr<RenderFrameHostImpl> GetWeakPtr();
   base::SafeRef<RenderFrameHostImpl> GetSafeRef() const;
@@ -2553,8 +2564,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
                               RunBeforeUnloadConfirmCallback callback) override;
   void MaybeStartOutermostMainFrameNavigation(
       const std::vector<GURL>& urls) override;
-  void UpdateFaviconURL(
-      std::vector<blink::mojom::FaviconURLPtr> favicon_urls) override;
+  void UpdateFaviconURL(std::vector<blink::mojom::FaviconURLPtr> favicon_urls,
+                        blink::mojom::FaviconUpdateReason reason) override;
   void DownloadURL(blink::mojom::DownloadURLParamsPtr params) override;
   void FocusedElementChanged(bool is_editable_element,
                              bool is_richly_editable_element,
@@ -2665,7 +2676,9 @@ class CONTENT_EXPORT RenderFrameHostImpl
       mojo::PendingAssociatedRemote<blink::mojom::UnboundedSurfaceClient>
           client,
       const gfx::Rect& bounds) override;
-  void DismissUnboundedSurface();
+  UnboundedSurfaceWindow* GetUnboundedSurfaceWindow();
+  RenderWidgetHostViewBase* GetUnboundedSurfaceRootView(
+      RenderWidgetHostViewBase** out_parent_view = nullptr);
 
   // blink::mojom::BackForwardCacheControllerHost:
   void EvictFromBackForwardCache(
@@ -2686,6 +2699,10 @@ class CONTENT_EXPORT RenderFrameHostImpl
   void RequestClose() override;
   void SetWindowRect(const gfx::Rect& bounds,
                      SetWindowRectCallback callback) override;
+  void MoveWindowTo(const gfx::Point& origin,
+                    MoveWindowToCallback callback) override;
+  void ResizeWindowTo(const gfx::Size& size,
+                      ResizeWindowToCallback callback) override;
   void DidFirstVisuallyNonEmptyPaint() override;
   void DidAccessInitialMainDocument() override;
   void DidChangeThemeColor(std::optional<SkColor> theme_color) override;
@@ -3287,6 +3304,12 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // this instance's AXNodeIdDelegate implementation.
   size_t GetAxUniqueIdCountForTesting() const { return ax_unique_ids_.size(); }
 
+  // Query necessary permission statues in order to propagate to the renderer.
+  // Right now, we're only caring about permissions for Geolocation, Camera, and
+  // Microphone. The permission statuses already take into account the device's
+  // status.
+  CachedPermissionMap GetCachedPermissionStatuses();
+
   // Allows tests to disable the unload event timer to simulate bugs that
   // happen before it fires (to avoid flakiness).
   void DisableUnloadTimerForTesting();
@@ -3327,6 +3350,11 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // existence of the MockRenderProcessHost.
   void SetPrerenderStateChangedCallback(
       PrerenderStateChangedCallback prerender_state_callback);
+
+  // Records the current navigation state of this RFH. It should be passed to
+  // NavigationRequests initiated by this RFH.
+  scoped_refptr<InitiatorNavigationState>
+  CreateInitiatorStateFromCurrentFrame();
 
  protected:
   friend class RenderFrameHostFactory;
@@ -3521,6 +3549,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
   FRIEND_TEST_ALL_PREFIXES(
       RenderFrameHostImplTest,
       BrowserInitiatedCloseIsNotCancelledIfPageIsntPrimary);
+  FRIEND_TEST_ALL_PREFIXES(RenderFrameHostImplTest,
+                           DidConsumeHistoryUserActivationNonActive);
   FRIEND_TEST_ALL_PREFIXES(DocumentUserDataTest, CheckInPendingDeletionState);
   FRIEND_TEST_ALL_PREFIXES(WebContentsImplBrowserTest, FrozenAndUnfrozenIPC);
   FRIEND_TEST_ALL_PREFIXES(RenderFrameHostImplBrowserTest,
@@ -3602,6 +3632,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
       const ResourceTimingInfo& resource_timing);
   void OnSetNeedsOcclusionTracking(bool needs_tracking);
   void OnSaveImageFromDataURL(const std::string& url_str);
+  bool ValidateOutermostMainFrameWindowChange(std::string_view method_name);
 
   // Computes the IsolationInfo for both navigations and subresources.
   //
@@ -4907,13 +4938,6 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // remote will be valid when the frame is the active main frame.
   mojo::AssociatedRemote<blink::mojom::LocalMainFrame> local_main_frame_;
 
-  // Holder of Mojo connection with the UnboundedSurfaceClient in Blink for
-  // visual isolation updates and notifications (e.g., dismissal). This
-  // connection is only established for trusted renderers (such as WebUI and
-  // chrome:// scheme callers).
-  mojo::AssociatedRemote<blink::mojom::UnboundedSurfaceClient>
-      unbounded_surface_client_;
-
   // Holds the cross-document NavigationRequests that are waiting to commit.
   // These are navigations that have passed ReadyToCommit stage and are waiting
   // for a matching commit IPC.
@@ -5280,7 +5304,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // (crbug/351953350).
   bool boost_render_process_for_loading_ = false;
 
-  scoped_refptr<WebAuthRequestSecurityChecker>
+  scoped_refptr<WebAuthRequestSecurityCheckerImpl>
       webauth_request_security_checker_;
 
   // Reset immediately before a RenderFrameHost is reused for hosting a new
@@ -5653,11 +5677,6 @@ class CONTENT_EXPORT RenderFrameHostImpl
 
   // True if this rfh was created via a window creation with user activation.
   bool opener_had_user_gesture_ = false;
-
-  // Tracks the frame with the active unbounded surface inside this page/frame
-  // tree. Only set on the outermost main frame. When set, this frame is
-  // strictly either the outermost main frame itself or one of its descendants.
-  base::WeakPtr<RenderFrameHostImpl> active_unbounded_frame_;
 
   // WeakPtrFactories are the last members, to ensure they are destroyed before
   // all other fields of `this`.

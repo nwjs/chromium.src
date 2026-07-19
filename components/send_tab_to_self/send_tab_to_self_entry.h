@@ -61,14 +61,14 @@ class SendTabToSelfLocal;
 // The java version of this class: SendTabToSelfEntry.java
 class SendTabToSelfEntry {
  public:
-  // Creates a SendTabToSelf entry. |url| and |title| are the main fields of the
-  // entry.
-  SendTabToSelfEntry(const std::string& guid,
+  // Creates a SendTabToSelf entry. `url` and `title` are the main fields of the
+  // entry. `url` must be valid as per IsValidUrl().
+  SendTabToSelfEntry(std::string guid,
                      const GURL& url,
-                     const std::string& title,
+                     std::string title,
                      base::Time shared_time,
-                     const std::string& device_name,
-                     const std::string& target_device_sync_cache_guid,
+                     std::string device_name,
+                     std::string target_device_sync_cache_guid,
                      const PageContext& page_context,
                      NavigationHistory navigation_history);
 
@@ -98,12 +98,24 @@ class SendTabToSelfEntry {
   // it hasn't been opened.
   base::Time GetOpenedTime() const;
 
+  // The activated state of the entry.
+  // Note: An entry is considered "activated" if the corresponding tab became
+  // visible to the user on the target device, either by the tab being opened in
+  // the foreground, or by the user manually switching to the tab.
+  bool IsActivated() const;
+  // Sets the activated state of the entry to true and records the activated
+  // time.
+  void MarkActivated(base::Time activated_time);
+  // Time when this entry was activated on the target device, or a null time if
+  // it hasn't been activated.
+  base::Time GetActivatedTime() const;
+
   // Time when this entry was first received by the target device's bridge.
   void MarkReceived(base::Time received_time);
   bool IsReceived() const;
   base::Time GetReceivedTime() const;
 
-  // The state of this entry's notification: if it has been |dismissed|.
+  // The state of this entry's notification: if it has been `dismissed`.
   void SetNotificationDismissed(bool notification_dismissed);
   bool GetNotificationDismissed() const;
 
@@ -117,28 +129,32 @@ class SendTabToSelfEntry {
   // local storage.
   SendTabToSelfLocal AsLocalProto() const;
 
+  // Returns true if the URL is valid and has a supported scheme (HTTP or
+  // HTTPS).
+  static bool IsValidUrl(const GURL& url);
+
   // Creates a SendTabToSelfEntry from the protobuf format.
-  // If creation time is not set, it will be set to |now|.
+  // If creation time is not set, it will be set to `now`.
   static std::unique_ptr<SendTabToSelfEntry> FromProto(
       const sync_pb::SendTabToSelfSpecifics& pb_entry,
       base::Time now);
 
   // Creates a SendTabToSelfEntry from the protobuf format.
-  // If creation time is not set, it will be set to |now|.
+  // If creation time is not set, it will be set to `now`.
   static std::unique_ptr<SendTabToSelfEntry> FromLocalProto(
       const SendTabToSelfLocal& pb_entry,
       base::Time now);
 
-  // Returns if the Entry has expired based on the |current_time|.
+  // Returns if the Entry has expired based on the `current_time`.
   bool IsExpired(base::Time current_time) const;
 
   // Creates a SendTabToSelfEntry consisting of only the required fields.
   // This entry will have an expired SharedTime and therefor this function
   // should only be used for testing.
   static std::unique_ptr<SendTabToSelfEntry> FromRequiredFields(
-      const std::string& guid,
+      std::string guid,
       const GURL& url,
-      const std::string& target_device_sync_cache_guid);
+      std::string target_device_sync_cache_guid);
 
  private:
   std::string guid_;
@@ -152,6 +168,7 @@ class SendTabToSelfEntry {
   NavigationHistory navigation_history_;
   base::Time received_time_;
   base::Time opened_time_;
+  base::Time activated_time_;
 };
 
 }  // namespace send_tab_to_self

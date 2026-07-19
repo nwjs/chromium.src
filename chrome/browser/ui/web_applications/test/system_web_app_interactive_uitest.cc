@@ -106,7 +106,7 @@ class SystemWebAppLinkCaptureBrowserTest
                                       ui::PAGE_TRANSITION_AUTO_TOPLEVEL);
     EXPECT_TRUE(content::WaitForLoadStop(contents));
 
-    incognito->window()->Show();
+    incognito->GetWindow()->Show();
     return incognito;
   }
   const GURL kInitiatingAppUrl = GURL("chrome://initiating-app/pwa.html");
@@ -129,13 +129,13 @@ IN_PROC_BROWSER_TEST_P(SystemWebAppLinkCaptureBrowserTest,
   ui_test_utils::BrowserActivationWaiter(app_browser).WaitForActivation();
   EXPECT_EQ(2U, GlobalBrowserCollection::GetInstance()->GetSize());
   EXPECT_EQ(Browser::TYPE_APP, app_browser->type());
-  EXPECT_FALSE(app_browser->app_controller()->ShouldShowCustomTabBar());
+  EXPECT_FALSE(web_app::AppBrowserController::From(app_browser)
+                   ->ShouldShowCustomTabBar());
 }
 
 IN_PROC_BROWSER_TEST_P(SystemWebAppLinkCaptureBrowserTest, OmniboxPasteAndGo) {
   WaitForTestSystemAppInstall();
-  OmniboxEditModel* model = browser()
-                                ->window()
+  OmniboxEditModel* model = BrowserWindow::FromBrowser(browser())
                                 ->GetLocationBar()
                                 ->GetOmniboxController()
                                 ->edit_model();
@@ -151,7 +151,8 @@ IN_PROC_BROWSER_TEST_P(SystemWebAppLinkCaptureBrowserTest, OmniboxPasteAndGo) {
   ui_test_utils::BrowserActivationWaiter(app_browser).WaitForActivation();
   EXPECT_EQ(2U, GlobalBrowserCollection::GetInstance()->GetSize());
   EXPECT_EQ(Browser::TYPE_APP, app_browser->type());
-  EXPECT_FALSE(app_browser->app_controller()->ShouldShowCustomTabBar());
+  EXPECT_FALSE(web_app::AppBrowserController::From(app_browser)
+                   ->ShouldShowCustomTabBar());
 }
 
 IN_PROC_BROWSER_TEST_P(SystemWebAppLinkCaptureBrowserTest, AnchorLinkClick) {
@@ -193,9 +194,10 @@ IN_PROC_BROWSER_TEST_P(SystemWebAppLinkCaptureBrowserTest, AnchorLinkClick) {
       EXPECT_EQ(1 + starting_browser_count,
                 GlobalBrowserCollection::GetInstance()->GetSize());
       EXPECT_EQ(Browser::TYPE_APP, app_browser->type());
-      EXPECT_FALSE(app_browser->app_controller()->ShouldShowCustomTabBar());
+      EXPECT_FALSE(web_app::AppBrowserController::From(app_browser)
+                       ->ShouldShowCustomTabBar());
       ui_test_utils::BrowserDestroyedObserver destroyed_observer(app_browser);
-      app_browser->window()->Close();
+      app_browser->GetWindow()->Close();
       destroyed_observer.Wait();
 
       // Check the initiating page is intact.
@@ -238,9 +240,10 @@ IN_PROC_BROWSER_TEST_P(SystemWebAppLinkCaptureBrowserTest,
   ui_test_utils::BrowserActivationWaiter(app_browser).WaitForActivation();
   EXPECT_EQ(2U, GlobalBrowserCollection::GetInstance()->GetSize());
   EXPECT_EQ(Browser::TYPE_APP, app_browser->type());
-  EXPECT_FALSE(app_browser->app_controller()->ShouldShowCustomTabBar());
+  EXPECT_FALSE(web_app::AppBrowserController::From(app_browser)
+                   ->ShouldShowCustomTabBar());
   ui_test_utils::BrowserDestroyedObserver destroyed_observer(app_browser);
-  app_browser->window()->Close();
+  app_browser->GetWindow()->Close();
   destroyed_observer.Wait();
 
   // Check the initiating browser window is intact.
@@ -284,9 +287,10 @@ IN_PROC_BROWSER_TEST_P(SystemWebAppLinkCaptureBrowserTest,
   ui_test_utils::BrowserActivationWaiter(app_browser).WaitForActivation();
   EXPECT_EQ(2U, GlobalBrowserCollection::GetInstance()->GetSize());
   EXPECT_EQ(Browser::TYPE_APP, app_browser->type());
-  EXPECT_FALSE(app_browser->app_controller()->ShouldShowCustomTabBar());
+  EXPECT_FALSE(web_app::AppBrowserController::From(app_browser)
+                   ->ShouldShowCustomTabBar());
   ui_test_utils::BrowserDestroyedObserver destroyed_observer(app_browser);
-  app_browser->window()->Close();
+  app_browser->GetWindow()->Close();
   destroyed_observer.Wait();
 
   // Check the initiating browser window is intact.
@@ -318,7 +322,8 @@ IN_PROC_BROWSER_TEST_P(SystemWebAppLinkCaptureBrowserTest, ChangeLocationHref) {
   EXPECT_EQ(1 + starting_browser_count,
             GlobalBrowserCollection::GetInstance()->GetSize());
   EXPECT_EQ(Browser::TYPE_APP, app_browser->type());
-  EXPECT_FALSE(app_browser->app_controller()->ShouldShowCustomTabBar());
+  EXPECT_FALSE(web_app::AppBrowserController::From(app_browser)
+                   ->ShouldShowCustomTabBar());
 
   // Check the initiating browser window is intact.
   EXPECT_EQ(initiating_url, initiating_web_contents->GetLastCommittedURL());
@@ -355,9 +360,10 @@ IN_PROC_BROWSER_TEST_P(SystemWebAppLinkCaptureBrowserTest, WindowOpen) {
       EXPECT_EQ(1 + starting_browser_count,
                 GlobalBrowserCollection::GetInstance()->GetSize());
       EXPECT_EQ(Browser::TYPE_APP, app_browser->type());
-      EXPECT_FALSE(app_browser->app_controller()->ShouldShowCustomTabBar());
+      EXPECT_FALSE(web_app::AppBrowserController::From(app_browser)
+                       ->ShouldShowCustomTabBar());
       ui_test_utils::BrowserDestroyedObserver destroyed_observer(app_browser);
-      app_browser->window()->Close();
+      app_browser->GetWindow()->Close();
       destroyed_observer.Wait();
 
       // Check the initiating browser window is intact.
@@ -397,9 +403,10 @@ IN_PROC_BROWSER_TEST_P(SystemWebAppLinkCaptureBrowserTest,
       // initiating system app, the link capturing system app.
       EXPECT_EQ(3U, GlobalBrowserCollection::GetInstance()->GetSize());
       EXPECT_EQ(Browser::TYPE_APP, app_browser->type());
-      EXPECT_FALSE(app_browser->app_controller()->ShouldShowCustomTabBar());
+      EXPECT_FALSE(web_app::AppBrowserController::From(app_browser)
+                       ->ShouldShowCustomTabBar());
       ui_test_utils::BrowserDestroyedObserver destroyed_observer(app_browser);
-      app_browser->window()->Close();
+      app_browser->GetWindow()->Close();
       destroyed_observer.Wait();
 
       // Check the initiating browser window is intact.
@@ -447,13 +454,15 @@ IN_PROC_BROWSER_TEST_P(SystemWebAppLinkCaptureBrowserTest,
 
   Browser* incognito_browser = CreateIncognitoBrowser();
   ui_test_utils::BrowserDestroyedObserver destroyed_observer(browser());
-  browser()->window()->Close();
+  browser()->GetWindow()->Close();
   destroyed_observer.Wait();
 
   content::TestNavigationObserver observer(start_url);
   observer.StartWatchingNewWebContents();
-  incognito_browser->window()->GetLocationBar()->FocusLocation(
-      /*is_user_initiated=*/true, /*clear_focus_if_failed=*/false);
+  BrowserWindow::FromBrowser(incognito_browser)
+      ->GetLocationBar()
+      ->FocusLocation(
+          /*is_user_initiated=*/true, /*clear_focus_if_failed=*/false);
   ui_test_utils::SendToOmniboxAndSubmit(incognito_browser, start_url.spec());
   observer.Wait();
 
@@ -464,7 +473,8 @@ IN_PROC_BROWSER_TEST_P(SystemWebAppLinkCaptureBrowserTest,
   ui_test_utils::BrowserActivationWaiter(app_browser).WaitForActivation();
   EXPECT_EQ(2U, GlobalBrowserCollection::GetInstance()->GetSize());
   EXPECT_EQ(Browser::TYPE_APP, app_browser->type());
-  EXPECT_FALSE(app_browser->app_controller()->ShouldShowCustomTabBar());
+  EXPECT_FALSE(web_app::AppBrowserController::From(app_browser)
+                   ->ShouldShowCustomTabBar());
 }
 
 class SystemWebAppManagerWindowSizeControlsTest
@@ -616,14 +626,14 @@ IN_PROC_BROWSER_TEST_F(SystemWebAppManagerMultiDesktopLaunchBrowserTest,
   // (the active) desktop.
   Browser* browser2 = LaunchAppOnProfile(profile2);
   EXPECT_TRUE(multi_user_window_manager->IsWindowOnDesktopOfUser(
-      browser2->window()->GetNativeWindow(), account_id1_));
+      browser2->GetWindow()->GetNativeWindow(), account_id1_));
 
   // Launch the app from user 1 profile. The window should be on user 1 (the
   // active) desktop. And there should be two different browser windows
   // (for each profile).
   Browser* browser1 = LaunchAppOnProfile(profile1);
   EXPECT_TRUE(multi_user_window_manager->IsWindowOnDesktopOfUser(
-      browser1->window()->GetNativeWindow(), account_id1_));
+      browser1->GetWindow()->GetNativeWindow(), account_id1_));
 
   EXPECT_NE(browser1, browser2);
   EXPECT_EQ(2U, GlobalBrowserCollection::GetInstance()->GetSize());
@@ -635,7 +645,7 @@ IN_PROC_BROWSER_TEST_F(SystemWebAppManagerMultiDesktopLaunchBrowserTest,
 
   EXPECT_EQ(browser2, browser2_relaunch);
   EXPECT_TRUE(multi_user_window_manager->IsWindowOnDesktopOfUser(
-      browser2->window()->GetNativeWindow(), account_id2_));
+      browser2->GetWindow()->GetNativeWindow(), account_id2_));
 }
 
 IN_PROC_BROWSER_TEST_F(SystemWebAppManagerMultiDesktopLaunchBrowserTest,

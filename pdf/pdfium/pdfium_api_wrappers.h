@@ -9,6 +9,7 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "base/containers/span.h"
 #include "build/build_config.h"
@@ -76,6 +77,13 @@ std::optional<std::u16string> GetPageObjectMarkStringParam(
     FPDF_PAGEOBJECTMARK mark,
     const std::string& key);
 
+// Wrapper around FPDFPageObjMark_GetParamBlobValue().
+// Returns the value of the parameter with `key` in `mark`, or std::nullopt on
+// failure.
+std::optional<std::vector<unsigned char>> GetPageObjectMarkBlobParam(
+    FPDF_PAGEOBJECTMARK mark,
+    const std::string& key);
+
 // Wrapper around FPDFText_GetCharBox(). Returns the bounds for text at `index`
 // in `text_page`, or std::nullopt on failure.
 std::optional<PdfRect> GetTextCharBox(FPDF_TEXTPAGE text_page, int index);
@@ -94,6 +102,10 @@ bool RenderPageToDC(FPDF_PAGE page,
                     const PDFiumEngineExports::RenderingSettings& settings,
                     HDC dc);
 #endif
+
+// Retrieves the language of the PDF document using FPDFCatalog_GetLanguage().
+// Returns an empty std::string if the language is not specified.
+std::string GetDocumentLanguage(FPDF_DOCUMENT document);
 
 }  // namespace chrome_pdf
 

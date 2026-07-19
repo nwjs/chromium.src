@@ -236,9 +236,10 @@ PersistentCache* PersistentCacheCollection::GetOrCreateCache(
     persistent_caches_.Erase(oldest_it);
   }
 
-  base::FilePath base_name = BaseNameFromCacheId(cache_id);
-  // `cache_id` must not contain invalid characters.
-  CHECK(!base_name.empty());
+  const base::FilePath base_name = BaseNameFromCacheId(cache_id);
+  if (base_name.empty()) {
+    return nullptr;  // `cache_id` contains invalid characters.
+  }
 
   ASSIGN_OR_RETURN(
       auto backend,
@@ -327,7 +328,11 @@ constexpr auto kCharacterToTokenMap =
                                                     {'\"', "`7"},
                                                     {'?', "`8"},
                                                     {'*', "`9"},
-                                                    {'\n', "`0"}});
+                                                    {'\n', "`0"},
+                                                    {'%', "`p"},
+                                                    {'{', "`l"},
+                                                    {'}', "`r"},
+                                                    {'`', "`g"}});
 
 // Returns a token uniquely representing a character `c` that is not legal in
 // filenames, or an empty string if no such replacement is available.

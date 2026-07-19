@@ -70,7 +70,8 @@ class AutocompleteResult {
   // Returns a corresponding Java object, creating it if necessary.
   // NOTE: Android specific methods are defined in autocomplete_match_android.cc
   base::android::ScopedJavaLocalRef<jobject> GetOrCreateJavaObject(
-      JNIEnv* env) const;
+      JNIEnv* env,
+      const TemplateURLService* template_url_service) const;
 
   // Notify the Java object that its native counterpart is about to be
   // destroyed.
@@ -79,7 +80,8 @@ class AutocompleteResult {
   // Construct an array of AutocompleteMatch objects arranged in the exact same
   // order as |matches_|.
   base::android::ScopedJavaLocalRef<jobjectArray> BuildJavaMatches(
-      JNIEnv* env) const;
+      JNIEnv* env,
+      const TemplateURLService* template_url_service) const;
 
   // Group suggestions in specified range by search vs url.
   // The range used is [first_index, last_index), which contains all the
@@ -300,6 +302,12 @@ class AutocompleteResult {
   void clear_gws_event_id_hashes_in_session() {
     session_.gws_event_id_hashes.clear();
   }
+
+  const std::vector<omnibox::metrics::ChromeSearchboxStats::ExperimentStatsV2>&
+  experiment_stats_v2s_in_session() const;
+
+  void add_experiment_stat_v2_in_session(
+      const omnibox::metrics::ChromeSearchboxStats::ExperimentStatsV2& stat);
 
   std::pair<bool, bool> contextual_suggestions_shown_in_session() {
     return {session_.contextual_search_suggestions_shown_in_session,

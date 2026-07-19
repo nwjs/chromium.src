@@ -37,6 +37,7 @@ interface SaveDataBufferHandler {
   Read(uint32 offset, uint32 block_size) => (mojo_base.mojom.BigBuffer block);
 };
 
+// Renderer-side interface used by the browser.
 interface PdfListener {
   // Sets the current caret position.
   SetCaretPosition(gfx.mojom.PointF position);
@@ -71,6 +72,13 @@ interface PdfListener {
   // returns nullopt.
   GetMostVisiblePageIndex() => (uint32? page_index);
 
+  // Returns true if the document has meaningful text. A document is
+  // considered to have meaningful text if the total character count is at
+  // least 100 characters. If Searchify is enabled, pages that require
+  // Searchify are treated as having 0 characters.
+  // Note: This requires the PDF document to be fully loaded before calling.
+  HasMeaningfulText() => (bool has_meaningful_text);
+
   // Returns a `SaveDataBufferHandler` and the total file size to read the data
   // to save to Google Drive. Once the handler is acquired, caller can read the
   // data by calling `Read`. If the file is larger than INT_MAX size, returns
@@ -101,6 +109,9 @@ struct InkTypefaceRun {
   array<InkGlyphInfo> glyphs;
   // If true the text is horizontal, if false the text is vertical.
   bool is_horizontal;
+  // Whether the text needs to be artificially bolded / italicized.
+  bool is_synthetic_bold;
+  bool is_synthetic_italic;
 };
 
 [EnableIf=enable_pdf_ink2]
@@ -121,6 +132,8 @@ struct InkTextInfo {
   // 1.0 is 100%.
   // See blink::WebElement::GetEffectiveZoom()
   float effective_zoom;
+  // In physical pixels. Based on the <textarea> font size.
+  float primary_ascent;
 };
 
 // Browser-side interface used by PDF renderers.

@@ -4,6 +4,7 @@
 
 #import <string_view>
 
+#import "base/notreached.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/autofill/core/browser/test_utils/autofill_test_utils.h"
 #import "components/password_manager/core/browser/password_ui_utils.h"
@@ -19,7 +20,7 @@
 #import "ios/chrome/test/earl_grey/chrome_actions.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
 #import "ios/chrome/test/earl_grey/chrome_matchers.h"
-#import "ios/chrome/test/earl_grey/web_http_server_chrome_test_case.h"
+#import "ios/chrome/test/earl_grey/chrome_test_case.h"
 #import "ios/testing/earl_grey/earl_grey_test.h"
 #import "net/test/embedded_test_server/default_handlers.h"
 #import "ui/base/l10n/l10n_util.h"
@@ -169,6 +170,9 @@ void LoadForm(EmbeddedTestServer* test_server, ManualFillDataType data_type) {
       form_url = kAddressFormURL;
       form_text = "Profile form";
       break;
+    case ManualFillDataType::kAtMemory:
+      // TODO(crbug.com/522326512): Support kAtMemory.
+      NOTREACHED();
     case ManualFillDataType::kOther:
       form_url = kMultiFieldFormURL;
       form_text = "hello!";
@@ -238,7 +242,7 @@ GREYElementInteraction* SearchAutofillFormButton(id<GREYMatcher> scroll_view) {
 }  // namespace
 
 // Test case for the expanded manual fill view.
-@interface ExpandedManualFillTestCase : WebHttpServerChromeTestCase
+@interface ExpandedManualFillTestCase : ChromeTestCase
 @end
 
 @implementation ExpandedManualFillTestCase

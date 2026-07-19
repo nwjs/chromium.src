@@ -15,8 +15,8 @@
 #import "ios/chrome/browser/presenters/ui_bundled/contained_presenter_delegate.h"
 #import "ios/chrome/browser/presenters/ui_bundled/non_modal_view_controller_presenter.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
-#import "ios/chrome/browser/shared/public/commands/bwg_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/gemini_commands.h"
 
 using alert_overlays::AlertRequest;
 
@@ -29,7 +29,7 @@ using alert_overlays::AlertRequest;
 
 @implementation AlertOverlayCoordinator {
   // Handler for Gemini commands.
-  __weak id<BWGCommands> _geminiHandler;
+  __weak id<GeminiCommands> _geminiHandler;
 }
 
 #pragma mark - Accessors
@@ -59,11 +59,9 @@ using alert_overlays::AlertRequest;
 #pragma mark - ContainedPresenterDelegate
 
 - (void)containedPresenterWillPresent:(id<ContainedPresenter>)presenter {
-  if (IsGeminiCopresenceEnabled()) {
-    [_geminiHandler
-        hideFloatyIfInvokedAnimated:NO
-                         fromSource:gemini::FloatyUpdateSource::Alert];
-  }
+  [_geminiHandler
+      hideFloatyIfInvokedAnimated:NO
+                       fromSource:gemini::FloatyUpdateSource::Alert];
 }
 
 - (void)containedPresenterDidPresent:(id<ContainedPresenter>)presenter {
@@ -73,12 +71,10 @@ using alert_overlays::AlertRequest;
 - (void)containedPresenterDidDismiss:(id<ContainedPresenter>)presenter {
   self.alertViewController = nil;
   self.presenter = nil;
-  if (IsGeminiCopresenceEnabled()) {
-    [_geminiHandler
-        updateFloatyVisibilityIfEligibleAnimated:NO
-                                      fromSource:gemini::FloatyUpdateSource::
-                                                     Alert];
-  }
+  [_geminiHandler
+      updateFloatyVisibilityIfEligibleAnimated:NO
+                                    fromSource:gemini::FloatyUpdateSource::
+                                                   Alert];
   _geminiHandler = nil;
   self.delegate->OverlayUIDidFinishDismissal(self.requestId);
 }
@@ -101,11 +97,8 @@ using alert_overlays::AlertRequest;
   if (self.started) {
     return;
   }
-
-  if (IsGeminiCopresenceEnabled()) {
-    _geminiHandler =
-        HandlerForProtocol(self.browser->GetCommandDispatcher(), BWGCommands);
-  }
+  _geminiHandler =
+      HandlerForProtocol(self.browser->GetCommandDispatcher(), GeminiCommands);
   self.alertViewController = [[AlertViewController alloc] init];
   self.alertViewController.modalPresentationStyle =
       UIModalPresentationOverCurrentContext;

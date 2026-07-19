@@ -24,6 +24,7 @@
 #include "base/check_deref.h"
 #include "base/check_is_test.h"
 #include "base/command_line.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/json/json_string_value_serializer.h"
@@ -158,7 +159,7 @@
 #include "chrome/browser/browser_process_platform_part.h"
 #include "chrome/browser/enterprise/util/affiliation.h"
 #include "chrome/browser/enterprise/util/managed_browser_utils.h"
-#include "chrome/browser/metrics/cros_pre_consent_metrics_manager.h"
+#include "chrome/browser/metrics/cros_pre_choice_metrics_manager.h"
 #include "chrome/browser/metrics/metrics_reporting_state.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/profiles/profile.h"
@@ -488,7 +489,7 @@ WizardController::WizardController(
     // as screens should work with late binding/early unbinding in that case.
     oobe_ui_observation_.Observe(GetOobeUI());
 
-    MaybeEnablePreConsentMetrics();
+    MaybeEnablePreChoiceMetrics();
   }
 }
 
@@ -1429,12 +1430,12 @@ void WizardController::ShowOsTrialScreen() {
 }
 
 void WizardController::ShowConsolidatedConsentScreen() {
-  // Disable PreConsent metrics if the user is affiliated or managed.
+  // Disable PreChoice metrics if the user is affiliated or managed.
   Profile* profile = ProfileManager::GetActiveUserProfile();
   CHECK(profile);
   if (enterprise_util::IsBrowserManaged(profile)) {
-    if (metrics::CrOSPreConsentMetricsManager::Get()) {
-      metrics::CrOSPreConsentMetricsManager::Get()->Disable();
+    if (metrics::CrOSPreChoiceMetricsManager::Get()) {
+      metrics::CrOSPreChoiceMetricsManager::Get()->Disable();
     }
   }
 
@@ -2405,11 +2406,12 @@ void WizardController::OnAutoEnrollmentCheckScreenExit(
   // Check whether the device is disabled. OnDeviceDisabledChecked() will be
   // invoked when the result of this check is known. Until then, the current
   // screen will remain visible and will continue showing a spinner.
-  g_browser_process->platform_part()
-      ->device_disabling_manager()
-      ->CheckWhetherDeviceDisabledDuringOOBE(
-          base::BindRepeating(&WizardController::OnDeviceDisabledChecked,
-                              weak_factory_.GetWeakPtr()));
+  auto* device_disabling_manager =
+      g_browser_process->platform_part()->device_disabling_manager();
+  CHECK(device_disabling_manager);
+  device_disabling_manager->CheckWhetherDeviceDisabledDuringOOBE(
+      base::BindRepeating(&WizardController::OnDeviceDisabledChecked,
+                          weak_factory_.GetWeakPtr()));
 }
 
 void WizardController::OnEnrollmentScreenExit(EnrollmentScreen::Result result) {
@@ -2913,6 +2915,15 @@ void WizardController::ObtainContextAndFinalizeAuth() {
 
 void WizardController::FinalizeAuthWithContext(
     std::unique_ptr<UserContext> context) {
+  if (!context) {
+    // Session has expired.
+    LOG(ERROR) << "Session expired before login could proceed.";
+    // Also dump to see in what scenarios would this happen.
+    base::debug::DumpWithoutCrashing(FROM_HERE);
+    session_manager::SessionManager::Get()->RequestSignOut();
+    return;
+  }
+
   auto mount_state = context->GetMountState();
   if (!mount_state.has_value()) {
     // In certain edge cases, such as a Reauthentication that transitions into
@@ -3282,11 +3293,11 @@ void WizardController::OnOobeFlowFinished() {
 
   GetLocalState()->ClearPref(prefs::kOobeMetricsClientIdAtOobeStart);
 
-  // Check if pre-consent metrics is still enabled.
-  if (metrics::CrOSPreConsentMetricsManager::Get()) {
-    LOG(ERROR) << "OOBE flow is finished and Pre-consent metrics is still "
-               << "enabled. Disabling pre-consent metrics.";
-    metrics::CrOSPreConsentMetricsManager::Get()->Disable();
+  // Check if pre-choice metrics is still enabled.
+  if (metrics::CrOSPreChoiceMetricsManager::Get()) {
+    LOG(ERROR) << "OOBE flow is finished and Pre-choice metrics is still "
+               << "enabled. Disabling pre-choice metrics.";
+    metrics::CrOSPreChoiceMetricsManager::Get()->Disable();
   }
 
   // Launch browser and delete login host controller.
@@ -4025,7 +4036,9 @@ WizardController::GetAutoEnrollmentController() {
   if (!auto_enrollment_controller_) {
     auto_enrollment_controller_ =
         std::make_unique<policy::AutoEnrollmentController>(
-            shared_url_loader_factory_);
+            &local_state_.get(), shared_url_loader_factory_,
+            browser_policy_connector_ash_->device_management_service(),
+            browser_policy_connector_ash_->GetStateKeysBroker());
   }
   return auto_enrollment_controller_.get();
 }
@@ -4053,27 +4066,27 @@ void WizardController::MaybeAbortQuickStartFlow(
   }
 }
 
-void WizardController::MaybeEnablePreConsentMetrics() {
+void WizardController::MaybeEnablePreChoiceMetrics() {
   if (switches::ShouldDisablePreConsentMetricsForTesting()) {
     return;
   }
-  // Enable pre-consent metrics if this device is in oobe and is the first
+  // Enable pre-choice metrics if this device is in oobe and is the first
   // user.
   Profile* profile = ProfileManager::GetActiveUserProfile();
   CHECK(profile);
   if (enterprise_util::IsBrowserManaged(profile)) {
-    VLOG(1) << "Device enrolled. Do not enable pre consent metrics.";
+    VLOG(1) << "Device enrolled. Do not enable pre choice metrics.";
     return;
   }
 
   if (!wizard_context_->is_add_person_flow &&
-      metrics::CrOSPreConsentMetricsManager::Get()) {
-    // Update stats reporter that the current metrics consent is enabled. This
+      metrics::CrOSPreChoiceMetricsManager::Get()) {
+    // Update stats reporter that the current metrics choice is enabled. This
     // will make sure that any changes in the future are properly propagated
     // when using the API.
     StatsReportingController::Get()->SetEnabled(
         ProfileManager::GetActiveUserProfile(), true);
-    metrics::CrOSPreConsentMetricsManager::Get()->Enable();
+    metrics::CrOSPreChoiceMetricsManager::Get()->Enable();
   }
 }
 

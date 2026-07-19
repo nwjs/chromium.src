@@ -21,7 +21,6 @@
 #include "base/memory/raw_ptr.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
-#include "base/test/test_future.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
 #include "chrome/app/chrome_command_ids.h"
@@ -54,6 +53,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
+#include "chrome/browser/ui/immersive/immersive_mode_controller.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
@@ -65,7 +65,6 @@
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
 #include "chrome/browser/ui/views/frame/app_menu_button.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
 #include "chrome/browser/ui/views/frame/immersive_mode_controller_chromeos.h"
 #include "chrome/browser/ui/views/frame/immersive_mode_tester.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
@@ -76,7 +75,9 @@
 #include "chrome/browser/ui/views/location_bar/zoom_bubble_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_view.h"
+#include "chrome/browser/ui/views/page_action/test_support/page_action_test_support.h"
 #include "chrome/browser/ui/views/page_info/page_info_bubble_view_base.h"
+#include "chrome/browser/ui/views/profiles/profile_indicator_icon.h"
 #include "chrome/browser/ui/views/tab_search_bubble_host.h"
 #include "chrome/browser/ui/views/tabs/tab.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
@@ -330,7 +331,7 @@ IN_PROC_BROWSER_TEST_P(BrowserFrameViewChromeOSTest,
 IN_PROC_BROWSER_TEST_P(BrowserFrameViewChromeOSTest,
                        IncognitoMarkedAsAssistantBlocked) {
   Browser* incognito_browser = CreateIncognitoBrowser();
-  EXPECT_TRUE(incognito_browser->window()->GetNativeWindow()->GetProperty(
+  EXPECT_TRUE(incognito_browser->GetWindow()->GetNativeWindow()->GetProperty(
       chromeos::kBlockedForAssistantSnapshotKey));
 }
 
@@ -372,7 +373,7 @@ IN_PROC_BROWSER_TEST_P(BrowserFrameViewChromeOSTest,
                              KeepAliveRestartOption::DISABLED);
 
   // Quit and restore.
-  browser()->window()->Minimize();
+  browser()->GetWindow()->Minimize();
   CloseBrowserSynchronously(browser());
 
   chrome::NewEmptyWindow(profile);
@@ -502,8 +503,10 @@ class WebAppFrameViewChromeOSTest
   IconLabelBubbleView* GetPageActionView(
       std::variant<actions::ActionId, PageActionIconType> action_type) {
     if (std::holds_alternative<actions::ActionId>(action_type)) {
-      return browser_view_->toolbar_button_provider()->GetPageActionView(
-          std::get<actions::ActionId>(action_type));
+      auto action_id = std::get<actions::ActionId>(action_type);
+      auto* provider = browser_view_->toolbar_button_provider();
+      return page_actions::GetIconLabelBubbleViewForTesting(
+          provider->GetPageActionViewInterface(action_id), action_id);
     } else {
       PageActionIconType type = std::get<PageActionIconType>(action_type);
       if (!IsPageActionMigrated(type)) {
@@ -756,12 +759,12 @@ IN_PROC_BROWSER_TEST_P(WebAppFrameViewChromeOSTest,
   ASSERT_TRUE(WaitForFocus(true, web_app_menu_button_));
 }
 
-// Tests the app icon and title are not shown.
-IN_PROC_BROWSER_TEST_P(WebAppFrameViewChromeOSTest, IconShownAndTitleNotShown) {
+// Tests the app icon is not shown but the title is shown.
+IN_PROC_BROWSER_TEST_P(WebAppFrameViewChromeOSTest, IconNotShownButTitleShown) {
   SetUpWebApp();
   auto* browser_view = BrowserView::GetBrowserViewForBrowser(app_browser_);
   EXPECT_FALSE(browser_view->ShouldShowWindowIcon());
-  EXPECT_FALSE(browser_view->ShouldShowWindowTitle());
+  EXPECT_TRUE(browser_view->ShouldShowWindowTitle());
 }
 
 // Tests that the custom tab bar is focusable from the keyboard.
@@ -834,7 +837,7 @@ IN_PROC_BROWSER_TEST_P(WebAppFrameViewChromeOSTest,
   EXPECT_FALSE(GetPaintingAsActive());
 }
 
-IN_PROC_BROWSER_TEST_P(WebAppFrameViewChromeOSTest, PopupHasNoToolbar) {
+IN_PROC_BROWSER_TEST_P(WebAppFrameViewChromeOSTest, PopupHasToolbar) {
   SetUpWebApp();
 
   Browser* popup_browser;
@@ -852,8 +855,8 @@ IN_PROC_BROWSER_TEST_P(WebAppFrameViewChromeOSTest, PopupHasNoToolbar) {
 
   BrowserView* browser_view =
       BrowserView::GetBrowserViewForBrowser(popup_browser);
-  EXPECT_FALSE(browser_view->web_app_frame_toolbar_for_testing() &&
-               browser_view->web_app_frame_toolbar_for_testing()->GetVisible());
+  EXPECT_TRUE(browser_view->web_app_frame_toolbar_for_testing() &&
+              browser_view->web_app_frame_toolbar_for_testing()->GetVisible());
 }
 
 IN_PROC_BROWSER_TEST_P(BrowserFrameViewChromeOSTest,
@@ -912,7 +915,7 @@ IN_PROC_BROWSER_TEST_P(BrowserFrameViewChromeOSTest,
        }) {
     EXPECT_TRUE(immersive_mode_controller->IsEnabled());
     ui::test::EventGenerator generator(
-        browser()->window()->GetNativeWindow()->GetRootWindow());
+        browser()->GetWindow()->GetNativeWindow()->GetRootWindow());
 
     std::string trace_name;
     switch (shortcut) {
@@ -982,7 +985,7 @@ IN_PROC_BROWSER_TEST_P(BrowserFrameViewChromeOSTest,
         [&]() { return immersive_mode_controller->IsRevealed(); }));
     EXPECT_TRUE(test_api.IsRevealLocked());
 
-    generator.MoveMouseToCenterOf(browser()->window()->GetNativeWindow());
+    generator.MoveMouseToCenterOf(browser()->GetWindow()->GetNativeWindow());
     generator.ClickLeftButton();
 
     // TODO(crbug.com/463559714): Replace the loop with EXPECT_TRUE, when the
@@ -1006,7 +1009,7 @@ IN_PROC_BROWSER_TEST_P(BrowserFrameViewChromeOSTest,
       [&]() -> bool { return !immersive_mode_controller->IsRevealed(); }));
 
   ui::test::EventGenerator generator(
-      browser()->window()->GetNativeWindow()->GetRootWindow());
+      browser()->GetWindow()->GetNativeWindow()->GetRootWindow());
 
   SCOPED_TRACE("Zoom");
   generator.PressKey(ui::KeyboardCode::VKEY_CONTROL, 0);
@@ -1024,7 +1027,7 @@ IN_PROC_BROWSER_TEST_P(BrowserFrameViewChromeOSTest,
 IN_PROC_BROWSER_TEST_P(BrowserFrameViewChromeOSTest, TopViewInset) {
   auto* const immersive_mode_controller =
       ImmersiveModeController::From(browser());
-  aura::Window* window = browser()->window()->GetNativeWindow();
+  aura::Window* window = browser()->GetWindow()->GetNativeWindow();
   EXPECT_EQ(0, window->GetProperty(aura::client::kTopViewInset));
 
   // The kTopViewInset should be 0 when in immersive mode.
@@ -1089,7 +1092,7 @@ IN_PROC_BROWSER_TEST_P(BrowserFrameViewChromeOSTest,
   EXPECT_FALSE(immersive_mode_controller->IsRevealed());
   EXPECT_EQ(top_container, caption_buttons->parent());
 
-  aura::Window* window = browser()->window()->GetNativeWindow();
+  aura::Window* window = browser()->GetWindow()->GetNativeWindow();
   ui::test::EventGenerator event_generator(window->GetRootWindow());
 
   gfx::Point point(std::roundl(window->bounds().width() / 3), 0);
@@ -1166,7 +1169,7 @@ IN_PROC_BROWSER_TEST_P(BrowserFrameViewChromeOSTest, AppFrameColor) {
   Browser* app_browser =
       CreateBrowserForApp("test_browser_app", browser()->profile());
 
-  aura::Window* window = app_browser->window()->GetNativeWindow();
+  aura::Window* window = app_browser->GetWindow()->GetNativeWindow();
   SkColor active_frame_color =
       window->GetProperty(chromeos::kFrameActiveColorKey);
 
@@ -1297,7 +1300,7 @@ IN_PROC_BROWSER_TEST_P(BrowserFrameViewChromeOSTest,
 
   auto* const immersive_mode_controller =
       ImmersiveModeController::From(app_browser);
-  aura::Window* window = app_browser->window()->GetNativeWindow();
+  aura::Window* window = app_browser->GetWindow()->GetNativeWindow();
   EXPECT_LT(0, window->GetProperty(aura::client::kTopViewInset));
 
   // The kTopViewInset should be 0 when in immersive mode.
@@ -1808,13 +1811,80 @@ IN_PROC_BROWSER_TEST_P(BrowserFrameViewAshAvatarTest,
       kSecondaryAccountId);
 
   EXPECT_TRUE(BrowserFrameViewChromeOS::ShouldShowAvatarForTesting(window));
-  EXPECT_TRUE(test_api.GetProfileIndicatorIcon());
+  auto* icon = test_api.GetProfileIndicatorIcon();
+  ASSERT_TRUE(icon);
+
+  // Verify that the avatar icon is vertically centered within the tabstrip
+  // area.
+  const int expected_frame_height =
+      frame_view->GetTopInset(false) +
+      browser_view->GetFrameElementInfo().tabstrip_preferred_height;
+  const int expected_icon_y = (expected_frame_height - icon->height()) / 2;
+  EXPECT_EQ(expected_icon_y, icon->bounds().y());
 
   // Teleport the window back to owner desktop.
   browser_view->Activate();
   window_manager->ShowWindowForUser(window, kPrimaryAccountId);
   EXPECT_FALSE(BrowserFrameViewChromeOS::ShouldShowAvatarForTesting(window));
   EXPECT_FALSE(test_api.GetProfileIndicatorIcon());
+}
+
+// Regression test for b/527095091.
+IN_PROC_BROWSER_TEST_P(BrowserFrameViewAshAvatarTest,
+                       ProfileIconPositionUpdatesAppTitle) {
+  LogIn(kPrimaryAccountId);
+  Profile* primary_user_profile = Profile::FromBrowserContext(
+      ash::BrowserContextHelper::Get()->GetBrowserContextByAccountId(
+          kPrimaryAccountId));
+
+  const auto app_id = web_app::test::InstallDummyWebApp(
+      primary_user_profile, "test_browser_app", GURL("https://test.org"));
+  Browser* app_browser =
+      web_app::LaunchWebAppBrowser(primary_user_profile, app_id);
+  BrowserView* browser_view =
+      BrowserView::GetBrowserViewForBrowser(app_browser);
+  BrowserFrameViewChromeOS* frame_view = GetFrameViewChromeOS(browser_view);
+  BrowserFrameViewChromeOSTestApi test_api(frame_view);
+  aura::Window* window = app_browser->GetWindow()->GetNativeWindow();
+
+  // Force initial layout.
+  browser_view->GetWidget()->LayoutRootViewIfNecessary();
+
+  // The app title and toolbar are drawn by the WebAppFrameToolbarView.
+  ASSERT_TRUE(browser_view->web_app_frame_toolbar_for_testing());
+  const int title_x_without_icon =
+      browser_view->web_app_frame_toolbar_for_testing()->x();
+
+  // Log in with the secondary user.
+  LogIn(kSecondaryAccountId);
+
+  // Move back to the primary user's desktop.
+  SessionControllerClientImpl::Get()->SwitchActiveUser(kPrimaryAccountId);
+
+  // Teleport the window to secondary user's desktop. This adds the avatar icon.
+  auto* window_manager = ash::Shell::Get()->multi_user_window_manager();
+  browser_view->Activate();
+  window_manager->ShowWindowForUser(window, kSecondaryAccountId);
+  auto* icon = test_api.GetProfileIndicatorIcon();
+  ASSERT_TRUE(icon);
+
+  // Force layout to apply the teleportation changes.
+  browser_view->GetWidget()->LayoutRootViewIfNecessary();
+  const int title_x_with_icon =
+      browser_view->web_app_frame_toolbar_for_testing()->x();
+
+  // The title should be pushed to the right by the icon.
+  EXPECT_GT(title_x_with_icon, title_x_without_icon);
+
+  // Teleport back to remove the icon.
+  window_manager->ShowWindowForUser(window, kPrimaryAccountId);
+  browser_view->Activate();
+  EXPECT_FALSE(test_api.GetProfileIndicatorIcon());
+
+  // Force layout again.
+  browser_view->GetWidget()->LayoutRootViewIfNecessary();
+  EXPECT_EQ(title_x_without_icon,
+            browser_view->web_app_frame_toolbar_for_testing()->x());
 }
 
 using BrowserFrameViewAshTest = BrowserFrameViewChromeOSTest;
@@ -1855,9 +1925,7 @@ enum class ThemeChangeTestMode {
 // * whether theme changes should be animated.
 class BrowserFrameViewAshThemeChangeTest
     : public InProcessBrowserTest,
-      public testing::WithParamInterface<
-          std::tuple<ThemeChangeTestMode,
-                     /*should_animate_theme_changes=*/bool>> {
+      public testing::WithParamInterface<ThemeChangeTestMode> {
  public:
   BrowserFrameViewAshThemeChangeTest() {
     switch (GetThemeChangeTestMode()) {
@@ -1870,7 +1938,6 @@ class BrowserFrameViewAshThemeChangeTest
                 /*dark_mode_background_color=*/SK_ColorBLACK);
         auto* delegate = static_cast<ash::UnittestingSystemAppDelegate*>(
             system_web_app_installation_->GetDelegate());
-        delegate->SetShouldAnimateThemeChanges(ShouldAnimateThemeChanges());
         // When system colored SWAs were introduced for Jelly,
         // `UseSystemThemeColor()` overrode other styling information in the
         // manifest. This test now verifies behavior for SWAs that are opted out
@@ -1884,13 +1951,7 @@ class BrowserFrameViewAshThemeChangeTest
   }
 
   // Returns test mode given test parameterization.
-  ThemeChangeTestMode GetThemeChangeTestMode() const {
-    return std::get<0>(GetParam());
-  }
-
-  // Returns whether theme changes should be animated for the web app under test
-  // given test parameterization.
-  bool ShouldAnimateThemeChanges() const { return std::get<1>(GetParam()); }
+  ThemeChangeTestMode GetThemeChangeTestMode() const { return GetParam(); }
 
   // Toggles the color mode, triggering propagation of theme change events.
   void ToggleColorMode() {
@@ -1942,39 +2003,18 @@ class BrowserFrameViewAshThemeChangeTest
 INSTANTIATE_TEST_SUITE_P(
     Mode,
     BrowserFrameViewAshThemeChangeTest,
-    testing::Combine(testing::Values(ThemeChangeTestMode::kSWA,
-                                     ThemeChangeTestMode::kNonSWA),
-                     /*should_animate_theme_changes=*/testing::Bool()),
-    [](const testing::TestParamInfo<
-        std::tuple<ThemeChangeTestMode,
-                   /*should_animate_theme_changes=*/bool>>& info) {
-      ThemeChangeTestMode test_mode = std::get<0>(info.param);
-      bool should_animate_theme_changes = std::get<1>(info.param);
-
-      std::stringstream name;
+    testing::Values(ThemeChangeTestMode::kSWA, ThemeChangeTestMode::kNonSWA),
+    [](const testing::TestParamInfo<ThemeChangeTestMode>& info) {
+      ThemeChangeTestMode test_mode = info.param;
       switch (test_mode) {
         case ThemeChangeTestMode::kSWA:
-          name << "kSWA";
-          break;
+          return "kSWA";
         case ThemeChangeTestMode::kNonSWA:
-          name << "kNonSWA";
-          break;
+          return "kNonSWA";
       }
-
-      if (should_animate_theme_changes) {
-        name << "_ShouldAnimateThemeChanges";
-      }
-
-      return name.str();
     });
 
 IN_PROC_BROWSER_TEST_P(BrowserFrameViewAshThemeChangeTest, ThemeChange) {
-  // Skip test parameterizations for non-system web apps that don't make sense.
-  if (GetThemeChangeTestMode() == ThemeChangeTestMode::kNonSWA &&
-      ShouldAnimateThemeChanges()) {
-    GTEST_SKIP();
-  }
-
   const webapps::AppId app_id = WaitForAppInstall();
 
   // Trigger the launch but do not wait for the web contents to load.
@@ -1996,7 +2036,9 @@ IN_PROC_BROWSER_TEST_P(BrowserFrameViewAshThemeChangeTest, ThemeChange) {
   // despite the fact that the web contents background color hasn't loaded
   // yet.
   EXPECT_EQ(contents_web_view->layer()->background_color(),
-            browser->app_controller()->GetBackgroundColor().value());
+            web_app::AppBrowserController::From(browser)
+                ->GetBackgroundColor()
+                .value());
   EXPECT_FALSE(web_contents->GetBackgroundColor().has_value());
 
   // Wait for the web contents background color to load and verify that the
@@ -2005,7 +2047,9 @@ IN_PROC_BROWSER_TEST_P(BrowserFrameViewAshThemeChangeTest, ThemeChange) {
     content::BackgroundColorChangeWaiter waiter(web_contents);
     waiter.Wait();
     EXPECT_EQ(contents_web_view->layer()->background_color(),
-              browser->app_controller()->GetBackgroundColor().value());
+              web_app::AppBrowserController::From(browser)
+                  ->GetBackgroundColor()
+                  .value());
     EXPECT_EQ(contents_web_view->layer()->background_color(),
               web_contents->GetBackgroundColor().value());
   }
@@ -2019,18 +2063,16 @@ IN_PROC_BROWSER_TEST_P(BrowserFrameViewAshThemeChangeTest, ThemeChange) {
   // that the web contents background color update is async.
   ToggleColorMode();
   EXPECT_EQ(contents_web_view->layer()->background_color(),
-            browser->app_controller()->GetBackgroundColor().value());
+            web_app::AppBrowserController::From(browser)
+                ->GetBackgroundColor()
+                .value());
   EXPECT_EQ(contents_web_view->layer()->background_color(),
             web_contents->GetBackgroundColor().value());
 
-  // If theme changes should be animated, the layer associated with the
-  // `contents_web_view` native view should be immediately hidden.
+  // Verify that the layer associated with the `contents_web_view` native view
+  // is not hidden.
   auto* layer = contents_web_view->holder()->native_view()->layer();
-  if (ShouldAnimateThemeChanges()) {
-    EXPECT_EQ(layer->GetTargetOpacity(), std::nextafter(0.f, 1.f));
-  } else {
-    EXPECT_EQ(layer->GetTargetOpacity(), 1.f);
-  }
+  EXPECT_EQ(layer->GetTargetOpacity(), 1.f);
 
   // Wait for the web contents background color to update and verify that the
   // background color still matches that resolved from the app controller.
@@ -2038,21 +2080,11 @@ IN_PROC_BROWSER_TEST_P(BrowserFrameViewAshThemeChangeTest, ThemeChange) {
     content::BackgroundColorChangeWaiter waiter(web_contents);
     waiter.Wait();
     EXPECT_EQ(contents_web_view->layer()->background_color(),
-              browser->app_controller()->GetBackgroundColor().value());
+              web_app::AppBrowserController::From(browser)
+                  ->GetBackgroundColor()
+                  .value());
     EXPECT_EQ(contents_web_view->layer()->background_color(),
               web_contents->GetBackgroundColor().value());
-  }
-
-  // If theme changes should be animated, the layer associated with the
-  // `contents_web_view` native view should be animated back in only after a
-  // round trip through the renderer and compositor pipelines. This should
-  // ensure that the web contents has finished repainting theme changes.
-  if (ShouldAnimateThemeChanges()) {
-    base::test::TestFuture<bool> visual_state_change_future;
-    web_contents->GetRenderViewHost()->GetWidget()->InsertVisualStateCallback(
-        visual_state_change_future.GetCallback());
-    EXPECT_TRUE(visual_state_change_future.Wait());
-    EXPECT_EQ(layer->GetTargetOpacity(), 1.f);
   }
 }
 

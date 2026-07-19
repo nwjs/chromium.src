@@ -13,12 +13,15 @@ import androidx.annotation.ColorInt;
 import org.chromium.base.Callback;
 import org.chromium.base.Log;
 import org.chromium.base.supplier.NonNullObservableSupplier;
+import org.chromium.base.supplier.ObservableSuppliers;
+import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.browser.browser_controls.BottomControlsStacker;
 import org.chromium.chrome.browser.browser_controls.BottomControlsStacker.LayerType;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.components.browser_ui.widget.scrim.ScrimManager;
 import org.chromium.components.browser_ui.widget.scrim.ScrimProperties;
+import org.chromium.components.omnibox.OmniboxCapabilities;
 import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -45,6 +48,8 @@ public class LocationBarFocusScrimHandler {
     private final NonNullObservableSupplier<Integer> mTabStripHeightSupplier;
     private final Callback<Integer> mTabStripHeightChangeCallback;
     private final BottomControlsStacker mBottomControlsStacker;
+    private final SettableNonNullObservableSupplier<Boolean> mScrimVisibilitySupplier =
+            ObservableSuppliers.createNonNull(false);
 
     /**
      * @param scrimManager Coordinator responsible for showing and hiding the scrim view.
@@ -69,6 +74,11 @@ public class LocationBarFocusScrimHandler {
         mLocationBarDataProvider = locationBarDataProvider;
         mBottomControlsStacker = bottomControlsStacker;
         mContext = context;
+        Callback<Boolean> visibilityChangeCallbackWrapper =
+                visible -> {
+                    visibilityChangeCallback.onResult(visible);
+                    mScrimVisibilitySupplier.set(visible);
+                };
 
         int topMargin = tabStripHeightSupplier.get();
         mLightScrimColor = context.getColor(R.color.omnibox_focused_fading_background_color_light);
@@ -78,7 +88,7 @@ public class LocationBarFocusScrimHandler {
                         .with(ScrimProperties.SHOW_IN_FRONT_OF_ANCHOR_VIEW, true)
                         .with(ScrimProperties.TOP_MARGIN, topMargin)
                         .with(ScrimProperties.CLICK_DELEGATE, clickDelegate)
-                        .with(ScrimProperties.VISIBILITY_CALLBACK, visibilityChangeCallback)
+                        .with(ScrimProperties.VISIBILITY_CALLBACK, visibilityChangeCallbackWrapper)
                         .build();
         if (ChromeFeatureList.sDebugToolbarPositioning.isEnabled()) {
             Log.i(TAG, "Setting mScrimModel topMargin in constructor: %d", topMargin);
@@ -99,6 +109,7 @@ public class LocationBarFocusScrimHandler {
         mTabStripHeightSupplier.addSyncObserverAndPostIfNonNull(mTabStripHeightChangeCallback);
     }
 
+
     /** Compute and apply property updates needed for accurate visual representation of scrim. */
     public void updateScrimVisualState() {
         if (ChromeFeatureList.sOmniboxAutofocusOnIncognitoNtp.isEnabled()
@@ -110,7 +121,10 @@ public class LocationBarFocusScrimHandler {
 
         boolean isTablet = DeviceFormFactor.isNonMultiDisplayContextOnTablet(mContext);
         boolean useTransparentScrim =
-                isTablet && OmniboxFeatures.isMultimodalInputEnabled(mContext);
+                isTablet
+                        && (OmniboxFeatures.isMultimodalInputEnabled(mContext)
+                                || (OmniboxCapabilities.isDesktopPlatform()
+                                        && OmniboxFeatures.sAndroidDesktopAimGate.isEnabled()));
         boolean useLightColor =
                 !isTablet
                         && !mLocationBarDataProvider.isIncognitoBranded()
@@ -138,6 +152,16 @@ public class LocationBarFocusScrimHandler {
         }
 
         mScrimShown = shouldShow;
+    }
+
+    /** Returns whether the scrim is currently shown. */
+    public boolean isScrimShown() {
+        return mScrimVisibilitySupplier.get();
+    }
+
+    /** Returns a supplier for whether the scrim is currently shown. */
+    public NonNullObservableSupplier<Boolean> getScrimVisibilitySupplier() {
+        return mScrimVisibilitySupplier;
     }
 
     public void destroy() {

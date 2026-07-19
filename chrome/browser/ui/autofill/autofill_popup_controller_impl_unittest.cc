@@ -19,8 +19,9 @@
 #include "components/autofill/core/browser/suggestions/suggestion_hiding_reason.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/browser/ui/popup_interaction.h"
-#include "components/autofill/core/browser/ui/suggestion_button_action.h"
 #include "components/autofill/core/common/aliases.h"
+#include "content/public/test/test_renderer_host.h"
+#include "content/public/test/test_utils.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/accessibility/ax_active_popup.h"
@@ -35,7 +36,6 @@
 #if !BUILDFLAG(IS_CHROMEOS)
 #include "content/public/test/scoped_accessibility_mode_override.h"
 #endif  // !BUILDFLAG(IS_CHROMEOS)
-
 namespace autofill {
 namespace {
 
@@ -51,8 +51,7 @@ using ::testing::MockFunction;
 using ::testing::NiceMock;
 using ::testing::Return;
 
-using SingleEntryRemovalMethod =
-    autofill::AutofillMetrics::SingleEntryRemovalMethod;
+using SingleEntryRemovalMethod = AutofillMetrics::SingleEntryRemovalMethod;
 
 Matcher<const AutofillSuggestionDelegate::SuggestionMetadata&>
 EqualsSuggestionMetadata(
@@ -75,8 +74,7 @@ class AutofillPopupControllerImplTest
     // 1. Set the trigger source inside the delegate.
     manager().external_delegate().OnQuery(
         FormData(), FormFieldData(), gfx::Rect(),
-        AutofillSuggestionTriggerSource::kAtMemory,
-        /*update_datalist=*/false);
+        AutofillSuggestionTriggerSource::kAtMemory);
 
     // 2. Setup the bridge so the mock delegate executes real initialization
     // logic.
@@ -101,7 +99,7 @@ class AutofillPopupControllerImplTest
     // 1. Prepare the backend mock results.
     std::vector<accessibility_annotator::MemorySearchResult> entries;
     for (const auto& value : results) {
-      entries.emplace_back(accessibility_annotator::EntryType::kNameFull,
+      entries.emplace_back(accessibility_annotator::MemoryDataType::kNameFull,
                            u"Name", value);
     }
     accessibility_annotator::MemorySearchResults search_results(
@@ -110,9 +108,9 @@ class AutofillPopupControllerImplTest
 
     // 2. Setup the backend expectation if the query is non-empty.
     if (!query.empty()) {
-      EXPECT_CALL(*client().accessibility_query_service(),
-                  Query(std::u16string_view(query), _, _))
-          .WillOnce(base::test::RunOnceCallback<2>(std::move(search_results)));
+      EXPECT_CALL(*client().at_memory_query_service(),
+                  Query(std::u16string_view(query), _))
+          .WillOnce(base::test::RunOnceCallback<1>(std::move(search_results)));
     }
 
     // 3. Trigger the search via the UI.
@@ -426,16 +424,6 @@ TEST_F(AutofillPopupControllerImplTest, EventsAreDelegatedToChildrenAndView) {
       client().suggestion_controller(manager()).HandleKeyPressEvent(event));
 }
 
-// Tests that the controller forwards calls to perform a button action (such as
-// clicking a close button on a suggestion) to its delegate.
-TEST_F(AutofillPopupControllerImplTest, ButtonActionsAreSentToDelegate) {
-  ShowSuggestions(manager(), {SuggestionType::kComposeResumeNudge});
-  EXPECT_CALL(manager().external_delegate(),
-              DidPerformButtonActionForSuggestion);
-  client().suggestion_controller(manager()).PerformButtonActionForSuggestion(
-      0, SuggestionButtonAction());
-}
-
 // The second popup is also the second "sub_popup_level". This test asserts that
 // the information regarding the popup level is passed on to the delegate.
 TEST_F(AutofillPopupControllerImplTest, PopupForwardsSuggestionPosition) {
@@ -479,32 +467,55 @@ TEST_F(AutofillPopupControllerImplTest, DoesNotSelectUnacceptableSuggestions) {
   client().suggestion_controller(manager()).SelectSuggestion(/*index=*/0);
 }
 
-TEST_F(AutofillPopupControllerImplTest,
-       ManualFallBackTriggerSource_IgnoresClickOutsideCheck) {
-  ShowSuggestions(
-      manager(), {SuggestionType::kAddressEntry},
-      AutofillSuggestionTriggerSource::kPlusAddressUpdatedInBrowserProcess);
+// Parameterized tests for AutofillSuggestionTriggerSource values that are
+// exempt from standard safety checks.
+class AutofillPopupControllerImplTestWithTriggerSource
+    : public AutofillPopupControllerImplTest,
+      public ::testing::WithParamInterface<AutofillSuggestionTriggerSource> {};
 
-  // Generate a popup, so it can be hidden later. It doesn't matter what the
-  // external_delegate thinks is being shown in the process, since we are just
-  // testing the popup here.
-  test::GenerateTestAutofillPopup(&manager().external_delegate());
-
-  EXPECT_TRUE(client()
-                  .suggestion_controller(manager())
-                  .ShouldIgnoreMouseObservedOutsideItemBoundsCheck());
-}
-
-TEST_F(AutofillPopupControllerImplTest,
-       PlusAddressUpdateTriggerSource_IgnoresClickOutsideCheck) {
-  ShowSuggestions(
-      manager(), {SuggestionType::kAddressEntry},
-      AutofillSuggestionTriggerSource::kPlusAddressUpdatedInBrowserProcess);
+// Tests that the accidental click safety bounds checks are ignored.
+TEST_P(AutofillPopupControllerImplTestWithTriggerSource,
+       IgnoreClickOutsideCheck) {
+  const AutofillSuggestionTriggerSource trigger_source = GetParam();
+  ShowSuggestions(manager(), {SuggestionType::kAddressEntry}, trigger_source);
   test::GenerateTestAutofillPopup(&manager().external_delegate());
   EXPECT_TRUE(client()
                   .suggestion_controller(manager())
                   .ShouldIgnoreMouseObservedOutsideItemBoundsCheck());
 }
+
+// Tests that updates to the popup suggestions do not reset the accidental click
+// lockout (idle barrier).
+TEST_P(AutofillPopupControllerImplTestWithTriggerSource,
+       UpdateDoesNotResetIdleBarrier) {
+  const AutofillSuggestionTriggerSource trigger_source = GetParam();
+  EXPECT_CALL(manager().external_delegate(), DidAcceptSuggestion);
+
+  ShowSuggestions(manager(), {SuggestionType::kAddressEntry}, trigger_source);
+  client().suggestion_controller(manager()).OnPopupPainted();
+
+  // Fast forward 400ms (barrier not expired yet).
+  task_environment()->FastForwardBy(base::Milliseconds(400));
+
+  // Reshow suggestions with the trigger source. This should NOT reset the
+  // 500ms barrier.
+  ShowSuggestions(manager(), {SuggestionType::kAddressEntry}, trigger_source);
+
+  // Fast forward another 150ms (total 550ms since initial open, 150ms since
+  // reshow). The barrier should have expired.
+  task_environment()->FastForwardBy(base::Milliseconds(150));
+
+  client().suggestion_controller(manager()).AcceptSuggestion(
+      /*index=*/0, AutofillMetrics::SuggestionAcceptedMethod::kMouse);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    All, AutofillPopupControllerImplTestWithTriggerSource,
+    ::testing::Values(
+        AutofillSuggestionTriggerSource::kPlusAddressUpdatedInBrowserProcess,
+        AutofillSuggestionTriggerSource::kAtMemory,
+        AutofillSuggestionTriggerSource::kAtMemoryContextMenu,
+        AutofillSuggestionTriggerSource::kAtMemoryInactivityNudge));
 
 // Tests that Compose saved state notification popup gets hidden after 2
 // seconds, but not after 1 second.
@@ -575,6 +586,30 @@ TEST_F(AutofillPopupControllerImplTest,
       SuggestionHidingReason::kEndEditing);
 
   Mock::VerifyAndClearExpectations(client().popup_view());
+}
+
+// Tests that calling Show() when the popup view has focus but the focused
+// frame is null (e.g. because it was detached) does not cause a crash due to
+// a null pointer dereference.
+TEST_F(AutofillPopupControllerImplTest,
+       ShowWithFocusedViewAndNullFocusedFrame_NoCrash) {
+  ShowSuggestions(manager(), {SuggestionType::kAddressEntry});
+
+  EXPECT_CALL(*client().popup_view(), HasFocus).WillRepeatedly(Return(true));
+
+  content::RenderFrameHost* child_rfh =
+      content::RenderFrameHostTester::For(main_frame())->AppendChild("child");
+  FocusWebContentsOnFrame(child_rfh);
+  content::RenderFrameHostTester::For(child_rfh)->Detach();
+  ASSERT_EQ(web_contents()->GetFocusedFrame(), nullptr);
+
+  // This should not crash.
+  client().suggestion_controller(manager()).Show(
+      AutofillSuggestionController::GenerateSuggestionUiSessionId(),
+      {Suggestion(u"Search Query", SuggestionType::kAddressEntry)},
+      AutofillSuggestionTriggerSource::kFormControlElementClicked,
+      AutoselectFirstSuggestion(false),
+      AutofillSuggestionsIgnoreFocusLoss(false));
 }
 
 TEST_F(AutofillPopupControllerImplTest,
@@ -879,6 +914,28 @@ TEST_F(AutofillPopupControllerImplTest,
                   Field(&Suggestion::type, SuggestionType::kBnplFootnote)));
   EXPECT_THAT(controller.GetSuggestionFilterMatches(),
               ElementsAre(std::nullopt, std::nullopt));
+}
+
+TEST_F(AutofillPopupControllerImplTest,
+       ClearState_HidesAndClearsViewIfTabStateChanges) {
+  ShowSuggestions(manager(), {SuggestionType::kCreditCardEntry});
+
+  AutofillPopupController& controller =
+      client().suggestion_controller(manager());
+  EXPECT_TRUE(
+      test_api(static_cast<AutofillPopupControllerImpl&>(controller)).view());
+
+  // Calling ClearState with matching non-tabbed popup does not clear `view_`.
+  test_api(static_cast<AutofillPopupControllerImpl&>(controller)).ClearState();
+  EXPECT_TRUE(
+      test_api(static_cast<AutofillPopupControllerImpl&>(controller)).view());
+
+  // Calling ClearState with mismatching tabbed popup clears `view_`.
+  test_api(static_cast<AutofillPopupControllerImpl&>(controller))
+      .SetShowTabbedPopup(true);
+  test_api(static_cast<AutofillPopupControllerImpl&>(controller)).ClearState();
+  EXPECT_FALSE(
+      test_api(static_cast<AutofillPopupControllerImpl&>(controller)).view());
 }
 
 TEST_F(AutofillPopupControllerImplTest,

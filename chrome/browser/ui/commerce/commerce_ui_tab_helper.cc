@@ -463,7 +463,7 @@ CommerceUiTabHelper::GetPriceInsightsInfo() {
 void CommerceUiTabHelper::ShowDiscountBubble(
     const DiscountInfo& discount,
     base::OnceClosure one_bubble_closing_callback) {
-  discounts_bubble_coordinator_->Show(GetDiscountsIconView(),
+  discounts_bubble_coordinator_->Show(GetDiscountsBubbleAnchor(),
                                       tab().GetContents(), discount,
                                       std::move(one_bubble_closing_callback));
 }
@@ -479,7 +479,7 @@ CommerceUiTabHelper::GetDiscountsBubbleCoordinator() const {
   return *discounts_bubble_coordinator_;
 }
 
-views::View* CommerceUiTabHelper::GetDiscountsIconView() {
+views::BubbleAnchor CommerceUiTabHelper::GetDiscountsBubbleAnchor() {
   BrowserWindowInterface* bwi = tab().GetBrowserWindowInterface();
   CHECK(bwi);
 
@@ -489,15 +489,16 @@ views::View* CommerceUiTabHelper::GetDiscountsIconView() {
   auto* browser_view =
       BrowserView::GetBrowserViewForBrowser(bwi->GetBrowserForMigrationOnly());
   if (!browser_view) {
-    return nullptr;
+    return views::BubbleAnchor();
   }
 
   auto* toolbar_button_provider = browser_view->toolbar_button_provider();
   if (!toolbar_button_provider) {
-    return nullptr;
+    return views::BubbleAnchor();
   }
 
-  return toolbar_button_provider->GetPageActionView(kActionCommerceDiscounts);
+  return toolbar_button_provider->GetPageActionBubbleAnchor(
+      kActionCommerceDiscounts);
 }
 
 void CommerceUiTabHelper::ComputePageActionToExpand() {
@@ -697,10 +698,7 @@ void CommerceUiTabHelper::UpdatePageActionIconView(PageActionIconType type) {
     return;
   }
 
-  // TODO(https://crbug.com/376283687): Remove GetBrowserForMigrationOnly during
-  // the Discounts Page Actions Post Migration Cleanups since it will no longer
-  // be needed.
-  bwi->GetBrowserForMigrationOnly()->window()->UpdatePageActionIcon(type);
+  BrowserWindow::FromBrowser(bwi)->UpdatePageActionIcon(type);
 }
 
 }  // namespace commerce

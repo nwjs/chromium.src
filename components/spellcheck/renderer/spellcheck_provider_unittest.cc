@@ -5,10 +5,15 @@
 #include <vector>
 
 #include "base/logging.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/test/metrics/histogram_tester.h"
+#include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
+#include "components/spellcheck/common/spellcheck_common.h"
 #include "components/spellcheck/common/spellcheck_features.h"
+#include "components/spellcheck/common/spellcheck_result.h"
 #include "components/spellcheck/renderer/spellcheck.h"
 #include "components/spellcheck/renderer/spellcheck_provider_test.h"
 #include "components/spellcheck/spellcheck_buildflags.h"
@@ -621,5 +626,176 @@ TEST_P(CombineSpellCheckResultsTest, ShouldCorrectlyCombineHybridResults) {
   }
 }
 #endif  // BUILDFLAG(IS_WIN) && BUILDFLAG(USE_BROWSER_SPELLCHECKER)
+
+#if BUILDFLAG(USE_BROWSER_SPELLCHECKER) && !BUILDFLAG(IS_WIN)
+// Verifies that a word added through the SpellCheckCustomDictionary web API is
+// dropped from results returned by the browser-side platform spell checker
+// (NSSpellChecker on macOS). Without the post-filter, the API would have no
+// effect on these platforms because the platform spell checker has no
+// knowledge of the per-document custom word set.
+TEST_F(SpellCheckProviderTest, DocumentCustomDictionaryFiltersPlatformResults) {
+  blink::WebRuntimeFeatures::EnableFeatureFromString(
+      "SpellCheckCustomDictionaryAPI", true);
+
+  // Push a custom word through the per-frame web API entry point.
+  static_cast<blink::WebTextCheckClient*>(&provider_)
+      ->SpellCheckCustomDictionaryChanged({"Pikachu"}, {});
+
+  FakeTextCheckingResult completion_result;
+  provider_.RequestTextChecking(
+      u"i love Pikachu", /*spelling_markers=*/{},
+      blink::WebTextCheckClient::ShouldForceRefreshTextCheckService::kNo,
+      std::make_unique<FakeTextCheckingCompletion>(&completion_result));
+
+  // The fake SpellCheckHost recorded the platform-spellcheck mojo request.
+  ASSERT_EQ(provider_.text_check_requests_.size(), 1u);
+
+  // Simulate the platform spell checker reporting "Pikachu" (offset 7,
+  // length 7 in "i love Pikachu") as a misspelling.
+  std::vector<SpellCheckResult> platform_results = {
+      SpellCheckResult(spellcheck::Decoration::SPELLING, /*loc=*/7, /*len=*/7)};
+  std::move(std::get<2>(provider_.text_check_requests_.back()))
+      .Run(platform_results);
+
+  // The mojo response callback posts back to this thread; wait for the
+  // completion to fire before inspecting it.
+  ASSERT_TRUE(base::test::RunUntil(
+      [&] { return completion_result.completion_count_ > 0; }));
+
+  // The post-filter dropped "Pikachu", so Blink sees no misspellings.
+  EXPECT_EQ(completion_result.completion_count_, 1u);
+  EXPECT_EQ(completion_result.cancellation_count_, 0u);
+  EXPECT_TRUE(completion_result.results_.empty());
+}
+
+// Verifies that committing a new document drops the per-frame custom word
+// set, so a word added before the navigation no longer suppresses platform
+// misspellings reported for the next document.
+TEST_F(SpellCheckProviderTest,
+       DidCreateNewDocumentClearsDocumentCustomDictionary) {
+  blink::WebRuntimeFeatures::EnableFeatureFromString(
+      "SpellCheckCustomDictionaryAPI", true);
+
+  // Push a custom word, then simulate the RenderFrame creating a new document.
+  static_cast<blink::WebTextCheckClient*>(&provider_)
+      ->SpellCheckCustomDictionaryChanged({"Pikachu"}, {});
+  provider_.DidCreateNewDocument();
+
+  FakeTextCheckingResult completion_result;
+  provider_.RequestTextChecking(
+      u"i love Pikachu", /*spelling_markers=*/{},
+      blink::WebTextCheckClient::ShouldForceRefreshTextCheckService::kNo,
+      std::make_unique<FakeTextCheckingCompletion>(&completion_result));
+
+  ASSERT_EQ(provider_.text_check_requests_.size(), 1u);
+
+  // Platform spell checker flags "Pikachu" as misspelled.
+  std::vector<SpellCheckResult> platform_results = {
+      SpellCheckResult(spellcheck::Decoration::SPELLING, /*loc=*/7, /*len=*/7)};
+  std::move(std::get<2>(provider_.text_check_requests_.back()))
+      .Run(platform_results);
+
+  ASSERT_TRUE(base::test::RunUntil(
+      [&] { return completion_result.completion_count_ > 0; }));
+
+  // The custom word set was cleared on the new document, so the filter no
+  // longer suppresses "Pikachu" and the misspelling reaches Blink.
+  EXPECT_EQ(completion_result.completion_count_, 1u);
+  EXPECT_EQ(completion_result.cancellation_count_, 0u);
+  EXPECT_EQ(completion_result.results_.size(), 1u);
+}
+
+#endif  // BUILDFLAG(USE_BROWSER_SPELLCHECKER) && !BUILDFLAG(IS_WIN)
+
+// Verifies the WordCount histogram is emitted with the count of accepted API
+// additions for the outgoing document when a new document is committed.
+TEST_F(SpellCheckProviderTest, DocumentCustomDictionaryRecordsWordCountUma) {
+  blink::WebRuntimeFeatures::EnableFeatureFromString(
+      "SpellCheckCustomDictionaryAPI", true);
+
+  base::HistogramTester histograms;
+  static_cast<blink::WebTextCheckClient*>(&provider_)
+      ->SpellCheckCustomDictionaryChanged({"alpha", "beta", "gamma"}, {});
+
+  // Nothing recorded yet — the document is still alive.
+  histograms.ExpectTotalCount("Spellcheck.DocumentCustomDictionary.WordCount",
+                              0);
+
+  // Committing a new document records the outgoing count.
+  provider_.DidCreateNewDocument();
+  histograms.ExpectUniqueSample("Spellcheck.DocumentCustomDictionary.WordCount",
+                                3, 1);
+
+  // A subsequent empty document does not add another sample.
+  provider_.DidCreateNewDocument();
+  histograms.ExpectTotalCount("Spellcheck.DocumentCustomDictionary.WordCount",
+                              1);
+}
+
+// Verifies removals shrink the live per-document set on every build: the cap
+// tracks the resident set rather than lifetime additions, so removing words
+// later frees room and the recorded WordCount reflects adds minus removals.
+TEST_F(SpellCheckProviderTest, DocumentCustomDictionaryRemovalDecrementsCount) {
+  blink::WebRuntimeFeatures::EnableFeatureFromString(
+      "SpellCheckCustomDictionaryAPI", true);
+
+  base::HistogramTester histograms;
+  auto* client = static_cast<blink::WebTextCheckClient*>(&provider_);
+  client->SpellCheckCustomDictionaryChanged({"alpha", "beta", "gamma"}, {});
+  client->SpellCheckCustomDictionaryChanged(
+      /*words_added=*/{},
+      /*words_removed=*/{"alpha", "beta"});
+
+  // Two of the three words were removed, leaving one in the live set. Under a
+  // monotonic counter this would record 3.
+  provider_.DidCreateNewDocument();
+  histograms.ExpectUniqueSample("Spellcheck.DocumentCustomDictionary.WordCount",
+                                1, 1);
+}
+
+// Verifies that additions beyond kMaxDocumentCustomDictionaryWords are dropped
+// on every platform.
+TEST_F(SpellCheckProviderTest, DocumentCustomDictionaryEnforcesWordCountCap) {
+  blink::WebRuntimeFeatures::EnableFeatureFromString(
+      "SpellCheckCustomDictionaryAPI", true);
+
+  // Supply one word beyond the cap; the last one is expected to be dropped.
+  std::vector<std::string> words;
+  words.reserve(spellcheck::kMaxDocumentCustomDictionaryWords + 1);
+  for (size_t i = 0; i < spellcheck::kMaxDocumentCustomDictionaryWords + 1;
+       ++i) {
+    words.push_back("w" + base::NumberToString(i));
+  }
+
+  base::HistogramTester histograms;
+  static_cast<blink::WebTextCheckClient*>(&provider_)
+      ->SpellCheckCustomDictionaryChanged(words, {});
+
+  // Committing the document records the live set size, which is capped at the
+  // limit rather than the number of words supplied.
+  provider_.DidCreateNewDocument();
+  histograms.ExpectUniqueSample("Spellcheck.DocumentCustomDictionary.WordCount",
+                                spellcheck::kMaxDocumentCustomDictionaryWords,
+                                1);
+}
+
+// Verifies that a word exceeding kMaxCustomDictionaryWordBytes is dropped on
+// insert even when there is room in the per-document set.
+TEST_F(SpellCheckProviderTest, DocumentCustomDictionaryRejectsOverlongWord) {
+  blink::WebRuntimeFeatures::EnableFeatureFromString(
+      "SpellCheckCustomDictionaryAPI", true);
+
+  const std::string overlong(spellcheck::kMaxCustomDictionaryWordBytes + 1,
+                             'a');
+  base::HistogramTester histograms;
+  // The overlong word is dropped; the well-formed word is accepted.
+  static_cast<blink::WebTextCheckClient*>(&provider_)
+      ->SpellCheckCustomDictionaryChanged({overlong, "valid"}, {});
+
+  // Only the well-formed word remains in the live set.
+  provider_.DidCreateNewDocument();
+  histograms.ExpectUniqueSample("Spellcheck.DocumentCustomDictionary.WordCount",
+                                1, 1);
+}
 
 }  // namespace

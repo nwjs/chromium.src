@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <csignal>
 #include <optional>
 #include <string_view>
 
@@ -60,6 +61,7 @@ constexpr RunLoopTimeoutBehavior kJsRunLoopTimeoutBehavior =
 #endif
 constexpr char kMojoFuzzerHtml[] = R"(
 <script src="gen/mojo/public/js/mojo_bindings_lite.js"></script>
+<script src="gen/mojo/public/mojom/base/big_buffer.mojom-lite.js"></script>
 <script src="gen/mojo/public/mojom/base/string16.mojom-lite.js"></script>
 <script src="gen/url/mojom/scheme_host_port.mojom-lite.js"></script>
 <script src="gen/url/mojom/url.mojom-lite.js"></script>
@@ -158,11 +160,11 @@ int JsInProcessFuzzer::Fuzz(const uint8_t* data, size_t size) {
   // restriction (subject to future developments with dictionaries, corpora,
   // etc.)
   testing::AssertionResult res = content::ExecJs(rfh, js_str);
-#if BUILDFLAG(IS_FUZZILLI)
   if (js_str.contains("EXPERIMENTAL_lock_manager_crash")) {
-    raise(SIGTERM);
+    raise(SIGSEGV);
   }
 
+#if BUILDFLAG(IS_FUZZILLI)
   // Fuzzilli needs to know when an exception was uncaught.
   if (!res) {
     return -1;

@@ -97,7 +97,7 @@ class FindTaskController::FindTask final : public GarbageCollected<FindTask> {
       // This is a continuation of a finding operation that timed out and didn't
       // complete last time around, so we should start from where we left off.
       DCHECK(resume_from_range->collapsed());
-      search_start = FromPositionInDOMTree<EditingInFlatTreeStrategy>(
+      search_start = FromPositionInDomTree<EditingInFlatTreeStrategy>(
           resume_from_range->EndPosition());
       if (search_start.GetDocument() != search_end.GetDocument())
         return;
@@ -130,14 +130,14 @@ class FindTaskController::FindTask final : public GarbageCollected<FindTask> {
       FindResults match_results =
           buffer.FindMatches(search_text_, find_options);
       bool yielded_while_iterating_results = false;
-      for (MatchResultICU match : match_results) {
+      for (MatchResultIcu match : match_results) {
         const EphemeralRangeInFlatTree ephemeral_match_range =
             buffer.RangeFromBufferIndex(match.start,
                                         match.start + match.length);
         auto* const match_range = MakeGarbageCollected<Range>(
             ephemeral_match_range.GetDocument(),
-            ToPositionInDOMTree(ephemeral_match_range.StartPosition()),
-            ToPositionInDOMTree(ephemeral_match_range.EndPosition()));
+            ToPositionInDomTree(ephemeral_match_range.StartPosition()),
+            ToPositionInDomTree(ephemeral_match_range.EndPosition()));
         if (match_range->collapsed()) {
           // resultRange will be collapsed if the matched text spans over
           // multiple TreeScopes.  TODO(rakina): Show such matches to users.
@@ -269,8 +269,8 @@ void FindTaskController::DidFinishTask(
   if (next_starting_position.IsNotNull()) {
     resume_finding_from_range_ = MakeGarbageCollected<Range>(
         *next_starting_position.GetDocument(),
-        ToPositionInDOMTree(next_starting_position),
-        ToPositionInDOMTree(next_starting_position));
+        ToPositionInDomTree(next_starting_position),
+        ToPositionInDomTree(next_starting_position));
   }
 
   if (match_count > 0) {

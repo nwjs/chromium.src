@@ -44,13 +44,14 @@ struct FilterAttributeUiLabel {
 struct UrlFilterSuggestion {
   struct Params {
     GURL navigation_url;
-    std::u16string source_domain;
+    std::u16string source_host;
     base::Time extraction_timestamp;
     std::vector<FilterAttributeUiLabel> attribute_ui_labels;
     int64_t triggering_navigation_id;
-    std::string triggering_domain;
+    std::string triggering_host;
     std::string task_type;
     std::u16string suggestion_message;
+    std::u16string short_suggestion_message;
   };
 
   explicit UrlFilterSuggestion(Params params);
@@ -69,8 +70,8 @@ struct UrlFilterSuggestion {
 
   // The URL to navigate to when the suggestion is applied.
   GURL navigation_url;
-  // The eTLD+1 domain of the URL from which this suggestion was generated.
-  std::u16string source_domain;
+  // The host of the URL from which this suggestion was generated.
+  std::u16string source_host;
   // The timestamp when the annotation was created which was used to generate
   // the suggestion.
   base::Time extraction_timestamp;
@@ -79,13 +80,15 @@ struct UrlFilterSuggestion {
   std::vector<FilterAttributeUiLabel> attribute_ui_labels;
   // The ID of the navigation that triggered this suggestion.
   int64_t triggering_navigation_id;
-  // The eTLD+1 domain of the original triggering navigation. Used only for
+  // The host of the original triggering navigation. Used only for
   // logging.
-  std::string triggering_domain;
+  std::string triggering_host;
   // The identifier classifying the purpose of the annotation.
   std::string task_type;
   // The localized message string to be shown to the user.
   std::u16string suggestion_message;
+  // The short cue string to display in the Omnibox.
+  std::u16string short_suggestion_message;
 };
 
 }  // namespace multistep_filter

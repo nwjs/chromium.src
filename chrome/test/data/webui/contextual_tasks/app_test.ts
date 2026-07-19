@@ -9,11 +9,17 @@ import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import type {MetricsTracker} from 'chrome://webui-test/metrics_test_support.js';
 import {fakeMetricsPrivate} from 'chrome://webui-test/metrics_test_support.js';
-import {isVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
+import { microtasksFinished } from 'chrome://webui-test/test_util.js';
 
 import {TestContextualTasksBrowserProxy} from './test_contextual_tasks_browser_proxy.js';
-import {createContextualTasksAppElement, fixtureUrl, simulateLoadCommit} from './test_utils.js';
+import {assertStyle, createContextualTasksAppElement, fixtureUrl} from './contextual_tasks_test_utils.js';
 
+// <if expr="not is_android or enable_webui_contextual_tasks_composebox">
+import { isVisible } from 'chrome://webui-test/test_util.js';
+import { simulateLoadCommit } from './contextual_tasks_test_utils.js';
+// </if>
+
+// <if expr="not is_android or enable_webui_contextual_tasks_composebox">
 // Remove the element to prevent background loadabort events from triggering
 // a race condition with our manual event simulation.
 async function removeThreadFrameToPreventRaceConditions() {
@@ -26,6 +32,7 @@ async function removeThreadFrameToPreventRaceConditions() {
     await microtasksFinished();
   }
 }
+// </if> not is_android or enable_webui_contextual_tasks_composebox
 
 suite('ContextualTasksAppTest', function() {
   let initialUrl: string;
@@ -36,6 +43,11 @@ suite('ContextualTasksAppTest', function() {
   });
 
   setup(() => {
+    Object.defineProperty(window.navigator, 'onLine', {
+      get: () => true,
+      configurable: true,
+    });
+
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     if (initialUrl) {
       window.history.replaceState({}, '', initialUrl);
@@ -45,8 +57,12 @@ suite('ContextualTasksAppTest', function() {
       enableComposeboxJumpFix: false,
       isGhostLoaderVisible: false,
       isAiPage: true,
+      windowTrackingEnabled: true,
       nlmUrlParam: 'ajid',
       enableCustomNlmUi: true,
+      composeboxSmartTabSharingVisible: false,
+      isAimEligible: true,
+      isZeroState: false,
     });
     metrics = fakeMetricsPrivate();
     const proxy = new TestContextualTasksBrowserProxy('http://example.com');
@@ -349,6 +365,27 @@ suite('ContextualTasksAppTest', function() {
     assertEquals('12345', currentUrl.searchParams.get('chrome_task_id'));
   });
 
+  test('aim url updates webui url fragment', async () => {
+    const {proxy} = await createContextualTasksAppElement(/*url=*/ fixtureUrl);
+
+    const taskId = {value: '12345'};
+    const aimUrl = `${fixtureUrl}/search?q=123#my-fragment`;
+    proxy.callbackRouterRemote.setTaskDetails(taskId, aimUrl, true);
+    await proxy.callbackRouterRemote.$.flushForTesting();
+
+    let currentUrl = new URL(window.location.href);
+    assertEquals('123', currentUrl.searchParams.get('q'));
+    assertEquals('#my-fragment', currentUrl.hash);
+
+    // Ensure fragment is removed if no longer present on the aim URL.
+    const updatedAimUrl = `${fixtureUrl}/search?q=123`;
+    proxy.callbackRouterRemote.setTaskDetails(taskId, updatedAimUrl, true);
+    await proxy.callbackRouterRemote.$.flushForTesting();
+
+    currentUrl = new URL(window.location.href);
+    assertEquals('', currentUrl.hash);
+  });
+
   // Disabled: crbug.com/507859340
   test.skip('cs param updates dark mode only on commit', async () => {
     const {appElement} =
@@ -386,6 +423,7 @@ suite('ContextualTasksAppTest', function() {
     await microtasksFinished();
     assertTrue(appElement['darkMode_']);
   });
+  // <if expr="not is_android or enable_webui_contextual_tasks_composebox">
   test('isAiPage reflected in dom', async () => {
     const {appElement, proxy} = await createContextualTasksAppElement(
         /*url=*/ fixtureUrl,
@@ -406,6 +444,7 @@ suite('ContextualTasksAppTest', function() {
 
     assertTrue(appElement.hasAttribute('is-ai-page_'));
   });
+  // </if> not is_android or enable_webui_contextual_tasks_composebox
 
   // Disabled due to flakiness. See http://crbug.com/481936603.
   test.skip('copies source and aep params on new thread click', async () => {
@@ -475,6 +514,7 @@ suite('ContextualTasksAppTest', function() {
             true));
   });
 
+  // <if expr="not is_android or enable_webui_contextual_tasks_composebox">
   test('sends composebox height update', async () => {
     const {appElement} =
         await createContextualTasksAppElement(/*url=*/ fixtureUrl);
@@ -496,6 +536,7 @@ suite('ContextualTasksAppTest', function() {
     const composebox =
         appElement.shadowRoot.querySelector('contextual-tasks-composebox');
     assertTrue(!!composebox);
+    assertTrue(!!composebox.shadowRoot);
     const innerComposebox =
         composebox.shadowRoot.querySelector<HTMLElement>('#composebox');
     assertTrue(!!innerComposebox);
@@ -506,7 +547,7 @@ suite('ContextualTasksAppTest', function() {
 
     // Verify that the new composebox height is sent to the webview.
     assertDeepEquals(
-        {type: 'composebox-height-update', height: 123}, sentMessage);
+      { type: 'composebox-height-update', height: 123 }, sentMessage);
   });
 
   test(
@@ -555,9 +596,11 @@ suite('ContextualTasksAppTest', function() {
     // Verify styles applied
     assertEquals('absolute', composebox.style.position);
     assertEquals(
-        `${window.innerHeight - (frameRect.top + rect.bottom)}px`,
-        composebox.style.bottom);
-    assertEquals(`${frameRect.left + rect.left}px`, composebox.style.left);
+      `${(window.innerHeight - (frameRect.top + rect.bottom)).toFixed(3)}px`,
+      `${parseFloat(composebox.style.bottom).toFixed(3)}px`);
+    assertEquals(
+      `${(frameRect.left + rect.left).toFixed(3)}px`,
+      `${parseFloat(composebox.style.left).toFixed(3)}px`);
     assertEquals(`${rect.width}px`, composebox.style.width);
     assertEquals('', composebox.style.height);
 
@@ -616,9 +659,11 @@ suite('ContextualTasksAppTest', function() {
 
     assertEquals('fixed', composebox.style.position);
     assertEquals(
-        `${window.innerHeight - (frameRect.top + rect.bottom)}px`,
-        composebox.style.bottom);
-    assertEquals(`${frameRect.left + rect.left}px`, composebox.style.left);
+      `${(window.innerHeight - (frameRect.top + rect.bottom)).toFixed(3)}px`,
+      `${parseFloat(composebox.style.bottom).toFixed(3)}px`);
+    assertEquals(
+      `${(frameRect.left + rect.left).toFixed(3)}px`,
+      `${parseFloat(composebox.style.left).toFixed(3)}px`);
     assertEquals(`${rect.width}px`, composebox.style.width);
     assertEquals('', composebox.style.height);
   });
@@ -669,6 +714,7 @@ suite('ContextualTasksAppTest', function() {
     // 4. Transition out of zero state.
     proxy.callbackRouterRemote.onZeroStateChange(false);
     await proxy.callbackRouterRemote.$.flushForTesting();
+    await new Promise(resolve => requestAnimationFrame(resolve));
     await microtasksFinished();
 
     // 5. Bounds should now be updatable.
@@ -676,6 +722,7 @@ suite('ContextualTasksAppTest', function() {
       data: message,
       origin: new URL(fixtureUrl).origin,
     }));
+    await new Promise(resolve => requestAnimationFrame(resolve));
     await microtasksFinished();
 
     assertDeepEquals(
@@ -876,6 +923,7 @@ suite('ContextualTasksAppTest', function() {
     assertTrue(
         clipPath.includes('path'), 'clip-path should contain path');
   });
+  // </if> not is_android or enable_webui_contextual_tasks_composebox
 
   test('sets isFrameLoading to false when content load finishes', async () => {
     const {appElement} = await createContextualTasksAppElement(
@@ -980,6 +1028,7 @@ suite('ContextualTasksAppTest', function() {
             'isLoadError_ should be true if it was an error document');
       });
 
+  // <if expr="not is_android or enable_webui_contextual_tasks_composebox">
   test(
       'does not reset forced composebox bounds if navigation aborts',
       async () => {
@@ -1000,6 +1049,7 @@ suite('ContextualTasksAppTest', function() {
 
         // Wait for any composebox height updates to process.
         await appElement.updateComplete;
+        await new Promise(resolve => requestAnimationFrame(resolve));
         await microtasksFinished();
         const boundsBeforeNav = appElement.getForcedComposeboxBoundsForTesting();
 
@@ -1026,6 +1076,7 @@ suite('ContextualTasksAppTest', function() {
         // Bounds should still be present.
         assertDeepEquals(boundsBeforeNav, appElement.getForcedComposeboxBoundsForTesting()!);
       });
+  // </if> not is_android or enable_webui_contextual_tasks_composebox
 
   test(
       'leaves isLoadError false if load abort does not contain error document',
@@ -1097,6 +1148,7 @@ suite('ContextualTasksAppTest', function() {
     assertEquals('another', url.searchParams.get('hl'));
   });
 
+  // <if expr="not is_android or enable_webui_contextual_tasks_composebox">
   test('composebox hidden when isAimEligible is false', async () => {
     loadTimeData.overrideValues({
       isAimEligible: false,
@@ -1108,4 +1160,108 @@ suite('ContextualTasksAppTest', function() {
 
     assertTrue(appElement.$.composebox.hidden);
   });
+
+  test('composebox header wrapper hidden when isAimEligible is false', async () => {
+    loadTimeData.overrideValues({
+      isAimEligible: false,
+      isZeroState: true,
+    });
+
+    const {appElement} =
+        await createContextualTasksAppElement(/*url=*/ fixtureUrl);
+
+    const wrapper = appElement.shadowRoot.querySelector('#composeboxHeaderWrapper')!;
+    assertTrue(wrapper.hasAttribute('hidden'));
+  });
+
+  test('composebox header wrapper hidden when isZeroState is false', async () => {
+    const {appElement} =
+        await createContextualTasksAppElement(/*url=*/ fixtureUrl);
+
+    appElement.setIsZeroStateForTesting(false);
+    await microtasksFinished();
+    await appElement.updateComplete;
+
+    const wrapper = appElement.shadowRoot.querySelector('#composeboxHeaderWrapper')!;
+    assertStyle(wrapper, 'display', 'none');
+  });
+
+  test('composebox header wrapper hidden when isInputHidden is true', async () => {
+    const {appElement, proxy} =
+        await createContextualTasksAppElement(/*url=*/ fixtureUrl);
+
+    // Initial state
+    appElement.setIsZeroStateForTesting(false);
+    await microtasksFinished();
+    await appElement.updateComplete;
+    const wrapper = appElement.shadowRoot.querySelector('#composeboxHeaderWrapper')!;
+    assertFalse(wrapper.hasAttribute('hidden'));
+
+    proxy.callbackRouterRemote.hideInput();
+    await proxy.callbackRouterRemote.$.flushForTesting();
+    await microtasksFinished();
+    await appElement.updateComplete;
+
+    assertTrue(wrapper.hasAttribute('hidden'));
+  });
+  // </if> not is_android or enable_webui_contextual_tasks_composebox
+
+  test(
+      'does not initialize WindowManager when windowTrackingEnabled is false',
+      async () => {
+        loadTimeData.overrideValues({
+          windowTrackingEnabled: false,
+        });
+
+        const {appElement} =
+            await createContextualTasksAppElement(/*url=*/ fixtureUrl);
+
+        let newWindowIntercepted = false;
+        appElement.$.threadFrame.addEventListener('newwindow', (e: Event) => {
+          newWindowIntercepted = e.defaultPrevented;
+        });
+        appElement.$.threadFrame.dispatchEvent(
+            new CustomEvent('newwindow', {cancelable: true}));
+        assertFalse(newWindowIntercepted);
+      });
+
+  test('side panel zero state plays animations immediately', async () => {
+    loadTimeData.overrideValues({isZeroState: true});
+    const {appElement} = await createContextualTasksAppElement(
+        /*url=*/ fixtureUrl,
+        (testProxy) => {
+          testProxy.handler.isShownInTab = () =>
+              Promise.resolve({isInTab: false});
+          testProxy.handler.setIsZeroState(true);
+        },
+        /*waitForInitialLoadStart=*/ false);
+
+    await appElement.updateComplete;
+    await microtasksFinished();
+
+    assertTrue(appElement.classList.contains('play-zero-state'));
+    assertTrue(appElement.$.composebox.classList.contains('play-zero-state'));
+  });
+
+  test(
+      'side panel zero state is visible before DOM content loads', async () => {
+        const {appElement, proxy} = await createContextualTasksAppElement(
+            /*url=*/ fixtureUrl,
+            (testProxy) => {
+              testProxy.handler.isShownInTab = () =>
+                  Promise.resolve({isInTab: false});
+            },
+            /*waitForInitialLoadStart=*/ false);
+
+        proxy.callbackRouterRemote.onZeroStateChange(true);
+        await proxy.callbackRouterRemote.$.flushForTesting();
+        await appElement.updateComplete;
+        await microtasksFinished();
+
+        assertFalse(appElement.$.composebox.hidden);
+
+        const wrapper =
+            appElement.shadowRoot.querySelector('#composeboxHeaderWrapper')!;
+        assertFalse(wrapper.hasAttribute('hidden'));
+      });
 });

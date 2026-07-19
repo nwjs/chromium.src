@@ -8,7 +8,6 @@
 #import "components/open_from_clipboard/clipboard_recent_content.h"
 #import "components/prefs/pref_service.h"
 #import "components/search_engines/template_url_service.h"
-#import "ios/chrome/browser/cobrowse/model/cobrowse_context.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/menu/ui_bundled/action_factory+protected.h"
@@ -17,8 +16,8 @@
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
-#import "ios/chrome/browser/shared/public/commands/bwg_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/gemini_commands.h"
 #import "ios/chrome/browser/shared/public/commands/lens_commands.h"
 #import "ios/chrome/browser/shared/public/commands/open_lens_input_selection_command.h"
 #import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
@@ -34,6 +33,7 @@
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_params.h"
 #import "ios/chrome/grit/ios_strings.h"
+#import "ios/web/public/ui/context_menu_params.h"
 #import "ui/base/l10n/l10n_util_mac.h"
 #import "url/gurl.h"
 
@@ -278,13 +278,17 @@
 - (UIAction*)actionToSaveToPhotosWithImageURL:(const GURL&)imageURL
                                      referrer:(const web::Referrer&)referrer
                                      webState:(web::WebState*)webState
+                                       params:
+                                           (const web::ContextMenuParams&)params
                                         block:(ProceduralBlock)block {
   __weak id<SaveToPhotosCommands> handler = HandlerForProtocol(
       self.browser->GetCommandDispatcher(), SaveToPhotosCommands);
-  SaveImageToPhotosCommand* command =
-      [[SaveImageToPhotosCommand alloc] initWithImageURL:imageURL
-                                                referrer:referrer
-                                                webState:webState];
+  SaveImageToPhotosCommand* command = [[SaveImageToPhotosCommand alloc]
+      initWithImageURL:imageURL
+              referrer:referrer
+              webState:webState
+               frameID:params.frame_id
+           frameOrigin:params.frame_security_origin];
 
 #if BUILDFLAG(IOS_USE_BRANDED_ASSETS)
   UIImage* image =
@@ -508,19 +512,6 @@
                          }];
 }
 
-- (UIAction*)actionToOpenAIMode {
-  CHECK(IsAIMCobrowseDebugEntrypointEnabled());
-  id<SceneCommands> handler =
-      HandlerForProtocol(self.browser->GetCommandDispatcher(), SceneCommands);
-  return [self actionWithTitle:@"Open AIM prototype"
-                         image:DefaultSymbolWithPointSize(
-                                   kSparklesSymbol, kSymbolActionPointSize)
-                          type:MenuActionType::AIPrototyping
-                         block:^{
-                           [handler showAssistant];
-                         }];
-}
-
 #pragma mark - ActionFactory
 
 - (UIAction*)actionWithTitle:(NSString*)title
@@ -544,12 +535,8 @@
 // Helper method for completion block to hide Gemini Floaty. Ensures that the
 // floaty is hidden before the view invoked from an UIAction is presented.
 - (void)hideGeminiFloatyIfInvoked {
-  if (!IsGeminiCopresenceEnabled()) {
-    return;
-  }
-
-  id<BWGCommands> geminiHandler =
-      HandlerForProtocol(self.browser->GetCommandDispatcher(), BWGCommands);
+  id<GeminiCommands> geminiHandler =
+      HandlerForProtocol(self.browser->GetCommandDispatcher(), GeminiCommands);
   [geminiHandler
       hideFloatyIfInvokedAnimated:YES
                        fromSource:gemini::FloatyUpdateSource::ContextMenu];

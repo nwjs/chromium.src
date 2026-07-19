@@ -15,7 +15,9 @@
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/web_applications/test/isolated_web_app_test_utils.h"
+#include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
 #include "chrome/browser/web_applications/isolated_web_apps/test/isolated_web_app_builder.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -29,6 +31,7 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_base.h"
 #include "content/public/test/browser_test_utils.h"
+#include "content/public/test/test_navigation_observer.h"
 #include "extensions/browser/api/sockets_udp/test_udp_echo_server.h"
 #include "extensions/browser/extension_host.h"
 #include "extensions/browser/process_manager.h"
@@ -748,8 +751,6 @@ class IsolatedWebAppApiTest : public web_app::IsolatedWebAppBrowserTestHarness {
             PermissionsPolicyFeature::kDirectSockets);
     if (with_pna) {
       manifest_builder
-          .AddPermissionsPolicyWildcard(
-              PermissionsPolicyFeature::kDirectSocketsPrivate)
           .AddPermissionsPolicyWildcard(PermissionsPolicyFeature::kLocalNetwork)
           .AddPermissionsPolicyWildcard(
               PermissionsPolicyFeature::kLoopbackNetwork);
@@ -827,8 +828,6 @@ class IsolatedWebAppSharedWorkerApiTest
 
     if (with_pna) {
       manifest_builder
-          .AddPermissionsPolicyWildcard(
-              PermissionsPolicyFeature::kDirectSocketsPrivate)
           .AddPermissionsPolicyWildcard(PermissionsPolicyFeature::kLocalNetwork)
           .AddPermissionsPolicyWildcard(
               PermissionsPolicyFeature::kLoopbackNetwork);
@@ -907,8 +906,6 @@ class IsolatedWebAppServiceWorkerApiTest
             PermissionsPolicyFeature::kDirectSockets);
     if (with_pna) {
       manifest_builder
-          .AddPermissionsPolicyWildcard(
-              PermissionsPolicyFeature::kDirectSocketsPrivate)
           .AddPermissionsPolicyWildcard(PermissionsPolicyFeature::kLocalNetwork)
           .AddPermissionsPolicyWildcard(
               PermissionsPolicyFeature::kLoopbackNetwork);
@@ -969,6 +966,51 @@ IN_PROC_BROWSER_TEST_F(ChromeDirectSocketsTcpIsolatedWebAppTest, TcpReadWrite) {
   ASSERT_TRUE(content::ExecJs(app_frame,
                               content::JsReplace(kTcpReadWriteScript, kHostname,
                                                  test_server()->port())));
+}
+
+IN_PROC_BROWSER_TEST_F(ChromeDirectSocketsTcpIsolatedWebAppTest,
+                       TcpOpenChildWindowWithOpener) {
+  content::RenderFrameHost* app_frame =
+      InstallAndOpenIsolatedWebApp(/*with_pna=*/true);
+
+  content::TestNavigationObserver navigation_observer(
+      app_frame->GetLastCommittedURL());
+  navigation_observer.StartWatchingNewWebContents();
+  web_app::BrowserWaiter browser_waiter(nullptr);
+  ASSERT_TRUE(content::ExecJs(app_frame, "window.open('/')"));
+  Browser* popup = browser_waiter.AwaitAdded(FROM_HERE);
+  navigation_observer.WaitForNavigationFinished();
+
+  ASSERT_NE(popup, nullptr);
+  content::RenderFrameHost* popup_frame =
+      popup->tab_strip_model()->GetActiveWebContents()->GetPrimaryMainFrame();
+
+  EXPECT_EQ(content::EvalJs(popup_frame, "window.opener !== null"), true);
+  EXPECT_EQ(content::EvalJs(popup_frame, "typeof TCPSocket !== 'undefined'"),
+            true);
+}
+
+IN_PROC_BROWSER_TEST_F(ChromeDirectSocketsTcpIsolatedWebAppTest,
+                       TcpOpenChildWindowWithoutOpener) {
+  content::RenderFrameHost* app_frame =
+      InstallAndOpenIsolatedWebApp(/*with_pna=*/true);
+
+  content::TestNavigationObserver navigation_observer(
+      app_frame->GetLastCommittedURL());
+  navigation_observer.StartWatchingNewWebContents();
+  web_app::BrowserWaiter browser_waiter(nullptr);
+  ASSERT_TRUE(
+      content::ExecJs(app_frame, "window.open('/', '_blank', 'noopener')"));
+  Browser* popup = browser_waiter.AwaitAdded(FROM_HERE);
+  navigation_observer.WaitForNavigationFinished();
+
+  ASSERT_NE(popup, nullptr);
+  content::RenderFrameHost* popup_frame =
+      popup->tab_strip_model()->GetActiveWebContents()->GetPrimaryMainFrame();
+
+  EXPECT_EQ(content::EvalJs(popup_frame, "window.opener === null"), true);
+  EXPECT_EQ(content::EvalJs(popup_frame, "typeof TCPSocket !== 'undefined'"),
+            true);
 }
 
 IN_PROC_BROWSER_TEST_F(ChromeDirectSocketsTcpIsolatedWebAppSharedWorkerTest,
@@ -1340,7 +1382,8 @@ IN_PROC_BROWSER_TEST_F(ChromeDirectSocketsUdpIsolatedWebAppMulticastTest,
 
 IN_PROC_BROWSER_TEST_F(ChromeDirectSocketsUdpIsolatedWebAppTest,
                        UdpServerReadWrite) {
-  // UDP Bound Mode requires direct-sockets-private permissions policy.
+  // UDP Bound Mode requires local-network and loopback-network permissions
+  // policy.
   content::RenderFrameHost* app_frame =
       InstallAndOpenIsolatedWebApp(/*with_pna=*/true);
 
@@ -1548,8 +1591,6 @@ class IsolatedWebAppDirectSocketsPermissionPrompt
         web_app::ManifestBuilder()
             .AddPermissionsPolicyWildcard(
                 PermissionsPolicyFeature::kDirectSockets)
-            .AddPermissionsPolicyWildcard(
-                PermissionsPolicyFeature::kDirectSocketsPrivate)
             .AddPermissionsPolicyWildcard(
                 PermissionsPolicyFeature::kLocalNetwork)
             .AddPermissionsPolicyWildcard(

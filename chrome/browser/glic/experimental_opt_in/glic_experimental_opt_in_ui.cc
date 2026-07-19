@@ -31,6 +31,19 @@ namespace glic {
 
 namespace {
 
+std::string RequiredExperimentalOptInToString(RequiredExperimentalOptIn state) {
+  switch (state) {
+    case RequiredExperimentalOptIn::kGlic:
+      return "glic";
+    case RequiredExperimentalOptIn::kActuation:
+      return "actuation";
+    case RequiredExperimentalOptIn::kExperimental:
+      return "experimental";
+    case RequiredExperimentalOptIn::kNotNeeded:
+      NOTREACHED();
+  }
+}
+
 GURL GetExperimentalTriggeringOptInURL(Profile* profile,
                                        RequiredExperimentalOptIn state) {
   auto* command_line = base::CommandLine::ForCurrentProcess();
@@ -45,23 +58,9 @@ GURL GetExperimentalTriggeringOptInURL(Profile* profile,
     return GURL();
   }
 
-  std::string state_str;
-  switch (state) {
-    case RequiredExperimentalOptIn::kGlic:
-      state_str = "glic";
-      break;
-    case RequiredExperimentalOptIn::kActuation:
-      state_str = "actuation";
-      break;
-    case RequiredExperimentalOptIn::kExperimental:
-      state_str = "experimental";
-      break;
-    case RequiredExperimentalOptIn::kNotNeeded:
-      NOTREACHED();
-  }
-
   url = net::AppendOrReplaceQueryParameter(
-      url, "experimental_triggering_opt_in", state_str);
+      url, "experimental_triggering_opt_in",
+      RequiredExperimentalOptInToString(state));
 
   return DecorateGlicOptInUrl(profile, url);
 }
@@ -82,7 +81,9 @@ bool GlicExperimentalOptInUIConfig::IsWebUIEnabled(
 }
 
 GlicExperimentalOptInUI::GlicExperimentalOptInUI(content::WebUI* web_ui)
-    : ui::MojoWebUIController(web_ui) {
+    : ui::MojoWebUIController(web_ui,
+                              /*enable_chrome_send=*/false,
+                              /*enable_chrome_histograms=*/true) {
   Profile* profile = Profile::FromWebUI(web_ui);
   content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
       profile, chrome::kChromeUIGlicExperimentalOptInHost);
@@ -108,14 +109,30 @@ GlicExperimentalOptInUI::GlicExperimentalOptInUI(content::WebUI* web_ui)
     required_state_ = RequiredExperimentalOptIn::kExperimental;
   }
 
-  GURL url = GetExperimentalTriggeringOptInURL(profile, required_state_);
-  source->AddString("glicExperimentalTriggeringOptInURL", url.spec());
+  source->AddInteger(
+      "glicExperimentalOptInDefaultHeight",
+      (required_state_ == RequiredExperimentalOptIn::kExperimental)
+          ? kGlicExperimentalOptInDefaultHeightExperimental
+          : kGlicExperimentalOptInDefaultHeightGlic);
+  source->AddInteger("glicExperimentalOptInDefaultWidth",
+                     kGlicExperimentalOptInDefaultWidth);
+  source->AddString("glicRequiredExperimentalOptInState",
+                    RequiredExperimentalOptInToString(required_state_));
+  source->AddString(
+      "glicExperimentalTriggeringOptInURL",
+      GetExperimentalTriggeringOptInURL(profile, required_state_).spec());
+  source->AddBoolean(
+      "glicDevEnabled",
+      base::CommandLine::ForCurrentProcess()->HasSwitch(::switches::kGlicDev));
 
   static constexpr webui::LocalizedString kStrings[] = {
       {"offlineNoticeHeader", IDS_GLIC_OFFLINE_NOTICE_HEADER},
       {"experimentalOptInOfflineNoticeMessage",
        IDS_GLIC_EXPERIMENTAL_OPT_IN_OFFLINE_NOTICE_MESSAGE},
       {"closeButtonLabel", IDS_GLIC_NOTICE_CLOSE_BUTTON_LABEL},
+      {"errorNoticeHeader", IDS_GLIC_ERROR_NOTICE_HEADER},
+      {"experimentalOptInErrorNoticeMessage", IDS_GLIC_ERROR_NOTICE},
+      {"tryAgainButtonLabel", IDS_GLIC_ERROR_NOTICE_ACTION_BUTTON},
   };
   source->AddLocalizedStrings(kStrings);
 }

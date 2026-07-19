@@ -107,7 +107,7 @@ suite('GlicSubpage', function() {
       showGlicSettings: true,
       glicDisallowedByAdmin: false,
       glicSelectionFeatureEnabled: true,
-
+      headlessCaptionsEnabled: false,
     });
     resetRouterForTesting();
     return CrSettingsPrefs.initialized;
@@ -528,6 +528,11 @@ suite('GlicSubpage', function() {
           '#actorLoginPermissionsButton');
       assertFalse(isVisible(button));
     });
+
+    test('MediaUnderstandingToggleHidden', () => {
+      const toggle = $<SettingsToggleButtonElement>('mediaUnderstandingToggle');
+      assertFalse(isVisible(toggle));
+    });
   });
 
   suite('LearnMoreEnabled', () => {
@@ -868,6 +873,27 @@ suite('GlicSubpage', function() {
       const toggle = $<SettingsToggleButtonElement>('glicExperimentalTriggeringToggle');
       assertFalse(isVisible(toggle));
     });
+
+    test('ToggleDisabledWhenWebActuationDisabled', async () => {
+      document.body.innerHTML = window.trustedTypes!.emptyHTML;
+      loadTimeData.overrideValues({
+        showGlicExperimentalTriggering: true,
+      });
+      await createGlicPage('⌃A', true);
+      const toggle =
+          $<SettingsToggleButtonElement>('glicExperimentalTriggeringToggle');
+      assertTrue(!!toggle);
+
+      assertTrue(toggle.disabled);
+
+      page.set('webActuationEnabledPref_.value', true);
+      await flushTasks();
+      assertFalse(toggle.disabled);
+
+      page.set('webActuationEnabledPref_.value', false);
+      await flushTasks();
+      assertTrue(toggle.disabled);
+    });
   });
 
   suite('MicrophoneToggleVisible', () => {
@@ -1130,6 +1156,72 @@ suite('GlicSubpage', function() {
           $<HTMLAnchorElement>('shortcutTabAccessConsider1LearnMoreLabel')!;
       assertEquals(
           'https://example.com/tab-access?hl=en-US', learnMoreLabel.href);
+    });
+  });
+
+  suite('MediaUnderstandingToggleVisible', () => {
+    setup(async () => {
+      loadTimeData.overrideValues({
+        headlessCaptionsEnabled: true,
+      });
+      resetRouterForTesting();
+      document.body.innerHTML = window.trustedTypes!.emptyHTML;
+      page = document.createElement('settings-glic-subpage');
+      page.prefs = settingsPrefs.prefs!;
+      document.body.appendChild(page);
+      await flushTasks();
+    });
+
+    test('IsVisible', () => {
+      const toggle =
+          $<SettingsToggleButtonElement>('mediaUnderstandingToggle');
+      assertTrue(!!toggle);
+      assertTrue(isVisible(toggle));
+    });
+
+    test('Enabled', () => {
+      page.setPrefValue(PrefName.MEDIA_UNDERSTANDING_ENABLED, true);
+      const toggle =
+          $<SettingsToggleButtonElement>('mediaUnderstandingToggle');
+      assertTrue(!!toggle);
+      assertTrue(toggle.checked);
+    });
+
+    test('Disabled', () => {
+      page.setPrefValue(PrefName.MEDIA_UNDERSTANDING_ENABLED, false);
+      const toggle =
+          $<SettingsToggleButtonElement>('mediaUnderstandingToggle');
+      assertTrue(!!toggle);
+      assertFalse(toggle.checked);
+    });
+
+    test('Changed', () => {
+      page.setPrefValue(PrefName.MEDIA_UNDERSTANDING_ENABLED, false);
+      const toggle =
+          $<SettingsToggleButtonElement>('mediaUnderstandingToggle');
+      assertTrue(!!toggle);
+
+      toggle.click();
+      assertTrue(
+          page.getPref<boolean>(PrefName.MEDIA_UNDERSTANDING_ENABLED).value);
+      assertTrue(toggle.checked);
+
+      toggle.click();
+      assertFalse(
+          page.getPref<boolean>(PrefName.MEDIA_UNDERSTANDING_ENABLED).value);
+      assertFalse(toggle.checked);
+    });
+
+    test('LinkClick', async () => {
+      const toggle =
+          $<SettingsToggleButtonElement>('mediaUnderstandingToggle');
+      assertTrue(!!toggle);
+
+      const link = toggle.shadowRoot!.querySelector('a');
+      assertTrue(!!link);
+      link.click();
+      const url = await openWindowProxy.whenCalled('openUrl');
+      assertEquals('https://support.google.com/gemini/answer/16283624', url);
     });
   });
 });

@@ -631,7 +631,7 @@ class CORE_EXPORT PhysicalFragment : public GarbageCollected<PhysicalFragment> {
       return const_iterator(buffer_.end(), buffer_.end());
     }
 
-    wtf_size_t size() const { return buffer_.size(); }
+    size_t size() const { return buffer_.size(); }
     bool empty() const { return buffer_.empty(); }
 
    private:
@@ -695,7 +695,7 @@ class CORE_EXPORT PhysicalFragment : public GarbageCollected<PhysicalFragment> {
 
   bool HasPropagatedLayoutObjects() const {
     return HasPendingStickyDescendants() || PropagatedScrollInitialTarget() ||
-           PropagatedSnapAreas() || NamedTriggers();
+           PropagatedSnapAreas() || NamedTriggers() || HasChildAnchors();
   }
 
   class OofData : public GarbageCollected<OofData> {

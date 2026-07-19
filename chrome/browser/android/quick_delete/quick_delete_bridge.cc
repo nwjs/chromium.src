@@ -12,7 +12,6 @@
 #include "chrome/browser/ui/hats/hats_service.h"
 #include "chrome/browser/ui/hats/hats_service_factory.h"
 #include "chrome/browser/ui/hats/survey_config.h"
-#include "chrome/grit/generated_resources.h"
 #include "components/browsing_data/core/browsing_data_utils.h"
 #include "components/browsing_data/core/counters/history_counter.h"
 #include "components/history/core/browser/history_service.h"
@@ -70,8 +69,7 @@ QuickDeleteBridge::QuickDeleteBridge(JNIEnv* env,
       CalculateBeginDeleteTime(browsing_data::TimePeriod::LAST_15_MINUTES);
 
   history_counter_->InitWithoutPeriodPref(
-      profile_->GetPrefs(), browsing_data::ClearBrowsingDataTab::ADVANCED,
-      begin_time,
+      profile_->GetPrefs(), begin_time,
       base::BindRepeating(&QuickDeleteBridge::OnHistoryCounterResult,
                           weak_ptr_factory_.GetWeakPtr()));
 }

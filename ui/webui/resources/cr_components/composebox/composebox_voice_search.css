@@ -13,10 +13,10 @@
   from these; else negative default. */
   --cr-icon-button-margin-end: 0;
   --cr-icon-button-margin-start: 0;
-  --cr-composebox-submit-default-container-size: 40px;
   --cr-composebox-submit-default-icon-size: 16px;
-  --submit-timing-and-function: 300ms ease-in-out;
+  --submit-timing-and-function: 100ms ease-in-out;
   --voice-search-fade-transition: opacity var(--submit-timing-and-function);
+  --voice-search-minimum-height: 121px;
 }
 
 #container {
@@ -26,10 +26,27 @@
   /* Transparent so background from animated-glow shows. */
   background-color: transparent;
   display: flex;
-  inset: 0;
+  height: 100%;
+  min-height: var(--voice-search-minimum-height);
   padding: 7px 0;
-  position: absolute;
+  pointer-events: none;
+  width: 100%;
   z-index: 4;
+}
+
+/* Must be positioned absolute in voice recording mode
+ * (no error, no permission prompt open). This is so stop/submit buttons
+ * can overlay the animation's container div.
+ * Must have static positioning otherwise so the error and placeholder
+ * voice search text change the height of voice_search and thus composebox.
+ */
+:host(:not([is-permission-prompt-open])) #container:not(.has-error) {
+  inset: 0;
+  position: absolute;
+}
+
+:host-context([energy-effect-enabled]) #container {
+  box-shadow: var(--box-shadow-energy-effect);
 }
 
 #input::-webkit-scrollbar {
@@ -67,7 +84,17 @@
   /* 11px + container padding = 18 px. Parent can set var if needed. */
   padding: var(--composebox-voice-search-top-padding, 11px)
       40px 0 20px;
+  pointer-events: auto;
   width: 100%;
+}
+
+#error-container {
+ display: none;
+}
+
+#error-container:not([hidden]) {
+  display: block;
+  position: absolute;
 }
 
 #error-container a {
@@ -82,6 +109,7 @@
   --cr-icon-button-size: 36px;
   inset-inline-end: 12px;
   margin-inline-start: 16px;
+  pointer-events: auto;
   position: absolute;
   top: var(--composebox-cancel-button-top, 12px);
   /* Uses the same transitions as the submit button from
@@ -92,11 +120,12 @@
 
 #bottomActions {
   align-items: center;
-  bottom: 12px;
+  bottom: var(--voice-bottom-actions-bottom, 12px);
   display: flex;
-  gap: 8px;
-  inset-inline-end: 12px;
+  gap: var(--voice-bottom-actions-gap, 8px);
+  inset-inline-end: var(--voice-bottom-actions-inset-inline-end, 12px);
   opacity: 1;
+  pointer-events: auto;
   position: absolute;
   transition: var(--voice-search-fade-transition);
 }
@@ -108,10 +137,15 @@
   --cr-icon-button-size: 36px;
   background-color: #E1E3E1;
   border-radius: var(--cr-composebox-submit-border-radius, 50%);
-  height: var(--cr-composebox-submit-height, var(--cr-composebox-submit-default-container-size));
+  /* Has same height/width as submit button. */
+  height: var(--cr-composebox-button-height,
+      var(--cr-composebox-submit-height,
+      var(--voice-search-submit-default-container-size)));
   margin: 0;
   transition: var(--submit-enabled-transition, 255ms);
-  width: var(--cr-composebox-submit-width, var(--cr-composebox-submit-default-container-size));
+  width: var(--cr-composebox-button-width,
+      var(--cr-composebox-submit-width,
+      var(--voice-search-submit-default-container-size)));
 }
 
 @media (prefers-color-scheme: dark) {
@@ -145,7 +179,7 @@
 /* Hide submit/stop buttons (if applicable) via fade if permission
  * prompt is showing.
  */
-:host(.embedded-permission-prompt-showing) #bottomActions {
+:host(.permission-prompt-showing) #bottomActions {
   opacity: 0;
   pointer-events: none;
 }

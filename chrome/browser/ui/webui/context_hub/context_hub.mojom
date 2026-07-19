@@ -1,0 +1,60 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module browser.context_hub.mojom;
+
+import "url/mojom/url.mojom";
+import "mojo/public/mojom/base/time.mojom";
+
+struct GmailReference {
+  url.mojom.Url message_url;
+};
+
+struct PhotosReference {
+  url.mojom.Url photos_url;
+};
+
+union SourceReference {
+  GmailReference gmail;
+  PhotosReference photos;
+};
+
+struct AutoTodoItem {
+  string title;
+  string description;
+  array<SourceReference> source_references;
+};
+
+enum EntryType {
+  kTab,
+  kTextSelection,
+};
+
+struct MemoryBankEntry {
+  int64 id;
+  EntryType type;
+  mojo_base.mojom.Time timestamp;
+  url.mojom.Url url;
+  string tab_title;
+  string? selected_text;
+  array<string> tags;
+};
+
+// Factory used by the WebUI page (caller) to create a PageHandler in the
+// browser process (callee) for the Context Hub page.
+interface PageHandlerFactory {
+  // Creates a PageHandler instance and binds it to the given receiver.
+  CreatePageHandler(pending_receiver<PageHandler> handler);
+};
+
+// Provides access to context hub features.
+// The WebUI page (caller) uses this to interact with the browser
+// process (callee).
+interface PageHandler {
+  // Generates and returns a list of Auto Todos.
+  GenerateAutoTodos() => (array<AutoTodoItem>? todos);
+
+  // Returns all entries currently stored in the memory bank.
+  GetAllEntries() => (array<MemoryBankEntry> entries);
+};

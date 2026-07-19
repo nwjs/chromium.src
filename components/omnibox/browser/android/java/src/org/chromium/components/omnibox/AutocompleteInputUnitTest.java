@@ -406,7 +406,7 @@ public class AutocompleteInputUnitTest {
     }
 
     @Test
-    public void getAutocompleteState_updatesOwnState() {
+    public void setUserText_transitionsFromStandbyToEnabled() {
         mInput.setInitialUserText("initial");
         mInput.setUserText("initial");
         mInput.setAutocompleteState(AutocompleteState.STANDBY);
@@ -421,6 +421,51 @@ public class AutocompleteInputUnitTest {
         // Reverts to initial text - should still be ENABLED.
         mInput.setUserText("initial");
         assertEquals(AutocompleteState.ENABLED, mInput.getAutocompleteState());
+    }
+
+    @Test
+    public void setUserText_observerTriggersWithCorrectAutocompleteState() {
+        mInput.setInitialUserText("a");
+        mInput.setUserText("a");
+        mInput.setAutocompleteState(AutocompleteState.STANDBY);
+
+        boolean[] observerCalled = new boolean[1];
+        mInput.getUserTextSupplier()
+                .addSyncObserver(
+                        text -> {
+                            // if (text.equals("ab")) {
+                            assertEquals(AutocompleteState.ENABLED, mInput.getAutocompleteState());
+                            observerCalled[0] = true;
+                            // }
+                        });
+
+        mInput.setUserText("ab");
+        assertTrue(observerCalled[0]);
+    }
+
+    @Test
+    public void setUserText_transitionsFromStandbyNoFocusToEnabled() {
+        mInput.setInitialUserText("initial");
+        mInput.setUserText("initial");
+
+        mInput.setAutocompleteState(AutocompleteState.STANDBY_NO_FOCUS);
+        assertEquals(AutocompleteState.STANDBY_NO_FOCUS, mInput.getAutocompleteState());
+
+        mInput.setUserText("initial typing");
+        assertEquals(AutocompleteState.ENABLED, mInput.getAutocompleteState());
+
+        mInput.setUserText("initial");
+        assertEquals(AutocompleteState.ENABLED, mInput.getAutocompleteState());
+    }
+
+    @Test
+    public void setAutocompleteState_doesNotTriggerStateTransition() {
+        mInput.setInitialUserText("initial");
+        mInput.setUserText("different");
+
+        mInput.setAutocompleteState(AutocompleteState.STANDBY);
+
+        assertEquals(AutocompleteState.STANDBY, mInput.getAutocompleteState());
     }
 
     @Test
@@ -450,7 +495,7 @@ public class AutocompleteInputUnitTest {
         input1.setInitialUserText(initialUserText);
         input1.setHasAttachments(hasAttachments);
         input1.setAutocompleteState(autocompleteState);
-        input1.setSelection(selectionStart, selectionEnd);
+        input1.setSelection(new TextSelection(selectionStart, selectionEnd));
         input1.setRefineActionUsage(refineActionUsage);
         input1.setSuggestionsListScrolled();
         input1.setFocusReason(focusReason);
@@ -469,8 +514,8 @@ public class AutocompleteInputUnitTest {
         assertEquals(initialUserText, input2.getInitialUserText());
         assertEquals(input1.allowExactKeywordMatch(), input2.allowExactKeywordMatch());
         assertEquals(autocompleteState, input2.getAutocompleteState());
-        assertEquals(selectionStart, (int) input2.getSelection().getLower());
-        assertEquals(selectionEnd, (int) input2.getSelection().getUpper());
+        assertEquals(selectionStart, input2.getSelection().from);
+        assertEquals(selectionEnd, input2.getSelection().to);
         assertEquals(refineActionUsage, input2.getRefineActionUsage());
         assertTrue(input2.isSuggestionsListScrolled());
         assertEquals(focusReason, input2.getFocusReason());

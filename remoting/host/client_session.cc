@@ -66,6 +66,7 @@
 #include "remoting/host/remote_open_url/remote_open_url_util.h"
 #include "remoting/host/remote_open_url/url_forwarder_configurator.h"
 #include "remoting/host/remote_open_url/url_forwarder_control_message_handler.h"
+#include "remoting/host/security_key/security_key_auth_handler.h"
 #include "remoting/host/security_key/security_key_extension.h"
 #include "remoting/host/security_key/security_key_extension_session.h"
 #include "remoting/host/webauthn/remote_webauthn_constants.h"
@@ -146,21 +147,10 @@ ClientSession::ClientSession(
     : event_handler_(event_handler),
       desktop_environment_factory_(desktop_environment_factory),
       desktop_environment_options_(desktop_environment_options),
-      cursor_visibility_notifier_(&input_tracker_, this),
-      remote_input_filter_(
-          &cursor_visibility_notifier_,
-          // Unretained() is safe because `remote_input_filter_` will be
-          // destroyed before `input_tracker_`, after which the callback will no
-          // longer be called.
-          base::BindRepeating(&protocol::InputEventTracker::ReleaseAll,
-                              base::Unretained(&input_tracker_))),
-      fractional_input_filter_(&remote_input_filter_, &coordinate_converter_),
-      mouse_clamping_filter_(&fractional_input_filter_),
-      observing_input_filter_(&mouse_clamping_filter_),
-      disable_input_filter_(&observing_input_filter_),
       host_clipboard_filter_(clipboard_echo_filter_.host_filter()),
       client_clipboard_filter_(clipboard_echo_filter_.client_filter()),
       client_clipboard_factory_(&client_clipboard_filter_),
+      input_pipeline_(&coordinate_converter_, this),
       pairing_registry_(pairing_registry),
       connection_(std::move(connection)),
       client_jid_(connection_->session()->jid()),
@@ -168,14 +158,33 @@ ClientSession::ClientSession(
   connection_->session()->AddPlugin(&host_experiment_session_plugin_);
   connection_->SetEventHandler(this);
 
+  HostExtensionSessionManager::HostExtensions all_extensions = extensions;
+  bool gnubby_policy_enabled = true;
+  if (local_session_policies_provider) {
+    gnubby_policy_enabled =
+        local_session_policies_provider->get_local_policies()
+            .allow_gnubby_forwarding.value_or(true);
+  }
+  // TODO(b/517007701): Create SecurityKeyAuthHandler after authentication once
+  // we have completed the data channel migration.
+  if (desktop_environment_options.enable_security_key() &&
+      gnubby_policy_enabled) {
+    security_key_auth_handler_ = SecurityKeyAuthHandler::Create(this);
+    if (security_key_auth_handler_) {
+      security_key_extension_ = std::make_unique<SecurityKeyExtension>(
+          security_key_auth_handler_->GetWeakPtr());
+      all_extensions.push_back(security_key_extension_.get());
+    }
+  }
+
   // Create a manager for the configured extensions, if any.
   extension_manager_ =
-      std::make_unique<HostExtensionSessionManager>(extensions, this);
+      std::make_unique<HostExtensionSessionManager>(all_extensions, this);
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
   // LocalMouseInputMonitorWin and LocalPointerInputMonitorChromeos filter out
-  // an echo of the injected input before it reaches |remote_input_filter_|.
-  remote_input_filter_.SetExpectLocalEcho(false);
+  // an echo of the injected input before it reaches `remote_input_filter_`.
+  input_pipeline_.remote_input_filter()->SetExpectLocalEcho(false);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
 }
 
@@ -207,13 +216,6 @@ void ClientSession::NotifyClientResolution(
 
   webrtc::DesktopSize client_size(resolution.width_pixels(),
                                   resolution.height_pixels());
-  // Round down the dimensions to a multiple of 2. Otherwise the dimensions will
-  // be rounded on the receiver, which will cause blurring due to scaling. The
-  // resulting size is still close to the client size and will fit on the
-  // client's screen without scaling.
-  // TODO(sergeyu): Make WebRTC handle odd dimensions properly.
-  // crbug.com/636071
-  client_size.set(client_size.width() & (~1), client_size.height() & (~1));
 
   // TODO(joedow): Determine if other platforms support desktop scaling.
   webrtc::DesktopVector dpi_vector{kDefaultDpi, kDefaultDpi};
@@ -267,7 +269,7 @@ void ClientSession::ControlVideo(const protocol::VideoControl& video_control) {
 
     if (!framerate_boost.enabled()) {
       LOG(INFO) << "FramerateBoost disabled.";
-      observing_input_filter_.ClearInputEventCallback();
+      input_pipeline_.observing_input_filter()->ClearInputEventCallback();
     } else {
       base::TimeDelta capture_interval =
           framerate_boost.has_capture_interval_ms()
@@ -285,10 +287,11 @@ void ClientSession::ControlVideo(const protocol::VideoControl& video_control) {
                 << capture_interval.InMilliseconds()
                 << "ms, duration: " << boost_duration.InMilliseconds() << "ms)";
 
-      // Unretained is sound as this instance owns |observing_input_filter_|.
-      observing_input_filter_.SetInputEventCallback(base::BindRepeating(
-          &ClientSession::BoostFramerateOnInput, base::Unretained(this),
-          capture_interval, boost_duration, base::OwnedRef(false)));
+      // Unretained is sound as this instance owns `input_pipeline_`.
+      input_pipeline_.observing_input_filter()->SetInputEventCallback(
+          base::BindRepeating(&ClientSession::BoostFramerateOnInput,
+                              base::Unretained(this), capture_interval,
+                              boost_duration, base::OwnedRef(false)));
     }
   }
 }
@@ -595,6 +598,11 @@ void ClientSession::OnConnectionAuthenticated(
     options.set_enable_remote_webauthn(
         *effective_policies_.allow_webauthn_forwarding);
   }
+  if (options.enable_security_key() &&
+      effective_policies_.allow_gnubby_forwarding.has_value()) {
+    options.set_enable_security_key(
+        *effective_policies_.allow_gnubby_forwarding);
+  }
   // Create the desktop environment.
   // Note: The handlers for various other events use the created desktop
   // environment. Since those events may occur before the desktop environment
@@ -788,11 +796,11 @@ void ClientSession::OnConnectionClosed(protocol::ErrorCode error) {
   // connection wasn't established.
   if (input_injector_) {
     // Ensure that any pressed keys or buttons are released.
-    input_tracker_.ReleaseAll();
+    input_pipeline_.input_tracker()->ReleaseAll();
 
-    // Avoid dangling raw_ptr in `input_tracker_` after deleting
+    // Avoid dangling raw_ptr in `input_pipeline_` after deleting
     // `input_injector_` below.
-    input_tracker_.set_input_stub(nullptr);
+    input_pipeline_.SetInputStub(nullptr);
   }
 
   // Stop components access the client, audio or video stubs, which are no
@@ -865,7 +873,8 @@ void ClientSession::DisconnectSession(ErrorCode error,
 
 void ClientSession::OnLocalKeyPressed(std::uint32_t usb_keycode) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  bool is_local = remote_input_filter_.LocalKeyPressed(usb_keycode);
+  bool is_local =
+      input_pipeline_.remote_input_filter()->LocalKeyPressed(usb_keycode);
   if (is_local && desktop_environment_options_.terminate_upon_input()) {
     DisconnectSession(
         ErrorCode::OK,
@@ -877,7 +886,8 @@ void ClientSession::OnLocalKeyPressed(std::uint32_t usb_keycode) {
 void ClientSession::OnLocalPointerMoved(const webrtc::DesktopVector& position,
                                         ui::EventType type) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  bool is_local = remote_input_filter_.LocalPointerMoved(position, type);
+  bool is_local =
+      input_pipeline_.remote_input_filter()->LocalPointerMoved(position, type);
   if (is_local) {
     if (desktop_environment_options_.terminate_upon_input()) {
       DisconnectSession(
@@ -885,7 +895,7 @@ void ClientSession::OnLocalPointerMoved(const webrtc::DesktopVector& position,
           "Disconnecting CRD session because local mouse input was detected.",
           FROM_HERE);
     } else {
-      cursor_visibility_notifier_.OnLocalInput();
+      input_pipeline_.cursor_visibility_notifier()->OnLocalInput();
     }
   }
 }
@@ -894,10 +904,10 @@ void ClientSession::SetDisableInputs(bool disable_inputs) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   if (disable_inputs) {
-    input_tracker_.ReleaseAll();
+    input_pipeline_.input_tracker()->ReleaseAll();
   }
 
-  disable_input_filter_.set_enabled(!disable_inputs);
+  input_pipeline_.disable_input_filter()->set_enabled(!disable_inputs);
   host_clipboard_filter_.set_enabled(!disable_inputs);
 }
 
@@ -1010,22 +1020,22 @@ void ClientSession::SetMouseClampingFilter(const DisplaySize& size) {
 
 #if BUILDFLAG(IS_CHROMEOS)
   // ChromeOS uses Screen DIP coordinates to uniquely position all displays.
-  mouse_clamping_filter_.set_output_size(size.WidthAsDips(),
-                                         size.HeightAsDips());
+  input_pipeline_.mouse_clamping_filter()->set_output_size(size.WidthAsDips(),
+                                                           size.HeightAsDips());
 #else
-  mouse_clamping_filter_.set_output_size(size.WidthAsPixels(),
-                                         size.HeightAsPixels());
+  input_pipeline_.mouse_clamping_filter()->set_output_size(
+      size.WidthAsPixels(), size.HeightAsPixels());
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_APPLE)
-  mouse_clamping_filter_.set_input_size(size.WidthAsPixels(),
-                                        size.HeightAsPixels());
+  input_pipeline_.mouse_clamping_filter()->set_input_size(
+      size.WidthAsPixels(), size.HeightAsPixels());
 #else
   // The client sends mouse coordinates in DIPs, while InputInjector expects
   // them in physical pixels.
   // TODO(sergeyu): Fix InputInjector implementations to use DIPs as well.
-  mouse_clamping_filter_.set_input_size(size.WidthAsDips(),
-                                        size.HeightAsDips());
+  input_pipeline_.mouse_clamping_filter()->set_input_size(size.WidthAsDips(),
+                                                          size.HeightAsDips());
 #endif  // BUILDFLAG(IS_APPLE)
 }
 
@@ -1036,7 +1046,7 @@ void ClientSession::UpdateMouseClampingFilterOffset() {
 
   webrtc::DesktopVector origin;
   origin = desktop_display_info_.CalcDisplayOffset(selected_display_index_);
-  mouse_clamping_filter_.set_output_offset(origin);
+  input_pipeline_.mouse_clamping_filter()->set_output_offset(origin);
 }
 
 void ClientSession::OnDesktopEnvironmentCreated(
@@ -1091,8 +1101,8 @@ void ClientSession::OnDesktopEnvironmentCreated(
   input_injector_ = desktop_environment_->CreateInputInjector();
 
   // Connect the host input stubs.
-  connection_->set_input_stub(&disable_input_filter_);
-  input_tracker_.set_input_stub(input_injector_.get());
+  connection_->set_input_stub(&input_pipeline_);
+  input_pipeline_.SetInputStub(input_injector_.get());
 
   if (effective_policies_.clipboard_size_bytes.has_value()) {
     int max_size = *effective_policies_.clipboard_size_bytes;
@@ -1420,15 +1430,21 @@ void ClientSession::OnSecurityKeyConnection(
     mojo::PendingReceiver<mojom::SecurityKeyForwarder> receiver) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
-  auto* extension_session = static_cast<SecurityKeyExtensionSession*>(
-      extension_manager_->FindExtensionSession(
-          SecurityKeyExtension::kCapability));
-  if (!extension_session) {
-    LOG(WARNING) << "Security key extension not found. "
+  bool allow_gnubby =
+      desktop_environment_options_.enable_security_key() &&
+      effective_policies_.allow_gnubby_forwarding.value_or(true);
+
+  if (!security_key_auth_handler_) {
+    LOG(WARNING) << "Security key forwarding is not supported. Binding request "
+                    "rejected.";
+    return;
+  }
+  if (!allow_gnubby) {
+    LOG(WARNING) << "Security key forwarding is disabled by policy or option. "
                  << "Binding request rejected.";
     return;
   }
-  extension_session->BindSecurityKeyForwarder(std::move(receiver));
+  security_key_auth_handler_->BindSecurityKeyForwarder(std::move(receiver));
 }
 
 void ClientSession::CreateFileTransferMessageHandler(

@@ -27,6 +27,8 @@
 #include "content/public/browser/global_routing_id.h"
 #include "net/cookies/cookie_setting_override.h"
 #include "net/filter/source_stream_type.h"
+#include "net/http/http_request_headers.h"
+#include "services/network/public/cpp/headers_matcher.h"
 #include "services/network/public/cpp/url_loader_completion_status.h"
 #include "services/network/public/mojom/cookie_manager.mojom-forward.h"
 #include "services/network/public/mojom/network_context.mojom-forward.h"
@@ -93,7 +95,6 @@ class SignedExchangeEnvelope;
 class StoragePartition;
 class WebContents;
 struct DropData;
-struct PrerenderMismatchedHeaders;
 struct SignedExchangeError;
 
 namespace protocol::Audits {
@@ -140,6 +141,12 @@ void ApplyNetworkRequestOverrides(
 DevtoolsOverriddenOutputParams ApplyEmulationOverrides(
     DevToolsAgentHostImpl* agent_host,
     net::HttpRequestHeaders* headers);
+
+// Applies extra headers set via Network.setExtraHTTPHeaders to a WebSocket
+// handshake request. This is needed because WebSocket connections bypass the
+// normal URLLoader path where ApplyNetworkRequestOverrides is called.
+void ApplyExtraHeadersForWebSocket(const GlobalRenderFrameHostId& frame_id,
+                                   net::HttpRequestHeaders* headers);
 
 // Returns true if devtools want |*override_out| to be used.
 // (A true return and |*override_out| being nullopt means no user agent client
@@ -252,6 +259,25 @@ void OnFetchKeepAliveRequestComplete(
     const std::string& request_id,
     const network::URLLoaderCompletionStatus& status);
 
+// Logs prefetch/prerender activation beacon requests to the DevTools Network
+// panel as Ping resource types.
+void OnPrefetchActivationBeaconWillBeSent(
+    FrameTreeNodeId frame_tree_node_id,
+    const std::string& request_id,
+    const network::ResourceRequest& request,
+    std::optional<std::pair<const GURL&,
+                            const network::mojom::URLResponseHeadDevToolsInfo&>>
+        redirect_info = std::nullopt);
+void OnPrefetchActivationBeaconResponseReceived(
+    FrameTreeNodeId frame_tree_node_id,
+    const std::string& request_id,
+    const GURL& url,
+    const network::mojom::URLResponseHead& head);
+void OnPrefetchActivationBeaconRequestComplete(
+    FrameTreeNodeId frame_tree_node_id,
+    const std::string& request_id,
+    const network::URLLoaderCompletionStatus& status);
+
 void OnAuctionWorkletNetworkRequestWillBeSent(
     FrameTreeNodeId frame_tree_node_id,
     const network::ResourceRequest& request,
@@ -356,7 +382,8 @@ void DidUpdatePrerenderStatus(
     PreloadingTriggeringOutcome status,
     std::optional<PrerenderFinalStatus> prerender_status,
     std::optional<std::string> disallowed_mojo_interface,
-    const std::vector<PrerenderMismatchedHeaders>* mismatched_headers);
+    const std::vector<network::MismatchedHttpRequestHeader>*
+        mismatched_headers);
 
 void OnSignedExchangeReceived(
     FrameTreeNode* frame_tree_node,

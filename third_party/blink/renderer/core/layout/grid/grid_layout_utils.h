@@ -314,7 +314,8 @@ void AppendSubgriddedItems(const NodeType& node, GridItems* grid_items) {
         subgrid.CachedLineResolver(), root_grid_style, subgrid.Style(),
         current_item.must_consider_grid_items_for_column_sizing,
         current_item.must_consider_grid_items_for_row_sizing,
-        &must_invalidate_placement_cache);
+        &must_invalidate_placement_cache,
+        /*parent_is_auto_placed=*/current_item.is_auto_placed);
 
     DCHECK(!must_invalidate_placement_cache)
         << "We shouldn't need to invalidate the placement cache if we relied "
@@ -426,6 +427,14 @@ LayoutUnit GetSynthesizedLogicalBaseline(
     const GridItemData& grid_item,
     LayoutUnit block_size,
     GridTrackSizingDirection track_direction);
+
+// Returns the largest possible per-track contribution that an auto-placed
+// subgrid could impose on any single grid-lanes track, given the subgrid's
+// accumulated start/end extra margins and gutter-size delta.
+LayoutUnit LargestAutoPlacedSubgridContribution(LayoutUnit start_extra_margin,
+                                                LayoutUnit end_extra_margin,
+                                                LayoutUnit gutter_delta,
+                                                wtf_size_t subgrid_span_size);
 
 // Accommodates extra margins from subgrid items in the given track collection.
 // A subgrid's border/padding/margin can extend beyond the parent's track edges

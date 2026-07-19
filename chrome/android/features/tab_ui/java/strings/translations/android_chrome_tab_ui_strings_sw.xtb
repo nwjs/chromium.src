@@ -31,6 +31,7 @@
 <translation id="1828808367831369073">Kichupo <ph name="TABS_COUNT_ONE" /> kimewekwa kwenye kikundi</translation>
 <translation id="1844381456014878100">Baada ya kutotumiwa kwa siku 7</translation>
 <translation id="1869137256605757565">{TABS_COUNT,plural, =1{Kichupo <ph name="TABS_COUNT_ONE" />}other{Vichupo <ph name="TABS_COUNT_MANY" />}}</translation>
+<translation id="1894429470045525403">{TAB_COUNT,plural, =1{Weka kichupo kwenye orodha ya kusoma}other{Weka vichupo kwenye orodha ya kusoma}}</translation>
 <translation id="1909810060368225529">Ilani: Kila mtu anaweza kuona mabadiliko kwenye Kikundi cha Vichupo cha pamoja. Kila mtu anaweza kubadilisha vikundi vyako vya vichupo vya pamoja</translation>
 <translation id="1925363809167540686">{TAB_COUNT,plural, =1{Bandika kichupo}other{Bandika vichupo}}</translation>
 <translation id="1982637982196732906">Hamishia kwenye sehemu ya visivyotumika</translation>
@@ -76,6 +77,8 @@
 <translation id="3052964831964880138">Punguzo la bei la <ph name="PRICE_DROP" /> kwenye <ph name="PRODUCT_NAME" /></translation>
 <translation id="3078350928901129212">Aikoni ya rangi <ph name="COLOR_NAME" /> ya kikundi cha vichupo</translation>
 <translation id="311432875115153175">Orodha ya kikundi cha vichupo imefungwa</translation>
+<translation id="3152596030350326139">Onyesha vichupo kwa mlalo</translation>
+<translation id="31806439105337256">Onyesha vichupo kwa mkao wima</translation>
 <translation id="3194464645767632461">ukadiriaji</translation>
 <translation id="3269930881809501915">{TABS_COUNT,plural, =1{Weka kichupo <ph name="TABS_COUNT_ONE" /> kwenye kikundi}other{Weka vichupo <ph name="TABS_COUNT_MANY" /> kwenye kikundi}}</translation>
 <translation id="3328308545011660196">Pendekezo: Vichupo <ph name="NUMBER_OF_TABS" /> vinaonekana kuwa vinahusiana. Ungependa kuvipanga pamoja?</translation>
@@ -180,7 +183,6 @@
 <translation id="7129458170538955174">Maelezo kuhusu duka hili yamefunguliwa kwenye nusu ya skrini</translation>
 <translation id="7204204600596740190">Hali ya kuchagua vingi</translation>
 <translation id="7211038039686180558">Vikundi vya vichupo vyako huhifadhiwa na kusasishwa kiotomatiki kwenye vifaa vyako vyote ulivyotumia kuingia katika akaunti</translation>
-<translation id="731648547091221002">Umechagua <ph name="COLOR_NAME" /></translation>
 <translation id="7326879924029668159">Angalia sera ya kurejesha bidhaa na mengine</translation>
 <translation id="7352298686197644113">Angalia bidhaa iliyo na bei nafuu katika vichupo ulivyovifungua</translation>
 <translation id="7369451074646620503">Kikundi cha vichupo cha "<ph name="TAB_GROUP_NAME" />" hakipatikani tena</translation>
@@ -206,7 +208,6 @@
 <translation id="7854360405711302755">{REVIEWS,plural, =1{ Imekadiriwa alama <ph name="CURRENT_RATING" />/<ph name="RATING_BASELINE" />, maoni <ph name="REVIEWS_COUNT_ONE" />}other{Imekadiriwa alama <ph name="CURRENT_RATING" />/<ph name="RATING_BASELINE" />, maoni <ph name="REVIEWS_COUNT_MANY" />}}</translation>
 <translation id="7885132941432959125">Sogeza kichupo kulia</translation>
 <translation id="7887334752153342268">Maradufu</translation>
-<translation id="7939917283308035850">Hujachagua <ph name="COLOR_NAME" /></translation>
 <translation id="7961015016161918242">Katu</translation>
 <translation id="7966321538264951561">Ondoa mapendekezo.</translation>
 <translation id="796696298310625748">{WINDOW_COUNT,plural, =1{Hamishia kichupo kwenye dirisha jipya}other{Hamishia kichupo kwenye dirisha lingine}}</translation>

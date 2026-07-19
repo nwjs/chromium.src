@@ -31,7 +31,8 @@ the user about the reason to skip.
 
 0.  **Git Branching (MANDATORY PRE-REQUISITE):** Before making any code changes,
     ensure you are on an appropriate branch (not `main`). Refer to
-    [git_operations.md](templates/git_operations.md) for Chromium-specific git constraints.
+    @./templates/git_operations.md for Chromium-specific git constraints.
+
 1.  **Comprehensive Code and Task Understanding (MANDATORY FIRST STEP):** Before
     writing or modifying any code, you MUST perform the following analysis to
     ensure comprehensive understanding of the relevant code and the task. This
@@ -72,7 +73,12 @@ approval).
         the task prompted by the user.
       * **Include Hygiene & IWYU:**
           * **Cleanup Unused Includes:** Remove unused includes when refactoring.
-          * **No Transitive Includes:** If you use a symbol in a `.cc` file, explicitly include its defining header.
+          * **No Transitive Includes:** If you use a symbol in a `.cc` file,
+            explicitly include its defining header.
+          * **Put conditional includes after non-conditional includes:** Do not
+            put `#if` blocks in the middle of a section of non-conditional
+            includes. Add it as a separate section below the non-conditional
+            includes, and reuse an existing section when appropriate.
 3.  **Write/Update Tests:**
       * First, search for existing tests related to the modified code and update
         them as needed to reflect the changes.

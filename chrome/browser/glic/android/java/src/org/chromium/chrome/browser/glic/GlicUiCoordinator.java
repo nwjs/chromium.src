@@ -14,6 +14,7 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.actor.ActorTaskHelper;
 import org.chromium.chrome.browser.actor.ui.ActorControlCoordinator;
+import org.chromium.chrome.browser.actor.ui.ActorControlStateTracker;
 import org.chromium.chrome.browser.actor.ui.ActorOverlayCoordinator;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsVisibilityManager;
 import org.chromium.chrome.browser.layouts.LayoutManager;
@@ -27,7 +28,6 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.side_ui.SideUiStateProvider;
-import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandlerRegistry;
 
 /**
@@ -38,7 +38,8 @@ import org.chromium.components.browser_ui.widget.gesture.BackPressHandlerRegistr
 public class GlicUiCoordinator implements Destroyable {
 
     private final Activity mActivity;
-    private final ActorControlCoordinator mActorControlCoordinator;
+    private final @Nullable ActorControlStateTracker mActorControlStateTracker;
+    private final @Nullable ActorControlCoordinator mActorControlCoordinator;
     private final ActorOverlayCoordinator mActorOverlayCoordinator;
     private final ActorTaskHelper mActorTaskHelper;
 
@@ -56,13 +57,12 @@ public class GlicUiCoordinator implements Destroyable {
      * @param backPressHandlerRegistry Registry for back press handlers.
      * @param layoutManagerSupplier Supplier for the {@link LayoutManager}.
      * @param overlayStub The {@link ViewStub} to inflate the overlay into.
-     * @param bottomSheetController Controller for bottom sheets.
      * @param activityLifecycleDispatcher Dispatcher for activity lifecycle events.
      * @param sideUiStateProvider The {@link SideUiStateProvider} providing state on the side UI.
      */
     public GlicUiCoordinator(
             Activity activity,
-            TabBottomSheetManager tabBottomSheetManager,
+            @Nullable TabBottomSheetManager tabBottomSheetManager,
             MonotonicObservableSupplier<Profile> profileSupplier,
             NullableObservableSupplier<Tab> activityTabProvider,
             MonotonicObservableSupplier<TabModelSelector> tabModelSelectorSupplier,
@@ -72,24 +72,28 @@ public class GlicUiCoordinator implements Destroyable {
             BackPressHandlerRegistry backPressHandlerRegistry,
             MonotonicObservableSupplier<LayoutManager> layoutManagerSupplier,
             ViewStub overlayStub,
-            BottomSheetController bottomSheetController,
             ActivityLifecycleDispatcher activityLifecycleDispatcher,
             @Nullable SideUiStateProvider sideUiStateProvider) {
         mActivity = activity;
 
-        mActorControlCoordinator =
-                new ActorControlCoordinator(
-                        mActivity,
-                        tabBottomSheetManager,
-                        profileSupplier,
-                        activityTabProvider,
-                        (tabId) -> {
-                            TabModelSelector selector = tabModelSelectorSupplier.get();
-                            if (selector != null) {
-                                TabModelUtils.selectTabById(
-                                        selector, tabId, TabSelectionType.FROM_USER);
-                            }
-                        });
+        if (tabBottomSheetManager != null) {
+            mActorControlStateTracker =
+                    new ActorControlStateTracker(profileSupplier, activityTabProvider);
+            mActorControlCoordinator =
+                    new ActorControlCoordinator(
+                            tabBottomSheetManager,
+                            mActorControlStateTracker,
+                            (tabId) -> {
+                                TabModelSelector selector = tabModelSelectorSupplier.get();
+                                if (selector != null) {
+                                    TabModelUtils.selectTabById(
+                                            selector, tabId, TabSelectionType.FROM_USER);
+                                }
+                            });
+        } else {
+            mActorControlStateTracker = null;
+            mActorControlCoordinator = null;
+        }
 
         mActorOverlayCoordinator =
                 new ActorOverlayCoordinator(
@@ -101,7 +105,6 @@ public class GlicUiCoordinator implements Destroyable {
                         backPressHandlerRegistry,
                         layoutManagerSupplier,
                         profileSupplier,
-                        bottomSheetController,
                         sideUiStateProvider);
 
         mActorTaskHelper =
@@ -114,7 +117,12 @@ public class GlicUiCoordinator implements Destroyable {
 
     @Override
     public void destroy() {
-        mActorControlCoordinator.destroy();
+        if (mActorControlStateTracker != null) {
+            mActorControlStateTracker.destroy();
+        }
+        if (mActorControlCoordinator != null) {
+            mActorControlCoordinator.destroy();
+        }
         mActorOverlayCoordinator.destroy();
         mActorTaskHelper.onDestroy();
         mActorTaskHelper.destroy();

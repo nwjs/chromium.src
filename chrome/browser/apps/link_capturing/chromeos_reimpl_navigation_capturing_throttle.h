@@ -17,9 +17,14 @@ class TickClock;
 
 namespace apps {
 
-// Navigation throttle that will be used on ChromeOS to implement the parts of
-// navigation capturing reimplementation that is not handled by the
-// `NavigationCapturingProcess`.
+// Navigation throttle used on ChromeOS to implement link capturing for cases
+// not handled by `NavigationCapturingProcess` (which handles V2 capturing for
+// new frames/dispositions).
+//
+// Specifically, this throttle handles:
+// 1. ARC apps (Android apps on ChromeOS classic).
+// 2. Projector System Web App (and potentially other System Web Apps).
+// 3. ChromeOS Web App Experiments (e.g. Microsoft 365 experiment app).
 class ChromeOsReimplNavigationCapturingThrottle
     : public content::NavigationThrottle {
  public:

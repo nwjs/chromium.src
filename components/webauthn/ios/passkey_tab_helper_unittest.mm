@@ -151,6 +151,10 @@ class PasskeyTabHelperTest : public PlatformTest {
     return PasskeyTabHelper::FromWebState(&fake_web_state_);
   }
 
+  void MaybeShowInterstitialAndRegister(RegistrationRequestParams params) {
+    passkey_tab_helper()->MaybeShowInterstitialAndRegister(std::move(params));
+  }
+
   bool HasExcludedPasskey(const RegistrationRequestParams& params) {
     return passkey_tab_helper()->HasExcludedPasskey(params);
   }
@@ -257,11 +261,11 @@ class PasskeyTabHelperTest : public PlatformTest {
                                            bool expected_with_biometrics,
                                            bool expected_without_biometrics) {
     SCOPED_TRACE(testing::Message() << "ID: " << request_id);
-    EXPECT_EQ(passkey_tab_helper()->ShouldPerformUserVerification(
-                  request_id, /*is_biometric_authentication_enabled=*/true),
+    client_->SetBiometricsEnabled(true);
+    EXPECT_EQ(passkey_tab_helper()->ShouldPerformUserVerification(request_id),
               std::optional<bool>(expected_with_biometrics));
-    EXPECT_EQ(passkey_tab_helper()->ShouldPerformUserVerification(
-                  request_id, /*is_biometric_authentication_enabled=*/false),
+    client_->SetBiometricsEnabled(false);
+    EXPECT_EQ(passkey_tab_helper()->ShouldPerformUserVerification(request_id),
               std::optional<bool>(expected_without_biometrics));
   }
 
@@ -520,9 +524,8 @@ TEST_F(PasskeyTabHelperTest, ShouldPerformUserVerification) {
                                            kMainRemoteFrameId);
 
   // Test with non-existent request ID.
-  EXPECT_EQ(
-      passkey_tab_helper()->ShouldPerformUserVerification("non-existent", true),
-      std::nullopt);
+  EXPECT_EQ(passkey_tab_helper()->ShouldPerformUserVerification("non-existent"),
+            std::nullopt);
 
   // An array of user verification requirements, and their expected values.
   struct UserVerificationRequirementTest {
@@ -565,71 +568,43 @@ TEST_F(PasskeyTabHelperTest, ShouldPerformUserVerification) {
   }
 }
 
-TEST_F(PasskeyTabHelperTest, ShowCreationInterstitialAndContinue) {
+TEST_F(PasskeyTabHelperTest, MaybeShowInterstitialAndRegisterAndContinue) {
   fake_browser_state_.SetOffTheRecord(true);
-
-  bool callback_executed = false;
-  bool callback_result = false;
-  auto callback = base::BindOnce(
-      [](bool* executed, bool* result, bool proceed) {
-        *executed = true;
-        *result = proceed;
-      },
-      &callback_executed, &callback_result);
+  SetUpWebFramesManagerAndWebFrame(GURL(kOriginURL));
 
   client_->SetInterstitialProceeds(true);
-  EXPECT_TRUE(passkey_tab_helper()->ShowCreationInterstitialIfNecessary(
-      std::move(callback)));
+  MaybeShowInterstitialAndRegister(BuildRegistrationRequestParams({}));
 
   EXPECT_TRUE(client_->DidShowInterstitial());
-  EXPECT_TRUE(callback_executed);
-  EXPECT_TRUE(callback_result);
+  EXPECT_TRUE(client_->DidShowCreationBottomSheet());
   histogram_tester_.ExpectUniqueSample(
       kWebAuthenticationIOSContentAreaEventHistogram,
       static_cast<int>(kIncognitoInterstitialShown),
       /*count=*/1);
 }
 
-TEST_F(PasskeyTabHelperTest, ShowCreationInterstitialAndCancel) {
+TEST_F(PasskeyTabHelperTest, MaybeShowInterstitialAndRegisterAndCancel) {
   fake_browser_state_.SetOffTheRecord(true);
-
-  bool callback_executed = false;
-  bool callback_result = true;
-  auto callback = base::BindOnce(
-      [](bool* executed, bool* result, bool proceed) {
-        *executed = true;
-        *result = proceed;
-      },
-      &callback_executed, &callback_result);
+  SetUpWebFramesManagerAndWebFrame(GURL(kOriginURL));
 
   client_->SetInterstitialProceeds(false);
-  EXPECT_TRUE(passkey_tab_helper()->ShowCreationInterstitialIfNecessary(
-      std::move(callback)));
+  MaybeShowInterstitialAndRegister(BuildRegistrationRequestParams({}));
 
   EXPECT_TRUE(client_->DidShowInterstitial());
-  EXPECT_TRUE(callback_executed);
-  EXPECT_FALSE(callback_result);
+  EXPECT_FALSE(client_->DidShowCreationBottomSheet());
   histogram_tester_.ExpectUniqueSample(
       kWebAuthenticationIOSContentAreaEventHistogram,
       static_cast<int>(kIncognitoInterstitialShown),
       /*count=*/1);
 }
 
-TEST_F(PasskeyTabHelperTest, NoCreationInterstitial) {
+TEST_F(PasskeyTabHelperTest, NoInterstitial) {
   fake_browser_state_.SetOffTheRecord(false);
+  SetUpWebFramesManagerAndWebFrame(GURL(kOriginURL));
 
-  bool callback_executed = false;
-  auto callback =
-      base::BindOnce([](bool* executed, bool proceed) { *executed = true; },
-                     &callback_executed);
-
-  EXPECT_FALSE(passkey_tab_helper()->ShowCreationInterstitialIfNecessary(
-      std::move(callback)));
-
+  MaybeShowInterstitialAndRegister(BuildRegistrationRequestParams({}));
   EXPECT_FALSE(client_->DidShowInterstitial());
-  EXPECT_FALSE(callback_executed);
-  histogram_tester_.ExpectTotalCount(
-      kWebAuthenticationIOSContentAreaEventHistogram, 0);
+  EXPECT_TRUE(client_->DidShowCreationBottomSheet());
 }
 
 TEST_F(PasskeyTabHelperTest, HandleRegistrationDefersWhenGpmDisabled) {
@@ -785,7 +760,8 @@ TEST_F(PasskeyTabHelperTest, StartPasskeyCreationFromCrossOriginIframe) {
   EXPECT_TRUE(client_->DidShowCreationBottomSheet());
 
   // Trigger start of creation.
-  passkey_tab_helper()->StartPasskeyCreation(kFakeRequestId);
+  passkey_tab_helper()->StartPasskeyCreation(kFakeRequestId,
+                                             /*did_complete_uv=*/false);
   EXPECT_TRUE(client_->DidFetchKeys());
 
   // Verify that ResolveAttestationRequest was called on the subframe with the

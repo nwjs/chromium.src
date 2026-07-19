@@ -6,6 +6,8 @@ source_set("core") {
   sources = [
     "context_memory_error.cc",
     "context_memory_error.h",
+    "context_memory_features.cc",
+    "context_memory_features.h",
     "country_type.h",
     "network/personal_context_fetcher.cc",
     "network/personal_context_fetcher.h",
@@ -19,6 +21,7 @@ source_set("core") {
     "personal_context_service_impl.h",
     "personal_context_types.cc",
     "personal_context_types.h",
+    "url_constants.h",
   ]
 
   public_deps = [
@@ -30,7 +33,6 @@ source_set("core") {
     "//components/personal_context/proto:personal_context_proto",
     "//components/prefs",
     "//components/signin/public/identity_manager",
-    "//components/subscription_eligibility",
     "//net",
   ]
 }
@@ -59,10 +61,17 @@ source_set("prefs") {
 
 source_set("test_support") {
   testonly = true
-  sources = [ "personal_context_enablement_service_impl_test_api.h" ]
+  sources = [
+    "mock_personal_context_enablement_service.cc",
+    "mock_personal_context_enablement_service.h",
+    "mock_personal_context_service.cc",
+    "mock_personal_context_service.h",
+    "personal_context_enablement_service_impl_test_api.h",
+  ]
   deps = [
     ":core",
     "//base",
+    "//testing/gmock",
   ]
 }
 
@@ -86,7 +95,6 @@ source_set("unit_tests") {
     "//components/account_settings:test_support",
     "//components/prefs:test_support",
     "//components/signin/public/identity_manager:test_support",
-    "//components/subscription_eligibility",
     "//components/sync_preferences:test_support",
     "//services/network:test_support",
     "//testing/gmock",

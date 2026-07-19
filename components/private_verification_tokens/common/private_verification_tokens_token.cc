@@ -5,25 +5,33 @@
 #include "components/private_verification_tokens/common/private_verification_tokens_token.h"
 
 #include <cstdint>
-#include <string>
 #include <utility>
 #include <vector>
 
+#include "base/check.h"
 #include "base/time/time.h"
+#include "url/origin.h"
 
 namespace private_verification_tokens {
 
 PrivateVerificationTokensToken::PrivateVerificationTokensToken(
-    std::string etld_plus_one,
+    url::Origin issuer,
     SerializedToken token,
     uint32_t key_id,
     base::Time expiration,
-    uint32_t version)
-    : etld_plus_one_(std::move(etld_plus_one)),
+    uint32_t version,
+    base::Time creation_time)
+    : issuer_(std::move(issuer)),
       token_(std::move(token)),
       key_id_(key_id),
       expiration_(expiration),
-      version_(version) {}
+      version_(version),
+      creation_time_(
+          base::Time::UnixEpoch() +
+          base::Seconds(
+              (creation_time - base::Time::UnixEpoch()).InSeconds())) {
+  CHECK(!issuer_.opaque());
+}
 
 PrivateVerificationTokensToken::PrivateVerificationTokensToken(
     const PrivateVerificationTokensToken&) = default;
@@ -39,8 +47,8 @@ PrivateVerificationTokensToken& PrivateVerificationTokensToken::operator=(
 
 PrivateVerificationTokensToken::~PrivateVerificationTokensToken() = default;
 
-const std::string& PrivateVerificationTokensToken::etld_plus_one() const {
-  return etld_plus_one_;
+const url::Origin& PrivateVerificationTokensToken::issuer() const {
+  return issuer_;
 }
 
 const SerializedToken& PrivateVerificationTokensToken::token() const {
@@ -57,6 +65,10 @@ base::Time PrivateVerificationTokensToken::expiration() const {
 
 uint32_t PrivateVerificationTokensToken::version() const {
   return version_;
+}
+
+base::Time PrivateVerificationTokensToken::creation_time() const {
+  return creation_time_;
 }
 
 }  // namespace private_verification_tokens

@@ -8,41 +8,27 @@
 #include <string>
 #include <utility>
 
-#include "base/compiler_specific.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/location.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/strings/string_util.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
-#include "cc/paint/paint_recorder.h"
-#include "cc/paint/skia_paint_canvas.h"
-#include "components/paint_preview/common/paint_preview_tracker.h"
-#include "components/safe_browsing/buildflags.h"
-#include "components/safe_browsing/content/common/visual_utils.h"
-#include "components/safe_browsing/content/renderer/phishing_classifier/phishing_classifier_delegate.h"
 #include "components/safe_browsing/content/renderer/phishing_classifier/phishing_dom_utils.h"
 #include "components/safe_browsing/content/renderer/phishing_classifier/phishing_visual_feature_extractor.h"
-#include "components/safe_browsing/content/renderer/phishing_classifier/scorer.h"
 #include "components/safe_browsing/core/common/features.h"
+#include "components/safe_browsing/core/common/phishing_classifier/scorer.h"
 #include "components/safe_browsing/core/common/proto/csd.pb.h"
+#include "components/safe_browsing/core/common/visual_utils.h"
 #include "content/public/renderer/render_frame.h"
 #include "content/public/renderer/render_thread.h"
-#include "crypto/sha2.h"
-#include "skia/ext/legacy_display_globals.h"
-#include "third_party/blink/public/platform/web_url.h"
-#include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/public/web/web_document.h"
-#include "third_party/blink/public/web/web_document_loader.h"
 #include "third_party/blink/public/web/web_local_frame.h"
-#include "third_party/blink/public/web/web_view.h"
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
-#include "ui/gfx/geometry/rect_conversions.h"
 #include "url/gurl.h"
 
 namespace safe_browsing {
@@ -71,7 +57,8 @@ void PhishingClassifier::SetClientSideDetectionType(
 
 void PhishingClassifier::BeginClassification(DoneCallback done_callback) {
   TRACE_EVENT_BEGIN("safe_browsing", "PhishingClassification",
-                    perfetto::Track::FromPointer(this));
+                    perfetto::NamedTrack::FromPointer(
+                        "safe_browsing::PhishingClassifier", this));
   DCHECK(is_ready());
 
   // However, in an opt build, we will go ahead and clean up the pending
@@ -212,7 +199,8 @@ void PhishingClassifier::OnVisualTfLiteModelImageEmbeddingDone(
 void PhishingClassifier::RunCallback(const ClientPhishingRequest& verdict,
                                      Result phishing_classifier_result) {
   TRACE_EVENT_END("safe_browsing", /* PhishingClassification */
-                  perfetto::Track::FromPointer(this));
+                  perfetto::NamedTrack::FromPointer(
+                      "safe_browsing::PhishingClassifier", this));
   std::move(done_callback_).Run(verdict, phishing_classifier_result);
   Clear();
 }

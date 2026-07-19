@@ -196,12 +196,6 @@
     cameraSearchAction, voiceSearchAction, newIncognitoSearchAction,
     newSearchAction
   ]];
-
-  if (IsAIMCobrowseDebugEntrypointEnabled()) {
-    UIAction* openAIMode = [_actionFactory actionToOpenAIMode];
-    [staticActions addObject:openAIMode];
-  }
-
   if (experimental_flags::EnableAIPrototypingMenu()) {
     UIAction* openAIMenu = [_actionFactory actionToOpenAIMenu];
     [staticActions addObject:openAIMenu];
@@ -232,12 +226,8 @@
 
   NSMutableArray* staticActions = [[NSMutableArray alloc] init];
 
-  // From an incognito tab, the `openNewTabAction` should open a non-incognito
-  // tab. From a non-incognito tab, it should open an incognito tab.
-  UIAction* openNewTabAction =
-      _incognito ? [_actionFactory actionToOpenNewTab]
-                 : [_actionFactory actionToOpenNewIncognitoTab];
-  [staticActions addObject:openNewTabAction];
+  [staticActions addObject:[_actionFactory actionToOpenNewTab]];
+  [staticActions addObject:[_actionFactory actionToOpenNewIncognitoTab]];
 
   UIAction* closeCurrentTabAction = [_actionFactory actionToCloseCurrentTab];
   [staticActions addObject:closeCurrentTabAction];

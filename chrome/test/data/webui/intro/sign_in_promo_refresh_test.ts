@@ -4,15 +4,16 @@
 
 import 'chrome://intro/sign_in_promo_refresh.js';
 
-import {IntroBrowserProxyImpl} from 'chrome://intro/browser_proxy.js';
+import {IntroBrowserProxyImpl as IntroMojoBrowserProxyImpl} from 'chrome://intro/intro_browser_proxy.js';
+import {SignInPromoBrowserProxyImpl} from 'chrome://intro/sign_in_promo_browser_proxy.js';
 import type {SignInPromoRefreshElement} from 'chrome://intro/sign_in_promo_refresh.js';
 import {Variation} from 'chrome://intro/sign_in_promo_refresh.js';
-import {webUIListenerCallback} from 'chrome://resources/js/cr.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
 
-import {TestIntroBrowserProxy} from './test_intro_browser_proxy.js';
+import {TestIntroMojoBrowserProxy} from './test_intro_mojo_browser_proxy.js';
+import {TestSignInPromoBrowserProxy} from './test_sign_in_promo_browser_proxy.js';
 
 function assertSignInButtonsDisabled(
     element: SignInPromoRefreshElement, assertDeclineButton: boolean = true) {
@@ -45,12 +46,18 @@ function variationToTestSuffix(variation: Variation): string {
 
 suite('SignInPromoRefreshTest', function() {
   let signInPromoElement: SignInPromoRefreshElement;
-  let testBrowserProxy: TestIntroBrowserProxy;
+  let testBrowserProxy: TestSignInPromoBrowserProxy;
+  let testMojoBrowserProxy: TestIntroMojoBrowserProxy;
 
   setup(function() {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
-    testBrowserProxy = new TestIntroBrowserProxy();
-    IntroBrowserProxyImpl.setInstance(testBrowserProxy);
+    testBrowserProxy = new TestSignInPromoBrowserProxy();
+    testMojoBrowserProxy = new TestIntroMojoBrowserProxy();
+    SignInPromoBrowserProxyImpl.setInstance(testBrowserProxy);
+    IntroMojoBrowserProxyImpl.setInstance(testMojoBrowserProxy);
+    loadTimeData.overrideValues({
+      isFirstRunDesktopRevampEnabled: true,
+    });
   });
 
   [Variation.DEFAULT, Variation.DONT_SIGN_IN_IN_TOP_RIGHT_CORNER,
@@ -79,13 +86,17 @@ suite('SignInPromoRefreshTest', function() {
                 assertSignInButtonsEnabled(
                     signInPromoElement, assertDeclineButton);
                 assertEquals(
-                    0, testBrowserProxy.getCallCount('continueWithAccount'));
+                    0,
+                    testBrowserProxy.handler.getCallCount(
+                        'continueWithAccount'));
                 signInPromoElement.$.acceptSignInButton.click();
                 await microtasksFinished();
                 assertSignInButtonsDisabled(
                     signInPromoElement, assertDeclineButton);
                 assertEquals(
-                    1, testBrowserProxy.getCallCount('continueWithAccount'));
+                    1,
+                    testBrowserProxy.handler.getCallCount(
+                        'continueWithAccount'));
               });
 
               test('decline sign-in button clicked', async function() {
@@ -94,12 +105,16 @@ suite('SignInPromoRefreshTest', function() {
                 }
                 assertSignInButtonsEnabled(signInPromoElement);
                 assertEquals(
-                    0, testBrowserProxy.getCallCount('continueWithoutAccount'));
+                    0,
+                    testBrowserProxy.handler.getCallCount(
+                        'continueWithoutAccount'));
                 signInPromoElement.$.declineSignInButton.click();
                 await microtasksFinished();
                 assertSignInButtonsDisabled(signInPromoElement);
                 assertEquals(
-                    1, testBrowserProxy.getCallCount('continueWithoutAccount'));
+                    1,
+                    testBrowserProxy.handler.getCallCount(
+                        'continueWithoutAccount'));
               });
 
               test(
@@ -111,7 +126,7 @@ suite('SignInPromoRefreshTest', function() {
                     await microtasksFinished();
                     assertSignInButtonsDisabled(
                         signInPromoElement, assertDeclineButton);
-                    webUIListenerCallback('reset-intro-buttons');
+                    testBrowserProxy.page.onResetButtons();
                     await microtasksFinished();
                     assertSignInButtonsEnabled(
                         signInPromoElement, assertDeclineButton);
@@ -146,8 +161,7 @@ suite('SignInPromoRefreshTest', function() {
             assertEquals(
                 '', signInPromoElement.$.disclaimerText.textContent.trim());
 
-            webUIListenerCallback(
-                'managed-device-disclaimer-updated', 'managedDeviceDisclaimer');
+            testBrowserProxy.resolveDisclaimer('managedDeviceDisclaimer');
             await microtasksFinished();
             assertEquals(
                 'managedDeviceDisclaimer',
@@ -187,22 +201,32 @@ suite('SignInPromoRefreshTest', function() {
     loadTimeData.overrideValues({
       isDeviceManaged: false,
       signInPromoVariation: Variation.DONT_SIGN_IN_IN_TOP_RIGHT_CORNER,
+      isFirstRunDesktopRevampEnabled: false,
     });
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     signInPromoElement = document.createElement('sign-in-promo-refresh');
     document.body.appendChild(signInPromoElement);
     await microtasksFinished();
 
-    const createAccountDisclaimer = signInPromoElement.shadowRoot.querySelector(
-        '#create-account-disclaimer');
+    const createAccountDisclaimer =
+        signInPromoElement.shadowRoot.querySelector(
+            '#create-account-disclaimer');
     assertTrue(!!createAccountDisclaimer);
 
-    const topRightCornerContainer = signInPromoElement.shadowRoot.querySelector(
-        '#top-right-corner-container');
+    const topRightCornerContainer =
+        signInPromoElement.shadowRoot.querySelector(
+            '#top-right-corner-container');
     assertTrue(!!topRightCornerContainer);
+    assertFalse(topRightCornerContainer.classList.contains(
+        'has-effects-control-button'));
     assertEquals(
         signInPromoElement.$.declineSignInButton,
         topRightCornerContainer.querySelector('#declineSignInButton'));
+    assertTrue(signInPromoElement.$.declineSignInButton.classList.contains(
+        'tangible-button'));
+
+    const separator = topRightCornerContainer.querySelector('#separator');
+    assertFalse(!!separator);
 
     const buttonContainer =
         signInPromoElement.shadowRoot.querySelector('#buttonContainer');
@@ -211,6 +235,49 @@ suite('SignInPromoRefreshTest', function() {
         buttonContainer.querySelector('#declineSignInButton');
     assertFalse(!!declineSignInButtonInButtonContainer);
   });
+
+  test(
+      'don\'t sign in in top right corner promo variation with revamp',
+      async function() {
+        loadTimeData.overrideValues({
+          isDeviceManaged: false,
+          signInPromoVariation: Variation.DONT_SIGN_IN_IN_TOP_RIGHT_CORNER,
+          isFirstRunDesktopRevampEnabled: true,
+        });
+        document.body.innerHTML = window.trustedTypes!.emptyHTML;
+        signInPromoElement = document.createElement('sign-in-promo-refresh');
+        document.body.appendChild(signInPromoElement);
+        await microtasksFinished();
+
+        const createAccountDisclaimer =
+            signInPromoElement.shadowRoot.querySelector(
+                '#create-account-disclaimer');
+        assertTrue(!!createAccountDisclaimer);
+
+        const topRightCornerContainer =
+            signInPromoElement.shadowRoot.querySelector(
+                '#top-right-corner-container');
+        assertTrue(!!topRightCornerContainer);
+        assertTrue(topRightCornerContainer.classList.contains(
+            'has-effects-control-button'));
+        assertEquals(
+            signInPromoElement.$.declineSignInButton,
+            topRightCornerContainer.querySelector('#declineSignInButton'));
+        assertFalse(signInPromoElement.$.declineSignInButton.classList.contains(
+            'tangible-button'));
+        assertTrue(signInPromoElement.$.declineSignInButton.classList.contains(
+            'no-border'));
+
+        const separator = topRightCornerContainer.querySelector('#separator');
+        assertTrue(!!separator);
+
+        const buttonContainer =
+            signInPromoElement.shadowRoot.querySelector('#buttonContainer');
+        assertTrue(!!buttonContainer);
+        const declineSignInButtonInButtonContainer =
+            buttonContainer.querySelector('#declineSignInButton');
+        assertFalse(!!declineSignInButtonInButtonContainer);
+      });
 
   test('don\'t sign in on Gaia page promo variation', async function() {
     loadTimeData.overrideValues({
@@ -243,29 +310,139 @@ suite('SignInPromoRefreshTest', function() {
     document.body.appendChild(signInPromoElement);
     await microtasksFinished();
 
-    const leftAnimation =
-        signInPromoElement.shadowRoot.querySelector<HTMLElement>(
-            '#left-animation');
-    const rightAnimation =
-        signInPromoElement.shadowRoot.querySelector<HTMLElement>(
-            '#right-animation');
-    const bottomAnimation =
-        signInPromoElement.shadowRoot.querySelector<HTMLElement>(
-            '#bottom-animation');
+    const leftAnimation = signInPromoElement.$.leftAnimation;
+    const rightAnimation = signInPromoElement.$.rightAnimation;
+    const bottomAnimation = signInPromoElement.$.bottomAnimation;
 
     assertTrue(!!leftAnimation);
-    assertTrue(leftAnimation.getAttribute('animation-url')!.includes('light'));
+    assertTrue(leftAnimation.animationUrl.includes('light'));
     assertTrue(!!rightAnimation);
-    assertTrue(rightAnimation.getAttribute('animation-url')!.includes('light'));
+    assertTrue(rightAnimation.animationUrl.includes('light'));
     assertTrue(!!bottomAnimation);
-    assertTrue(
-        bottomAnimation.getAttribute('animation-url')!.includes('light'));
+    assertTrue(bottomAnimation.animationUrl.includes('light'));
 
     testBrowserProxy.setMatchMediaMatches(true);
     await microtasksFinished();
 
-    assertTrue(leftAnimation.getAttribute('animation-url')!.includes('dark'));
-    assertTrue(rightAnimation.getAttribute('animation-url')!.includes('dark'));
-    assertTrue(bottomAnimation.getAttribute('animation-url')!.includes('dark'));
+    assertTrue(leftAnimation.animationUrl.includes('dark'));
+    assertTrue(rightAnimation.animationUrl.includes('dark'));
+    assertTrue(bottomAnimation.animationUrl.includes('dark'));
   });
+
+  test(
+      'change animation file depending on the theme with revamp disabled',
+      async function() {
+        loadTimeData.overrideValues({
+          isDeviceManaged: false,
+          signInPromoVariation: Variation.DEFAULT,
+          isFirstRunDesktopRevampEnabled: false,
+        });
+
+        testBrowserProxy.setMatchMediaMatches(false);
+
+        signInPromoElement = document.createElement('sign-in-promo-refresh');
+        document.body.appendChild(signInPromoElement);
+        await microtasksFinished();
+
+        const leftAnimation = signInPromoElement.$.leftAnimation;
+        const rightAnimation = signInPromoElement.$.rightAnimation;
+        const bottomAnimation = signInPromoElement.$.bottomAnimation;
+
+        assertTrue(!!leftAnimation);
+        assertTrue(leftAnimation.animationUrl.includes('light_left_static'));
+        assertTrue(!!rightAnimation);
+        assertTrue(rightAnimation.animationUrl.includes('light_right_static'));
+        assertTrue(!!bottomAnimation);
+        assertTrue(
+            bottomAnimation.animationUrl.includes('light_bottom_static'));
+
+        testBrowserProxy.setMatchMediaMatches(true);
+        await microtasksFinished();
+
+        assertTrue(leftAnimation.animationUrl.includes('dark_left'));
+        assertFalse(leftAnimation.animationUrl.includes('static'));
+        assertTrue(rightAnimation.animationUrl.includes('dark_right'));
+        assertFalse(rightAnimation.animationUrl.includes('static'));
+        assertTrue(bottomAnimation.animationUrl.includes('dark_bottom'));
+        assertFalse(bottomAnimation.animationUrl.includes('static'));
+      });
+
+  test('toggles animations', async function() {
+    loadTimeData.overrideValues({
+      isDeviceManaged: false,
+      signInPromoVariation: Variation.DEFAULT,
+      disableAnimations: false,
+    });
+
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    signInPromoElement = document.createElement('sign-in-promo-refresh');
+    document.body.appendChild(signInPromoElement);
+    await microtasksFinished();
+
+    const leftAnimation = signInPromoElement.$.leftAnimation;
+    const rightAnimation = signInPromoElement.$.rightAnimation;
+    const bottomAnimation = signInPromoElement.$.bottomAnimation;
+
+    let leftPlay: boolean|null = null;
+    leftAnimation.setPlay = (play: boolean) => {
+      leftPlay = play;
+    };
+    let rightPlay: boolean|null = null;
+    rightAnimation.setPlay = (play: boolean) => {
+      rightPlay = play;
+    };
+    let bottomPlay: boolean|null = null;
+    bottomAnimation.setPlay = (play: boolean) => {
+      bottomPlay = play;
+    };
+
+    const pageRemote =
+        testMojoBrowserProxy.callbackRouter.$.bindNewPipeAndPassRemote();
+    pageRemote.toggleAnimations(false);
+    await pageRemote.$.flushForTesting();
+    await microtasksFinished();
+
+    assertEquals(false, leftPlay);
+    assertEquals(false, rightPlay);
+    assertEquals(false, bottomPlay);
+
+    pageRemote.toggleAnimations(true);
+    await pageRemote.$.flushForTesting();
+    await microtasksFinished();
+
+    assertEquals(true, leftPlay);
+    assertEquals(true, rightPlay);
+    assertEquals(true, bottomPlay);
+  });
+
+  test(
+      'does not toggle animations when `disableAnimations` is true',
+      async function() {
+        loadTimeData.overrideValues({
+          isDeviceManaged: false,
+          signInPromoVariation: Variation.DEFAULT,
+          disableAnimations: true,
+        });
+
+        document.body.innerHTML = window.trustedTypes!.emptyHTML;
+        signInPromoElement = document.createElement('sign-in-promo-refresh');
+        document.body.appendChild(signInPromoElement);
+        await microtasksFinished();
+
+        const leftAnimation = signInPromoElement.$.leftAnimation;
+
+        let leftPlay: boolean|null = null;
+        leftAnimation.setPlay = (play: boolean) => {
+          leftPlay = play;
+        };
+
+        const pageRemote =
+            testMojoBrowserProxy.callbackRouter.$.bindNewPipeAndPassRemote();
+        pageRemote.toggleAnimations(false);
+        await pageRemote.$.flushForTesting();
+        await microtasksFinished();
+
+        // Verify that setPlay was NOT called because animations are disabled.
+        assertEquals(null, leftPlay);
+      });
 });

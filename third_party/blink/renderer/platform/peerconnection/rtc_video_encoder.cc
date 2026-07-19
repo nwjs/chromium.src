@@ -929,7 +929,7 @@ class RTCVideoEncoder::Impl : public media::VideoEncodeAccelerator::Client {
   Vector<InputBufferResource> input_buffers_;
   // The slot of |input_buffers_| that is available to use for input. As a LIFO
   // since we don't care about ordering.
-  Vector<size_t> input_buffers_free_;
+  Vector<wtf_size_t> input_buffers_free_;
 
   Vector<std::pair<base::UnsafeSharedMemoryRegion,
                    scoped_refptr<RefCountedWritableSharedMemoryMapping>>>
@@ -1121,10 +1121,7 @@ void RTCVideoEncoder::Impl::CreateAndInitializeVEA(
   if (auto status =
           video_encoder_->Initialize(vea_config, this, media_log_->Clone());
       !status.is_ok()) {
-    NotifyErrorStatus(
-        {media::EncoderStatus::Codes::kEncoderInitializationError,
-         base::StrCat({"Failed to initialize VideoEncodeAccelerator: ",
-                       status.message()})});
+    NotifyErrorStatus(std::move(status).AddHere());
     return;
   }
 
@@ -1428,7 +1425,8 @@ void RTCVideoEncoder::Impl::RequireBitstreamBuffers(
     return;
 
   input_frame_coded_size_ = input_coded_size;
-  size_t input_buffers_requested_count = input_count + kInputBufferExtraCount;
+  wtf_size_t input_buffers_requested_count =
+      input_count + kInputBufferExtraCount;
 
   input_buffers_.resize(input_buffers_requested_count);
   input_buffers_free_.resize(input_buffers_requested_count);
@@ -1718,6 +1716,14 @@ void RTCVideoEncoder::Impl::BitstreamBufferReady(
   // the qp if |qp_| is less than zero.
   image.qp_ = metadata.qp;
 
+  if (metadata.yuv_psnr) {
+    image.set_psnr(webrtc::EncodedImage::Psnr{
+        .y = metadata.yuv_psnr->y,
+        .u = metadata.yuv_psnr->u,
+        .v = metadata.yuv_psnr->v,
+    });
+  }
+
   image.set_end_of_temporal_unit(metadata.end_of_picture());
 
   webrtc::CodecSpecificInfo info;
@@ -1936,9 +1942,7 @@ void RTCVideoEncoder::Impl::NotifyErrorStatus(
   TRACE_EVENT0("webrtc", "RTCVideoEncoder::Impl::NotifyErrorStatus");
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   CHECK(!status.is_ok());
-  LOG(ERROR) << "NotifyErrorStatus is called with code="
-             << static_cast<int>(status.code())
-             << ", message=" << status.message();
+  status.DebugLog(1);
   if (encoder_metrics_provider_) {
     // |encoder_metrics_provider_| is nullptr if NotifyErrorStatus() is called
     // before it is created in CreateAndInitializeVEA().
@@ -2105,11 +2109,11 @@ RTCVideoEncoder::Impl::CreateI420SharedMemoryFrameByLibyuv(
           i420_buffer->StrideU(), i420_buffer->DataV(), i420_buffer->StrideV(),
           i420_buffer->width(), i420_buffer->height(),
           frame->GetWritableVisibleData(media::VideoFrame::Plane::kY),
-          frame->stride(media::VideoFrame::Plane::kY),
+          base::checked_cast<int>(frame->stride(media::VideoFrame::Plane::kY)),
           frame->GetWritableVisibleData(media::VideoFrame::Plane::kU),
-          frame->stride(media::VideoFrame::Plane::kU),
+          base::checked_cast<int>(frame->stride(media::VideoFrame::Plane::kU)),
           frame->GetWritableVisibleData(media::VideoFrame::Plane::kV),
-          frame->stride(media::VideoFrame::Plane::kV),
+          base::checked_cast<int>(frame->stride(media::VideoFrame::Plane::kV)),
           frame->visible_rect().width(), frame->visible_rect().height(),
           libyuv::kFilterBox)) {
     NotifyErrorStatus({media::EncoderStatus::Codes::kFormatConversionError,
@@ -2199,10 +2203,12 @@ RTCVideoEncoder::Impl::CreateNV12SharedImageFrame(
   const size_t dst_uv_stride = mapping->Stride(1);
   const size_t width = frame_size.width();
   const size_t height = frame_size.height();
-  if (libyuv::I420ToNV12(i420_buffer->DataY(), i420_buffer->StrideY(),
-                         i420_buffer->DataU(), i420_buffer->StrideU(),
-                         i420_buffer->DataV(), i420_buffer->StrideV(), dst_y,
-                         dst_y_stride, dst_uv, dst_uv_stride, width, height)) {
+  if (libyuv::I420ToNV12(
+          i420_buffer->DataY(), i420_buffer->StrideY(), i420_buffer->DataU(),
+          i420_buffer->StrideU(), i420_buffer->DataV(), i420_buffer->StrideV(),
+          dst_y, base::checked_cast<int>(dst_y_stride), dst_uv,
+          base::checked_cast<int>(dst_uv_stride),
+          base::checked_cast<int>(width), base::checked_cast<int>(height))) {
     NotifyErrorStatus({media::EncoderStatus::Codes::kFormatConversionError,
                        "Failed to convert I420 to NV12 SharedImage"});
     return nullptr;

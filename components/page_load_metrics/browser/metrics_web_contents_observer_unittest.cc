@@ -135,7 +135,8 @@ class MetricsWebContentsObserverTest
         std::vector<mojom::EventTimingPtr>(), std::nullopt,
         std::vector<mojom::SoftNavigationMetricsPtr>(),
         std::vector<mojom::LargestContentfulPaintTimingPtr>(),
-        std::vector<mojom::CustomUserTimingMarkPtr>());
+        std::vector<mojom::CustomUserTimingMarkPtr>(),
+        mojom::FontLoadingMetricsPtr());
   }
 
   void SimulateTimingUpdate(const mojom::PageLoadTiming& timing,
@@ -163,7 +164,8 @@ class MetricsWebContentsObserverTest
         std::vector<mojom::EventTimingPtr>(), std::nullopt,
         std::vector<mojom::SoftNavigationMetricsPtr>(),
         std::vector<mojom::LargestContentfulPaintTimingPtr>(),
-        std::vector<mojom::CustomUserTimingMarkPtr>());
+        std::vector<mojom::CustomUserTimingMarkPtr>(),
+        mojom::FontLoadingMetricsPtr());
   }
 
   void SimulateCustomUserTimingUpdate(
@@ -1119,6 +1121,25 @@ TEST_P(MetricsWebContentsObserverTest, CustomUserTiming) {
   ASSERT_EQ(1, CountUpdatedCustomUserTimingReported());
   EXPECT_TRUE(custom_timing.Equals(*updated_custom_user_timings().back()));
   CheckNoErrorEvents();
+}
+
+TEST_P(MetricsWebContentsObserverTest, CustomUserTimingNoTracker) {
+  NavigateToUntrackedUrl();
+  content::RenderFrameHost* rfh = web_contents()->GetPrimaryMainFrame();
+  mojom::CustomUserTimingMark custom_timing;
+  custom_timing.mark_name = "fake_custom_mark";
+  custom_timing.start_time = base::Milliseconds(1000);
+
+  // When there is no tracker, updates should be dropped immediately rather than
+  // buffered.
+  SimulateCustomUserTimingUpdate(custom_timing, rfh);
+  EXPECT_EQ(0, CountUpdatedCustomUserTimingReported());
+
+  // Navigate to a tracked URL and verify that the dropped timing is NOT
+  // flushed.
+  content::NavigationSimulator::NavigateAndCommitFromBrowser(
+      web_contents(), GURL(kDefaultTestUrl));
+  EXPECT_EQ(0, CountUpdatedCustomUserTimingReported());
 }
 
 class MetricsWebContentsObserverBackForwardCacheTest

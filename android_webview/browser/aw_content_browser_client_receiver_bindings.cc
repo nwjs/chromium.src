@@ -13,8 +13,11 @@
 #include "components/autofill/content/browser/content_autofill_driver_factory.h"
 #include "components/cdm/browser/media_drm_storage_impl.h"
 #include "components/content_capture/browser/onscreen_content_provider.h"
+#include "components/metrics/call_stacks/call_stack_profile_collector.h"
 #include "components/network_hints/browser/simple_network_hints_handler_impl.h"
 #include "components/page_load_metrics/browser/metrics_web_contents_observer.h"
+#include "components/performance_manager/embedder/binders.h"
+#include "components/performance_manager/embedder/performance_manager_registry.h"
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/content/browser/mojo_safe_browsing_impl.h"
 #include "components/safe_browsing/core/common/features.h"
@@ -252,6 +255,26 @@ void AwContentBrowserClient::ExposeInterfacesToRenderer(
   // the IO thread.
   registry->AddInterface<mojom::RenderMessageFilter>(base::BindRepeating(
       &CreateRenderMessageFilter, render_process_host->GetDeprecatedID()));
+
+  if (base::FeatureList::IsEnabled(features::kWebViewMemoryProfilingClient)) {
+    registry->AddInterface<metrics::mojom::CallStackProfileCollector>(
+        base::BindRepeating(&metrics::CallStackProfileCollector::Create));
+  }
+
+  if (auto* pm_registry =
+          performance_manager::PerformanceManagerRegistry::GetInstance()) {
+    pm_registry->CreateProcessNode(render_process_host);
+    pm_registry->GetBinders().ExposeInterfacesToRendererProcess(
+        registry, render_process_host);
+  }
+}
+
+void AwContentBrowserClient::ExposeInterfacesToChild(
+    mojo::BinderMapWithContext<content::BrowserChildProcessHost*>* map) {
+  if (auto* pm_registry =
+          performance_manager::PerformanceManagerRegistry::GetInstance()) {
+    pm_registry->GetBinders().ExposeInterfacesToBrowserChildProcess(map);
+  }
 }
 
 void AwContentBrowserClient::RegisterBrowserInterfaceBindersForFrame(
@@ -273,6 +296,11 @@ void AwContentBrowserClient::RegisterBrowserInterfaceBindersForFrame(
   if (base::FeatureList::IsEnabled(::features::kWebPayments)) {
     map->Add<payments::mojom::PaymentRequest>(
         &ForwardToJavaFrame<payments::mojom::PaymentRequest>);
+  }
+
+  if (auto* pm_registry =
+          performance_manager::PerformanceManagerRegistry::GetInstance()) {
+    pm_registry->GetBinders().ExposeInterfacesToRenderFrame(map);
   }
 }
 

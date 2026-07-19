@@ -470,6 +470,7 @@ absl_cc_test(
   COPTS
     ${ABSL_TEST_COPTS}
   DEPS
+    absl::cleanup
     absl::config
     absl::core_headers
     absl::int128
@@ -1164,6 +1165,7 @@ absl_cc_test(
     absl::endian
     absl::fixed_array
     absl::function_ref
+    absl::hardening
     absl::hash
     absl::hash_testing
     absl::no_destructor
@@ -1313,6 +1315,7 @@ absl_cc_test(
     ${ABSL_TEST_COPTS}
   DEPS
     absl::base
+    absl::cleanup
     absl::config
     absl::flat_hash_map
     absl::generic_printer_internal

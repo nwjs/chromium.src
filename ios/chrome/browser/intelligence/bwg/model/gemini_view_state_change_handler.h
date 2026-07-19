@@ -19,7 +19,8 @@ class GeminiViewStateChangeHandlerTarget {
 
   // Called when the Gemini processing status updates.
   virtual void OnProcessingStatusChanged(
-      ios::provider::GeminiClientMode processing_status) = 0;
+      ios::provider::GeminiClientMode processing_status,
+      ios::provider::GeminiDormantReason dormant_reason) = 0;
 
   // Collapses floaty if invoked.
   virtual void CollapseFloatyIfInvoked() = 0;
@@ -34,6 +35,9 @@ class GeminiViewStateChangeHandlerTarget {
 
   // Called when the user barges in during Gemini Live session.
   virtual void OnGeminiLiveUserDidBargeIn() = 0;
+
+  // Called when the Gemini UI did appear.
+  virtual void OnGeminiUIDidAppear() = 0;
 };
 
 // Handler for the Gemini view state changes.

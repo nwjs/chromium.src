@@ -201,9 +201,7 @@ TEST_F(SandboxMacTest, SSLInitTest) {
 MULTIPROCESS_TEST_MAIN(BuiltinAvailable) {
   CheckCreateSeatbeltServer();
 
-  if (__builtin_available(macOS 12, *)) {
-    // Can't negate a __builtin_available condition. But success!
-  } else {
+  if (!__builtin_available(macOS 13, *)) {
     return 15;
   }
 
@@ -244,6 +242,18 @@ MULTIPROCESS_TEST_MAIN(NetworkProcessPrefs) {
 
 TEST_F(SandboxMacTest, NetworkProcessPrefs) {
   ExecuteWithParams("NetworkProcessPrefs", sandbox::mojom::Sandbox::kNetwork);
+}
+
+MULTIPROCESS_TEST_MAIN(ProxyResolverProcess) {
+  CheckCreateSeatbeltServer();
+  return 0;
+}
+
+// Verifies the kProxyResolver seatbelt profile initializes successfully with
+// the required parameters supplied by SetupSandboxParameters().
+TEST_F(SandboxMacTest, ProxyResolverInitializesSandbox) {
+  ExecuteWithParams("ProxyResolverProcess",
+                    sandbox::mojom::Sandbox::kProxyResolver);
 }
 
 }  // namespace content

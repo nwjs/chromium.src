@@ -20,21 +20,23 @@ build_webui("build") {
   ts_files = [
     "app_router.ts",
     "browser_proxy.ts",
-    "fre/fre_app_controller.ts",
-    "fre/metrics_enums.ts",
     "glic_api_impl/actor/actor_client.ts",
     "glic_api_impl/actor/actor_host.ts",
     "glic_api_impl/actor/actor_types.ts",
+    "glic_api_impl/annotation/annotation_client.ts",
+    "glic_api_impl/annotation/annotation_host.ts",
+    "glic_api_impl/annotation/annotation_types.ts",
     "glic_api_impl/client/glic_api_client.ts",
     "glic_api_impl/client/image_utils.ts",
+    "glic_api_impl/client/observable_set_by_tab_id.ts",
     "glic_api_impl/conversions.ts",
     "glic_api_impl/enum_conversions.ts",
     "glic_api_impl/glic_api_injected_client.ts",
     "glic_api_impl/host/conversions.ts",
-    "glic_api_impl/host/gated_sender.ts",
     "glic_api_impl/host/glic_api_host.ts",
     "glic_api_impl/host/host_from_client.ts",
     "glic_api_impl/host/host_to_client.ts",
+    "glic_api_impl/host/host_utils.ts",
     "glic_api_impl/host/types.ts",
     "glic_api_impl/request_types.ts",
     "glic_api_impl/transport/messaging.ts",
@@ -63,12 +65,16 @@ build_webui("build") {
     "//ui/webui/resources/mojo:build_ts",
   ]
 
+  if (!is_android) {
+    ts_deps +=
+        [ "//ui/webui/resources/cr_components/color_change_listener:build_ts" ]
+  }
+
   extra_grdp_deps = [ ":glic_api_injection_grdp" ]
   extra_grdp_files = [ "$target_gen_dir/glic_api_injection.grdp" ]
 
   mojo_files_deps = [
     "//chrome/browser/glic:mojo_bindings_ts__generator",
-    "//chrome/browser/glic/fre:mojo_bindings_ts__generator",
     "//chrome/common:actor_webui_mojom_ts__generator",
     "//chrome/common:glic_enums_mojom_ts__generator",
     "//components/content_settings/core/common:content_settings_types_ts__generator",
@@ -76,7 +82,6 @@ build_webui("build") {
     "//third_party/blink/public/mojom/content_extraction:content_extraction_ts__generator",
   ]
   mojo_files = [
-    "$root_gen_dir/chrome/browser/glic/fre/glic_fre.mojom-webui.ts",
     "$root_gen_dir/chrome/browser/glic/host/glic.mojom-webui.ts",
     "$root_gen_dir/chrome/browser/glic/host/glic_internals.mojom-webui.ts",
     "$root_gen_dir/chrome/common/actor_webui.mojom-webui.ts",

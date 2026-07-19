@@ -431,16 +431,7 @@ void CreditCardAccessManager::FetchCreditCard(
 }
 
 bool CreditCardAccessManager::IsMaskedServerCardRiskBasedAuthAvailable() const {
-  // On some particular platforms (iOS WebView i.e.), Hagrid (risk based
-  // authentication) is not supported. This check if the current platform
-  // supports Hagrid.
-  if (!payments_autofill_client().IsRiskBasedAuthEffectivelyAvailable()) {
-    return false;
-  }
-
   bool is_card_info_retrieval_enrolled =
-      base::FeatureList::IsEnabled(
-          features::kAutofillEnableCardInfoRuntimeRetrieval) &&
       (card_->card_info_retrieval_enrollment_state() ==
        CreditCard::CardInfoRetrievalEnrollmentState::kRetrievalEnrolled);
   return !card_->IsExpired(AutofillClock::Now()) &&

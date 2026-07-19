@@ -29,6 +29,7 @@
 #include "chrome/browser/ui/views/autofill/popup/popup_view_utils.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/webid/identity_ui_utils.h"
+#include "chrome/grit/generated_resources.h"
 #include "chrome/grit/platform_locale_settings.h"
 #include "components/autofill/core/browser/filling/filling_product.h"
 #include "components/autofill/core/browser/payments/bnpl_util.h"
@@ -38,6 +39,7 @@
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/omnibox/browser/vector_icons.h"
 #include "components/password_manager/core/common/password_manager_constants.h"
+#include "components/qr_code_generator/bitmap_generator.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -51,6 +53,7 @@
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/monogram_utils.h"
 #include "ui/gfx/paint_vector_icon.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
@@ -164,6 +167,7 @@ std::u16string GetIconAccessibleName(Suggestion::Icon icon) {
     case Suggestion::Icon::kDelete:
     case Suggestion::Icon::kDevice:
     case Suggestion::Icon::kVehicle:
+    case Suggestion::Icon::kVehicleSpark:
     case Suggestion::Icon::kEdit:
     case Suggestion::Icon::kEmail:
     case Suggestion::Icon::kGmail:
@@ -171,6 +175,7 @@ std::u16string GetIconAccessibleName(Suggestion::Icon icon) {
     case Suggestion::Icon::kGoogleCalendar:
     case Suggestion::Icon::kError:
     case Suggestion::Icon::kFlight:
+    case Suggestion::Icon::kFlightSpark:
     case Suggestion::Icon::kGlobe:
     case Suggestion::Icon::kGoogle:
     case Suggestion::Icon::kGoogleMonochrome:
@@ -179,13 +184,19 @@ std::u16string GetIconAccessibleName(Suggestion::Icon icon) {
     case Suggestion::Icon::kGoogleWallet:
     case Suggestion::Icon::kGoogleWalletMonochrome:
     case Suggestion::Icon::kIdCard:
+    case Suggestion::Icon::kIdCard2:
+    case Suggestion::Icon::kIdCard2Spark:
+    case Suggestion::Icon::kIdCardSpark:
     case Suggestion::Icon::kKey:
     case Suggestion::Icon::kLocation:
     case Suggestion::Icon::kLoyalty:
     case Suggestion::Icon::kMagic:
     case Suggestion::Icon::kNoIcon:
     case Suggestion::Icon::kOfferTag:
+    case Suggestion::Icon::kOrder:
+    case Suggestion::Icon::kOrderSpark:
     case Suggestion::Icon::kPassport:
+    case Suggestion::Icon::kPassportSpark:
     case Suggestion::Icon::kPenSpark:
     case Suggestion::Icon::kPersonCheck:
     case Suggestion::Icon::kQuestionMark:
@@ -193,6 +204,8 @@ std::u16string GetIconAccessibleName(Suggestion::Icon icon) {
     case Suggestion::Icon::kSaveAndFill:
     case Suggestion::Icon::kScanCreditCard:
     case Suggestion::Icon::kSettings:
+    case Suggestion::Icon::kShipment:
+    case Suggestion::Icon::kShipmentSpark:
     case Suggestion::Icon::kUndo:
     case Suggestion::Icon::kAndroidMessages:
     case Suggestion::Icon::kSpark:
@@ -308,68 +321,74 @@ std::unique_ptr<views::TableLayoutView> CreateSuggestionContentTable(
 
 bool IsPaymentMethodSuggestion(const Suggestion& suggestion) {
   switch (suggestion.type) {
-    case SuggestionType::kCreditCardEntry:
-    case SuggestionType::kVirtualCreditCardEntry:
-    case SuggestionType::kIbanEntry:
     case SuggestionType::kBnplEntry:
+    case SuggestionType::kCreditCardEntry:
+    case SuggestionType::kIbanEntry:
+    case SuggestionType::kMaximizeCreditCardBenefitsEntry:
     case SuggestionType::kSaveAndFillCreditCardEntry:
+    case SuggestionType::kVirtualCreditCardEntry:
       return true;
-    case SuggestionType::kAllLoyaltyCardsEntry:
-    case SuggestionType::kAllSavedPasswordsEntry:
-    case SuggestionType::kFreeformFooter:
-    case SuggestionType::kManageAddress:
-    case SuggestionType::kManageAutofillAi:
-    case SuggestionType::kManageAutofillAiIdentityDocs:
-    case SuggestionType::kManageAutofillAiTravel:
-    case SuggestionType::kManageCreditCard:
-    case SuggestionType::kManageIban:
-    case SuggestionType::kManageLoyaltyCard:
-    case SuggestionType::kScanCreditCard:
-    case SuggestionType::kSeePromoCodeDetails:
-    case SuggestionType::kUndoOrClear:
-    case SuggestionType::kViewPasswordDetails:
-    case SuggestionType::kPendingStateSignin:
     case SuggestionType::kAccountStoragePasswordEntry:
     case SuggestionType::kAddressEntry:
     case SuggestionType::kAddressEntryOnTyping:
     case SuggestionType::kAddressFieldByFieldFilling:
+    case SuggestionType::kAllLoyaltyCardsEntry:
+    case SuggestionType::kAllSavedPasswordsEntry:
+    case SuggestionType::kAtMemoryGenericError:
+    case SuggestionType::kAtMemoryInactivityNudge:
+    case SuggestionType::kAtMemoryNoConnection:
+    case SuggestionType::kAtMemorySearchAffordance:
+    case SuggestionType::kAtMemorySearchResult:
+    case SuggestionType::kAutocompleteAtMemoryButton:
     case SuggestionType::kAutocompleteEntry:
-    case SuggestionType::kComposeResumeNudge:
-    case SuggestionType::kComposeProactiveNudge:
+    case SuggestionType::kAutofillAiOtherOrders:
+    case SuggestionType::kBackupPasswordEntry:
+    case SuggestionType::kBnplFootnote:
     case SuggestionType::kComposeDisable:
     case SuggestionType::kComposeGoToSettings:
     case SuggestionType::kComposeNeverShowOnThisSiteAgain:
+    case SuggestionType::kComposeProactiveNudge:
+    case SuggestionType::kComposeResumeNudge:
     case SuggestionType::kComposeSavedStateNotification:
     case SuggestionType::kDatalistEntry:
     case SuggestionType::kDevtoolsTestAddressByCountry:
     case SuggestionType::kDevtoolsTestAddressEntry:
     case SuggestionType::kDevtoolsTestAddresses:
-    case SuggestionType::kAtMemorySearchResult:
+    case SuggestionType::kFetchingAmbientData:
+    case SuggestionType::kFillAutofillAi:
     case SuggestionType::kFillPassword:
+    case SuggestionType::kFreeformFooter:
     case SuggestionType::kGeneratePasswordEntry:
+    case SuggestionType::kIdentityCredential:
     case SuggestionType::kInsecureContextPaymentDisabledMessage:
+    case SuggestionType::kLoadingThrobber:
     case SuggestionType::kLoyaltyCardEntry:
+    case SuggestionType::kManageAddress:
+    case SuggestionType::kManageAutofillAi:
+    case SuggestionType::kManageAutofillAiIdentityDocs:
+    case SuggestionType::kManageAutofillAiShopping:
+    case SuggestionType::kManageAutofillAiTravel:
+    case SuggestionType::kManageCreditCard:
+    case SuggestionType::kManageIban:
+    case SuggestionType::kManageLoyaltyCard:
     case SuggestionType::kMerchantPromoCodeEntry:
     case SuggestionType::kMixedFormMessage:
+    case SuggestionType::kOneTimePasswordEntry:
+    case SuggestionType::kOpenGemini:
     case SuggestionType::kPasswordEntry:
-    case SuggestionType::kBackupPasswordEntry:
-    case SuggestionType::kTroubleSigningInEntry:
     case SuggestionType::kPasswordFieldByFieldFilling:
+    case SuggestionType::kPendingStateSignin:
+    case SuggestionType::kPersonalContextNotice:
+    case SuggestionType::kScanCreditCard:
+    case SuggestionType::kSeePromoCodeDetails:
     case SuggestionType::kSeparator:
     case SuggestionType::kTitle:
-    case SuggestionType::kIdentityCredential:
+    case SuggestionType::kTroubleSigningInEntry:
+    case SuggestionType::kUndoOrClear:
+    case SuggestionType::kViewPasswordDetails:
     case SuggestionType::kWebauthnCredential:
-    case SuggestionType::kFillAutofillAi:
-    case SuggestionType::kOneTimePasswordEntry:
+    case SuggestionType::kWebauthnPasskeyQrCode:
     case SuggestionType::kWebauthnSignInWithAnotherDevice:
-    case SuggestionType::kLoadingThrobber:
-    case SuggestionType::kBnplFootnote:
-    case SuggestionType::kAtMemoryInactivityNudge:
-    case SuggestionType::kAutocompleteAtMemoryButton:
-    case SuggestionType::kOpenGemini:
-    case SuggestionType::kAtMemoryNoConnection:
-    case SuggestionType::kAtMemorySearchAffordance:
-    case SuggestionType::kPersonalContextNotice:
       return false;
   }
 }
@@ -425,6 +444,9 @@ std::optional<ui::ImageModel> GetIconImageModelFromIcon(Suggestion::Icon icon) {
                                           ? vector_icons::kDirectionsCarIcon
                                           : vector_icons::kDirectionsCarOldIcon,
                                       kChromeRefreshIconSize);
+    case Suggestion::Icon::kVehicleSpark:
+      return ImageModelFromVectorIcon(vector_icons::kCarSparkIcon,
+                                      kChromeRefreshIconSize);
     case Suggestion::Icon::kEdit:
       return ImageModelFromVectorIcon(
           ::features::IsRoundedIconsEnabled() ? kEditIcon
@@ -468,11 +490,17 @@ std::optional<ui::ImageModel> GetIconImageModelFromIcon(Suggestion::Icon icon) {
                                                 : vector_icons::kErrorOldIcon,
                                             ui::kColorSysError, kIconSize);
     case Suggestion::Icon::kSadTab:
-      return ImageModelFromVectorIcon(kSadTabOldIcon, kIconSize);
+      return ImageModelFromVectorIcon(::features::IsRoundedIconsEnabled()
+                                          ? kSadTabFilledIcon
+                                          : kSadTabOldIcon,
+                                      kIconSize);
     case Suggestion::Icon::kFlight:
       return ImageModelFromVectorIcon(::features::IsRoundedIconsEnabled()
                                           ? vector_icons::kFlightIcon
                                           : vector_icons::kFlightOldIcon,
+                                      kChromeRefreshIconSize);
+    case Suggestion::Icon::kFlightSpark:
+      return ImageModelFromVectorIcon(vector_icons::kFlightSparkIcon,
                                       kChromeRefreshIconSize);
     case Suggestion::Icon::kGlobe:
       return ImageModelFromVectorIcon(
@@ -502,6 +530,15 @@ std::optional<ui::ImageModel> GetIconImageModelFromIcon(Suggestion::Icon icon) {
                                           ? vector_icons::kIdCardIcon
                                           : vector_icons::kIdCardOldIcon,
                                       kChromeRefreshIconSize);
+    case Suggestion::Icon::kIdCard2:
+      return ImageModelFromVectorIcon(vector_icons::kIdCard2Icon,
+                                      kChromeRefreshIconSize);
+    case Suggestion::Icon::kIdCard2Spark:
+      return ImageModelFromVectorIcon(vector_icons::kIdCard2SparkIcon,
+                                      kChromeRefreshIconSize);
+    case Suggestion::Icon::kIdCardSpark:
+      return ImageModelFromVectorIcon(vector_icons::kIdCardSparkIcon,
+                                      kChromeRefreshIconSize);
     case Suggestion::Icon::kKey:
       return ImageModelFromVectorIcon(
           ::features::IsRoundedIconsEnabled() ? kVpnKeyFilledIcon : kKeyOldIcon,
@@ -522,10 +559,19 @@ std::optional<ui::ImageModel> GetIconImageModelFromIcon(Suggestion::Icon icon) {
                                           ? vector_icons::kButtonMagicIcon
                                           : vector_icons::kMagicButtonOldIcon,
                                       kIconSize);
+    case Suggestion::Icon::kOrder:
+      return ImageModelFromVectorIcon(vector_icons::kShoppingBagIcon,
+                                      kChromeRefreshIconSize);
+    case Suggestion::Icon::kOrderSpark:
+      return ImageModelFromVectorIcon(vector_icons::kShoppingBagSparkIcon,
+                                      kChromeRefreshIconSize);
     case Suggestion::Icon::kPassport:
       return ImageModelFromVectorIcon(::features::IsRoundedIconsEnabled()
                                           ? vector_icons::kPassportIcon
                                           : vector_icons::kPassportOldIcon,
+                                      kChromeRefreshIconSize);
+    case Suggestion::Icon::kPassportSpark:
+      return ImageModelFromVectorIcon(vector_icons::kPassportSparkIcon,
                                       kChromeRefreshIconSize);
     case Suggestion::Icon::kPenSpark:
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
@@ -562,6 +608,12 @@ std::optional<ui::ImageModel> GetIconImageModelFromIcon(Suggestion::Icon icon) {
                                           ? omnibox::kChromeProductIcon
                                           : omnibox::kProductOldIcon,
                                       kIconSize);
+    case Suggestion::Icon::kShipment:
+      return ImageModelFromVectorIcon(vector_icons::kLocalShippingIcon,
+                                      kChromeRefreshIconSize);
+    case Suggestion::Icon::kShipmentSpark:
+      return ImageModelFromVectorIcon(vector_icons::kLocalShippingSparkIcon,
+                                      kChromeRefreshIconSize);
     case Suggestion::Icon::kUndo:
       return ImageModelFromVectorIcon(::features::IsRoundedIconsEnabled()
                                           ? vector_icons::kUndoIcon
@@ -859,6 +911,65 @@ void AddSuggestionContentToView(
   content_view.UpdateStyle(/*selected=*/false);
 }
 
+std::unique_ptr<PopupRowContentView> CreatePasskeyQrCodePopupRowContentView(
+    const Suggestion& suggestion) {
+  auto view = std::make_unique<PopupRowContentView>();
+  view->SetOrientation(views::BoxLayout::Orientation::kVertical);
+  view->SetCrossAxisAlignment(views::BoxLayout::CrossAxisAlignment::kCenter);
+
+  auto* text_container =
+      view->AddChildView(std::make_unique<views::BoxLayoutView>());
+  text_container->SetOrientation(views::BoxLayout::Orientation::kVertical);
+  text_container->SetCrossAxisAlignment(
+      views::BoxLayout::CrossAxisAlignment::kCenter);
+  text_container->SetInsideBorderInsets(
+      gfx::Insets(view->GetInsideBorderInsets()).set_top_bottom(12, 12));
+
+  auto main_text_label = std::make_unique<views::Label>(
+      l10n_util::GetStringUTF16(IDS_PASSWORD_MANAGER_PASSKEY_QR_CODE_TITLE),
+      views::style::CONTEXT_DIALOG_BODY_TEXT,
+      views::style::STYLE_BODY_4_MEDIUM);
+  text_container->AddChildView(std::move(main_text_label));
+
+  std::string qr_string =
+      std::holds_alternative<Suggestion::Guid>(suggestion.payload)
+          ? suggestion.GetPayload<Suggestion::Guid>().value()
+          : std::string();
+
+  if (qr_string.empty()) {
+    LOG(ERROR) << "Passkey QR code string is empty";
+    view->UpdateStyle(/*selected=*/false);
+    return view;
+  }
+
+  base::expected<gfx::ImageSkia, qr_code_generator::Error> qr_code =
+      qr_code_generator::GenerateImage(
+          base::as_byte_span(qr_string),
+          qr_code_generator::ModuleStyle::kCircles,
+          qr_code_generator::LocatorStyle::kRounded,
+          qr_code_generator::CenterImage::kPasskey,
+          qr_code_generator::QuietZone::kIncluded);
+  if (!qr_code.has_value()) {
+    LOG(ERROR) << "Failed to generate Passkey QR code image.";
+    view->UpdateStyle(/*selected=*/false);
+    return view;
+  }
+
+  auto qr_image_view = std::make_unique<views::ImageView>();
+  qr_image_view->SetImage(ui::ImageModel::FromImageSkia(qr_code.value()));
+  qr_image_view->SetImageSize(gfx::Size(140, 140));
+  qr_image_view->SetHorizontalAlignment(views::ImageView::Alignment::kCenter);
+  qr_image_view->SetVerticalAlignment(views::ImageView::Alignment::kCenter);
+  qr_image_view->SetProperty(views::kMarginsKey,
+                             gfx::Insets::TLBR(0, 0, 16, 0));
+  qr_image_view->GetViewAccessibility().SetName(
+      l10n_util::GetStringUTF16(IDS_WEBAUTHN_QR_CODE_ALT_TEXT));
+  view->AddChildView(std::move(qr_image_view));
+
+  view->UpdateStyle(/*selected=*/false);
+  return view;
+}
+
 ui::ImageModel ImageModelFromVectorIcon(const gfx::VectorIcon& vector_icon,
                                         int icon_size = kIconSize) {
   return ui::ImageModel::FromVectorIcon(vector_icon, ui::kColorIcon, icon_size);
@@ -872,7 +983,7 @@ const gfx::VectorIcon& GetExpandableMenuIcon(SuggestionType type) {
                    ? kMoreVertIcon
                    : kBrowserToolsChromeRefreshOldIcon
          : ::features::IsRoundedIconsEnabled()
-             ? vector_icons::kKeyboardArrowRightIcon
+             ? vector_icons::kKeyboardArrowRightFlippableIcon
              : vector_icons::kSubmenuArrowChromeRefreshOldIcon;
 }
 

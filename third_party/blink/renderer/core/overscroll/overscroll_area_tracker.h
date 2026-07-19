@@ -7,7 +7,7 @@
 
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/dom/element.h"
-#include "third_party/blink/renderer/core/dom/element_rare_data_field.h"
+#include "third_party/blink/renderer/core/dom/node_rare_data_field.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/heap/heap_traits.h"
 #include "third_party/blink/renderer/platform/heap/member.h"
@@ -19,13 +19,18 @@ class Element;
 
 class CORE_EXPORT OverscrollAreaTracker
     : public GarbageCollected<OverscrollAreaTracker>,
-      public ElementRareDataField {
+      public NodeRareDataField {
  public:
   explicit OverscrollAreaTracker(Element*);
 
   void AddOverscroll(Element*);
   void RemoveOverscroll(Element*);
   void RemoveAllOverscroll();
+
+  void ToggleArea(Element* overscroll_area);
+  void OpenArea(Element* overscroll_area);
+  void CloseArea(Element* overscroll_area);
+  void CloseAllAreas();
 
   const VectorOf<Element>& DOMSortedElements();
 

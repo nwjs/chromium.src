@@ -49,12 +49,11 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
-#include "chrome/browser/ui/views/web_apps/web_app_dialog_test_support.h"
 #include "chrome/browser/ui/web_applications/web_app_dialogs.h"
-#include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_integrity_block_data.h"
-#include "chrome/browser/web_applications/isolated_web_apps/isolation_data.h"
 #include "chrome/browser/web_applications/model/app_installed_by.h"
 #include "chrome/browser/web_applications/model/display_override.h"
+#include "chrome/browser/web_applications/model/integrity_block_data.h"
+#include "chrome/browser/web_applications/model/isolation_data.h"
 #include "chrome/browser/web_applications/model/migration_behavior.h"
 #include "chrome/browser/web_applications/model/migration_source.h"
 #include "chrome/browser/web_applications/model/pending_migration_info.h"
@@ -582,7 +581,7 @@ web_package::SignedWebBundleSignatureInfo CreateSignatureInfo(
 
 // Creates an IntegrityBlockData object with the primary key type guaranteed to
 // be present, and a random mix of other available key types.
-std::optional<IsolatedWebAppIntegrityBlockData> CreateRandomIntegrityBlockData(
+std::optional<IntegrityBlockData> CreateRandomIntegrityBlockData(
     RandomHelper& random,
     web_package::SignedWebBundleId::Type primary_key_type) {
   if (!random.next_bool()) {
@@ -611,7 +610,7 @@ std::optional<IsolatedWebAppIntegrityBlockData> CreateRandomIntegrityBlockData(
 
   std::mt19937 rng(random.next_uint());
   std::ranges::shuffle(signatures, rng);
-  return IsolatedWebAppIntegrityBlockData(std::move(signatures));
+  return IntegrityBlockData(std::move(signatures));
 }
 
 std::vector<blink::Manifest::RelatedApplication>
@@ -1189,7 +1188,7 @@ std::unique_ptr<WebApp> CreateRandomWebApp(
     });
 
     IsolationData::Builder idb(get_location_type(), iwa_version);
-    std::optional<IsolatedWebAppIntegrityBlockData> integrity_block_data =
+    std::optional<IntegrityBlockData> integrity_block_data =
         CreateRandomIntegrityBlockData(random, *primary_key_type);
     if (integrity_block_data) {
       idb.SetIntegrityBlockData(std::move(*integrity_block_data));
@@ -1389,15 +1388,16 @@ void TestDeclineDialogCallback(
 // then triggering accept on the dialog.
 webapps::AppId InstallPwaForCurrentUrl(Browser* browser) {
   // Depending on the installability criteria, different dialogs can be used.
-  web_app::test::ScopedAutoAcceptCreateShortcutDialog auto_accept;
-  web_app::test::ScopedAutoCheckChromeOsOpenInWindow auto_check;
-  web_app::test::ScopedAutoAcceptWebAppDialogs auto_accept_pwa;
-  SetAutoAcceptDiyAppsInstallDialogForTesting(true);
+  base::AutoReset<web_app::InstallDialogTestResponse> auto_accept =
+      web_app::SetPwaInstallationAutoRespondForTesting(
+          web_app::InstallDialogTestResponse::kAcceptAndLaunch);
+  base::AutoReset<web_app::CreateShortcutDialogCheckState> auto_check =
+      web_app::SetCreateShortcutDialogCheckStateForTesting(
+          web_app::CreateShortcutDialogCheckState::kChecked);
   WebAppTestInstallWithOsHooksObserver observer(browser->profile());
   observer.BeginListening();
   CHECK(chrome::ExecuteCommand(browser, IDC_INSTALL_PWA));
   webapps::AppId app_id = observer.Wait();
-  SetAutoAcceptDiyAppsInstallDialogForTesting(false);
   return app_id;
 }
 

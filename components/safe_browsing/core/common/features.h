@@ -9,6 +9,7 @@
 
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/time/time.h"
 #include "base/values.h"
 
 namespace safe_browsing {
@@ -29,6 +30,14 @@ BASE_DECLARE_FEATURE(kAdSamplerTriggerFeature);
 
 // Enables adding warning shown timestamp to client safe browsing report.
 BASE_DECLARE_FEATURE(kAddWarningShownTSToClientSafeBrowsingReport);
+
+// Controls whether V4Store attempts to migrate V5 stores on disk to V4. This
+// feature is temporary while the `kLocalListsUseSBv5` feature is still only
+// partially implemented.
+BASE_DECLARE_FEATURE(kAllowSafeBrowsingV4StoreDiskMigrationChanges);
+
+// Enables antivirus product info to be included in download pings.
+BASE_DECLARE_FEATURE(kAntivirusTelemetryForDownloads);
 
 // Enables automatic revocation of notification permissions after the user has
 // received a number of notifications with a suspicious verdict from the
@@ -133,6 +142,9 @@ extern const base::FeatureParam<bool>
 // OptimizationGuide.
 BASE_DECLARE_FEATURE(kClientSideDetectionKillswitch);
 
+// Tweak the way local resource check is done in CSD preclassification check.
+BASE_DECLARE_FEATURE(kClientSideDetectionLocalResourceCheckFix);
+
 // The observers that trigger the image classification have been tweaked with a
 // more defined page loading state check.
 BASE_DECLARE_FEATURE(kClientSideDetectionNewObservers);
@@ -151,10 +163,6 @@ BASE_DECLARE_FEATURE(kClientSideDetectionRedirectChainKillswitch);
 
 BASE_DECLARE_FEATURE(kClientSideDetectionRetryLimit);
 extern const base::FeatureParam<int> kClientSideDetectionRetryLimitTime;
-
-// Send a sample CSPP ping when a URL matches the CSD allowlist and all other
-// preclassification check conditions pass.
-BASE_DECLARE_FEATURE(kClientSideDetectionSamplePing);
 
 #if BUILDFLAG(IS_ANDROID)
 // Inquire the server-side model instead of the on-device model for scam
@@ -243,6 +251,10 @@ BASE_DECLARE_FEATURE(kEsbAsASyncedSetting);
 // - features will not depend on the SBER preference value,
 //   safebrowsing.scout_reporting_enabled
 BASE_DECLARE_FEATURE(kExtendedReportingRemovePrefDependency);
+
+// Bypasses the Safe Browsing network query for extensions blocklist checks
+// because a subsequent check will retrieve the blocklist state.
+BASE_DECLARE_FEATURE(kExtensionBlocklistSkipNetworkQuery);
 
 // Allows the Extension Telemetry Service to accept and use configurations
 // sent by the server.
@@ -351,6 +363,16 @@ BASE_DECLARE_FEATURE(kMigrateEnhancedSbUserToEnhancedBundle);
 // and have the kBlockV8OptimizerOnUnfamiliarSitesSetting feature enabled will
 // be eligible for the migration.
 BASE_DECLARE_FEATURE(kMigrateToBlockV8OptimizerOnUnfamiliarSites);
+BASE_DECLARE_FEATURE_PARAM(
+    int,
+    kMigrateToBlockV8OptimizerOnUnfamiliarSitesMinSiteEngagementScore);
+BASE_DECLARE_FEATURE_PARAM(
+    base::TimeDelta,
+    kMigrateToBlockV8OptimizerOnUnfamiliarSitesMinAgeOfInitialVisit);
+// If true, the migration will run in dry-run mode (evaluating eligibility and
+// logging metrics, but not actually changing the content setting).
+extern const base::FeatureParam<bool>
+    kMigrateToBlockV8OptimizerOnUnfamiliarSitesDryRun;
 
 // When enabled, the Password Leak detection toggle is moved out from under the
 // 'Standard protection' Safe Browsing option to the top-level 'Privacy and
@@ -412,6 +434,10 @@ extern const base::FeatureParam<int> kSafeBrowsingDailyPhishingReportsLimitESB;
 // See go/skip-sync-hpd-allowlist-android for details.
 BASE_DECLARE_FEATURE(kSafeBrowsingSyncCheckerCheckAllowlist);
 #endif
+
+// Allows Safe Browsing Real-Time URL lookups to wait for DNS resolution of the
+// main frame URL.
+BASE_DECLARE_FEATURE(kSafeBrowsingWaitForDnsForRealTimeLookup);
 
 // Enables saving gaia password hash from the Profile Picker sign-in flow.
 BASE_DECLARE_FEATURE(kSavePasswordHashFromProfilePicker);

@@ -76,10 +76,12 @@ setupComposeboxTest<T extends ComposeboxUnionElement = ComposeboxElement>():
 
   setup(() => {
     loadTimeData.overrideValues({
+      'useNtpComposeboxFork': false,
       'composeboxImageFileTypes':
           'image/avif,image/bmp,image/jpeg,image/png,image/webp,image/heif,image/heic',
       'composeboxAttachmentFileTypes': '.pdf,application/pdf',
       'contextualMenuUsePecApi': false,
+      'composeboxSmartTabSharingVisible': false,
       'searchboxComposePlaceholder': 'Placeholder',
       'lensSendRawFileMediaTypesEnabled': false,
     });
@@ -126,6 +128,8 @@ createComposeboxElement<T extends ComposeboxUnionElement = ComposeboxElement>(
                                    new ComposeboxElement()) as unknown as T;
   Object.assign(testProxy.element, {
     usePecApi: loadTimeData.getBoolean('contextualMenuUsePecApi'),
+    smartTabSharingVisible:
+        loadTimeData.getBoolean('composeboxSmartTabSharingVisible'),
     ...properties,
   });
   document.body.appendChild(testProxy.element);

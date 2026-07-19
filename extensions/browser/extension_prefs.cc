@@ -2224,7 +2224,6 @@ void ExtensionPrefs::RegisterProfilePrefs(
   registry->RegisterDictionaryPref(pref_names::kExtensionManagement);
   registry->RegisterDictionaryPref(pref_names::kOAuthRedirectUrls);
   registry->RegisterListPref(pref_names::kAllowedTypes);
-  registry->RegisterIntegerPref(pref_names::kManifestV2Availability, 0);
   registry->RegisterListPref(pref_names::kAllowedInstallSites);
   registry->RegisterStringPref(pref_names::kLastChromeVersion, std::string());
   registry->RegisterDictionaryPref(kInstallSignature);
@@ -2679,6 +2678,13 @@ void ExtensionPrefs::MigrateObsoleteExtensionPrefs() {
 
       // Added 2026-05.
       "web_request.filtered_lazy_listeners",
+
+      // Added 2026-06.
+      "mv2_deprecation_disabled_dialog_ack",
+      "mv2_deprecation_disabled_ack",
+      "mv2_deprecation_user_re_enabled",
+      "mv2_deprecation_unsupported_disabled_dialog_ack",
+      "mv2_deprecation_did_disable",
   };
 
   for (auto key_value : extensions_dictionary) {

@@ -80,6 +80,9 @@ bool SQLitePersistentStoreBackendBase::InitializeDatabase() {
   TRACE_EVENT("net",
               "SQLitePersistentCookieStoreBackendBase::InitializeDatabase");
   DCHECK(background_task_runner_->RunsTasksInCurrentSequence());
+  if (closed_) {
+    return false;
+  }
 
   if (initialized_ || corruption_detected_) {
     // Return false if we were previously initialized but the DB has since been
@@ -99,8 +102,7 @@ bool SQLitePersistentStoreBackendBase::InitializeDatabase() {
   db_ = std::make_unique<sql::Database>(
       sql::DatabaseOptions()
           .set_exclusive_locking(false)
-          .set_exclusive_database_file_lock(enable_exclusive_access_)
-          .set_preload(true),
+          .set_exclusive_database_file_lock(enable_exclusive_access_),
       histogram_tag_);
 
   // base::Unretained is safe because |this| owns (and therefore outlives) the
@@ -236,6 +238,7 @@ void SQLitePersistentStoreBackendBase::DoCloseInBackground() {
 
   meta_table_.Reset();
   db_.reset();
+  closed_ = true;
 }
 
 void SQLitePersistentStoreBackendBase::DatabaseErrorCallback(

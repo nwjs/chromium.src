@@ -34,6 +34,7 @@
 #include "chrome/browser/ui/tabs/tab_menu_model_factory.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/window_metadata/window_metadata_controller.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/browser/web_applications/web_app_tab_helper.h"
@@ -290,6 +291,10 @@ AppBrowserController::~AppBrowserController() {
   } else {
     CHECK_IS_TEST();
   }
+}
+
+bool AppBrowserController::IsTrustedSource() const {
+  return WindowFeatureController::From(browser_)->IsTrustedSource();
 }
 
 bool AppBrowserController::ShouldShowCustomTabBar() const {
@@ -584,8 +589,8 @@ void AppBrowserController::Uninstall(
 }
 
 void AppBrowserController::UpdateCustomTabBarVisibility(bool animate) const {
-  browser()->window()->UpdateCustomTabBarVisibility(ShouldShowCustomTabBar(),
-                                                    animate);
+  BrowserWindow::FromBrowser(browser())->UpdateCustomTabBarVisibility(
+      ShouldShowCustomTabBar(), animate);
 }
 
 void AppBrowserController::DidStartNavigation(
@@ -887,7 +892,8 @@ void AppBrowserController::OnReceivedInitialURL() {
   // Note that any potential fix should take into account that
   // `override_bounds()` represent the outer window bounds, not the content
   // size.
-  browser()->window()->SetContentsSize(browser()->override_bounds().size());
+  BrowserWindow::FromBrowser(browser())->SetContentsSize(
+      browser()->override_bounds().size());
 }
 
 void AppBrowserController::OnTabInserted(content::WebContents* contents) {
@@ -916,7 +922,9 @@ void AppBrowserController::OnTabRemoved(content::WebContents* contents) {
 
 ui::ImageModel AppBrowserController::GetFallbackAppIcon() const {
   TRACE_EVENT0("ui", "TaskManagerView::GetFallbackAppIcon");
-  gfx::ImageSkia page_icon = browser()->GetCurrentPageIcon().AsImageSkia();
+  gfx::ImageSkia page_icon = WindowMetadataController::From(browser_)
+                                 ->GetCurrentPageIcon()
+                                 .AsImageSkia();
   if (!page_icon.isNull()) {
 #if BUILDFLAG(IS_CHROMEOS)
     return ui::ImageModel::FromImageSkia(

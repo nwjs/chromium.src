@@ -77,6 +77,19 @@ class OmniboxPopupView {
   // Saves state to the given tab.
   virtual void SaveStateToTab(content::WebContents* contents) {}
 
+  // Syncs the text and selection state from the native location bar to the
+  // WebUI omnibox.
+  virtual void SyncNativeStateToWebUI() {}
+
+  // Called when the active tab changes.
+  virtual void OnTabChanged(content::WebContents* contents) {}
+
+  // Called when the omnibox gains focus.
+  virtual void OnFocus() {}
+
+  // Called when the WebUI omnibox reports a manual blur.
+  virtual void OnManualBlur() {}
+
   // Returns true if the popup controls its own selection state.
   virtual bool IsSelectionPopupControlled() const = 0;
 

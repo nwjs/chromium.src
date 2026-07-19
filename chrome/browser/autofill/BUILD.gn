@@ -18,6 +18,8 @@ static_library("autofill") {
     "autofill_ai_model_cache_factory.h",
     "autofill_ai_model_executor_factory.cc",
     "autofill_ai_model_executor_factory.h",
+    "autofill_enterprise_policy_service_factory.cc",
+    "autofill_enterprise_policy_service_factory.h",
     "autofill_entity_data_manager_factory.cc",
     "autofill_entity_data_manager_factory.h",
     "autofill_field_classification_model_service_factory.cc",
@@ -73,12 +75,14 @@ static_library("autofill") {
     "//chrome/browser/accessibility_annotator",
     "//chrome/browser/account_settings",
     "//chrome/browser/history",
+    "//chrome/browser/metrics",
     "//chrome/browser/net",
     "//chrome/browser/optimization_guide",
     "//chrome/browser/personal_context",
     "//chrome/browser/profiles",
     "//chrome/browser/signin",
     "//chrome/browser/strike_database",
+    "//chrome/browser/subscription_eligibility",
     "//chrome/browser/sync:factories",
     "//chrome/browser/webdata_services",
     "//chrome/common:constants",
@@ -143,7 +147,6 @@ static_library("autofill") {
     public_deps += [ "//components/messages/android" ]
     deps += [
       "//chrome/android:jni_headers",
-      "//chrome/app:generated_resources",
       "//chrome/browser/autofill/android:jni_headers",
       "//chrome/browser/consent_auditor",
       "//chrome/browser/keyboard_accessory/android",
@@ -394,4 +397,19 @@ if (!is_android) {
       "//components/autofill/core/common:autofill_regex",
     ]
   }
+}
+
+source_set("unit_tests") {
+  testonly = true
+
+  sources = [ "automated_tests/cache_replayer_unittest.cc" ]
+
+  deps = [
+    "//base",
+    "//chrome/test:test_support",
+    "//components/autofill/core/browser/proto",
+    "//content/test:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
 }

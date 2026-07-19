@@ -7,6 +7,7 @@ package org.chromium.content_public.browser;
 import org.chromium.base.ObserverList;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.content.browser.MediaSessionImpl;
+import org.chromium.media_session.mojom.MediaSession.SuspendType;
 
 /** The MediaSession Java wrapper to allow communicating with the native MediaSession object. */
 @NullMarked
@@ -25,11 +26,19 @@ public abstract class MediaSession {
      */
     public abstract ObserverList.RewindableIterator<MediaSessionObserver> getObserversForTesting();
 
-    /** Resumes the media session. */
-    public abstract void resume();
+    /**
+     * Resumes the media session.
+     *
+     * @param suspendType The type of the suspend request, from MediaSession.SuspendType.
+     */
+    public abstract void resume(@SuspendType.EnumType int suspendType);
 
-    /** Suspends the media session. */
-    public abstract void suspend();
+    /**
+     * Suspends the media session.
+     *
+     * @param suspendType The type of the suspend request, from MediaSession.SuspendType.
+     */
+    public abstract void suspend(@SuspendType.EnumType int suspendType);
 
     /** Stops the media session. */
     public abstract void stop();

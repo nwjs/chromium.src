@@ -5,14 +5,19 @@
 #include "third_party/blink/renderer/core/loader/base_fetch_context.h"
 
 #include "base/command_line.h"
+#include "services/network/public/cpp/connection_allowlist.h"
+#include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/request_mode.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/switches.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink.h"
 #include "third_party/blink/public/mojom/loader/request_context_frame_type.mojom-blink.h"
+#include "third_party/blink/public/mojom/service_worker/controller_service_worker_mode.mojom-blink.h"
 #include "third_party/blink/public/platform/web_content_settings_client.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
+#include "third_party/blink/renderer/core/frame/connection_allowlist_violation_report_body.h"
 #include "third_party/blink/renderer/core/frame/integrity_policy.h"
+#include "third_party/blink/renderer/core/frame/policy_container.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
@@ -342,6 +347,50 @@ BaseFetchContext::CanRequestInternal(
   if (url.PotentiallyDanglingMarkup() && url.ProtocolIsInHttpFamily()) {
     CountDeprecation(WebFeature::kCanRequestURLHTTPContainingNewline);
     return ResourceRequestBlockedReason::kOther;
+  }
+
+  // Enforce Connection-Allowlist when the document is controlled by a service
+  // worker. Only perform enforcement when we don't have a redirect_info;
+  // If the request has reached the point where it has been redirected, or
+  // synthetic redirect info is provided in the case of post-request checks,
+  // then Connection-Allowlist checks for the request should have already
+  // occurred in the network service URLLoaderFactory checks.
+  if (base::FeatureList::IsEnabled(network::features::kConnectionAllowlists) &&
+      GetResourceFetcherProperties().GetControllerServiceWorkerMode() !=
+          mojom::blink::ControllerServiceWorkerMode::kNoController &&
+      !redirect_info.has_value()) {
+    if (GetExecutionContext() && GetExecutionContext()->GetPolicyContainer()) {
+      const auto& policies =
+          GetExecutionContext()->GetPolicyContainer()->GetPolicies();
+
+      auto check_allowlist_and_report =
+          [&](const network::ConnectionAllowlist& allowlist,
+              const V8ConnectionAllowlistDisposition::Enum ca_disposition) {
+            bool matched =
+                network::ConnectionAllowlistMatchesUrl(allowlist, GURL(url));
+            if (!matched) {
+              if (reporting_disposition == ReportingDisposition::kReport) {
+                PrintAccessDeniedMessage(url);
+                ConnectionAllowlistViolationReportBody::
+                    QueueServiceWorkerReport(url, ca_disposition,
+                                             *GetExecutionContext());
+              }
+            }
+            return matched;
+          };
+
+      if (policies.connection_allowlists.report_only.has_value()) {
+        check_allowlist_and_report(
+            policies.connection_allowlists.report_only.value(),
+            V8ConnectionAllowlistDisposition::Enum::kReport);
+      }
+      if (policies.connection_allowlists.enforced.has_value() &&
+          !check_allowlist_and_report(
+              policies.connection_allowlists.enforced.value(),
+              V8ConnectionAllowlistDisposition::Enum::kEnforce)) {
+        return ResourceRequestBlockedReason::kOther;
+      }
+    }
   }
 
   // Let the client have the final say into whether or not the load should

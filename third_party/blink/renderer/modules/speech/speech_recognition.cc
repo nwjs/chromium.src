@@ -53,6 +53,7 @@
 #include "third_party/blink/renderer/bindings/modules/v8/v8_speech_recognition_quality.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
+#include "third_party/blink/renderer/core/frame/navigator.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/modules/mediastream/media_stream_track.h"
 #include "third_party/blink/renderer/modules/mediastream/speech_recognition_media_stream_audio_sink.h"
@@ -62,6 +63,7 @@
 #include "third_party/blink/renderer/modules/speech/speech_recognition_phrase.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/mediastream/media_stream_source.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 
@@ -82,6 +84,8 @@ blink::V8AvailabilityStatus AvailabilityStatusToV8(
       return blink::V8AvailabilityStatus(
           blink::V8AvailabilityStatus::Enum::kUnavailable);
     case media::mojom::blink::AvailabilityStatus::kDownloadable:
+    case media::mojom::blink::AvailabilityStatus::
+        kDownloadableWithoutUserActivation:
       return blink::V8AvailabilityStatus(
           blink::V8AvailabilityStatus::Enum::kDownloadable);
     case media::mojom::blink::AvailabilityStatus::kDownloading:
@@ -196,6 +200,7 @@ ScriptPromise<V8AvailabilityStatus> SpeechRecognition::available(
     const blink::SpeechRecognitionOptions* options,
     ExceptionState& exception_state) {
   LocalDOMWindow& window = *LocalDOMWindow::From(script_state);
+  UseCounter::Count(window, WebFeature::kWebSpeechSttAvailable);
   auto* controller = SpeechRecognitionController::From(window);
   if (!controller || !script_state->ContextIsValid()) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
@@ -304,17 +309,50 @@ ScriptPromise<IDLBoolean> SpeechRecognition::install(
              media::mojom::blink::AvailabilityStatus status) {
             LocalDOMWindow& window = *LocalDOMWindow::From(script_state);
             auto* controller = SpeechRecognitionController::From(window);
-            if (!window.IsServiceWorkerGlobalScope() &&
-                status ==
-                    media::mojom::blink::AvailabilityStatus::kDownloadable &&
-                !LocalFrame::ConsumeTransientUserActivation(
-                    window.GetFrame())) {
-              resolver->RejectWithDOMException(
-                  DOMExceptionCode::kNotAllowedError,
-                  "Requires handling a user gesture when availability is "
-                  "\"downloadable\".");
-              return;
+            if (!window.IsServiceWorkerGlobalScope()) {
+              switch (status) {
+                case media::mojom::blink::AvailabilityStatus::kDownloadable: {
+                  bool has_transient_user_activation =
+                      LocalFrame::ConsumeTransientUserActivation(
+                          window.GetFrame());
+                  if (!has_transient_user_activation) {
+                    base::UmaHistogramBoolean(
+                        "Accessibility.WebSpeech.DownloadRelaxed", false);
+                    resolver->RejectWithDOMException(
+                        DOMExceptionCode::kNotAllowedError,
+                        "Requires handling a user gesture when availability is "
+                        "\"downloadable\".");
+                    return;
+                  }
+                  break;
+                }
+                case media::mojom::blink::AvailabilityStatus::
+                    kDownloadableWithoutUserActivation: {
+                  bool has_transient_user_activation =
+                      LocalFrame::HasTransientUserActivation(window.GetFrame());
+                  if (!has_transient_user_activation) {
+                    // We intentionally do not consume the transient user
+                    // activation in the relaxed flow, allowing the gesture to
+                    // be used for other APIs. We also intentionally only log
+                    // the UMA when the relaxation explicitly saved a blocked
+                    // request (i.e. when there was no transient user
+                    // activation).
+                    base::UmaHistogramBoolean(
+                        "Accessibility.WebSpeech.DownloadRelaxed", true);
+                  }
+                  break;
+                }
+                case media::mojom::blink::AvailabilityStatus::kUnavailable:
+                  resolver->Resolve(false);
+                  return;
+                case media::mojom::blink::AvailabilityStatus::kDownloading:
+                case media::mojom::blink::AvailabilityStatus::kAvailable:
+                  // These statuses don't require special user activation checks
+                  // for installation.
+                  break;
+              }
             }
+
             V8SpeechRecognitionQuality callback_quality =
                 options->hasQuality()
                     ? options->quality()
@@ -335,6 +373,10 @@ ScriptPromise<IDLBoolean> SpeechRecognition::install(
 
 void SpeechRecognition::ResultRetrieved(
     Vector<media::mojom::blink::WebSpeechRecognitionResultPtr> results) {
+  if (GetExecutionContext()) {
+    UseCounter::Count(GetExecutionContext(),
+                      WebFeature::kWebSpeechSttResultRetrieved);
+  }
   auto it = std::stable_partition(
       results.begin(), results.end(),
       [](const auto& result) { return !result->is_provisional; });
@@ -376,6 +418,9 @@ void SpeechRecognition::ResultRetrieved(
 
 void SpeechRecognition::ErrorOccurred(
     media::mojom::blink::SpeechRecognitionErrorPtr error) {
+  if (GetExecutionContext()) {
+    UseCounter::Count(GetExecutionContext(), WebFeature::kWebSpeechSttError);
+  }
   base::UmaHistogramEnumeration(kWebSpeechErrorOccurredHistogram, error->code);
   if (error->code ==
       media::mojom::blink::SpeechRecognitionErrorCode::kNoMatch) {
@@ -514,9 +559,15 @@ void SpeechRecognition::OnPhrasesDelete(
 }
 
 void SpeechRecognition::OnConnectionError() {
+  // On-device recognition (`process_locally_`) has no network, so a dropped
+  // pipe (e.g. an unexpected service crash) maps to "aborted" instead of the
+  // default "network" code, which only applies to cloud-based recognition.
+  media::mojom::blink::SpeechRecognitionErrorCode error_code =
+      process_locally_
+          ? media::mojom::blink::SpeechRecognitionErrorCode::kAborted
+          : media::mojom::blink::SpeechRecognitionErrorCode::kNetwork;
   ErrorOccurred(media::mojom::blink::SpeechRecognitionError::New(
-      media::mojom::blink::SpeechRecognitionErrorCode::kNetwork,
-      media::mojom::blink::SpeechAudioErrorDetails::kNone));
+      error_code, media::mojom::blink::SpeechAudioErrorDetails::kNone));
   Ended();
 }
 
@@ -596,6 +647,20 @@ void SpeechRecognition::StartInternal() {
   // it after the ExecutionContext is destroyed.
   CHECK(GetExecutionContext());
 
+  if (auto* window = DomWindow()) {
+    if (!lang_.empty() && window->navigator()) {
+      bool is_relaxed_lang = false;
+      for (const String& accept_lang : window->navigator()->languages()) {
+        if (EqualIgnoringAsciiCase(accept_lang, lang_)) {
+          is_relaxed_lang = true;
+          break;
+        }
+      }
+      base::UmaHistogramBoolean("Accessibility.WebSpeech.RelaxedLanguageUsed",
+                                is_relaxed_lang);
+    }
+  }
+
   final_results_.clear();
 
   auto task_runner =
@@ -628,6 +693,7 @@ void SpeechRecognition::StartController(
   // SpeechRecognitionMediaStreamAudioSink), the caller must not invoke it after
   // the ExecutionContext is destroyed.
   CHECK(GetExecutionContext());
+  UseCounter::Count(GetExecutionContext(), WebFeature::kWebSpeechSttStart);
 
   LocalDOMWindow* window = DomWindow();
   bool can_use_on_device_recognition = window->IsFeatureEnabled(

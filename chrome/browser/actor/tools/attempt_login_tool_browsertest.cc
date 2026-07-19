@@ -14,9 +14,10 @@
 #include "chrome/browser/actor/tools/tools_test_util.h"
 #include "chrome/browser/actor/tools/wait_tool.h"
 #include "chrome/browser/affiliations/affiliation_service_factory.h"
+#include "chrome/browser/autofill/actor/one_time_tokens/actor_login_context.h"
+#include "chrome/browser/autofill/actor/one_time_tokens/actor_one_time_token_filling_service.h"
 #include "chrome/browser/optimization_guide/mock_optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
-#include "chrome/browser/password_manager/actor_login/actor_login_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/actor.mojom.h"
 #include "chrome/common/actor/action_result.h"
@@ -31,6 +32,7 @@
 #include "components/optimization_guide/core/model_quality/test_model_quality_logs_uploader_service.h"
 #include "components/optimization_guide/proto/features/actor_login.pb.h"
 #include "components/optimization_guide/proto/model_quality_service.pb.h"
+#include "components/password_manager/core/browser/actor_login/actor_login_service.h"
 #include "components/password_manager/core/browser/features/password_features.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/common/content_features.h"
@@ -272,6 +274,45 @@ IN_PROC_BROWSER_TEST_F(ActorAttemptLoginToolTest, Basic) {
   EXPECT_EQ(
       uploaded_logs()[0]->actor_login().quality().permission_picked(),
       optimization_guide::proto::ActorLoginQuality_PermissionOption_ALLOW_ONCE);
+}
+
+IN_PROC_BROWSER_TEST_F(ActorAttemptLoginToolTest,
+                       TrackingCallbackPassedToLoginService) {
+  const GURL url =
+      embedded_https_test_server().GetURL("example.com", "/actor/blank.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  actor_login::Credential credential = MakeTestCredential(
+      u"username", url, /*immediately_available_to_login=*/true);
+  // Setting persistent permission to `true` so that `AttemptLoginTool` passes
+  // `true` for `should_use_strong_matching` when starting password filling.
+  credential.has_persistent_permission = true;
+  mock_login_service().SetCredential(credential);
+  mock_login_service().SetLoginStatus(
+      actor_login::LoginStatusResult::kSuccessUsernameAndPasswordFilled);
+
+  std::unique_ptr<ToolRequest> action = MakeAttemptLoginRequest(*active_tab());
+  ActResultFuture result;
+  actor_task().Act(ToRequestList(action), result.GetCallback());
+  ExpectOkResult(result);
+
+  actor_login::FrameFillingStartedCallback frame_filling_started_cb =
+      mock_login_service().last_frame_filling_started_cb();
+  ASSERT_TRUE(frame_filling_started_cb);
+  content::FrameTreeNodeId main_frame_id =
+      web_contents()->GetPrimaryMainFrame()->GetFrameTreeNodeId();
+  std::move(frame_filling_started_cb)
+      .Run(/*global_frame_ids=*/{main_frame_id.value()});
+
+  std::optional<autofill::ActorLoginContext> login_context =
+      actor_task()
+          .GetExecutionEngine()
+          .GetActorOneTimeTokenFillingService()
+          .ConsumeLoginContext();
+  ASSERT_TRUE(login_context.has_value());
+  EXPECT_EQ(login_context->origin, url::Origin::Create(url));
+  EXPECT_TRUE(login_context->should_use_strong_matching);
+  EXPECT_TRUE(login_context->navigations_per_frame.contains(main_frame_id));
 }
 
 #if BUILDFLAG(IS_ANDROID)

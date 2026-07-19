@@ -72,6 +72,9 @@ BASE_DECLARE_FEATURE(kApiUserScriptsMultipleWorlds);
 // Controls the availability of the odfsConfigPrivate API.
 BASE_DECLARE_FEATURE(kApiOdfsConfigPrivate);
 
+// Controls the availability of the contextualTasksPrivate API.
+BASE_DECLARE_FEATURE(kApiContextualTasksPrivate);
+
 // Controls the availability of the glicPrivate API.
 BASE_DECLARE_FEATURE(kApiGlicPrivate);
 
@@ -81,6 +84,8 @@ BASE_DECLARE_FEATURE(kApiEnterpriseReportingPrivateOnDataMaskingRulesTriggered);
 
 // Controls the availability of Glic access from Google webpages.
 BASE_DECLARE_FEATURE(kApiGlicAccessFromGoogleWebpage);
+// Controls the availability of Glic access from Chrome promotion pages.
+BASE_DECLARE_FEATURE(kApiGlicAccessFromPromotionPage);
 extern const base::FeatureParam<std::string> kProdPromptEndpointUrlParam;
 extern const base::FeatureParam<std::string> kGlicInvokeApiOAuth2ScopeParam;
 extern const base::FeatureParam<bool> kGlicRequireConsentForInvokeParam;
@@ -155,24 +160,6 @@ BASE_DECLARE_FEATURE(kExtensionLocalizationGuid);
 // A replacement key for declaring icons, in addition to supporting dark mode.
 BASE_DECLARE_FEATURE(kExtensionIconVariants);
 
-// Controls fully removing support for user-installed MV2 extensions.
-// Users may no longer re-enable these extensions. Enterprises may still
-// override this.
-BASE_DECLARE_FEATURE(kExtensionManifestV2Unsupported);
-
-// Allows server-side configuration of a temporary exception list.
-BASE_DECLARE_FEATURE(kExtensionManifestV2ExceptionList);
-extern const base::FeatureParam<std::string>
-    kExtensionManifestV2ExceptionListParam;
-
-// A feature to allow legacy MV2 extensions, even if they are not supported by
-// the browser or experiment configuration. This is important to allow
-// developers of MV2 extensions to continue loading, running, and testing their
-// extensions for as long as MV2 is supported in any variant.
-// This will be removed once the ExtensionManifestV2Availability enterprise
-// policy is no longer supported.
-BASE_DECLARE_FEATURE(kAllowLegacyMV2Extensions);
-
 // If enabled, allows an extension to specify protocol_handlers keys in the
 // Manifest, registering a group of custom handlers so that the browser can
 // handle navigation requests to URLs with unknown schemes. This feature
@@ -184,13 +171,6 @@ BASE_DECLARE_FEATURE(kExtensionProtocolHandlers);
 // Enables extension support for the "tab" context menu, allowing extensions
 // to add custom items when right-clicking a tab.
 BASE_DECLARE_FEATURE(kExtensionTabContextMenu);
-
-// If enabled, only manifest v3 extensions is allowed while v2 will be disabled.
-// Note that this feature is now only checked by `ExtensionManagement` which
-// represents enterprise extension configurations. Flip the feature will block
-// mv2 extension by default but the error messages will improperly mention
-// enterprise policy.
-BASE_DECLARE_FEATURE(kExtensionsManifestV3Only);
 
 // Enables enhanced site control for extensions and allowing the user to control
 // site permissions.
@@ -289,15 +269,9 @@ BASE_DECLARE_FEATURE(kEnterpriseExtensionDOMActivityTelemetry);
 // capability, even when no other API/feature might be restricted by it.
 BASE_DECLARE_FEATURE(kDebuggerAPIRestrictedToDevMode);
 
-// Creates a `browser` object that can be used in place of `chrome` where
-// extension APIs are available. It does not include non-extension APIs like
-// `loadTimes`, `csi`, etc. or deprecated APIs (e.g. `app`).
-// Also aligns one-time message (e.g. runtime.sendMessage) behavior more closely
-// with the mozilla/webextension-polyfill. This includes supporting
-// chrome.runtime.onMessage() listeners returning a Promise. Also in more error
-// cases (like listeners sending unserializable responses or throwing errors
-// during execution) the error is passed back to the sender.
-BASE_DECLARE_FEATURE(kExtensionBrowserNamespaceAndPolyfillSupport);
+// When enabled, the `browser` namespace is made available on web pages
+// even if they are not externally connectable.
+BASE_DECLARE_FEATURE(kExtensionBrowserNamespaceOnWebPages);
 
 // When enabled, a call to base::ListValue::Clone is avoided when dispatching an
 // extension function. Behind a feature to assess impact
@@ -345,6 +319,14 @@ BASE_DECLARE_FEATURE(kWebRequestSecurityInfo);
 // avoids unnecessary performance overhead and restores navigation
 // optimizations like preconnect.
 BASE_DECLARE_FEATURE(kOptimizeWebRequestProxy);
+
+// When enabled, the browser dispatches blocking webRequest events once per
+// renderer context (using the parent event name) instead of once per listener
+// (using per-listener synthetic sub-event names). The renderer matches
+// listeners itself, reports each blocking listener's response via the
+// `webRequestInternal.eventHandled` function, and signals completion with a
+// single `webRequestInternal.eventHandlingDone` per context.
+BASE_DECLARE_FEATURE(kWebRequestPerContextEventDispatch);
 
 }  // namespace extensions_features
 

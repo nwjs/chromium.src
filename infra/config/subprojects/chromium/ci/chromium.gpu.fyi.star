@@ -474,11 +474,6 @@ ci.thin_tester(
         mixins = [
             "gpu_pixel_10_stable",
             "has_native_resultdb_integration",
-            # TODO(crbug.com/443001330): Remove the limited_capacity_bot mixin
-            # once additional devices are deployed. 49 devices is likely not enough
-            # to run both standard GPU and WebGPU tests on CI + have enough
-            # capacity for trybots without this.
-            "limited_capacity_bot",
         ],
         per_test_modifications = {
             "gl_tests_passthrough": targets.mixin(
@@ -2109,8 +2104,7 @@ ci.thin_tester(
         # 'gpu_fyi_only_mac_release_telemetry_tests' instead of
         # 'gpu_fyi_mac_release_telemetry_tests'.
         targets = [
-            "gpu_fyi_mac_release_gtests",
-            "gpu_fyi_only_mac_release_telemetry_tests",
+            "gpu_noop_sleep_telemetry_test",
         ],
         mixins = [
             "limited_capacity_bot",
@@ -2122,10 +2116,10 @@ ci.thin_tester(
         os_type = targets.os_type.MAC,
     ),
     # Uncomment this entry when this experimental tester is actually in use.
-    console_view_entry = consoles.console_view_entry(
-        category = "Mac|Intel",
-        short_name = "exp",
-    ),
+    # console_view_entry = consoles.console_view_entry(
+    #     category = "Mac|Intel",
+    #     short_name = "exp",
+    # ),
     list_view = "chromium.gpu.experimental",
 )
 
@@ -2471,6 +2465,11 @@ ci.thin_tester(
                     "--extra-browser-args=--disable-metal-shader-cache",
                 ],
             ),
+            "gl_tests_passthrough": targets.mixin(
+                args = [
+                    "--test-launcher-filter-file=../../testing/buildbot/filters/mac.m2.asan.gl_tests_passthrough.filter",
+                ],
+            ),
         },
     ),
     targets_settings = targets.settings(
@@ -2810,66 +2809,6 @@ ci.thin_tester(
     ),
     console_view_entry = consoles.console_view_entry(
         category = "Mac|AMD|Retina",
-        short_name = "rel",
-    ),
-)
-
-ci.thin_tester(
-    name = "Mac Pro FYI Release (AMD)",
-    description_html = "Runs release GPU tests on stable Mac/AMD Mac Pro configs",
-    parent = "GPU FYI Mac Builder",
-    builder_spec = builder_config.builder_spec(
-        execution_mode = builder_config.execution_mode.TEST,
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "chromium",
-            apply_configs = [
-                "mb",
-            ],
-            build_config = builder_config.build_config.RELEASE,
-            target_bits = 64,
-            target_platform = builder_config.target_platform.MAC,
-        ),
-        run_tests_serially = True,
-    ),
-    targets = targets.bundle(
-        targets = [
-            "gpu_fyi_mac_release_gtests",
-            "gpu_fyi_mac_pro_release_telemetry_tests",
-        ],
-        mixins = [
-            "mac_pro_amd_gpu",
-        ],
-        per_test_modifications = {
-            "services_unittests": targets.remove(
-                reason = "The face and barcode detection tests fail on the Mac Pros.",
-            ),
-            "webgl2_conformance_metal_passthrough_graphite_tests": targets.per_test_modification(
-                replacements = targets.replacements(
-                    args = {
-                        # Causes problems on older hardware. crbug.com/1499911.
-                        "--enable-metal-debug-layers": None,
-                    },
-                ),
-            ),
-            "webgl_conformance_metal_passthrough_graphite_tests": targets.per_test_modification(
-                replacements = targets.replacements(
-                    args = {
-                        # Causes problems on older hardware. crbug.com/1499911.
-                        "--enable-metal-debug-layers": None,
-                    },
-                ),
-            ),
-        },
-    ),
-    targets_settings = targets.settings(
-        browser_config = targets.browser_config.RELEASE,
-        os_type = targets.os_type.MAC,
-    ),
-    console_view_entry = consoles.console_view_entry(
-        category = "Mac|AMD|Pro",
         short_name = "rel",
     ),
 )
@@ -3286,9 +3225,6 @@ ci.thin_tester(
             "win10_intel_uhd_630_stable",
         ],
         per_test_modifications = {
-            "webgl_conformance_d3d9_passthrough_tests": targets.remove(
-                reason = "Flaky crashes crbug.com/486945324",
-            ),
             "xr_browser_tests": targets.mixin(
                 args = [
                     # TODO(crbug.com/40937024): Remove this once the flakes on Intel are
@@ -4092,9 +4028,6 @@ ci.thin_tester(
                 args = [
                     "--test-launcher-filter-file=../../testing/buildbot/filters/win.qualcomm.snapdragon_x_elite.services_webnn_unittests.filter",
                 ],
-            ),
-            "webgl_conformance_d3d9_passthrough_tests": targets.remove(
-                reason = "Per discussion on crbug.com/1523698, we aren't interested in testing D3D9 on this newer hardware.",
             ),
             "xr_browser_tests": targets.remove(
                 reason = "No Windows arm64 devices currently support XR features, so don't bother running related tests.",

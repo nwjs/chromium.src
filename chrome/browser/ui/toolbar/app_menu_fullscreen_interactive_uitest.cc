@@ -129,10 +129,10 @@ class AppMenuFullscreenInteractiveTest : public InteractiveBrowserTest {
                 do {
                   auto display =
                       display::Screen::Get()->GetDisplayNearestWindow(
-                          browser->window()->GetNativeWindow());
+                          browser->GetWindow()->GetNativeWindow());
                   auto display_size = display.bounds().size();
                   auto workarea_size = display.work_area().size();
-                  auto window_size = browser->window()->GetBounds().size();
+                  auto window_size = browser->GetWindow()->GetBounds().size();
                   DLOG(INFO) << "display_size = " << display_size.ToString()
                              << " workspace_size = " << workarea_size.ToString()
                              << " window_size = " << window_size.ToString();
@@ -204,12 +204,11 @@ IN_PROC_BROWSER_TEST_F(AppMenuFullscreenInteractiveTest, ContextMenu) {
       // chooses the center of the browser window, which is fine.
       CreateFullscreenWaiter(waiter2, false),
       MoveMouseTo(kBrowserViewElementId),
-      MayInvolveNativeContextMenu(
-          // 5. Make sure context menu is displayed correctly at the expected
-          // location when chrome is in full screen mode.
-          ClickMouse(ui_controls::RIGHT),
-          InAnyContext(
-              SelectMenuItem(RenderViewContextMenu::kExitFullscreenMenuItem))),
+      // 5. Make sure context menu is displayed correctly at the expected
+      // location when chrome is in full screen mode.
+      ClickMouse(ui_controls::RIGHT),
+      InAnyContext(
+          SelectMenuItem(RenderViewContextMenu::kExitFullscreenMenuItem)),
       CheckFullscreenForBrowser(waiter2, false));
 }
 

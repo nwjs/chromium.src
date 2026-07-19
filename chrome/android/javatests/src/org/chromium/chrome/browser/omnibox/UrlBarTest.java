@@ -6,6 +6,8 @@ package org.chromium.chrome.browser.omnibox;
 
 import static org.hamcrest.core.IsEqual.equalTo;
 
+import static org.chromium.ui.test.util.MockitoHelper.clearInvocations;
+
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -40,6 +42,7 @@ import org.chromium.chrome.test.transit.ReusedCtaTransitTestRule;
 import org.chromium.chrome.test.transit.page.WebPageStation;
 import org.chromium.chrome.test.util.OmniboxTestUtils;
 import org.chromium.components.omnibox.OmniboxCapabilities;
+import org.chromium.components.omnibox.TextSelection;
 import org.chromium.content_public.common.ContentUrlConstants;
 import org.chromium.url.GURL;
 
@@ -580,8 +583,6 @@ public class UrlBarTest {
     @Test
     @SmallTest
     @DisabledTest(message = "Disabled because of b/333536371")
-    @SuppressWarnings(
-            "unchecked") // Mockito.clearInvocations() varargs on generic Callback<String>.
     public void testUrlTextChangeListener() {
         mUrlBar.setTextChangeListener(mUrlTextChangeListener);
 
@@ -591,7 +592,7 @@ public class UrlBarTest {
         // Setting autocomplete does not send a change update.
         mOmnibox.setAutocompleteText("oeia", null);
 
-        Mockito.clearInvocations(mUrlTextChangeListener);
+        clearInvocations(mUrlTextChangeListener);
         mOmnibox.setText("");
         Mockito.verify(mUrlTextChangeListener).onResult("");
     }
@@ -700,7 +701,9 @@ public class UrlBarTest {
                     locationBarCoordinator
                             .getMediatorForTesting()
                             .setUrlBarText(
-                                    urlBarData, UrlBar.ScrollType.NO_SCROLL, UrlBarData.SELECT_ALL);
+                                    urlBarData,
+                                    UrlBar.ScrollType.NO_SCROLL,
+                                    TextSelection.SELECT_ALL);
                 });
 
         String expectedStripped = "www.foo.com/index.html";

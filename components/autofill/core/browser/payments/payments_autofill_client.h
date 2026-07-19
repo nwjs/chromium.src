@@ -23,6 +23,7 @@
 #include "components/autofill/core/browser/payments/legal_message_line.h"
 #include "components/autofill/core/browser/payments/risk_data_loader.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
+#include "components/autofill/core/browser/ui/autofill_suggestion_delegate.h"
 #include "url/origin.h"
 
 #if !BUILDFLAG(IS_IOS)
@@ -64,7 +65,7 @@ class OmniboxAutofillDelegate;
 class OtpUnmaskDelegate;
 enum class OtpUnmaskResult;
 class PaymentsDataManager;
-class TouchToFillDelegate;
+class TouchToFillPaymentMethodDelegate;
 struct VirtualCardEnrollmentFields;
 class VirtualCardEnrollmentManager;
 enum class WebauthnDialogCallbackType;
@@ -592,11 +593,6 @@ class PaymentsAutofillClient : public RiskDataLoader {
   // return a nullptr on iOS WebView.
   virtual CreditCardRiskBasedAuthenticator* GetRiskBasedAuthenticator() = 0;
 
-  // Returns true if Hagrid (risk based authentication) is supported on this
-  // platform. Override in subclasses, return true in supported platform,
-  // defaults to false.
-  virtual bool IsRiskBasedAuthEffectivelyAvailable() const = 0;
-
   // Returns true if Mandatory Reauth is supported on this platform and enabled
   // by the user, if applicable.
   virtual bool IsMandatoryReauthEnabled() = 0;
@@ -666,22 +662,23 @@ class PaymentsAutofillClient : public RiskDataLoader {
   // platforms so this should be a pure virtual function to enforce the override
   // implementation.
   virtual bool ShowTouchToFillCreditCard(
-      base::WeakPtr<TouchToFillDelegate> delegate,
+      base::WeakPtr<TouchToFillPaymentMethodDelegate> delegate,
       base::span<const Suggestion> suggestions) = 0;
 
   // Shows the Touch To Fill surface for filling IBAN information, if
   // possible, returning `true` on success. `delegate` will be notified of
   // events. This function is not implemented on iOS and iOS WebView, and
   // should not be used on those platforms.
-  virtual bool ShowTouchToFillIban(base::WeakPtr<TouchToFillDelegate> delegate,
-                                   base::span<const Iban> ibans_to_suggest) = 0;
+  virtual bool ShowTouchToFillIban(
+      base::WeakPtr<TouchToFillPaymentMethodDelegate> delegate,
+      base::span<const Iban> ibans_to_suggest) = 0;
 
   // Shows the Touch To Fill surface for filling Wallet affiliated loyalty card
   // information, if possible, returning `true` on success. `delegate` will be
   // notified of events. This function is not implemented on iOS and iOS
   // WebView, and should not be used on those platforms.
   virtual bool ShowTouchToFillAffiliatedLoyaltyCard(
-      base::WeakPtr<TouchToFillDelegate> delegate,
+      base::WeakPtr<TouchToFillPaymentMethodDelegate> delegate,
       std::vector<LoyaltyCard> loyalty_cards_to_suggest) = 0;
 
   // Shows the Touch To Fill surface for filling Wallet loyalty card
@@ -689,7 +686,7 @@ class PaymentsAutofillClient : public RiskDataLoader {
   // notified of events. This function is not implemented on iOS and iOS
   // WebView, and should not be used on those platforms.
   virtual bool ShowTouchToFillForAllLoyaltyCards(
-      base::WeakPtr<TouchToFillDelegate> delegate,
+      base::WeakPtr<TouchToFillPaymentMethodDelegate> delegate,
       std::vector<LoyaltyCard> loyalty_cards_to_suggest) = 0;
 
   // Updates the BNPL UI, returning true on success. This either:
@@ -821,14 +818,27 @@ class PaymentsAutofillClient : public RiskDataLoader {
   // Omnibox is the trigger point.
   virtual OmniboxAutofillDelegate* GetOmniboxAutofillDelegate() = 0;
 
-  // Shows the "Autofill payments" omnibox chip that appears for relevant
-  // payment checkout forms.
-  virtual void ShowOmniboxAutofillChip() = 0;
+  // Shows the "Autofill payments" omnibox chip and initializes the bubble
+  // controller with the given suggestions and callbacks.
+  virtual void ShowOmniboxAutofillChip(
+      std::vector<Suggestion> suggestions,
+      base::RepeatingCallback<void(base::span<const Suggestion>)>
+          on_suggestions_shown,
+      base::RepeatingCallback<void(const Suggestion&)> did_select_suggestion,
+      base::RepeatingCallback<
+          void(const Suggestion&,
+               const AutofillSuggestionDelegate::SuggestionMetadata&)>
+          did_accept_suggestion) = 0;
 
   // Hides the "Autofill payments" omnibox chip that appears for relevant
   // payment checkout forms.
   virtual void HideOmniboxAutofillChip() = 0;
 #endif
+
+  // Shows the Payments Churned Users UI. This UI is responsible for providing
+  // users that have turned off autofill with a value prop to turn autofill back
+  // on.
+  virtual void ShowPaymentsChurnedUsersUI() {}
 };
 
 }  // namespace payments

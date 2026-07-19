@@ -37,6 +37,9 @@ def chrome_internal_verifier(
             location_filters = location_filters,
             mode_allowlist = cq_settings.custom_cq_run_modes,
             result_visibility = cq.COMMENT_LEVEL_RESTRICTED,
+            equivalent_builder = cq_settings.equivalent_builder,
+            equivalent_builder_percentage = cq_settings.equivalent_builder_percentage,
+            equivalent_builder_whitelist = cq_settings.equivalent_builder_whitelist,
             **kwargs
         )
     else:
@@ -57,15 +60,6 @@ chrome_internal_verifier(
         add_default_filters = False,
         location_filters = ["infra/config/generated/cq-usage/full.cfg"],
     ),
-)
-
-chrome_internal_verifier(
-    builder = "android-internal-desktop-x64-rel",
-    cq_settings = try_.cq_settings(
-        experiment_percentage = 25,
-        on_default_cq = True,
-    ),
-    owner_whitelist = ["google/chrome-al-eng@google.com"],
 )
 
 chrome_internal_verifier(
@@ -157,36 +151,26 @@ chrome_internal_verifier(
 )
 
 chrome_internal_verifier(
+    branch_selector = branches.selector.CROS_LTS_BRANCHES,
     builder = "chromeos-betty-compile-chrome",
-)
-
-chrome_internal_verifier(
-    builder = "chromeos-betty-chrome-noop",
     cq_settings = try_.cq_settings(
-        # TODO(b/504819645): make this equivalent builder of compile above.
-        experiment_percentage = 100,
+        equivalent_builder = "chrome:try/chromeos-betty-chrome-noop",
+        equivalent_builder_percentage = 100,
+        equivalent_builder_whitelist = "googlers",
         on_default_cq = True,
     ),
-    owner_whitelist = ["googlers"],
 )
 
 chrome_internal_verifier(
+    branch_selector = branches.selector.CROS_LTS_BRANCHES,
     builder = "chromeos-betty-chrome-gtest",
     cq_settings = try_.cq_settings(
-        experiment_percentage = 100,
+        equivalent_builder = "chrome:try/chromeos-betty-chrome-gtest-and-cqtast",
+        equivalent_builder_percentage = 100,
+        equivalent_builder_whitelist = "google/chromeos-pa@google.com",
         on_default_cq = True,
     ),
-    owner_whitelist = ["googlers"],
-)
-
-chrome_internal_verifier(
-    builder = "chromeos-betty-chrome-gtest-and-cqtast",
-    cq_settings = try_.cq_settings(
-        # Runs on 100% of CL but experimentally.
-        experiment_percentage = 100,
-        on_default_cq = True,
-    ),
-    owner_whitelist = ["google/chromeos-pa@google.com", "project-chromium-robot-committers"],
+    owner_whitelist = ["googlers", "project-chromium-robot-committers"],
 )
 
 chrome_internal_verifier(

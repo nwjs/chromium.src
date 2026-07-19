@@ -13,7 +13,6 @@
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/grid/grid_view_delegate.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/grid/tab_group_activity_summary_cell.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/grid/tab_group_header.h"
-#import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/transitions/legacy_grid_transition_layout.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_utils.h"
 #import "ui/base/device_form_factor.h"
 
@@ -26,14 +25,6 @@
   // The cell registration for the summary card of the recent activity in a
   // shared tab group.
   UICollectionViewCellRegistration* _activitySummaryCellRegistration;
-}
-
-- (void)setGroupColor:(UIColor*)groupColor {
-  if ([_groupColor isEqual:groupColor]) {
-    return;
-  }
-  _groupColor = groupColor;
-  [self updateTabGroupHeader];
 }
 
 - (void)setTabGroupColorPalette:(TabGroupColorPalette*)tabGroupColorPalette {
@@ -102,19 +93,6 @@
                          UICollectionViewDropIntentInsertAtDestinationIndexPath];
 }
 
-#pragma mark - Parent's functions
-
-- (LegacyGridTransitionLayout*)legacyTransitionLayout {
-  LegacyGridTransitionLayout* transitionLayout = [super legacyTransitionLayout];
-  // When the user is entering the TabGrid from a Tab in a group, the
-  // non-selected tabs should not animate otherwise they will be
-  // displayed outside of the container.
-  transitionLayout = [LegacyGridTransitionLayout
-      layoutWithInactiveItems:@[]
-                   activeItem:transitionLayout.activeItem
-                selectionItem:transitionLayout.selectionItem];
-  return transitionLayout;
-}
 
 // Returns a configured header for the given index path.
 - (UICollectionReusableView*)headerForSectionAtIndexPath:
@@ -192,11 +170,7 @@
   if (IsOpenEditGroupViewByTappingTitleEnabled()) {
     header.tabGroupHeaderDelegate = self.tabGroupHeaderDelegate;
   }
-  if (IsTabGroupColorOnSurfaceEnabled()) {
-    header.color = self.tabGroupColorPalette.commonColor;
-    return;
-  }
-  header.color = self.groupColor;
+  header.color = self.tabGroupColorPalette.commonColor;
 }
 
 // Configures the activity summary cell for a shared tab group.
@@ -313,10 +287,7 @@
              withItem:(TabSwitcherItem*)item
               atIndex:(NSUInteger)index {
   [super configureCell:cell withItem:item atIndex:index];
-  if (IsTabGroupColorOnSurfaceEnabled()) {
-    // Forward the palette to the cell.
-    cell.tabGroupColorPalette = self.tabGroupColorPalette;
-  }
+  cell.tabGroupColorPalette = self.tabGroupColorPalette;
 }
 
 @end

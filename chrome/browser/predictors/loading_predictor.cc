@@ -10,6 +10,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
+#include "base/unguessable_token.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/predictors/lcp_critical_path_predictor/lcp_critical_path_predictor_util.h"
@@ -24,6 +25,7 @@
 #include "content/public/browser/storage_partition.h"
 #include "content/public/common/origin_util.h"
 #include "net/base/network_anonymization_key.h"
+#include "services/network/public/cpp/constants.h"
 #include "services/network/public/cpp/network_quality_tracker.h"
 #include "services/network/public/cpp/request_destination.h"
 #include "third_party/blink/public/common/features.h"
@@ -427,7 +429,7 @@ bool LoadingPredictor::HandleHintByOrigin(const GURL& url,
           url, true, network_anonymization_key,
           kLoadingPredictorPreconnectTrafficAnnotation,
           /*storage_partition_config=*/nullptr,
-          /*network_restrictions_id=*/std::nullopt,
+          network::GetTODONetworkRestrictionsId(),
           /*keepalive_config=*/std::nullopt, mojo::NullRemote());
     }
     return true;
@@ -440,7 +442,7 @@ bool LoadingPredictor::HandleHintByOrigin(const GURL& url,
         url, network_anonymization_key,
         kLoadingPredictorPreconnectTrafficAnnotation,
         /*storage_partition_config=*/nullptr,
-        /*network_restrictions_id=*/std::nullopt);
+        network::GetTODONetworkRestrictionsId());
     return true;
   }
 
@@ -501,17 +503,16 @@ void LoadingPredictor::PreconnectURLIfAllowed(
     const GURL& url,
     bool allow_credentials,
     const net::NetworkAnonymizationKey& network_anonymization_key,
+    const base::UnguessableToken& network_restrictions_id,
     const net::NetworkTrafficAnnotationTag& traffic_annotation,
     const content::StoragePartitionConfig* storage_partition_config) {
   if (!url.is_valid() || !url.has_host() || !IsPreconnectEnabled()) {
     return;
   }
 
-  // TODO(crbug.com/447954811): pass the `network_restrictions_id` from the
-  // caller.
   preconnect_manager()->StartPreconnectUrl(
       url, allow_credentials, network_anonymization_key, traffic_annotation,
-      storage_partition_config, /*network_restrictions_id=*/std::nullopt,
+      storage_partition_config, network_restrictions_id,
       /*keepalive_config=*/std::nullopt, mojo::NullRemote());
 }
 

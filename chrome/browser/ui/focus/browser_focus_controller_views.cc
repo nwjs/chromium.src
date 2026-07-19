@@ -95,10 +95,14 @@ bool BrowserFocusControllerViews::
         bubble = dialog;
       }
     }
+    auto* multi_contents_view = views::AsViewClass<MultiContentsView>(
+        GetViewForId(kMultiContentsViewElementId));
     for (auto* view : std::initializer_list<views::View*>{
              GetViewForId(kLocationBarElementId),
              toolbar_button_provider_->GetDownloadButton(),
-             GetViewForId(kTopContainerElementId)}) {
+             GetViewForId(kTopContainerElementId),
+             multi_contents_view->GetActiveContentsContainerView()
+                 ->GetToastAnchorView()}) {
       if (view) {
         if (auto* dialog = view->GetProperty(views::kAnchoredDialogKey);
             dialog && !user_education::HelpBubbleView::IsHelpBubble(dialog)) {

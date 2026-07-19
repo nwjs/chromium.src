@@ -15,13 +15,13 @@
 #include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/no_destructor.h"
+#include "base/notreached.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
 #include "base/time/time.h"
 #include "base/trace_event/named_trigger.h"
 #include "base/trace_event/trace_event.h"
 #include "components/crash/core/common/crash_key.h"
-#include "components/page_load_metrics/browser/navigation_handle_user_data.h"
 #include "components/page_load_metrics/browser/observers/core/largest_contentful_paint_handler.h"
 #include "components/page_load_metrics/browser/page_load_metrics_util.h"
 #include "components/page_load_metrics/common/page_load_metrics_util.h"
@@ -62,6 +62,8 @@ const char kHistogramGWSInteractionToActualNavigationStart[] =
     HISTOGRAM_PREFIX "InteractionToActualNavigationStart";
 const char kHistogramGWSInteractionToNavigationStart[] =
     HISTOGRAM_PREFIX "InteractionToNavigationStart";
+const char kHistogramGWSInteractionToAFTEnd[] =
+    HISTOGRAM_PREFIX "InteractionToAFTEnd";
 const char kHistogramGWSNavigationStartToNavigationCommitSent[] =
     HISTOGRAM_PREFIX "NavigationStartToNavigationCommitSent";
 const char kHistogramGWSNavigationCommitSentToParseStart[] =
@@ -294,6 +296,10 @@ const char kHistogramAIOHasViewportEndTime[] =
 const char kHistogramAIOCompleteSuffix[] = ".Complete";
 const char kHistogramAIOInCompleteSuffix[] = ".Incomplete";
 
+const char kSuffixFCP[] = "FCP";
+const char kSuffixAFTEnd[] = "AFTEnd";
+const char kSuffixComplete[] = "Complete";
+
 }  // namespace internal
 
 namespace {
@@ -442,6 +448,69 @@ std::optional<base::TimeDelta> CalculateActualNavigationOffset(
     }
   }
   return std::nullopt;
+}
+
+std::string_view GetScriptSuffix(page_load_metrics::mojom::ScriptType type) {
+  switch (type) {
+    case page_load_metrics::mojom::ScriptType::kLatin:
+      return "Latn";
+    case page_load_metrics::mojom::ScriptType::kHan:
+      return "Hani";
+    case page_load_metrics::mojom::ScriptType::kHangul:
+      return "Hang";
+    case page_load_metrics::mojom::ScriptType::kHiragana:
+      return "Hira";
+    case page_load_metrics::mojom::ScriptType::kKatakana:
+      return "Kana";
+    case page_load_metrics::mojom::ScriptType::kArabic:
+      return "Arab";
+    case page_load_metrics::mojom::ScriptType::kBengali:
+      return "Beng";
+    case page_load_metrics::mojom::ScriptType::kDevanagari:
+      return "Deva";
+    case page_load_metrics::mojom::ScriptType::kCyrillic:
+      return "Cyrl";
+    case page_load_metrics::mojom::ScriptType::kCommon:
+      return "Zyyy";
+    case page_load_metrics::mojom::ScriptType::kEmoji:
+      return "Emoji";
+    case page_load_metrics::mojom::ScriptType::kOther:
+      return "Other";
+  }
+  NOTREACHED();
+}
+
+void RecordFontMetrics(
+    const page_load_metrics::mojom::FontLoadingMetricsPtr& font_loading_metrics,
+    std::string_view suffix) {
+  if (!font_loading_metrics) {
+    return;
+  }
+
+  if (font_loading_metrics->fallback_duration) {
+    base::UmaHistogramCustomTimes(
+        base::StrCat(
+            {"PageLoad.Clients.GoogleSearch.FontLoading.FallbackDuration2.",
+             suffix}),
+        font_loading_metrics->fallback_duration.value(), base::Milliseconds(1),
+        base::Minutes(10), 100);
+  }
+
+  base::UmaHistogramCounts100(
+      base::StrCat(
+          {"PageLoad.Clients.GoogleSearch.FontLoading.FallbackCount.", suffix}),
+      font_loading_metrics->fallback_count);
+
+  for (const auto& script_metric :
+       font_loading_metrics->script_fallback_metrics) {
+    std::string_view script_suffix =
+        GetScriptSuffix(script_metric->script_type);
+    base::UmaHistogramCounts100(
+        base::StrCat(
+            {"PageLoad.Clients.GoogleSearch.FontLoading.FallbackCount.",
+             script_suffix, ".", suffix}),
+        script_metric->fallback_count);
+  }
 }
 
 }  // namespace
@@ -758,6 +827,20 @@ void GWSPageLoadMetricsObserver::OnFirstContentfulPaintInPage(
                       internal::kHistogramDuplicateIgnoredSuffix}),
         timing.paint_timing->first_contentful_paint.value());
   }
+
+  const page_load_metrics::mojom::FontLoadingMetricsPtr& font_loading_metrics =
+      GetDelegate().GetFontLoadingMetrics();
+  if (font_loading_metrics) {
+    RecordFontMetrics(font_loading_metrics, internal::kSuffixFCP);
+
+    uint32_t hits = font_loading_metrics->shape_cache_hit_count;
+    uint32_t misses = font_loading_metrics->shape_cache_miss_count;
+    if (hits + misses > 0) {
+      base::UmaHistogramPercentage(
+          "PageLoad.Clients.GoogleSearch.FontLoading.ShapeCacheHitRate.FCP",
+          100 * static_cast<uint64_t>(hits) / (hits + misses));
+    }
+  }
 }
 
 void GWSPageLoadMetricsObserver::OnDomContentLoadedEventStart(
@@ -898,6 +981,7 @@ void GWSPageLoadMetricsObserver::OnComplete(
     }
   }
   LogMetricsOnComplete(timing);
+  LogFontMetrics();
 }
 
 void GWSPageLoadMetricsObserver::OnCustomUserTimingMarkObserved(
@@ -926,6 +1010,9 @@ void GWSPageLoadMetricsObserver::OnCustomUserTimingMarkObserved(
                        AdjustPerformanceMarkTiming(mark));
       if (mark_timing_info->timing_member) {
         this->*(*mark_timing_info->timing_member) = mark->start_time;
+      }
+      if (mark->mark_name == internal::kGwsAFTEndMarkName) {
+        LogFontMetricsAtAFTEnd();
       }
     }
   }
@@ -995,6 +1082,7 @@ page_load_metrics::PageLoadMetricsObserver::ObservePolicy
 GWSPageLoadMetricsObserver::FlushMetricsOnAppEnterBackground(
     const page_load_metrics::mojom::PageLoadTiming& timing) {
   LogMetricsOnComplete(timing);
+  LogFontMetrics();
   return STOP_OBSERVING;
 }
 
@@ -1081,6 +1169,19 @@ void GWSPageLoadMetricsObserver::LogMetricsOnComplete(
             *actual_navigation_offset + aft_end_with_prenavigation_latency);
       }
     }
+    if (!is_prerendered_ &&
+        !navigation_handle_timing_.user_interaction.is_null() &&
+        navigation_handle_timing_.user_interaction <=
+            GetDelegate().GetNavigationStart()) {
+      base::TimeDelta duration =
+          GetDelegate().GetNavigationStart() -
+          navigation_handle_timing_.user_interaction -
+          navigation_handle_timing_.before_unload_dialog_duration;
+      if (!duration.is_negative()) {
+        PAGE_LOAD_HISTOGRAM2(internal::kHistogramGWSInteractionToAFTEnd,
+                             duration + base_time);
+      }
+    }
     if (is_traverse_navigation_) {
       ReportMetricForTraverseNavigation(
           is_restore_navigation_,
@@ -1128,6 +1229,55 @@ void GWSPageLoadMetricsObserver::LogMetricsOnComplete(
     PAGE_LOAD_HISTOGRAM(context_menu_histogram_name,
                         all_frames_largest_contentful_paint.Time().value());
   }
+}
+
+void GWSPageLoadMetricsObserver::LogFontMetrics() {
+  // Only log if the page was started in the foreground.
+  if (!GetDelegate().StartedInForeground()) {
+    return;
+  }
+
+  // If it is a prerendered page, only log if it was activated in the
+  // foreground.
+  if (is_prerendered_ &&
+      !GetDelegate().WasPrerenderedThenActivatedInForeground()) {
+    return;
+  }
+
+  const page_load_metrics::mojom::FontLoadingMetricsPtr& font_loading_metrics =
+      GetDelegate().GetFontLoadingMetrics();
+  if (font_loading_metrics) {
+    RecordFontMetrics(font_loading_metrics, internal::kSuffixComplete);
+
+    if (font_loading_metrics->fallback_initial_duration) {
+      PAGE_LOAD_HISTOGRAM2(
+          "PageLoad.Clients.GoogleSearch.FontLoading.InitialFallbackDuration2."
+          "Complete",
+          font_loading_metrics->fallback_initial_duration.value());
+    }
+  }
+}
+
+void GWSPageLoadMetricsObserver::LogFontMetricsAtAFTEnd() {
+  const page_load_metrics::mojom::FontLoadingMetricsPtr& font_loading_metrics =
+      GetDelegate().GetFontLoadingMetrics();
+  if (!font_loading_metrics) {
+    return;
+  }
+
+  // Only log if the page was started in the foreground.
+  if (!GetDelegate().StartedInForeground()) {
+    return;
+  }
+
+  // If it is a prerendered page, only log if it was activated in the
+  // foreground.
+  if (is_prerendered_ &&
+      !GetDelegate().WasPrerenderedThenActivatedInForeground()) {
+    return;
+  }
+
+  RecordFontMetrics(font_loading_metrics, internal::kSuffixAFTEnd);
 }
 
 void GWSPageLoadMetricsObserver::RecordNavigationTimingHistograms() {
@@ -1293,38 +1443,35 @@ void GWSPageLoadMetricsObserver::RecordNavigationTimingHistograms() {
   }
 
   // Record trace events according to the navigation milestone.
-  TRACE_EVENT_BEGIN("loading", "GWSNavigationStartToFirstRequestStart",
-                    perfetto::Track::FromPointer(this), navigation_start_time);
-  TRACE_EVENT_END("loading", /* GWSNavigationStartToFirstRequestStart */
-                  perfetto::Track::FromPointer(this),
+  const auto track =
+      perfetto::NamedTrack::FromPointer("GWSPageLoadMetricsObserver", this);
+  TRACE_EVENT_BEGIN("loading", "GWSNavigationStartToFirstRequestStart", track,
+                    navigation_start_time);
+  TRACE_EVENT_END("loading", /* GWSNavigationStartToFirstRequestStart */ track,
                   timing.first_request_start_time);
 
   TRACE_EVENT_BEGIN("loading", "GWSFirstRequestStartToFirstResponseStart",
-                    perfetto::Track::FromPointer(this),
-                    timing.first_request_start_time);
-  TRACE_EVENT_END("loading", /* GWSFirstRequestStartToFirstResponseStart */
-                  perfetto::Track::FromPointer(this),
+                    track, timing.first_request_start_time);
+  TRACE_EVENT_END("loading",
+                  /* GWSFirstRequestStartToFirstResponseStart */ track,
                   timing.first_response_start_time);
 
   TRACE_EVENT_BEGIN("loading", "GWSFirstResponseStartToFirstLoaderCallback",
-                    perfetto::Track::FromPointer(this),
-                    timing.first_response_start_time);
-  TRACE_EVENT_END("loading", /* GWSFirstResponseStartToFirstLoaderCallback */
-                  perfetto::Track::FromPointer(this),
+                    track, timing.first_response_start_time);
+  TRACE_EVENT_END("loading",
+                  /* GWSFirstResponseStartToFirstLoaderCallback */ track,
                   timing.first_loader_callback_time);
 
   TRACE_EVENT_BEGIN("loading", "GWSFirstLoadCallbackToFinalResponseStart",
-                    perfetto::Track::FromPointer(this),
-                    timing.first_loader_callback_time);
-  TRACE_EVENT_END("loading", /* GWSFirstLoadCallbackToFinalResponseStart */
-                  perfetto::Track::FromPointer(this),
+                    track, timing.first_loader_callback_time);
+  TRACE_EVENT_END("loading",
+                  /* GWSFirstLoadCallbackToFinalResponseStart */ track,
                   timing.final_response_start_time);
 
   TRACE_EVENT_BEGIN("loading", "GWSFinalResponseStartToFinalLoaderCallback",
-                    perfetto::Track::FromPointer(this),
-                    timing.final_response_start_time);
-  TRACE_EVENT_END("loading", /* GWSFinalResponseStartToFinalLoaderCallback */
-                  perfetto::Track::FromPointer(this),
+                    track, timing.final_response_start_time);
+  TRACE_EVENT_END("loading",
+                  /* GWSFinalResponseStartToFinalLoaderCallback */ track,
                   timing.final_loader_callback_time);
 }
 

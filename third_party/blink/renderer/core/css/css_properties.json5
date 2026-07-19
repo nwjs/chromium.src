@@ -900,6 +900,24 @@
     percentages_depend_on_used_value: {
       valid_type: "bool",
     },
+
+    // - devtools_keywords: ["keyword1", "keyword2"]
+    //
+    // Keywords that are valid for devtools. This would act as an override to
+    // the keywords list.
+    // This is useful for cases where
+    // 1. Keywords are not accepted on their own in devtools but might be valid
+    // in other contexts. For example, 'jump-both' is not accepted on its own in
+    // devtools, but is valid as part of the animation-timing-function property.
+    // 2. Shorthand properties do not accept all keywords from the longhands
+    // as it is. For example, 'columns' does not accept 'wrap' or 'nowrap'
+    // (which are valid keywords for 'column-wrap').
+    // This field is used by the following script in the devtools-frontend repo to
+    // generate the supported CSS properties:
+    // third_party/devtools-frontend/src/scripts/build/generate_supported_css.py
+    devtools_keywords: {
+      valid_type: "list",
+    },
   },
 
   // Members in the data objects should appear in the same order as in the
@@ -974,6 +992,7 @@
       // Animation properites are never incremental.
       supports_incremental_style: false,
       valid_for_keyframe: false,
+      keywords: ["auto"],
     },
     {
       name: "animation-fill-mode",
@@ -1157,6 +1176,7 @@
       valid_for_marker: true,
       runtime_flag: "TimelineTrigger",
       is_animation_affecting: true,
+      keywords: ["none"],
     },
     {
       name: "timeline-trigger-activation-range-start",
@@ -1196,6 +1216,7 @@
       runtime_flag: "TimelineTrigger",
       is_animation_affecting: true,
       percentages_depend_on_used_value: false,
+      keywords: ["auto", "normal"],
     },
     {
       name: "timeline-trigger-active-range-end",
@@ -1209,6 +1230,7 @@
       runtime_flag: "TimelineTrigger",
       is_animation_affecting: true,
       percentages_depend_on_used_value: false,
+      keywords: ["auto", "normal"],
     },
     {
       name: "timeline-trigger-source",
@@ -1544,6 +1566,7 @@
       inherited: true,
       font: true,
       name_for_methods: "Style",
+      style_builder_custom_functions: ["inherit", "value"],
       converter: "ConvertFontStyle",
       priority: 1,
       keywords: ["normal", "italic", "oblique"],
@@ -1837,6 +1860,7 @@
       valid_for_first_line: true,
       valid_for_permission_element: true,
       stored_on_extra_field: ["font"],
+      keywords: ["auto", "none", "antialiased", "subpixel-antialiased"],
     },
     {
       name: "forced-color-adjust",
@@ -1872,6 +1896,7 @@
       style_builder_custom_functions: ["value"],
       priority: 1,
       stored_on_extra_field: ["font"],
+      keywords: ["auto"],
     },
     {
       name: "math-depth",
@@ -1895,7 +1920,7 @@
       inherited: true,
       field_group: "*",
       field_template: "keyword",
-      keywords: ["sideways", "mixed", "upright"],
+      keywords: ["sideways", "mixed", "upright", "sideways-right"],
       typedom_types: ["Keyword"],
       default_value: "mixed",
       getter: "GetTextOrientation",
@@ -1913,6 +1938,7 @@
       priority: 1,
       surrogate_for: "text-orientation",
       valid_for_marker: true,
+      keywords: ["sideways", "upright", "sideways-right", "vertical-right"],
     },
     {
       name: "writing-mode",
@@ -2036,6 +2062,9 @@
       valid_for_position_try: true,
       valid_for_permission_element: true,
       invalidate: ["layout"],
+      keywords: ["auto", "normal", "stretch", "baseline", "center", "start",
+                 "end", "self-start", "self-end", "flex-start", "flex-end",
+                 "anchor-center"],
     },
     {
       name: "anchor-name",
@@ -2202,7 +2231,7 @@
       name: "background-image",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
       interpolable: true,
-      keywords: ["auto", "none"],
+      keywords: ["none"],
       typedom_types: ["Keyword", "Image"],
       separator: " ",
       style_builder_template: "background_layer",
@@ -3118,6 +3147,7 @@
       // high-priority properties.
       priority: 2,
       valid_for_permission_element: true,
+      keywords: ["normal", "light", "dark"],
     },
     {
       name: "column-fill",
@@ -3140,7 +3170,7 @@
       name_for_methods: "Contain",
       type_name: "unsigned",
       converter: "ConvertFlags<Containment>",
-      keywords: ["none", "strict", "content", "size", "layout", "style", "paint", "inline-size", "block-size"],
+      keywords: ["none", "strict", "content", "size", "layout", "style", "paint", "inline-size"],
       typedom_types: ["Keyword"],
       invalidate: ["layout"],
       is_animation_affecting: true,
@@ -3220,6 +3250,7 @@
       valid_for_marker: true,
       valid_for_page_context: true,
       supports_incremental_style: true,
+      keywords: ["none", "normal", "close-quote", "no-close-quote", "no-open-quote", "open-quote"],
     },
     {
       name: "corner-bottom-left-shape",
@@ -3415,6 +3446,17 @@
         "inline-flex", "grid", "inline-grid", "contents", "flow-root", "none",
         "flow", "math", "ruby", "ruby-text", "grid-lanes", "inline-grid-lanes"
       ],
+      // `grid-lanes` and `inline-grid-lanes` are experimental keywords and
+      // currently behind the CSSGridLanesLayout flag. Since they are not
+      // fully supported yet, they are not being exposed to devtools.
+      devtools_keywords: [
+        "inline", "block", "list-item", "inline-block", "table", "inline-table",
+        "table-row-group", "table-header-group", "table-footer-group",
+        "table-row", "table-column-group", "table-column", "table-cell",
+        "table-caption", "-webkit-box", "-webkit-inline-box", "flex",
+        "inline-flex", "grid", "inline-grid", "contents", "flow-root", "none",
+        "flow", "math", "ruby", "ruby-text"
+      ],
       typedom_types: ["Keyword"],
       style_builder_custom_functions: ["initial", "inherit", "value"],
       // In general many things are tweaked after-the-fact based on display/float/position
@@ -3472,6 +3514,7 @@
       valid_for_highlight: true,
       valid_for_permission_icon: true,
       invalidate: ["paint"],
+      keywords: ["none"],
     },
     {
       name: "fill-opacity",
@@ -3836,7 +3879,8 @@
       converter: "ConvertGridTrackList",
       getter: "SpecifiedGridTemplateColumns",
       style_builder_custom_functions: ["inherit"],
-      keywords: ["none"],
+      typedom_keywords: ["none"],
+      keywords: ["auto", "none", "min-content", "max-content"],
       typedom_types: ["Keyword"],
       invalidate: ["layout", "paint"],
       percentages_depend_on_used_value: true,
@@ -3871,7 +3915,8 @@
       converter: "ConvertGridTrackList",
       getter: "SpecifiedGridTemplateRows",
       style_builder_custom_functions: ["inherit"],
-      keywords: ["none"],
+      typedom_keywords: ["none"],
+      keywords: ["auto", "none", "min-content", "max-content"],
       typedom_types: ["Keyword"],
       invalidate: ["layout", "paint"],
       percentages_depend_on_used_value: true,
@@ -3983,8 +4028,7 @@
       field_group: "*",
       field_template: "keyword",
       keywords: [
-        "auto", "optimizespeed", "optimizequality",
-        "-webkit-optimize-contrast", "pixelated", "crisp-edges"
+        "auto", "-webkit-optimize-contrast", "pixelated", "crisp-edges"
       ],
       typedom_types: ["Keyword"],
       default_value: "auto",
@@ -4004,6 +4048,7 @@
         "third_party/blink/renderer/platform/graphics/image_orientation.h"
       ],
       invalidate: ["layout", "paint"],
+      keywords: ["none", "from-image"],
     },
     {
       name: "dynamic-range-limit",
@@ -4105,6 +4150,9 @@
       valid_for_position_try: true,
       valid_for_permission_element: true,
       invalidate: ["layout"],
+      keywords: ["auto", "normal", "stretch", "baseline", "center", "start",
+        "end", "self-start", "self-end", "flex-start", "flex-end", "left",
+        "right", "anchor-center"],
     },
     {
       name: "left",
@@ -4513,6 +4561,7 @@
       invalidate: ["layout", "scroll-anchor"],
       affected_by_zoom: true,
       percentages_depend_on_used_value: true,
+      keywords: ["auto", "min-content", "max-content", "fit-content", "stretch"],
     },
     {
       name: "min-width",
@@ -4536,6 +4585,7 @@
       invalidate: ["layout", "scroll-anchor"],
       affected_by_zoom: true,
       percentages_depend_on_used_value: true,
+      keywords: ["auto", "min-content", "max-content", "fit-content", "stretch"],
     },
     {
       name: "mix-blend-mode",
@@ -4770,6 +4820,10 @@
       field_template: "keyword",
       keywords: [
         "none", "hidden", "inset", "groove", "outset", "ridge", "dotted",
+        "dashed", "solid", "double"
+      ],
+      devtools_keywords: [
+        "none", "auto", "inset", "groove", "outset", "ridge", "dotted",
         "dashed", "solid", "double"
       ],
       typedom_types: ["Keyword"],
@@ -5204,7 +5258,7 @@
       field_group: "*",
       field_template: "external",
       converter: "ConvertPositionAnchor",
-      keywords: ["auto", "none"],
+      keywords: ["auto", "none", "normal"],
       typedom_types: ["Keyword"],
       valid_for_permission_element: true,
       valid_for_position_try: true,
@@ -5398,6 +5452,7 @@
       default_value: "auto",
       typedom_types: ["Keyword"],
       runtime_flag: "ScrollAxisLock",
+      invalidate: ["compositing"],
     },
     {
       name: "scroll-target-group",
@@ -5422,6 +5477,7 @@
       type_name: "ScrollMarkerGroup",
       converter: "ConvertScrollMarkerGroup",
       typedom_types: ["Keyword"],
+      keywords: ["none", "after", "before"],
     },
     {
       interpolable: true,
@@ -5783,6 +5839,7 @@
       converter: "ConvertViewTimelineName",
       separator: ",",
       is_animation_affecting: true,
+      keywords: ["none"],
     },
     {
       name: "shape-image-threshold",
@@ -5806,7 +5863,6 @@
       field_template: "<length>",
       default_value: "Length::Fixed(0)",
       converter: "ConvertLength",
-      keywords: ["none"],
       typedom_types: ["Length", "Percentage"],
       invalidate: ["layout", "paint"],
       percentages_depend_on_used_value: true,
@@ -5845,6 +5901,7 @@
       computable: false,
       valid_for_page_context: true,
       stored_on_extra_field: ["PageSize", "PageSizeType"],
+      keywords: ["auto", "portrait", "landscape"],
     },
     {
       name: "speak",
@@ -5916,6 +5973,7 @@
       valid_for_highlight: true,
       valid_for_permission_icon: true,
       invalidate: ["paint", "stroke"],
+      keywords: ["none", "context-stroke"],
     },
     {
       name: "stroke-dasharray",
@@ -6065,6 +6123,13 @@
         "left", "right", "center", "justify", "-webkit-left", "-webkit-right",
         "-webkit-center", "start", "end", "match-parent"
       ],
+      // `match-parent` is an experimental keyword and currently behind the
+      // CSSTextAlignMatchParent flag. Since it is not fully supported yet,
+      // it is not being exposed to devtools.
+      devtools_keywords: [
+        "left", "right", "center", "justify", "-webkit-left", "-webkit-right",
+        "-webkit-center", "start", "end"
+      ],
       typedom_types: ["Keyword"],
       default_value: "start",
       getter: "GetTextAlign",
@@ -6080,6 +6145,12 @@
       field_template: "keyword",
       keywords: ["auto", "start", "end", "left", "right", "center", "justify",
         "match-parent"
+      ],
+      // `match-parent` is an experimental keyword and currently behind the
+      // CSSTextAlignMatchParent flag. Since it is not fully supported yet,
+      // it is not being exposed to devtools.
+      devtools_keywords: [
+        "auto", "start", "end", "left", "right", "center", "justify"
       ],
       default_value: "auto",
       typedom_types: ["Keyword"],
@@ -6125,6 +6196,7 @@
       type_name: "TextBoxEdge",
       converter: "ConvertTextBoxEdge",
       invalidate: ["layout"],
+      keywords: ["auto", "text", "cap", "ex"],
     },
     {
       name: "text-box-trim",
@@ -6384,6 +6456,11 @@
       field_group: "inherited",
       field_template: "multi_keyword",
       keywords: ["none", "capitalize", "uppercase", "lowercase", "full-width", "full-size-kana", "math-auto"],
+      // `full-width` and `full-size-kana` are experimental keywords and currently
+      // behind the CSSTextTransformFullWidth and CSSTextTransformFullSizeKana
+      // flags respectively. Since they are not fully supported yet, they are
+      // not being exposed to devtools.
+      devtools_keywords: ["none", "capitalize", "uppercase", "lowercase", "math-auto"],
       type_name: "ETextTransform",
       converter: "ConvertFlags<blink::ETextTransform>",
       typedom_types: ["Keyword"],
@@ -6444,6 +6521,11 @@
       converter: "ConvertTimelineScope",
       separator: ",",
       is_animation_affecting: true,
+      keywords: ["none", "all"],
+      // `all` is an experimental keyword and currently behind the
+      // CSSTimelineScopeAll flag. Since it is not fully supported yet,
+      // it is not being exposed to devtools.
+      devtools_keywords: ["none"],
     },
     {
       name: "top",
@@ -6564,6 +6646,7 @@
       supports_incremental_style: true,
       invalidate: ["has-transform", "transform-data", "transform-other"],
       percentages_depend_on_used_value: true,
+      keywords: ["none"],
     },
     {
       name: "rotate",
@@ -6579,6 +6662,7 @@
       converter: "ConvertRotate",
       supports_incremental_style: true,
       invalidate: ["has-transform", "transform-data", "transform-other"],
+      keywords: ["none"],
     },
     {
       name: "scale",
@@ -6595,6 +6679,7 @@
       supports_incremental_style: true,
       invalidate: ["has-transform", "transform-data", "transform-other"],
       percentages_depend_on_used_value: true,
+      keywords: ["none"],
     },
     {
       name: "unicode-bidi",
@@ -6660,6 +6745,7 @@
       separator: ",",
       is_animation_affecting: true,
       percentages_depend_on_used_value: true,
+      keywords: ["auto"],
     },
     {
       name: "view-timeline-name",
@@ -6671,6 +6757,7 @@
       converter: "ConvertViewTimelineName",
       separator: ",",
       is_animation_affecting: true,
+      keywords: ["none"],
     },
     {
       name: "view-transition-class",
@@ -6706,6 +6793,10 @@
       field_template: "external",
       include_paths: ["third_party/blink/renderer/core/style/style_view_transition_name.h"],
       keywords: ["none", "auto"],
+      // `auto` is an experimental keyword and currently behind the
+      // CSSViewTransitionNameAuto flag. Since it is not fully supported yet,
+      // it is not being exposed to devtools.
+      devtools_keywords: ["none"],
       typedom_types: ["Keyword"],
       wrapper_pointer_name: "Member",
     },
@@ -6718,7 +6809,6 @@
       keywords: ["none", "all"],
       typedom_types: ["Keyword"],
       default_value: "none",
-      runtime_flag: "ScopedViewTransitions",
     },
     {
       name: "visibility",
@@ -6779,6 +6869,9 @@
       // -internal-auto-base() can be resolved.
       priority: 1,
       invalidate: ["layout", "paint"],
+      keywords: ["auto", "none", "checkbox", "radio", "button", "listbox",
+                "menulist", "menulist-button", "meter", "progress-bar",
+                "searchfield", "textfield", "textarea", "base-select"]
     },
     {
       name: "-webkit-appearance",
@@ -6824,6 +6917,7 @@
       // Overlaps with border-image.
       legacy_overlapping: true,
       percentages_depend_on_used_value: true,
+      devtools_keywords: ["none", "stretch", "repeat", "space", "round"],
     },
     {
       name: "-webkit-border-vertical-spacing",
@@ -7327,6 +7421,7 @@
       type_name: "AtomicString",
       converter: "ConvertString<CSSValueID::kAuto>",
       invalidate: ["layout", "paint"],
+      keywords: ["auto"],
     },
     {
       name: "-webkit-line-break",
@@ -7344,6 +7439,7 @@
       default_value: "auto",
       type_name: "LineBreak",
       keywords: ["auto", "loose", "normal", "strict", "anywhere", "after-white-space"],
+      devtools_keywords: ["auto", "loose", "normal", "strict", "anywhere"],
       typedom_types: ["Keyword"],
       valid_for_marker: true,
       invalidate: ["layout", "paint"],
@@ -7351,27 +7447,19 @@
     {
       name: "continue",
       property_methods: ["CSSValueFromComputedStyleInternal"],
-      field_group: "*",
-      field_template: "keyword",
       keywords: ["normal", "collapse", "-webkit-legacy"],
-      default_value: "normal",
       typedom_types: ["Keyword"],
-      invalidate: ["layout", "paint"],
-      runtime_flag: "CSSLineClamp",
+      stored_on_extra_field: ["Continue"],
+      runtime_flag: "CSSLineClampAsShorthand",
     },
     {
       name: "max-lines",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
-      field_group: "*",
-      field_template: "external",
-      include_paths: ["third_party/blink/renderer/core/style/max_lines_data.h"],
-      default_value: "MaxLinesData(0, true)",
-      type_name: "MaxLinesData",
       converter: "ConvertMaxLines",
       keywords: ["auto"],
       typedom_types: ["Number", "Keyword"],
-      invalidate: ["layout", "paint"],
-      runtime_flag: "CSSLineClamp",
+      stored_on_extra_field: ["MaxLines"],
+      runtime_flag: "CSSLineClampAsShorthand",
     },
     {
       name: "block-ellipsis",
@@ -7383,15 +7471,40 @@
       default_value: "no-ellipsis",
       typedom_types: ["Keyword"],
       invalidate: ["layout", "paint"],
-      runtime_flag: "CSSLineClamp",
+      runtime_flag: "CSSLineClampAsShorthand",
     },
     {
+      // This is a longhand that behaves like the spec'd shorthand, so we store it in extra fields
+      // corresponding to each of the longhands, which are also used for those longhands proper with
+      // the `CSSLineClampAsShorthand` runtime flag.
+      // However, the spec's `block-ellipsis` longhand is inherited, while the rest of longhands
+      // aren't; so to avoid issues, we avoid sharing its state with the longhand.
       name: "line-clamp",
+      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
+      style_builder_custom_functions: ["initial", "inherit", "value"],
+      keywords: ["none", "auto", "ellipsis", "no-ellipsis", "-webkit-legacy"],
+      devtools_keywords: ["none", "auto", "ellipsis", "no-ellipsis"],
+      typedom_types: ["Keyword", "Number"],
+      stored_on_extra_field: [
+        "Continue",
+        "MaxLines",
+        "LineClampInternalBlockEllipsis"
+      ],
+      // overlaps with -alternative-webkit-line-clamp
+      overlapping: true,
+      runtime_flag: "CSSLineClamp"
+    },
+    {
+      // True shorthand for `line-clamp`
+      name: "-alternative-line-clamp-shorthand",
+      alternative_of: "line-clamp",
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
       longhands: ["max-lines", "block-ellipsis", "continue"],
-      runtime_flag: "CSSLineClamp",
+      runtime_flag: "CSSLineClampAsShorthand",
     },
     {
+      // Standalone (legacy) version of the -webkit-line-clamp property, when no
+      // related runtime flags are enabled.
       name: "-webkit-line-clamp",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
       field_group: "*",
@@ -7404,11 +7517,33 @@
       name_for_methods: "WebkitLineClamp",
     },
     {
-      name: "-alternative-webkit-line-clamp",
+      // Longhand version of -webkit-line-clamp which stores its values in extra
+      // fields, used when the CSSLineClamp is enabled (so there *is* a
+      // `line-clamp` property) but when CSSLineClampAsShorthand is disabled (so
+      // `line-clamp` is a longhand, not a shorthand).
+      name: "-alternative-webkit-line-clamp-longhand",
       alternative_of: "-webkit-line-clamp",
+      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
+      style_builder_custom_functions: ["initial", "inherit", "value"],
+      keywords: ["none"],
+      typedom_types: ["Keyword", "Number"],
+      stored_on_extra_field: [
+        "Continue",
+        "MaxLines",
+        "LineClampInternalBlockEllipsis"
+      ],
+      // overlaps with line-clamp
+      legacy_overlapping: true,
+      runtime_flag: "CSSLineClamp",
+    },
+    {
+      // Shorthand version of -webkit-line-clamp, corresponding to the
+      // `-alternative-line-clamp-shorthand` definition.
+      name: "-alternative-webkit-line-clamp-shorthand",
+      alternative_of: "-alternative-webkit-line-clamp-longhand",
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
       longhands: ["max-lines", "block-ellipsis", "continue"],
-      runtime_flag: "CSSLineClamp",
+      runtime_flag: "CSSLineClampAsShorthand",
     },
     {
       name: "-webkit-mask-box-image-outset",
@@ -7429,6 +7564,7 @@
         modifier_type: "Repeat",
       },
       stored_on_extra_field: ["MaskBoxImage"],
+      keywords: ["repeat", "stretch", "space", "round"],
     },
     {
       name: "-webkit-mask-box-image-slice",
@@ -7449,6 +7585,7 @@
       style_builder_custom_functions: ["value"],
       includes_currentcolor: true,
       stored_on_extra_field: ["MaskBoxImage"],
+      keywords: ["none"],
     },
     {
       name: "-webkit-mask-box-image-width",
@@ -7461,6 +7598,7 @@
       },
       stored_on_extra_field: ["MaskBoxImage"],
       percentages_depend_on_used_value: true,
+      keywords: ["auto"],
     },
     {
       name: "mask-mode",
@@ -7512,6 +7650,7 @@
       },
       includes_currentcolor: true,
       stored_on_extra_field: ["Mask"],
+      keywords: ["none"],
     },
     {
       name: "-webkit-mask-image",
@@ -7576,6 +7715,7 @@
       },
       stored_on_extra_field: ["Mask"],
       percentages_depend_on_used_value: true,
+      keywords: ["auto", "contain", "cover"],
     },
     {
       name: "-webkit-mask-size",
@@ -7635,7 +7775,7 @@
       inherited: true,
       field_group: "*",
       field_template: "keyword_custom",
-      keywords: ["auto", "spaces"],
+      keywords: ["auto", "none", "spaces"],
       default_value: "auto",
       invalidate: ["layout", "paint"],
       runtime_flag: "CSSRubyOverhang",
@@ -7647,6 +7787,7 @@
       type_name: "RubyPosition",
       converter: "ConvertRubyPosition",
       surrogate_for: "ruby-position",
+      keywords: ["before", "after"],
       valid_for_permission_element: true,
       stored_on_extra_field: ["crbug.com/40919412"],
     },
@@ -7674,7 +7815,7 @@
       include_paths: ["third_party/blink/renderer/core/css/style_color.h",
                       "third_party/blink/renderer/core/layout/layout_theme.h"],
       type_name: "StyleColor",
-      default_value: "StyleColor(LayoutTheme::TapHighlightColor())",
+      default_value: "StyleColor(LayoutTheme::GetTheme().TapHighlightColor())",
       converter: "ConvertStyleColor",
       includes_currentcolor: true,
     },
@@ -7684,6 +7825,7 @@
       inherited: true,
       surrogate_for: "text-combine-upright",
       stored_on_extra_field: ["crbug.com/40919412"],
+      keywords: ["none", "horizontal"],
     },
     {
       name: "text-emphasis-color",
@@ -7727,6 +7869,7 @@
       style_builder_custom_functions: ["initial", "inherit", "value"],
       valid_for_marker: true,
       stored_on_extra_field: ["TextEmphasisFill", "TextEmphasisMark", "TextEmphasisCustomMark"],
+      invalidate: ["reshape"],
     },
     {
       name: "-webkit-text-fill-color",
@@ -7758,6 +7901,7 @@
       invalidate: ["layout"],
       runtime_flag: "CssTextFit",
       percentages_depend_on_used_value: false,
+      keywords: ["none", "shrink", "grow"],
     },
     {
       name: "-webkit-text-security",
@@ -7864,6 +8008,11 @@
       field_group: "*",
       field_template: "keyword",
       keywords: ["auto", "none", "text", "all", "contain"],
+      // `contain` is an experimental keyword and currenly behind the
+      // CSSUserSelectContain flag.
+      // Since it is not fully supported yet, we are not exposing it to
+      // devtools.
+      devtools_keywords: ["auto", "none", "text", "all"],
       typedom_types: ["Keyword"],
       default_value: "auto",
       valid_for_permission_element: true,
@@ -8083,6 +8232,7 @@
       valid_for_position_try: true,
       valid_for_page_context: true,
       percentages_depend_on_used_value: true,
+      keywords: ["auto", "min-content", "max-content", "fit-content", "stretch"],
     },
     {
       name: "min-block-size",
@@ -8096,6 +8246,7 @@
       valid_for_permission_element: true,
       valid_for_page_context: true,
       percentages_depend_on_used_value: true,
+      keywords: ["auto", "min-content", "max-content", "fit-content", "stretch"],
     },
     {
       name: "max-inline-size",
@@ -8248,6 +8399,7 @@
       valid_for_first_letter: true,
       valid_for_permission_element: true,
       valid_for_page_context: true,
+      keywords: ["medium", "thick", "thin"],
     },
     {
       name: "border-inline-start-style",
@@ -8258,6 +8410,8 @@
       valid_for_first_letter: true,
       valid_for_permission_element: true,
       valid_for_page_context: true,
+      keywords: ["none", "hidden", "inset", "groove", "outset", "ridge",
+                "dotted", "dashed", "solid", "double"],
     },
     {
       name: "border-inline-start-color",
@@ -8280,6 +8434,7 @@
       valid_for_first_letter: true,
       valid_for_permission_element: true,
       valid_for_page_context: true,
+      keywords: ["medium", "thick", "thin"],
     },
     {
       name: "border-inline-end-style",
@@ -8290,6 +8445,8 @@
       valid_for_first_letter: true,
       valid_for_permission_element: true,
       valid_for_page_context: true,
+      keywords: ["none", "hidden", "inset", "groove", "outset", "ridge",
+                "dotted", "dashed", "solid", "double"],
     },
     {
       name: "border-inline-end-color",
@@ -8312,6 +8469,7 @@
       valid_for_first_letter: true,
       valid_for_permission_element: true,
       valid_for_page_context: true,
+      keywords: ["medium", "thick", "thin"],
     },
     {
       name: "border-block-start-style",
@@ -8322,6 +8480,8 @@
       valid_for_first_letter: true,
       valid_for_permission_element: true,
       valid_for_page_context: true,
+      keywords: ["none", "hidden", "inset", "groove", "outset", "ridge",
+                "dotted", "dashed", "solid", "double"],
     },
     {
       name: "border-block-start-color",
@@ -8344,6 +8504,7 @@
       valid_for_first_letter: true,
       valid_for_permission_element: true,
       valid_for_page_context: true,
+      keywords: ["medium", "thick", "thin"],
     },
     {
       name: "border-block-end-style",
@@ -8354,6 +8515,8 @@
       valid_for_first_letter: true,
       valid_for_permission_element: true,
       valid_for_page_context: true,
+      keywords: ["none", "hidden", "inset", "groove", "outset", "ridge",
+                "dotted", "dashed", "solid", "double"],
     },
     {
       name: "border-block-end-color",
@@ -8378,6 +8541,7 @@
       layout_dependent: true,
       valid_for_permission_element: true,
       percentages_depend_on_used_value: true,
+      keywords: ["auto"],
     },
     {
       name: "inset-inline-end",
@@ -8391,6 +8555,7 @@
       layout_dependent: true,
       valid_for_permission_element: true,
       percentages_depend_on_used_value: true,
+      keywords: ["auto"],
     },
     {
       name: "inset-block-start",
@@ -8404,6 +8569,7 @@
       layout_dependent: true,
       valid_for_permission_element: true,
       percentages_depend_on_used_value: true,
+      keywords: ["auto"],
     },
     {
       name: "inset-block-end",
@@ -8418,6 +8584,7 @@
       valid_for_permission_element: true,
       valid_for_page_context: true,
       percentages_depend_on_used_value: true,
+      keywords: ["auto"],
     },
     {
       name: "border-start-start-radius",
@@ -8651,6 +8818,8 @@
       inherited: true,
       style_builder_template: "empty",
       stored_on_extra_field: ["crbug.com/40919412"],
+      keywords: ["none", "blink", "line-through", "overline", "underline",
+                "spelling-error", "grammar-error"],
     },
 
     // Descriptor only names
@@ -8832,7 +9001,7 @@
     {
       name: "position-area",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
-      style_builder_custom_functions: ["value", "inherit"],
+      style_builder_custom_functions: ["initial", "inherit", "value"],
       field_group: "*",
       field_template: "external",
       include_paths: ["third_party/blink/renderer/core/style/position_area.h"],
@@ -8841,7 +9010,17 @@
       type_name: "PositionArea",
       keywords: [
         "none", "top", "bottom", "center", "left", "right", "x-start", "x-end",
-        "y-start", "y-end", "start", "end", "self-start", "self-end", "all"
+        "y-start", "y-end", "start", "end", "self-start", "self-end", "span-all",
+        "span-left", "span-right", "span-x-start", "span-x-end",
+        "self-x-start", "self-x-end", "span-self-x-start", "span-self-x-end",
+        "span-top", "span-bottom", "span-y-start", "span-y-end",
+        "self-y-start", "self-y-end", "span-self-y-start", "span-self-y-end",
+        "block-start", "block-end", "span-block-start", "span-block-end",
+        "inline-start", "inline-end", "span-inline-start", "span-inline-end",
+        "self-block-start", "self-block-end", "span-self-block-start",
+        "span-self-block-end", "self-inline-start", "self-inline-end",
+        "span-self-inline-start", "span-self-inline-end", "span-start",
+        "span-end", "span-self-start", "span-self-end"
       ],
       typedom_keywords: ["none"],
       typedom_types: ["Keyword"],
@@ -8888,6 +9067,11 @@
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
       supports_incremental_style: true,
       valid_for_page_context: true,
+      devtools_keywords: ["none", "left", "right", "center", "top", "bottom",
+        "repeat", "no-repeat", "repeat-x", "repeat-y", "round", "space",
+        "scroll", "fixed", "local", "border-box", "padding-box", "content-box",
+         "text", "border-area", "currentcolor"
+      ],
     },
     {
       name: "background-position",
@@ -8909,6 +9093,10 @@
       ],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
       valid_for_page_context: true,
+      devtools_keywords: ["none", "hidden", "inset", "groove", "outset", "ridge",
+        "dotted", "dashed", "solid", "double", "thin", "medium", "thick",
+        "currentcolor"
+      ],
     },
     {
       name: "border-block",
@@ -8993,6 +9181,7 @@
       ],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
       valid_for_page_context: true,
+      keywords: ["none", "repeat", "stretch", "space", "round"],
     },
     {
       name: "border-inline",
@@ -9150,6 +9339,7 @@
       },
       typedom_types: ["Keyword", "Length"],
       valid_for_permission_element: true,
+      keywords: ["none"],
     },
     {
       name: "contain-intrinsic-block-size",
@@ -9160,6 +9350,7 @@
       },
       typedom_types: ["Keyword", "Length"],
       valid_for_permission_element: true,
+      keywords: ["none"],
     },
     {
       name: "contain-intrinsic-size",
@@ -9176,6 +9367,7 @@
         "container-name", "container-type"
       ],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
+      devtools_keywords: ["none"],
     },
     {
       name: "corner-top-shape",
@@ -9437,6 +9629,10 @@
       name: "flex",
       longhands: ["flex-grow", "flex-shrink", "flex-basis"],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
+      devtools_keywords: [
+        "none", "auto", "content", "min-content", "max-content", "fit-content",
+        "stretch"
+      ],
     },
     {
       name: "flex-flow",
@@ -9457,6 +9653,7 @@
       // Changes to anything related to fonts require that we call style.UpdateFont(),
       // which the incremental path does not do.
       supports_incremental_style: false,
+      devtools_keywords: [],
     },
     {
       name: "font-variant",
@@ -9477,6 +9674,7 @@
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
       // See comment on font.
       supports_incremental_style: false,
+      devtools_keywords: ["none"],
     },
     {
       name: "grid",
@@ -9486,6 +9684,7 @@
       ],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
       layout_dependent: true,
+      devtools_keywords: ["none"],
     },
     {
       name: "place-content",
@@ -9540,6 +9739,7 @@
       ],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
       layout_dependent: true,
+      devtools_keywords: ["none"],
     },
     {
       name: "inset",
@@ -9611,6 +9811,8 @@
       longhands: ["outline-color", "outline-style", "outline-width"],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
       valid_for_page_context: true,
+      keywords: ["auto", "none", "inset", "groove", "ridge", "outset", "dotted",
+                "dashed", "solid", "double", "medium", "thick", "thin"],
     },
     {
       name: "overflow",
@@ -9623,6 +9825,7 @@
       name: "overscroll-behavior",
       longhands: ["overscroll-behavior-x", "overscroll-behavior-y"],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
+      keywords: ["auto", "none", "contain"],
     },
     {
       name: "padding",
@@ -9655,6 +9858,7 @@
       name: "page-break-before",
       longhands: ["break-before"],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
+      keywords: ["auto", "left", "right", "always", "avoid"],
     },
     {
       name: "page-break-inside",
@@ -9839,6 +10043,7 @@
       name: "view-timeline",
       longhands: ["view-timeline-name", "view-timeline-axis", "view-timeline-inset"],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
+      devtools_keywords: ["none"],
     },
     {
       name: "-webkit-border-after",
@@ -9890,6 +10095,7 @@
       name: "columns",
       longhands: ["column-width", "column-count", "column-height", "column-wrap"],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
+      devtools_keywords: ["auto"],
     },
     {
       name: "mask",
@@ -9899,6 +10105,9 @@
         "mask-clip", "mask-composite", "mask-mode"
       ],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
+      devtools_keywords: ["none", "left", "right", "center", "top", "bottom",
+        "subtract", "intersect", "exclude", "alpha", "luminance", "match-source"
+      ],
     },
     {
       name: "-webkit-mask",
@@ -9913,6 +10122,7 @@
       ],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
       computable: true,
+      devtools_keywords: ["none", "stretch", "repeat", "space", "round"],
     },
     {
       name: "mask-position",

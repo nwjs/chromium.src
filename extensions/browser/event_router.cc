@@ -15,6 +15,7 @@
 
 #include "base/atomic_sequence_num.h"
 #include "base/check_is_test.h"
+#include "base/command_line.h"
 #include "base/debug/crash_logging.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -54,6 +55,7 @@
 #include "extensions/common/mojom/context_type.mojom.h"
 #include "extensions/common/mojom/event_dispatcher.mojom.h"
 #include "extensions/common/permissions/permissions_data.h"
+#include "extensions/common/switches.h"
 #include "extensions/common/utils/extension_utils.h"
 #include "ipc/ipc_channel_proxy.h"
 #include "url/origin.h"
@@ -1309,6 +1311,11 @@ void EventRouter::DispatchEventToProcess(const ExtensionId& extension_id,
                                          int worker_thread_id,
                                          std::unique_ptr<Event> event,
                                          bool did_enqueue) {
+  if (!event->exclude_process_id.is_null() &&
+      event->exclude_process_id == process->GetID()) {
+    return;
+  }
+
   BrowserContext* listener_context = process->GetBrowserContext();
   ProcessMap* process_map = ProcessMap::Get(listener_context);
 
@@ -1357,13 +1364,18 @@ void EventRouter::DispatchEventToProcess(const ExtensionId& extension_id,
     const Feature* feature =
         ExtensionAPI::GetSharedInstance()->GetFeatureDependency(
             event->event_name);
+    bool is_test_api_event = base::StartsWith(event->event_name, "test.",
+                                              base::CompareCase::SENSITIVE);
 
     bool feature_available_to_web_page_context =
         feature_available_to_context &&
         feature->RequiresDelegatedAvailabilityCheck();
 
     CHECK(feature->RequiresDelegatedAvailabilityCheck() ||
-          is_new_webstore_origin || feature_available_to_web_page_context)
+          is_new_webstore_origin || feature_available_to_web_page_context ||
+          // The `chrome.test` API can send events to web pages during tests.
+          (is_test_api_event && base::CommandLine::ForCurrentProcess()->HasSwitch(
+                                    switches::kExtensionTestApiOnWebPages)))
         << "Trying to dispatch event " << event->event_name << " to a webpage,"
         << " but this shouldn't be possible";
   }
@@ -1698,8 +1710,7 @@ void EventRouter::AddFilterToEvent(const std::string& event_name,
   filter_list->Append(filter.Clone());
 }
 
-// TODO(crbug.com/474558883): Remove this after webRequest listener persistence
-// is stable for a few milestones.
+// TODO(crbug.com/474558883): Remove this in M157.
 void EventRouter::RemoveOrphanedWebRequestEvents(
     const ExtensionId& extension_id,
     std::set<std::string>& events,
@@ -1909,6 +1920,7 @@ std::unique_ptr<Event> Event::CopySelectively(bool copy_event_args,
       user_gesture, std::move(copied_filter_info),
       lazy_background_active_on_dispatch, dispatch_start_time);
 
+  copy->exclude_process_id = exclude_process_id;
   copy->will_dispatch_callback = will_dispatch_callback;
   copy->did_dispatch_callback = did_dispatch_callback;
   copy->cannot_dispatch_callback = cannot_dispatch_callback;

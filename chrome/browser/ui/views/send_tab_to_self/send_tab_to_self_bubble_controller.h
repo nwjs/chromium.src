@@ -17,6 +17,7 @@
 #include "components/send_tab_to_self/metrics_util.h"
 #include "components/send_tab_to_self/send_tab_to_self_model_observer.h"
 #include "components/sync_device_info/device_info.h"
+#include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "ui/views/widget/widget_observer.h"
 #include "url/gurl.h"
@@ -51,12 +52,12 @@ namespace send_tab_to_self {
 enum class SendTabToSelfResult;
 class SendTabToSelfBubbleView;
 struct TargetDeviceInfo;
-class SendTabToSelfEntry;
 
 class SendTabToSelfModel;
 
 class SendTabToSelfBubbleController
     : public content::WebContentsUserData<SendTabToSelfBubbleController>,
+      public content::WebContentsObserver,
       public views::WidgetObserver,
       public send_tab_to_self::SendTabToSelfModelObserver {
  public:
@@ -69,7 +70,7 @@ class SendTabToSelfBubbleController
   // Hides send tab to self bubble.
   void HideBubble();
   // Displays send tab to self bubble.
-  void ShowBubble(bool show_back_button = false);
+  void ShowBubble(ShareEntryPoint entry_point, bool show_back_button = false);
 
   bool IsBubbleShown() const;
 
@@ -133,13 +134,13 @@ class SendTabToSelfBubbleController
                                    syncer::DeviceInfo::FormFactor form_factor,
                                    SendTabToSelfResult result);
 
+  // content::WebContentsObserver:
+  void PrimaryPageChanged(content::Page& page) override;
+
   // views::WidgetObserver:
   void OnWidgetDestroying(views::Widget* widget) override;
 
   // send_tab_to_self::SendTabToSelfModelObserver:
-  void OnEntriesAddedRemotely(
-      const std::vector<const SendTabToSelfEntry*>& new_entries) override;
-  void OnEntriesRemovedRemotely(const std::vector<std::string>& guids) override;
   void OnModelReady() override;
 
   // Returns true if the user is signed in to their Chrome profile but the Send
@@ -155,6 +156,8 @@ class SendTabToSelfBubbleController
   raw_ptr<SendTabToSelfBubbleView> send_tab_to_self_bubble_view_ = nullptr;
   // True if the back button is currently shown.
   bool show_back_button_ = false;
+
+  std::optional<ShareEntryPoint> entry_point_;
 
   raw_ptr<actions::ActionItem> send_tab_to_self_action_item_ = nullptr;
 

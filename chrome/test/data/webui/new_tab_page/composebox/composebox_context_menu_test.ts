@@ -3,12 +3,15 @@
 // found in the LICENSE file.
 
 import {$$} from 'chrome://new-tab-page/new_tab_page.js';
+import {TabUploadOrigin} from 'chrome://resources/cr_components/composebox/common.js';
+import type {ComposeboxState} from 'chrome://resources/cr_components/composebox/common.js';
 import {ContextUploadErrorType, InputType, ToolMode} from 'chrome://resources/cr_components/composebox/composebox_query.mojom-webui.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
+import type {UnguessableToken} from 'chrome://resources/mojo/mojo/public/mojom/base/unguessable_token.mojom-webui.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
 
-import {ADD_TAB_CONTEXT_FN, createComposeboxElement, MockInputState, setupComposeboxTest} from './test_support.js';
+import {ADD_TAB_CONTEXT_FN, createComposeboxElement, FAKE_TOKEN_STRING, MockInputState, setupComposeboxTest} from './test_support.js';
 
 // ==========================================================
 // 1. BASE SUITE (Runs ONLY on cr-composebox element)
@@ -81,68 +84,52 @@ suite('NewTabPageComposeboxContextMenuTest', () => {
           const contextMenuButton = $$(testProxy.element, '#contextEntrypoint');
 
           assertFalse(!!contextMenuButton);
-        });
-
-    test('add tab context', async () => {
-      createComposeboxElement(testProxy);
-      testProxy.searchboxHandler.setPromiseResolveFor(
-          ADD_TAB_CONTEXT_FN, {low: BigInt(1), high: BigInt(2)});
-
-      // Assert no files.
-      assertFalse(!!$$<HTMLElement>(testProxy.element, '#carousel'));
-
-      const contextMenuButton = $$(testProxy.element, '#contextEntrypoint');
-      assertTrue(!!contextMenuButton);
-      const sampleTabTitle = 'Sample Tab';
-      contextMenuButton.dispatchEvent(new CustomEvent('add-tab-context', {
-        detail: {id: 1, title: sampleTabTitle},
-        bubbles: true,
-        composed: true,
-      }));
-
-      await testProxy.searchboxHandler.whenCalled(ADD_TAB_CONTEXT_FN);
-      await microtasksFinished();
-      const files = testProxy.element.$.carousel.files;
-      assertEquals(files.length, 1);
-      assertEquals(files[0]!.type, 'tab');
-      assertEquals(files[0]!.name, sampleTabTitle);
-    });
-
-    test('add tab context fails', async () => {
-      createComposeboxElement(testProxy);
-      // Set the promise to reject to simulate a failure.
-      testProxy.searchboxHandler.setResultMapperFor(ADD_TAB_CONTEXT_FN, () => {
-        return Promise.reject(ContextUploadErrorType.kBrowserProcessingError);
       });
 
-      // Assert no files.
-      assertFalse(!!$$<HTMLElement>(testProxy.element, '#carousel'));
+    test(
+        'context menu is rendered when contextMenuEnabled is true, ' +
+            'regardless of tabs',
+        async () => {
+          createComposeboxElement(testProxy);
 
-      const contextMenuButton = $$(testProxy.element, '#contextEntrypoint');
-      assertTrue(!!contextMenuButton);
-      const sampleTabTitle = 'Sample Tab';
-      let contextAdded = false;
-      const callback = (_file: unknown) => {
-        contextAdded = true;
-      };
+          // Verify with tabs
+          testProxy.element.hasTabs = () => true;
+          testProxy.element.contextMenuEnabled = true;
+          await microtasksFinished();
+          await testProxy.element.updateComplete;
 
-      contextMenuButton.dispatchEvent(new CustomEvent('add-tab-context', {
-        detail: {id: 1, title: sampleTabTitle, onContextAdded: callback},
-        bubbles: true,
-        composed: true,
-      }));
+          let contextMenus = testProxy.element.shadowRoot.querySelectorAll(
+              '#contextMenuContainer');
+          assertEquals(1, contextMenus.length);  // Not 2 of them; only 1.
 
-      await testProxy.searchboxHandler.whenCalled(ADD_TAB_CONTEXT_FN);
-      await microtasksFinished();
+          testProxy.element.contextMenuEnabled = false;
+          await microtasksFinished();
+          await testProxy.element.updateComplete;
 
-      // Assert callback was not called and no files in carousel.
-      assertFalse(contextAdded);
-      assertFalse(!!$$<HTMLElement>(testProxy.element, '#carousel'));
+          contextMenus = testProxy.element.shadowRoot.querySelectorAll(
+              '#contextMenuContainer');
+          assertEquals(0, contextMenus.length);
 
-      assertEquals(
-          loadTimeData.getString('composeboxFileUploadFailed'),
-          testProxy.element.$.errorScrim.errorMessage);
-    });
+          // Verify without tabs
+          testProxy.element.hasTabs = () => false;
+          testProxy.element.contextMenuEnabled = true;
+          await microtasksFinished();
+          await testProxy.element.updateComplete;
+
+          // When there are no tabs, the context menu is now unconditionally
+          // rendered if contextMenuEnabled is true.
+          contextMenus = testProxy.element.shadowRoot.querySelectorAll(
+              '#contextMenuContainer');
+          assertEquals(1, contextMenus.length);
+
+          testProxy.element.contextMenuEnabled = false;
+          await microtasksFinished();
+          await testProxy.element.updateComplete;
+
+          contextMenus = testProxy.element.shadowRoot.querySelectorAll(
+              '#contextMenuContainer');
+          assertEquals(0, contextMenus.length);
+        });
   });
 
   suite('Context menu mouse events', () => {
@@ -280,6 +267,71 @@ suite('NewTabPageComposeboxContextMenuTest', () => {
             const contextMenuButton =
                 $$(testProxy.element, '#contextEntrypoint');
             assertTrue(!!contextMenuButton);
+          });
+
+          test('add tab context', async () => {
+            createComposeboxElement(testProxy);
+            testProxy.searchboxHandler.setPromiseResolveFor(
+                ADD_TAB_CONTEXT_FN, {low: BigInt(1), high: BigInt(2)});
+
+            // Assert no files.
+            assertFalse(!!$$<HTMLElement>(testProxy.element, '#carousel'));
+
+            const contextMenuButton =
+                $$(testProxy.element, '#contextEntrypoint');
+            assertTrue(!!contextMenuButton);
+            const sampleTabTitle = 'Sample Tab';
+            contextMenuButton.dispatchEvent(new CustomEvent('add-tab-context', {
+              detail: {id: 1, title: sampleTabTitle},
+              bubbles: true,
+              composed: true,
+            }));
+
+            await testProxy.searchboxHandler.whenCalled(ADD_TAB_CONTEXT_FN);
+            await microtasksFinished();
+            const files = testProxy.element.$.carousel.files;
+            assertEquals(files.length, 1);
+            assertEquals(files[0]!.type, 'tab');
+            assertEquals(files[0]!.name, sampleTabTitle);
+          });
+
+          test('add tab context fails', async () => {
+            createComposeboxElement(testProxy);
+            // Set the promise to reject to simulate a failure.
+            testProxy.searchboxHandler.setResultMapperFor(
+                ADD_TAB_CONTEXT_FN, () => {
+                  return Promise.reject(
+                      ContextUploadErrorType.kBrowserProcessingError);
+                });
+
+            // Assert no files.
+            assertFalse(!!$$<HTMLElement>(testProxy.element, '#carousel'));
+
+            const contextMenuButton =
+                $$(testProxy.element, '#contextEntrypoint');
+            assertTrue(!!contextMenuButton);
+            const sampleTabTitle = 'Sample Tab';
+            let contextAdded = false;
+            const callback = (_file: unknown) => {
+              contextAdded = true;
+            };
+
+            contextMenuButton.dispatchEvent(new CustomEvent('add-tab-context', {
+              detail: {id: 1, title: sampleTabTitle, onContextAdded: callback},
+              bubbles: true,
+              composed: true,
+            }));
+
+            await testProxy.searchboxHandler.whenCalled(ADD_TAB_CONTEXT_FN);
+            await microtasksFinished();
+
+            // Assert callback was not called and no files in carousel.
+            assertFalse(contextAdded);
+            assertFalse(!!$$<HTMLElement>(testProxy.element, '#carousel'));
+
+            assertEquals(
+                loadTimeData.getString('composeboxFileUploadFailed'),
+                testProxy.element.$.errorScrim.errorMessage);
           });
 
           test('tab changes calls getRecentTabs', async () => {
@@ -569,7 +621,7 @@ suite('NewTabPageComposeboxContextMenuTest', () => {
 
             const items =
                 contextualActionMenu.$.menu.querySelectorAll<HTMLButtonElement>(
-                    '.dropdown-item');
+                    '.dropdown-item[data-index]');
             assertEquals(items.length, 2);
 
             // Find the button for Tab 1 (which was index 0 originally, but now
@@ -591,6 +643,165 @@ suite('NewTabPageComposeboxContextMenuTest', () => {
                 await testProxy.searchboxHandler.whenCalled(ADD_TAB_CONTEXT_FN);
             assertEquals(args[0], 1);
           });
+
+          test('keeps menu open during slow tab add', async () => {
+            loadTimeData.overrideValues({
+              contextManagementInComposeboxEnabled: true,
+              keepMenuOpenOnTabSelectForRealbox: true,
+              composeboxContextMenuEnableMultiTabSelection: true,
+            });
+            createComposeboxElement(testProxy);
+
+            const sampleTabs = [{
+              tabId: 1,
+              title: 'Tab 1',
+              url: 'https://example.com/1',
+              showInRecentTabChip: true,
+              lastActive: {internalValue: BigInt(1)},
+            }];
+            testProxy.searchboxHandler.setResultFor(
+                'getRecentTabs', Promise.resolve({tabs: sampleTabs}));
+
+            const inputState = new MockInputState({
+              allowedInputTypes: [InputType.kBrowserTab],
+            });
+            testProxy.searchboxCallbackRouterRemote.onInputStateChanged(
+                inputState);
+            await testProxy.searchboxCallbackRouterRemote.$.flushForTesting();
+
+            const entrypointAndMenu =
+                testProxy.element.shadowRoot.querySelector(
+                    'cr-composebox-contextual-entrypoint-and-menu');
+            assertTrue(!!entrypointAndMenu);
+            const contextMenuEntrypoint =
+                entrypointAndMenu.shadowRoot.querySelector(
+                    'cr-composebox-contextual-entrypoint-button');
+            assertTrue(!!contextMenuEntrypoint);
+            const entrypointButton =
+                contextMenuEntrypoint.shadowRoot.querySelector<HTMLElement>(
+                    '#entrypoint');
+            assertTrue(!!entrypointButton);
+            entrypointButton.click();
+            await microtasksFinished();
+
+            const contextualActionMenu =
+                entrypointAndMenu.shadowRoot.querySelector(
+                    'cr-composebox-contextual-action-menu');
+            assertTrue(!!contextualActionMenu);
+            await contextualActionMenu.updateComplete;
+
+            const trigger = contextualActionMenu.shadowRoot.querySelector(
+                '#shareTabsTrigger');
+            assertTrue(!!trigger);
+            trigger.dispatchEvent(new PointerEvent('pointerenter'));
+            await contextualActionMenu.updateComplete;
+            assertTrue(contextualActionMenu.shareTabsFlyoutOpen);
+
+            // Simulate moving pointer from trigger to flyout.
+            trigger.dispatchEvent(new PointerEvent('pointerleave'));
+            const flyout = contextualActionMenu.shadowRoot.querySelector(
+                '.share-tabs-flyout');
+            assertTrue(!!flyout);
+            flyout.dispatchEvent(new PointerEvent('pointerenter'));
+            await contextualActionMenu.updateComplete;
+
+            let resolveAddTab: (value: UnguessableToken|null) => void =
+                () => {};
+            const addTabPromise =
+                new Promise<UnguessableToken|null>(resolve => {
+                  resolveAddTab = resolve;
+                });
+            testProxy.searchboxHandler.setResultFor(
+                ADD_TAB_CONTEXT_FN, addTabPromise);
+
+            const item =
+                contextualActionMenu.shadowRoot
+                    .querySelector<HTMLButtonElement>(
+                        '.share-tabs-flyout .dropdown-item[data-index="0"]');
+            assertTrue(!!item);
+            item.click();
+
+            await testProxy.searchboxHandler.whenCalled(ADD_TAB_CONTEXT_FN);
+
+            // Simulate leaving the flyout while tab is being added.
+            flyout.dispatchEvent(new PointerEvent('pointerleave'));
+
+            // Wait 1200ms (FIRST_TAB_DELAY is 1000ms).
+            await new Promise(resolve => setTimeout(resolve, 1200));
+
+            // Should still be open because firstTabBeingAdded_ is true (5000ms
+            // safety timer).
+            assertTrue(contextualActionMenu.shareTabsFlyoutOpen);
+
+            // Resolve the add tab call.
+            resolveAddTab(FAKE_TOKEN_STRING);
+            await microtasksFinished();
+
+            // Simulate the mixin updating addedTabsIds.
+            testProxy.element.addedTabsIds = new Map([[1, FAKE_TOKEN_STRING]]);
+            await testProxy.element.updateComplete;
+            await entrypointAndMenu.updateComplete;
+            await contextualActionMenu.updateComplete;
+
+            // Wait for both firstTabBeingAdded timer (1000ms) and close timer
+            // (300ms) + buffer.
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
+            // Should now be closed automatically because pointer left and tab
+            // was added.
+            assertFalse(contextualActionMenu.shareTabsFlyoutOpen);
+          });
+
+          test(
+              'reopens menu when initialized with tab from context menu',
+              async () => {
+                loadTimeData.overrideValues({
+                  contextManagementInComposeboxEnabled: true,
+                  keepMenuOpenOnTabSelectForRealbox: true,
+                  composeboxContextMenuEnableMultiTabSelection: true,
+                });
+
+                const sampleTabs = [{
+                  tabId: 1,
+                  title: 'Tab 1',
+                  url: 'https://example.com/1',
+                  showInRecentTabChip: true,
+                  lastActive: {internalValue: BigInt(1)},
+                }];
+                testProxy.searchboxHandler.setResultFor(
+                    'getRecentTabs', Promise.resolve({tabs: sampleTabs}));
+
+                const initialState: ComposeboxState = {
+                  text: '',
+                  files: [{
+                    tabId: 1,
+                    url: 'https://example.com/1',
+                    title: 'Tab 1',
+                    origin: TabUploadOrigin.CONTEXT_MENU,
+                    delayUpload: false,
+                  }],
+                  mode: ToolMode.kUnspecified,
+                  model: 0,
+                };
+
+                createComposeboxElement(testProxy, {state: initialState});
+                await testProxy.element.updateComplete;
+
+                const entrypointAndMenu =
+                    testProxy.element.shadowRoot.querySelector(
+                        'cr-composebox-contextual-entrypoint-and-menu');
+                assertTrue(!!entrypointAndMenu);
+                await entrypointAndMenu.updateComplete;
+
+                const contextualActionMenu =
+                    entrypointAndMenu.shadowRoot.querySelector(
+                        'cr-composebox-contextual-action-menu');
+                assertTrue(!!contextualActionMenu);
+                await contextualActionMenu.updateComplete;
+
+                // Verify that the menu is open and the flyout is open.
+                assertTrue(contextualActionMenu.shareTabsFlyoutOpen);
+              });
         });
 
         suite('Context menu mouse events', () => {

@@ -13,12 +13,13 @@
 @protocol BubblePresenterDelegate;
 @class BubbleViewControllerPresenter;
 @class FeedMetricsRecorder;
+@protocol FullscreenCommands;
 class FullscreenController;
+@protocol GeminiCommands;
 class HostContentSettingsMap;
 @class LayoutGuideCenter;
+@class LayoutState;
 class OverlayPresenter;
-@protocol BWGCommands;
-@protocol FullscreenCommands;
 @protocol PageActionMenuEntryPointCommands;
 @protocol PopupMenuCommands;
 @protocol TabStripCommands;
@@ -46,6 +47,7 @@ class DeviceSwitcherResultDispatcher;
                      webStateList:(raw_ptr<WebStateList>)webStateList
              fullscreenController:
                  (raw_ptr<FullscreenController>)fullscreenController
+                      layoutState:(LayoutState*)layoutState
     overlayPresenterForWebContent:
         (raw_ptr<OverlayPresenter>)webContentOverlayPresenter
                     infobarBanner:(raw_ptr<OverlayPresenter>)bannerPresenter
@@ -65,7 +67,7 @@ class DeviceSwitcherResultDispatcher;
 @property(nonatomic, weak) id<FullscreenCommands> fullscreenHandler;
 
 // Command handler for dispatching Gemini commands.
-@property(nonatomic, weak) id<BWGCommands> geminiHandler;
+@property(nonatomic, weak) id<GeminiCommands> geminiHandler;
 
 // The view controller that presents the bubbles.
 @property(nonatomic, weak) UIViewController* rootViewController;
@@ -173,10 +175,11 @@ class DeviceSwitcherResultDispatcher;
 
 // Optionally presents a bubble associated with the Gemini image remix feature
 // (Page Action Menu entry point).
-- (void)presentGeminiImageRemixBubbleWithBWGHandler:(id<BWGCommands>)BWGHandler
-                    pageActionMenuEntryPointHandler:
-                        (id<PageActionMenuEntryPointCommands>)
-                            pageActionMenuEntryPointHandler;
+- (void)presentGeminiImageRemixBubbleWithGeminiHandler:
+            (id<GeminiCommands>)geminiHandler
+                       pageActionMenuEntryPointHandler:
+                           (id<PageActionMenuEntryPointCommands>)
+                               pageActionMenuEntryPointHandler;
 
 // Delegate method to be invoked when the user has performed a swipe on the
 // toolbar to switch tabs. Remove `toolbarSwipeGestureIPH` if visible.

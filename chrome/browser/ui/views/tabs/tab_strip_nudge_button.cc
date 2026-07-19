@@ -5,7 +5,6 @@
 #include "chrome/browser/ui/views/tabs/tab_strip_nudge_button.h"
 
 #include "chrome/app/vector_icons/vector_icons.h"
-#include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_control_button.h"
 #include "chrome/grit/generated_resources.h"
@@ -153,7 +152,7 @@ void TabStripNudgeButton::SetCloseButton(PressedCallback pressed_callback) {
 
   const ui::ImageModel icon_image_model = ui::ImageModel::FromVectorIcon(
       features::IsRoundedIconsEnabled()
-          ? vector_icons::kCloseSmallIcon
+          ? vector_icons::kCloseIcon
           : vector_icons::kCloseChromeRefreshOldIcon,
       kColorTabSearchButtonCRForegroundFrameActive,
       kTabStripNudgeCloseButtonSize);

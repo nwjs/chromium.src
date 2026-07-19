@@ -23,6 +23,9 @@ import "services/network/public/mojom/storage_access_api.mojom";
 import "services/network/public/mojom/url_loader_completion_status.mojom";
 import "services/network/public/mojom/attribution.mojom";
 import "services/viz/public/mojom/compositing/offset_tag.mojom";
+import "services/viz/public/mojom/compositing/frame_sink_id.mojom";
+import "services/viz/public/mojom/compositing/local_surface_id.mojom";
+import "services/viz/public/mojom/compositing/compositor_frame_sink.mojom";
 import "skia/public/mojom/bitmap.mojom";
 import "skia/public/mojom/skcolor.mojom";
 import "skia/public/mojom/skcolor4f.mojom";
@@ -45,6 +48,7 @@ import "third_party/blink/public/mojom/fenced_frame/fenced_frame_config.mojom";
 import "third_party/blink/public/mojom/fetch/fetch_api_request.mojom";
 import "third_party/blink/public/mojom/frame/blocked_navigation_types.mojom";
 import "third_party/blink/public/mojom/frame/frame_owner_properties.mojom";
+import "third_party/blink/public/mojom/unbounded_element/unbounded_element.mojom";
 import "third_party/blink/public/mojom/frame/frame_policy.mojom";
 import "third_party/blink/public/mojom/frame/frame_replication_state.mojom";
 import "third_party/blink/public/mojom/frame/fullscreen.mojom";
@@ -272,20 +276,6 @@ struct SubframeResourceLengths {
 // data; see `CreateCrashReportContext()`.
 const uint64 kMaxCrashReportContextSize = 65536;
 
-// Implemented on the browser side, this interface manages lifetime
-// operations and window resizing actions for unbounded elements.
-// Note: This interface should only be exposed to trusted renderers.
-interface UnboundedSurfaceHost {
-};
-
-// Implemented on the renderer side, this interface receives events
-// from the browser process when an unbounded element's display
-// surface is dismissed.
-interface UnboundedSurfaceClient {
-  // Notification from the browser that the unbounded element window has been
-  // dismissed. E.g. by light dismiss or user hitting ESC.
-  OnDismissed();
-};
 
 // Implemented in Browser, this interface defines frame-specific methods that
 // will be invoked from the render process (e.g. content::RenderFrameHostImpl).
@@ -526,7 +516,8 @@ interface LocalFrameHost {
   RunBeforeUnloadConfirm(bool is_reload) => (bool success);
 
   // Notifies that the urls for the favicon of a site has been determined.
-  UpdateFaviconURL(array<FaviconURL> favicon_urls);
+  UpdateFaviconURL(array<FaviconURL> favicon_urls,
+                   FaviconUpdateReason reason);
 
   // Initiates a download based on user actions like 'ALT+click'.
   DownloadURL(DownloadURLParams params);
@@ -1417,10 +1408,19 @@ interface LocalMainFrameHost {
   // Frame unload handlers should have already been called before this method is called.
   RequestClose();
 
-  // Request that the browser change the bounds of the window.
-  // This corresponds to the window.resizeTo() and window.moveTo() APIs, and the browser
-  // may ignore this message.
+  // Request that the browser change the bounds of the window. This is the
+  // legacy window.move*/resize* path used while kMoveResizeWindowToIPCs is
+  // disabled; when that feature is enabled, move*/resize* use the dedicated
+  // MoveWindowTo/ResizeWindowTo messages below instead.
+  // TODO(crbug.com/512533947): Remove this message once the
+  // kMoveResizeWindowToIPCs kill switch is removed.
   SetWindowRect(gfx.mojom.Rect bounds) => ();
+
+  // window.moveTo() / window.moveBy(): change the outer window origin only.
+  MoveWindowTo(gfx.mojom.Point origin) => ();
+
+  // window.resizeTo() / window.resizeBy(): change the outer window size only.
+  ResizeWindowTo(gfx.mojom.Size size) => ();
 
   // Sent once a paint happens after the first non empty layout. In other words,
   // after the frame has painted something.

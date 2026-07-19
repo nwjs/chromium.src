@@ -21,11 +21,12 @@
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/grit/ios_branded_strings.h"
 #import "ios/chrome/grit/ios_strings.h"
+#import "ui/base/device_form_factor.h"
 #import "ui/base/l10n/l10n_util.h"
 
 namespace {
 
-// Top margin for the managed icon in the enteprised image view
+// Top margin for the managed icon in the enterprise image view.
 constexpr CGFloat kTopMarginForManagedIcon = 16.;
 
 // Point size of enterprise icon in the bottom view.
@@ -70,6 +71,8 @@ NSString* const kCollaborationSigninHeaderBackground =
 @synthesize screenIntent = _screenIntent;
 @synthesize signinStatus = _signinStatus;
 @synthesize syncEnabled = _syncEnabled;
+@synthesize currentPrimaryIdentityEmail = _currentPrimaryIdentityEmail;
+@synthesize targetIdentityEmail = _targetIdentityEmail;
 
 - (instancetype)initWithContextStyle:(SigninContextStyle)contextStyle {
   self = [super init];
@@ -130,9 +133,7 @@ NSString* const kCollaborationSigninHeaderBackground =
       break;
     }
     case SigninScreenConsumerSigninStatusDisabled: {
-      UIUserInterfaceIdiom idiom =
-          [[UIDevice currentDevice] userInterfaceIdiom];
-      if (idiom == UIUserInterfaceIdiomPad) {
+      if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
         self.titleText =
             l10n_util::GetNSString(IDS_IOS_FIRST_RUN_WELCOME_SCREEN_TITLE_IPAD);
       } else {
@@ -373,6 +374,23 @@ NSString* const kCollaborationSigninHeaderBackground =
           l10n_util::GetNSString(IDS_IOS_SIGNIN_GROUP_COLLABORATION_SUBTITLE);
       break;
     }
+    case SigninContextStyle::kDeeplinkSignin: {
+      if (self.currentPrimaryIdentityEmail) {
+        CHECK(self.targetIdentityEmail);
+        self.titleText =
+            l10n_util::GetNSString(IDS_IOS_DEEPLINK_ACCOUNT_SWITCH_TITLE);
+        self.subtitleText = l10n_util::GetNSStringF(
+            IDS_IOS_DEEPLINK_ACCOUNT_SWITCH_SUBTITLE,
+            base::SysNSStringToUTF16(self.currentPrimaryIdentityEmail),
+            base::SysNSStringToUTF16(self.targetIdentityEmail));
+      } else {
+        self.titleText =
+            l10n_util::GetNSString(IDS_IOS_UNO_UPGRADE_PROMO_SIGNIN_TITLE_1);
+        self.subtitleText =
+            l10n_util::GetNSString(IDS_IOS_DEEPLINK_SIGNIN_SUBTITLE);
+      }
+      break;
+    }
     case SigninContextStyle::kDefault: {
       // Use in the context of the fullscreen sign-in promo dialog.
       self.titleText = [self promoSignInHeaderText];
@@ -397,6 +415,16 @@ NSString* const kCollaborationSigninHeaderBackground =
     case SigninContextStyle::kCollaborationShareTabGroup:
       self.configuration.secondaryActionString = l10n_util::GetNSString(
           IDS_IOS_PROMOS_MANAGER_ALERT_PROMO_DEFAULT_CANCEL_BUTTON_TEXT);
+      break;
+    case SigninContextStyle::kDeeplinkSignin:
+      if (self.currentPrimaryIdentityEmail) {
+        self.configuration.secondaryActionString =
+            l10n_util::GetNSString(IDS_IOS_DEEPLINK_ACCOUNT_SWITCH_NO_THANKS);
+        break;
+      } else {
+        self.configuration.secondaryActionString =
+            l10n_util::GetNSString(IDS_IOS_FIRST_RUN_SIGNIN_STAY_SIGNED_OUT);
+      }
       break;
     case SigninContextStyle::kDefault: {
       if (FRESignInSecondaryActionLabelUpdate()) {

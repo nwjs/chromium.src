@@ -43,8 +43,8 @@ class ChooseFileTabHelperTest : public PlatformTest {
 
  protected:
   base::test::TaskEnvironment task_environment_;
-  raw_ptr<ChooseFileTabHelper, DanglingUntriaged> tab_helper_;
   std::unique_ptr<web::FakeWebState> web_state_;
+  raw_ptr<ChooseFileTabHelper> tab_helper_;
 };
 
 // Tests that calling `StopChoosingFiles()` submits file selection and that
@@ -213,6 +213,56 @@ TEST_F(ChooseFileTabHelperTest, DidStartNavigationResetsLastChooseFileEvent) {
 
   // Cross-document navigation should reset last_choose_file_event_.
   navigation_context->SetIsSameDocument(false);
+  tab_helper_->DidStartNavigation(web_state_.get(), navigation_context.get());
+  EXPECT_FALSE(tab_helper_->HasLastChooseFileEvent());
+}
+
+// Tests that file events and panel presentation requests are ignored while a
+// cross-document navigation is pending across documents.
+TEST_F(ChooseFileTabHelperTest, PendingNavigationIgnoresChooseFileEvent) {
+  EXPECT_FALSE(tab_helper_->HasLastChooseFileEvent());
+
+  ChooseFileEvent event = ChooseFileEvent::Builder()
+                              .SetAllowMultipleFiles(false)
+                              .SetHasSelectedFile(false)
+                              .SetWebState(web_state_.get())
+                              .Build();
+
+  auto navigation_context = std::make_unique<web::FakeNavigationContext>();
+  navigation_context->SetIsSameDocument(false);
+  tab_helper_->DidStartNavigation(web_state_.get(), navigation_context.get());
+  EXPECT_FALSE(tab_helper_->HasLastChooseFileEvent());
+
+  // The outgoing document attempts to set a new event while the navigation is
+  // pending. It should be ignored.
+  tab_helper_->SetLastChooseFileEvent(event);
+  EXPECT_FALSE(tab_helper_->HasLastChooseFileEvent());
+
+  if (@available(iOS 18.4, *)) {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndEnableFeature(kIOSCustomFileUploadMenu);
+
+    id parameters = [OCMockObject mockForClass:[WKOpenPanelParameters class]];
+    __block bool completion_called = false;
+    tab_helper_->RunOpenPanel(parameters, /*frame=*/nil,
+                              base::BindOnce(^(NSArray<NSURL*>* result_urls) {
+                                completion_called = true;
+                                EXPECT_NSEQ(nil, result_urls);
+                              }));
+    EXPECT_TRUE(completion_called);
+    EXPECT_FALSE(tab_helper_->IsChoosingFiles());
+  }
+
+  // Uncommitted cross-document navigation finishes. Storing events should work
+  // again.
+  navigation_context->SetHasCommitted(false);
+  tab_helper_->DidFinishNavigation(web_state_.get(), navigation_context.get());
+  tab_helper_->SetLastChooseFileEvent(event);
+  EXPECT_TRUE(tab_helper_->HasLastChooseFileEvent());
+
+  // Committed cross-document navigation should reset last_choose_file_event_.
+  navigation_context->SetIsSameDocument(false);
+  navigation_context->SetHasCommitted(true);
   tab_helper_->DidStartNavigation(web_state_.get(), navigation_context.get());
   EXPECT_FALSE(tab_helper_->HasLastChooseFileEvent());
 }

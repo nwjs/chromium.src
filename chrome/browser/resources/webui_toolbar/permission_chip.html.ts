@@ -10,7 +10,9 @@ export function getHtml(this: PermissionChipElement) {
   // clang-format off
   return (!this.chipState || !this.chipState.isVisible) ? nothing :
       html`<!--_html_template_start_-->
-<div id="chip"
+<button id="chip" type="button"
+    role="button"
+    tabindex="0"
     ?collapsed="${this.chipState.isFullyCollapsed}"
     aria-label="${this.chipState.accessibilityName}"
     title="${this.chipState.tooltip}"
@@ -25,7 +27,7 @@ export function getHtml(this: PermissionChipElement) {
     </div>` : nothing}
   ${!this.chipState.isFullyCollapsed ? html`
     <span id="message">${this.chipState.message}</span>` : nothing}
-</div>
+</button>
 <!--_html_template_end_-->`;
   // clang-format on
 }

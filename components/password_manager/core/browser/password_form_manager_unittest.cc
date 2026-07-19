@@ -220,7 +220,7 @@ class MockPasswordManagerClient : public StubPasswordManagerClient {
  public:
   MOCK_METHOD(bool,
               IsSavingAndFillingEnabled,
-              (const GURL&),
+              (const url::Origin&, base::optional_ref<const GURL>),
               (const, override));
   MOCK_METHOD(bool,
               IsFieldFilledWithOtp,
@@ -247,6 +247,14 @@ class MockPasswordManagerClient : public StubPasswordManagerClient {
               (PasswordManagerDriver*),
               (override));
   MOCK_METHOD(void, NotifyKeychainError, (), (override));
+  MOCK_METHOD(PasswordStoreInterface*,
+              GetProfilePasswordStore,
+              (),
+              (const, override));
+  MOCK_METHOD(PasswordStoreInterface*,
+              GetAccountPasswordStore,
+              (),
+              (const, override));
 #if BUILDFLAG(IS_ANDROID)
   MOCK_METHOD(void,
               ShowPasswordManagerErrorMessage,
@@ -413,10 +421,9 @@ class MockFormSaver : public StubFormSaver {
   }
 };
 
-class PasswordFormManagerTest : public testing::Test,
-                                public testing::WithParamInterface<bool> {
+class PasswordFormManagerTestBase : public testing::Test {
  public:
-  PasswordFormManagerTest()
+  PasswordFormManagerTestBase()
       : task_runner_(new TestMockTimeTaskRunner),
         possible_usernames_(/*max_size=*/2) {
     pref_service_.registry()->RegisterTimePref(
@@ -560,12 +567,14 @@ class PasswordFormManagerTest : public testing::Test,
   void SetUp() override { CreateFormManager(observed_form_); }
 
  protected:
+  virtual bool use_account_saver() const { return false; }
+
   // Creates PasswordFormManager and sets it to |form_manager_|. Along the
   // way a new |fetcher_| is created.
   virtual void CreateFormManager(const FormData& observed_form) {
     auto password_save_manager = std::make_unique<PasswordSaveManagerImpl>(
         /*profile_form_saver=*/std::make_unique<NiceMock<MockFormSaver>>(),
-        /*account_form_saver=*/GetParam()
+        /*account_form_saver=*/use_account_saver()
             ? std::make_unique<NiceMock<MockFormSaver>>()
             : nullptr);
 
@@ -579,7 +588,7 @@ class PasswordFormManagerTest : public testing::Test,
   virtual void CreateFormManagerWithoutFetcher(const FormData& observed_form) {
     auto password_save_manager = std::make_unique<PasswordSaveManagerImpl>(
         /*profile_form_saver=*/std::make_unique<NiceMock<MockFormSaver>>(),
-        /*account_form_saver=*/GetParam()
+        /*account_form_saver=*/use_account_saver()
             ? std::make_unique<NiceMock<MockFormSaver>>()
             : nullptr);
 
@@ -594,7 +603,7 @@ class PasswordFormManagerTest : public testing::Test,
       const PasswordForm& base_auth_observed_form) {
     auto password_save_manager = std::make_unique<PasswordSaveManagerImpl>(
         /*profile_form_saver=*/std::make_unique<NiceMock<MockFormSaver>>(),
-        /*account_form_saver=*/GetParam()
+        /*account_form_saver=*/use_account_saver()
             ? std::make_unique<NiceMock<MockFormSaver>>()
             : nullptr);
     fetcher_->set_scheme(PasswordFormDigest(base_auth_observed_form).scheme);
@@ -706,6 +715,12 @@ class PasswordFormManagerTest : public testing::Test,
       mock_autofill_crowdsourcing_manager_{/*client=*/nullptr};
 };
 
+class PasswordFormManagerTest : public PasswordFormManagerTestBase,
+                                public testing::WithParamInterface<bool> {
+ protected:
+  bool use_account_saver() const override { return GetParam(); }
+};
+
 TEST_P(PasswordFormManagerTest, DoesManage) {
   EXPECT_TRUE(
       form_manager_->DoesManage(observed_form_.renderer_id(), &driver_));
@@ -772,9 +787,8 @@ TEST_P(PasswordFormManagerTest, Autofill) {
   EXPECT_EQ(observed_form_.url(), fill_data.url);
 
   // On Android Touch To Fill will prevent autofilling credentials on page load.
-  // On iOS bio-metric reauth will prevent autofilling as well. On Linux
-  // kFillOnAccountSelect feature is enabled.
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS) || BUILDFLAG(IS_LINUX)
+  // On iOS bio-metric reauth will prevent autofilling as well.
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
   EXPECT_TRUE(fill_data.wait_for_username);
 #else
   EXPECT_FALSE(fill_data.wait_for_username);
@@ -934,7 +948,9 @@ TEST_P(PasswordFormManagerTest, SetSubmitted) {
 }
 
 TEST_P(PasswordFormManagerTest, TestSaveFormAllowedNegative) {
-  EXPECT_CALL(client_, IsSavingAndFillingEnabled(submitted_form_.url()))
+  EXPECT_CALL(client_,
+              IsSavingAndFillingEnabled(
+                  _, base::optional_ref<const GURL>(submitted_form_.url())))
       .WillRepeatedly(Return(false));
   form_manager_->ProvisionallySave(submitted_form_, &driver_,
                                    possible_usernames_);
@@ -942,7 +958,9 @@ TEST_P(PasswordFormManagerTest, TestSaveFormAllowedNegative) {
 }
 
 TEST_P(PasswordFormManagerTest, TestSaveFormAllowed) {
-  EXPECT_CALL(client_, IsSavingAndFillingEnabled(submitted_form_.url()))
+  EXPECT_CALL(client_,
+              IsSavingAndFillingEnabled(
+                  _, base::optional_ref<const GURL>(submitted_form_.url())))
       .WillRepeatedly(Return(true));
   form_manager_->ProvisionallySave(submitted_form_, &driver_,
                                    possible_usernames_);
@@ -4999,7 +5017,8 @@ class MockPasswordSaveManager : public PasswordSaveManager {
   MOCK_METHOD(void, SetShouldStoreActorLoginPermission, (), (override));
 };
 
-class PasswordFormManagerTestWithMockedSaver : public PasswordFormManagerTest {
+class PasswordFormManagerTestWithMockedSaver
+    : public PasswordFormManagerTestBase {
  public:
   PasswordFormManagerTestWithMockedSaver() = default;
   PasswordFormManagerTestWithMockedSaver(
@@ -5465,6 +5484,65 @@ TEST_F(PasswordFormManagerTestWithMockedSaver, UsernameFirstFlow) {
                                        _, _, _, _));
   ASSERT_TRUE(form_manager_->ProvisionallySave(submitted_form, &driver_,
                                                possible_usernames));
+}
+
+// Tests that OnPasswordFilledManually triggers a fetch but does not refill.
+TEST_F(PasswordFormManagerTestWithMockedSaver,
+       OnPasswordFilledManually_NoRefill) {
+  base::test::ScopedFeatureList feature_list{features::kPasswordDateLastFilled};
+
+  PasswordFormManager::set_wait_for_server_predictions_for_filling(false);
+  CreateFormManager(observed_form_);
+  fetcher_->NotifyFetchCompleted();
+
+  // Provisionally save a form to initialize parsed_submitted_form_.
+  EXPECT_CALL(*mock_password_save_manager(), CreatePendingCredentials);
+  EXPECT_TRUE(form_manager_->ProvisionallySave(submitted_form_, &driver_,
+                                               possible_usernames_));
+  testing::Mock::VerifyAndClearExpectations(mock_password_save_manager());
+
+  // Expect CreatePendingCredentials to be called again in OnFetchCompleted.
+  EXPECT_CALL(*mock_password_save_manager(), CreatePendingCredentials);
+  ON_CALL(*mock_password_save_manager(), IsEqualToSavedMatch())
+      .WillByDefault(Return(true));
+
+  form_manager_->OnPasswordFilledManually();
+  // Now complete the fetch and verify that no filling happens.
+  EXPECT_CALL(driver_, PropagateFillDataOnParsingCompletion).Times(0);
+  SetNonFederatedAndNotifyFetchCompleted({saved_match_});
+}
+
+// Tests that OnPasswordFilledManually prevents refilling even if the waiter
+// for server predictions was active and predictions arrive later.
+TEST_F(PasswordFormManagerTestWithMockedSaver,
+       OnPasswordFilledManually_NoRefillWithWait) {
+  base::test::ScopedFeatureList feature_list{features::kPasswordDateLastFilled};
+
+  PasswordFormManager::set_wait_for_server_predictions_for_filling(true);
+  CreateFormManager(observed_form_);
+  SetNonFederatedAndNotifyFetchCompleted({saved_match_});
+
+  // Provisionally save a form to initialize parsed_submitted_form_.
+  EXPECT_CALL(*mock_password_save_manager(), CreatePendingCredentials);
+  EXPECT_TRUE(form_manager_->ProvisionallySave(submitted_form_, &driver_,
+                                               possible_usernames_));
+  testing::Mock::VerifyAndClearExpectations(mock_password_save_manager());
+
+  // Trigger manual fill, which sets allow_filling_upon_fetching_ to false.
+  ON_CALL(*mock_password_save_manager(), IsEqualToSavedMatch())
+      .WillByDefault(Return(true));
+  form_manager_->OnPasswordFilledManually();
+
+  // Complete the second fetch. CreatePendingCredentials should be called
+  // because is_submitted_ is true, but no refilling should happen.
+  EXPECT_CALL(*mock_password_save_manager(), CreatePendingCredentials);
+  SetNonFederatedAndNotifyFetchCompleted({saved_match_});
+
+  // Process server predictions. This would trigger FillNow(), but it should
+  // return early because of the manual fill.
+  auto predictions = CreatePredictions(observed_form_, {});
+  EXPECT_CALL(driver_, PropagateFillDataOnParsingCompletion).Times(0);
+  form_manager_->ProcessServerPredictions(predictions);
 }
 
 // Tests that username is not taken when a possible username is not valid.

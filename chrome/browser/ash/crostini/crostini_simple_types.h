@@ -13,8 +13,8 @@
 #include "chromeos/ash/components/dbus/vm_concierge/concierge_service.pb.h"
 
 // This file contains simple C++ types. Simple isn't a precise term, but as a
-// guideline enums and PoD structs are simple while structs/classes with methods
-// other than trivial or defaulted constructors or destructors are not.
+// guideline enums and PoD structs are simple while structs/classes with
+// methods other than trivial or defaulted constructors or destructors are not.
 // Importantly, #include'ing this file will not depend on eventually executing
 // "#include <dbus/dbus.h>",
 
@@ -140,23 +140,10 @@ enum class RestartSource {
   kInstaller,
 };
 
-enum class InstallLinuxPackageProgressStatus {
-  SUCCEEDED,
-  FAILED,
-  DOWNLOADING,
-  INSTALLING,
-};
-
 enum class VmState {
   STARTING,
   STARTED,
   STOPPING,
-};
-
-enum class UninstallPackageProgressStatus {
-  SUCCEEDED,
-  FAILED,
-  UNINSTALLING,  // In progress
 };
 
 enum class DiskImageProgressStatus {
@@ -169,12 +156,6 @@ enum class ImportContainerProgressStatus {
   UNPACK,
   FAILURE_ARCHITECTURE,
   FAILURE_SPACE,
-};
-
-enum class UpgradeContainerProgressStatus {
-  SUCCEEDED,
-  FAILED,
-  UPGRADING,
 };
 
 enum class ContainerVersion {
@@ -230,28 +211,6 @@ struct Icon {
   vm_tools::cicerone::DesktopIcon::Format format;
 };
 
-struct LinuxPackageInfo {
-  LinuxPackageInfo();
-  LinuxPackageInfo(LinuxPackageInfo&&);
-  LinuxPackageInfo(const LinuxPackageInfo&);
-  LinuxPackageInfo& operator=(LinuxPackageInfo&&);
-  LinuxPackageInfo& operator=(const LinuxPackageInfo&);
-  ~LinuxPackageInfo();
-
-  bool success;
-
-  // A textual reason for the failure, only set when success is false.
-  std::string failure_reason;
-
-  // The remaining fields are only set when success is true.
-  // package_id is given as "name;version;arch;data".
-  std::string package_id;
-  std::string name;
-  std::string version;
-  std::string summary;
-  std::string description;
-};
-
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
 enum class CorruptionStates {
@@ -259,28 +218,6 @@ enum class CorruptionStates {
   MOUNT_ROLLED_BACK = 1,
   OTHER_CORRUPTION = 2,
   kMaxValue = OTHER_CORRUPTION,
-};
-
-// Dialog types used by CrostiniDialogStatusObserver.
-enum class DialogType {
-  INSTALLER,
-  UPGRADER,
-  REMOVER,
-};
-
-enum class UpgradeDialogEvent {
-  kDialogShown = 0,
-  kUpgradeSuccess = 1,
-  kUpgradeCanceled = 2,
-  kUpgradeFailed = 3,
-  kNotStarted = 4,
-  kDidBackup = 5,
-  kBackupSucceeded = 6,
-  kBackupFailed = 7,
-  kDidRestore = 8,
-  kRestoreSucceeded = 9,
-  kRestoreFailed = 10,
-  kMaxValue = kRestoreFailed,
 };
 
 // Keep this in sync with CrostiniDiskImageType in enums.xml

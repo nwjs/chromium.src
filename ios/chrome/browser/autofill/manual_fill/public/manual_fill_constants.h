@@ -96,6 +96,7 @@ enum class ManualFillDataType {
   kCredential = 0,
   kPaymentMethod,
   kAddress,
+  kAtMemory,
   kOther,
 };
 
@@ -110,6 +111,9 @@ enum class PaymentFieldType {
 }  // namespace manual_fill
 
 @interface ManualFillUtil : NSObject
+
+// Returns whether to use the popover view for manual fill.
++ (BOOL)shouldUsePopover;
 
 // Returns a ManualFillDataType based on the provided FillingProduct.
 + (manual_fill::ManualFillDataType)manualFillDataTypeFromFillingProduct:

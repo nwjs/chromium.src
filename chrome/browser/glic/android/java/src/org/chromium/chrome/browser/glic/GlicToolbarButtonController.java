@@ -27,15 +27,13 @@ import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarFeatures;
 import org.chromium.chrome.browser.toolbar.optional_button.BaseButtonDataProvider;
 import org.chromium.chrome.browser.toolbar.optional_button.ButtonData;
 import org.chromium.chrome.browser.toolbar.optional_button.ButtonData.ButtonSpec;
-import org.chromium.chrome.browser.ui.bottombar.BottomBarConfigUtils;
 import org.chromium.chrome.browser.ui.browser_window.ChromeAndroidTask;
-import org.chromium.chrome.browser.ui.messages.snackbar.Snackbar;
-import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.user_education.IphCommandBuilder;
 import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.components.feature_engagement.EventConstants;
 import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.components.feature_engagement.Tracker;
+import org.chromium.ui.drawable.DirtyDotDrawableWrapper;
 
 import java.util.List;
 import java.util.function.Supplier;
@@ -94,7 +92,10 @@ public class GlicToolbarButtonController extends BaseButtonDataProvider {
         mRecomputeUiStateCallback = recomputeUiStateCallback;
         mDefaultSpec = mButtonData.getButtonSpec();
         Drawable collapsedDrawable =
-                AppCompatResources.getDrawable(activity, R.drawable.glic_dirty_dot_spark);
+                new DirtyDotDrawableWrapper(
+                        AppCompatResources.getDrawable(activity, R.drawable.ic_spark_24dp),
+                        activity.getColor(R.color.default_icon_color_accent1_baseline),
+                        activity.getResources().getDimensionPixelSize(R.dimen.glic_dirty_dot_size));
 
         mStateController =
                 new GlicButtonStateController(
@@ -162,8 +163,7 @@ public class GlicToolbarButtonController extends BaseButtonDataProvider {
      * @param profile The current profile.
      */
     public boolean shouldForciblyShowGlicButton(Profile profile) {
-        if (!AdaptiveToolbarFeatures.isGlicEnabledForProfile(profile)
-                || BottomBarConfigUtils.isBottomBarEnabled(mActivity)) {
+        if (!AdaptiveToolbarFeatures.isGlicEnabledForAdaptiveToolbar(mActivity, profile)) {
             return false;
         }
         mStateController.updateObservations(profile);
@@ -176,8 +176,7 @@ public class GlicToolbarButtonController extends BaseButtonDataProvider {
         if (tab == null || UrlUtilities.isNtpUrl(tab.getUrl())) {
             return false;
         }
-        // TODO(crbug.com/499354469): Add proper checks for glic availability.
-        if (!AdaptiveToolbarFeatures.isGlicEnabledForProfile(tab.getProfile())) {
+        if (!AdaptiveToolbarFeatures.isGlicEnabledForAdaptiveToolbar(mActivity, tab.getProfile())) {
             return false;
         }
         return super.shouldShowButton(tab);
@@ -191,8 +190,8 @@ public class GlicToolbarButtonController extends BaseButtonDataProvider {
         }
 
         assumeNonNull(tab);
-        assert AdaptiveToolbarFeatures.isGlicEnabledForProfile(
-                        tab.getProfile().getOriginalProfile())
+        assert AdaptiveToolbarFeatures.isGlicEnabledForAdaptiveToolbar(
+                        mActivity, tab.getProfile().getOriginalProfile())
                 : "Glic get() called when Glic is not eligible/enabled for profile";
         if (tab.isOffTheRecord()) {
             mButtonData.setButtonSpec(new ButtonSpec.Builder(mDefaultSpec).build());
@@ -220,6 +219,8 @@ public class GlicToolbarButtonController extends BaseButtonDataProvider {
         mButtonData.setButtonSpec(
                 new ButtonSpec.Builder(desiredSpec)
                         .setIsChecked(mStateController.isPanelOpen())
+                        .setIphCommandBuilder(buttonData.getButtonSpec().getIphCommandBuilder())
+                        .setIsSelected(mStateController.isPanelOpen())
                         .build());
 
         mButtonData.setEnabled(true);
@@ -249,8 +250,8 @@ public class GlicToolbarButtonController extends BaseButtonDataProvider {
     public void onClick(View view) {
         Tab tab = mActiveTabSupplier.get();
         assert tab != null
-                        && AdaptiveToolbarFeatures.isGlicEnabledForProfile(
-                                tab.getProfile().getOriginalProfile())
+                        && AdaptiveToolbarFeatures.isGlicEnabledForAdaptiveToolbar(
+                                mActivity, tab.getProfile().getOriginalProfile())
                 : "Glic click invoked when Glic is not eligible/enabled for profile";
         mStateController.setPersistDoneState(false);
 
@@ -259,20 +260,7 @@ public class GlicToolbarButtonController extends BaseButtonDataProvider {
             return;
         }
         if (tab != null && tab.isOffTheRecord()) {
-            if (mActivity instanceof SnackbarManager.SnackbarManageable) {
-                SnackbarManager snackbarManager =
-                        ((SnackbarManager.SnackbarManageable) mActivity).getSnackbarManager();
-                if (snackbarManager != null) {
-                    snackbarManager.showSnackbar(
-                            Snackbar.make(
-                                            mActivity.getString(
-                                                    R.string.glic_incognito_not_available),
-                                            null,
-                                            Snackbar.TYPE_NOTIFICATION,
-                                            Snackbar.UMA_GLIC)
-                                    .setDuration(SnackbarManager.DEFAULT_SNACKBAR_DURATION_MS));
-                }
-            }
+            GlicHelper.showNotAvailableInIncognitoSnackbar(mActivity);
             return;
         }
 
@@ -290,7 +278,8 @@ public class GlicToolbarButtonController extends BaseButtonDataProvider {
                                     mActivity,
                                     mTabModelSelectorSupplier,
                                     mToggleGlicCallback,
-                                    GlicInvocationSource.TOP_CHROME_BUTTON);
+                                    GlicInvocationSource.TOP_CHROME_BUTTON,
+                                    GlicTaskMenuCoordinator.ButtonSource.TOOLBAR);
                 }
                 mTaskMenuCoordinator.show(view, tasks);
                 return;

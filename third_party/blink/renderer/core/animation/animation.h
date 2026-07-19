@@ -35,6 +35,7 @@
 
 #include "base/gtest_prod_util.h"
 #include "base/time/time.h"
+#include "cc/animation/animation.h"
 #include "third_party/blink/renderer/bindings/core/v8/active_script_wrappable.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_property.h"
@@ -77,9 +78,6 @@ enum class BlinkAnimationType : int {
   kAnimationTypeEnumMax = 6
 };
 
-// Enum indicating why we're calling StartAnimationOnCompositor.
-enum class StartOnCompositorReason { kGeneric, kAnimationTrigger };
-
 class CORE_EXPORT Animation : public EventTarget,
                               public ActiveScriptWrappable<Animation>,
                               public ExecutionContextLifecycleObserver,
@@ -90,6 +88,7 @@ class CORE_EXPORT Animation : public EventTarget,
   USING_PRE_FINALIZER(Animation, Dispose);
 
  public:
+  using AutoRewind = cc::Animation::AutoRewind;
   // Priority for sorting getAnimation by Animation class, arranged from lowest
   // priority to highest priority as per spec:
   // https://w3.org/TR/web-animations-1/#dom-document-getanimations
@@ -212,7 +211,7 @@ class CORE_EXPORT Animation : public EventTarget,
   void OnActivePhaseStateChange(bool in_active_phase);
 
   bool Limited() const { return Limited(CurrentTimeInternal()); }
-  bool FinishedInternal() const { return finished_; }
+  bool Inactive() const { return inactive_; }
 
   DEFINE_ATTRIBUTE_EVENT_LISTENER(finish, kFinish)
   DEFINE_ATTRIBUTE_EVENT_LISTENER(cancel, kCancel)
@@ -364,7 +363,8 @@ class CORE_EXPORT Animation : public EventTarget,
   // Synchronize to the impl thread start time. This is only called for
   // triggered[1] animations.
   // [1] https://drafts.csswg.org/animation-triggers-1/
-  void NotifyAnimationStartedAsync(base::TimeDelta monotonic_time);
+  void NotifyAnimationStartedAsync(base::TimeDelta monotonic_time,
+                                   AutoRewind auto_rewind);
   // The compositor paused this animation on the impl thread.
   // This is only called for triggered animations.
   void NotifyAnimationPausedAsync(base::TimeDelta monotonic_time);
@@ -505,10 +505,9 @@ class CORE_EXPORT Animation : public EventTarget,
   // Plays an animation. When auto_rewind is enabled, the current time can be
   // adjusted to accommodate reversal of an animation or snapping to an
   // endpoint.
-  enum class AutoRewind { kDisabled, kEnabled };
   void PlayInternal(AutoRewind auto_rewind, ExceptionState& exception_state);
   void PauseInternal(ExceptionState& exception_state);
-  void ReverseInternal(ExceptionState& exception_state);
+  void ReverseInternal(AutoRewind auto_rewind, ExceptionState& exception_state);
 
   void AddTrigger(AnimationTrigger* trigger);
   void RemoveTrigger(AnimationTrigger* trigger);
@@ -692,9 +691,11 @@ class CORE_EXPORT Animation : public EventTarget,
   // has changed by means other than the ordinary progression of time
   bool outdated_;
 
-  // Indicates the animation is no longer active. Cancelled animation is marked
-  // as finished_.
-  bool finished_;
+  // Indicates the animation is no longer active. An animation in the idle state
+  // or a finished animation with a monotonic timeline, does not require
+  // animation updates.
+  bool inactive_;
+
   // Indicates finish notification has been handled.
   bool committed_finish_notification_;
   // Holds a 'finished' event queued for asynchronous dispatch via the

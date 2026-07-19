@@ -131,6 +131,11 @@ class WaapUIMetricsService : public KeyedService {
       base::TimeTicks end_ticks,
       WaapUIMetricsRecorder::ReloadButtonMode new_mode);
 
+  void RecordReloadButtonInteractionToReload(
+      base::TimeTicks interaction_ticks,
+      base::TimeTicks execution_ticks,
+      WaapUIMetricsRecorder::ReloadButtonInputType input_type);
+
   // Called when the first browser window is painted after it's requested to be
   // shown during startup.
   void OnStartupBrowserWindowShowRequestedToFirstPaint(
@@ -144,6 +149,19 @@ class WaapUIMetricsService : public KeyedService {
       bool with_existing_window,
       base::TimeTicks request_time,
       base::TimeTicks paint_time);
+
+  // Called when the browser window is closed before the first paint.
+  void OnStartupBrowserWindowClosedBeforeFirstPaint(
+      base::TimeTicks request_time,
+      base::TimeTicks close_time);
+
+  // Called when a new browser window (not the initial one) is closed before the
+  // first paint.
+  void OnNewWindowBrowserWindowClosedBeforeFirstPaint(
+      waap::NewWindowCreationSource source,
+      bool with_existing_window,
+      base::TimeTicks start_time,
+      base::TimeTicks close_time);
 };
 
 #endif  // CHROME_BROWSER_UI_WAAP_WAAP_UI_METRICS_SERVICE_H_

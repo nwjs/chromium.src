@@ -16,13 +16,6 @@
 
 namespace actor {
 
-class ActorTool;
-
-// Result of creating a batch of ActorTools from Action protos.
-using CreateActorToolsResult =
-    base::expected<std::vector<std::unique_ptr<ActorTool>>,
-                   ToolExecutionResult>;
-
 // Strongly typed, performant unique ID representing an ActorTask.
 using ActorTaskId = actor::TaskId;
 static_assert(ActorTaskId(0).is_null(), "0 must be a null ActorTaskId");
@@ -65,12 +58,6 @@ enum class ActorTaskStoppedReason {
   kShutdown = 5,
   // User started a new chat session, aborting the current task.
   kUserStartedNewChat = 6
-};
-
-// Represents the result code for actions execution.
-enum ActionResultCode {
-  kActionResultSuccess = 0,
-  kActionResultFailure = 1,
 };
 
 // Represents the result of an action execution.

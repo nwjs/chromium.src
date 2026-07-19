@@ -4,6 +4,7 @@
 
 #include "components/performance_manager/persistence/site_data/site_data_impl.h"
 
+#include "base/byte_size.h"
 #include "base/functional/callback.h"
 #include "base/memory/ref_counted.h"
 #include "base/test/bind.h"
@@ -158,13 +159,12 @@ TEST_F(SiteDataImplTest, BasicTestEndToEnd) {
   // When a feature is in use it's expected that its recorded observation
   // timestamp is equal to the time delta since Unix Epoch when the observation
   // has been made.
-  EXPECT_EQ(
-      local_site_data
-          ->FeatureObservationTimestamp(
-              local_site_data->site_characteristics_for_testing()
-                  .uses_audio_in_background())
-          .InSeconds(),
-      (base::TimeTicks::Now() - base::TimeTicks::UnixEpoch()).InSeconds());
+  EXPECT_EQ(local_site_data
+                ->FeatureObservationTimestamp(
+                    local_site_data->site_characteristics_for_testing()
+                        .uses_audio_in_background())
+                .InSeconds(),
+            (base::Time::Now() - base::Time::UnixEpoch()).InSeconds());
   EXPECT_EQ(local_site_data->FeatureObservationDuration(
                 local_site_data->site_characteristics_for_testing()
                     .uses_audio_in_background()),
@@ -286,7 +286,7 @@ TEST_F(SiteDataImplTest, AllDurationGetSavedOnUnload) {
   EXPECT_EQ(0U, kZeroIntervalInternalRepresentation);
 
   const base::TimeDelta kInitialTimeSinceEpoch =
-      base::TimeTicks::Now() - base::TimeTicks::UnixEpoch();
+      base::Time::Now() - base::Time::UnixEpoch();
 
   local_site_data->NotifySiteLoaded();
   local_site_data->NotifyLoadedSiteBackgrounded();
@@ -376,9 +376,9 @@ TEST_F(SiteDataImplTest, OnInitCallbackMergePreviousObservations) {
 
   // Add a couple of performance samples.
   local_site_data->NotifyLoadTimePerformanceMeasurement(
-      base::Microseconds(100), base::Microseconds(1000), base::KiB(2000));
+      base::Microseconds(100), base::Microseconds(1000), base::KiBU(2000));
   local_site_data->NotifyLoadTimePerformanceMeasurement(
-      base::Microseconds(200), base::Microseconds(500), base::KiB(1000));
+      base::Microseconds(200), base::Microseconds(500), base::KiBU(1000));
 
   // Make sure the local performance samples are averaged as expected.
   EXPECT_EQ(2U, local_site_data->load_duration().num_datums());

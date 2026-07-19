@@ -273,7 +273,6 @@ FYI_BUILDERS = {
             'performance_test_suite',
             'extra_args': [
                 '--output-format=histograms',
-                '--experimental-tbmv3-metrics',
             ],
         }],
         'platform':
@@ -321,7 +320,6 @@ FYI_BUILDERS = {
                 'performance_test_suite',
                 'extra_args': [
                     '--output-format=histograms',
-                    '--experimental-tbmv3-metrics',
                     # crbug.com/457520120#comment3 Disabling the feature on waterfall.
                     '--extra-browser-args=--disable-features=SessionRestoreInfobar',
                 ],
@@ -1586,9 +1584,11 @@ class BenchmarkMetadata(object):
 GTEST_BENCHMARKS = {
     'base_perftests':
     BenchmarkMetadata(
-        'skyostil@chromium.org, gab@chromium.org', 'Internals>SequenceManager',
+        'skyostil@chromium.org, gab@chromium.org',
+        'Internals>SequenceManager',
         ('https://chromium.googlesource.com/chromium/src/+/HEAD/base/' +
-         'README.md#performance-testing')),
+         'README.md#performance-testing'),
+        stories=[benchmark_utils.StoryInfo('_gtest_', '', ['all'])]),
     'tracing_perftests':
     BenchmarkMetadata(
         'eseckler@chromium.org, khokhlov@chromium.org, kraskevich@chromium.org',

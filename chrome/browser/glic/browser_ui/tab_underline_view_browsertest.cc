@@ -184,7 +184,7 @@ class TabUnderlineViewBrowserTest : public GlicBrowserTest {
 
   TabUnderlineView* GetUnderlineOfTab(Browser* target_browser, int index) {
     TabStripRegionView* tab_strip_view =
-        target_browser->window()->AsBrowserView()->tab_strip_view();
+        BrowserView::GetBrowserViewForBrowser(target_browser)->tab_strip_view();
     views::View* underline =
         tab_strip_view->GetTabAnchorViewAt(index)->GetViewByElementId(
             TabUnderlineView::kGlicTabUnderlineElementId);
@@ -203,7 +203,7 @@ class TabUnderlineViewBrowserTest : public GlicBrowserTest {
 
   AlertIndicatorButton* GetAlertIndicatorButtonOfActiveTab() {
     TabStripRegionView* tab_strip_view =
-        static_cast<BrowserView*>(browser()->window())->tab_strip_view();
+        BrowserView::GetBrowserViewForBrowser(browser())->tab_strip_view();
     views::View* button =
         tab_strip_view
             ->GetTabAnchorViewAt(GetTabListInterface()->GetActiveIndex())
@@ -465,7 +465,7 @@ IN_PROC_BROWSER_TEST_F(TabUnderlineViewBrowserTest,
   ASSERT_OK(WaitForGlicClient(instance));
 
   // Pin both tabs on the instance's sharing manager.
-  auto& instance_sharing_manager = instance->sharing_manager();
+  auto& instance_sharing_manager = instance->GetSharingManagerInternal();
   instance_sharing_manager.PinTabs({handle1, handle2});
   EXPECT_TRUE(instance_sharing_manager.IsTabPinned(handle1));
   EXPECT_TRUE(instance_sharing_manager.IsTabPinned(handle2));

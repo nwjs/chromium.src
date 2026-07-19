@@ -4,14 +4,17 @@
 
 #include "chrome/browser/ui/webui/password_manager/password_manager_ui_handler.h"
 
+#include <optional>
 #include <utility>
 
+#include "base/functional/callback_helpers.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/extensions/api/passwords_private/passwords_private_delegate.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/webui/password_manager/password_manager.mojom.h"
 #include "chrome/common/extensions/api/passwords_private.h"
+#include "components/password_manager/core/browser/export/export_progress_status.h"
 #include "components/password_manager/core/browser/password_ui_utils.h"
 #include "components/password_manager/core/browser/ui/actor_login_permission.h"
 #include "components/password_manager/core/browser/ui/credential_ui_entry.h"
@@ -22,6 +25,55 @@
 #include "mojo/public/cpp/bindings/remote.h"
 
 namespace {
+
+password_manager::mojom::ExportProgressStatus ToExportProgressMojomStatus(
+    password_manager::ExportProgressStatus status) {
+  switch (status) {
+    case password_manager::ExportProgressStatus::kNotStarted:
+      return password_manager::mojom::ExportProgressStatus::kNotStarted;
+    case password_manager::ExportProgressStatus::kInProgress:
+      return password_manager::mojom::ExportProgressStatus::kInProgress;
+    case password_manager::ExportProgressStatus::kSucceeded:
+      return password_manager::mojom::ExportProgressStatus::kSucceeded;
+    case password_manager::ExportProgressStatus::kFailedCancelled:
+      return password_manager::mojom::ExportProgressStatus::kFailed;
+    case password_manager::ExportProgressStatus::kFailedWrite:
+      return password_manager::mojom::ExportProgressStatus::kFailedWrite;
+  }
+}
+
+password_manager::mojom::ExportProgressStatus ToExportProgressMojomStatus(
+    extensions::api::passwords_private::ExportProgressStatus status) {
+  switch (status) {
+    case extensions::api::passwords_private::ExportProgressStatus::kNotStarted:
+    case extensions::api::passwords_private::ExportProgressStatus::kNone:
+      return password_manager::mojom::ExportProgressStatus::kNotStarted;
+    case extensions::api::passwords_private::ExportProgressStatus::kInProgress:
+      return password_manager::mojom::ExportProgressStatus::kInProgress;
+    case extensions::api::passwords_private::ExportProgressStatus::kSucceeded:
+      return password_manager::mojom::ExportProgressStatus::kSucceeded;
+    case extensions::api::passwords_private::ExportProgressStatus::
+        kFailedCancelled:
+      return password_manager::mojom::ExportProgressStatus::kFailed;
+    case extensions::api::passwords_private::ExportProgressStatus::
+        kFailedWriteFailed:
+      return password_manager::mojom::ExportProgressStatus::kFailedWrite;
+  }
+}
+
+password_manager::mojom::ExportPasswordsResult ToExportPasswordsMojomResult(
+    extensions::PasswordsPrivateDelegate::ExportPasswordsResult result) {
+  switch (result) {
+    case extensions::PasswordsPrivateDelegate::ExportPasswordsResult::kSuccess:
+      return password_manager::mojom::ExportPasswordsResult::kSuccess;
+    case extensions::PasswordsPrivateDelegate::ExportPasswordsResult::
+        kInProgress:
+      return password_manager::mojom::ExportPasswordsResult::kInProgress;
+    case extensions::PasswordsPrivateDelegate::ExportPasswordsResult::
+        kReauthFailed:
+      return password_manager::mojom::ExportPasswordsResult::kReauthFailed;
+  }
+}
 
 password_manager::mojom::PasswordManagerActionableError ToActionableMojomError(
     password_manager::ActionableError error) {
@@ -55,7 +107,10 @@ PasswordManagerUIHandler::PasswordManagerUIHandler(
     : web_contents_(web_contents),
       passwords_private_delegate_(std::move(passwords_private_delegate)),
       receiver_(this, std::move(receiver)),
-      page_(std::move(page)) {}
+      page_(std::move(page)) {
+  passwords_private_delegate_observation_.Observe(
+      passwords_private_delegate_.get());
+}
 
 PasswordManagerUIHandler::~PasswordManagerUIHandler() = default;
 
@@ -65,21 +120,38 @@ void PasswordManagerUIHandler::ExtendAuthValidity() {
 
 void PasswordManagerUIHandler::DeleteAllPasswordManagerData(
     DeleteAllPasswordManagerDataCallback callback) {
-  // TODO(crbug.com/432409279): don't use the delegate, but instead use the
-  // password manager backend directly.
   passwords_private_delegate_->DeleteAllPasswordManagerData(
-      web_contents_, std::move(callback));
+      std::move(callback));
 }
 
 void PasswordManagerUIHandler::CopyPlaintextBackupPassword(
     int id,
     CopyPlaintextBackupPasswordCallback callback) {
-  passwords_private_delegate_->CopyPlaintextBackupPassword(id, web_contents_,
+  passwords_private_delegate_->CopyPlaintextBackupPassword(id,
                                                            std::move(callback));
 }
 
 void PasswordManagerUIHandler::RemoveBackupPassword(int id) {
   passwords_private_delegate_->RemoveBackupPassword(id);
+}
+
+void PasswordManagerUIHandler::RemovePasswordException(int id) {
+  passwords_private_delegate_->RemovePasswordException(id);
+}
+
+void PasswordManagerUIHandler::StartBulkPasswordCheck() {
+  passwords_private_delegate_->StartPasswordCheck(base::DoNothing());
+}
+
+void PasswordManagerUIHandler::MovePasswordsToAccount(
+    const std::vector<int>& ids) {
+  passwords_private_delegate_->MovePasswordsToAccount(ids);
+}
+
+void PasswordManagerUIHandler::ResetImporter(bool delete_file,
+                                             ResetImporterCallback callback) {
+  passwords_private_delegate_->ResetImporter(delete_file);
+  std::move(callback).Run();
 }
 
 void PasswordManagerUIHandler::GetActorLoginPermissions(
@@ -132,7 +204,7 @@ void PasswordManagerUIHandler::IsAccountStorageActive(
 }
 
 void PasswordManagerUIHandler::SetAccountStorageEnabled(bool enabled) {
-  passwords_private_delegate_->SetAccountStorageEnabled(enabled, web_contents_);
+  passwords_private_delegate_->SetAccountStorageEnabled(enabled);
 }
 
 void PasswordManagerUIHandler::ShouldShowAccountStorageSettingToggle(
@@ -144,7 +216,7 @@ void PasswordManagerUIHandler::ShouldShowAccountStorageSettingToggle(
 void PasswordManagerUIHandler::SwitchBiometricAuthBeforeFillingState(
     SwitchBiometricAuthBeforeFillingStateCallback callback) {
   passwords_private_delegate_->SwitchBiometricAuthBeforeFillingState(
-      web_contents_, std::move(callback));
+      std::move(callback));
 }
 
 void PasswordManagerUIHandler::StartPasswordChange(int credential_id) {
@@ -156,4 +228,51 @@ void PasswordManagerUIHandler::GetPasswordManagerActionableError(
     GetPasswordManagerActionableErrorCallback callback) {
   std::move(callback).Run(ToActionableMojomError(
       passwords_private_delegate_->GetActionableError()));
+}
+
+void PasswordManagerUIHandler::ShowLastExportedFileInShell() {
+  passwords_private_delegate_->ShowLastExportedFileInShell(web_contents_);
+}
+
+void PasswordManagerUIHandler::DisconnectCloudAuthenticator(
+    DisconnectCloudAuthenticatorCallback callback) {
+  passwords_private_delegate_->DisconnectCloudAuthenticator(
+      std::move(callback));
+}
+
+void PasswordManagerUIHandler::IsConnectedToCloudAuthenticator(
+    IsConnectedToCloudAuthenticatorCallback callback) {
+  std::move(callback).Run(
+      passwords_private_delegate_->IsConnectedToCloudAuthenticator());
+}
+
+void PasswordManagerUIHandler::UndoRemoveSavedPasswordOrException() {
+  passwords_private_delegate_->UndoRemoveSavedPasswordOrException();
+}
+
+void PasswordManagerUIHandler::RequestPasswordsExport(
+    RequestPasswordsExportCallback callback) {
+  passwords_private_delegate_->ExportPasswords(
+      base::BindOnce(
+          [](RequestPasswordsExportCallback callback,
+             extensions::PasswordsPrivateDelegate::ExportPasswordsResult
+                 result) {
+            std::move(callback).Run(ToExportPasswordsMojomResult(result));
+          },
+          std::move(callback)),
+      web_contents_);
+}
+
+void PasswordManagerUIHandler::GetPasswordsExportProgress(
+    GetPasswordsExportProgressCallback callback) {
+  std::move(callback).Run(ToExportProgressMojomStatus(
+      passwords_private_delegate_->GetExportProgressStatus()));
+}
+
+void PasswordManagerUIHandler::OnPasswordsExportProgress(
+    password_manager::ExportProgressStatus status,
+    const std::string& folder_name) {
+  page_->OnPasswordsExportProgress(
+      ToExportProgressMojomStatus(status),
+      folder_name.empty() ? std::nullopt : std::make_optional(folder_name));
 }

@@ -53,8 +53,10 @@ class MediaSessionAndroid final
       const std::optional<media_session::MediaPosition>& position) override;
 
   // MediaSession method wrappers.
-  void Resume(JNIEnv* env);
-  void Suspend(JNIEnv* env);
+  void Resume(JNIEnv* env,
+              media_session::mojom::MediaSession::SuspendType suspend_type);
+  void Suspend(JNIEnv* env,
+               media_session::mojom::MediaSession::SuspendType suspend_type);
   void Stop(JNIEnv* env);
   void Seek(JNIEnv* env, const int64_t millis);
   void SeekTo(JNIEnv* env, const int64_t millis);

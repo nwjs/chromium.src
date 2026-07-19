@@ -196,6 +196,9 @@ IN_PROC_BROWSER_TEST_F(SendTabToSelfToolbarIconControllerAutoOpenTest,
 
   histogram_tester.ExpectUniqueSample("Sharing.SendTabToSelf.AutoOpenOutcome",
                                       AutoOpenOutcome::kSuccess, 2);
+  histogram_tester.ExpectUniqueSample(
+      "Sharing.SendTabToSelf.ActivatedEntryPoint",
+      ShareActivatedEntryPoint::kAutoOpened, 1);
 
   EXPECT_EQ(browser()
                 ->browser_window_features()
@@ -267,11 +270,19 @@ IN_PROC_BROWSER_TEST_F(SendTabToSelfToolbarIconControllerAutoOpenTest,
                 ->toast_controller()
                 ->GetCurrentToastId(),
             ToastId::kSendTabToSelfTabsOpenedInBackground);
+
+  // Manually activate one of the background tabs (index 1) and verify the
+  // ReceivedEntryPoint metric.
+  browser()->tab_strip_model()->ActivateTabAt(1);
+  histogram_tester.ExpectBucketCount(
+      "Sharing.SendTabToSelf.ActivatedEntryPoint",
+      ShareActivatedEntryPoint::kTabStrip, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(
     SendTabToSelfToolbarIconControllerAutoOpenTest,
     ToastActionButtonSwitchesToLatestTabsOpenedInBackground) {
+  base::HistogramTester histogram_tester;
   ASSERT_TRUE(browser()->IsActive());
   ASSERT_EQ(0, browser()->tab_strip_model()->active_index());
 
@@ -318,6 +329,10 @@ IN_PROC_BROWSER_TEST_F(
   // Simulate clicking the toast action button.
   controller()->SwitchToLatestTabsOpenedInBackground(browser());
   EXPECT_EQ(1, browser()->tab_strip_model()->active_index());
+
+  histogram_tester.ExpectUniqueSample(
+      "Sharing.SendTabToSelf.ActivatedEntryPoint",
+      ShareActivatedEntryPoint::kDesktopToast, 1);
 }
 
 // This test covers an edge case scenario where a previously opened tab is

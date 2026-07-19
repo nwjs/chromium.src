@@ -720,7 +720,6 @@ class ContactInfoSyncUtilTest
  public:
   ContactInfoSyncUtilTest() {
     features_.InitWithFeatures({features::kAutofillUseINAddressModel,
-                                features::kAutofillSupportPhoneticNameForJP,
                                 features::kAutofillSupportSplitZipCode},
                                {});
   }
@@ -808,8 +807,6 @@ TEST_F(ContactInfoSyncUtilTest,
 // ContactInfoSpecifics::address_type correctly.
 TEST_F(ContactInfoSyncUtilTest,
        CreateContactInfoEntityDataFromAutofillProfile_HWRecordTypes) {
-  base::test::ScopedFeatureList feature(
-      features::kAutofillEnableSupportForHomeAndWork);
   AutofillProfile profile = ConstructBaseProfile();
 
   test_api(profile).set_record_type(AutofillProfile::RecordType::kAccountHome);

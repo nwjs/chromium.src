@@ -14,6 +14,7 @@
 #include "base/check_op.h"
 #include "base/containers/span.h"
 #include "base/strings/utf_string_conversions.h"
+#include "pdf/page_orientation.h"
 #include "pdf/pdf_ink_constants.h"
 #include "pdf/pdf_ink_conversions.h"
 #include "pdf/pdf_ink_transform.h"
@@ -265,7 +266,8 @@ std::optional<InkTextBoxAttributes> ExtractAttributesFromMark(
   return InkTextBoxAttributes(bounds, SkColorSetRGB(r, g, b), css_font_size,
                               static_cast<TextTypeface>(typeface.value()),
                               static_cast<TextAlignment>(alignment.value()),
-                              orientation.value(), is_bold, is_italic,
+                              orientation.value(), PageOrientation::kOriginal,
+                              is_bold, is_italic,
                               base::UTF16ToUTF8(text.value()));
 }
 
@@ -345,6 +347,7 @@ std::vector<ReadInkTextResult> ReadInkTextAnnotationsFromPage(FPDF_PAGE page) {
   struct TextboxData {
     std::optional<InkTextBoxAttributes> attributes;
     std::vector<FPDF_PAGEOBJECT> page_objects;
+    FPDF_PAGEOBJECTMARK mark = nullptr;
   };
 
   std::vector<ReadInkTextResult> results;
@@ -368,9 +371,10 @@ std::vector<ReadInkTextResult> ReadInkTextAnnotationsFromPage(FPDF_PAGE page) {
     }
 
     if (marks.size() > 1) {
-      // If a text object has multiple marks, it is invalid. Collect all
-      // associated textbox IDs to ensure they are completely invalidated and
-      // skipped, rather than partially loaded from other objects.
+      // If a text object has multiple marks with TextboxId, it is invalid.
+      // Collect all associated textbox IDs to ensure they are completely
+      // invalidated and skipped, rather than partially loaded from other
+      // objects.
       for (FPDF_PAGEOBJECTMARK mark : marks) {
         std::optional<int> id = GetPageObjectMarkIntParam(mark, "TextboxId");
         if (id.has_value()) {
@@ -394,17 +398,21 @@ std::vector<ReadInkTextResult> ReadInkTextAnnotationsFromPage(FPDF_PAGE page) {
     auto& data = ids_to_data[textbox_id];
     data.page_objects.push_back(page_object);
 
-    // Extract attributes from the mark. Only the first text object should have
-    // the attributes. Subsequent text objects in the same textbox should not.
+    // Extract attributes from the mark.
     std::optional<InkTextBoxAttributes> attributes =
         ExtractAttributesFromMark(page_object, mark);
     if (attributes.has_value()) {
       if (data.attributes.has_value()) {
-        // Already extracted attributes. Multiple objects have attribute
-        // metadata.
-        invalid_ids.insert(textbox_id);
+        // Note: when a single mark spans multiple page objects, that same
+        // `mark` pointer appears multiple times in this loop. So if this is the
+        // second time the mark was processed just skip it.
+        if (data.mark != mark) {
+          // The same textbox_id was used in multiple separate marks
+          invalid_ids.insert(textbox_id);
+        }
       } else {
         data.attributes = std::move(attributes.value());
+        data.mark = mark;
       }
     }
   }

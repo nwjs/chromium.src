@@ -12,6 +12,7 @@
 #include "base/allocator/partition_alloc_support.h"
 #include "base/android/android_info.h"
 #include "base/command_line.h"
+#include "base/debug/asan_invalid_access.h"
 #include "base/debug/crash_logging.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
@@ -174,6 +175,34 @@ GetPersistentCacheAsyncDiskWriteOpts() {
   return async_opts;
 }
 
+gpu::GpuPersistentCache::MetadataOpts GetPersistentCacheMetadataOpts() {
+  gpu::GpuPersistentCache::MetadataOpts metadata_options;
+
+  metadata_options.enabled =
+      base::FeatureList::IsEnabled(features::kGpuPersistentCacheMetadata);
+  metadata_options.preload_count =
+      features::kGpuPersistentCacheMetadataPreloadCount.Get();
+
+  return metadata_options;
+}
+
+void InduceMemoryInvalidAccessHelper(mojom::MemoryInvalidAccessType action) {
+  switch (action) {
+    case mojom::MemoryInvalidAccessType::kHeapOverflow:
+      base::debug::AsanHeapOverflow();
+      break;
+    case mojom::MemoryInvalidAccessType::kHeapUnderflow:
+      base::debug::AsanHeapUnderflow();
+      break;
+    case mojom::MemoryInvalidAccessType::kUseAfterFree:
+      base::debug::AsanHeapUseAfterFree();
+      break;
+    case mojom::MemoryInvalidAccessType::kMemberDereferenceAfterFree:
+      base::debug::AsanHeapMemberDereferenceAfterFree();
+      break;
+  }
+}
+
 }  // namespace
 
 GpuServiceImpl::GpuServiceImpl(
@@ -200,6 +229,7 @@ GpuServiceImpl::GpuServiceImpl(
 #endif
       persistent_caches_(
           /*max_in_memory_cache_size=*/gpu::GetDefaultGpuDiskCacheSize(),
+          /*metadata_options=*/GetPersistentCacheMetadataOpts(),
           /*async_write_options=*/GetPersistentCacheAsyncDiskWriteOpts()),
       clear_shader_cache_(base::FeatureList::IsEnabled(
           features::kClearGrShaderDiskCacheOnInvalidPrefix)) {
@@ -242,7 +272,7 @@ GpuServiceImpl::GpuServiceImpl(
     if (dawn_context_provider_) {
       // GpuServiceImpl holds the instance of DawnContextProvider, so it
       // outlives the DawnContextProvider.
-      if (features::kSkiaGraphiteDawnUsePersistentCache.Get()) {
+      if (features::SkiaGraphiteUsesPersistentCache()) {
         auto persistent_cache =
             persistent_caches_.GetCache(gpu::kGraphiteDawnGpuDiskCacheHandle);
         dawn_context_provider_->SetCachingInterface(
@@ -272,6 +302,7 @@ GpuServiceImpl::GpuServiceImpl(
 GpuServiceImpl::GpuServiceImpl()
     : persistent_caches_(
           /*max_in_memory_cache_size=*/gpu::GetDefaultGpuDiskCacheSize(),
+          /*metadata_options=*/GetPersistentCacheMetadataOpts(),
           /*async_write_options=*/GetPersistentCacheAsyncDiskWriteOpts()),
       clear_shader_cache_(base::FeatureList::IsEnabled(
           features::kClearGrShaderDiskCacheOnInvalidPrefix)) {}
@@ -1199,6 +1230,13 @@ void GpuServiceImpl::ThrowJavaException() {
 #else
   NOTREACHED() << "Java exception not supported on this platform.";
 #endif
+}
+
+void GpuServiceImpl::InduceMemoryInvalidAccess(
+    mojom::MemoryInvalidAccessType action) {
+  DCHECK(io_runner_->BelongsToCurrentThread());
+  main_runner_->PostTask(
+      FROM_HERE, base::BindOnce(&InduceMemoryInvalidAccessHelper, action));
 }
 
 #if BUILDFLAG(ENABLE_VRP_FLAGS)

@@ -179,6 +179,7 @@ void PdfViewerPrivateCustomBindings::GetTextInfo(
   // Fill the mojo struct with the GetTextInfo() results.
   auto text_info_mojo = pdf::mojom::InkTextInfo::New();
   text_info_mojo->effective_zoom = maybe_text_info->effective_zoom;
+  text_info_mojo->primary_ascent = maybe_text_info->primary_ascent;
   for (const blink::WebFormControlElement::TextRunInfo& text_run : text_runs) {
     auto text_run_mojo = pdf::mojom::InkTextRun::New();
     text_run_mojo->location = text_run.location;
@@ -188,6 +189,8 @@ void PdfViewerPrivateCustomBindings::GetTextInfo(
       auto typeface_run_mojo = pdf::mojom::InkTypefaceRun::New();
       typeface_run_mojo->typeface_id = info.typeface->uniqueID();
       typeface_run_mojo->is_horizontal = info.is_horizontal;
+      typeface_run_mojo->is_synthetic_bold = info.is_synthetic_bold;
+      typeface_run_mojo->is_synthetic_italic = info.is_synthetic_italic;
       for (const blink::WebFormControlElement::GlyphInfo& glyph : info.glyphs) {
         auto glyph_mojo = pdf::mojom::InkGlyphInfo::New();
         glyph_mojo->glyph = glyph.glyph;

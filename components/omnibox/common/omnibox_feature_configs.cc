@@ -4,9 +4,12 @@
 
 #include "omnibox_feature_configs.h"
 
+#include <vector>
+
 #include "base/check.h"
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/strings/string_split.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "components/omnibox/common/omnibox_features.h"
@@ -72,40 +75,6 @@ AiMode::AiMode() {
   check_ai_eligibility_gws_side =
       base::FeatureParam<bool>(&kAiModeEligibility, "CheckAiEligibilityGWSSide",
                                check_ai_eligibility_gws_side)
-          .Get();
-}
-
-AiModeOmniboxEntryPoint::AiModeOmniboxEntryPoint() {
-  enabled = base::FeatureList::IsEnabled(omnibox::kAiModeOmniboxEntryPoint);
-
-  hide_aim_hint_text =
-      base::FeatureParam<bool>(&omnibox::kAiModeOmniboxEntryPoint,
-                               "HideAimHintText", false)
-          .Get();
-
-  hide_aim_hint_text_on_ntp_open =
-      base::FeatureParam<bool>(&omnibox::kAiModeOmniboxEntryPoint,
-                               "HideAimHintTextOnNtpOpen", false)
-          .Get();
-
-  hide_other_page_actions_on_ntp =
-      base::FeatureParam<bool>(&omnibox::kAiModeOmniboxEntryPoint,
-                               "HideOtherPageActionsOnNtp", true)
-          .Get();
-
-  aim_hint_impression_limit_daily =
-      base::FeatureParam<int>(&omnibox::kAiModeOmniboxEntryPoint,
-                              "AimHintImpressionLimitDaily", 3)
-          .Get();
-
-  aim_hint_impression_limit_total =
-      base::FeatureParam<int>(&omnibox::kAiModeOmniboxEntryPoint,
-                              "AimHintImpressionLimitTotal", 15)
-          .Get();
-
-  enable_hint_impression_limits =
-      base::FeatureParam<bool>(&omnibox::kAiModeOmniboxEntryPoint,
-                               "EnableHintImpressionLimits", true)
           .Get();
 }
 
@@ -381,7 +350,7 @@ DocumentProvider::DocumentProvider() {
           .Get();
   debounce_delay_ms =
       base::FeatureParam<int>(&omnibox::kDocumentProvider,
-                              "DocumentProviderDebounceDelayMs", 300)
+                              "DocumentProviderDebounceDelayMs", 600)
           .Get();
   scope_backoff_to_profile =
       base::FeatureParam<bool>(&omnibox::kDocumentProvider,
@@ -465,10 +434,6 @@ SearchAggregatorProvider::SearchAggregatorProvider() {
 
   min_query_length =
       base::FeatureParam<int>(&kSearchAggregatorProvider, "min_query_length", 4)
-          .Get();
-  parse_response_in_utility_process =
-      base::FeatureParam<bool>(&kSearchAggregatorProvider,
-                               "parse_response_in_utility_process", true)
           .Get();
   use_discovery_engine_oauth_scope =
       base::FeatureParam<bool>(&kSearchAggregatorProvider,
@@ -796,5 +761,48 @@ ComposeboxSuggestionLimit&
 ComposeboxSuggestionLimit::ComposeboxSuggestionLimit::operator=(
     ComposeboxSuggestionLimit&&) = default;
 ComposeboxSuggestionLimit::~ComposeboxSuggestionLimit() = default;
+
+// Feature to enable the short suggest path.
+BASE_FEATURE(SuggestPathClientConfig::kUseShortSuggestPathV1,
+             "OmniboxUseShortSuggestPathV1",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(std::string,
+                   kSuggestPathClient,
+                   &SuggestPathClientConfig::kUseShortSuggestPathV1,
+                   "OmniboxSuggestPathClient",
+                   "");
+
+SuggestPathClientConfig::SuggestPathClientConfig() {
+  enabled = base::FeatureList::IsEnabled(kUseShortSuggestPathV1);
+  const std::string param_value = kSuggestPathClient.Get();
+
+  if (param_value.empty()) {
+    enable_for_all = true;
+  } else {
+    enable_for_all = false;
+    std::vector<std::string> client_list = base::SplitString(
+        param_value, ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
+    allowed_clients.insert(client_list.begin(), client_list.end());
+  }
+}
+
+bool SuggestPathClientConfig::ShouldUseShortPath(
+    const std::string& client_name) const {
+  if (!enabled) {
+    return false;
+  }
+
+  return enable_for_all || allowed_clients.contains(client_name);
+}
+
+SuggestPathClientConfig::SuggestPathClientConfig(
+    const SuggestPathClientConfig&) = default;
+SuggestPathClientConfig::SuggestPathClientConfig(SuggestPathClientConfig&&) =
+    default;
+SuggestPathClientConfig& SuggestPathClientConfig::operator=(
+    const SuggestPathClientConfig&) = default;
+SuggestPathClientConfig& SuggestPathClientConfig::operator=(
+    SuggestPathClientConfig&&) = default;
+SuggestPathClientConfig::~SuggestPathClientConfig() = default;
 
 }  // namespace omnibox_feature_configs

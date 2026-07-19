@@ -11,6 +11,7 @@ source_set("browser_ui") {
     "glic_actor_nudge_delegate.h",
     "glic_nudge_controller.h",
     "glic_nudge_delegate.h",
+    "glic_split_button_delegate.h",
   ]
 
   public_deps = [
@@ -49,6 +50,7 @@ source_set("browser_ui") {
   } else {
     sources += [
       "glic_nudge_controller_android.h",
+      "glic_nudge_delegate_android.h",
       "glic_toast.h",
     ]
     deps += [ "//components/messages/android" ]
@@ -77,6 +79,7 @@ source_set("impl") {
   } else {
     sources += [
       "glic_nudge_controller_android.cc",
+      "glic_nudge_delegate_android.cc",
       "glic_toast.cc",
     ]
   }
@@ -97,7 +100,6 @@ source_set("impl") {
       "//chrome/browser/actor/ui",
       "//chrome/browser/actor/ui/task_list_bubble:controller",
       "//chrome/browser/glic",
-      "//chrome/browser/glic/fre",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/themes",
       "//chrome/browser/ui/browser_window",
@@ -108,13 +110,15 @@ source_set("impl") {
       "//chrome/common:buildflags",
       "//chrome/common:chrome_features",
       "//components/omnibox/browser:vector_icons",
-      "//components/pdf/common:constants",
       "//components/prefs",
       "//content/public/browser",
       "//ui/strings:ui_strings__strings_grit",
     ]
   } else {
-    deps += [ "//components/messages/android" ]
+    deps += [
+      "//chrome/browser/glic/android:jni_headers",
+      "//components/messages/android",
+    ]
   }
 
   public_deps = [ "//chrome/browser/glic" ]
@@ -212,7 +216,6 @@ if (!is_android) {
       "//chrome/browser:global_features",
       "//chrome/browser/actor:test_support",
       "//chrome/browser/glic",
-      "//chrome/browser/glic/fre",
       "//chrome/browser/glic/test_support",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/ui:ui_features",
@@ -250,7 +253,6 @@ if (!is_android) {
       "//chrome/browser/actor:test_support",
       "//chrome/browser/actor/ui",
       "//chrome/browser/glic/actor:test_support",
-      "//chrome/browser/glic/fre",
       "//chrome/browser/glic/test_support",
       "//chrome/browser/ui",
       "//chrome/browser/ui:browser_element_identifiers",

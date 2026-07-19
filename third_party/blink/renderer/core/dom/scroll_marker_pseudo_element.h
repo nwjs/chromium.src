@@ -31,10 +31,15 @@ class ScrollMarkerPseudoElement : public PseudoElement {
 
   void AttachLayoutTree(AttachContext&) final;
   void Dispose() final;
+  void RemovedFrom(ContainerNode&) override;
   void Trace(Visitor* v) const final;
 
   void SetHovered(bool hovered) final;
   void SetActive(bool active) final;
+
+  const ComputedStyle* AdjustedLayoutStyle(
+      const ComputedStyle& style,
+      const ComputedStyle& layout_parent_style) final;
 
   // Focused ::scroll-marker should set :focus-within on its
   // ::scroll-marker-group, its scroll container and all ancestors, but since

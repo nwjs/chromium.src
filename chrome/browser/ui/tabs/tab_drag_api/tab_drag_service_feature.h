@@ -9,26 +9,30 @@
 
 #include "components/browser_apis/tab_drag/tab_drag_api.mojom.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
+#include "ui/gfx/native_ui_types.h"
 
 namespace tabs_api {
 class TabDragServiceImpl;
+class TabDragWindowAdapter;
 }  // namespace tabs_api
 
 // Public interface for retrieving the tab drag service, either through mojo
 // or the native interface.
 class TabDragServiceFeature {
  public:
-  TabDragServiceFeature();
+  explicit TabDragServiceFeature(
+      std::unique_ptr<tabs_api::TabDragWindowAdapter> window_adapter);
   ~TabDragServiceFeature();
 
   TabDragServiceFeature(const TabDragServiceFeature&) = delete;
   TabDragServiceFeature& operator=(const TabDragServiceFeature&) = delete;
 
   void AcceptDragService(
-      mojo::PendingReceiver<tabs_api::mojom::TabDragService> client);
+      mojo::PendingReceiver<tabs_api::mojom::TabDragService> client,
+      gfx::NativeView context_view);
 
  private:
-  const std::unique_ptr<tabs_api::TabDragServiceImpl> tab_drag_service_;
+  std::unique_ptr<tabs_api::TabDragServiceImpl> tab_drag_service_;
 };
 
 #endif  // CHROME_BROWSER_UI_TABS_TAB_DRAG_API_TAB_DRAG_SERVICE_FEATURE_H_

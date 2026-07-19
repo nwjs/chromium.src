@@ -47,11 +47,25 @@ public class GlicEnabling {
         return GlicEnablingJni.get().isEnabledForProfile(profile);
     }
 
+    /** Returns true if the user was previously determined to be ineligible for Glic. */
+    public static boolean wasPreviouslyNotAllowed(@Nullable Profile profile) {
+        if (profile == null) return false;
+        if (sIsEnabledForTesting != null) return sIsEnabledForTesting;
+        return GlicEnablingJni.get().wasPreviouslyNotAllowed(profile);
+    }
+
     /** Returns true if the Glic settings page should be shown for the given profile. */
     public static boolean shouldShowSettingsPage(@Nullable Profile profile) {
         if (profile == null) return false;
         if (sIsEnabledForTesting != null) return sIsEnabledForTesting;
         return GlicEnablingJni.get().shouldShowSettingsPage(profile);
+    }
+
+    /** Returns true if the web actuation / auto browse toggle should be shown for the profile. */
+    public static boolean shouldShowWebActuationToggle(@Nullable Profile profile) {
+        if (profile == null) return false;
+        if (sIsEnabledForTesting != null) return sIsEnabledForTesting;
+        return GlicEnablingJni.get().shouldShowWebActuationToggle(profile);
     }
 
     /** Returns true if Glic is ready to be used for the given profile. */
@@ -116,7 +130,11 @@ public class GlicEnabling {
 
         boolean isEnabledForProfile(@JniType("Profile*") Profile profile);
 
+        boolean wasPreviouslyNotAllowed(@JniType("Profile*") Profile profile);
+
         boolean shouldShowSettingsPage(@JniType("Profile*") Profile profile);
+
+        boolean shouldShowWebActuationToggle(@JniType("Profile*") Profile profile);
 
         boolean isReadyForProfile(@JniType("Profile*") Profile profile);
 

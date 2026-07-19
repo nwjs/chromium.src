@@ -31,6 +31,7 @@
 <translation id="1828808367831369073">已將 <ph name="TABS_COUNT_ONE" /> 個分頁加入群組</translation>
 <translation id="1844381456014878100">閒置 7 天後</translation>
 <translation id="1869137256605757565">{TABS_COUNT,plural, =1{<ph name="TABS_COUNT_ONE" /> 個分頁}other{<ph name="TABS_COUNT_MANY" /> 個分頁}}</translation>
+<translation id="1894429470045525403">{TAB_COUNT,plural, =1{將分頁新增至閱讀清單}other{將分頁新增至閱讀清單}}</translation>
 <translation id="1909810060368225529">注意：所有人都能看到這個共用分頁群組的變動，以及變更你的共用分頁群組</translation>
 <translation id="1925363809167540686">{TAB_COUNT,plural, =1{固定分頁}other{固定分頁}}</translation>
 <translation id="1982637982196732906">移到閒置分頁區塊</translation>
@@ -76,6 +77,8 @@
 <translation id="3052964831964880138">「<ph name="PRODUCT_NAME" />」降價 <ph name="PRICE_DROP" /></translation>
 <translation id="3078350928901129212"><ph name="COLOR_NAME" />分頁群組顏色圖示</translation>
 <translation id="311432875115153175">分頁群組清單已關閉</translation>
+<translation id="3152596030350326139">水平顯示分頁</translation>
+<translation id="31806439105337256">垂直顯示分頁</translation>
 <translation id="3194464645767632461">評分</translation>
 <translation id="3269930881809501915">{TABS_COUNT,plural, =1{將 <ph name="TABS_COUNT_ONE" /> 個分頁加入群組}other{將 <ph name="TABS_COUNT_MANY" /> 個分頁加入群組}}</translation>
 <translation id="3328308545011660196">建議：似乎有 <ph name="NUMBER_OF_TABS" /> 個相關的分頁。要將這些分頁加入群組嗎？</translation>
@@ -180,7 +183,6 @@
 <translation id="7129458170538955174">這間店的資訊已開啟，顯示在畫面下半部</translation>
 <translation id="7204204600596740190">多選模式</translation>
 <translation id="7211038039686180558">分頁群組會自動儲存，並同步至你登入帳戶的所有裝置</translation>
-<translation id="731648547091221002">已選取<ph name="COLOR_NAME" /></translation>
 <translation id="7326879924029668159">查看退貨政策等資訊</translation>
 <translation id="7352298686197644113">查看已開啟分頁中的降價商品</translation>
 <translation id="7369451074646620503">「<ph name="TAB_GROUP_NAME" />」分頁群組已無法使用</translation>
@@ -206,7 +208,6 @@
 <translation id="7854360405711302755">{REVIEWS,plural, =1{<ph name="CURRENT_RATING" /> 分 (滿分 <ph name="RATING_BASELINE" />)，有 <ph name="REVIEWS_COUNT_ONE" /> 則評論}other{<ph name="CURRENT_RATING" /> 分 (滿分 <ph name="RATING_BASELINE" />)，有 <ph name="REVIEWS_COUNT_MANY" /> 則評論}}</translation>
 <translation id="7885132941432959125">將分頁向右移</translation>
 <translation id="7887334752153342268">複製</translation>
-<translation id="7939917283308035850">未選取<ph name="COLOR_NAME" /></translation>
 <translation id="7961015016161918242">一律不要</translation>
 <translation id="7966321538264951561">關閉建議項目。</translation>
 <translation id="796696298310625748">{WINDOW_COUNT,plural, =1{將分頁移到新視窗}other{將分頁移到其他視窗}}</translation>

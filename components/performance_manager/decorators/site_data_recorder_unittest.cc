@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "base/byte_size.h"
 #include "base/location.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
@@ -59,7 +60,7 @@ class LenientMockDataWriter : public SiteDataWriter {
   MOCK_METHOD(void, NotifyUsesAudioInBackground, (), (override));
   MOCK_METHOD(void,
               NotifyLoadTimePerformanceMeasurement,
-              (base::TimeDelta, base::TimeDelta, base::ByteCount),
+              (base::TimeDelta, base::TimeDelta, base::ByteSize),
               (override));
 
   // Used to record the destruction of this object.
@@ -231,7 +232,8 @@ TEST_F(SiteDataRecorderTest, FeatureEventsGetForwardedWhenInBackground) {
   ::testing::Mock::VerifyAndClear(mock_writer);
 
   // Ensure that no event gets forwarded if the tab is not in background.
-  node_impl->OnFaviconUpdated();
+  node_impl->OnFaviconUpdated(
+      blink::mojom::FaviconUpdateReason::kLinkElementChange);
   ::testing::Mock::VerifyAndClear(mock_writer);
   node_impl->OnTitleUpdated();
   ::testing::Mock::VerifyAndClear(mock_writer);
@@ -244,15 +246,18 @@ TEST_F(SiteDataRecorderTest, FeatureEventsGetForwardedWhenInBackground) {
   ::testing::Mock::VerifyAndClear(mock_writer);
 
   // Title and Favicon should be ignored during the post-loading grace period.
-  node_impl->OnFaviconUpdated();
+  node_impl->OnFaviconUpdated(
+      blink::mojom::FaviconUpdateReason::kLinkElementChange);
   node_impl->OnTitleUpdated();
   ::testing::Mock::VerifyAndClear(mock_writer);
 
   task_environment()->FastForwardBy(kTitleOrFaviconChangePostLoadGracePeriod);
 
   EXPECT_CALL(*mock_writer, NotifyUpdatesFaviconInBackground());
-  node_impl->OnFaviconUpdated();
+  node_impl->OnFaviconUpdated(
+      blink::mojom::FaviconUpdateReason::kLinkElementChange);
   ::testing::Mock::VerifyAndClear(mock_writer);
+
   EXPECT_CALL(*mock_writer, NotifyUpdatesTitleInBackground());
   node_impl->OnTitleUpdated();
   ::testing::Mock::VerifyAndClear(mock_writer);
@@ -269,7 +274,8 @@ TEST_F(SiteDataRecorderTest, FeatureEventsGetForwardedWhenInBackground) {
   // These events should be ignored during the post-background grace period.
   node_impl->SetIsAudible(true);
   node_impl->SetIsAudible(false);
-  node_impl->OnFaviconUpdated();
+  node_impl->OnFaviconUpdated(
+      blink::mojom::FaviconUpdateReason::kLinkElementChange);
   node_impl->OnTitleUpdated();
   ::testing::Mock::VerifyAndClear(mock_writer);
 
@@ -279,7 +285,8 @@ TEST_F(SiteDataRecorderTest, FeatureEventsGetForwardedWhenInBackground) {
   EXPECT_CALL(*mock_writer, NotifyUpdatesFaviconInBackground());
   EXPECT_CALL(*mock_writer, NotifyUpdatesTitleInBackground());
   node_impl->SetIsAudible(true);
-  node_impl->OnFaviconUpdated();
+  node_impl->OnFaviconUpdated(
+      blink::mojom::FaviconUpdateReason::kLinkElementChange);
   node_impl->OnTitleUpdated();
   ::testing::Mock::VerifyAndClear(mock_writer);
 
@@ -299,7 +306,8 @@ TEST_F(SiteDataRecorderTest, FeatureEventsIgnoredWhenLoadingInBackground) {
 
   PageNodeImpl* node_impl = PageNodeImpl::FromNode(page_node.get());
   ::testing::Mock::VerifyAndClear(mock_writer);
-  node_impl->OnFaviconUpdated();
+  node_impl->OnFaviconUpdated(
+      blink::mojom::FaviconUpdateReason::kLinkElementChange);
   ::testing::Mock::VerifyAndClear(mock_writer);
   node_impl->OnTitleUpdated();
   ::testing::Mock::VerifyAndClear(mock_writer);

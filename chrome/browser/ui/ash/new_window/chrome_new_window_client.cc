@@ -64,7 +64,6 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/webui/chrome_web_contents_handler.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
-#include "chrome/common/extensions/extension_constants.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/file_manager/app_id.h"
 #include "chromeos/ash/experiences/arc/intent_helper/arc_intent_helper_bridge.h"
@@ -480,8 +479,11 @@ void ChromeNewWindowClient::ShowShortcutCustomizationApp() {
   ash::ShowShortcutCustomizationApp(ProfileManager::GetActiveUserProfile());
 }
 
-void ChromeNewWindowClient::ShowTaskManager() {
-  chrome::OpenTaskManager(nullptr, task_manager::StartAction::kShortcut);
+void ChromeNewWindowClient::ShowTaskManager(bool from_context_menu) {
+  ::task_manager::StartAction chrome_start_action =
+      from_context_menu ? ::task_manager::StartAction::kContextMenu
+                        : ::task_manager::StartAction::kShortcut;
+  chrome::OpenTaskManager(nullptr, chrome_start_action);
 }
 
 void ChromeNewWindowClient::OpenDiagnostics() {

@@ -31,6 +31,7 @@
 #include "ipc/constants.mojom.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "net/cookies/site_for_cookies.h"
+#include "services/network/public/cpp/constants.h"
 #include "services/network/public/mojom/client_security_state.mojom.h"
 #include "services/network/public/mojom/network_context.mojom-forward.h"
 
@@ -444,13 +445,13 @@ void ServiceWorkerDevToolsAgentHost::UpdateLoaderFactories(
       rph, worker_route_id_, version->key(), client_security_state_.Clone(),
       std::move(coep_reporter_for_script_loader),
       /*dip_reporter=*/mojo::NullRemote(),
-      ContentBrowserClient::URLLoaderFactoryType::kServiceWorkerScript,
-      GetId());
+      ContentBrowserClient::URLLoaderFactoryType::kServiceWorkerScript, GetId(),
+      version->network_restrictions_id());
   auto subresource_bundle = EmbeddedWorkerInstance::CreateFactoryBundle(
       rph, worker_route_id_, version->key(), client_security_state_.Clone(),
       std::move(coep_reporter_for_subresource_loader), std::move(dip_reporter),
       ContentBrowserClient::URLLoaderFactoryType::kServiceWorkerSubResource,
-      GetId());
+      GetId(), version->network_restrictions_id());
 
   version->embedded_worker()->UpdateLoaderFactories(
       std::move(script_bundle), std::move(subresource_bundle));
@@ -465,8 +466,6 @@ ServiceWorkerDevToolsAgentHost::CreateNetworkFactoryParamsForDevTools() {
   const auto* version = context_wrapper_->GetLiveVersion(version_id_);
   // TODO(crbug.com/40190528): make sure client_security_state is no longer
   // nullptr anywhere.
-  // TODO(crbug.com/447954811): Pass network_restrictions_id so script fetch
-  // can be restricted based on connection allowlist.
   auto factory = URLLoaderFactoryParamsHelper::CreateForWorker(
       rph, origin, version->key().ToPartialNetIsolationInfo(),
       /*coep_reporter=*/mojo::NullRemote(),
@@ -476,7 +475,7 @@ ServiceWorkerDevToolsAgentHost::CreateNetworkFactoryParamsForDevTools() {
               ToOriginatingProcessId(rph->GetID()), origin),
       NetworkServiceDevToolsObserver::MakeSelfOwned(GetId()),
       /*client_security_state=*/nullptr,
-      /*network_restrictions_id=*/std::nullopt,
+      /*network_restrictions_id=*/version->network_restrictions_id(),
       /*debug_tag=*/"SWDTAH::CreateNetworkFactoryParamsForDevTools",
       /*require_cross_site_request_for_cookies=*/false,
       /*is_for_service_worker_=*/false);

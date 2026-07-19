@@ -19,6 +19,30 @@ reviewer.
 
 <histograms>
 
+<!-- LINT.IfChange(PrivateAiFeatures) -->
+
+<variants name="PrivateAiFeatures">
+  <variant name="ContextualCueing"/>
+  <variant name="DemoGenerateContent"/>
+  <variant name="FormsAi"/>
+  <variant name="ZeroStateSuggestion"/>
+</variants>
+
+<!-- LINT.ThenChange(//components/private_ai/proto/private_ai.proto:FeatureName) -->
+
+<histogram name="PrivateAi.Client.ClientAttestationRequestFailureReason"
+    enum="PrivateAiStatusCode" expires_after="2026-11-25">
+  <owner>arabm@google.com</owner>
+  <owner>dullweber@chromium.org</owner>
+  <owner>lamzin@google.com</owner>
+  <summary>
+    Records the underlying status code (error reason) when the initial client
+    attestation request fails. This error is rewritten as
+    kClientAttestationFailed on the main request status code metric, and this
+    histogram tracks the original failure reason of the request.
+  </summary>
+</histogram>
+
 <histogram name="PrivateAi.Client.FeatureName" enum="PrivateAiFeatureName"
     expires_after="2026-12-01">
   <owner>nikhiljakhar@google.com</owner>
@@ -30,6 +54,20 @@ reviewer.
     Records the Private AI feature name for each request sent. Recorded for
     every request.
   </summary>
+</histogram>
+
+<histogram name="PrivateAi.Client.RequestLatency.{FeatureName}" units="ms"
+    expires_after="2026-11-25">
+  <owner>arabm@google.com</owner>
+  <owner>dullweber@chromium.org</owner>
+  <owner>lamzin@google.com</owner>
+  <summary>
+    Records the latency of a request sent from the Private AI Client. This is
+    the time from when the request is sent to when the response is received or
+    the request times out. Recorded for every request. The suffix on the
+    histogram name indicates the feature: {FeatureName}
+  </summary>
+  <token key="FeatureName" variants="PrivateAiFeatures"/>
 </histogram>
 
 <histogram name="PrivateAi.Client.RequestLatency.{Status}" units="ms"
@@ -78,6 +116,18 @@ reviewer.
   </summary>
 </histogram>
 
+<histogram name="PrivateAi.Client.RequestStatusCode.{FeatureName}"
+    enum="PrivateAiStatusCode" expires_after="2026-11-25">
+  <owner>arabm@google.com</owner>
+  <owner>dullweber@chromium.org</owner>
+  <owner>lamzin@google.com</owner>
+  <summary>
+    Records the outcome of a Private AI request. Recorded for every request that
+    expects a response. Suffix indicates the feature: {FeatureName}
+  </summary>
+  <token key="FeatureName" variants="PrivateAiFeatures"/>
+</histogram>
+
 <histogram name="PrivateAi.Client.ResponseSize.Success" units="bytes"
     expires_after="2026-11-25">
   <owner>nikhiljakhar@google.com</owner>
@@ -91,7 +141,7 @@ reviewer.
   </summary>
 </histogram>
 
-<histogram name="PrivateAi.Client.ServerErrorCode" enum="GoogleRpcCode"
+<histogram name="PrivateAi.Client.ServerStatusCode" enum="GoogleRpcCode"
     expires_after="2026-12-01">
   <owner>nikhiljakhar@google.com</owner>
   <owner>arabm@google.com</owner>
@@ -117,6 +167,20 @@ reviewer.
     Records the WebSocket close code when the connection is dropped. This helps
     diagnose connection issues. See RFC 6455, Section 7.4.1 for a list of
     defined status codes. Recorded every time the WebSocket channel is dropped.
+  </summary>
+</histogram>
+
+<histogram name="PrivateAi.Client.WebSocketSessionDuration.ClosedByServer"
+    units="ms" expires_after="2026-12-10">
+  <owner>nikhiljakhar@google.com</owner>
+  <owner>arabm@google.com</owner>
+  <owner>dullweber@chromium.org</owner>
+  <owner>lamzin@google.com</owner>
+  <owner>saeideid@google.com</owner>
+  <summary>
+    Records the duration of a WebSocket connection starting from when the
+    connection is established to when it is closed by the server. Recorded when
+    the connection is closed by the server.
   </summary>
 </histogram>
 

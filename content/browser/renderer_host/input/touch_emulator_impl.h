@@ -5,13 +5,10 @@
 #ifndef CONTENT_BROWSER_RENDERER_HOST_INPUT_TOUCH_EMULATOR_IMPL_H_
 #define CONTENT_BROWSER_RENDERER_HOST_INPUT_TOUCH_EMULATOR_IMPL_H_
 
-#include <memory>
-
-#include "base/memory/weak_ptr.h"
-
 #include "base/containers/queue.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
 #include "components/input/touch_emulator.h"
 #include "components/input/touch_emulator_client.h"
@@ -48,6 +45,7 @@ class CONTENT_EXPORT TouchEmulatorImpl : public input::TouchEmulator {
   ~TouchEmulatorImpl() override;
 
   // TouchEmulator implementation.
+  base::WeakPtr<input::TouchEmulator> GetWeakPtr() override;
   void SetDeviceScaleFactor(float device_scale_factor) override;
   void SetDoubleTapSupportForPageEnabled(bool enabled) override;
   bool IsEnabled() const override;
@@ -134,7 +132,7 @@ class CONTENT_EXPORT TouchEmulatorImpl : public input::TouchEmulator {
   // Emulator is enabled iff gesture provider is created.
   // Disabled emulator does only process touch acks left from previous
   // emulation. It does not intercept any events.
-  std::unique_ptr<ui::FilteredGestureProvider> gesture_provider_;
+  scoped_refptr<ui::FilteredGestureProvider> gesture_provider_;
   ui::GestureProviderConfigType gesture_provider_config_type_;
   Mode mode_;
   bool double_tap_enabled_;
@@ -176,6 +174,8 @@ class CONTENT_EXPORT TouchEmulatorImpl : public input::TouchEmulator {
   bool pinch_gesture_active_;
 
   base::queue<base::OnceClosure> injected_touch_completion_callbacks_;
+
+  base::WeakPtrFactory<TouchEmulatorImpl> weak_ptr_factory_{this};
 };
 
 }  // namespace content

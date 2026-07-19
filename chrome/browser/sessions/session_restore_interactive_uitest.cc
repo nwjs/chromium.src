@@ -200,9 +200,9 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreInteractiveTest,
   // Minimize the window.
   views::test::PropertyWaiter minimize_waiter(
       base::BindRepeating(&ui::BaseWindow::IsMinimized,
-                          base::Unretained(browser()->window())),
+                          base::Unretained(browser()->GetWindow())),
       true);
-  browser()->window()->Minimize();
+  browser()->GetWindow()->Minimize();
   EXPECT_TRUE(minimize_waiter.Wait());
 
   // Restart and session restore the tabs.
@@ -231,9 +231,9 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreInteractiveTest,
   // Minimize the first browser window.
   views::test::PropertyWaiter minimize_waiter(
       base::BindRepeating(&ui::BaseWindow::IsMinimized,
-                          base::Unretained(browser()->window())),
+                          base::Unretained(browser()->GetWindow())),
       true);
-  browser()->window()->Minimize();
+  browser()->GetWindow()->Minimize();
   EXPECT_TRUE(minimize_waiter.Wait());
 
   EXPECT_EQ(2u, GlobalBrowserCollection::GetInstance()->GetSize());
@@ -305,12 +305,12 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreAshInteractiveTest, MultiWindowTabLoad) {
   Browser* browser1 = browser();
   const GURL kUrlWindow1("data:,window 1");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser1, kUrlWindow1));
-  browser1->window()->SetBounds(bounds);
+  browser1->GetWindow()->SetBounds(bounds);
 
   ui_test_utils::BrowserCreatedObserver browser_created_observer;
   chrome::NewWindow(browser1);
   Browser* browser2 = browser_created_observer.Wait();
-  browser2->window()->SetBounds(bounds);
+  browser2->GetWindow()->SetBounds(bounds);
 
   ui_test_utils::WaitUntilBrowserBecomeActive(browser2);
   const GURL kUrlWindow2("data:,window 2");

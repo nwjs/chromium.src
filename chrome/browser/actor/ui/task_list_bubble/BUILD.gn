@@ -23,6 +23,7 @@ source_set("ui") {
     "//chrome/browser/glic",
     "//chrome/browser/glic/browser_ui",
     "//chrome/browser/ui",
+    "//chrome/browser/ui/views:layout_provider",
     "//chrome/common",
     "//content/public/browser",
     "//ui/views",
@@ -82,6 +83,7 @@ source_set("unit_tests") {
     "//chrome/browser/actor/resources:grit_grit",
     "//chrome/browser/glic/browser_ui",
     "//chrome/browser/glic/test_support",
+    "//chrome/browser/ui/views/controls",
     "//chrome/test:test_support",
     "//testing/gtest",
   ]

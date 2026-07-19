@@ -433,7 +433,7 @@ public class CollaborationControllerDelegateImpl implements CollaborationControl
     private @Nullable Intent createFullscreenSigninIntent() {
         mThreadChecker.assertOnValidThread();
         FullscreenSigninAndHistorySyncConfig fullscreenConfig =
-                new FullscreenSigninAndHistorySyncConfig.Builder(
+                FullscreenSigninAndHistorySyncConfig.builder(
                                 mActivity.getString(R.string.collaboration_signin_title),
                                 mActivity.getString(R.string.collaboration_signin_description),
                                 mActivity.getString(R.string.collaboration_signin_sync_dismiss),
@@ -855,8 +855,10 @@ public class CollaborationControllerDelegateImpl implements CollaborationControl
         if (mFeatureEngagementLock != null) {
             mFeatureEngagementLock.release();
         }
-        if (mExitCallback != 0) {
-            CollaborationControllerDelegateImplJni.get().deleteExitCallback(mExitCallback);
+        long tempCallback = mExitCallback;
+        mExitCallback = 0;
+        if (tempCallback != 0) {
+            CollaborationControllerDelegateImplJni.get().deleteExitCallback(tempCallback);
         }
     }
 
@@ -874,7 +876,9 @@ public class CollaborationControllerDelegateImpl implements CollaborationControl
         mThreadChecker.assertOnValidThread();
         long tempCallback = mExitCallback;
         mExitCallback = 0;
-        CollaborationControllerDelegateImplJni.get().runExitCallback(tempCallback);
+        if (tempCallback != 0) {
+            CollaborationControllerDelegateImplJni.get().runExitCallback(tempCallback);
+        }
     }
 
     @SuppressWarnings("NullAway")

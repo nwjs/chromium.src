@@ -587,15 +587,18 @@ chromium-metrics-reviews@google.com.
   <int value="9" label="Program changed"/>
 </enum>
 
-<!-- LINT.IfChange(SearchPolicyConflictType) -->
+<!-- LINT.IfChange(SearchPromotionDefaultBrowserType) -->
 
-<enum name="SearchPolicyConflictType">
-  <int value="0" label="No conflict"/>
-  <int value="1" label="Conflict with featured search engine"/>
-  <int value="2" label="Conflict with non-featured search engine"/>
+<enum name="SearchPromotionDefaultBrowserType">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="Chrome"/>
+  <int value="2" label="Edge"/>
+  <int value="3" label="Safari"/>
+  <int value="4" label="Firefox"/>
+  <int value="5" label="Other"/>
 </enum>
 
-<!-- LINT.ThenChange(/components/search_engines/template_url_service.h:SearchPolicyConflictType) -->
+<!-- LINT.ThenChange(//chrome/browser/ui/search_promotion/search_promotion_manager.cc:DefaultBrowserType) -->
 
 <enum name="SearchProviderOverrideStatus">
   <int value="0" label="kNoPref"/>

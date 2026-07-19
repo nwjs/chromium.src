@@ -8,7 +8,6 @@
 #include <optional>
 #include <utility>
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
 
 #include "base/byte_count.h"
 #include "base/feature_list.h"
@@ -34,6 +33,7 @@
 #include "chrome/browser/resource_coordinator/utils.h"
 #include "chrome/browser/tab_contents/form_interaction_tab_helper.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/recently_audible_helper.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/web_applications/web_app_tab_helper.h"
 #include "components/device_event_log/device_event_log.h"
@@ -117,6 +117,15 @@ TabLifecycleUnitSource::TabLifecycleUnit::TabLifecycleUnit(
     last_focused_time_ticks_ = web_contents->GetLastActiveTimeTicks();
     last_focused_time_ = web_contents->GetLastActiveTime();
   }
+
+  if (auto* const audible_helper =
+          RecentlyAudibleHelper::FromWebContents(web_contents)) {
+    recently_audible_subscription_ =
+        audible_helper->RegisterRecentlyAudibleChangedCallback(
+            base::BindRepeating(&TabLifecycleUnit::SetRecentlyAudible,
+                                base::Unretained(this)));
+    SetRecentlyAudible(audible_helper->WasRecentlyAudible());
+  }
 }
 
 TabLifecycleUnitSource::TabLifecycleUnit::~TabLifecycleUnit() {
@@ -132,6 +141,16 @@ void TabLifecycleUnitSource::TabLifecycleUnit::SetWebContents(
     content::WebContents* web_contents) {
   DCHECK(web_contents);
   Observe(web_contents);
+
+  recently_audible_subscription_ = base::CallbackListSubscription();
+  if (auto* const audible_helper =
+          RecentlyAudibleHelper::FromWebContents(web_contents)) {
+    recently_audible_subscription_ =
+        audible_helper->RegisterRecentlyAudibleChangedCallback(
+            base::BindRepeating(&TabLifecycleUnit::SetRecentlyAudible,
+                                base::Unretained(this)));
+    SetRecentlyAudible(audible_helper->WasRecentlyAudible());
+  }
 }
 
 void TabLifecycleUnitSource::TabLifecycleUnit::SetFocused(bool focused) {

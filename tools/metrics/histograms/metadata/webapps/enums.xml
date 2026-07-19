@@ -126,6 +126,7 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="From a sub apps install dialog"/>
   <int value="4" label="From the settings button on a notification"/>
   <int value="5" label="From the page specific site data dialog"/>
+  <int value="6" label="From the navigation capturing IPH bubble"/>
 </enum>
 
 <enum name="DefaultOfflineClosingReason">
@@ -312,6 +313,20 @@ chromium-metrics-reviews@google.com.
   <int value="12" label="Version pinning is not allowed"/>
   <int value="13" label="Downgrade is not allowed"/>
 </enum>
+
+<!-- LINT.IfChange(IwaComponentBestEffortWaitOutcome) -->
+
+<enum name="IwaComponentBestEffortWaitOutcome">
+  <int value="0" label="Component already ready (No wait needed)"/>
+  <int value="1"
+      label="Fell back to preload (On-demand update timed out/failed)"/>
+  <int value="2"
+      label="Loaded existing cache (Completed waiting for local disk read)"/>
+  <int value="3"
+      label="Downloaded new component (Successfully fetched newer version)"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/web_applications/isolated_web_apps/key_distribution/iwa_key_distribution_histograms.h:IwaComponentBestEffortWaitOutcome) -->
 
 <!-- LINT.IfChange(IwaComponentUpdateError) -->
 
@@ -906,6 +921,7 @@ chromium-metrics-reviews@google.com.
   <int value="6" label="Install command failed"/>
   <int value="7" label="No custom id field in manifest"/>
   <int value="8" label="Manifest id mismatch"/>
+  <int value="9" label="Install in progress"/>
 </enum>
 
 <!-- LINT.ThenChange(/chrome/browser/web_applications/web_install_service_impl.h:WebInstallServiceResult) -->

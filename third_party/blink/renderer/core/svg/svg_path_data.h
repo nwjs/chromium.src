@@ -21,6 +21,8 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_SVG_SVG_PATH_DATA_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_SVG_SVG_PATH_DATA_H_
 
+#include <array>
+
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 #include "ui/gfx/geometry/point_f.h"
 
@@ -59,6 +61,81 @@ static inline bool IsAbsolutePathSegType(const SVGPathSegType type) {
   // For commands with an ordinal >= PathSegMoveToAbs, and odd number =>
   // relative command.
   return type < kPathSegMoveToAbs || type % 2 == 0;
+}
+
+// Command letter for each SVGPathSegType, indexed by enum value.
+// TODO(crbug.com/40441025): Unify the parallel command switches with a
+// descriptor.
+inline constexpr auto kPathSegmentCharacter = std::to_array<char>({
+    0,    // kPathSegUnknown
+    'Z',  // kPathSegClosePath
+    'M',  // kPathSegMoveToAbs
+    'm',  // kPathSegMoveToRel
+    'L',  // kPathSegLineToAbs
+    'l',  // kPathSegLineToRel
+    'C',  // kPathSegCurveToCubicAbs
+    'c',  // kPathSegCurveToCubicRel
+    'Q',  // kPathSegCurveToQuadraticAbs
+    'q',  // kPathSegCurveToQuadraticRel
+    'A',  // kPathSegArcAbs
+    'a',  // kPathSegArcRel
+    'H',  // kPathSegLineToHorizontalAbs
+    'h',  // kPathSegLineToHorizontalRel
+    'V',  // kPathSegLineToVerticalAbs
+    'v',  // kPathSegLineToVerticalRel
+    'S',  // kPathSegCurveToCubicSmoothAbs
+    's',  // kPathSegCurveToCubicSmoothRel
+    'T',  // kPathSegCurveToQuadraticSmoothAbs
+    't',  // kPathSegCurveToQuadraticSmoothRel
+});
+
+// Inverse of kPathSegmentCharacter; kPathSegUnknown for unrecognized letters.
+// TODO(crbug.com/40441025): Derive from kPathSegmentCharacter to avoid
+// duplication.
+inline SVGPathSegType MapLetterToSegmentType(unsigned letter) {
+  switch (letter) {
+    case 'Z':
+    case 'z':
+      return kPathSegClosePath;
+    case 'M':
+      return kPathSegMoveToAbs;
+    case 'm':
+      return kPathSegMoveToRel;
+    case 'L':
+      return kPathSegLineToAbs;
+    case 'l':
+      return kPathSegLineToRel;
+    case 'C':
+      return kPathSegCurveToCubicAbs;
+    case 'c':
+      return kPathSegCurveToCubicRel;
+    case 'Q':
+      return kPathSegCurveToQuadraticAbs;
+    case 'q':
+      return kPathSegCurveToQuadraticRel;
+    case 'A':
+      return kPathSegArcAbs;
+    case 'a':
+      return kPathSegArcRel;
+    case 'H':
+      return kPathSegLineToHorizontalAbs;
+    case 'h':
+      return kPathSegLineToHorizontalRel;
+    case 'V':
+      return kPathSegLineToVerticalAbs;
+    case 'v':
+      return kPathSegLineToVerticalRel;
+    case 'S':
+      return kPathSegCurveToCubicSmoothAbs;
+    case 's':
+      return kPathSegCurveToCubicSmoothRel;
+    case 'T':
+      return kPathSegCurveToQuadraticSmoothAbs;
+    case 't':
+      return kPathSegCurveToQuadraticSmoothRel;
+    default:
+      return kPathSegUnknown;
+  }
 }
 
 struct PathSegmentData {

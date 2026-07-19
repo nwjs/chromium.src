@@ -27,7 +27,7 @@
 #include "chrome/browser/ui/ash/shelf/shelf_context_menu.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/common/extensions/extension_constants.h"
+#include "chrome/browser/ui/window_metadata/window_metadata_controller.h"
 #include "chrome/grit/theme_resources.h"
 #include "chromeos/ash/components/browser_context_helper/annotated_account_id.h"
 #include "components/account_id/account_id.h"
@@ -315,7 +315,8 @@ BrowserShortcutShelfItemController::GetAppMenuItems(
       // Set the title of the app menu item to the browser window title if the
       // user set one on the window. Otherwise, use the title defined in
       // ChromeShelfController.
-      std::string browser_title = browser->GetBrowser().user_title();
+      std::string browser_title =
+          WindowMetadataController::From(&browser->GetBrowser())->user_title();
       std::u16string item_title = browser_title.empty()
                                       ? controller->GetAppMenuTitle(tab)
                                       : base::UTF8ToUTF16(browser_title);
@@ -362,7 +363,7 @@ void BrowserShortcutShelfItemController::ExecuteCommand(bool from_context_menu,
   // It's unclear why, but the browser's window may be null: crbug.com/41444285
   if (command_id < static_cast<int64_t>(app_menu_items_.size()) &&
       app_menu_items_[command_id].first &&
-      app_menu_items_[command_id].first->window()) {
+      app_menu_items_[command_id].first->GetWindow()) {
     ash::BrowserDelegate* browser =
         ash::BrowserController::GetInstance()->GetDelegate(
             app_menu_items_[command_id].first);

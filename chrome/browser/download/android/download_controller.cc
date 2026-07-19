@@ -46,7 +46,6 @@
 #include "chrome/browser/ui/android/tab_model/tab_model.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_list.h"
 #include "chrome/common/pref_names.h"
-#include "chrome/grit/branded_strings.h"
 #include "components/download/content/public/context_menu_download.h"
 #include "components/download/public/common/android/auto_resumption_handler.h"
 #include "components/download/public/common/download_danger_type.h"
@@ -135,15 +134,6 @@ void RemoveDownloadItem(std::unique_ptr<DownloadManagerGetter> getter,
   }
 }
 
-void ScheduleRemoveDownloadItem(download::DownloadItem* download) {
-  auto download_manager_getter = std::make_unique<DownloadManagerGetter>(
-      content::DownloadItemUtils::GetBrowserContext(download)
-          ->GetDownloadManager());
-  content::GetUIThreadTaskRunner({})->PostTask(
-      FROM_HERE,
-      base::BindOnce(&RemoveDownloadItem, std::move(download_manager_getter),
-                     download->GetGuid()));
-}
 
 bool ShouldOpenPdfInline(DownloadItem* item) {
   BrowserContext* context = content::DownloadItemUtils::GetBrowserContext(item);
@@ -209,7 +199,33 @@ bool isEnterpriseBlockDownloadDangerType(
 }
 // LINT.ThenChange(//components/browser_ui/util/android/java/src/org/chromium/components/browser_ui/util/DownloadUtils.java:isBlockedSensitiveDownload)
 
+ui::WindowAndroid* GetCurrentWindow() {
+  // Iterate through all tab models to find the active one.
+  for (const TabModel* model : TabModelList::models()) {
+    if (!model->IsActiveModel()) {
+      continue;
+    }
+    content::WebContents* active_web_contents = model->GetActiveWebContents();
+    if (active_web_contents) {
+      return active_web_contents->GetTopLevelNativeWindow();
+    }
+  }
+  return nullptr;
+}
+
 }  // namespace
+
+// static
+void DownloadController::ScheduleRemoveDownloadItem(
+    download::DownloadItem* item) {
+  auto download_manager_getter = std::make_unique<DownloadManagerGetter>(
+      content::DownloadItemUtils::GetBrowserContext(item)
+          ->GetDownloadManager());
+  content::GetUIThreadTaskRunner({})->PostTask(
+      FROM_HERE,
+      base::BindOnce(&RemoveDownloadItem, std::move(download_manager_getter),
+                     item->GetGuid()));
+}
 
 static void JNI_DownloadController_CancelDownload(
     JNIEnv* env,
@@ -411,19 +427,23 @@ void DownloadController::OnDownloadUpdated(DownloadItem* item) {
 
   if (item->IsDangerous() && (item->GetState() != DownloadItem::CANCELLED)) {
     DownloadItemModel model{item};
-    MaybeRecordDangerousDownloadWarningShown(model);
+    bool dialog_shown = false;
     if (item->GetDangerType() ==
         download::DOWNLOAD_DANGER_TYPE_SENSITIVE_CONTENT_WARNING) {
-      OnSensitiveDownload(item);
+      dialog_shown = OnSensitiveDownload(item);
     } else if (isEnterpriseBlockDownloadDangerType(item->GetDangerType())) {
       // The download is deemed blocked by enterprise policy, do
       // nothing here so the download will fail the completion check.
     } else if (ShouldShowSafeBrowsingAndroidDownloadWarnings()) {
-      ShowDangerousDownloadWarning(model);
+      dialog_shown = ShowDangerousDownloadWarning(model);
     } else {
       // Don't show notification for a dangerous download, as user can resume
       // the download after browser crash through notification.
-      OnDangerousDownload(item);
+      dialog_shown = OnDangerousDownload(item);
+    }
+
+    if (dialog_shown) {
+      MaybeRecordDangerousDownloadWarningShown(model);
     }
     return;
   }
@@ -450,7 +470,7 @@ void DownloadController::OnDownloadDestroyed(download::DownloadItem* item) {
   }
 }
 
-void DownloadController::ShowDangerousDownloadWarning(DownloadUIModel& model) {
+bool DownloadController::ShowDangerousDownloadWarning(DownloadUIModel& model) {
   download::DownloadItem* item = model.GetDownloadItem();
   CHECK(item);
   // Schedule the dangerous download to be canceled after a time delay.
@@ -471,52 +491,65 @@ void DownloadController::ShowDangerousDownloadWarning(DownloadUIModel& model) {
   if (item->GetDangerType() == download::DOWNLOAD_DANGER_TYPE_DANGEROUS_FILE ||
       item->GetDangerType() ==
           download::DOWNLOAD_DANGER_TYPE_POTENTIALLY_UNWANTED) {
-    OnDangerousDownload(item);
+    return ShowDangerousDownloadDialog(item);
   }
+  return false;
 }
 
-void DownloadController::OnDangerousDownload(download::DownloadItem* item) {
+bool DownloadController::OnDangerousDownload(download::DownloadItem* item) {
   // The chrome.downloads extension API uses the dangerous download prompt
   // shared by all extensions platforms (see download_danger_dialog.cc).
   if (item->GetDownloadSource() == download::DownloadSource::EXTENSION_API) {
-    return;
+    return false;
   }
 
-  WebContents* web_contents = content::DownloadItemUtils::GetWebContents(item);
-  if (!web_contents) {
-    ScheduleRemoveDownloadItem(item);
-    item->RemoveObserver(this);
-    return;
-  }
-
-  ui::ViewAndroid* view_android =
-      web_contents ? web_contents->GetNativeView() : nullptr;
   ui::WindowAndroid* window_android =
-      view_android ? view_android->GetWindowAndroid() : nullptr;
+      GetWindowHelper(item, /*should_schedule_removal=*/true,
+                      /*fallback_to_current_window=*/false);
+
   if (!dangerous_download_bridge_) {
     dangerous_download_bridge_ =
         std::make_unique<DangerousDownloadDialogBridge>();
   }
   dangerous_download_bridge_->Show(item, window_android);
+  return (window_android != nullptr);
 }
 
-void DownloadController::OnSensitiveDownload(download::DownloadItem* item) {
-  WebContents* web_contents = content::DownloadItemUtils::GetWebContents(item);
-  if (!web_contents) {
-    ScheduleRemoveDownloadItem(item);
-    item->RemoveObserver(this);
-    return;
-  }
-
-  ui::ViewAndroid* view_android =
-      web_contents ? web_contents->GetNativeView() : nullptr;
+bool DownloadController::OnSensitiveDownload(download::DownloadItem* item) {
   ui::WindowAndroid* window_android =
-      view_android ? view_android->GetWindowAndroid() : nullptr;
+      GetWindowHelper(item, /*should_schedule_removal=*/true,
+                      /*fallback_to_current_window=*/false);
+
   if (!policy_warning_download_bridge_) {
     policy_warning_download_bridge_ =
         std::make_unique<PolicyWarningDownloadDialogBridge>();
   }
   policy_warning_download_bridge_->Show(item, window_android);
+  return (window_android != nullptr);
+}
+
+bool DownloadController::ShowDangerousDownloadDialog(
+    download::DownloadItem* item) {
+  if (item->GetDownloadSource() == download::DownloadSource::EXTENSION_API) {
+    return false;
+  }
+
+  // Reached post-download (unlike OnDangerousDownload). If the original
+  // WebContents is missing, keep the download and fallback to showing the
+  // dialog in the current window.
+  ui::WindowAndroid* window_android =
+      GetWindowHelper(item, /*should_schedule_removal=*/false,
+                      /*fallback_to_current_window=*/true);
+  if (!window_android) {
+    return false;
+  }
+
+  if (!dangerous_download_bridge_) {
+    dangerous_download_bridge_ =
+        std::make_unique<DangerousDownloadDialogBridge>();
+  }
+  dangerous_download_bridge_->Show(item, window_android);
+  return true;
 }
 
 void DownloadController::EnableVerifyAppsDone(
@@ -605,6 +638,28 @@ bool DownloadController::ShouldShowAppVerificationPrompt(
   }
 
   return true;
+}
+
+ui::WindowAndroid* DownloadController::GetWindowHelper(
+    download::DownloadItem* item,
+    bool should_schedule_removal,
+    bool fallback_to_current_window) {
+  WebContents* web_contents = content::DownloadItemUtils::GetWebContents(item);
+  if (should_schedule_removal && !web_contents) {
+    ScheduleRemoveDownloadItem(item);
+    item->RemoveObserver(this);
+    return nullptr;
+  }
+
+  ui::ViewAndroid* view_android =
+      web_contents ? web_contents->GetNativeView() : nullptr;
+  ui::WindowAndroid* window_android =
+      view_android ? view_android->GetWindowAndroid() : nullptr;
+
+  if (fallback_to_current_window && !window_android) {
+    window_android = GetCurrentWindow();
+  }
+  return window_android;
 }
 
 DEFINE_JNI(DownloadController)

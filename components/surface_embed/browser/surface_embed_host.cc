@@ -147,10 +147,6 @@ void SurfaceEmbedHost::AttachConnector(
   content::SurfaceEmbedConnector::Attach(
       web_contents_to_attach, &collection_->render_frame_host(), this);
 
-  auto* connector = GetConnector();
-  CHECK(connector->GetFrameSinkId().is_valid());
-  surface_embed_->SetFrameSinkId(connector->GetFrameSinkId());
-
   // TODO(surface-embed): If accessibility info was received before the
   // connector was attached, pass it to the connector now.
 }
@@ -175,9 +171,10 @@ void SurfaceEmbedHost::SynchronizeVisualProperties(
   }
 }
 
-void SurfaceEmbedHost::SetFrameSinkId(const viz::FrameSinkId& frame_sink_id) {
+void SurfaceEmbedHost::SetFrameSinkId(const viz::FrameSinkId& frame_sink_id,
+                                      bool allow_paint_holding) {
   if (surface_embed_) {
-    surface_embed_->SetFrameSinkId(frame_sink_id);
+    surface_embed_->SetFrameSinkId(frame_sink_id, allow_paint_holding);
   }
 }
 

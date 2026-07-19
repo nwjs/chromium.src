@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -37,17 +38,24 @@ class FilterStoreBackend {
   // Stores a new annotation. Called by the UI thread via SequenceBound.
   bool StoreAnnotation(const FilterAnnotation& annotation);
 
-  // Retrieves annotations for a specific task type created at or after
+  // Retrieves annotations for specific task types created at or after
   // `min_creation_time`. Called by the UI thread via SequenceBound, returning
   // data via callback.
-  std::vector<FilterAnnotation> GetAnnotationsForTaskSortedByCreationTimestamp(
-      std::string_view task_type,
+  std::vector<FilterAnnotation> GetAnnotationsForTasksSortedByCreationTimestamp(
+      std::vector<std::string> task_types,
       size_t max_count,
       base::Time min_creation_time);
 
   // Deletes all annotations for the given `task_type`.
   // Returns the number of annotations deleted, or std::nullopt on failure.
   std::optional<int64_t> DeleteAnnotationsForTask(std::string_view task_type);
+
+  // Deletes annotations for specific hosts and time range.
+  // Returns the number of annotations deleted, or std::nullopt on failure.
+  std::optional<int64_t> DeleteAnnotationsForHosts(
+      std::vector<std::string> hosts,
+      base::Time delete_begin,
+      base::Time delete_end);
 
   // Clears all data from the database.
   void ClearData();

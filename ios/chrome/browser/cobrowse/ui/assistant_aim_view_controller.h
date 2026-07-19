@@ -38,6 +38,14 @@
 - (void)assistantAIMViewControllerDidChangeTraits:
     (AssistantAIMViewController*)viewController;
 
+// Called when the user requests to see the AIM SRP logs.
+- (void)assistantAIMViewControllerDidRequestSRPLogs:
+    (AssistantAIMViewController*)viewController;
+
+// Called when the user requests to see the AIM Loaded URL.
+- (void)assistantAIMViewControllerDidRequestLoadedURL:
+    (AssistantAIMViewController*)viewController;
+
 @end
 
 @interface AssistantAIMViewController

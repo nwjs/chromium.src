@@ -4,7 +4,7 @@
 
 package org.chromium.chrome.browser.ui.autofill;
 
-import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
@@ -23,6 +23,8 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.ui.autofill.data.AuthenticatorOption;
 import org.chromium.ui.modaldialog.ModalDialogManager.ModalDialogType;
 import org.chromium.ui.test.util.modaldialog.FakeModalDialogManager;
@@ -32,6 +34,7 @@ import java.util.List;
 
 /** Unit tests for {@link AuthenticatorSelectionDialogBridge}. */
 @RunWith(BaseRobolectricTestRunner.class)
+@EnableFeatures({ChromeFeatureList.RESET_NATIVE_POINTER_IN_CREDIT_CARD_AUTH_DIALOG})
 public class AuthenticatorSelectionDialogBridgeTest {
     // The icon set on the AuthenticatorOption is not important and any icon would do.
     private static final AuthenticatorOption OPTION_1 =
@@ -99,16 +102,22 @@ public class AuthenticatorSelectionDialogBridgeTest {
 
     @Test
     @SmallTest
-    public void testNativeMethodsNotCalledAfterDialogDismissed() {
+    public void testOnDismissedTwice() {
         mAuthenticatorSelectionDialogBridge.dismiss();
-        mAuthenticatorSelectionDialogBridge.onOptionSelected(OPTION_1.getIdentifier());
+        mAuthenticatorSelectionDialogBridge.onDialogDismissed();
         mAuthenticatorSelectionDialogBridge.onDialogDismissed();
 
         verify(mNativeMock, times(1)).onDismissed(NATIVE_AUTHENTICATOR_SELECTION_DIALOG_VIEW);
-        // The Java side can't call the native side after the dialog was dismissed from the C++
-        // side.
-        verify(mNativeMock, times(0)).onOptionSelected(anyInt(), anyString());
-        verify(mNativeMock, times(0)).onDismissed(anyInt());
+    }
+
+    @Test
+    @SmallTest
+    public void onOptionSelectedNotCalledAfterOnDismissed() {
+        mAuthenticatorSelectionDialogBridge.onDialogDismissed();
+        mAuthenticatorSelectionDialogBridge.onOptionSelected(OPTION_1.getIdentifier());
+
+        verify(mNativeMock, times(1)).onDismissed(NATIVE_AUTHENTICATOR_SELECTION_DIALOG_VIEW);
+        verify(mNativeMock, times(0)).onOptionSelected(anyLong(), anyString());
     }
 
     @Test

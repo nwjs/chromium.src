@@ -104,7 +104,7 @@ class FakeBrowser {
       TabActivitySimulator().AddWebContentsAndNavigate(
           browser_->tab_strip_model(), GURL(kTestUrl));
     }
-    static_cast<TestBrowserWindow*>(browser_->window())
+    static_cast<TestBrowserWindow*>(browser_->GetWindow())
         ->SetCloseCallback(base::BindOnce(&FakeBrowser::OnBrowserWindowClosed,
                                           weak_ptr_.GetWeakPtr()));
   }
@@ -896,7 +896,9 @@ class FakeNewWindowDelegate : public ash::TestNewWindowDelegate {
 
   void NewTab() override { new_tab_called_ = true; }
 
-  void ShowTaskManager() override { task_manager_called_ = true; }
+  void ShowTaskManager(bool from_context_menu) override {
+    task_manager_called_ = true;
+  }
 
   void OpenFeedbackPage(FeedbackSource source,
                         const std::string& description_template) override {

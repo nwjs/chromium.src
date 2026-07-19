@@ -4,7 +4,7 @@
 
 import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import type {CustomizeColorSchemeModeClientRemote, SettingsAppearancePageElement, SettingsDropdownMenuElement, SettingsToggleButtonElement} from 'chrome://settings/settings.js';
-import {AppearanceBrowserProxyImpl, ColorSchemeMode, CustomizeColorSchemeModeBrowserProxy, CustomizeColorSchemeModeClientCallbackRouter, CustomizeColorSchemeModeHandlerRemote, loadTimeData, MetricsBrowserProxyImpl, SystemTheme} from 'chrome://settings/settings.js';
+import {AppearanceBrowserProxyImpl, ColorSchemeMode, customizeColorSchemeModeBrowserProxyFactory, CustomizeColorSchemeModeHandlerRemote, loadTimeData, MetricsBrowserProxyImpl, SystemTheme} from 'chrome://settings/settings.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {TestMock} from 'chrome://webui-test/test_mock.js';
 import {isVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
@@ -18,17 +18,20 @@ let appearanceBrowserProxy: TestAppearanceBrowserProxy;
 let colorSchemeHandler: TestMock<CustomizeColorSchemeModeHandlerRemote>&
     CustomizeColorSchemeModeHandlerRemote;
 let colorSchemeCallbackRouter: CustomizeColorSchemeModeClientRemote;
+let metricsBrowserProxy: TestMetricsBrowserProxy;
 
 function createAppearancePage() {
   appearanceBrowserProxy.reset();
+  metricsBrowserProxy.reset();
   document.body.innerHTML = window.trustedTypes!.emptyHTML;
 
   colorSchemeHandler =
       TestMock.fromClass(CustomizeColorSchemeModeHandlerRemote);
-  CustomizeColorSchemeModeBrowserProxy.setInstance(
-      colorSchemeHandler, new CustomizeColorSchemeModeClientCallbackRouter());
-  colorSchemeCallbackRouter = CustomizeColorSchemeModeBrowserProxy.getInstance()
-                                  .callbackRouter.$.bindNewPipeAndPassRemote();
+  const {instance, remote} =
+      customizeColorSchemeModeBrowserProxyFactory.createForTest(
+          colorSchemeHandler);
+  customizeColorSchemeModeBrowserProxyFactory.setInstance(instance);
+  colorSchemeCallbackRouter = remote;
 
   appearancePage = document.createElement('settings-appearance-page');
   appearancePage.set('prefs', {
@@ -79,6 +82,16 @@ function createAppearancePage() {
         },
       },
     },
+    bookmark_bar: {
+      show_on_all_tabs: {
+        type: chrome.settingsPrivate.PrefType.BOOLEAN,
+        value: true,
+      },
+      visibility_state: {
+        type: chrome.settingsPrivate.PrefType.NUMBER,
+        value: 0,
+      },
+    },
     tab_search: {
       is_right_aligned: {
         type: chrome.settingsPrivate.PrefType.BOOLEAN,
@@ -127,10 +140,17 @@ function createAppearancePage() {
   flush();
 }
 
-suite('AppearanceHandler', function() {
+suite('AppearancePage', function() {
   setup(function() {
+    loadTimeData.overrideValues({
+      ntpSimplificationBookmarksBarEnabled: false,
+    });
+
     appearanceBrowserProxy = new TestAppearanceBrowserProxy();
     AppearanceBrowserProxyImpl.setInstance(appearanceBrowserProxy);
+
+    metricsBrowserProxy = new TestMetricsBrowserProxy();
+    MetricsBrowserProxyImpl.setInstance(metricsBrowserProxy);
 
     createAppearancePage();
   });
@@ -489,6 +509,76 @@ suite('AppearanceHandler', function() {
     assertTrue(!!autoPinToggle);
     assertTrue(autoPinToggle.hidden);
   });
+
+  test('bookmarks bar toggle visibility', async function() {
+    createAppearancePage();
+    await microtasksFinished();
+
+    assertTrue(!!appearancePage.shadowRoot!.querySelector('#showBookmarksBar'));
+    assertFalse(!!appearancePage.shadowRoot!.querySelector(
+        '#bookmarksBarVisibilityDropdown'));
+  });
+
+  test(
+      'bookmarks bar dropdown menu updates visibility_state', async function() {
+        loadTimeData.overrideValues({
+          ntpSimplificationBookmarksBarEnabled: true,
+        });
+        createAppearancePage();
+        await microtasksFinished();
+
+        assertFalse(
+            !!appearancePage.shadowRoot!.querySelector('#showBookmarksBar'));
+
+        assertEquals(
+            0, appearancePage.getPref('bookmark_bar.visibility_state').value);
+
+        const dropdown = appearancePage.shadowRoot!
+                             .querySelector<SettingsDropdownMenuElement>(
+                                 '#bookmarksBarVisibilityDropdown');
+        assertTrue(!!dropdown);
+
+        const selectElement = dropdown.$.dropdownMenu;
+
+        assertEquals('0', selectElement.value);
+
+        selectElement.value = '1';
+        selectElement.dispatchEvent(new Event('change'));
+        await microtasksFinished();
+
+        assertEquals(
+            1, appearancePage.getPref('bookmark_bar.visibility_state').value);
+        assertEquals('1', selectElement.value);
+
+        let action = await metricsBrowserProxy.whenCalled('recordAction');
+        assertEquals('Settings_BookmarkBar_OnlyShowOnNtp', action);
+
+        metricsBrowserProxy.resetResolver('recordAction');
+
+        selectElement.value = '2';
+        selectElement.dispatchEvent(new Event('change'));
+        await microtasksFinished();
+
+        assertEquals(
+            2, appearancePage.getPref('bookmark_bar.visibility_state').value);
+        assertEquals('2', selectElement.value);
+
+        action = await metricsBrowserProxy.whenCalled('recordAction');
+        assertEquals('Settings_BookmarkBar_AlwaysHide', action);
+
+        metricsBrowserProxy.resetResolver('recordAction');
+
+        selectElement.value = '0';
+        selectElement.dispatchEvent(new Event('change'));
+        await microtasksFinished();
+
+        assertEquals(
+            0, appearancePage.getPref('bookmark_bar.visibility_state').value);
+        assertEquals('0', selectElement.value);
+
+        action = await metricsBrowserProxy.whenCalled('recordAction');
+        assertEquals('Settings_BookmarkBar_AlwaysShow', action);
+      });
 });
 
 suite('TabStripPositionSettings', () => {
@@ -646,7 +736,6 @@ suite('TabStripComboButtonSettings', () => {
 
   setup(async () => {
     loadTimeData.overrideValues({
-      showTabSearchEnabled: true,
       showProjectsPanelEnabled: true,
     });
 
@@ -719,7 +808,6 @@ suite('TabStripComboButtonSettings', () => {
 
   test('Everything menu toggle updates correct pref', async function() {
     loadTimeData.overrideValues({
-      showTabSearchEnabled: true,
       showProjectsPanelEnabled: false,
       showEverythingMenuEnabled: true,
     });
@@ -743,7 +831,6 @@ suite('TabStripComboButtonSettings', () => {
 
   test('Everything menu toggle records metrics', async function() {
     loadTimeData.overrideValues({
-      showTabSearchEnabled: true,
       showProjectsPanelEnabled: false,
       showEverythingMenuEnabled: true,
     });
@@ -767,15 +854,12 @@ suite('TabStripComboButtonSettings', () => {
 
   test('Toggles hidden when disabled', async function() {
     loadTimeData.overrideValues({
-      showTabSearchEnabled: false,
       showProjectsPanelEnabled: false,
       showEverythingMenuEnabled: false,
     });
     createAppearancePage();
     await microtasksFinished();
 
-    assertFalse(
-        !!appearancePage.shadowRoot!.querySelector('#showTabSearchButton'));
     assertFalse(
         !!appearancePage.shadowRoot!.querySelector('#showProjectsPanelButton'));
     assertFalse(!!appearancePage.shadowRoot!.querySelector(

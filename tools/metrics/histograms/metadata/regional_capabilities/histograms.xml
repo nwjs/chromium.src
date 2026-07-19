@@ -23,7 +23,7 @@ chromium-metrics-reviews@google.com.
 <histograms>
 
 <histogram name="RegionalCapabilities.ActiveRegionalProgram2"
-    enum="ActiveRegionalProgram" expires_after="2026-10-11">
+    enum="ActiveRegionalProgram" expires_after="2026-12-16">
   <owner>ljjlee@google.com</owner>
   <owner>chrome-regionalcapabilities@google.com</owner>
   <summary>
@@ -179,7 +179,7 @@ chromium-metrics-reviews@google.com.
 <!-- LINT.ThenChange(tools/metrics/histograms/metadata/puma/histograms.xml:PUMA.RegionalCapabilities.FunnelStage.Eligibility) -->
 
 <histogram name="RegionalCapabilities.FunnelStage.RegionalPresence"
-    enum="RegionalProgramAndLocationMatch" expires_after="2026-10-04">
+    enum="RegionalProgramAndLocationMatch" expires_after="2026-12-06">
   <owner>dgn@chromium.org</owner>
   <owner>chrome-regionalcapabilities@google.com</owner>
   <summary>
@@ -196,7 +196,7 @@ chromium-metrics-reviews@google.com.
 <!-- LINT.IfChange(RegionalCapabilities.FunnelStage.Reported) -->
 
 <histogram name="RegionalCapabilities.FunnelStage.Reported{Profile}"
-    enum="RegionalCapabilitiesFunnelStage" expires_after="2026-09-27">
+    enum="RegionalCapabilitiesFunnelStage" expires_after="2026-11-29">
   <owner>dgn@chromium.org</owner>
   <owner>chrome-regionalcapabilities@google.com</owner>
   <summary>

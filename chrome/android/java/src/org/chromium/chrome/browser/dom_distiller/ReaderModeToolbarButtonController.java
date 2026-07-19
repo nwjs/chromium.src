@@ -23,10 +23,8 @@ import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarButtonVariant
 import org.chromium.chrome.browser.toolbar.optional_button.BaseButtonDataProvider;
 import org.chromium.chrome.browser.toolbar.optional_button.ButtonData;
 import org.chromium.chrome.browser.toolbar.optional_button.ButtonData.ButtonSpec;
-import org.chromium.chrome.browser.user_education.IphCommandBuilder;
 import org.chromium.components.dom_distiller.core.DomDistillerFeatures;
 import org.chromium.components.dom_distiller.core.DomDistillerUrlUtils;
-import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.url.GURL;
 
@@ -85,14 +83,18 @@ public class ReaderModeToolbarButtonController extends BaseButtonDataProvider
                     public void onUrlUpdated(@Nullable Tab tab) {
                         GURL currentUrl = tab == null ? null : tab.getUrl();
                         if (Objects.equals(currentUrl, mTabLastUrlSeen)) return;
+                        boolean isExitingReaderMode =
+                                DomDistillerUrlUtils.isExitingReaderMode(
+                                        mTabLastUrlSeen, currentUrl);
                         mTabLastUrlSeen = currentUrl;
 
-                        maybeRefreshButton(tab);
+                        maybeRefreshButton(tab, isExitingReaderMode);
                     }
 
                     @Override
                     protected void onObservingDifferentTab(@Nullable Tab tab) {
-                        maybeRefreshButton(tab);
+                        mTabLastUrlSeen = tab == null ? null : tab.getUrl();
+                        maybeRefreshButton(tab, /* isExitingReaderMode= */ false);
                     }
                 };
 
@@ -134,9 +136,7 @@ public class ReaderModeToolbarButtonController extends BaseButtonDataProvider
                 currentTab.getUserDataHost().getUserData(ReaderModeManager.class);
         if (readerModeManager == null) return;
 
-        // Note: Hidden behind feature flag.
-        if (DomDistillerFeatures.sReaderModeDistillInApp.isEnabled()
-                && DomDistillerUrlUtils.isDistilledPage(currentTab.getUrl())) {
+        if (DomDistillerUrlUtils.isDistilledPage(currentTab.getUrl())) {
             readerModeManager.hideReaderMode();
             return;
         }
@@ -147,21 +147,7 @@ public class ReaderModeToolbarButtonController extends BaseButtonDataProvider
     }
 
     @Override
-    protected IphCommandBuilder getIphCommandBuilder(Tab tab) {
-        IphCommandBuilder iphCommandBuilder =
-                new IphCommandBuilder(
-                        tab.getContext().getResources(),
-                        FeatureConstants.CONTEXTUAL_PAGE_ACTIONS_QUIET_VARIANT,
-                        /* stringId= */ R.string.reader_mode_message_title,
-                        /* accessibilityStringId= */ R.string.show_reading_mode_text);
-        return iphCommandBuilder;
-    }
-
-    @Override
     protected boolean shouldShowButton(@Nullable Tab tab) {
-        if (!DomDistillerFeatures.sReaderModeDistillInApp.isEnabled()) {
-            return super.shouldShowButton(tab);
-        }
         return mShouldShowButtonForCurrentPage;
     }
 
@@ -194,11 +180,7 @@ public class ReaderModeToolbarButtonController extends BaseButtonDataProvider
         notifyObservers(mShouldShowButtonForCurrentPage);
     }
 
-    private void maybeRefreshButton(@Nullable Tab tab) {
-        if (!DomDistillerFeatures.sReaderModeDistillInApp.isEnabled()) {
-            return;
-        }
-
+    private void maybeRefreshButton(@Nullable Tab tab, boolean isExitingReaderMode) {
         // The callback controller may still have a pending task to hide the button. Destroy it and
         // create a new one to ensure that the button can be shown again.
         mCallbackController.destroy();
@@ -206,11 +188,11 @@ public class ReaderModeToolbarButtonController extends BaseButtonDataProvider
 
         if (tab != null && DomDistillerUrlUtils.isDistilledPage(tab.getUrl())) {
             mButtonData.setButtonSpec(mExitPointSpec);
+            setCanShowButton(true);
         } else {
             mButtonData.setButtonSpec(mEntryPointSpec);
+            setCanShowButton(!isExitingReaderMode);
         }
-
-        setCanShowButton(true);
     }
 
     // Testing-specific functions

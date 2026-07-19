@@ -24,9 +24,9 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "base/time/time.h"
-#include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/code_cache/generated_code_cache_context.h"
 #include "content/browser/process_lock.h"
+#include "content/browser/security/cpsp/child_process_security_policy_impl.h"
 #include "content/browser/site_instance_impl.h"
 #include "content/browser/url_info.h"
 #include "content/public/common/child_process_id.h"
@@ -61,7 +61,8 @@ class CodeCacheHostImplTest : public testing::Test,
 
     feature_list_.InitWithFeatures(
         {blink::features::kUsePersistentCacheForCodeCache,
-         net::features::kSplitCacheByNetworkIsolationKey},
+         net::features::kSplitCacheByNetworkIsolationKey,
+         blink::features::kInlineScriptCache},
         {});
     CHECK(temp_dir_.CreateUniqueTempDir());
     generated_code_cache_context_ =

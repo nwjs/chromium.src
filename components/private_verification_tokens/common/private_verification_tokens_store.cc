@@ -9,11 +9,13 @@
 
 #include "base/barrier_closure.h"
 #include "base/files/file_util.h"
+#include "base/functional/callback_helpers.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "components/private_verification_tokens/common/private_verification_tokens_public_key.h"
+#include "url/origin.h"
 
 namespace private_verification_tokens {
 
@@ -51,12 +53,12 @@ PrivateVerificationTokensStore::PrivateVerificationTokensStore(
 void PrivateVerificationTokensStore::CacheKeys(
     std::vector<PrivateVerificationTokensPublicKey> keys) {
   for (auto const& k : keys) {
-    public_keys_.try_emplace(k.etld_plus_one(), k);
+    public_keys_.try_emplace(k.issuer(), k);
   }
 }
 
 void PrivateVerificationTokensStore::CacheTokens(
-    std::map<std::string, TokenWithId> tokens) {
+    std::map<url::Origin, TokenWithId> tokens) {
   tokens_ = std::move(tokens);
 }
 
@@ -91,14 +93,40 @@ void PrivateVerificationTokensStore::OnCacheInitialized(
   std::move(callback).Run();
 }
 
-const std::map<std::string, PrivateVerificationTokensPublicKey>&
+const std::map<url::Origin, PrivateVerificationTokensPublicKey>&
 PrivateVerificationTokensStore::public_keys() const {
   return public_keys_;
 }
 
-const std::map<std::string, TokenWithId>&
+const std::map<url::Origin, TokenWithId>&
 PrivateVerificationTokensStore::tokens() const {
   return tokens_;
+}
+
+void PrivateVerificationTokensStore::DeleteAllTokens() {
+  DeleteTokens(base::Time(), base::Time::Max(), std::nullopt,
+               base::DoNothing());
+  tokens_.clear();
+}
+
+void PrivateVerificationTokensStore::DeleteTokens(
+    base::Time delete_begin,
+    base::Time delete_end,
+    std::optional<std::vector<url::Origin>> issuers,
+    base::OnceClosure callback) {
+  database_.AsyncCall(&PrivateVerificationTokensDatabase::DeleteTokens)
+      .WithArgs(delete_begin, delete_end, std::move(issuers))
+      .Then(base::BindOnce(&PrivateVerificationTokensStore::OnTokensDeleted,
+                           weak_ptr_factory_.GetWeakPtr(),
+                           std::move(callback)));
+}
+
+void PrivateVerificationTokensStore::OnTokensDeleted(base::OnceClosure callback,
+                                                     bool success) {
+  database_.AsyncCall(&PrivateVerificationTokensDatabase::GetTokensFromEach)
+      .Then(base::BindOnce(&PrivateVerificationTokensStore::CacheTokens,
+                           weak_ptr_factory_.GetWeakPtr())
+                .Then(std::move(callback)));
 }
 
 PrivateVerificationTokensStore::~PrivateVerificationTokensStore() = default;

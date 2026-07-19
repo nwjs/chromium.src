@@ -12,6 +12,7 @@
 #include "base/auto_reset.h"
 #include "base/feature_list.h"
 #include "base/memory/weak_ptr.h"
+#include "base/memory_coordinator/traits.h"
 #include "base/memory_coordinator/utils.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/no_destructor.h"
@@ -22,8 +23,10 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/task_manager/web_contents_tags.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/prefs/prefs_tab_helper.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/webui/log_web_ui_url.h"
 #include "chrome/browser/ui/webui/top_chrome/per_profile_webui_tracker.h"
 #include "chrome/browser/ui/webui/top_chrome/preload_context.h"
@@ -41,6 +44,7 @@
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "ui/base/models/menu_model.h"
+#include "ui/views/controls/webview/web_contents_set_background_color.h"
 #include "url/gurl.h"
 #include "url/url_constants.h"
 
@@ -123,6 +127,16 @@ content::WebUIController* GetWebUIController(
 bool IsShowingErrorPage(content::WebContents* web_contents) {
   return web_contents->GetSiteInstance()->GetSecurityPrincipal().SchemeIs(
       content::kChromeErrorScheme);
+}
+
+views::Widget* GetLastActiveBrowserWidget(
+    content::BrowserContext* browser_context) {
+  auto* collection = ProfileBrowserCollection::GetForProfile(
+      Profile::FromBrowserContext(browser_context));
+  auto* browser = collection ? collection->GetLastActiveBrowser() : nullptr;
+  auto* view =
+      browser ? BrowserView::GetBrowserViewForBrowser(browser) : nullptr;
+  return view ? view->GetWidget() : nullptr;
 }
 
 }  // namespace
@@ -253,10 +267,26 @@ RequestResult::~RequestResult() = default;
 RequestResult::RequestResult(RequestResult&&) = default;
 RequestResult& RequestResult::operator=(RequestResult&&) = default;
 
+namespace {
+
+constexpr base::MemoryConsumerTraits kWebUIContentsPreloadManagerTraits(
+    // Passive consumer. No memory will be reclaimed.
+    base::MemoryConsumerTraits::EstimatedMemoryUsage::kMedium,
+    // Passive consumer. Zero release/traversal overhead.
+    base::MemoryConsumerTraits::ReleaseMemoryCost::kFreesPagesWithoutTraversal,
+    // Discards no data.
+    base::MemoryConsumerTraits::InformationRetention::kLossless,
+    // Checks execute synchronously inline.
+    base::MemoryConsumerTraits::ExecutionType::kSynchronous,
+    // Evaluates pressure as a binary state (avoids preloading).
+    base::MemoryConsumerTraits::SupportsMemoryLimit::kNo);
+
+}  // namespace
+
 WebUIContentsPreloadManager::WebUIContentsPreloadManager()
     : memory_consumer_registration_(
           /*consumer_name=*/"WebUIContentsPreloadManager",
-          /*traits=*/std::nullopt,  // TODO(crbug.com/489671163): Fill traits.
+          kWebUIContentsPreloadManagerTraits,
           this,
           base::MemoryConsumerRegistration::CheckUnregister::kDisabled,
           base::MemoryConsumerRegistration::CheckRegistryExists::kDisabled) {
@@ -521,6 +551,15 @@ WebUIContentsPreloadManager::CreateNewContents(
   std::unique_ptr<content::WebContents> web_contents =
       content::WebContents::Create(
           GetWebContentsCreateParams(url, browser_context));
+
+  views::WebContentsSetBackgroundColor::CreateForWebContentsWithColor(
+      web_contents.get(), SK_ColorTRANSPARENT);
+
+  // Link to the last active browser to get the theme color provider during
+  // preload.
+  if (views::Widget* widget = GetLastActiveBrowserWidget(browser_context)) {
+    web_contents->SetColorProviderSource(widget);
+  }
 
   // Propagates user prefs to web contents.
   // This is needed by, for example, text selection color on ChromeOS.

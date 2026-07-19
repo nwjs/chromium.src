@@ -461,22 +461,7 @@ class SkiaRenderer::VizDebuggerLog {
               "render_pass_backings_ = [");
       for (auto& [render_pass_id, backing] : render_pass_backings) {
         base::trace_event::TracedValueJSON value;
-        base::trace_event::TracedValue::Dictionary(
-            {
-                {"size", backing.size.ToString()},
-                {"generate_mipmap", backing.generate_mipmap},
-                {"color_space", backing.color_space.ToString()},
-                {"alpha_type",
-                 backing.alpha_type == RenderPassAlphaType::kPremul ? "premul"
-                                                                    : "opaque"},
-                {"format", backing.format.ToString()},
-                {"mailbox", backing.mailbox.ToDebugString()},
-                {"is_root", backing.is_root},
-                {"is_scanout", backing.is_scanout},
-                {"scanout_dcomp_surface", backing.scanout_dcomp_surface},
-                {"drawn_rect", backing.drawn_rect.ToString()},
-            })
-            .WriteToValue(&value);
+        WriteRenderPassBackingToValue(backing, &value);
         DBG_LOG("renderer.skia.render_pass_backings", "%" PRIu64 ": %s",
                 render_pass_id.value(), value.ToFormattedJSON().c_str());
       }
@@ -491,21 +476,69 @@ class SkiaRenderer::VizDebuggerLog {
     DBG_CONNECTED_OR_TRACING(enabled);
     if (enabled) {
       base::trace_event::TracedValueJSON value;
-      base::trace_event::TracedValue::Dictionary(
-          {
-              {"size", requirements.size.ToString()},
-              {"generate_mipmap", requirements.generate_mipmap},
-              {"format", requirements.format.ToString()},
-              {"color_space", requirements.color_space.ToString()},
-              {"alpha_type", static_cast<int>(requirements.alpha_type)},
-              {"is_scanout", requirements.is_scanout},
-              {"scanout_dcomp_surface", requirements.scanout_dcomp_surface},
-          })
-          .WriteToValue(&value);
+      WriteRenderPassRequirementsToValue(requirements, &value);
       DBG_LOG("renderer.skia.render_pass_backings",
               "allocate backing for render_pass %" PRIu64 ", %s",
               render_pass_id.value(), value.ToFormattedJSON().c_str());
     }
+  }
+
+  static void DebugLogRenderPassBackingNotSufficient(
+      const AggregatedRenderPassId& render_pass_id,
+      const RenderPassBacking& backing,
+      const RenderPassRequirements& requirements) {
+    bool enabled;
+    DBG_CONNECTED_OR_TRACING(enabled);
+    if (enabled) {
+      base::trace_event::TracedValueJSON backing_value;
+      WriteRenderPassBackingToValue(backing, &backing_value);
+      base::trace_event::TracedValueJSON requirements_value;
+      WriteRenderPassRequirementsToValue(requirements, &requirements_value);
+      DBG_LOG("renderer.skia.render_pass_backings",
+              "render_pass %" PRIu64
+              " allocation no longer appropriate; backing = %s, "
+              "requirements = %s",
+              render_pass_id.value(), backing_value.ToFormattedJSON().c_str(),
+              requirements_value.ToFormattedJSON().c_str());
+    }
+  }
+
+ private:
+  static void WriteRenderPassBackingToValue(
+      const RenderPassBacking& backing,
+      base::trace_event::TracedValue* value) {
+    base::trace_event::TracedValue::Dictionary(
+        {
+            {"size", backing.size.ToString()},
+            {"generate_mipmap", backing.generate_mipmap},
+            {"color_space", backing.color_space.ToString()},
+            {"alpha_type", backing.alpha_type == RenderPassAlphaType::kPremul
+                               ? "premul"
+                               : "opaque"},
+            {"format", backing.format.ToString()},
+            {"mailbox", backing.mailbox.ToDebugString()},
+            {"is_root", backing.is_root},
+            {"is_scanout", backing.is_scanout},
+            {"scanout_dcomp_surface", backing.scanout_dcomp_surface},
+            {"drawn_rect", backing.drawn_rect.ToString()},
+        })
+        .WriteToValue(value);
+  }
+
+  static void WriteRenderPassRequirementsToValue(
+      const RenderPassRequirements& requirements,
+      base::trace_event::TracedValue* value) {
+    base::trace_event::TracedValue::Dictionary(
+        {
+            {"size", requirements.size.ToString()},
+            {"generate_mipmap", requirements.generate_mipmap},
+            {"format", requirements.format.ToString()},
+            {"color_space", requirements.color_space.ToString()},
+            {"alpha_type", static_cast<int>(requirements.alpha_type)},
+            {"is_scanout", requirements.is_scanout},
+            {"scanout_dcomp_surface", requirements.scanout_dcomp_surface},
+        })
+        .WriteToValue(value);
   }
 };
 
@@ -540,6 +573,27 @@ SkiaRenderer::RenderPassBacking::RenderPassBacking(
       buffer_queue(std::move(buffer_queue)) {}
 
 SkiaRenderer::RenderPassBacking::~RenderPassBacking() = default;
+
+bool SkiaRenderer::RenderPassBacking::IsSufficientForRequirements(
+    const RenderPassRequirements& requirements) const {
+  const bool size_is_exact_match = size == requirements.size;
+  const bool size_is_sufficient = size.width() >= requirements.size.width() &&
+                                  size.height() >= requirements.size.height();
+  const bool size_appropriate =
+      is_root ? size_is_exact_match : size_is_sufficient;
+  const bool mipmap_appropriate =
+      !requirements.generate_mipmap || generate_mipmap;
+  const bool no_change_in_format = requirements.format == format;
+  const bool no_change_in_alpha_type = requirements.alpha_type == alpha_type;
+  const bool no_change_in_color_space = requirements.color_space == color_space;
+  const bool scanout_appropriate =
+      requirements.is_scanout == is_scanout &&
+      requirements.scanout_dcomp_surface == scanout_dcomp_surface;
+
+  return size_appropriate && mipmap_appropriate && no_change_in_format &&
+         no_change_in_alpha_type && no_change_in_color_space &&
+         scanout_appropriate;
+}
 
 // chrome style prevents this from going in skia_renderer.h, but since it
 // uses std::optional, the style also requires it to have a declared ctor
@@ -642,6 +696,26 @@ SkiaRenderer::DrawQuadParams::DrawQuadParams(const gfx::Transform& cdt,
 
 #if BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_OZONE) || BUILDFLAG(IS_WIN)
 struct SkiaRenderer::RenderPassOverlayParams {
+  RenderPassOverlayParams() = default;
+  RenderPassOverlayParams(RenderPassOverlayParams&& other) noexcept
+      : render_pass_id(other.render_pass_id),
+        render_pass_backing(std::move(other.render_pass_backing)),
+        rpdq(std::move(other.rpdq)),
+        shared_quad_state(std::move(other.shared_quad_state)),
+        ref_count(other.ref_count) {
+    rpdq.shared_quad_state = &shared_quad_state;
+  }
+
+  RenderPassOverlayParams& operator=(RenderPassOverlayParams&& other) noexcept {
+    render_pass_id = other.render_pass_id;
+    render_pass_backing = std::move(other.render_pass_backing);
+    rpdq = std::move(other.rpdq);
+    shared_quad_state = std::move(other.shared_quad_state);
+    ref_count = other.ref_count;
+    rpdq.shared_quad_state = &shared_quad_state;
+    return *this;
+  }
+
   AggregatedRenderPassId render_pass_id;
   RenderPassBacking render_pass_backing;
   AggregatedRenderPassDrawQuad rpdq;
@@ -1484,8 +1558,9 @@ void SkiaRenderer::DoDrawQuad(const DrawQuad* quad,
                               const gfx::QuadF* draw_region) {
   if (!current_canvas_)
     return;
-  TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("viz.quads"),
-               "SkiaRenderer::DoDrawQuad");
+  TRACE_EVENT(TRACE_DISABLED_BY_DEFAULT("viz.quads"),
+              "SkiaRenderer::DoDrawQuad", "material",
+              DrawQuadMaterialToString(quad->material));
   DrawQuadParams params =
       CalculateDrawQuadParams(current_frame()->target_to_device_transform,
                               scissor_rect_, quad, draw_region);
@@ -3558,36 +3633,10 @@ void SkiaRenderer::UpdateRenderPassTextures(
     }
 
     const RenderPassRequirements& requirements = render_pass_it->second;
-    const bool size_is_exact_match = backing.size == requirements.size;
-    const bool size_is_sufficient =
-        backing.size.width() >= requirements.size.width() &&
-        backing.size.height() >= requirements.size.height();
-    bool size_appropriate =
-        backing.is_root ? size_is_exact_match : size_is_sufficient;
-    bool mipmap_appropriate =
-        !requirements.generate_mipmap || backing.generate_mipmap;
-    bool no_change_in_format = requirements.format == backing.format;
-    bool no_change_in_alpha_type =
-        requirements.alpha_type == backing.alpha_type;
-    bool no_change_in_color_space =
-        requirements.color_space == backing.color_space;
-    bool scanout_appropriate =
-        requirements.is_scanout == backing.is_scanout &&
-        requirements.scanout_dcomp_surface == backing.scanout_dcomp_surface;
-
-    if (!size_appropriate || !mipmap_appropriate || !no_change_in_format ||
-        !no_change_in_alpha_type || !no_change_in_color_space ||
-        !scanout_appropriate) {
+    if (!backing.IsSufficientForRequirements(requirements)) {
       passes_to_delete.push_back(backing_id);
-      DBG_LOG("renderer.skia.render_pass_backings",
-              "render_pass %" PRIu64
-              " allocation part not appropriate:%s%s%s%s%s%s",
-              backing_id.value(), !size_appropriate ? " size" : "",
-              !mipmap_appropriate ? " mipmap" : "",
-              !no_change_in_format ? " format" : "",
-              !no_change_in_alpha_type ? " alpha_type" : "",
-              !no_change_in_color_space ? " color_space" : "",
-              !scanout_appropriate ? " scanout" : "");
+      VizDebuggerLog::DebugLogRenderPassBackingNotSufficient(
+          backing_id, backing, requirements);
     }
   }
 
@@ -3901,6 +3950,7 @@ SkiaRenderer::GetOrCreateRenderPassOverlayBacking(
   overlay_params.render_pass_id = render_pass_id;
   overlay_params.shared_quad_state.SetAll(*rpdq->shared_quad_state);
   overlay_params.rpdq.SetAll(*rpdq);
+  overlay_params.rpdq.shared_quad_state = &overlay_params.shared_quad_state;
 
   in_flight_render_pass_overlay_backings_.push_back(std::move(overlay_params));
 
@@ -3925,7 +3975,7 @@ void SkiaRenderer::PrepareRenderPassOverlay(
                                      current_frame()->root_render_pass);
 
   auto* shared_quad_state =
-      const_cast<SharedQuadState*>(quad->shared_quad_state);
+      const_cast<SharedQuadState*>(quad->shared_quad_state.get());
 
   std::optional<gfx::Transform> quad_to_target_transform_inverse;
   if (shared_quad_state->quad_to_target_transform.IsInvertible()) {
@@ -4347,6 +4397,13 @@ void SkiaRenderer::EnsureMinNumberOfBuffers(int n) {
       backing.buffer_queue->EnsureMinNumberOfBuffers(n);
     }
   }
+}
+
+int SkiaRenderer::GetCurrentAllocatedBuffers() const {
+  if (root_buffer_queue_) {
+    return root_buffer_queue_->GetCurrentAllocatedBuffers();
+  }
+  return 0;
 }
 
 #if BUILDFLAG(IS_OZONE)

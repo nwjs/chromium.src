@@ -8,25 +8,37 @@
 
 #include "base/files/scoped_temp_dir.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback.h"
 #include "base/run_loop.h"
+#include "base/test/mock_callback.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/test_future.h"
 #include "chrome/browser/browsing_data/chrome_browsing_data_remover_constants.h"
+#include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/content_settings/core/browser/host_content_settings_map.h"
+#include "components/content_settings/core/common/content_settings.h"
+#include "components/content_settings/core/common/content_settings_types.h"
+#include "components/language/core/browser/pref_names.h"
+#include "components/prefs/pref_service.h"
 #include "components/soda/soda_installer.h"
 #include "content/public/browser/document_user_data.h"
+#include "content/public/browser/storage_partition_config.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
+#include "content/public/test/browser_test_utils.h"
 #include "content/public/test/browsing_data_remover_test_util.h"
 #include "media/base/media_switches.h"
 #include "media/mojo/mojom/speech_recognizer.mojom.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "url/gurl.h"
 
 namespace {
@@ -51,8 +63,10 @@ class OnDeviceSpeechRecognitionImplBrowserTest : public InProcessBrowserTest {
   ~OnDeviceSpeechRecognitionImplBrowserTest() override = default;
 
   explicit OnDeviceSpeechRecognitionImplBrowserTest(
-      const std::vector<base::test::FeatureRef>& enabled_features) {
-    scoped_feature_list_.InitWithFeatures(enabled_features, {});
+      const std::vector<base::test::FeatureRef>& enabled_features,
+      const std::vector<base::test::FeatureRef>& disabled_features = {
+          media::kPreemptiveSodaDownload}) {
+    scoped_feature_list_.InitWithFeatures(enabled_features, disabled_features);
   }
 
   // InProcessBrowserTest
@@ -169,6 +183,85 @@ IN_PROC_BROWSER_TEST_F(OnDeviceSpeechRecognitionImplBrowserTest, Available) {
                      media::mojom::AvailabilityStatus::kDownloadable));
 }
 
+IN_PROC_BROWSER_TEST_F(OnDeviceSpeechRecognitionImplBrowserTest,
+                       BypassStoragePartitionGuestView) {
+  // Create a custom guest site instance, which uses a non-default storage
+  // partition.
+  scoped_refptr<content::SiteInstance> guest_site_instance =
+      content::SiteInstance::CreateForGuest(
+          browser()->profile(),
+          content::StoragePartitionConfig::Create(
+              browser()->profile(), "my_domain", "my_partition", false));
+
+  content::WebContents::CreateParams params(browser()->profile(),
+                                            guest_site_instance);
+  std::unique_ptr<content::WebContents> guest_contents =
+      content::WebContents::Create(params);
+
+  EXPECT_NE(guest_contents->GetPrimaryMainFrame()->GetStoragePartition(),
+            browser()->profile()->GetDefaultStoragePartition());
+
+  // Navigate to about:blank directly.
+  ASSERT_TRUE(
+      content::NavigateToURL(guest_contents.get(), GURL("about:blank")));
+
+  content::RenderFrameHost* main_frame = guest_contents->GetPrimaryMainFrame();
+  EXPECT_EQ(GURL("about:blank"), main_frame->GetLastCommittedURL());
+
+  auto* speech_impl =
+      OnDeviceSpeechRecognitionImpl::GetOrCreateForCurrentDocument(main_frame);
+  ASSERT_TRUE(speech_impl);
+
+  // The vulnerability allows this to be downloadable.
+  // A correct implementation would return kUnavailable.
+  // We expect it to be kUnavailable to make the test FAIL when the bug is NOT
+  // fixed.
+  speech_impl->Available(
+      {kEnglishLanguageCode}, media::mojom::SpeechRecognitionQuality::kCommand,
+      base::BindOnce(&OnDeviceSpeechRecognitionImplBrowserTest::
+                         OnDeviceWebSpeechAvailableCallbackAndAssertStatus,
+                     base::Unretained(this),
+                     media::mojom::AvailabilityStatus::kUnavailable));
+}
+
+IN_PROC_BROWSER_TEST_F(OnDeviceSpeechRecognitionImplBrowserTest,
+                       BypassPermissionsPolicy) {
+  NavigateToUrl("foo.com");
+
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  content::RenderFrameHost* main_frame = web_contents->GetPrimaryMainFrame();
+
+  ASSERT_TRUE(content::ExecJs(
+      main_frame,
+      "new Promise(resolve => {"
+      "  let iframe = document.createElement('iframe');"
+      "  iframe.src = '/empty.html';"
+      "  iframe.allow = \"on-device-speech-recognition 'none'\";"
+      "  iframe.onload = resolve;"
+      "  document.body.appendChild(iframe);"
+      "});"));
+
+  content::RenderFrameHost* child_frame = content::ChildFrameAt(main_frame, 0);
+  ASSERT_TRUE(child_frame);
+
+  auto* speech_impl =
+      OnDeviceSpeechRecognitionImpl::GetOrCreateForCurrentDocument(child_frame);
+  ASSERT_TRUE(speech_impl);
+
+  base::test::TestFuture<media::mojom::AvailabilityStatus> future;
+
+  // The vulnerability allows this to be downloadable.
+  // A correct implementation would return kUnavailable.
+  // We expect it to be kUnavailable to make the test FAIL when the bug is NOT
+  // fixed.
+  speech_impl->Available(
+      {kEnglishLanguageCode}, media::mojom::SpeechRecognitionQuality::kCommand,
+      future.GetCallback());
+
+  EXPECT_EQ(future.Get(), media::mojom::AvailabilityStatus::kUnavailable);
+}
+
 IN_PROC_BROWSER_TEST_F(OnDeviceSpeechRecognitionImplBrowserTest, Install) {
   NavigateToUrl("foo.com");
 
@@ -240,6 +333,144 @@ IN_PROC_BROWSER_TEST_F(OnDeviceSpeechRecognitionImplBrowserTest,
 
   speech::SodaInstaller::GetInstance()->NotifySodaErrorForTesting(
       speech::LanguageCode::kNone);
+}
+
+IN_PROC_BROWSER_TEST_F(OnDeviceSpeechRecognitionImplBrowserTest,
+                       AvailableWithMicAndAcceptLanguage) {
+  NavigateToUrl("foo.com");
+
+  // Install so it's available but would normally be masked.
+  Install();
+
+  // Normally masked on a different origin.
+  NavigateToUrl("bar.com");
+  on_device_speech_recognition()->Available(
+      {kEnglishLanguageCode}, media::mojom::SpeechRecognitionQuality::kCommand,
+      base::BindOnce(&OnDeviceSpeechRecognitionImplBrowserTest::
+                         OnDeviceWebSpeechAvailableCallbackAndAssertStatus,
+                     base::Unretained(this),
+                     media::mojom::AvailabilityStatus::kDownloadable));
+
+  // Grant Mic permission
+  GURL url = embedded_https_test_server().GetURL("bar.com", "/empty.html");
+  HostContentSettingsMapFactory::GetForProfile(browser()->profile())
+      ->SetContentSettingDefaultScope(url, url,
+                                      ContentSettingsType::MEDIASTREAM_MIC,
+                                      CONTENT_SETTING_ALLOW);
+
+  // Set Accept-Language to English.
+  browser()->profile()->GetPrefs()->SetString(language::prefs::kAcceptLanguages,
+                                              "en-US,en");
+
+  // Now it should be available.
+  on_device_speech_recognition()->Available(
+      {kEnglishLanguageCode}, media::mojom::SpeechRecognitionQuality::kCommand,
+      base::BindOnce(&OnDeviceSpeechRecognitionImplBrowserTest::
+                         OnDeviceWebSpeechAvailableCallbackAndAssertStatus,
+                     base::Unretained(this),
+                     media::mojom::AvailabilityStatus::kAvailable));
+}
+
+IN_PROC_BROWSER_TEST_F(OnDeviceSpeechRecognitionImplBrowserTest,
+                       AvailableWithMicAndAcceptLanguageNotInstalled) {
+  NavigateToUrl("foo.com");
+
+  // Normally masked.
+  on_device_speech_recognition()->Available(
+      {kEnglishLanguageCode}, media::mojom::SpeechRecognitionQuality::kCommand,
+      base::BindOnce(&OnDeviceSpeechRecognitionImplBrowserTest::
+                         OnDeviceWebSpeechAvailableCallbackAndAssertStatus,
+                     base::Unretained(this),
+                     media::mojom::AvailabilityStatus::kDownloadable));
+
+  // Grant Mic permission
+  GURL url = embedded_https_test_server().GetURL("foo.com", "/empty.html");
+  HostContentSettingsMapFactory::GetForProfile(browser()->profile())
+      ->SetContentSettingDefaultScope(url, url,
+                                      ContentSettingsType::MEDIASTREAM_MIC,
+                                      CONTENT_SETTING_ALLOW);
+
+  // Set Accept-Language to French.
+  browser()->profile()->GetPrefs()->SetString(language::prefs::kAcceptLanguages,
+                                              "fr-FR,fr");
+
+  // Still masked because Accept-Language doesn't match the requested English.
+  on_device_speech_recognition()->Available(
+      {kEnglishLanguageCode}, media::mojom::SpeechRecognitionQuality::kCommand,
+      base::BindOnce(&OnDeviceSpeechRecognitionImplBrowserTest::
+                         OnDeviceWebSpeechAvailableCallbackAndAssertStatus,
+                     base::Unretained(this),
+                     media::mojom::AvailabilityStatus::kDownloadable));
+
+  // Set Accept-Language to English.
+  browser()->profile()->GetPrefs()->SetString(language::prefs::kAcceptLanguages,
+                                              "en-US,en");
+
+  // Now it should be downloadable without user activation because it's not
+  // installed yet.
+  on_device_speech_recognition()->Available(
+      {kEnglishLanguageCode}, media::mojom::SpeechRecognitionQuality::kCommand,
+      base::BindOnce(&OnDeviceSpeechRecognitionImplBrowserTest::
+                         OnDeviceWebSpeechAvailableCallbackAndAssertStatus,
+                     base::Unretained(this),
+                     media::mojom::AvailabilityStatus::
+                         kDownloadableWithoutUserActivation));
+}
+
+IN_PROC_BROWSER_TEST_F(OnDeviceSpeechRecognitionImplBrowserTest,
+                       AvailableWithAcceptLanguageButNoMicPermission) {
+  NavigateToUrl("foo.com");
+
+  // Set Accept-Language to English.
+  browser()->profile()->GetPrefs()->SetString(language::prefs::kAcceptLanguages,
+                                              "en-US,en");
+
+  // Block Mic permission
+  GURL url = embedded_https_test_server().GetURL("foo.com", "/empty.html");
+  HostContentSettingsMapFactory::GetForProfile(browser()->profile())
+      ->SetContentSettingDefaultScope(url, url,
+                                      ContentSettingsType::MEDIASTREAM_MIC,
+                                      CONTENT_SETTING_BLOCK);
+
+  // Still masked because Mic permission is denied, even though Accept-Language
+  // matches.
+  on_device_speech_recognition()->Available(
+      {kEnglishLanguageCode}, media::mojom::SpeechRecognitionQuality::kCommand,
+      base::BindOnce(&OnDeviceSpeechRecognitionImplBrowserTest::
+                         OnDeviceWebSpeechAvailableCallbackAndAssertStatus,
+                     base::Unretained(this),
+                     media::mojom::AvailabilityStatus::kDownloadable));
+}
+
+class OnDeviceSpeechRecognitionImplPreemptiveBrowserTest
+    : public OnDeviceSpeechRecognitionImplBrowserTest {
+ public:
+  OnDeviceSpeechRecognitionImplPreemptiveBrowserTest()
+      : OnDeviceSpeechRecognitionImplBrowserTest(
+            {media::kPreemptiveSodaDownload},
+            {}) {}
+};
+
+IN_PROC_BROWSER_TEST_F(OnDeviceSpeechRecognitionImplPreemptiveBrowserTest,
+                       PreemptiveDownloadUnmasksAvailability) {
+  NavigateToUrl("foo.com");
+
+  // Set Accept-Language to English to match the default language.
+  browser()->profile()->GetPrefs()->SetString(language::prefs::kAcceptLanguages,
+                                              "en-US,en");
+
+  // Install so it's available.
+  Install();
+
+  // Normally masked on a different origin, but should be unmasked since it's
+  // the preemptive download language and the feature is enabled.
+  NavigateToUrl("bar.com");
+  on_device_speech_recognition()->Available(
+      {kEnglishLanguageCode}, media::mojom::SpeechRecognitionQuality::kCommand,
+      base::BindOnce(&OnDeviceSpeechRecognitionImplBrowserTest::
+                         OnDeviceWebSpeechAvailableCallbackAndAssertStatus,
+                     base::Unretained(this),
+                     media::mojom::AvailabilityStatus::kAvailable));
 }
 
 // Verify that the `Available()` and `Install()` methods can handle multiple
@@ -519,6 +750,39 @@ IN_PROC_BROWSER_TEST_P(OnDeviceSpeechRecognitionImplQualityBrowserTest,
 INSTANTIATE_TEST_SUITE_P(All,
                          OnDeviceSpeechRecognitionImplQualityBrowserTest,
                          ::testing::Bool());
+
+IN_PROC_BROWSER_TEST_F(OnDeviceSpeechRecognitionImplBrowserTest,
+                       InstallWhenLanguagePackAlreadyInstalledButBinaryIsNot) {
+  NavigateToUrl("foo.com");
+
+  // 1. Simulate the language pack being installed already,
+  // but the SODA binary is NOT installed yet.
+  speech::SodaInstaller::GetInstance()->NotifySodaInstalledForTesting(
+      speech::GetLanguageCode(kEnglishLanguageCode));
+
+  EXPECT_TRUE(
+      speech::SodaInstaller::GetInstance()->InstalledLanguages().contains(
+          speech::GetLanguageCode(kEnglishLanguageCode)));
+  EXPECT_FALSE(speech::SodaInstaller::GetInstance()->IsSodaBinaryInstalled());
+
+  base::MockCallback<base::OnceCallback<void(bool)>> mock_callback;
+
+  // 2. Call install.
+  EXPECT_CALL(mock_callback, Run(testing::_)).Times(0);
+
+  on_device_speech_recognition()->Install(
+      {kEnglishLanguageCode}, media::mojom::SpeechRecognitionQuality::kCommand,
+      mock_callback.Get());
+
+  // Ensure the callback didn't run synchronously.
+  testing::Mock::VerifyAndClearExpectations(&mock_callback);
+
+  // 3. Now install the SODA binary. This should finally trigger the callback.
+  EXPECT_CALL(mock_callback, Run(true)).Times(1);
+
+  speech::SodaInstaller::GetInstance()->NotifySodaInstalledForTesting(
+      speech::LanguageCode::kNone);
+}
 
 class OnDeviceSpeechRecognitionImplTinyGemmaBrowserTest
     : public OnDeviceSpeechRecognitionImplBrowserTest {

@@ -72,6 +72,9 @@ class Observer : public mojom::ToolbarUIObserver {
     state = std::move(changed);
   }
 
+  void OnFocusRequested(
+      toolbar_ui_api::mojom::FocusRequestTarget target) override {}
+
   void FlushForTesting() { receiver_.FlushForTesting(); }
 
   // Easily accessible for testing. Start with nullopt to easily differentiate
@@ -397,7 +400,7 @@ TEST_F(ToolbarUIServiceNoInitialObserverTest, IconUpdatesBeforeConnect2) {
 TEST_F(ToolbarUIServiceTest, TestShowAvatarMenu) {
   EXPECT_CALL(delegate(), ShowAvatarMenu());
 
-  service().ShowAvatarMenu(base::NullCallback());
+  service().ShowAvatarMenu(base::DoNothing());
 }
 
 }  // namespace

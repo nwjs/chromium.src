@@ -6,6 +6,7 @@
 
 #import <StoreKit/StoreKit.h>
 
+#import "base/metrics/histogram_functions.h"
 #import "base/metrics/user_metrics.h"
 #import "components/signin/public/identity_manager/account_info.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
@@ -15,8 +16,10 @@
 #import "ios/chrome/browser/account_picker/ui_bundled/account_picker_logger.h"
 #import "ios/chrome/browser/authentication/signin/reauth/coordinator/signin_reauth_coordinator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/continuation.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_coordinator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_utils.h"
+#import "ios/chrome/browser/photos/model/photos_metrics.h"
 #import "ios/chrome/browser/photos/model/photos_service_factory.h"
 #import "ios/chrome/browser/save_to_photos/ui_bundled/save_to_photos_mediator.h"
 #import "ios/chrome/browser/save_to_photos/ui_bundled/save_to_photos_mediator_delegate.h"
@@ -56,6 +59,8 @@
   GURL _imageURL;
   web::Referrer _referrer;
   base::WeakPtr<web::WebState> _webState;
+  std::string _frameID;
+  url::Origin _frameOrigin;
   SaveToPhotosMediator* _mediator;
   UIAlertController* _alertController;
   StoreKitCoordinator* _storeKitCoordinator;
@@ -68,13 +73,17 @@
                                    browser:(Browser*)browser
                                   imageURL:(const GURL&)imageURL
                                   referrer:(const web::Referrer&)referrer
-                                  webState:(web::WebState*)webState {
+                                  webState:(web::WebState*)webState
+                                   frameID:(const std::string&)frameID
+                               frameOrigin:(const url::Origin&)frameOrigin {
   self = [super initWithBaseViewController:viewController browser:browser];
   if (self) {
     _imageURL = imageURL;
     _referrer = referrer;
     CHECK(webState);
     _webState = webState->GetWeakPtr();
+    _frameID = frameID;
+    _frameOrigin = frameOrigin;
   }
   return self;
 }
@@ -111,7 +120,9 @@
   _mediator.delegate = self;
   [_mediator startWithImageURL:_imageURL
                       referrer:_referrer
-                      webState:_webState.get()];
+                      webState:_webState.get()
+                       frameID:_frameID
+                   frameOrigin:_frameOrigin];
 }
 
 - (void)stop {
@@ -409,6 +420,7 @@
                                                       signin_metrics::
                                                           AccessPoint::
                                                               kSaveToPhotosIos
+                                         confirmChangeProfile:nil
                                          prepareChangeProfile:nil
                                          continuationProvider:
                                              // TODO(crbug.com/484919846):
@@ -429,6 +441,14 @@
   _signinCoordinator = nil;
   if (result == SigninCoordinatorResultSuccess) {
     [_mediator userSignedInToSaveImageWithIdentity:identity];
+    base::UmaHistogramEnumeration(kSaveToPhotosSignInResultHistogram,
+                                  SaveToPhotosSignInResult::kSignInSuccess);
+  } else if (result == SigninCoordinatorResultCanceledByUser) {
+    base::UmaHistogramEnumeration(kSaveToPhotosSignInResultHistogram,
+                                  SaveToPhotosSignInResult::kSignInCanceled);
+  } else {
+    base::UmaHistogramEnumeration(kSaveToPhotosSignInResultHistogram,
+                                  SaveToPhotosSignInResult::kSignInFailed);
   }
 }
 

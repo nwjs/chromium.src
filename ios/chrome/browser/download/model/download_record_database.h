@@ -12,7 +12,10 @@
 
 #import "base/files/file_path.h"
 #import "base/sequence_checker.h"
+#import "base/time/time.h"
+#import "ios/chrome/browser/download/model/download_filter_util.h"
 #import "ios/chrome/browser/download/model/download_record.h"
+#import "ios/chrome/browser/download/model/download_record_query.h"
 #import "sql/database.h"
 #import "sql/init_status.h"
 
@@ -55,6 +58,26 @@ class DownloadRecordDatabase {
   // Retrieves all download records ordered by creation time (newest first).
   std::vector<DownloadRecord> GetAllDownloadRecords();
 
+  // Retrieves one page of download records using keyset pagination.
+  // Results are ordered by (created_time DESC, download_id DESC) and contain
+  // at most `kPageSize` rows (currently hardcoded in
+  // download_record_database.mm; callers cannot override it via `query`).
+  // Pass the (created_time, download_id) of the last row from the previous
+  // page in `cursor_*` to continue.
+  std::vector<DownloadRecord> GetDownloadRecordsPage(
+      const DownloadRecordQuery& query);
+
+  // Returns the total number of records matching the (non-cursor) filter
+  // portion of `query`. Cursor fields are ignored - this returns the total
+  // count across all pages.
+  int GetDownloadRecordsCount(const DownloadRecordQuery& query);
+
+  // Single SQL UPDATE that flips any record currently in kInProgress or
+  // kNotStarted to kFailed. Other states are left untouched. Intended to be
+  // called once at startup to clean up downloads that were interrupted by app
+  // termination.
+  bool MarkUnfinishedDownloadsAsFailed();
+
   // Checks if the database is properly initialized and ready for operations.
   bool IsInitialized() const;
 
@@ -69,16 +92,15 @@ class DownloadRecordDatabase {
   bool DoesTableExist(const std::string& table_name);
 
   // Binds record data to an INSERT statement.
-  bool BindRecordToInsertStatement(sql::Statement& statement,
+  void BindRecordToInsertStatement(sql::Statement& statement,
                                    const DownloadRecord& record);
 
   // Binds record data to an UPDATE statement.
-  bool BindRecordToUpdateStatement(sql::Statement& statement,
+  void BindRecordToUpdateStatement(sql::Statement& statement,
                                    const DownloadRecord& record);
 
   // Creates a DownloadRecord from a SQL statement result.
-  std::optional<DownloadRecord> CreateRecordFromStatement(
-      sql::Statement& statement);
+  DownloadRecord CreateRecordFromStatement(sql::Statement& statement);
 
   // Handles database errors.
   void DatabaseErrorCallback(int error, sql::Statement* stmt);

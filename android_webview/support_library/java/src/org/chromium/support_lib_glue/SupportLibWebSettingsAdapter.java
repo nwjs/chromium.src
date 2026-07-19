@@ -636,40 +636,20 @@ class SupportLibWebSettingsAdapter implements WebSettingsBoundaryInterface {
     }
 
     @Override
-    public void setIgnoreDuplicateNavEnabled(boolean ignoreDuplicateNavEnabled) {
+    public void setDownloadFaviconsEnabled(boolean enabled) {
         try (TraceEvent ignored =
-                TraceEvent.scoped("WebView.APICall.AndroidX.SET_IGNORE_DUPLICATE_NAV_ENABLED")) {
-            recordApiCall(ApiCall.SET_IGNORE_DUPLICATE_NAV_ENABLED);
-            mAwSettings.setIgnoreDuplicateNavEnabled(ignoreDuplicateNavEnabled);
+                TraceEvent.scoped("WebView.APICall.AndroidX.SET_DOWNLOAD_FAVICONS_ENABLED")) {
+            recordApiCall(ApiCall.SET_DOWNLOAD_FAVICONS_ENABLED);
+            mAwSettings.setDownloadFaviconsEnabled(enabled);
         }
     }
 
     @Override
-    public boolean getIgnoreDuplicateNavEnabled() {
+    public boolean getDownloadFaviconsEnabled() {
         try (TraceEvent ignored =
-                TraceEvent.scoped("WebView.APICall.AndroidX.GET_IGNORE_DUPLICATE_NAV_ENABLED")) {
-            recordApiCall(ApiCall.GET_IGNORE_DUPLICATE_NAV_ENABLED);
-            return mAwSettings.getIgnoreDuplicateNavEnabled();
-        }
-    }
-
-    @Override
-    public void setIgnoreDuplicateNavThreshold(long thresholdMs) {
-        try (TraceEvent ignored =
-                TraceEvent.scoped(
-                        "WebView.APICall.AndroidX.SET_IGNORE_DUPLICATE_NAV_THRESHOLD")) {
-            recordApiCall(ApiCall.SET_IGNORE_DUPLICATE_NAV_THRESHOLD_MS);
-            mAwSettings.setIgnoreDuplicateNavThreshold(thresholdMs);
-        }
-    }
-
-    @Override
-    public long getIgnoreDuplicateNavThreshold() {
-        try (TraceEvent ignored =
-                TraceEvent.scoped(
-                        "WebView.APICall.AndroidX.GET_IGNORE_DUPLICATE_NAV_THRESHOLD")) {
-            recordApiCall(ApiCall.GET_IGNORE_DUPLICATE_NAV_THRESHOLD_MS);
-            return mAwSettings.getIgnoreDuplicateNavThreshold();
+                TraceEvent.scoped("WebView.APICall.AndroidX.GET_DOWNLOAD_FAVICONS_ENABLED")) {
+            recordApiCall(ApiCall.GET_DOWNLOAD_FAVICONS_ENABLED);
+            return mAwSettings.getDownloadFaviconsEnabled();
         }
     }
 }

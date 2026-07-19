@@ -37,7 +37,6 @@
 #include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/data_sharing/collaboration_controller_delegate_desktop.h"
-#include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/tabs/groups/recent_activity_bubble_dialog_view.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
@@ -60,6 +59,7 @@
 #include "components/tab_groups/tab_group_id.h"
 #include "components/user_education/common/help_bubble/help_bubble_params.h"
 #include "content/public/browser/web_contents.h"
+#include "ui/base/base_window.h"
 #include "ui/gfx/range/range.h"
 #include "url/gurl.h"
 
@@ -635,7 +635,7 @@ void SavedTabGroupUtils::FocusFirstTabOrWindowInOpenGroup(
 
   if (active_index >= static_cast<int>(tab_group_index_range.GetMin()) &&
       active_index < static_cast<int>(tab_group_index_range.GetMax())) {
-    browser_for_activation->window()->Activate();
+    browser_for_activation->GetWindow()->Activate();
     return;
   }
 

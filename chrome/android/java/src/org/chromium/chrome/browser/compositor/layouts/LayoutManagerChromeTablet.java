@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.compositor.layouts;
 
+import android.content.Context;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStub;
@@ -12,10 +13,12 @@ import org.chromium.base.Log;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
+import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.bookmarks.TabBookmarker;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
@@ -25,13 +28,13 @@ import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelperMa
 import org.chromium.chrome.browser.data_sharing.DataSharingTabManager;
 import org.chromium.chrome.browser.device.DeviceClassManager;
 import org.chromium.chrome.browser.glic.GlicButtonDelegate;
-import org.chromium.chrome.browser.glic.GlicKeyedService;
 import org.chromium.chrome.browser.hub.HubLayoutDependencyHolder;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.tab.TabLaunchType;
+import org.chromium.chrome.browser.tab.TabObscuringHandler;
 import org.chromium.chrome.browser.tab_ui.ActionConfirmationManager;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tab_ui.TabSwitcher;
@@ -41,6 +44,8 @@ import org.chromium.chrome.browser.theme.ToolbarThemeColorProvider;
 import org.chromium.chrome.browser.toolbar.ControlContainer;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
+import org.chromium.chrome.browser.ui.side_ui.SideUiStateProvider;
+import org.chromium.chrome.browser.ui.vertical_tabs.VerticalTabUtils;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager;
 import org.chromium.ui.base.ActivityResultTracker;
@@ -71,7 +76,7 @@ public class LayoutManagerChromeTablet extends LayoutManagerChrome {
     private final @Nullable XrSceneCoreSessionManager mXrSceneCoreSessionManager;
 
     /**
-     * Creates an instance of a LayoutManagerChromePhone.
+     * Creates an instance of a LayoutManagerChromeTablet.
      *
      * @param host A LayoutManagerHost instance.
      * @param contentContainer A ViewGroup for Android views to be bound to.
@@ -86,7 +91,7 @@ public class LayoutManagerChromeTablet extends LayoutManagerChrome {
      *     drag and drop.
      * @param dragAndDropDelegate DragAndDropDelegate passed to StripLayoutHelperManager to initiate
      *     tab drag and drop.
-     * @param toolbarContainerView View passed to StripLayoutHelper to support tab drag and drop.
+     * @param controlContainerView View passed to StripLayoutHelper to support tab drag and drop.
      * @param tabHoverCardViewStub The ViewStub representing the strip tab hover card.
      * @param windowAndroid The @{@link WindowAndroid} instance to access Activity.
      * @param toolbarManager The ToolbarManager instance.
@@ -116,7 +121,7 @@ public class LayoutManagerChromeTablet extends LayoutManagerChrome {
             HubLayoutDependencyHolder hubLayoutDependencyHolder,
             MultiInstanceManager multiInstanceManager,
             DragAndDropDelegate dragAndDropDelegate,
-            View toolbarContainerView,
+            View controlContainerView,
             ViewStub tabHoverCardViewStub,
             WindowAndroid windowAndroid,
             ToolbarManager toolbarManager,
@@ -131,7 +136,8 @@ public class LayoutManagerChromeTablet extends LayoutManagerChrome {
             SnackbarManager snackbarManager,
             ActivityResultTracker activityResultTracker,
             GlicButtonDelegate glicClickHandler,
-            @Nullable GlicKeyedService glicKeyedService) {
+            OneshotSupplier<SideUiStateProvider> sideUiStateProviderSupplier,
+            TabObscuringHandler tabObscuringHandler) {
         super(
                 host,
                 contentContainer,
@@ -158,7 +164,7 @@ public class LayoutManagerChromeTablet extends LayoutManagerChrome {
                         lifecycleDispatcher,
                         multiInstanceManager,
                         dragAndDropDelegate,
-                        toolbarContainerView,
+                        controlContainerView,
                         tabHoverCardViewStub,
                         tabContentManagerSupplier,
                         browserControlsStateProvider,
@@ -175,7 +181,8 @@ public class LayoutManagerChromeTablet extends LayoutManagerChrome {
                         snackbarManager,
                         activityResultTracker,
                         glicClickHandler,
-                        glicKeyedService);
+                        sideUiStateProviderSupplier,
+                        tabObscuringHandler);
         addSceneOverlay(mTabStripLayoutHelperManager);
         addObserver(mTabStripLayoutHelperManager.getTabSwitcherObserver());
         mDesktopWindowStateManager = desktopWindowStateManager;
@@ -233,12 +240,15 @@ public class LayoutManagerChromeTablet extends LayoutManagerChrome {
                 toolbarColorProvider,
                 bottomControlsOffsetSupplier);
         if (DeviceClassManager.enableLayerDecorationCache()) {
+            Context context = mHost.getContext();
+            // Tab strip height is 0 if VerticalTab is on at Chrome start. TitleCache should still
+            // get initialized with the right non-zero height in that case.
+            int tabStripHeight =
+                    VerticalTabUtils.isVerticalTabsEnabled(context)
+                            ? context.getResources().getDimensionPixelSize(R.dimen.tab_strip_height)
+                            : mTabStripHeightSupplier.get();
             mLayerTitleCache =
-                    new LayerTitleCache(
-                            mHost.getContext(),
-                            getResourceManager(),
-                            mTabStripHeightSupplier.get(),
-                            selector);
+                    new LayerTitleCache(context, getResourceManager(), tabStripHeight, selector);
             // TODO: TitleCache should be a part of the ResourceManager.
             mLayerTitleCacheSupplier.set(mLayerTitleCache);
         }
@@ -270,7 +280,7 @@ public class LayoutManagerChromeTablet extends LayoutManagerChrome {
     public void showLayout(@LayoutType int layoutType, boolean animate) {
         // The Tab Switcher should always appear in the Full Space mode on XR.
         if (mXrSceneCoreSessionManager != null
-                && layoutType == LayoutType.TAB_SWITCHER
+                && layoutType == LayoutType.HUB
                 && !mXrSceneCoreSessionManager.isXrFullSpaceMode()) {
             boolean spaceModeChangeStarted =
                     mXrSceneCoreSessionManager.requestSpaceModeChange(
@@ -289,21 +299,21 @@ public class LayoutManagerChromeTablet extends LayoutManagerChrome {
     @Override
     protected void startShowing(Layout layout, boolean animate) {
         super.startShowing(layout, animate);
-        if (mXrSceneCoreSessionManager != null && isTabSwitcher(layout)) {
+        if (mXrSceneCoreSessionManager != null && isHubLayout(layout)) {
             mXrSceneCoreSessionManager.setMainPanelVisibility(true);
         }
     }
 
     @Override
     public void doneHiding() {
-        if (mXrSceneCoreSessionManager != null && isTabSwitcher(getActiveLayout())) {
+        if (mXrSceneCoreSessionManager != null && isHubLayout(getActiveLayout())) {
             mXrSceneCoreSessionManager.requestSpaceModeChange(/* requestFullSpaceMode= */ false);
             mXrSceneCoreSessionManager.setMainPanelVisibility(false);
         }
         super.doneHiding();
     }
 
-    private boolean isTabSwitcher(@Nullable Layout layout) {
-        return layout != null && layout.getLayoutType() == LayoutType.TAB_SWITCHER;
+    private boolean isHubLayout(@Nullable Layout layout) {
+        return layout != null && layout.getLayoutType() == LayoutType.HUB;
     }
 }

@@ -18,11 +18,15 @@
 #include "components/autofill/core/browser/data_model/payments/bnpl_issuer.h"
 #include "components/autofill/core/browser/data_model/payments/iban.h"
 #include "components/autofill/core/browser/data_model/valuables/loyalty_card.h"
-#include "components/autofill/core/browser/integrators/touch_to_fill/touch_to_fill_delegate.h"
+#include "components/autofill/core/browser/integrators/touch_to_fill/touch_to_fill_payment_method_delegate.h"
 #include "components/autofill/core/browser/payments/bnpl_util.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+
+namespace content {
+class WebContents;
+}  // namespace content
 
 namespace autofill {
 
@@ -41,19 +45,19 @@ class MockTouchToFillPaymentMethodController
   MOCK_METHOD(bool,
               ShowPaymentMethods,
               (std::unique_ptr<TouchToFillPaymentMethodView>,
-               base::WeakPtr<TouchToFillDelegate>,
+               base::WeakPtr<TouchToFillPaymentMethodDelegate>,
                base::span<const Suggestion>),
               (override));
   MOCK_METHOD(bool,
               ShowIbans,
               (std::unique_ptr<TouchToFillPaymentMethodView>,
-               base::WeakPtr<TouchToFillDelegate>,
+               base::WeakPtr<TouchToFillPaymentMethodDelegate>,
                base::span<const Iban>),
               (override));
   MOCK_METHOD(bool,
               ShowAffiliatedLoyaltyCards,
               (std::unique_ptr<TouchToFillPaymentMethodView>,
-               base::WeakPtr<TouchToFillDelegate>,
+               base::WeakPtr<TouchToFillPaymentMethodDelegate>,
                base::span<const LoyaltyCard>,
                base::span<const LoyaltyCard>,
                bool),
@@ -61,7 +65,7 @@ class MockTouchToFillPaymentMethodController
   MOCK_METHOD(bool,
               ShowAllLoyaltyCards,
               (std::unique_ptr<TouchToFillPaymentMethodView>,
-               base::WeakPtr<TouchToFillDelegate>,
+               base::WeakPtr<TouchToFillPaymentMethodDelegate>,
                base::span<const LoyaltyCard>),
               (override));
   MOCK_METHOD(
@@ -135,6 +139,7 @@ class MockTouchToFillPaymentMethodController
 
   MOCK_METHOD(void, Hide, (), (override));
   MOCK_METHOD(void, SetVisible, (bool visible), (override));
+  MOCK_METHOD(content::WebContents*, GetWebContents, (), (override));
 };
 
 }  // namespace autofill

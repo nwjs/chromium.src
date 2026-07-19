@@ -356,21 +356,6 @@ PageLoadTracker::PageLoadTracker(
               navigation_handle, currently_committed_url),
           /*permit_forwarding=*/true);
       break;
-    case internal::PageLoadTrackerPageType::kPreviewPrimaryPage:
-      CHECK_NE(ukm::kInvalidSourceId, source_id_);
-      prerendering_state_ = PrerenderingState::kInPreview;
-      InvokeAndPruneObservers(
-          "PageLoadMetricsObserver::OnPreviewStart",
-          base::BindRepeating(
-              [](content::NavigationHandle* navigation_handle,
-                 const GURL& currently_committed_url,
-                 PageLoadMetricsObserverInterface* observer) {
-                return observer->OnPreviewStart(navigation_handle,
-                                                currently_committed_url);
-              },
-              navigation_handle, currently_committed_url),
-          /*permit_forwarding=*/false);
-      break;
   }
 }
 
@@ -433,8 +418,7 @@ void PageLoadTracker::PageHidden() {
     //
     // Here we check that the first background follows some event in foreground.
     if (!first_background_time_.has_value()) {
-      if (prerendering_state_ == PrerenderingState::kNoPrerendering ||
-          prerendering_state_ == PrerenderingState::kInPreview) {
+      if (prerendering_state_ == PrerenderingState::kNoPrerendering) {
         DCHECK_EQ(!started_in_foreground_, first_foreground_time_.has_value());
       } else {
         DCHECK(!first_foreground_time_.has_value());
@@ -474,8 +458,7 @@ void PageLoadTracker::PageShown() {
     // See comment about visibility state transitions in PageHidden.
     //
     // Here we check that the first foreground follows some event in background.
-    if (prerendering_state_ == PrerenderingState::kNoPrerendering ||
-        prerendering_state_ == PrerenderingState::kInPreview) {
+    if (prerendering_state_ == PrerenderingState::kNoPrerendering) {
       DCHECK_EQ(started_in_foreground_, first_background_time_.has_value());
     } else {
       // When a prerendered page is activated in a background tab (e.g.
@@ -624,19 +607,6 @@ void PageLoadTracker::DidActivatePrerenderedPage(
   base::UmaHistogramEnumeration(
       internal::kPageLoadPrerender2Event,
       internal::PageLoadPrerenderEvent::kPrerenderActivationNavigation);
-}
-
-void PageLoadTracker::DidActivatePreviewedPage(
-    base::TimeTicks activation_time) {
-  CHECK_EQ(prerendering_state_, PrerenderingState::kInPreview);
-  prerendering_state_ = PrerenderingState::kNoPrerendering;
-
-  // We don't keep `activation_time` as `activation_start_` because we measure
-  // preview mode performance as navigation originated rather than activation.
-
-  for (const auto& observer : observers_) {
-    observer->DidActivatePreviewedPage(activation_time);
-  }
 }
 
 void PageLoadTracker::DidCommitSameDocumentNavigation(
@@ -1324,6 +1294,11 @@ PageLoadTracker::GetSubresourceLoadMetrics() const {
   return metrics_update_dispatcher_.subresource_load_metrics();
 }
 
+const mojom::FontLoadingMetricsPtr& PageLoadTracker::GetFontLoadingMetrics()
+    const {
+  return metrics_update_dispatcher_.font_loading_metrics();
+}
+
 const PageRenderData& PageLoadTracker::GetMainFrameRenderData() const {
   return metrics_update_dispatcher_.main_frame_render_data();
 }
@@ -1483,14 +1458,16 @@ void PageLoadTracker::UpdateMetrics(
         subresource_load_metrics,
     std::vector<mojom::SoftNavigationMetricsPtr> soft_navigation_metrics,
     std::vector<mojom::LargestContentfulPaintTimingPtr>
-        soft_largest_contentful_paint) {
+        soft_largest_contentful_paint,
+    mojom::FontLoadingMetricsPtr font_loading_metrics) {
   if (parent_tracker_) {
     parent_tracker_->UpdateMetrics(
         render_frame_host, new_timing.Clone(), new_metadata.Clone(), features,
         resources, render_data.Clone(), cpu_timing.Clone(),
         mojo::Clone(event_timings), subresource_load_metrics,
         mojo::Clone(soft_navigation_metrics),
-        mojo::Clone(soft_largest_contentful_paint));
+        mojo::Clone(soft_largest_contentful_paint),
+        font_loading_metrics.Clone());
   }
 
   metrics_update_dispatcher_.UpdateMetrics(
@@ -1498,7 +1475,8 @@ void PageLoadTracker::UpdateMetrics(
       std::move(features), resources, std::move(render_data),
       std::move(cpu_timing), std::move(event_timings), subresource_load_metrics,
       std::move(soft_navigation_metrics),
-      std::move(soft_largest_contentful_paint), page_type_);
+      std::move(soft_largest_contentful_paint), std::move(font_loading_metrics),
+      page_type_);
 }
 
 void PageLoadTracker::AddCustomUserTimings(

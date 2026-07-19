@@ -64,7 +64,7 @@ public class LocationBarLayout extends ConstraintLayout {
     private final int mLocationBarIconStartingPadding;
 
     protected @Nullable CompositeTouchDelegate mCompositeTouchDelegate;
-    protected @Nullable SearchEngineUtils mSearchEngineUtils;
+    protected @Nullable SearchEngineService mSearchEngineService;
     protected boolean mUrlBarLaidOutAtFocusedWidth;
     protected boolean mIsCenteringApplied;
     private int mUrlActionContainerEndMargin;
@@ -444,8 +444,8 @@ public class LocationBarLayout extends ConstraintLayout {
 
         boolean isInSingleUrlBarMode =
                 isNtpOnPhone
-                        && mSearchEngineUtils != null
-                        && mSearchEngineUtils.doesDefaultSearchEngineHaveLogo();
+                        && mSearchEngineService != null
+                        && mSearchEngineService.doesDefaultSearchEngineHaveLogo();
         if (isInSingleUrlBarMode) {
             translationX +=
                     (getResources().getDimensionPixelSize(R.dimen.fake_search_box_start_padding)
@@ -461,9 +461,9 @@ public class LocationBarLayout extends ConstraintLayout {
         return translationX * (1.0f - percent);
     }
 
-    /** Applies the new SearchEngineUtils. */
-    void setSearchEngineUtils(SearchEngineUtils searchEngineUtils) {
-        mSearchEngineUtils = searchEngineUtils;
+    /** Applies the new SearchEngineService. */
+    void setSearchEngineService(SearchEngineService searchEngineService) {
+        mSearchEngineService = searchEngineService;
     }
 
     /** Returns the source of Voice Recognition interactions. */
@@ -515,6 +515,9 @@ public class LocationBarLayout extends ConstraintLayout {
      */
     /* package */ void onFuseboxStateChanged(@FuseboxState int state) {}
 
+    /** Notify the layout that it has been reparented to a popover container. */
+    /* package */ void setReparentedToPopover(boolean isReparented) {}
+
     /**
      * Returns the view to which the omnibox suggestions list should be aligned to horizontally and
      * vertically.
@@ -561,4 +564,10 @@ public class LocationBarLayout extends ConstraintLayout {
      * suggestions list. See {@link FuseboxLayoutMode}.
      */
     void setFuseboxLayoutMode(@FuseboxLayoutMode int layoutMode) {}
+
+    /**
+     * Informs the location bar whether the autocomplete system is in "standby" i.e. accepting input
+     * but not showing suggestions until input is received.
+     */
+    void setIsInStandby(boolean isInStandby) {}
 }

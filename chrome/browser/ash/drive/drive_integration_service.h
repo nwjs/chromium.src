@@ -73,11 +73,6 @@ enum class DriveMountStatus {
   kMaxValue = kTimeout,
 };
 
-struct QuickAccessItem {
-  base::FilePath path;
-  double confidence;
-};
-
 // Notifications/Errors coming from DriveFs side which we need to persist in
 // the Chrome side.
 struct PersistedMessage {
@@ -113,8 +108,6 @@ class DriveIntegrationService : public KeyedService,
  public:
   using DriveFsMojoListenerFactory = base::RepeatingCallback<
       std::unique_ptr<drivefs::DriveFsBootstrapListener>()>;
-  using GetQuickAccessItemsCallback =
-      base::OnceCallback<void(FileError, std::vector<QuickAccessItem>)>;
   using SearchDriveByFileNameCallback =
       drivefs::mojom::SearchQuery::GetNextPageCallback;
   using GetThumbnailCallback =
@@ -206,6 +199,9 @@ class DriveIntegrationService : public KeyedService,
     // Triggered when the network connection to Drive could have changed.
     virtual void OnDriveConnectionStatusChanged(util::ConnectionStatus status) {
     }
+
+    // Triggered when the DriveIntegrationService is being disabled soon.
+    virtual void OnDriveWillBeDisabled() {}
   };
 
   void AddObserver(Observer* observer);
@@ -239,9 +235,6 @@ class DriveIntegrationService : public KeyedService,
   // Returns the mojo interface to the DriveFs daemon if it is enabled and
   // connected.
   drivefs::mojom::DriveFs* GetDriveFsInterface() const;
-
-  void GetQuickAccessItems(int max_number,
-                           GetQuickAccessItemsCallback callback);
 
   void SearchDriveByFileName(
       std::string query,
@@ -448,12 +441,6 @@ class DriveIntegrationService : public KeyedService,
   // the metadata initialization is successful.
   void InitializeAfterMetadataInitialized(FileError error);
 
-  // Change the download directory to the local "Downloads" if the download
-  // destination is set under Drive. This must be called when disabling Drive.
-  void AvoidDriveAsDownloadDirectoryPreference();
-
-  bool DownloadDirectoryPreferenceIsInDrive();
-
   // Migrate pinned files from the old Drive integration to DriveFS.
   void MigratePinnedFiles();
 
@@ -480,11 +467,6 @@ class DriveIntegrationService : public KeyedService,
       FileError error,
       std::optional<std::vector<drivefs::mojom::QueryItemPtr>> results);
 
-  void OnGetQuickAccessItems(
-      GetQuickAccessItemsCallback callback,
-      FileError error,
-      std::optional<std::vector<drivefs::mojom::QueryItemPtr>> items);
-
   void OnSearchDriveByFileName(
       SearchDriveByFileNameCallback callback,
       FileError error,
@@ -503,7 +485,7 @@ class DriveIntegrationService : public KeyedService,
       drive::FileError status,
       const std::vector<base::FilePath>& paths);
 
-  // Toggle syncing for |path| if the the directory exists.
+  // Toggle syncing for |path| if the directory exists.
   void ToggleSyncForPathIfDirectoryExists(
       const base::FilePath& path,
       drivefs::mojom::DriveFs::ToggleSyncForPathCallback callback,

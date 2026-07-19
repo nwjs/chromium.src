@@ -17,17 +17,14 @@
 #include "chrome/browser/ui/startup/default_browser_prompt/default_browser_surface_manager.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/gfx/native_ui_types.h"
-
-namespace views {
-class Widget;
-}
+#include "ui/views/widget/widget.h"
 
 namespace default_browser {
 
 // The "Modal" entrypoint for the Windows Default Browser. This is the global
-// manger for the modal dialog instances across all browser windows. This dialog
-// displays a WebUI page to provide prompts that help users navigate OS settings
-// to set Chrome as the default browser based the DefaultBrowserSetter
+// manager for the modal dialog instances across all browser windows. This
+// dialog displays a WebUI page to provide prompts that help users navigate OS
+// settings to set Chrome as the default browser based the DefaultBrowserSetter
 // behavior.
 class DefaultBrowserModalDialogManager : public DefaultBrowserSurfaceManager {
  public:
@@ -51,6 +48,9 @@ class DefaultBrowserModalDialogManager : public DefaultBrowserSurfaceManager {
   void CloseAllPromptInstances() final;
 
  private:
+  void OnDialogWidgetCloseRequested(BrowserWindowInterface* browser,
+                                    views::Widget::ClosedReason reason);
+
   const bool use_settings_illustration_;
 
   // A map of browser windows to the prompt modal widgets.

@@ -885,7 +885,7 @@ void PermissionUmaUtil::RecordActivityIndicator(
 }
 
 void PermissionUmaUtil::RecordDismissalType(
-    const std::vector<base::WeakPtr<permissions::PermissionRequest>>& requests,
+    const std::vector<base::SafeRef<permissions::PermissionRequest>>& requests,
     PermissionPromptDisposition ui_disposition,
     DismissalType dismissalType) {
   RequestTypeForUma type = PermissionUtil::GetUmaValueForRequests(requests);
@@ -2013,51 +2013,13 @@ std::string PermissionUmaUtil::GetRequestTypeString(RequestType request_type) {
 // static
 bool PermissionUmaUtil::IsPromptDispositionQuiet(
     PermissionPromptDisposition prompt_disposition) {
-  switch (prompt_disposition) {
-    case PermissionPromptDisposition::LOCATION_BAR_RIGHT_STATIC_ICON:
-    case PermissionPromptDisposition::LOCATION_BAR_RIGHT_ANIMATED_ICON:
-    case PermissionPromptDisposition::LOCATION_BAR_LEFT_QUIET_CHIP:
-    case PermissionPromptDisposition::LOCATION_BAR_LEFT_QUIET_ABUSIVE_CHIP:
-    case PermissionPromptDisposition::MINI_INFOBAR:
-    case PermissionPromptDisposition::MESSAGE_UI:
-    case PermissionPromptDisposition::LOCATION_BAR_LEFT_QUIET_ICON:
-      return true;
-    case PermissionPromptDisposition::ANCHORED_BUBBLE:
-    case PermissionPromptDisposition::ELEMENT_ANCHORED_BUBBLE:
-    case PermissionPromptDisposition::MODAL_DIALOG:
-    case PermissionPromptDisposition::LOCATION_BAR_LEFT_CHIP_AUTO_BUBBLE:
-    case PermissionPromptDisposition::NONE_VISIBLE:
-    case PermissionPromptDisposition::CUSTOM_MODAL_DIALOG:
-    case PermissionPromptDisposition::NOT_APPLICABLE:
-    case PermissionPromptDisposition::MAC_OS_PROMPT:
-    case PermissionPromptDisposition::MESSAGE_UI_LOUD:
-      return false;
-  }
+  return kQuietPromptDispositions.contains(prompt_disposition);
 }
 
 // static
 bool PermissionUmaUtil::IsPromptDispositionLoud(
     PermissionPromptDisposition prompt_disposition) {
-  switch (prompt_disposition) {
-    case PermissionPromptDisposition::ANCHORED_BUBBLE:
-    case PermissionPromptDisposition::ELEMENT_ANCHORED_BUBBLE:
-    case PermissionPromptDisposition::CUSTOM_MODAL_DIALOG:
-    case PermissionPromptDisposition::MODAL_DIALOG:
-    case PermissionPromptDisposition::MAC_OS_PROMPT:
-    case PermissionPromptDisposition::LOCATION_BAR_LEFT_CHIP_AUTO_BUBBLE:
-    case PermissionPromptDisposition::MESSAGE_UI_LOUD:
-      return true;
-    case PermissionPromptDisposition::LOCATION_BAR_RIGHT_STATIC_ICON:
-    case PermissionPromptDisposition::LOCATION_BAR_RIGHT_ANIMATED_ICON:
-    case PermissionPromptDisposition::LOCATION_BAR_LEFT_QUIET_CHIP:
-    case PermissionPromptDisposition::LOCATION_BAR_LEFT_QUIET_ABUSIVE_CHIP:
-    case PermissionPromptDisposition::MINI_INFOBAR:
-    case PermissionPromptDisposition::MESSAGE_UI:
-    case PermissionPromptDisposition::NONE_VISIBLE:
-    case PermissionPromptDisposition::NOT_APPLICABLE:
-    case PermissionPromptDisposition::LOCATION_BAR_LEFT_QUIET_ICON:
-      return false;
-  }
+  return kLoudPromptDispositions.contains(prompt_disposition);
 }
 
 // static
@@ -2301,7 +2263,7 @@ PermissionUmaUtil::GetDaysSinceUnusedSitePermissionRevocation(
 // static
 void PermissionUmaUtil::RecordElementAnchoredPermissionPromptAction(
     const std::vector<std::unique_ptr<PermissionRequest>>& requests,
-    const std::vector<base::WeakPtr<permissions::PermissionRequest>>&
+    const std::vector<base::SafeRef<permissions::PermissionRequest>>&
         screen_requests,
     ElementAnchoredBubbleAction action,
     ElementAnchoredBubbleVariant variant,
@@ -2429,18 +2391,18 @@ void PermissionUmaUtil::RecordRenderedTextAcquireSuccessForAivX(
 // static
 void PermissionUmaUtil::RecordTryCancelPreviousEmbeddingsModelExecution(
     PredictionModelType model_type,
-    bool cancel_previous_task) {
+    bool cancel_previous_job) {
   // Only the AIv4 model requires the passage embedding model.
   DCHECK_EQ(model_type, PredictionModelType::kOnDeviceAiV4Model);
 
   std::string success_histogram_name =
       base::StrCat({"Permissions.", GetPredictionModelString(model_type),
                     ".TryCancelPreviousEmbeddingsModelExecution"});
-  base::UmaHistogramBoolean(success_histogram_name, cancel_previous_task);
+  base::UmaHistogramBoolean(success_histogram_name, cancel_previous_job);
 }
 
 // static
-void PermissionUmaUtil::RecordFinishedPassageEmbeddingsTaskOutdated(
+void PermissionUmaUtil::RecordFinishedPassageEmbeddingsJobOutdated(
     PredictionModelType model_type,
     bool outdated) {
   // Only the AIv4 model requires the passage embedding model.

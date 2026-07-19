@@ -24,6 +24,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -31,6 +32,7 @@
 #include "gtest/gtest.h"
 #include "absl/base/attributes.h"
 #include "absl/base/internal/exception_testing.h"
+#include "absl/base/internal/hardening.h"
 #include "absl/base/internal/iterator_traits_test_helper.h"
 #include "absl/base/macros.h"
 #include "absl/base/options.h"
@@ -257,6 +259,7 @@ TEST(IntVec, Hardened) {
   Fill(&v, 10);
   EXPECT_EQ(v[9], 9);
 #if !defined(NDEBUG) || ABSL_OPTION_HARDENED
+  absl::base_internal::ScopedSetAbslHardeningForTesting hardener(true);
   EXPECT_DEATH_IF_SUPPORTED(v[10], "");
   EXPECT_DEATH_IF_SUPPORTED(v[static_cast<size_t>(-1)], "");
   EXPECT_DEATH_IF_SUPPORTED(v.resize(v.max_size() + 1), "");
@@ -475,16 +478,16 @@ TEST(InlinedVectorTest, MoveOnly) {
   v.emplace(v.begin(), MoveOnly{});
 }
 TEST(InlinedVectorTest, Noexcept) {
-  EXPECT_TRUE(std::is_nothrow_move_constructible<IntVec>::value);
-  EXPECT_TRUE((std::is_nothrow_move_constructible<
-               absl::InlinedVector<MoveOnly, 2>>::value));
+  EXPECT_TRUE(std::is_nothrow_move_constructible_v<IntVec>);
+  EXPECT_TRUE(
+      (std::is_nothrow_move_constructible_v<absl::InlinedVector<MoveOnly, 2>>));
 
   struct MoveCanThrow {
     MoveCanThrow(MoveCanThrow&&) {}
   };
   EXPECT_EQ(absl::default_allocator_is_nothrow::value,
-            (std::is_nothrow_move_constructible<
-                absl::InlinedVector<MoveCanThrow, 2>>::value));
+            (std::is_nothrow_move_constructible_v<
+                absl::InlinedVector<MoveCanThrow, 2>>));
 }
 
 TEST(InlinedVectorTest, EmplaceBack) {

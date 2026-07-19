@@ -47,6 +47,7 @@
 #include "components/services/storage/sandboxed_vfs_file_impl.h"
 #include "content/browser/blob_storage/chrome_blob_storage_context.h"
 #include "content/browser/browser_main_loop.h"
+#include "content/browser/indexed_db/file_path_util.h"
 #include "content/browser/indexed_db/indexed_db_leveldb_coding.h"
 #include "content/browser/indexed_db/instance/bucket_context.h"
 #include "content/browser/indexed_db/instance/leveldb/backing_store.h"
@@ -83,6 +84,7 @@
 #include "storage/browser/quota/quota_manager.h"
 #include "storage/browser/quota/quota_manager_proxy.h"
 #include "storage/browser/quota/quota_settings.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "third_party/blink/public/common/switches.h"
 #include "url/gurl.h"
@@ -261,6 +263,29 @@ class IndexedDBBrowserTestBase : public ContentBrowserTest {
     return future.Take();
   }
 
+  uint64_t GetConnectionCount(const blink::StorageKey& storage_key,
+                              const std::string& db_name) {
+    base::test::TestFuture<bool,
+                           std::vector<storage::mojom::IdbOriginMetadataPtr>>
+        future;
+    GetControl().GetAllBucketsDetails(future.GetCallback());
+    auto [incognito, details] = future.Take();
+    for (const auto& origin_metadata : details) {
+      for (const auto& key_metadata : origin_metadata->storage_keys) {
+        if (key_metadata->serialized_storage_key == storage_key.Serialize()) {
+          for (const auto& bucket_metadata : key_metadata->buckets) {
+            for (const auto& db_metadata : bucket_metadata->databases) {
+              if (base::UTF16ToUTF8(db_metadata->name) == db_name) {
+                return db_metadata->connection_count;
+              }
+            }
+          }
+        }
+      }
+    }
+    return 0;
+  }
+
   base::FilePath PathForBlob(const storage::BucketLocator& bucket_locator,
                              int64_t database_id,
                              int64_t blob_number) {
@@ -310,13 +335,27 @@ class IndexedDBBrowserTestBase : public ContentBrowserTest {
 
 // This browser test is aimed towards exercising the IndexedDB bindings and
 // the actual implementation that lives in the browser side.
-// The tests are parametrized to run with both the LevelDB (param = false) and
-// SQLite (param = true) backing stores.
-class IndexedDBBrowserTest : public IndexedDBBrowserTestBase,
-                             public ::testing::WithParamInterface<bool> {
+// The tests are parameterized to run with:
+// - Backing store: LevelDB (element 0 = false) and SQLite (element 0 = true).
+// - Connection Deduplication: Disabled (element 1 = false) and Enabled (element
+// 1 = true).
+class IndexedDBBrowserTest
+    : public IndexedDBBrowserTestBase,
+      public ::testing::WithParamInterface<std::tuple<bool, bool>> {
  public:
   IndexedDBBrowserTest()
-      : IndexedDBBrowserTestBase(/*use_sqlite=*/GetParam()) {}
+      : IndexedDBBrowserTestBase(/*use_sqlite=*/std::get<0>(GetParam())) {
+    if (std::get<1>(GetParam())) {
+      feature_list_.InitAndEnableFeature(
+          blink::features::kIndexedDBConnectionDeduplication);
+    } else {
+      feature_list_.InitAndDisableFeature(
+          blink::features::kIndexedDBConnectionDeduplication);
+    }
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
 };
 
 // Tests that are applicable only to the LevelDB backing store.
@@ -351,6 +390,20 @@ class IndexedDBIncognitoTest
 
  protected:
   raw_ptr<Shell> shell_ = nullptr;
+};
+
+class IndexedDBBrowserTestWithDeduplication
+    : public IndexedDBBrowserTestBase,
+      public ::testing::WithParamInterface<bool> {
+ public:
+  IndexedDBBrowserTestWithDeduplication()
+      : IndexedDBBrowserTestBase(/*use_sqlite=*/GetParam()) {
+    feature_list_.InitAndEnableFeature(
+        blink::features::kIndexedDBConnectionDeduplication);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
 };
 
 // See IndexedDBBrowserTestWithSqliteErrorInjector.
@@ -416,6 +469,66 @@ class VfsDelegateWithErrors : public storage::SandboxedVfsDelegate {
   }
 };
 
+class IndexedDBBrowserTestWithSqlite : public IndexedDBBrowserTestBase {
+ public:
+  IndexedDBBrowserTestWithSqlite()
+      : IndexedDBBrowserTestBase(/*use_sqlite=*/true) {}
+
+  base::FilePath DatabaseFilePath(const storage::BucketLocator& bucket_locator,
+                                  std::u16string_view db_name) {
+    base::test::TestFuture<base::FilePath> sqlite_dir;
+    mojo::Remote<storage::mojom::IndexedDBControlTest> control_test =
+        GetControlTest();
+    control_test->GetFilePathForTesting(
+        bucket_locator, /*for_sqlite=*/true,
+        sqlite_dir.GetCallback<const base::FilePath&>());
+    return sqlite_dir.Get().Append(DatabaseNameToFileName(db_name));
+  }
+
+  // Loads a page that builds a database with an index, then corrupts that index
+  // on disk, reloads the page and expects recovery. If `concurrent_rw_txn` is
+  // true, the page holds open a non-overlapping readwrite transaction while the
+  // corruption is detected, so that the corruption-triggering read executes in
+  // the context of a SQLite transaction.
+  void RunCorruptIndexRecoveryTest(bool concurrent_rw_txn) {
+    base::ScopedAllowBlockingForTesting allow_blocking;
+
+    GURL url = GetTestUrl("indexeddb", "sqlite_corrupt_index.html");
+    if (concurrent_rw_txn) {
+      url = url.Resolve("?concurrent");
+    }
+    SimpleTest(url);
+
+    const blink::StorageKey storage_key =
+        blink::StorageKey::CreateFirstParty(url::Origin::Create(url));
+    ASSERT_OK_AND_ASSIGN(
+        const storage::BucketInfo bucket_info,
+        GetOrCreateBucket(
+            storage::BucketInitParams::ForDefaultBucket(storage_key)));
+    const storage::BucketLocator bucket_locator = bucket_info.ToBucketLocator();
+
+    // Ensures the database is read from disk on the next open.
+    {
+      base::RunLoop loop;
+      GetControl().ForceClose(bucket_locator.id, loop.QuitClosure());
+      loop.Run();
+    }
+
+    ASSERT_TRUE(sql::test::CorruptIndexRootPage(
+        DatabaseFilePath(bucket_locator, u"corrupt-index"),
+        "index_references_by_key"));
+
+    base::HistogramTester histograms;
+    SimpleTest(url);
+
+    histograms.ExpectBucketCount("IndexedDB.SQLite.SpecificEvent.OnDisk",
+                                 /*SpecificEvent::kDatabaseHadSqlError=*/1,
+                                 /*expected_count=*/1);
+    histograms.ExpectUniqueSample("Sql.Recovery.Result.IndexedDB",
+                                  /*sql::Recovery::Result::kSuccess=*/1, 1);
+  }
+};
+
 // This test fixture allows injecting errors into the SQLite VFS layer to test
 // various failure modes. It replaces `MockFailureSingleton` that is used for
 // LevelDB.
@@ -427,11 +540,8 @@ class VfsDelegateWithErrors : public storage::SandboxedVfsDelegate {
 // TODO(crbug.com/488755563): This doesn't work on Fuchsia. Understand why and
 // fix if possible.
 class IndexedDBBrowserTestWithSqliteErrorInjector
-    : public IndexedDBBrowserTestBase {
+    : public IndexedDBBrowserTestWithSqlite {
  public:
-  IndexedDBBrowserTestWithSqliteErrorInjector()
-      : IndexedDBBrowserTestBase(/*use_sqlite=*/true) {}
-
   void SetUp() override {
 #if BUILDFLAG(IS_FUCHSIA)
     GTEST_SKIP() << "TODO(crbug.com/488755563): test doesn't work on Fuchsia";
@@ -1041,6 +1151,29 @@ IN_PROC_BROWSER_TEST_F(IndexedDBBrowserTestWithSqliteErrorInjector,
   SqliteFileWithErrors::fail_values.get()->emplace("valueThatTriggersFailure",
                                                    SQLITE_FULL);
   SimpleTest(GetTestUrl("indexeddb", "disk_full_on_commit.html"));
+}
+
+// Fuchsia deletes the database rather than recovering it, so these recovery
+// tests are disabled there.
+#if BUILDFLAG(IS_FUCHSIA)
+#define MAYBE_CorruptIndexRecovers DISABLED_CorruptIndexRecovers
+#else
+#define MAYBE_CorruptIndexRecovers CorruptIndexRecovers
+#endif
+IN_PROC_BROWSER_TEST_F(IndexedDBBrowserTestWithSqlite,
+                       MAYBE_CorruptIndexRecovers) {
+  RunCorruptIndexRecoveryTest(/*concurrent_rw_txn=*/false);
+}
+#if BUILDFLAG(IS_FUCHSIA)
+#define MAYBE_CorruptIndexRecoversUnderConcurrentTransaction \
+  DISABLED_CorruptIndexRecoversUnderConcurrentTransaction
+#else
+#define MAYBE_CorruptIndexRecoversUnderConcurrentTransaction \
+  CorruptIndexRecoversUnderConcurrentTransaction
+#endif
+IN_PROC_BROWSER_TEST_F(IndexedDBBrowserTestWithSqlite,
+                       MAYBE_CorruptIndexRecoversUnderConcurrentTransaction) {
+  RunCorruptIndexRecoveryTest(/*concurrent_rw_txn=*/true);
 }
 
 std::unique_ptr<net::test_server::HttpResponse> ServePath(
@@ -1675,20 +1808,58 @@ IN_PROC_BROWSER_TEST_P(IndexedDBIncognitoTest, DatabaseOutlivesConnection) {
              shell_);
 }
 
+IN_PROC_BROWSER_TEST_P(IndexedDBBrowserTestWithDeduplication,
+                       SequentialDeduplication) {
+  NavigateToURLBlockUntilNavigationsComplete(
+      shell(), GetTestUrl("indexeddb", "dexie_leak_repro.html"), 1);
+
+  const blink::StorageKey kTestStorageKey = blink::StorageKey::CreateFirstParty(
+      url::Origin::Create(shell()->web_contents()->GetLastCommittedURL()));
+
+  // Run sequential leak of 5 connections
+  ASSERT_EQ("done", EvalJs(shell(), "runSequentialLeak(5)"));
+
+  uint64_t count = GetConnectionCount(kTestStorageKey, "repro_db_seq");
+  EXPECT_EQ(count, 1u);
+}
+
+IN_PROC_BROWSER_TEST_P(IndexedDBBrowserTestWithDeduplication,
+                       ConcurrentDeduplication) {
+  NavigateToURLBlockUntilNavigationsComplete(
+      shell(), GetTestUrl("indexeddb", "dexie_leak_repro.html"), 1);
+
+  const blink::StorageKey kTestStorageKey = blink::StorageKey::CreateFirstParty(
+      url::Origin::Create(shell()->web_contents()->GetLastCommittedURL()));
+
+  // Run concurrent leak of 5 connections
+  ASSERT_EQ("done", EvalJs(shell(), "runConcurrentLeak(5)"));
+
+  uint64_t count = GetConnectionCount(kTestStorageKey, "repro_db_con");
+  EXPECT_EQ(count, 1u);
+}
+
 constexpr auto GetBackingStoreTestCaseName =
     [](const testing::TestParamInfo<bool>& info) {
       return info.param ? "WithSqlite" : "WithLevelDb";
     };
 
+constexpr auto GetDeduplicationTestCaseName =
+    [](const testing::TestParamInfo<std::tuple<bool, bool>>& info) {
+      return base::StrCat(
+          {std::get<0>(info.param) ? "WithSqlite" : "WithLevelDb", "_",
+           std::get<1>(info.param) ? "DeduplicationEnabled"
+                                   : "DeduplicationDisabled"});
+    };
+
 INSTANTIATE_TEST_SUITE_P(All,
                          IndexedDBBrowserTest,
-                         testing::Bool(),
-                         GetBackingStoreTestCaseName);
+                         testing::Combine(testing::Bool(), testing::Bool()),
+                         GetDeduplicationTestCaseName);
 
 INSTANTIATE_TEST_SUITE_P(All,
                          IndexedDBBrowserTestWithLowQuota,
-                         testing::Bool(),
-                         GetBackingStoreTestCaseName);
+                         testing::Combine(testing::Bool(), testing::Bool()),
+                         GetDeduplicationTestCaseName);
 
 INSTANTIATE_TEST_SUITE_P(
     All,
@@ -1699,6 +1870,11 @@ INSTANTIATE_TEST_SUITE_P(
           {std::get<0>(info.param) ? "WithSqlite" : "WithLevelDb", "_",
            std::get<1>(info.param) ? "Incognito" : "Regular"});
     });
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         IndexedDBBrowserTestWithDeduplication,
+                         testing::Bool(),
+                         GetBackingStoreTestCaseName);
 
 }  // namespace
 }  // namespace content::indexed_db

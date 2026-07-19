@@ -33,13 +33,14 @@ import org.chromium.chrome.browser.history_clusters.HistoryClustersTabHelper;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.offlinepages.OfflinePageUtils;
 import org.chromium.chrome.browser.pdf.PdfUtils;
-import org.chromium.chrome.browser.printing.TabPrinter;
+import org.chromium.chrome.browser.printing.PrintHelper;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.share.ShareContentTypeHelper.ContentType;
 import org.chromium.chrome.browser.share.android_share_sheet.AndroidShareSheetController;
 import org.chromium.chrome.browser.share.android_share_sheet.TabGroupSharingController;
 import org.chromium.chrome.browser.share.link_to_text.LinkToTextHelper;
 import org.chromium.chrome.browser.share.send_tab_to_self.SendTabToSelfCoordinator;
+import org.chromium.chrome.browser.share.send_tab_to_self.ShareEntryPoint;
 import org.chromium.chrome.browser.share.share_sheet.ShareSheetCoordinator;
 import org.chromium.chrome.browser.tab.SadTab;
 import org.chromium.chrome.browser.tab.Tab;
@@ -55,9 +56,6 @@ import org.chromium.components.favicon.LargeIconBridge;
 import org.chromium.components.ui_metrics.CanonicalURLResult;
 import org.chromium.content_public.browser.RenderFrameHost;
 import org.chromium.content_public.browser.WebContents;
-import org.chromium.printing.PrintManagerDelegateImpl;
-import org.chromium.printing.PrintingController;
-import org.chromium.printing.PrintingControllerImpl;
 import org.chromium.ui.base.ActivityResultTracker;
 import org.chromium.ui.base.MimeTypeUtils;
 import org.chromium.ui.base.WindowAndroid;
@@ -412,16 +410,7 @@ public class ShareDelegateImpl implements ShareDelegate {
     }
 
     private void printTab(Tab tab) {
-        var tabProviderTab = assumeNonNull(mTabProvider.get());
-        Activity activity = assumeNonNull(tabProviderTab.getWindowAndroid()).getActivity().get();
-        PrintingController printingController =
-                PrintingControllerImpl.getInstance(
-                        assumeNonNull(tabProviderTab.getWindowAndroid()));
-        if (printingController != null && !printingController.isBusy()) {
-            assert activity != null;
-            printingController.startPrint(
-                    new TabPrinter(mTabProvider.get()), new PrintManagerDelegateImpl(activity));
-        }
+        PrintHelper.printTab(tab);
     }
 
     @Override
@@ -468,7 +457,8 @@ public class ShareDelegateImpl implements ShareDelegate {
                         mSigninAndHistorySyncActivityLauncher,
                         mActivityResultTracker,
                         mModalDialogManagerSupplier,
-                        mSnackbarManager);
+                        mSnackbarManager,
+                        ShareEntryPoint.SHARE_SHEET);
         sttsCoordinator.show();
     }
 

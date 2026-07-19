@@ -23,7 +23,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/types/strong_alias.h"
 #include "build/build_config.h"
-#include "components/accessibility_annotator/core/annotation_reducer/entry_type.h"
+#include "components/accessibility_annotator/core/annotation_reducer/memory_data_type.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/data_model/payments/bnpl_issuer.h"
 #include "components/autofill/core/browser/data_model/payments/iban.h"
@@ -62,11 +62,13 @@ struct Suggestion {
     // Stores either the password signon realm or the Android app name for which
     // the password was saved.
     std::optional<std::u16string> display_signon_realm;
-    // This flag is set to `false` for the manual fallback suggestions which
-    // represent exact, strongly affiliated, PSL and weakly affiliated matches
-    // for the domain the suggestions are shown for. All other manual fallback
-    // suggestions have this flag set to `true`.
-    // Note that non-manual-fallback suggestions are never cross domain.
+    // Indicates if the suggestions represents a credential for which we are
+    // unsure if it belongs to the current website, and thus should show a
+    // confirmation popup when filling the credential. For manual fallback
+    // suggestions, this is set to `false` if they represent exact, strongly
+    // affiliated or PSL matches, and `true` for all others (such as
+    // grouped/weakly affiliated matches). For backup suggestions, this is set
+    // to `true` if they represent a grouped match.
     bool is_cross_domain = false;
 
     PasswordSuggestionDetails();
@@ -78,7 +80,9 @@ struct Suggestion {
     // Used to construct the payload of a backup password suggestion.
     PasswordSuggestionDetails(std::u16string_view username,
                               std::u16string_view password,
-                              std::u16string_view backup_password);
+                              std::u16string_view backup_password,
+                              std::string_view signon_realm,
+                              bool is_cross_domain);
     PasswordSuggestionDetails(const PasswordSuggestionDetails&);
     PasswordSuggestionDetails(PasswordSuggestionDetails&&);
     PasswordSuggestionDetails& operator=(const PasswordSuggestionDetails&);
@@ -98,6 +102,10 @@ struct Suggestion {
     AutofillAiPayload& operator=(const AutofillAiPayload&);
     AutofillAiPayload& operator=(AutofillAiPayload&&);
     ~AutofillAiPayload();
+
+#if BUILDFLAG(IS_ANDROID)
+    base::android::ScopedJavaLocalRef<jobject> CreateJavaObject() const;
+#endif  // BUILDFLAG(IS_ANDROID)
 
     friend bool operator==(const AutofillAiPayload&,
                            const AutofillAiPayload&) = default;
@@ -203,7 +211,7 @@ struct Suggestion {
     AtMemoryPayload();
     // `value` is the value to be shown in the suggestion UI and the preview.
     AtMemoryPayload(std::u16string value,
-                    accessibility_annotator::EntryType entry_type);
+                    accessibility_annotator::MemoryDataType memory_data_type);
     AtMemoryPayload(const AtMemoryPayload&);
     AtMemoryPayload(AtMemoryPayload&&);
     AtMemoryPayload& operator=(const AtMemoryPayload&);
@@ -220,8 +228,8 @@ struct Suggestion {
     Identifier identifier;
 
     // The type of the entry from accessibility annotator.
-    accessibility_annotator::EntryType entry_type =
-        accessibility_annotator::EntryType::kUnknown;
+    accessibility_annotator::MemoryDataType memory_data_type =
+        accessibility_annotator::MemoryDataType::kUnknown;
   };
 
   struct OpenGeminiPayload final {
@@ -357,6 +365,7 @@ struct Suggestion {
     kEmail,
     kError,
     kFlight,
+    kFlightSpark,
     kGlobe,
     kGoogle,
     kGoogleMonochrome,
@@ -366,20 +375,29 @@ struct Suggestion {
     kGoogleWalletMonochrome,
     kHome,
     kIdCard,
+    kIdCard2,
+    kIdCard2Spark,
+    kIdCardSpark,
     kKey,
     kLocation,
     kLoyalty,
     kMagic,
     kOfferTag,
+    kOrder,
+    kOrderSpark,
     kPassport,
+    kPassportSpark,
     kPenSpark,
     kPersonCheck,
     kQuestionMark,
     kRecoveryPassword,
     kScanCreditCard,
     kSettings,
+    kShipment,
+    kShipmentSpark,
     kUndo,
     kVehicle,
+    kVehicleSpark,
     kWork,
     kGmail,
     kGooglePhotos,
@@ -484,6 +502,7 @@ struct Suggestion {
         return std::holds_alternative<Guid>(payload) ||
                std::holds_alternative<PasswordSuggestionDetails>(payload);
       case SuggestionType::kFillPassword:
+      case SuggestionType::kPasswordFieldByFieldFilling:
       case SuggestionType::kViewPasswordDetails:
       case SuggestionType::kBackupPasswordEntry:
       case SuggestionType::kTroubleSigningInEntry:

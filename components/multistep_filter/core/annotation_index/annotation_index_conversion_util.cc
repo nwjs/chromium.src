@@ -15,6 +15,8 @@
 #include "components/multistep_filter/core/annotation_index/proto/annotation_index.pb.h"
 #include "components/multistep_filter/core/data_models/filter_annotation.h"
 #include "components/multistep_filter/core/data_models/filter_suggestion_candidate.h"
+#include "components/multistep_filter/core/multistep_filter_util.h"
+#include "url/gurl.h"
 
 namespace multistep_filter {
 
@@ -85,8 +87,18 @@ std::vector<FilterSuggestionCandidate> ToFilterSuggestionCandidates(
       continue;
     }
 
+    std::u16string short_text;
+    std::u16string detailed_text;
+    if (strategy.has_suggestion_message()) {
+      short_text =
+          base::UTF8ToUTF16(strategy.suggestion_message().short_text());
+      detailed_text =
+          base::UTF8ToUTF16(strategy.suggestion_message().detailed_text());
+    }
+
     candidates.emplace_back(std::move(annotation_id), std::move(navigation_url),
-                            std::move(attributes));
+                            std::move(attributes), std::move(short_text),
+                            std::move(detailed_text));
   }
 
   return candidates;
@@ -99,8 +111,10 @@ ExtractTaskAttributesRequest ToExtractTaskAttributesRequest(const GURL& url) {
 }
 
 std::optional<FilterAnnotation> ToFilterAnnotation(
+    const GURL& url,
     const ExtractTaskAttributesResponse& response) {
-  if (response.domain().empty() || response.task_type().empty() ||
+  const std::string host(url.host());
+  if (host.empty() || response.task_type().empty() ||
       response.task_attributes().empty()) {
     return std::nullopt;
   }
@@ -111,7 +125,7 @@ std::optional<FilterAnnotation> ToFilterAnnotation(
   }
 
   return FilterAnnotation(base::Uuid::GenerateRandomV4(), response.task_type(),
-                          response.domain(), base::Time::Now(),
+                          host, base::Time::Now(),
                           std::move(attributes));
 }
 

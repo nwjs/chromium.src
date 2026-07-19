@@ -12,6 +12,8 @@ enum LocalEligibility {
   kMissingCapabilities,
   kDisabledByPolicy,
   kMissingScript,
+  kManagedDomain,
+  kGlicDisabledForProfile,
 };
 
 // Whether Optimization Guide can make queries to determine whether to offer

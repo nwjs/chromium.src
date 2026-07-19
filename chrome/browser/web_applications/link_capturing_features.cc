@@ -6,14 +6,12 @@
 
 #include "base/feature_list.h"
 #include "build/build_config.h"
-#include "chrome/common/chrome_features.h"
 #include "content/public/common/content_features.h"
 
 namespace apps::features {
 
-BASE_FEATURE(kNavigationCapturingOnExistingFrames,
-             "NavigationCapturingOnCurrentFrames",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kUpdateAppStringsOnSettings, base::FEATURE_ENABLED_BY_DEFAULT);
+
 
 bool ShouldShowLinkCapturingUX() {
 #if BUILDFLAG(IS_CHROMEOS)
@@ -23,12 +21,10 @@ bool ShouldShowLinkCapturingUX() {
 #endif  // BUILDFLAG(IS_CHROMEOS)
 }
 
-bool IsNavigationCapturingReimplEnabled() {
+bool IsNavigationCapturingOnByDefault() {
   return base::FeatureList::IsEnabled(::features::kPwaNavigationCapturing) &&
          (::features::kNavigationCapturingDefaultState.Get() ==
               ::features::CapturingState::kReimplDefaultOn ||
-          ::features::kNavigationCapturingDefaultState.Get() ==
-              ::features::CapturingState::kReimplDefaultOff ||
           ::features::kNavigationCapturingDefaultState.Get() ==
               ::features::CapturingState::kReimplOnViaClientMode);
 }

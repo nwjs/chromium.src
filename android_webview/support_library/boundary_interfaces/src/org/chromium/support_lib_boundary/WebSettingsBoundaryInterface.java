@@ -180,11 +180,7 @@ public interface WebSettingsBoundaryInterface {
 
     boolean getBackForwardCacheSettingsKeepForwardEntries();
 
-    void setIgnoreDuplicateNavEnabled(boolean ignoreDuplicateNavEnabled);
+    void setDownloadFaviconsEnabled(boolean enabled);
 
-    boolean getIgnoreDuplicateNavEnabled();
-
-    void setIgnoreDuplicateNavThreshold(long thresholdMs);
-
-    long getIgnoreDuplicateNavThreshold();
+    boolean getDownloadFaviconsEnabled();
 }

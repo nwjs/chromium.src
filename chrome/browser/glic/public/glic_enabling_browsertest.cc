@@ -46,6 +46,7 @@
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chromeos/constants/chromeos_features.h"
+#include "components/sync/base/features.h"
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 using base::test::FeatureRef;
@@ -65,6 +66,7 @@ class GlicEnablingTest : public InProcessBrowserTest {
     scoped_feature_list_.InitWithFeatures(
         {
 #if BUILDFLAG(IS_CHROMEOS)
+            syncer::kReplaceSyncPromosWithSignInPromos,
             chromeos::features::kFeatureManagementGlic,
 #endif  // BUILDFLAG(IS_CHROMEOS)
         },
@@ -122,6 +124,7 @@ class GlicEnablingWithSeparateAccountCapabilityTest : public GlicEnablingTest {
             {switches::kGlicEligibilitySeparateAccountCapability, {}},
 #if BUILDFLAG(IS_CHROMEOS)
             {chromeos::features::kFeatureManagementGlic, {}},
+            {syncer::kReplaceSyncPromosWithSignInPromos, {}},
 #endif  // BUILDFLAG(IS_CHROMEOS)
         },
         {});
@@ -135,7 +138,7 @@ class GlicEnablingWithSeparateAccountCapabilityTest : public GlicEnablingTest {
         identity_manager->FindExtendedAccountInfoByAccountId(
             identity_manager->GetPrimaryAccountId(
                 signin::ConsentLevel::kSignin));
-    AccountCapabilitiesTestMutator mutator(&primary_account.capabilities);
+    AccountCapabilitiesTestMutator mutator(&primary_account);
     mutator.set_can_use_model_execution_features(capability_value);
     signin::UpdateAccountInfoForAccount(identity_manager, primary_account);
   }
@@ -366,9 +369,8 @@ IN_PROC_BROWSER_TEST_F(GlicEnablingSimultaneousRolloutTest,
   {
     base::HistogramTester histogram_tester;
     ProvideCurrentSessionData();
-    histogram_tester.ExpectUniqueSample(
-        "Glic.TieredRolloutEnablementStatus",
-        GlicTieredRolloutEnablementStatus::kAllProfilesEnabled, 1);
+    histogram_tester.ExpectUniqueSample("Glic.TieredRolloutEnablementStatus",
+                                        GlicProfilesAllSomeNone::kAll, 1);
   }
 
   // ChromeOS does not support multiple profiles.
@@ -385,9 +387,8 @@ IN_PROC_BROWSER_TEST_F(GlicEnablingSimultaneousRolloutTest,
   {
     base::HistogramTester histogram_tester;
     ProvideCurrentSessionData();
-    histogram_tester.ExpectUniqueSample(
-        "Glic.TieredRolloutEnablementStatus",
-        GlicTieredRolloutEnablementStatus::kSomeProfilesEnabled, 1);
+    histogram_tester.ExpectUniqueSample("Glic.TieredRolloutEnablementStatus",
+                                        GlicProfilesAllSomeNone::kSome, 1);
   }
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
@@ -400,9 +401,8 @@ IN_PROC_BROWSER_TEST_F(GlicEnablingSimultaneousRolloutTest,
   {
     base::HistogramTester histogram_tester;
     ProvideCurrentSessionData();
-    histogram_tester.ExpectUniqueSample(
-        "Glic.TieredRolloutEnablementStatus",
-        GlicTieredRolloutEnablementStatus::kNoProfilesEnabled, 1);
+    histogram_tester.ExpectUniqueSample("Glic.TieredRolloutEnablementStatus",
+                                        GlicProfilesAllSomeNone::kNone, 1);
   }
 }
 
@@ -443,6 +443,70 @@ IN_PROC_BROWSER_TEST_F(GlicEnablingTieredRolloutV2Test, EnabledForProfileTest) {
   SetUserTier(0);
   EXPECT_FALSE(GlicEnabling::IsEnabledForProfile(profile()));
 }
+
+struct GeminiEntTestParams {
+  std::string email;
+  std::optional<std::string> hosted_domain;
+  bool expect_settings;
+};
+
+class GlicEnablingGeminiEntBrowserTest
+    : public GlicEnablingTest,
+      public ::testing::WithParamInterface<GeminiEntTestParams> {
+ protected:
+  GlicEnablingGeminiEntBrowserTest() {
+    glic_test_env_.SetForceSigninAndModelExecutionCapability(false);
+  }
+  void InitializeFeatureList() override {
+    scoped_feature_list_.InitWithFeatures(
+        {
+            features::kGlicGeminiEnterpriseSettingsEnabled,
+#if BUILDFLAG(IS_CHROMEOS)
+            chromeos::features::kFeatureManagementGlic,
+#endif
+        },
+        {});
+  }
+};
+
+IN_PROC_BROWSER_TEST_P(GlicEnablingGeminiEntBrowserTest, VerifySettings) {
+  const GeminiEntTestParams& params = GetParam();
+
+  // 1. Set the pref directly using base::DictValue.
+  base::DictValue pref_value;
+  pref_value.Set("project_id", "test-project");
+  pref_value.Set("app_id", "test-engine");
+  pref_value.Set("location", "us");
+  profile()->GetPrefs()->SetDict(glic::prefs::kGlicGeminiEnterpriseSettings,
+                                 std::move(pref_value));
+
+  // 2. Sign in with the parameterized account.
+  glic::ForceSigninAndGlicCapability(profile(),
+                                     params.hosted_domain.value_or(""));
+
+  // 3. Verify results.
+  std::optional<glic::mojom::GeminiEnterpriseSettings> settings =
+      GlicEnabling::GetGeminiEnterpriseSettings(profile());
+
+  if (params.expect_settings) {
+    ASSERT_TRUE(settings.has_value());
+    EXPECT_EQ(settings->project_id, "test-project");
+    EXPECT_EQ(settings->app_id, "test-engine");
+    EXPECT_EQ(settings->location, "us");
+  } else {
+    EXPECT_EQ(settings, std::nullopt);
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    GlicEnablingGeminiEntBrowserTest,
+    ::testing::Values(GeminiEntTestParams{.email = "user@consumer.com",
+                                          .hosted_domain = std::nullopt,
+                                          .expect_settings = false},
+                      GeminiEntTestParams{.email = "user@enterprise.com",
+                                          .hosted_domain = "enterprise.com",
+                                          .expect_settings = true}));
 
 struct SystemRequirementsTestParams {
   base::ByteSize memory_size;
@@ -502,9 +566,12 @@ INSTANTIATE_TEST_SUITE_P(
     All,
     GlicEnablingSystemRequirementsTest,
 #if BUILDFLAG(IS_CHROMEOS)
-    testing::Values(SystemRequirementsTestParams{.memory_size = base::GiBU(7),
+    testing::Values(SystemRequirementsTestParams{.memory_size = base::GiBU(6),
                                                  .is_dogfood = true,
                                                  .expected_result = false},
+                    SystemRequirementsTestParams{.memory_size = base::GiBU(7),
+                                                 .is_dogfood = true,
+                                                 .expected_result = true},
                     SystemRequirementsTestParams{.memory_size = base::GiBU(8),
                                                  .is_dogfood = true,
                                                  .expected_result = true},

@@ -31,7 +31,6 @@
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
-#import "ios/chrome/browser/shared/ui/table_view/legacy_chrome_table_view_styler.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_utils.h"
 #import "ios/chrome/browser/shared/ui/util/rtl_geometry.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
@@ -200,7 +199,8 @@ typedef NS_ENUM(NSInteger, ItemType) {
 
 - (void)viewDidLoad {
   [super viewDidLoad];
-  self.tableView.backgroundColor = self.styler.tableViewBackgroundColor;
+  self.tableView.backgroundColor =
+      [UIColor colorNamed:kGroupedPrimaryBackgroundColor];
   self.tableView.estimatedRowHeight = 150.0;
   self.tableView.rowHeight = UITableViewAutomaticDimension;
   self.tableView.sectionHeaderHeight = 0;
@@ -343,12 +343,12 @@ typedef NS_ENUM(NSInteger, ItemType) {
   }
   base::RecordAction(base::UserMetricsAction(
       "MobileBookmarksFolderEditorOpenedFolderChooser"));
-  std::set<raw_ptr<const bookmarks::BookmarkNode>> hiddenNodes;
+  std::set<raw_ptr<const bookmarks::BookmarkNode>> editedNodes;
   if (_folder) {
-    hiddenNodes.insert(_folder);
+    editedNodes.insert(_folder);
   }
   [self.delegate showBookmarksFolderChooserWithParentFolder:_parentFolder
-                                                hiddenNodes:hiddenNodes];
+                                                editedNodes:editedNodes];
 }
 
 #pragma mark - BookmarkModelBridgeObserver

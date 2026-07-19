@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/lens/lens_query_flow_router.h"
 
 #include "base/rand_util.h"
+#include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/contextual_search/contextual_search_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_context_service_factory.h"
@@ -27,9 +28,11 @@
 #include "components/contextual_search/contextual_search_service.h"
 #include "components/contextual_tasks/public/features.h"
 #include "components/lens/lens_features.h"
+#include "components/lens/lens_overlay_metrics.h"
 #include "components/lens/lens_overlay_mime_type.h"
 #include "components/lens/lens_url_utils.h"
 #include "components/lens/ref_counted_lens_overlay_client_logs.h"
+#include "components/omnibox/browser/aim_eligibility_service.h"
 #include "components/omnibox/browser/lens_suggest_inputs_utils.h"
 #include "components/omnibox/common/logger.h"
 #include "components/sessions/content/session_tab_helper.h"
@@ -282,6 +285,26 @@ void LensQueryFlowRouter::SetSuggestInputsReadyCallback(
   }
   lens_overlay_query_controller()->SetSuggestInputsReadyCallback(
       std::move(callback));
+}
+
+void LensQueryFlowRouter::RecordQueryEligibility(
+    std::optional<lens::LensOverlayInvocationSource> invocation_source) {
+  AimEligibilityService* aim_service =
+      AimEligibilityServiceFactory::GetForProfile(profile());
+  if (!aim_service) {
+    return;
+  }
+
+  lens::LensContextualTasksQueryEligibility eligibility =
+      lens::LensContextualTasksQueryEligibility::kEligible;
+  if (!aim_service->IsAimEligible()) {
+    eligibility = lens::LensContextualTasksQueryEligibility::kAimIneligible;
+  } else if (!aim_service->IsCobrowseEligible()) {
+    eligibility =
+        lens::LensContextualTasksQueryEligibility::kCobrowseIneligible;
+  }
+
+  lens::RecordContextualTasksQueryEligibility(eligibility, invocation_source);
 }
 
 void LensQueryFlowRouter::SendRegionSearch(
@@ -555,6 +578,10 @@ void LensQueryFlowRouter::OnContextUploadStatusChanged(
 
 void LensQueryFlowRouter::SendInteractionToContextualTasks(
     std::unique_ptr<CreateSearchUrlRequestInfo> request_info) {
+  if (!eligibility_logged_in_session_) {
+    RecordQueryEligibility(request_info->invocation_source);
+    eligibility_logged_in_session_ = true;
+  }
   // If there is no existing session handle, then the search URL request will
   // need to wait for the tab context to be added before being sent.
   if (!GetContextualSearchSessionHandle()) {
@@ -581,9 +608,12 @@ void LensQueryFlowRouter::SendInteractionToContextualTasks(
         pending_session_handle_) {
       auto* service = contextual_tasks::ContextualTasksUiServiceFactory::
           GetForBrowserContext(web_contents()->GetBrowserContext());
-      service->InitSidePanelWithGhostLoader(browser_window_interface(),
-                                            tab_interface(),
-                                            std::move(pending_session_handle_));
+      service->InitSidePanelWithGhostLoader(
+          browser_window_interface(), tab_interface(),
+          std::move(pending_session_handle_),
+          AimEntryPointFromInvocationSource(
+              request_info->invocation_source.value_or(
+                  lens::LensOverlayInvocationSource::kAppMenu)));
     }
 
     auto lens_selection_type = request_info->lens_overlay_selection_type;
@@ -605,17 +635,19 @@ void LensQueryFlowRouter::SendInteractionToContextualTasks(
     if (!overlay_tab_context_file_token_.has_value()) {
       force_tabs.push_back(tab_interface()->GetHandle().raw_value());
     }
-    query_contextualizer_->Contextualize(
-        /*task_id=*/std::nullopt, pending_search_url_request_->query_text,
-        /*tabs_to_recontextualize=*/{},
-        /*tabs_to_force_contextualize=*/force_tabs,
-        /*on_ineligible_callback=*/
+    contextual_tasks::QueryContextualizer::ContextualizeParams params;
+    params.task_id = std::nullopt;
+    params.query_text = pending_search_url_request_->query_text;
+    params.tabs_for_contextual_searchbox_first_turn = force_tabs;
+    params.on_ineligible_callback =
         base::BindRepeating(&LensQueryFlowRouter::ShowContextualTasksErrorPage,
-                            weak_factory_.GetWeakPtr()),
-        /*on_processed_callback=*/base::DoNothing(),
+                            weak_factory_.GetWeakPtr());
+    params.on_processed_callback = base::DoNothing();
+    params.complete_callback =
         base::BindOnce(&LensQueryFlowRouter::OnContextualizedComplete,
-                       weak_factory_.GetWeakPtr()),
-        /*enable_smart_tab_selection=*/false);
+                       weak_factory_.GetWeakPtr());
+    params.enable_smart_tab_selection = false;
+    query_contextualizer_->Contextualize(std::move(params));
     return;
   }
 
@@ -665,10 +697,14 @@ void LensQueryFlowRouter::OpenContextualTasksPanel(
 
   // Show the side panel. This will create a new task and associate it with the
   // active tab.
+  auto entry_point = AimEntryPointFromInvocationSource(
+      lens_search_controller_->invocation_source().value_or(
+          lens::LensOverlayInvocationSource::kAppMenu));
+
   contextual_tasks::ContextualTasksUiServiceFactory::GetForBrowserContext(
       web_contents()->GetBrowserContext())
       ->StartTaskUiInSidePanel(browser_window_interface(), tab_interface(), url,
-                               std::move(pending_session_handle_));
+                               std::move(pending_session_handle_), entry_point);
   // Notify the overlay controller that the side panel was opened so it can
   // update its UI state.
   lens_overlay_controller()->NotifyResultsPanelOpened();
@@ -689,11 +725,14 @@ void LensQueryFlowRouter::OpenContextualTasksPanel(
 }
 
 void LensQueryFlowRouter::ShowContextualTasksErrorPage() {
+  auto entry_point = AimEntryPointFromInvocationSource(
+      lens_search_controller_->invocation_source().value_or(
+          lens::LensOverlayInvocationSource::kAppMenu));
   contextual_tasks::ContextualTasksUiServiceFactory::GetForBrowserContext(
       web_contents()->GetBrowserContext())
-      ->StartTaskUiInSidePanelWithErrorPage(browser_window_interface(),
-                                            tab_interface(),
-                                            std::move(pending_session_handle_));
+      ->StartTaskUiInSidePanelWithErrorPage(
+          browser_window_interface(), tab_interface(),
+          std::move(pending_session_handle_), entry_point);
   // Notify the overlay controller that the side panel was opened so it can
   // update its UI state.
   lens_overlay_controller()->NotifyResultsPanelOpened();
@@ -733,17 +772,18 @@ void LensQueryFlowRouter::UploadContextualInputData(
         pending_search_url_request_->search_url_type == SearchUrlType::kAim;
 
     if (is_contextual_text_query && query_contextualizer_) {
-      query_contextualizer_->Contextualize(
-          /*task_id=*/std::nullopt, pending_search_url_request_->query_text,
-          /*tabs_to_recontextualize=*/{}, /*tabs_to_force_contextualize=*/{},
-          /*on_ineligible_callback=*/
-          base::BindRepeating(
-              &LensQueryFlowRouter::ShowContextualTasksErrorPage,
-              weak_factory_.GetWeakPtr()),
-          /*on_processed_callback=*/base::DoNothing(),
+      contextual_tasks::QueryContextualizer::ContextualizeParams params;
+      params.task_id = std::nullopt;
+      params.query_text = pending_search_url_request_->query_text;
+      params.on_ineligible_callback = base::BindRepeating(
+          &LensQueryFlowRouter::ShowContextualTasksErrorPage,
+          weak_factory_.GetWeakPtr());
+      params.on_processed_callback = base::DoNothing();
+      params.complete_callback =
           base::BindOnce(&LensQueryFlowRouter::OnContextualizedComplete,
-                         weak_factory_.GetWeakPtr()),
-          /*enable_smart_tab_selection=*/true);
+                         weak_factory_.GetWeakPtr());
+      params.enable_smart_tab_selection = true;
+      query_contextualizer_->Contextualize(std::move(params));
       return;
     }
 
@@ -786,6 +826,9 @@ LensQueryFlowRouter::CreateContextualInputData(
   // presence of a follow-up interaction request instead of this bit in the
   // context upload request.
   contextual_input_data->has_lens_usage_intent = false;
+  contextual_input_data->upload_type =
+      lens::LensOverlayContextualInputUploadType::
+          CONTEXTUAL_INPUT_UPLOAD_TYPE_CONTEXTUAL_SEARCHBOX_INITIAL_QUERY;
   return contextual_input_data;
 }
 

@@ -20,6 +20,11 @@
 #include "chrome/browser/search/search.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/ui/actions/chrome_action_id.h"
+#include "chrome/browser/ui/browser_actions.h"
+#include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
+#endif
 #include "chrome/common/webui_url_constants.h"
 #include "components/contextual_search/contextual_search_metrics_recorder.h"
 #include "components/contextual_search/contextual_search_session_handle.h"
@@ -150,14 +155,16 @@ PrepareClientToAimRequestInfo(
     omnibox::ToolMode active_tool,
     omnibox::ModelMode active_model,
     std::optional<int64_t> active_tab_context_id,
-    std::optional<base::UnguessableToken> overlay_token) {
+    std::optional<base::UnguessableToken> overlay_token,
+    bool is_voice_search) {
   CHECK(web_ui_interface);
   auto info =
       std::make_unique<contextual_search::ContextualSearchContextController::
                            CreateClientToAimRequestInfo>();
   info->query_text = query;
   info->query_text_source =
-      lens::QueryPayload::QUERY_TEXT_SOURCE_KEYBOARD_INPUT;
+      is_voice_search ? lens::QueryPayload::QUERY_TEXT_SOURCE_VOICE_INPUT
+                      : lens::QueryPayload::QUERY_TEXT_SOURCE_KEYBOARD_INPUT;
   info->query_start_time = base::Time::Now();
   if (overlay_token) {
     info->overlay_token = overlay_token;
@@ -272,5 +279,50 @@ std::unique_ptr<ContextualTasksPanelHost> ContextualTasksPanelHost::Create(
   return std::make_unique<ContextualTasksPanelHostDesktop>(browser_window);
 #endif
 }
+
+bool GetEffectivePinState(Profile* profile) {
+  if (!profile) {
+    return false;
+  }
+#if !BUILDFLAG(IS_ANDROID)
+  if (auto* model = PinnedToolbarActionsModel::Get(profile)) {
+    return model->Contains(kActionSidePanelShowContextualTasks);
+  }
+#endif
+  return false;
+}
+
+#if !BUILDFLAG(IS_ANDROID)
+void UpdatePinButtonVisibilityState(BrowserWindowInterface* browser_window,
+                                    bool eligible) {
+  if (!browser_window || !browser_window->GetActions()) {
+    return;
+  }
+
+  actions::ActionItem* const scope_action =
+      browser_window->GetActions()->root_action_item();
+  if (!scope_action) {
+    return;
+  }
+
+  actions::ActionItem* const action_item =
+      actions::ActionManager::Get().FindAction(
+          kActionSidePanelShowContextualTasks, scope_action);
+
+  if (action_item) {
+      // If it's not eligible, actively pull it out of the pinned model space.
+      // Do not pull it out if the user is currently in an incognito window, as
+      // this would unpin it for the parent profile.
+      if (!browser_window->GetProfile()->IsOffTheRecord()) {
+        if (auto* model =
+                PinnedToolbarActionsModel::Get(browser_window->GetProfile())) {
+          if (model->Contains(kActionSidePanelShowContextualTasks)) {
+            action_item->SetVisible(eligible);
+          }
+        }
+      }
+  }
+}
+#endif
 
 }  // namespace contextual_tasks

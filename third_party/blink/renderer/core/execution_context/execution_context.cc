@@ -324,6 +324,10 @@ bool ExecutionContext::IsContextPaused() const {
   return lifecycle_state_ == mojom::blink::FrameLifecycleState::kPaused;
 }
 
+bool ExecutionContext::IsContextFrozen() const {
+  return lifecycle_state_ == mojom::blink::FrameLifecycleState::kFrozen;
+}
+
 LoaderFreezeMode ExecutionContext::GetLoaderFreezeMode() const {
   if (is_in_back_forward_cache_) {
     DCHECK_EQ(lifecycle_state_, mojom::blink::FrameLifecycleState::kFrozen);
@@ -449,11 +453,16 @@ bool ExecutionContext::IsSecureContext(String& error_message) const {
 
 // https://w3c.github.io/webappsec-referrer-policy/#determine-requests-referrer
 String ExecutionContext::OutgoingReferrer() const {
+  return OutgoingReferrerUrl().GetString();
+}
+
+KURL ExecutionContext::OutgoingReferrerUrl() const {
   // Step 3.1: "If environment's global object is a Window object, then"
-  // This case is implemented in Document::OutgoingReferrer().
+  // This case is overridden and implemented in
+  // LocalDOMWindow::OutgoingReferrerUrl().
 
   // Step 3.2: "Otherwise, let referrerSource be environment's creation URL."
-  return Url().StrippedForUseAsReferrer();
+  return Url().UrlStrippedForUseAsReferrer();
 }
 
 void ExecutionContext::ParseAndSetReferrerPolicy(

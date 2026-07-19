@@ -48,6 +48,7 @@ if (!is_android) {
       "//base",
       "//chrome/browser/ui/actions:actions_headers",
       "//chrome/browser/ui/toolbar/pinned_toolbar",
+      "//components/browser_apis/ui_controllers/toolbar:mojom_data_model",
       "//components/tabs:public",
       "//ui/actions:actions_headers",
       "//ui/base",
@@ -67,6 +68,8 @@ if (!is_android) {
 
     deps = [
       ":page_action",
+      "//chrome/browser:primitives",
+      "//chrome/browser/ui:browser_actions",
       "//chrome/browser/ui:browser_element_identifiers",
       "//chrome/browser/ui:ui_features",
       "//content/public/browser",

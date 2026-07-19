@@ -34,6 +34,9 @@ class CardboardSdk;
 using CardboardRequestSessionCallback =
     base::OnceCallback<void(mojom::XRRuntimeSessionResultPtr)>;
 
+// CardboardRenderLoop implements the Android Cardboard WebXR render loop.
+// It runs on a dedicated GL/render thread (JavaHandlerThread) to safely
+// perform EGL and Cardboard SDK operations.
 class CardboardRenderLoop : public base::android::JavaHandlerThread,
                             public device::mojom::XRFrameDataProvider,
                             public device::mojom::XRSessionController,
@@ -69,13 +72,15 @@ class CardboardRenderLoop : public base::android::JavaHandlerThread,
                          const gfx::RectF& left_bounds,
                          const gfx::RectF& right_bounds,
                          const gfx::Size& source_size) override;
-  void SubmitFrameMissing(int16_t frame_index, const gpu::SyncToken&) override;
+  void SubmitFrameMissing(
+      int16_t frame_index,
+      gpu::SharedImageExportResult camera_image_multi_result) override;
   void SubmitFrame(int16_t frame_index,
                    base::TimeDelta time_waited) override;
   void SubmitFrameDrawnIntoTexture(
       int16_t frame_index,
       std::vector<device::mojom::XRLayerUpdatePtr> layer_updates,
-      const std::vector<gpu::SyncToken>& camera_sync_tokens,
+      gpu::SharedImageExportResult camera_export_multi_result,
       base::TimeDelta time_waited) override;
 
   // mojom::XRSessionController
@@ -103,8 +108,7 @@ class CardboardRenderLoop : public base::android::JavaHandlerThread,
   bool IsSubmitFrameExpected(int16_t frame_index);
 
   void ProcessFrameDrawnIntoTexture(
-      const gpu::SyncToken& sync_token,
-      const std::vector<gpu::SyncToken>& camera_sync_tokens);
+      gpu::SharedImageExportResult shared_image_export_result);
   void OnWebXrTokenSignaled(std::unique_ptr<gfx::GpuFence> gpu_fence);
 
   void TransitionProcessingFrameToRendering();

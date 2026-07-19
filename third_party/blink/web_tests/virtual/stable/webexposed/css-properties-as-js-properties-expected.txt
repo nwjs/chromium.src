@@ -432,6 +432,7 @@ rowRuleStyle
 rowRuleVisibilityItems
 rowRuleWidth
 rubyAlign
+rubyOverhang
 rubyPosition
 rule
 ruleBreak

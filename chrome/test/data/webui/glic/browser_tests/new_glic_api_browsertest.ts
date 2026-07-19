@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {CancelActionsResult, ClientCapabilities, ExperimentalTriggeringUpdateType, SbThreatType, SkillSource, WebClientMode} from '/glic/glic_api/glic_api.js';
-import type {AdditionalContext, CounterAbuseVerdict, ExperimentalTriggeringUpdate, GlicBrowserHost, GlicWebClient, InvokeOptions, Observable, Observable2, OpenPanelInfo, PageMetadata, PanelOpeningData, PanelState, TabData, ZeroStateSuggestionsV2} from '/glic/glic_api/glic_api.js';
+import {CancelActionsResult, ClientCapabilities, ExperimentalTriggeringUpdateType, SbThreatType, ScrollToErrorReason, SkillSource, WebClientMode} from '/glic/glic_api/glic_api.js';
+import type {AdditionalContext, CounterAbuseVerdict, ExperimentalTriggeringUpdate, GlicBrowserHost, GlicWebClient, InvokeOptions, Observable, Observable2, OpenPanelInfo, PageMetadata, PanelOpeningData, PanelState, ScrollToError, TabData, ZeroStateSuggestionsV2} from '/glic/glic_api/glic_api.js';
 import {Subject} from '/glic/observable.js';
 
 import {ApiTestError, ApiTestFixtureBase, assertDefined, assertEquals, assertFalse, assertRejects, assertTrue, assertUndefined, checkDefined, mapObservable, observeSequence, runUntil, sleep, testMain, waitFor, WebClient} from './browser_test_base.js';
@@ -15,6 +15,29 @@ class ApiTests extends ApiTestFixtureBase {
   }
 
   async testDoNothing() {}
+
+  async testGetContextFromFocusedTabWithIframe() {
+    await this.host.setTabContextPermissionState(true);
+
+    const result = await this.host.getContextFromFocusedTab?.({
+      viewportScreenshot: true,
+    });
+
+    assertDefined(result);
+    assertEquals(
+        new URL(result.tabData.url).pathname, '/browser_tests/test_iframe.html',
+        `Tab data has unexpected url ${result.tabData.url}`);
+
+    assertDefined(result.screenshotInfo);
+    const bytes = await new Response(result.screenshotInfo).bytes();
+    assertTrue(bytes.length > 0, 'screenshotInfo should not be empty');
+
+    const decoded = new TextDecoder().decode(bytes);
+    assertTrue(
+        decoded.includes('test.html'),
+        `screenshotInfo should contain the iframe URL 'test.html', got: ${
+            decoded}`);
+  }
 
   async testReloadWebUi() {}
 
@@ -83,6 +106,108 @@ class ApiTests extends ApiTestFixtureBase {
         .waitFor((data) => data && data.invocationSource === expectedSource);
   }
 
+  private async assertCreateTabFails(url: string) {
+    assertDefined(this.host.createTab);
+    await assertRejects(
+        this.host.createTab(url, {openInBackground: false}),
+        {withErrorMessage: 'createTab: failed'});
+  }
+
+  async testCreateTab() {
+    assertDefined(this.host.createTab);
+    // Open a tab pointing to test.html.
+    const url = location.href;
+    const data = await this.host.createTab(url, {openInBackground: false});
+    assertEquals(data.url, url);
+  }
+
+  async testCreateTabSimple() {
+    assertDefined(this.host.createTab);
+    const url = location.href + '#simple';
+    const data = await this.host.createTab(url, {openInBackground: false});
+    assertEquals(data.url, url);
+  }
+
+  async testActivateTabWithUrl() {
+    assertDefined(this.host.createTab);
+    assertDefined(this.host.activateTabWithUrl);
+    const prodUrl = location.href + '#activate_prod';
+    const createdProd = await this.host.createTab(prodUrl, {});
+    assertEquals(createdProd.url, prodUrl);
+
+    // Open another tab so prodUrl is no longer the active tab.
+    const blankUrl = location.href + '#blank';
+    const createdBlank = await this.host.createTab(blankUrl, {});
+    assertEquals(createdBlank.url, blankUrl);
+
+    // Activating with autopush URL but matching prod pattern should deduplicate
+    // and return prod tab.
+    const autopushUrl = location.href + '#activate_autopush';
+    const activated = await this.host.activateTabWithUrl(
+        autopushUrl, {pattern: '*activate_prod*'});
+    assertDefined(activated);
+    assertEquals(activated.tabId, createdProd.tabId);
+    assertEquals(activated.url, prodUrl);
+  }
+
+  async testCreateTabFailsWithUnsupportedScheme() {
+    assertDefined(this.host.createTab);
+
+    this.assertCreateTabFails('chrome://settings');
+    this.assertCreateTabFails('ftps://www.google.com');
+    this.assertCreateTabFails('chrome-extension://www.google.com');
+    this.assertCreateTabFails('mailto:user@google.com');
+    this.assertCreateTabFails(
+        'data:text/html;charset=utf-8,<html>Hello World</html>');
+    this.assertCreateTabFails('file:///tmp/test.html');
+  }
+
+  async testNoRemoveBlankInstanceOnCloseIfInputSubmitted() {
+    assertDefined(this.host.getMetrics);
+    const metrics = this.host.getMetrics();
+    assertDefined(metrics.onUserInputSubmitted);
+    metrics.onUserInputSubmitted(WebClientMode.TEXT);
+  }
+
+  async testCreateTabInBackground() {
+    assertDefined(this.host.createTab);
+
+    await this.host.createTab(
+        location.href + '#foreground', {openInBackground: false});
+
+    await this.advanceToNextStep();
+
+    await this.host.createTab(
+        location.href + '#background', {openInBackground: true});
+  }
+
+  async testCreateTabByClickingOnLink() {
+    assertDefined(this.host.setAudioDucking);
+    // Check that audio ducking still works after clicking a link.
+    this.host.setAudioDucking(true);
+    const link = document.createElement('a');
+    link.setAttribute('href', 'https://www.chromium.org');
+    link.setAttribute('target', '_blank');
+    document.body.appendChild(link);
+    link.click();
+
+    await this.advanceToNextStep();
+    this.host.setAudioDucking(false);
+  }
+
+  async testCreateTabByClickingOnLinkDaisyChains() {
+    assertDefined(this.host.getFocusedTabStateV2);
+    assertDefined(this.host.getPinnedTabs);
+    const link = document.createElement('a');
+    link.setAttribute('href', 'https://www.chromium.org');
+    link.setAttribute('target', '_blank');
+    document.body.appendChild(link);
+    link.click();
+    // The opened tab should be pinned.
+    await observeSequence(this.host.getPinnedTabs())
+        .waitFor(tabs => tabs.length === 2);
+  }
+
   async testFailureForCapturedApiTestError() {
     try {
       throw new ApiTestError('Non-throwing test error');
@@ -117,6 +242,10 @@ class ApiTests extends ApiTestFixtureBase {
     assertEquals('George', authorTag.content);
   }
 
+  /**
+   * Ensures that subscribing to metadata for an invalid `tabId` does not
+   * result in any emissions.
+   */
   async testGetPageMetadataInvalidTabId() {
     assertDefined(this.host.getPageMetadata);
 
@@ -130,6 +259,10 @@ class ApiTests extends ApiTestFixtureBase {
     assertTrue(metadataSequence.isEmpty());
   }
 
+  /**
+   * Confirms that calling `getPageMetadata` with an empty array of meta tag
+   * names throws an error, as expected.
+   */
   async testGetPageMetadataEmptyNames() {
     assertDefined(this.host.getPageMetadata);
     assertDefined(this.host.getFocusedTabStateV2);
@@ -146,6 +279,11 @@ class ApiTests extends ApiTestFixtureBase {
     }
   }
 
+  /**
+   * Verifies that subsequent calls to `getPageMetadata` for the same `tabId`
+   * return the same `ObservableValue` instance, ignoring the new `names`
+   * parameter.
+   */
   async testGetPageMetadataMultipleSubscriptions() {
     assertDefined(this.host.getPageMetadata);
     assertDefined(this.host.getFocusedTabStateV2);
@@ -164,6 +302,10 @@ class ApiTests extends ApiTestFixtureBase {
     assertTrue(metadataObservable1 === metadataObservable2);
   }
 
+  /**
+   * Tests that the `ObservableValue` returned by `getPageMetadata` emits new
+   * values when the page's metadata changes.
+   */
   async testGetPageMetadataUpdates() {
     assertDefined(this.host.getPageMetadata);
     assertDefined(this.host.getFocusedTabStateV2);
@@ -194,6 +336,96 @@ class ApiTests extends ApiTestFixtureBase {
         metadata2.frameMetadata[0]!.metaTags.find(tag => tag.name === 'author');
     assertDefined(authorTag2);
     assertEquals('Ruth', authorTag2.content);
+  }
+
+  /**
+   * Verifies that getPageMetadata emits new values when the tab navigates to a
+   * new page.
+   */
+  async testGetPageMetadataOnNavigation() {
+    assertDefined(this.host.getPageMetadata);
+    assertDefined(this.host.getFocusedTabStateV2);
+
+    const focus =
+        await observeSequence(this.host.getFocusedTabStateV2()).next();
+    const tabId = checkDefined(focus.hasFocus?.tabData.tabId);
+
+    const metadataObservable =
+        this.host.getPageMetadata(tabId, ['author', 'description']);
+    assertDefined(metadataObservable);
+    const metadataSequence = observeSequence(metadataObservable);
+
+    // The initial page has one meta tag.
+    let metadata: PageMetadata = await metadataSequence.next();
+    assertDefined(metadata);
+    assertEquals(1, metadata.frameMetadata.length);
+    assertEquals(1, metadata.frameMetadata[0]!.metaTags.length);
+    const authorTag =
+        metadata.frameMetadata[0]!.metaTags.find(tag => tag.name === 'author');
+    assertDefined(authorTag);
+    assertEquals('George', authorTag.content);
+
+    // Navigate to a page with no meta tags.
+    assertTrue(
+        await this.browser.navigateTab(tabId, this.getUrl('/title1.html')));
+
+    metadata = await metadataSequence.next();
+    assertDefined(metadata);
+    assertEquals(1, metadata.frameMetadata.length);
+    assertEquals(0, metadata.frameMetadata[0]!.metaTags.length);
+  }
+
+  /**
+   * Verifies that metadata updates are still received after a tab's
+   * WebContents has been discarded and recreated.
+   */
+  async testGetPageMetadataWebContentsChanged() {
+    assertDefined(this.host.getPageMetadata);
+    assertDefined(this.host.getFocusedTabStateV2);
+    assertDefined(this.host.createTab);
+
+    const focus =
+        await observeSequence(this.host.getFocusedTabStateV2()).next();
+    const tabId = checkDefined(focus.hasFocus?.tabData.tabId);
+
+    const metadataObservable = this.host.getPageMetadata(tabId, ['author']);
+    assertDefined(metadataObservable);
+    const metadataSequence = observeSequence(metadataObservable);
+
+    let metadata: PageMetadata = await metadataSequence.next();
+    assertDefined(metadata);
+    assertEquals(1, metadata.frameMetadata.length);
+    let authorTag =
+        metadata.frameMetadata[0]!.metaTags.find(tag => tag.name === 'author');
+    assertDefined(authorTag);
+    assertEquals('George', authorTag.content);
+
+    // Keep the browser alive by opening another tab.
+    await this.host.createTab(location.href, {openInBackground: true});
+
+    // C++ side will discard and reload the tab, then change the meta tag.
+    await this.advanceToNextStep();
+
+    // After a WebContents change, we might get intermediate updates (e.g.,
+    // empty metadata) before the final, updated value. We loop until we see
+    // the expected content.
+    while (true) {
+      metadata = await metadataSequence.next();
+      authorTag = metadata.frameMetadata?.[0]?.metaTags?.find(
+          tag => tag.name === 'author');
+      if (authorTag?.content === 'Ruth') {
+        break;
+      }
+      console.info(
+          `Ignoring intermediate metadata: ${JSON.stringify(metadata)}`);
+    }
+
+    assertDefined(metadata);
+    assertEquals(1, metadata.frameMetadata.length);
+    authorTag =
+        metadata.frameMetadata[0]!.metaTags.find(tag => tag.name === 'author');
+    assertDefined(authorTag);
+    assertEquals('Ruth', authorTag.content);
   }
 
   async testGetPageMetadataTabDestroyed() {
@@ -377,6 +609,13 @@ class ApiTests extends ApiTestFixtureBase {
     assertEquals(0, suggestions.suggestions.length);
   }
 
+  async testNoZssWarmingForPromotionPage() {
+    assertDefined(this.host.getZeroStateSuggestionsForFocusedTab);
+    const suggestions = await this.host.getZeroStateSuggestionsForFocusedTab();
+    assertDefined(suggestions);
+    assertEquals(3, suggestions.suggestions.length);
+  }
+
   async testGetZeroStateSuggestionsApi() {
     assertDefined(this.host.getZeroStateSuggestions);
     const sequence = observeSequence<ZeroStateSuggestionsV2>(
@@ -459,6 +698,105 @@ class ApiTests extends ApiTestFixtureBase {
 
   async testProcessCounterAbuseVerdictIsUndefinedWhenFeatureDisabled() {
     assertTrue(this.host.processCounterAbuseVerdict === undefined);
+  }
+
+  async testScrollToFindsText() {
+    assertDefined(this.host.scrollTo);
+    assertDefined(this.host.setTabContextPermissionState);
+    assertDefined(this.host.setContextAccessIndicator);
+    await this.host.setTabContextPermissionState(true);
+    this.host.setContextAccessIndicator(true);
+    await this.host.scrollTo({
+      selector: {exactText: {text: 'Because of the table layout'}},
+      highlight: true,
+      documentId: this.testParams.documentId,
+    });
+  }
+
+  async testScrollToFindsTextNoTabContextPermission() {
+    assertDefined(this.host.scrollTo);
+    try {
+      await this.host.scrollTo({
+        selector: {exactText: {text: 'Because of the table layout'}},
+        highlight: true,
+        documentId: this.testParams.documentId,
+      });
+    } catch (e) {
+      assertEquals(
+          ScrollToErrorReason.TAB_CONTEXT_PERMISSION_DISABLED,
+          (e as ScrollToError).reason);
+      return;
+    }
+    assertTrue(false, 'scrollTo should have thrown an error');
+  }
+
+  async testScrollToFailsWhenInactive() {
+    assertDefined(this.host.scrollTo);
+    assertDefined(this.host.closePanel);
+    await this.closePanelAndWaitUntilInactive();
+    try {
+      await this.host.scrollTo({
+        selector: {exactText: {text: 'Because of the table layout'}},
+        highlight: true,
+        documentId: this.testParams.documentId,
+      });
+    } catch (e) {
+      assertEquals(
+          ScrollToErrorReason.NO_FOCUSED_TAB, (e as ScrollToError).reason);
+      return;
+    }
+    assertTrue(false, 'scrollTo should have thrown an error');
+  }
+
+  async testScrollToNoMatchFound() {
+    assertDefined(this.host.scrollTo);
+    assertDefined(this.host.setTabContextPermissionState);
+    assertDefined(this.host.setContextAccessIndicator);
+    await this.host.setTabContextPermissionState(true);
+    this.host.setContextAccessIndicator(true);
+    try {
+      await this.host.scrollTo({
+        selector: {exactText: {text: 'Abracadabra'}},
+        highlight: true,
+        documentId: this.testParams.documentId,
+      });
+    } catch (e) {
+      assertEquals(
+          ScrollToErrorReason.NO_MATCH_FOUND, (e as ScrollToError).reason);
+      return;
+    }
+    assertTrue(false, 'scrollTo should have thrown an error');
+  }
+
+  async testGetImageBytesFromTab() {
+    assertDefined(this.host.getImageBytesFromTab);
+
+    const tabId = checkDefined(this.testParams.tabId);
+    const documentId = checkDefined(this.testParams.documentId);
+    const domNodeId = checkDefined(this.testParams.domNodeId);
+
+    // Call from tab ID
+    const result =
+        await this.host.getImageBytesFromTab(tabId, documentId, domNodeId);
+    assertDefined(result);
+    assertDefined(result.bytes);
+    assertTrue(result.bytes.byteLength > 0);
+    assertDefined(result.imageInfo);
+    assertEquals(result.imageInfo.mimeType, 'image/gif');
+    assertEquals(result.imageInfo.caption, 'test_image_bytes');
+    assertEquals(result.imageInfo.url, '');
+    assertEquals(result.imageInfo.sourceOrigin, 'null');
+
+    // Test failures.
+    // 1. Invalid DOM node ID.
+    await assertRejects(
+        this.host.getImageBytesFromTab(tabId, documentId, 9999),
+        {withErrorMessage: 'getImageBytes failed: failed to get image bytes'});
+
+    // 2. Invalid tab ID.
+    await assertRejects(
+        this.host.getImageBytesFromTab('99999', documentId, domNodeId),
+        {withErrorMessage: 'getImageBytes failed: tab not found'});
   }
 }
 
@@ -610,6 +948,45 @@ class FaviconTest extends ApiTests {
 
     // We should see the generic globe icon. Just assert there is a change.
     await faviconColors.waitFor((colors) => colors !== '#00ff');
+  }
+
+  async testTabFaviconObserverLifecycleAndCleanup() {
+    assertDefined(this.host.getPinnedTabs);
+    const tabs = await observeSequence(this.host.getPinnedTabs!())
+                     .waitFor((tabs) => tabs.length === 1);
+    const tab = tabs[0]!;
+
+    assertDefined(this.host.getTabFaviconById);
+    const subscription =
+        this.host.getTabFaviconById(tab.tabId).subscribe(() => {});
+
+    await this.advanceToNextStep();
+
+    subscription.unsubscribe();
+  }
+
+  async testTabFaviconObserverTabWillClose() {
+    assertDefined(this.host.getPinnedTabs);
+    const tabs = await observeSequence(this.host.getPinnedTabs!())
+                     .waitFor((tabs) => tabs.length === 1);
+    const tab = tabs[0]!;
+
+    assertDefined(this.host.getTabFaviconById);
+    this.host.getTabFaviconById(tab.tabId).subscribe(() => {});
+  }
+
+  async testAndroidFaviconUpdatedViaObserver() {
+    assertDefined(this.host.getPinnedTabs);
+    const tabs = await observeSequence(this.host.getPinnedTabs!())
+                     .waitFor((tabs) => tabs.length === 1);
+    const tab = tabs[0]!;
+    const faviconColors =
+        observeSequence(this.observeFaviconColorsForTab(tab.tabId));
+    await faviconColors.waitFor((colors) => colors === '#00ff');
+
+    await this.advanceToNextStep();
+
+    await faviconColors.waitFor((colors) => colors === '#f00f');
   }
 
   async testWebClientReadyOnFullLoad() {}
@@ -948,6 +1325,56 @@ class SkillsApiTests extends ApiTests {
     assertDefined(this.host.showManageSkillsUi);
     this.host.showManageSkillsUi();
   }
+
+  async testDisableDragResize() {
+    assertDefined(this.host.enableDragResize);
+    await this.host.enableDragResize(false);
+  }
+
+  async testSetMinimumWidgetSize() {
+    assertDefined(this.host.setMinimumWidgetSize);
+    const minSize = {width: 200, height: 100};
+    await this.host.setMinimumWidgetSize(minSize.width, minSize.height);
+    await this.advanceToNextStep(minSize);
+  }
+
+  async testManualResizeChanged() {
+    assertDefined(this.host.isManuallyResizing);
+    const seq = observeSequence(this.host.isManuallyResizing());
+    await seq.waitForValue(true);
+
+    await this.advanceToNextStep();
+    await seq.waitForValue(false);
+    seq.unsubscribe();
+  }
+
+  async testResizeWindowTooSmall() {
+    assertDefined(this.host.resizeWindow);
+    await this.host.resizeWindow(0, 0);
+  }
+
+  async testResizeWindowTooLarge() {
+    assertDefined(this.host.resizeWindow);
+    await this.host.resizeWindow(20000, 20000);
+  }
+
+  async testResizeWindowWithinBounds() {
+    assertDefined(this.host.resizeWindow);
+    assertDefined(this.testParams);
+    await this.host.resizeWindow(this.testParams.width, this.testParams.height);
+  }
+
+  async testCreateSkillNoWindow() {
+    assertDefined(this.host.createSkill);
+    const request = {
+      id: 'id',
+      name: 'name',
+      icon: 'icon',
+      prompt: 'prompt',
+      source: SkillSource.FIRST_PARTY,
+    };
+    this.host.createSkill(request);
+  }
 }
 
 class ContextCapturingClient extends WebClient {
@@ -982,7 +1409,29 @@ class AdditionalContextQueuedTest extends ApiTestFixtureBase {
   }
 }
 
-const TEST_FIXTURES = [
+class InitiallyNotResizableWebClient extends WebClient {
+  override async notifyPanelWillOpen(_panelOpeningData: PanelOpeningData):
+      Promise<OpenPanelInfo> {
+    return {startingMode: WebClientMode.TEXT, canUserResize: false};
+  }
+}
+
+class InitiallyNotResizableTest extends ApiTestFixtureBase {
+  override createWebClient(): WebClient {
+    return new InitiallyNotResizableWebClient();
+  }
+
+  async testInitiallyNotResizable() {
+    await sleep(100);
+  }
+
+  async testEnableDragResize() {
+    assertDefined(this.host.enableDragResize);
+    await this.host.enableDragResize(true);
+  }
+}
+
+const TEST_FIXTURES: Array<typeof ApiTestFixtureBase> = [
   ApiTests,
   AdditionalContextQueuedTest,
   FaviconTest,
@@ -994,7 +1443,7 @@ const TEST_FIXTURES = [
 
 
 if (!navigator.userAgent.includes('Android')) {
-  TEST_FIXTURES.push(SkillsApiTests);
+  TEST_FIXTURES.push(SkillsApiTests, InitiallyNotResizableTest);
 }
 
 testMain(TEST_FIXTURES);

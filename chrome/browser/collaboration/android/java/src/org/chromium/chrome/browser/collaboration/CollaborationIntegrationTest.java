@@ -40,6 +40,7 @@ import androidx.annotation.IdRes;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.test.filters.MediumTest;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -56,6 +57,7 @@ import org.chromium.base.test.util.DisableLeakChecks;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Feature;
+import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.build.annotations.Nullable;
@@ -91,6 +93,7 @@ import org.chromium.components.signin.base.AccountInfo;
 import org.chromium.components.tab_group_sync.EitherId.EitherGroupId;
 import org.chromium.components.tab_group_sync.LocalTabGroupId;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
+import org.chromium.components.tab_groups.TabGroupsFeatureMap;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.test.util.DeviceRestriction;
 import org.chromium.ui.test.util.GmsCoreVersionRestriction;
@@ -104,17 +107,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @EnableFeatures({ChromeFeatureList.DATA_SHARING})
+@DisableLeakChecks("crbug.com/527131033")
+@DisableFeatures({TabGroupsFeatureMap.UPDATE_TAB_GROUP_COLORS})
 @DoNotBatch(reason = "Tabs can't be closed reliably between tests.")
 // TODO(crbug.com/399444939) Re-enable on automotive devices if needed.
 // Only run on device non-auto and with valid Google services.
 @Restriction({
     DeviceRestriction.RESTRICTION_TYPE_NON_AUTO,
     GmsCoreVersionRestriction.RESTRICTION_TYPE_VERSION_GE_20W02
-})
-@DisableLeakChecks({
-    "crbug.com/512491896 (DataSharingUiDelegateAndroid)",
-    "crbug.com/512493320 (DataSharingUiDelegateAndroid)",
-    "crbug.com/512492355 (DataSharingUiDelegateAndroid)"
 })
 public class CollaborationIntegrationTest {
 
@@ -205,6 +205,13 @@ public class CollaborationIntegrationTest {
                         .getSpec();
     }
 
+    @After
+    public void tearDown() {
+        if (mDataSharingUIDelegate != null) {
+            mDataSharingUIDelegate.resetForTesting();
+        }
+    }
+
     /* Sets up preview data for the group ID. */
     private void setFakePreviewData() {
         ThreadUtils.runOnUiThreadBlocking(
@@ -253,7 +260,7 @@ public class CollaborationIntegrationTest {
         // tab group id it should watch for, but it needs to see that it's now associated with a
         // valid collaboration id. And while the DataSharingService is what has member information
         // for a collaboration id, the SharedGroupObserver cannot link its tab group id to the
-        // collaboration id that it'll be informed about until teh TabGroupSyncService lets it know
+        // collaboration id that it'll be informed about until the TabGroupSyncService lets it know
         // about the mapping. Once both of these happen, we're safe to continue, but the order of
         // these is not deterministic and we must wait for both.
         int startingAddedCount =

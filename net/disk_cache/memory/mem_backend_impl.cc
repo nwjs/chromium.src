@@ -16,6 +16,7 @@
 #include "base/logging.h"
 #include "base/memory_coordinator/memory_consumer.h"
 #include "base/memory_coordinator/memory_coordinator_features.h"
+#include "base/memory_coordinator/traits.h"
 #include "base/memory_coordinator/utils.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/system/sys_info.h"
@@ -66,6 +67,16 @@ base::LinkNode<MemEntryImpl>* NextSkippingChildren(
   return node;
 }
 
+constexpr base::MemoryConsumerTraits kMemBackendImplTraits(
+    // Scales with system RAM up to a cap in the tens of MBs.
+    base::MemoryConsumerTraits::EstimatedMemoryUsage::kMedium,
+    // Eviction traverses linked list and erases map entries.
+    base::MemoryConsumerTraits::ReleaseMemoryCost::kRequiresTraversal,
+    // Evicted entries can be re-fetched from network.
+    base::MemoryConsumerTraits::InformationRetention::kLossless,
+    // Eviction runs inline synchronously.
+    base::MemoryConsumerTraits::ExecutionType::kSynchronous);
+
 }  // namespace
 
 MemBackendImpl::MemBackendImpl(net::NetLog* net_log)
@@ -73,7 +84,7 @@ MemBackendImpl::MemBackendImpl(net::NetLog* net_log)
       net_log_(net_log),
       memory_consumer_registration_(
           "MemBackendImpl",
-          std::nullopt,  // TODO(crbug.com/489671163): Add traits.
+          kMemBackendImplTraits,
           this,
           base::AsyncMemoryConsumerRegistration::CheckUnregister::kDisabled,
           base::AsyncMemoryConsumerRegistration::CheckRegistryExists::
@@ -315,6 +326,20 @@ void MemBackendImpl::OnExternalCacheHit(const std::string& key) {
   auto it = entries_.find(key);
   if (it != entries_.end())
     it->second->UpdateStateOnUse();
+}
+
+void MemBackendImpl::SetMaxBytes(base::ByteSize max_bytes) {
+  max_size_ = base::saturated_cast<int32_t>(max_bytes.InBytes());
+  if (base::FeatureList::IsEnabled(base::kStatefulMemoryPressure)) {
+    current_max_size_ = CalculateTargetMemoryLimit();
+  } else {
+    current_max_size_ = max_size_;
+  }
+  EvictTill(current_max_size_);
+}
+
+base::ByteSize MemBackendImpl::GetMaxBytesForTesting() const {
+  return base::ByteSize(base::checked_cast<uint64_t>(max_size_));
 }
 
 void MemBackendImpl::Init(int32_t max_bytes) {

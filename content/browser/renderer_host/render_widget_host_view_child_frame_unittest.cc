@@ -218,6 +218,18 @@ class RenderWidgetHostViewChildFrameTest
     return static_cast<MockChildFrameInputHelper*>(view_->input_helper_.get());
   }
 
+  void SetParentFrameSinkId(const viz::FrameSinkId& parent_frame_sink_id) {
+    view_->SetParentFrameSinkId(parent_frame_sink_id);
+  }
+
+  bool ConnectionHasRegisteredHierarchy() const {
+    return view_->has_frame_sink_hierarchy_registered_;
+  }
+
+  viz::FrameSinkId GetParentFrameSinkId() const {
+    return view_->parent_frame_sink_id_;
+  }
+
  protected:
   std::unique_ptr<MockRenderProcessHost> process_host_;
   scoped_refptr<SiteInstanceGroup> site_instance_group_;
@@ -365,7 +377,6 @@ TEST_F(RenderWidgetHostViewChildFrameTest,
   visual_properties.rect_in_local_root = rect_in_local_root;
   visual_properties.compositor_viewport = compositor_viewport_pixel_rect;
   visual_properties.local_frame_size = compositor_viewport_pixel_rect.size();
-  visual_properties.capture_sequence_number = 123u;
   visual_properties.local_surface_id = local_surface_id;
   visual_properties.root_widget_viewport_segments.emplace_back(1, 2, 3, 4);
 
@@ -385,7 +396,6 @@ TEST_F(RenderWidgetHostViewChildFrameTest,
     EXPECT_EQ(rect_in_local_root.size(),
               sent_visual_properties.new_size_device_px);
     EXPECT_EQ(local_surface_id, sent_visual_properties.local_surface_id);
-    EXPECT_EQ(123u, sent_visual_properties.capture_sequence_number);
     EXPECT_EQ(1u, sent_visual_properties.root_widget_viewport_segments.size());
     EXPECT_EQ(gfx::Rect(1, 2, 3, 4),
               sent_visual_properties.root_widget_viewport_segments[0]);
@@ -517,6 +527,39 @@ TEST_F(RenderWidgetHostViewChildFrameTest,
                          blink::mojom::InputEventResultState::kIgnored);
   EXPECT_EQ(blink::WebInputEvent::Type::kGestureScrollEnd,
             GetMockInputHelper()->GetAndResetLastBubbledEventType());
+}
+
+TEST_F(RenderWidgetHostViewChildFrameTest,
+       InvalidateLocalSurfaceIdAndAllocationGroup) {
+  // Calling this method on a child frame should be a no-op and not crash.
+  view_->InvalidateLocalSurfaceIdAndAllocationGroup();
+}
+
+TEST_F(RenderWidgetHostViewChildFrameTest,
+       SetParentFrameSinkIdFailedRegistration) {
+  // Create a parent FrameSinkId. We do NOT register it in HostFrameSinkManager,
+  // so hierarchy registration should fail.
+  viz::FrameSinkId parent_frame_sink_id(99, 99);
+
+  // Initially, hierarchy should not be registered.
+  EXPECT_FALSE(ConnectionHasRegisteredHierarchy());
+
+  // Call SetParentFrameSinkId with the unregistered parent ID.
+  // This should attempt to register but fail, leaving the flag false.
+  SetParentFrameSinkId(parent_frame_sink_id);
+  EXPECT_FALSE(ConnectionHasRegisteredHierarchy());
+  EXPECT_EQ(parent_frame_sink_id, GetParentFrameSinkId());
+
+  // Call SetParentFrameSinkId again with an invalid ID.
+  // This should attempt to unregister the previous parent.
+  // If we didn't track the registration state, this would call
+  // UnregisterFrameSinkHierarchy and crash because the parent was never
+  // registered.
+  // With the fix, it should notice registration failed and NOT call
+  // UnregisterFrameSinkHierarchy.
+  SetParentFrameSinkId(viz::FrameSinkId());
+  EXPECT_FALSE(ConnectionHasRegisteredHierarchy());
+  EXPECT_FALSE(GetParentFrameSinkId().is_valid());
 }
 
 }  // namespace content

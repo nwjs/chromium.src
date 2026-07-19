@@ -3,13 +3,13 @@
 // (https://github.com/w3c/webref)
 // Source: WebMCP (https://webmachinelearning.github.io/webmcp/)
 
-partial interface Navigator {
-  [SecureContext] readonly attribute ModelContext modelContext;
+partial interface Document {
+  [SecureContext, SameObject] readonly attribute ModelContext modelContext;
 };
 
 [Exposed=Window, SecureContext]
 interface ModelContext : EventTarget {
-  undefined registerTool(ModelContextTool tool, optional ModelContextRegisterToolOptions options = {});
+  Promise<undefined> registerTool(ModelContextTool tool, optional ModelContextRegisterToolOptions options = {});
 
   attribute EventHandler ontoolchange;
 };
@@ -30,16 +30,9 @@ dictionary ToolAnnotations {
   boolean untrustedContentHint = false;
 };
 
-callback ToolExecuteCallback = Promise<any> (object input, ModelContextClient client);
+callback ToolExecuteCallback = Promise<any> (object input);
 
 dictionary ModelContextRegisterToolOptions {
   AbortSignal signal;
   sequence<USVString> exposedTo;
 };
-
-[Exposed=Window, SecureContext]
-interface ModelContextClient {
-  Promise<any> requestUserInteraction(UserInteractionCallback callback);
-};
-
-callback UserInteractionCallback = Promise<any> ();

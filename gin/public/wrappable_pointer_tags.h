@@ -23,6 +23,7 @@ enum WrappablePointerTag : uint16_t {
   // LINT.IfChange(LastGeneratedScriptWrappableTag)
   kFirstPointerTag = 2101,
   // LINT.ThenChange(third_party/blink/renderer/platform/bindings/wrapper_type_info.h)
+  // keep-sorted start case=no
   kAccessibilityControllerBindings,  // content::AccessibilityControllerBindings
   kAPIBindingBridge,                 // extensions::APIBindingBridge
   kAPIBindingJSUtil,                 // extensions::APIBindingJSUtil
@@ -39,10 +40,12 @@ enum WrappablePointerTag : uint16_t {
   kGinJavaBridgeObject,              // content::GinJavaBridgeObject
   kGinPort,                          // extensions::GinPort
   kGpuBenchmarking,                  // content::GpuBenchmarking
+  kIndigoContext,                    // indigo::IndigoContext
+  kIndigoOnboarding,                 // indigo::OnboardingContext
   kJsBinding,                        // js_injection::JsBinding
+  kJSHookInterface,                  // extensions::JSHookInterface
   kJsMessageEvent,                   // android_webview::JsMessageEvent
   kJsSandboxMessagePort,             // android_webview::JsSandboxMessagePort
-  kJSHookInterface,                  // extensions::JSHookInterface
   kLastErrorObject,                  // extensions::LastErrorObject
   kLocalStorageArea,                 // extensions::LocalStorageArea
   kManagedStorageArea,               // extensions::ManagedStorageArea
@@ -76,15 +79,22 @@ enum WrappablePointerTag : uint16_t {
   kTextInputControllerBindings,  // content::TextInputControllerBindings
   kWebAXObjectProxy,             // content::WebAXObjectProxy
   kWrappedExceptionHandler,      // extensions::WrappedExceptionHandler
-  kIndigoContext,                // indigo::IndigoContext
-  kIndigoOnboarding,             // indigo::OnboardingContext
-  kLastPointerTag = kIndigoOnboarding,
+  // keep-sorted end
+  kLastPointerTag,
 };
 
 static_assert(kLastPointerTag <
                   static_cast<uint16_t>(v8::CppHeapPointerTag::kZappedEntryTag),
               "The defined type tags exceed the range of allowed tags. Adjust "
               "the start value of this enum such that all values fit.");
+
+constexpr v8::CppHeapPointerTagRange kGinWrappableTagRange(
+    static_cast<v8::CppHeapPointerTag>(kFirstPointerTag),
+    static_cast<v8::CppHeapPointerTag>(kLastPointerTag));
+
+static_assert(
+    v8::kObjectWrappableTagRange.Contains(kGinWrappableTagRange),
+    "gin::Wrappable tag range must be within kObjectWrappableTagRange");
 
 }  // namespace gin
 

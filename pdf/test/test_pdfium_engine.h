@@ -101,6 +101,8 @@ class TestPDFiumEngine : public PDFiumEngine {
 
   MOCK_METHOD(bool, IsPDFDocTagged, (), (const override));
 
+  MOCK_METHOD(bool, HasMeaningfulText, (), (const override));
+
   MOCK_METHOD(uint32_t, GetLoadedByteSize, (), (override));
 
   MOCK_METHOD(bool,
@@ -121,14 +123,12 @@ class TestPDFiumEngine : public PDFiumEngine {
               (int,
                InkTextId,
                base::span<const InkTextInfo>,
+               float,
                double,
                const InkTextBoxAttributes&),
               (override));
 
-  MOCK_METHOD(void,
-              UpdateTextActiveAndInvalidate,
-              (InkTextId, bool),
-              (override));
+  MOCK_METHOD(void, UpdateTextActiveAndInvalidate, (TextId, bool), (override));
 
   MOCK_METHOD(gfx::Size, GetThumbnailSize, (int, float), (override));
 

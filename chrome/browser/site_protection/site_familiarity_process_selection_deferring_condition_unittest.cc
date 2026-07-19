@@ -29,6 +29,7 @@
 #include "components/history/core/test/test_history_database.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/safe_browsing/core/browser/db/test_database_manager.h"
+#include "components/safe_browsing/core/common/features.h"
 #include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_service.h"
 #include "components/site_engagement/content/site_engagement_service.h"
@@ -36,10 +37,17 @@
 #include "content/public/browser/child_process_security_policy.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/test/mock_navigation_handle.h"
+#include "content/public/test/test_renderer_host.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace site_protection {
 namespace {
+
+const int kMinSiteEngagementScoreForFamiliarity =
+    safe_browsing::
+        kMigrateToBlockV8OptimizerOnUnfamiliarSitesMinSiteEngagementScore
+            .default_value;
 
 // MockSafeBrowsingDatabaseManager which enables adding URL to high confidence
 // allowlist.
@@ -415,6 +423,48 @@ TEST_F(SiteFamiliarityProcessSelectionDeferringConditionTest,
   content::MockNavigationHandle navigation_handle(kTestUrl, main_rfh());
   BuildAndWaitForConditionToRunCallback(navigation_handle);
   CheckSiteUnfamiliar(navigation_handle);
+}
+
+TEST_F(SiteFamiliarityProcessSelectionDeferringConditionTest,
+       FamiliarityHeuristic_ConfigurableEngagementScore) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      safe_browsing::kMigrateToBlockV8OptimizerOnUnfamiliarSites,
+      {{"min_site_engagement_score", "5"}});
+
+  GURL kTestUrl("https://www.example.com");
+
+  // Set engagement score to 6, which is below default (10) but above config
+  // (5).
+  SetSiteEngagementScore(kTestUrl, 6);
+
+  content::MockNavigationHandle navigation_handle(kTestUrl, main_rfh());
+  BuildAndWaitForConditionToRunCallback(navigation_handle);
+
+  // Should be familiar because of the lowered threshold.
+  CheckSiteFamiliar(navigation_handle);
+}
+
+TEST_F(SiteFamiliarityProcessSelectionDeferringConditionTest,
+       FamiliarityHeuristic_ConfigurableMinAgeOfInitialVisit) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      safe_browsing::kMigrateToBlockV8OptimizerOnUnfamiliarSites,
+      {{"min_age_of_initial_visit", "12h"}});
+
+  GURL kTestUrl("https://www.example.com");
+  SetSiteEngagementScore(kTestUrl, kMinSiteEngagementScoreForFamiliarity - 1);
+
+  // Add visit 13 hours ago. This is less than 24h (default) but more than 12h
+  // (config).
+  history_service()->AddPage(kTestUrl, (base::Time::Now() - base::Hours(13)),
+                             history::SOURCE_BROWSED);
+
+  content::MockNavigationHandle navigation_handle(kTestUrl, main_rfh());
+  BuildAndWaitForConditionToRunCallback(navigation_handle);
+
+  // Should be familiar because of the lowered threshold.
+  CheckSiteFamiliar(navigation_handle);
 }
 
 namespace {
@@ -1059,6 +1109,168 @@ TEST_F(SiteFamiliarityDefaultSearchEngineRunFamiliarityCheckTest,
   CheckSiteUnfamiliar(navigation_handle);
 }
 
-}  // anonymous namespace
+// Test that top-frame navigations log TopFrame and overall histograms.
+TEST_F(SiteFamiliarityProcessSelectionDeferringConditionTest,
+       VerdictLogging_TopFrame) {
+  GURL kFamiliarUrl("https://familiar.test");
+  GURL kUnfamiliarUrl("https://unfamiliar.test");
+
+  SetSiteEngagementScore(kFamiliarUrl, kMinSiteEngagementScoreForFamiliarity);
+  SetSiteEngagementScore(kUnfamiliarUrl,
+                         kMinSiteEngagementScoreForFamiliarity - 1);
+
+  {
+    base::HistogramTester histogram_tester;
+    content::MockNavigationHandle navigation_handle(kFamiliarUrl, main_rfh());
+    BuildAndWaitForConditionToRunCallback(navigation_handle);
+
+    histogram_tester.ExpectUniqueSample(
+        "SafeBrowsing.SiteFamiliarity.Verdict.TopFrame",
+        SiteFamiliarityFetcher::Verdict::kFamiliar, 1);
+    histogram_tester.ExpectUniqueSample(
+        "SafeBrowsing.SiteFamiliarity.Verdict",
+        SiteFamiliarityFetcher::Verdict::kFamiliar, 1);
+    histogram_tester.ExpectTotalCount(
+        "SafeBrowsing.SiteFamiliarity.Verdict.Subframe", 0);
+  }
+
+  {
+    base::HistogramTester histogram_tester;
+    content::MockNavigationHandle navigation_handle(kUnfamiliarUrl, main_rfh());
+    BuildAndWaitForConditionToRunCallback(navigation_handle);
+
+    histogram_tester.ExpectUniqueSample(
+        "SafeBrowsing.SiteFamiliarity.Verdict.TopFrame",
+        SiteFamiliarityFetcher::Verdict::kUnfamiliar, 1);
+    histogram_tester.ExpectUniqueSample(
+        "SafeBrowsing.SiteFamiliarity.Verdict",
+        SiteFamiliarityFetcher::Verdict::kUnfamiliar, 1);
+    histogram_tester.ExpectTotalCount(
+        "SafeBrowsing.SiteFamiliarity.Verdict.Subframe", 0);
+  }
+}
+
+// Test that cross-site subframe navigations log Subframe and overall
+// histograms.
+TEST_F(SiteFamiliarityProcessSelectionDeferringConditionTest,
+       VerdictLogging_CrossSiteSubframe) {
+  GURL kTopFrameUrl("https://example.test");
+  GURL kFamiliarSubframeUrl("https://familiar.test");
+  GURL kUnfamiliarSubframeUrl("https://unfamiliar.test");
+
+  SetSiteEngagementScore(kFamiliarSubframeUrl,
+                         kMinSiteEngagementScoreForFamiliarity);
+  SetSiteEngagementScore(kUnfamiliarSubframeUrl,
+                         kMinSiteEngagementScoreForFamiliarity - 1);
+
+  // Set top frame URL in the test harness so that IsCrossSiteSubframe can
+  // compare against it.
+  NavigateAndCommit(kTopFrameUrl);
+
+  content::RenderFrameHost* child_rfh =
+      content::RenderFrameHostTester::For(main_rfh())
+          ->AppendChild("child_frame");
+
+  {
+    base::HistogramTester histogram_tester;
+    content::MockNavigationHandle navigation_handle(kFamiliarSubframeUrl,
+                                                    child_rfh);
+    ON_CALL(navigation_handle, GetOriginToCommit())
+        .WillByDefault(
+            testing::Return(url::Origin::Create(kFamiliarSubframeUrl)));
+    BuildAndWaitForConditionToRunCallback(navigation_handle);
+
+    histogram_tester.ExpectUniqueSample(
+        "SafeBrowsing.SiteFamiliarity.Verdict.Subframe",
+        SiteFamiliarityFetcher::Verdict::kFamiliar, 1);
+    histogram_tester.ExpectUniqueSample(
+        "SafeBrowsing.SiteFamiliarity.Verdict",
+        SiteFamiliarityFetcher::Verdict::kFamiliar, 1);
+    histogram_tester.ExpectTotalCount(
+        "SafeBrowsing.SiteFamiliarity.Verdict.TopFrame", 0);
+  }
+
+  {
+    base::HistogramTester histogram_tester;
+    content::MockNavigationHandle navigation_handle(kUnfamiliarSubframeUrl,
+                                                    child_rfh);
+    ON_CALL(navigation_handle, GetOriginToCommit())
+        .WillByDefault(
+            testing::Return(url::Origin::Create(kUnfamiliarSubframeUrl)));
+    BuildAndWaitForConditionToRunCallback(navigation_handle);
+
+    histogram_tester.ExpectUniqueSample(
+        "SafeBrowsing.SiteFamiliarity.Verdict.Subframe",
+        SiteFamiliarityFetcher::Verdict::kUnfamiliar, 1);
+    histogram_tester.ExpectUniqueSample(
+        "SafeBrowsing.SiteFamiliarity.Verdict",
+        SiteFamiliarityFetcher::Verdict::kUnfamiliar, 1);
+    histogram_tester.ExpectTotalCount(
+        "SafeBrowsing.SiteFamiliarity.Verdict.TopFrame", 0);
+  }
+}
+
+// Test that same-site subframe navigations do NOT log any familiarity
+// histograms.
+TEST_F(SiteFamiliarityProcessSelectionDeferringConditionTest,
+       VerdictLogging_SameSiteSubframe) {
+  GURL kTopFrameUrl("https://example.test");
+  GURL kSameSiteSubframeUrl("https://sub.example.test/page.html");
+
+  // Set top frame URL.
+  NavigateAndCommit(kTopFrameUrl);
+
+  content::RenderFrameHost* child_rfh =
+      content::RenderFrameHostTester::For(main_rfh())
+          ->AppendChild("child_frame");
+
+  base::HistogramTester histogram_tester;
+  content::MockNavigationHandle navigation_handle(kSameSiteSubframeUrl,
+                                                  child_rfh);
+  ON_CALL(navigation_handle, GetOriginToCommit())
+      .WillByDefault(
+          testing::Return(url::Origin::Create(kSameSiteSubframeUrl)));
+  BuildAndWaitForConditionToRunCallback(navigation_handle);
+
+  // Should NOT log to any Verdict histograms because it is same-site.
+  histogram_tester.ExpectTotalCount(
+      "SafeBrowsing.SiteFamiliarity.Verdict.TopFrame", 0);
+  histogram_tester.ExpectTotalCount(
+      "SafeBrowsing.SiteFamiliarity.Verdict.Subframe", 0);
+  histogram_tester.ExpectTotalCount("SafeBrowsing.SiteFamiliarity.Verdict", 0);
+}
+
+// Test that incognito navigations do NOT log any familiarity histograms.
+TEST_F(SiteFamiliarityProcessSelectionDeferringConditionTest,
+       VerdictLogging_Incognito) {
+  GURL kTestUrl("https://example.test");
+  SetSiteEngagementScore(kTestUrl, kMinSiteEngagementScoreForFamiliarity);
+
+  content::BrowserContext* otr_context =
+      profile()->GetPrimaryOTRProfile(/*create_if_needed=*/true);
+  std::unique_ptr<content::WebContents> otr_web_contents =
+      content::WebContents::Create(
+          content::WebContents::CreateParams(otr_context));
+
+  content::MockNavigationHandle navigation_handle(
+      kTestUrl, otr_web_contents->GetPrimaryMainFrame());
+
+  // Make test site familiar.
+  site_engagement::SiteEngagementService::Get(
+      TestingProfile::FromBrowserContext(otr_context))
+      ->ResetBaseScoreForURL(kTestUrl, kMinSiteEngagementScoreForFamiliarity);
+
+  base::HistogramTester histogram_tester;
+  BuildAndWaitForConditionToRunCallback(navigation_handle);
+
+  // Should NOT log to any Verdict histograms because it is OTR.
+  histogram_tester.ExpectTotalCount(
+      "SafeBrowsing.SiteFamiliarity.Verdict.TopFrame", 0);
+  histogram_tester.ExpectTotalCount(
+      "SafeBrowsing.SiteFamiliarity.Verdict.Subframe", 0);
+  histogram_tester.ExpectTotalCount("SafeBrowsing.SiteFamiliarity.Verdict", 0);
+}
+
+}  // namespace
 
 }  // namespace site_protection

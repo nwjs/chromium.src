@@ -4,19 +4,30 @@
 
 #include "chrome/browser/glic/browser_ui/glic_nudge_controller_android.h"
 
+#include "base/notimplemented.h"
+#include "chrome/browser/glic/browser_ui/glic_nudge_delegate.h"
+#include "chrome/browser/glic/browser_ui/glic_nudge_delegate_android.h"
+#include "chrome/browser/tab_list/tab_list_interface.h"
+
 namespace glic {
 
-GlicNudgeControllerAndroid::GlicNudgeControllerAndroid() = default;
+GlicNudgeControllerAndroid::GlicNudgeControllerAndroid(
+    content::WebContents* web_contents) {
+  // TODO(crbug.com/524810240): Observe tab changes.
+  delegate_ = std::make_unique<GlicNudgeDelegateAndroid>(
+      this, /*tab_list=*/nullptr, web_contents);
+  SetTabStripDelegate(delegate_.get());
+}
 GlicNudgeControllerAndroid::~GlicNudgeControllerAndroid() = default;
 
 void GlicNudgeControllerAndroid::SetTabStripDelegate(
     GlicNudgeDelegate* delegate) {
-  // Stub implementation.
+  tab_strip_delegate_ = delegate;
 }
 
 void GlicNudgeControllerAndroid::SetToolbarDelegate(
     GlicNudgeDelegate* delegate) {
-  // Stub implementation.
+  NOTIMPLEMENTED() << "No toolbar glic nudge on Android currently.";
 }
 
 void GlicNudgeControllerAndroid::UpdateNudgeLabel(
@@ -26,17 +37,67 @@ void GlicNudgeControllerAndroid::UpdateNudgeLabel(
     const std::string& anchored_message_text,
     std::optional<GlicNudgeActivity> activity,
     GlicNudgeActivityCallback callback) {
-  // Stub implementation.
+  // TODO(crbug.com/524810240): Skip update if this isn't the active tab.
+  nudge_activity_callback_ = callback;
+  prompt_suggestion_ = prompt_suggestion;
+
+  GlicNudgeDelegate* delegate = tab_strip_delegate_;
+
+  if (delegate) {
+    if (nudge_label.empty() && delegate->GetIsShowingGlicNudge()) {
+      delegate->OnHideGlicNudgeUI();
+    } else if (!nudge_label.empty()) {
+      delegate->OnTriggerGlicNudgeUI(NudgeParams(nudge_label));
+    }
+  }
+
+  if (nudge_label.empty()) {
+    CHECK(activity);
+    OnNudgeActivity(*activity);
+  } else {
+    OnNudgeActivity(glic::GlicNudgeActivity::kNudgeShown);
+  }
 }
 
 void GlicNudgeControllerAndroid::OnNudgeActivity(GlicNudgeActivity activity) {
-  // Stub implementation.
+  if (!nudge_activity_callback_) {
+    return;
+  }
+  switch (activity) {
+    case GlicNudgeActivity::kNudgeShown:
+      nudge_activity_callback_.Run(GlicNudgeActivity::kNudgeShown);
+      break;
+    case GlicNudgeActivity::kNudgeClicked:
+    case GlicNudgeActivity::kNudgeDismissed:
+    case GlicNudgeActivity::kNudgeIgnoredActiveTabChanged:
+    case GlicNudgeActivity::kNudgeIgnoredNavigation:
+    case GlicNudgeActivity::kNudgeIgnoredOpenedContextualTasksSidePanel:
+    case GlicNudgeActivity::kNudgeIgnoredOmniboxContextMenuInteraction:
+      nudge_activity_callback_.Run(activity);
+      nudge_activity_callback_.Reset();
+      break;
+    case GlicNudgeActivity::kNudgeNotShownWebContents:
+    case GlicNudgeActivity::kNudgeNotShownWindowCallToActionUI:
+      nudge_activity_callback_.Reset();
+      break;
+  }
+}
+
+void GlicNudgeControllerAndroid::OnActiveTabChanged(TabListInterface& tab_list,
+                                                    tabs::TabInterface* tab) {
+  GlicNudgeDelegate* delegate = tab_strip_delegate_;
+  if (delegate && delegate->GetIsShowingGlicNudge()) {
+    delegate->OnHideGlicNudgeUI();
+    OnNudgeActivity(glic::GlicNudgeActivity::kNudgeIgnoredActiveTabChanged);
+  }
 }
 
 std::optional<std::string> GlicNudgeControllerAndroid::GetPromptSuggestion() {
-  return std::nullopt;
+  return prompt_suggestion_;
 }
 
-void GlicNudgeControllerAndroid::ClearPromptSuggestion() {}
+void GlicNudgeControllerAndroid::ClearPromptSuggestion() {
+  prompt_suggestion_.reset();
+}
 
 }  // namespace glic

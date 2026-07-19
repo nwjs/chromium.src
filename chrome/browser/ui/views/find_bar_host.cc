@@ -40,11 +40,6 @@
 #include <windows.h>
 #endif
 
-#if defined(IS_AURA)
-#include "ui/aura/window.h"
-#include "ui/views/view_constants_aura.h"
-#endif
-
 using input::NativeWebKeyboardEvent;
 
 // During testing we can disable animations by setting this flag to true,
@@ -101,6 +96,7 @@ gfx::Rect GetLocationForFindBarView(gfx::Rect view_location,
   } else {
     view_location.set_x(std::max(view_location.x(), clipping_box.x()));
   }
+  view_location.set_y(std::max(view_location.y(), clipping_box.y()));
 
   gfx::Rect new_pos = view_location;
 
@@ -189,10 +185,6 @@ FindBarHost::FindBarHost(FindBarOwner* find_bar_owner)
   params.activatable = views::Widget::InitParams::Activatable::kNo;
   host_->Init(std::move(params));
   host_->SetContentsView(std::move(clip_view));
-#if defined(IS_AURA)
-  host_->GetNativeView()->SetProperty(views::kHostViewKey,
-                                      browser_view->find_bar_host_view());
-#endif
 
   // Start listening to focus changes, so we can register and unregister our
   // own handler for Escape.
@@ -569,10 +561,6 @@ void FindBarHost::MoveWindowIfNecessaryWithRect(
 
   gfx::Rect new_pos = GetDialogPosition(selection_rect);
   SetDialogPosition(new_pos);
-
-  // May need to redraw our frame to accommodate bookmark bar styles.
-  view_->DeprecatedLayoutImmediately();  // Bounds may have changed.
-  view_->SchedulePaint();
 }
 
 void FindBarHost::SaveFocusTracker() {

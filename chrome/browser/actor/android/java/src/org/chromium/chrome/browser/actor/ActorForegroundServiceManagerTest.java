@@ -37,17 +37,18 @@ import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.CallbackHelper;
+import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /** Unit tests for {@link ActorForegroundServiceManager}. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
+@EnableFeatures(ChromeFeatureList.ANDROID_ACTOR_TASK_TIMEOUT)
 public class ActorForegroundServiceManagerTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -86,7 +87,7 @@ public class ActorForegroundServiceManagerTest {
         when(mKeyedService.getActiveTasksCount()).thenReturn(1);
         when(mKeyedService.getActiveTasks()).thenReturn(Collections.singletonList(mTask));
         when(mKeyedService.getCurrentActiveTask()).thenReturn(mTask);
-        when(mNotificationService.getForegroundNotification(any(), anyBoolean()))
+        when(mNotificationService.getForegroundNotification(any(), anyBoolean(), anyBoolean()))
                 .thenReturn(mNotification);
 
         when(mProfile.isOffTheRecord()).thenReturn(false);
@@ -242,7 +243,7 @@ public class ActorForegroundServiceManagerTest {
         when(mKeyedService.getTask(2)).thenReturn(task2);
         when(mKeyedService.getCurrentActiveTask()).thenReturn(task2);
         Notification notification2 = mock(Notification.class);
-        when(mNotificationService.getForegroundNotification(eq(task2), anyBoolean()))
+        when(mNotificationService.getForegroundNotification(eq(task2), anyBoolean(), anyBoolean()))
                 .thenReturn(notification2);
 
         mManager.onTaskStateChanged(2, ActorTaskState.ACTING);
@@ -277,38 +278,20 @@ public class ActorForegroundServiceManagerTest {
     }
 
     @Test
-    public void testOnAndroidTaskRemoved_StopsActiveTasks() {
+    public void testOnTaskStateChanged_ShowsWarningNotification() {
         mManager.setKeyedServiceForTesting(mKeyedService);
+        ActorTaskTimeoutManager timeoutManager = mock(ActorTaskTimeoutManager.class);
+        mManager.setTimeoutManagerForTesting(timeoutManager);
 
-        // Setup multiple tasks in the service source of truth
-        ActorTask task1 = mTask; // ID 1
-        ActorTask task2 = org.mockito.Mockito.mock(ActorTask.class);
-        when(task2.getId()).thenReturn(2);
+        int taskId = 1;
+        when(timeoutManager.isWarningMode(taskId)).thenReturn(true);
 
-        List<ActorTask> activeTasks = new ArrayList<>();
-        activeTasks.add(task1);
-        activeTasks.add(task2);
-        when(mKeyedService.getActiveTasks()).thenReturn(activeTasks);
-
-        // Add to manager's local state to ensure it gets cleared
-        mManager.onTaskStateChanged(1, ActorTaskState.ACTING);
-        assertTrue("Service should be bound.", mManager.isServiceBoundForTesting());
-
-        // Process the post in startAndBindService to ensure mPinnedNotificationId is set
+        mManager.onTaskStateChanged(taskId, ActorTaskState.ACTING);
         ShadowLooper.idleMainLooper();
 
-        // Trigger onAndroidTaskRemoved
-        mManager.onAndroidTaskRemoved();
-
-        // Verify stopTask was called for all tasks returned by the service
-        verify(mKeyedService).stopTask(1, StoppedReason.SHUTDOWN);
-        verify(mKeyedService).stopTask(2, StoppedReason.SHUTDOWN);
-
-        // Verify standard stop and unbind logic was called
-        verify(mServiceController).stopActorForegroundService(ServiceCompat.STOP_FOREGROUND_REMOVE);
-        verify(mServiceController).unbindService();
-        verify(mNotificationService).repostNotification(1);
-
-        assertFalse("Service state should be reset.", mManager.isServiceBoundForTesting());
+        // Verify that the notification service receives isWarning = true
+        verify(mNotificationService)
+                .updateNotificationForTask(
+                        eq(taskId), eq(ActorTaskState.ACTING), anyBoolean(), eq(true));
     }
 }

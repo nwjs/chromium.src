@@ -31,11 +31,11 @@
 #include "components/user_education/common/feature_promo/impl/feature_promo_queue_set.h"
 #include "components/user_education/common/feature_promo/impl/messaging_coordinator.h"
 #include "components/user_education/common/feature_promo/impl/precondition_list_provider.h"
-#include "components/user_education/common/product_messaging_controller.h"
 #include "components/user_education/common/user_education_context.h"
 #include "components/user_education/common/user_education_data.h"
 #include "components/user_education/common/user_education_features.h"
 #include "components/user_education/common/user_education_storage_service.h"
+#include "components/user_education/product_messaging/product_messaging_controller.h"
 #include "ui/accessibility/ax_mode.h"
 #include "ui/accessibility/platform/ax_platform.h"
 #include "ui/base/interaction/element_tracker.h"
@@ -394,13 +394,13 @@ const FeaturePromoSpecification*
 FeaturePromoControllerImpl::GetCurrentPromoSpecificationForAnchor(
     ui::ElementIdentifier menu_element_id) const {
   auto* iph_feature = current_promo_ ? current_promo_->iph_feature() : nullptr;
-  if (iph_feature && registry_) {
+  if (iph_feature && registry_ && current_promo_->is_bubble_visible()) {
     auto* const spec = registry_->GetParamsForFeature(*iph_feature);
     if (spec->anchor_element_id() == menu_element_id) {
       return spec;
     }
   }
-  return {};
+  return nullptr;
 }
 
 bool FeaturePromoControllerImpl::HasPromoBeenDismissed(
@@ -550,7 +550,7 @@ FeaturePromoControllerImpl::GetNextPromoData() {
     // If there's a pending promo determine if it can show right now.
     const bool is_high_priority =
         pending->second == FeaturePromoPriorityProvider::PromoPriority::kHigh;
-    if (private_->messaging_coordinator.CanShowPromo(is_high_priority)) {
+    if (private_->messaging_coordinator.ReadyToShow(is_high_priority)) {
       result.eligible_promo = private_->queues.UnqueueEligiblePromo(*pending);
     } else {
       result.pending_priority = pending->second;

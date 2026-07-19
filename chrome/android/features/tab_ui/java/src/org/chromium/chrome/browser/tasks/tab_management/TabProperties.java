@@ -126,6 +126,9 @@ public class TabProperties {
 
     public static final WritableBooleanPropertyKey IS_COLLAPSED = new WritableBooleanPropertyKey();
 
+    public static final WritableBooleanPropertyKey IS_BEING_DRAGGED =
+            new WritableBooleanPropertyKey();
+
     public static final WritableObjectPropertyKey<Token> TAB_GROUP_ID =
             new WritableObjectPropertyKey<>();
 
@@ -146,6 +149,9 @@ public class TabProperties {
     /** Property for lazily fetching favicons when required by an item in a UI. */
     public static final WritableObjectPropertyKey<TabListFaviconProvider.TabFaviconFetcher>
             FAVICON_FETCHER = new WritableObjectPropertyKey<>();
+
+    /** Indicator that the tab is currently loading resources. */
+    public static final WritableBooleanPropertyKey IS_LOADING = new WritableBooleanPropertyKey();
 
     public static final WritableObjectPropertyKey<ThumbnailFetcher> THUMBNAIL_FETCHER =
             new WritableObjectPropertyKey<>(true);
@@ -225,6 +231,7 @@ public class TabProperties {
 
     private static final PropertyKey[] COMMON_KEYS_TAB_AND_GROUP_GRID =
             new PropertyKey[] {
+                IS_BEING_DRAGGED,
                 IS_INCOGNITO,
                 IS_SELECTED,
                 TAB_CLICK_LISTENER,
@@ -269,7 +276,8 @@ public class TabProperties {
                         IS_COLLAPSED,
                         TAB_GROUP_ID,
                         TAB_GROUP_HEADER_ID,
-                        MEDIA_INDICATOR
+                        MEDIA_INDICATOR,
+                        IS_LOADING
                     },
                     COMMON_KEYS_TAB_AND_GROUP_GRID);
 
@@ -306,19 +314,28 @@ public class TabProperties {
 
     public static final PropertyKey[] ALL_KEYS_VERTICAL_TAB =
             new PropertyKey[] {
-                TAB_ID,
-                TITLE,
+                // go/keep-sorted start
+                ACCESSIBILITY_DELEGATE,
+                ACTION_BUTTON_DESCRIPTION_TEXT_RESOLVER,
+                ACTOR_UI_STATE,
+                CONTENT_DESCRIPTION_TEXT_RESOLVER,
                 FAVICON_FETCHER,
-                IS_SELECTED,
-                IS_INCOGNITO,
+                IS_BEING_DRAGGED,
                 IS_COLLAPSED,
-                TAB_GROUP_ID,
-                TAB_CLICK_LISTENER,
-                TAB_LONG_CLICK_LISTENER,
-                TAB_CONTEXT_CLICK_LISTENER,
-                TAB_ACTION_BUTTON_DATA,
-                TAB_GROUP_CARD_COLOR,
+                IS_INCOGNITO,
+                IS_LOADING,
                 IS_PINNED,
-                CONTENT_DESCRIPTION_TEXT_RESOLVER
+                IS_SELECTED,
+                MEDIA_INDICATOR,
+                TAB_ACTION_BUTTON_DATA,
+                TAB_CLICK_LISTENER,
+                TAB_CONTEXT_CLICK_LISTENER,
+                TAB_GROUP_CARD_COLOR,
+                TAB_GROUP_HEADER_ID,
+                TAB_GROUP_ID,
+                TAB_ID,
+                TAB_LONG_CLICK_LISTENER,
+                TITLE
+                // go/keep-sorted end
             };
 }

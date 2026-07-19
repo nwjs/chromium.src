@@ -160,8 +160,7 @@ void ChromeBrowserFieldTrials::RegisterFeatureOverrides(
   // phones yet.
   feature_overrides.EnableFeature(
       media::kAndroidEnableBackgroundMediaCapturing);
-  // TODO(crbug.com/465596248): Remove when experiment is complete.
-  feature_overrides.EnableFeature(chrome::android::kProtectRecentlyVisibleTab);
+
   // TODO(crbug.com/422903297): Remove when tablet rollout is complete.
   feature_overrides.EnableFeature(features::kRendererProcessLimitOnAndroid);
   // Enable V8 optimizations for high-end Android Desktop devices.
@@ -240,22 +239,12 @@ void ChromeBrowserFieldTrials::RegisterFeatureOverrides(
   feature_overrides.EnableFeature(features::kLazyBrowserInterfaceBroker);
   feature_overrides.EnableFeature(chrome::android::kLoadAllTabsAtStartup);
 
-  // Enable the ability for extensions to override chrome pages.
-  // TODO(crbug.com/404069963): Remove flag when the feature is verified to be
-  // stable on desktop Android.
-  feature_overrides.EnableFeature(chrome::android::kChromeNativeUrlOverriding);
-
   // Enable desktop full screen to a screen feature flag by default for desktop
   // platforms.
   // TODO(crbug.com/417426218) Remove once feature is launched to 100% on all
   // form factors.
   feature_overrides.EnableFeature(
       features::kEnableFullscreenToAnyScreenAndroid);
-
-  // Enables the ability to specify a platform-specific zoom scaling that will
-  // apply transparently to all pages.
-  // TODO(crbug.com/450281745): Remove once feature is enabled by default.
-  feature_overrides.EnableFeature(::features::kAndroidDesktopZoomScaling);
 
   // Enables desktop page web prefs for large displays on Android.
   // TODO(crbug.com/433519850): Remove once feature is enabled by default.

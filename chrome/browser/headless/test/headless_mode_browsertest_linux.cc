@@ -60,7 +60,7 @@ ui::PlatformWindow* GetPlatformWindow(Browser* browser) {
   DCHECK(browser);
   auto* window_tree_host_platform =
       aura::WindowTreeHostPlatform::GetHostForWindow(
-          browser->window()->GetNativeWindow());
+          browser->GetWindow()->GetNativeWindow());
   return window_tree_host_platform->platform_window();
 }
 
@@ -99,7 +99,7 @@ INSTANTIATE_TEST_SUITE_P(
 IN_PROC_BROWSER_TEST_P(HeadlessModeBrowserTestWithStartWindowMode,
                        BrowserDesktopWindowVisibility) {
   // On Linux, new headless Chrome browser window exists and is visible.
-  EXPECT_TRUE(browser()->window()->IsVisible());
+  EXPECT_TRUE(browser()->GetWindow()->IsVisible());
 }
 
 }  // namespace

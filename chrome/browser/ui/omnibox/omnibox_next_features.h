@@ -17,15 +17,32 @@ class Profile;
 
 namespace omnibox {
 
+namespace internal {
 // The `internal` namespace contains implementation details for omnibox
 // features. It is exposed only for use by about_flags.cc and in unit tests.
 //
-// DO NOT USE THESE FEATURE FLAGS DIRECTLY FROM OTHER CODE.
-// Instead, use the helper functions defined below (e.g., `IsAimPopupEnabled`).
-namespace internal {
+// DO NOT USE THESE FEATURE FLAGS DIRECTLY.
+//
+// These flags are placed in `internal` to signify that they often require
+// specific initialization sequences
+// (e.g., in `chrome/browser/chrome_browser_interface_binders_webui_parts.h`)
+// or have lifecycle-sensitive dependencies that could lead to crashes if
+// checked improperly.
+//
+// USE THE APPROPRIATE HELPER:
+// - Use the feature-specific `...FeatureEnabled()` function when you only
+//   need to check the raw feature state (appropriate for lifecycle-sensitive code).
+// - Use the profile-based `...Enabled(profile)` function for standard UI
+//   logic (e.g., `IsAimPopupEnabled(profile)`), as it handles necessary
+//   eligibility and initialization checks.
+//
+// If you are adding a new feature that does not have these complex lifecycle
+// dependencies, you may define it in the main `omnibox` namespace.
 
 BASE_DECLARE_FEATURE(kWebUIOmniboxPopup);
 BASE_DECLARE_FEATURE(kWebUIOmniboxAimPopup);
+// TODO(crbug.com/521521553): Remove this feature flag once the
+// feature flag is fully rolled out.
 BASE_DECLARE_FEATURE(kWebUIOmniboxSimplification);
 
 }  // namespace internal
@@ -45,13 +62,17 @@ BASE_DECLARE_FEATURE(kAiModeSpaceDoesNotActivate);
 BASE_DECLARE_FEATURE(kWebUIOmniboxDisableCaretColorAnimation);
 BASE_DECLARE_FEATURE(kWebUIOmniboxAimPopupDisableAnimation);
 BASE_DECLARE_FEATURE(kWebUIOmniboxFullPopup);
-BASE_DECLARE_FEATURE(kWebUIOmniboxFullPopupV2);
+BASE_DECLARE_FEATURE(kWebUIOmniboxFullPopupDoubleClick);
+BASE_DECLARE_FEATURE(kOmniboxEverywhere);
 BASE_DECLARE_FEATURE(kWebUIOmniboxPopupDebug);
 BASE_DECLARE_FEATURE(kWebUIOmniboxPopupSelectionControl);
 // Caret animation for omnibox
 BASE_DECLARE_FEATURE(kOmniboxAnimatedCaret);
 // Enables energy effect in the omnibox.
 BASE_DECLARE_FEATURE(kEnergyEffectInOmnibox);
+BASE_DECLARE_FEATURE(kWebUIOmniboxAskGAboutThisPage);
+BASE_DECLARE_FEATURE(kWebUIOmniboxDynamicAiModeButton);
+
 extern const base::FeatureParam<bool> kWebUIOmniboxPopupDebugSxSParam;
 
 // The serialized base64 encoded `omnibox::NTPComposeboxConfig`.
@@ -84,8 +105,6 @@ extern const base::FeatureParam<bool> kShowSmartCompose;
 extern const base::FeatureParam<bool> kShowToolsAndModels;
 // Whether to show section headers in the context menu.
 extern const base::FeatureParam<bool> kShowContextMenuHeaders;
-// Whether to use the composebox fork.
-extern const base::FeatureParam<bool> kUseComposeboxFork;
 // Whether to use the grey oblong background for context menu entrypoint.
 extern const base::FeatureParam<bool> kContextButtonHasBackground;
 // Whether the button should be an oblong shape vs circular.
@@ -94,13 +113,16 @@ extern const base::FeatureParam<bool> kContextButtonShapeIsOblong;
 extern const base::FeatureParam<bool> kContextButtonShowSuggestionLabel;
 // If enabled, then the WebUI Omnibox will be rendered in a WebView in the
 // BrowserView.
-extern const base::FeatureParam<bool> kWebUIOmniboxFullPopupV2UseBrowserView;
+extern const base::FeatureParam<bool> kWebUIOmniboxFullPopupUseBrowserView;
+// Whether to open the next panel with cobrowse.
+extern const base::FeatureParam<bool> kAskGCoBrowse;
+// Whether to open the next panel with cobrowse and visual selection.
+extern const base::FeatureParam<bool> kAskGCoBrowseWithVisualSelection;
 
 // Returns true if `kWebUIOmniboxPopup` is enabled.
 bool IsWebUIOmniboxPopupEnabled();
 
-// Returns true if either `kWebUIOmniboxFullPopup` or `kWebUIOmniboxFullPopupV2`
-// is enabled.
+// Returns true if `kWebUIOmniboxFullPopup` is enabled.
 bool IsWebUIOmniboxFullPopupEnabled();
 
 // Returns true if `kWebUIOmniboxInBrowserView` is enabled.

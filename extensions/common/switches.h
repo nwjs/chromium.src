@@ -80,6 +80,10 @@ extern const char kLoadGuestModeTestExtension[];
 // Allows the use of the `testing` reason in offscreen documents.
 extern const char kOffscreenDocumentTesting[];
 
+// Forces component extensions' service workers to be re-registered on every
+// load, instead of reusing the registration persisted in the profile.
+extern const char kRefreshComponentExtensionServiceWorkers[];
+
 // Set the parameters for ExtensionURLLoaderThrottleBrowserTest.
 extern const char kSetExtensionThrottleTestParams[];
 
@@ -101,6 +105,10 @@ extern const char kAllowFutureManifestVersion[];
 // copied from the browser to the renderer in ChromeContentBrowserClient to
 // actually use it in browser tests.
 extern const char kExtensionTestApiOnWebPages[];
+
+// Forces the `chrome.test` API to use standardized behavior matching the
+// `browser.test` proposal.
+extern const char kExtensionTestApiStandardizedBehavior[];
 
 // The feature parameter name that controls the variant of IPH shown when the
 // user has no extensions installed.

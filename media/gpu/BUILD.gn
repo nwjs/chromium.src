@@ -636,6 +636,7 @@ source_set("unit_tests") {
     "//media/gpu:test_support",
     "//testing/gmock",
     "//testing/gtest",
+    "//third_party/fuzztest",
     "//ui/gl:test_support",
   ]
   sources = [
@@ -696,6 +697,8 @@ source_set("unit_tests") {
       "windows/d3d12_video_encode_delegate_unittest.cc",
       "windows/d3d12_video_encode_delegate_unittest.h",
       "windows/d3d12_video_encode_h264_delegate_unittest.cc",
+      "windows/d3d12_video_processor_wrapper_unittest.cc",
+      "windows/media_foundation_video_encode_accelerator_win_unittest.cc",
       "windows/mf_audio_encoder_unittest.cc",
       "windows/mf_video_processor_accelerator_unittest.cc",
       "windows/scoped_d3d_buffers_unittest.cc",
@@ -767,17 +770,6 @@ if (use_v4l2_codec || use_vaapi) {
       "//testing/libfuzzer:libfuzzer_base_wrappers",
     ]
     seed_corpuses = [ "//media/test/data" ]
-  }
-}
-
-if (use_av1_hw_decoder) {
-  fuzzer_test("media_av1_decoder_fuzzer") {
-    sources = [ "av1_decoder_fuzzertest.cc" ]
-    deps = [
-      ":common",
-      "//base",
-      "//media:test_support",
-    ]
   }
 }
 

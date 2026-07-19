@@ -23,6 +23,7 @@
 #import "chrome/browser/ui/cocoa/browser_window_command_handler.h"
 #import "chrome/browser/ui/cocoa/chrome_command_dispatcher_delegate.h"
 #import "chrome/browser/ui/cocoa/touchbar/browser_window_touch_bar_controller.h"
+#include "chrome/browser/ui/immersive/immersive_mode_controller.h"
 #include "chrome/browser/ui/lens/lens_overlay_entry_point_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_metrics.h"
@@ -30,7 +31,6 @@
 #include "chrome/browser/ui/views/frame/browser_frame_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/browser_widget.h"
-#include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
 #include "chrome/browser/ui/views/web_apps/frame_toolbar/web_app_frame_toolbar_utils.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/common/pref_names.h"
@@ -255,8 +255,8 @@ void BrowserNativeWidgetMac::ValidateUserInterfaceItem(
       break;
     case IDC_FULLSCREEN: {
       result->new_title.emplace(l10n_util::GetStringUTF16(
-          browser->window()->IsFullscreen() ? IDS_EXIT_FULLSCREEN_MAC
-                                            : IDS_ENTER_FULLSCREEN_MAC));
+          browser->GetWindow()->IsFullscreen() ? IDS_EXIT_FULLSCREEN_MAC
+                                               : IDS_ENTER_FULLSCREEN_MAC));
       break;
     }
     case IDC_SHOW_AS_TAB: {
@@ -331,7 +331,8 @@ void BrowserNativeWidgetMac::ValidateUserInterfaceItem(
       break;
     }
     case IDC_TOGGLE_FULLSCREEN_TOOLBAR: {
-      web_app::AppBrowserController* app_controller = browser->app_controller();
+      web_app::AppBrowserController* app_controller =
+          web_app::AppBrowserController::From(browser);
       if (app_controller) {
         result->new_toggle_state =
             app_controller->AlwaysShowToolbarInFullscreen();
@@ -538,8 +539,13 @@ NativeWidgetMacNSWindow* BrowserNativeWidgetMac::CreateNSWindow(
   CHECK(browser_view_);
   NativeWidgetMacNSWindow* ns_window = NativeWidgetMac::CreateNSWindow(params);
   if (features::IsGlassFrameEnabled()) {
-    [ns_window setBackgroundColor:[NSColor clearColor]];
     [ns_window setOpaque:NO];
+    // A completely transparent background ([NSColor clearColor]) causes AppKit
+    // to continuously invalidate the window surface, resulting in high CPU
+    // and energy usage. Using an almost-transparent color (alpha 0.001) avoids
+    // this performance issue while remaining visually indistinguishable.
+    [ns_window setBackgroundColor:[[NSColor windowBackgroundColor]
+                                      colorWithAlphaComponent:0.001]];
   }
   touch_bar_delegate_ = [[BrowserWindowTouchBarViewsDelegate alloc]
       initWithBrowser:browser_view_->browser()

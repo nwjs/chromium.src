@@ -76,11 +76,11 @@ void PasteAndVerifySanitization(const char* html_to_paste,
   body->Focus();
   frame.GetDocument()->UpdateStyleAndLayout(DocumentUpdateReason::kTest);
   frame.Selection().SetSelection(
-      SelectionInDOMTree::Builder().SelectAllChildren(*body).Build(),
+      SelectionInDomTree::Builder().SelectAllChildren(*body).Build(),
       SetSelectionOptions());
-  EXPECT_TRUE(frame.Selection().ComputeVisibleSelectionInDOMTree().IsCaret());
+  EXPECT_TRUE(frame.Selection().ComputeVisibleSelectionInDomTree().IsCaret());
   EXPECT_TRUE(
-      frame.Selection().ComputeVisibleSelectionInDOMTree().IsContentEditable())
+      frame.Selection().ComputeVisibleSelectionInDomTree().IsContentEditable())
       << "We should be pasting into something editable.";
 
   frame.GetSystemClipboard()->WriteHTML(html_to_paste, BlankUrl(),

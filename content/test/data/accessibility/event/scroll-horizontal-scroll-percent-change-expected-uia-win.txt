@@ -1,2 +1,3 @@
 ScrollHorizontalScrollPercent changed on role=document
-ScrollHorizontalScrollPercent changed on role=group
+=== Start Continuation ===
+ScrollHorizontalScrollPercent changed on role=group, name=Horizontal Scroll Container

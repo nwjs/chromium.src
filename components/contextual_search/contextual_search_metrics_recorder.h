@@ -62,7 +62,8 @@ enum class ContextualSearchAttachmentButtonType {
   kClipboard = 5,
   kSuggestedTab = 6,
   kRecentTab = 7,
-  kMaxValue = kRecentTab
+  kDrive = 8,
+  kMaxValue = kDrive
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/contextual_search/histograms.xml:ContextualSearchAttachmentButtonType)
 
@@ -175,6 +176,9 @@ class ContextualSearchMetricsRecorder {
                           bool has_drive_context);
 
   void RecordFileSizeMetric(lens::MimeType mime_type, uint64_t file_size_bytes);
+
+  void RecordTabPartsSizes(uint64_t viewport_screenshot_size_bytes,
+                           uint64_t page_contents_size_bytes);
 
   // Should be called when a file has been deleted.
   void RecordFileDeletedMetrics(bool success,

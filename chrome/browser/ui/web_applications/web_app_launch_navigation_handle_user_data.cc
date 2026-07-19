@@ -26,11 +26,18 @@ WebAppLaunchNavigationHandleUserData::~WebAppLaunchNavigationHandleUserData() =
 // static
 void WebAppLaunchNavigationHandleUserData::DispatchLaunchParams(
     content::WebContents* web_contents,
-    webapps::LaunchParams launch_params) {
+    webapps::LaunchParams launch_params,
+    apps::LaunchContainer launch_container,
+    apps::LaunchSource launch_source) {
   CHECK(web_contents);
   WebAppTabHelper* tab_helper = WebAppTabHelper::FromWebContents(web_contents);
   CHECK(tab_helper);
-  launch_params.started_new_navigation = false;
+  launch_params.set_started_new_navigation(false);
+
+  UpdateLaunchMetricsAndStats(launch_params.app_id(), launch_container,
+                              launch_source, launch_params.target_url(),
+                              web_contents);
+
   tab_helper->EnqueueLaunchParams(std::move(launch_params));
 }
 
@@ -55,7 +62,7 @@ WebAppLaunchNavigationHandleUserData::GetLaunchParams() const {
 
 void WebAppLaunchNavigationHandleUserData::SetLaunchParams(
     webapps::LaunchParams launch_params) {
-  app_id_ = launch_params.app_id;
+  app_id_ = launch_params.app_id();
   launch_params_ = std::move(launch_params);
   if (web_contents_) {
     WebAppTabHelper* tab_helper =
@@ -80,11 +87,11 @@ void WebAppLaunchNavigationHandleUserData::SetLaunchParamsMetadata(
     launch_params_.emplace();
   }
   app_id_ = app_id;
-  launch_params_->app_id = app_id;
-  launch_params_->target_url = target_url;
-  if (launch_params_->time_navigation_started_for_enqueue.is_null()) {
-    launch_params_->time_navigation_started_for_enqueue =
-        time_navigation_started;
+  launch_params_->set_app_id(std::move(app_id));
+  launch_params_->set_target_url(std::move(target_url));
+  if (launch_params_->time_navigation_started_for_enqueue().is_null()) {
+    launch_params_->set_time_navigation_started_for_enqueue(
+        time_navigation_started);
   }
 
   if (web_contents_) {
@@ -97,6 +104,13 @@ void WebAppLaunchNavigationHandleUserData::SetLaunchParamsMetadata(
   }
 }
 
+void WebAppLaunchNavigationHandleUserData::SetLaunchSource(
+    apps::LaunchSource launch_source) {
+  if (launch_source != apps::LaunchSource::kUnknown) {
+    launch_source_ = launch_source;
+  }
+}
+
 void WebAppLaunchNavigationHandleUserData::
     MaybePerformAppHandlingTasksInWebContents() {
   if (!launch_params_) {
@@ -106,11 +120,11 @@ void WebAppLaunchNavigationHandleUserData::
   CHECK(tab_helper);
 
   // Extract app_id and target_url before moving launch_params_.
-  const webapps::AppId app_id = launch_params_->app_id;
-  const GURL target_url = launch_params_->target_url;
+  const webapps::AppId app_id = launch_params_->app_id();
+  const GURL target_url = launch_params_->target_url();
 
   // Keep started_new_navigation = true so Blink records correct metrics.
-  launch_params_->started_new_navigation = true;
+  launch_params_->set_started_new_navigation(true);
   if (tab_helper->EnsureLaunchQueue().IsInScope(*launch_params_,
                                                 navigation_handle_->GetURL())) {
     tab_helper->EnqueueLaunchParams(std::move(*launch_params_));
@@ -118,28 +132,26 @@ void WebAppLaunchNavigationHandleUserData::
 
   launch_params_.reset();
 
-  if (!is_navigation_capturing_) {
-    return;
-  }
-
-  // Perform navigation capturing specific tasks below.
   apps::LaunchContainer container =
       tab_helper->is_in_app_window()
           ? apps::LaunchContainer::kLaunchContainerWindow
           : apps::LaunchContainer::kLaunchContainerTab;
-  RecordLaunchMetrics(app_id, container,
-                      apps::LaunchSource::kFromNavigationCapturing, target_url,
-                      web_contents_);
+  UpdateLaunchMetricsAndStats(app_id, container, launch_source_, target_url,
+                              web_contents_);
 
+  if (!is_navigation_capturing_ || navigation_handle_->IsErrorPage()) {
+    return;
+  }
+
+  // Perform navigation capturing specific tasks below.
   RecordNavigationCapturingDisplayModeMetrics(app_id, web_contents_,
                                               !tab_helper->is_in_app_window());
 
   if (!force_iph_off_) {
-    // TODO(crbug.com/371237535): Avoid reliance on FindBrowserWithTab and
-    // instead pass in the Browser instance earlier.
+    tabs::TabInterface* tab =
+        tabs::TabInterface::MaybeGetFromContents(web_contents_);
     BrowserWindowInterface* browser =
-        GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
-            web_contents_);
+        tab ? tab->GetBrowserWindowInterface() : nullptr;
     if (browser) {
       MaybeShowNavigationCaptureIph(app_id, browser->GetProfile(),
                                     browser->GetBrowserForMigrationOnly());

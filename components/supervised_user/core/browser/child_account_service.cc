@@ -106,9 +106,9 @@ ChildAccountService::AuthState ChildAccountService::GetGoogleAuthState() const {
   bool primary_account_has_cookie =
       accounts_in_cookie_jar_info.AreAccountsFresh() &&
       std::ranges::any_of(
-          accounts_in_cookie_jar_info.GetPotentiallyInvalidSignedInAccounts(),
+          accounts_in_cookie_jar_info.GetValidSignedInAccounts(),
           [primary_account_id](const gaia::ListedAccount& account) {
-            return account.id == primary_account_id && account.valid;
+            return account.id == primary_account_id;
           });
   bool primary_account_has_token =
       !identity_manager_->HasAccountWithRefreshTokenInPersistentErrorState(
@@ -148,6 +148,10 @@ void ChildAccountService::SetSupervisionStatusAndNotifyObservers(
     std::move(callback).Run();
   }
   status_received_callback_list_.clear();
+
+  // It's possible the supervision status change is caused by sign-in /
+  // sign-out event, which would also update the Google auth state.
+  OnAuthStateUpdated();
 }
 
 void ChildAccountService::OnPrimaryAccountChanged(
@@ -203,7 +207,6 @@ void ChildAccountService::OnExtendedAccountInfoUpdated(
 
   SetSupervisionStatusAndNotifyObservers(info.IsChildAccount() ==
                                          signin::Tribool::kTrue);
-  OnAuthStateUpdated();
 }
 
 void ChildAccountService::OnRefreshTokenUpdatedForAccount(

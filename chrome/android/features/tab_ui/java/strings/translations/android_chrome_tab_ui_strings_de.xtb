@@ -31,6 +31,7 @@
 <translation id="1828808367831369073"><ph name="TABS_COUNT_ONE" /> Tab zu Gruppe hinzugefügt</translation>
 <translation id="1844381456014878100">Nach 7 Tagen Inaktivität</translation>
 <translation id="1869137256605757565">{TABS_COUNT,plural, =1{<ph name="TABS_COUNT_ONE" /> Tab}other{<ph name="TABS_COUNT_MANY" /> Tabs}}</translation>
+<translation id="1894429470045525403">{TAB_COUNT,plural, =1{Tab zur Leseliste hinzufügen}other{Tabs zur Leseliste hinzufügen}}</translation>
 <translation id="1909810060368225529">Hinweis: Änderungen an dieser geteilten Tabgruppe sind für alle sichtbar. Jeder kann Änderungen an deinen geteilten Tabgruppen vornehmen.</translation>
 <translation id="1925363809167540686">{TAB_COUNT,plural, =1{Tab anpinnen}other{Tabs anpinnen}}</translation>
 <translation id="1982637982196732906">In Bereich „Inaktiv“ verschieben</translation>
@@ -76,6 +77,8 @@
 <translation id="3052964831964880138"><ph name="PRICE_DROP" /> Preisnachlass auf das Produkt „<ph name="PRODUCT_NAME" />“</translation>
 <translation id="3078350928901129212">Farbe des Symbols für Tabgruppe (<ph name="COLOR_NAME" />)</translation>
 <translation id="311432875115153175">Liste der Tabgruppen geschlossen</translation>
+<translation id="3152596030350326139">Tabs horizontal anzeigen</translation>
+<translation id="31806439105337256">Tabs vertikal anzeigen</translation>
 <translation id="3194464645767632461">Bewertung</translation>
 <translation id="3269930881809501915">{TABS_COUNT,plural, =1{<ph name="TABS_COUNT_ONE" /> Tab zu Gruppe hinzufügen}other{<ph name="TABS_COUNT_MANY" /> Tabs zu Gruppe hinzufügen}}</translation>
 <translation id="3328308545011660196">Vorschlag: <ph name="NUMBER_OF_TABS" /> Tabs scheinen zusammenzugehören. Sollen sie gruppiert werden?</translation>
@@ -180,7 +183,6 @@
 <translation id="7129458170538955174">Informationen zu diesem Händler sind halb geöffnet</translation>
 <translation id="7204204600596740190">Mehrfachauswahl</translation>
 <translation id="7211038039686180558">Deine Tabgruppen werden automatisch auf allen deinen angemeldeten Geräten gespeichert und aktualisiert</translation>
-<translation id="731648547091221002"><ph name="COLOR_NAME" /> ausgewählt</translation>
 <translation id="7326879924029668159">Rückgabebedingungen und mehr</translation>
 <translation id="7352298686197644113">Sieh nach, welcher Artikel auf deinen geöffneten Tabs zu einem günstigeren Preis erhältlich ist</translation>
 <translation id="7369451074646620503">Tabgruppe „<ph name="TAB_GROUP_NAME" />“ ist nicht mehr verfügbar</translation>
@@ -206,7 +208,6 @@
 <translation id="7854360405711302755">{REVIEWS,plural, =1{ Bewertung: <ph name="CURRENT_RATING" />/<ph name="RATING_BASELINE" />, <ph name="REVIEWS_COUNT_ONE" /> Rezension}other{Bewertung: <ph name="CURRENT_RATING" />/<ph name="RATING_BASELINE" />, <ph name="REVIEWS_COUNT_MANY" /> Rezensionen}}</translation>
 <translation id="7885132941432959125">Tab nach rechts verschieben</translation>
 <translation id="7887334752153342268">Duplizieren</translation>
-<translation id="7939917283308035850"><ph name="COLOR_NAME" /> nicht ausgewählt</translation>
 <translation id="7961015016161918242">Nie</translation>
 <translation id="7966321538264951561">Vorschläge ablehnen.</translation>
 <translation id="796696298310625748">{WINDOW_COUNT,plural, =1{Tab in ein neues Fenster verschieben}other{Tab in andere Fenster verschieben}}</translation>

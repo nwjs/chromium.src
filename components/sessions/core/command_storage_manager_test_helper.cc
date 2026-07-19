@@ -5,6 +5,7 @@
 #include "components/sessions/core/command_storage_manager_test_helper.h"
 
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/run_loop.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
@@ -20,6 +21,14 @@ CommandStorageManagerTestHelper::CommandStorageManagerTestHelper(
   CHECK(command_storage_manager);
 }
 
+CommandStorageBackend* CommandStorageManagerTestHelper::GetCleartextBackend() {
+  return command_storage_manager_->backend_.get();
+}
+
+CommandStorageBackend* CommandStorageManagerTestHelper::GetEncryptedBackend() {
+  return command_storage_manager_->encrypted_backend_.get();
+}
+
 void CommandStorageManagerTestHelper::RunTaskOnBackendThread(
     const base::Location& from_here,
     base::OnceClosure task) {
@@ -28,14 +37,9 @@ void CommandStorageManagerTestHelper::RunTaskOnBackendThread(
 }
 
 void CommandStorageManagerTestHelper::RunMessageLoopUntilBackendDone() {
-  auto current_task_runner = base::SingleThreadTaskRunner::GetCurrentDefault();
   base::RunLoop run_loop;
-  auto quit_closure = run_loop.QuitClosure();
-  auto quit_from_backend =
-      base::BindLambdaForTesting([&current_task_runner, &quit_closure]() {
-        current_task_runner->PostTask(FROM_HERE, std::move(quit_closure));
-      });
-  RunTaskOnBackendThread(FROM_HERE, std::move(quit_from_backend));
+  command_storage_manager_->backend_task_runner_->PostTaskAndReply(
+      FROM_HERE, base::DoNothing(), run_loop.QuitClosure());
   run_loop.Run();
 }
 
@@ -56,6 +60,10 @@ CommandStorageManagerTestHelper::GetBackendTaskRunner() {
   return command_storage_manager_->backend_task_runner_;
 }
 
+bool CommandStorageManagerTestHelper::ShouldWriteCleartextFiles() {
+  return command_storage_manager_->ShouldWriteCleartextFiles();
+}
+
 bool CommandStorageManagerTestHelper::ShouldWriteEncryptedFiles() {
   return command_storage_manager_->ShouldWriteEncryptedFiles();
 }
@@ -67,6 +75,14 @@ void CommandStorageManagerTestHelper::ForceAppendCommandsToFailForTesting() {
           static_cast<void (CommandStorageBackend::*)()>(
               &CommandStorageBackend::ForceAppendCommandsToFailForTesting),
           command_storage_manager_->backend_));
+  if (command_storage_manager_->encrypted_backend_) {
+    RunTaskOnBackendThread(
+        FROM_HERE,
+        base::BindOnce(
+            static_cast<void (CommandStorageBackend::*)()>(
+                &CommandStorageBackend::ForceAppendCommandsToFailForTesting),
+            command_storage_manager_->encrypted_backend_));
+  }
 }
 
 }  // namespace sessions

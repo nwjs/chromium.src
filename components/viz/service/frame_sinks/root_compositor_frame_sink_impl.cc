@@ -320,6 +320,15 @@ RootCompositorFrameSinkImpl::Create(
 }
 
 RootCompositorFrameSinkImpl::~RootCompositorFrameSinkImpl() {
+#if BUILDFLAG(IS_MAC)
+  if (external_begin_frame_source()) {
+    // Reset update_vsync_params_callback_ as it should not be called in
+    // destructor.
+    external_begin_frame_source()->SetUpdateVSyncParametersCallback(
+        UpdateVSyncParametersCallback());
+  }
+#endif
+
   support_->frame_sink_manager()->UnregisterBeginFrameSource(
       begin_frame_source());
 }
@@ -374,10 +383,6 @@ void RootCompositorFrameSinkImpl::SetDisplayColorSpaces(
 #if BUILDFLAG(IS_MAC)
 void RootCompositorFrameSinkImpl::SetVSyncDisplayID(int64_t display_id) {
   begin_frame_source()->SetVSyncDisplayID(display_id, /*force_update=*/false);
-}
-
-void RootCompositorFrameSinkImpl::RefreshRateChangedOnSameDisplay() {
-  begin_frame_source()->RefreshRateChangedOnSameDisplay();
 }
 #endif
 
@@ -527,6 +532,13 @@ void RootCompositorFrameSinkImpl::SetSupportedRefreshRates(
     const base::TimeDelta interval = base::Hertz(rate);
     exact_supported_refresh_rates_[interval] = rate;
   }
+
+#if BUILDFLAG(IS_ANDROID)
+  if (external_begin_frame_source_) {
+    external_begin_frame_source_->SetSupportedRefreshRates(
+        exact_supported_refresh_rates_);
+  }
+#endif
 
   UpdateFrameIntervalDeciderSettings();
 }
@@ -919,10 +931,10 @@ void RootCompositorFrameSinkImpl::DisplayDidReceiveCALayerParams(
   // DisplayLinkMac, which is responsible for querying for vsync updates.
   next_forced_ca_layer_params_update_time_ =
       base::TimeTicks::Now() + base::Seconds(10);
-  if (display_client_)
+  if (display_client_) {
     display_client_->OnDisplayReceivedCALayerParams(std::move(ca_layer_params));
+  }
 
-  external_begin_frame_source()->DidReceiveNewCALayerParams();
 #else
   NOTREACHED();
 #endif

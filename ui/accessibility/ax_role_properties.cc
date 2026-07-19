@@ -290,6 +290,7 @@ bool IsContainerOnAndroid(const ax::mojom::Role role) {
     case ax::mojom::Role::kComboBoxGrouping:
     case ax::mojom::Role::kGrid:
     case ax::mojom::Role::kListBox:
+    case ax::mojom::Role::kList:
     case ax::mojom::Role::kMenu:
     case ax::mojom::Role::kMenuBar:
     case ax::mojom::Role::kRadioGroup:
@@ -395,6 +396,19 @@ bool IsImage(const ax::mojom::Role role) {
     case ax::mojom::Role::kGraphicsSymbol:
     case ax::mojom::Role::kImage:
     case ax::mojom::Role::kSvgRoot:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool IsLiveRegion(const ax::mojom::Role role) {
+  // Keep in sync with Blink's GetImplicitAriaLive(): alert is assertive; log
+  // and status (and roles mapping to them) are polite.
+  switch (role) {
+    case ax::mojom::Role::kAlert:
+    case ax::mojom::Role::kLog:
+    case ax::mojom::Role::kStatus:
       return true;
     default:
       return false;

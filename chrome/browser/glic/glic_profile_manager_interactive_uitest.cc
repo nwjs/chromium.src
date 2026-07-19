@@ -5,7 +5,6 @@
 #include "base/scoped_observation.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/glic/fre/glic_fre_controller.h"
 #include "chrome/browser/glic/glic_profile_manager.h"
 #include "chrome/browser/glic/host/glic_web_contents_warming_pool.h"
 #include "chrome/browser/glic/host/host.h"
@@ -45,11 +44,6 @@ class DISABLED_GlicProfileManagerUiTest : public test::InteractiveGlicTest {
     GlicProfileManager::SetPrewarmingEnabledForTesting(false);
     GlicProfileManager::ForceConnectionTypeForTesting(
         net::NetworkChangeNotifier::ConnectionType::CONNECTION_ETHERNET);
-    fre_server_.ServeFilesFromDirectory(
-        base::PathService::CheckedGet(base::DIR_ASSETS)
-            .AppendASCII("gen/chrome/test/data/webui/glic/"));
-    ASSERT_TRUE(fre_server_.Start());
-    fre_url_ = fre_server_.GetURL("/glic/test_client/fre.html");
     test::InteractiveGlicTest::SetUp();
   }
 
@@ -70,10 +64,6 @@ class DISABLED_GlicProfileManagerUiTest : public test::InteractiveGlicTest {
   Profile* GetSecondProfile() {
     return g_browser_process->profile_manager()->GetProfile(
         second_profile_path_);
-  }
-
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    command_line->AppendSwitchASCII(switches::kGlicFreURL, fre_url_.spec());
   }
 
   void TearDownOnMainThread() override {
@@ -157,18 +147,13 @@ class DISABLED_GlicProfileManagerUiTest : public test::InteractiveGlicTest {
     });
   }
 
-  GlicFreController* GetFreController(bool primary_profile) {
-    return &GetService(primary_profile)->fre_controller();
-  }
   GlicTestEnvironmentService& GetTestEnvForSecondProfile() {
     return *glic::GlicTestEnvironment::GetService(GetSecondProfile());
   }
 
  private:
   base::FilePath second_profile_path_;
-  net::EmbeddedTestServer fre_server_;
   raw_ptr<content::WebContents> web_client_contents_ = nullptr;
-  GURL fre_url_;
   base::test::ScopedFeatureList feature_list_;
 };
 

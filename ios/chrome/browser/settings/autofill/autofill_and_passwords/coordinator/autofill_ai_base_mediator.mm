@@ -6,6 +6,7 @@
 
 #import <algorithm>
 #import <iterator>
+#import <string>
 
 #import "base/apple/foundation_util.h"
 #import "base/check.h"
@@ -18,7 +19,13 @@
 #import "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h"
 #import "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_labels.h"
 #import "components/autofill/core/browser/integrators/autofill_ai/management_utils.h"
+#import "components/autofill/core/browser/integrators/autofill_ai/metrics/autofill_ai_metrics.h"
+#import "components/optimization_guide/core/feature_registry/feature_registration.h"
+#import "components/prefs/ios/pref_observer_bridge.h"
+#import "components/prefs/pref_change_registrar.h"
+#import "components/prefs/pref_service.h"
 #import "ios/chrome/browser/autofill/autofill_ai/public/autofill_ai_ui_util.h"
+#import "ios/chrome/browser/autofill/model/autofill_ai_util.h"
 #import "ios/chrome/browser/autofill/model/ios_autofill_entity_data_manager_observer_bridge.h"
 #import "ios/chrome/browser/settings/autofill/autofill_ai/ui/autofill_ai_entity_item.h"
 #import "ios/chrome/browser/settings/autofill/autofill_and_passwords/coordinator/autofill_ai_base_mediator_protected.h"
@@ -27,7 +34,8 @@
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util_mac.h"
 
-@interface AutofillAIBaseMediator () <IOSAutofillEntityDataManagerObserver>
+@interface AutofillAIBaseMediator () <IOSAutofillEntityDataManagerObserver,
+                                     PrefObserverDelegate>
 @end
 
 @implementation AutofillAIBaseMediator {
@@ -37,10 +45,19 @@
   // Bridge to observe changes to entity data from the manager.
   std::unique_ptr<autofill::IOSAutofillEntityDataManagerObserverBridge>
       _entityDataManagerObserver;
+
+  std::unique_ptr<PrefObserverBridge> _prefObserverBridge;
+  PrefChangeRegistrar _prefChangeRegistrar;
 }
 
 - (instancetype)initWithEntityDataManager:
     (autofill::EntityDataManager*)entityDataManager {
+  return [self initWithEntityDataManager:entityDataManager prefService:nullptr];
+}
+
+- (instancetype)initWithEntityDataManager:
+                    (autofill::EntityDataManager*)entityDataManager
+                              prefService:(PrefService*)prefService {
   self = [super init];
   if (self) {
     CHECK(entityDataManager);
@@ -48,6 +65,15 @@
     _entityDataManagerObserver =
         std::make_unique<autofill::IOSAutofillEntityDataManagerObserverBridge>(
             _entityDataManager, self);
+    _prefService = prefService;
+    if (prefService) {
+      _prefChangeRegistrar.Init(prefService);
+      _prefObserverBridge = std::make_unique<PrefObserverBridge>(self);
+      _prefObserverBridge->ObserveChangesForPreference(
+          optimization_guide::prefs::
+              kAutofillPredictionImprovementsEnterprisePolicyAllowed,
+          &_prefChangeRegistrar);
+    }
   }
   return self;
 }
@@ -55,6 +81,10 @@
 - (void)disconnect {
   _entityDataManagerObserver.reset();
   _entityDataManager = nullptr;
+  if (_prefService) {
+    _prefChangeRegistrar.RemoveAll();
+    _prefObserverBridge.reset();
+  }
 }
 
 - (std::vector<autofill::EntityType>)writableEntityTypes {
@@ -98,6 +128,25 @@
        didRequestToCreateEntityWithType:type];
 }
 
+- (void)didSelectDeleteEntityItems:(NSArray<TableViewItem*>*)items {
+  if (!_entityDataManager) {
+    return;
+  }
+  for (TableViewItem* item in items) {
+    AutofillAIEntityItem* aiItem =
+        base::apple::ObjCCast<AutofillAIEntityItem>(item);
+    if (aiItem && !aiItem.isServerWalletItem) {
+      // Entities with record type `kPersonalContext` are not displayed in the
+      // settings, therefore, assigning `kLocal` here is okay.
+      autofill::EntityInstance::RecordType recordType =
+          autofill::EntityInstance::RecordType::kLocal;
+      autofill::LogEntityDeletedFromSettings(
+          autofill::EntityType(aiItem.entityTypeName), recordType);
+      _entityDataManager->RemoveEntityInstance(aiItem.guid);
+    }
+  }
+}
+
 #pragma mark - Public
 
 + (CGFloat)entityIconPointSize {
@@ -119,8 +168,9 @@
     return;
   }
 
-  base::span<const autofill::EntityInstance> instances =
-      _entityDataManager->GetEntityInstances();
+  std::vector<autofill::EntityInstance> instances =
+      autofill::GetEntityInstancesForSettings(
+          _entityDataManager->GetEntityInstances());
 
   autofill::DenseSet<autofill::EntityTypeName> supportedTypes =
       [self supportedEntityTypes];
@@ -171,9 +221,35 @@
     item.trailingText = l10n_util::GetNSString(IDS_IOS_AUTOFILL_WALLET_TEXT);
   }
 
+  const bool isPersonalContext =
+      instance.record_type() ==
+      autofill::EntityInstance::RecordType::kPersonalContext;
+
   item.icon = autofill::DefaultIconForAutofillAiEntityType(
-      instance.type().name(), [[self class] entityIconPointSize], nil);
+      instance.type().name(), isPersonalContext,
+      [[self class] entityIconPointSize], nil);
   return item;
+}
+
+#pragma mark - PrefObserverDelegate
+
+- (void)onPreferenceChanged:(const std::string&)preferenceName {
+  if (preferenceName ==
+      optimization_guide::prefs::
+          kAutofillPredictionImprovementsEnterprisePolicyAllowed) {
+    [self updateConsumerToggleState];
+  }
+}
+
+#pragma mark - Protected
+
+- (void)updateConsumerToggleState {
+  // Overridden by subclasses.
+}
+
+- (BOOL)isAutofillAiDisabledByEnterprisePolicy {
+  return self.prefService &&
+         autofill::IsAutofillAiDisabledByEnterprisePolicy(self.prefService);
 }
 
 @end

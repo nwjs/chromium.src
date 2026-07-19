@@ -3092,10 +3092,13 @@ TEST_P(CompositingSimTest, FrameAttribution) {
   const auto* current_transform_node = child_transform_node;
   while (current_transform_node) {
     visible_frame_element_id = current_transform_node->visible_frame_element_id;
-    if (visible_frame_element_id)
+    if (visible_frame_element_id ||
+        !GetPropertyTrees()->transform_tree().HasParent(
+            *current_transform_node)) {
       break;
+    }
     current_transform_node =
-        GetPropertyTrees()->transform_tree().parent(current_transform_node);
+        &GetPropertyTrees()->transform_tree().parent(*current_transform_node);
   }
 
   EXPECT_EQ(visible_frame_element_id,
@@ -4359,7 +4362,7 @@ TEST_P(CompositingSimTest, CanvasDrawElementLayersWithAnonymousCaret) {
 
   // Place caret in the text node, which will be in an anonymous block
   GetDocument().GetFrame()->Selection().SetSelection(
-      SelectionInDOMTree::Builder()
+      SelectionInDomTree::Builder()
           .Collapse(Position(target->firstChild(), 0))
           .Build(),
       SetSelectionOptions());

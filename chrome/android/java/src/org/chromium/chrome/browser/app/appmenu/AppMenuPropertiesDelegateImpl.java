@@ -12,6 +12,7 @@ import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.util.Pair;
+import android.util.SparseArray;
 import android.view.MenuItem;
 import android.view.View;
 
@@ -42,6 +43,7 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.build.annotations.RequiresNonNull;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
+import org.chromium.chrome.browser.accessibility.PageZoomMenuItemViewBinder;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
 import org.chromium.chrome.browser.bookmarks.PowerBookmarkUtils;
 import org.chromium.chrome.browser.commerce.ShoppingServiceFactory;
@@ -53,9 +55,13 @@ import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.multiwindow.MultiWindowModeStateDispatcher;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.night_mode.WebContentsDarkModeController;
+import org.chromium.chrome.browser.ntp.RecentlyClosedEntry;
+import org.chromium.chrome.browser.ntp.RecentlyClosedWindow;
+import org.chromium.chrome.browser.ntp.SessionRecentlyClosedEntry;
 import org.chromium.chrome.browser.open_in_app.OpenInAppMenuItemProvider;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.readaloud.ReadAloudController;
+import org.chromium.chrome.browser.recent_tabs.ForeignSessionHelper.ForeignSessionTab;
 import org.chromium.chrome.browser.share.ShareHelper;
 import org.chromium.chrome.browser.sync.settings.SyncSettingsUtils;
 import org.chromium.chrome.browser.tab.Tab;
@@ -69,18 +75,24 @@ import org.chromium.chrome.browser.ui.appmenu.AppMenuHandler.AppMenuItemType;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuItemProperties;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuItemWithSubmenuProperties;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuPropertiesDelegate;
+import org.chromium.chrome.browser.ui.appmenu.AppMenuRecentEntryItemProperties;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuTabItemProperties;
 import org.chromium.chrome.browser.util.BrowserUiUtils;
 import org.chromium.chrome.browser.util.BrowserUiUtils.ModuleTypeOnStartAndNtp;
 import org.chromium.chrome.browser.webapps.WebappRegistry;
 import org.chromium.components.bookmarks.BookmarkId;
+import org.chromium.components.browser_ui.accessibility.PageZoomManager;
+import org.chromium.components.browser_ui.accessibility.PageZoomMenuItemCoordinator;
+import org.chromium.components.browser_ui.accessibility.PageZoomProperties;
+import org.chromium.components.browser_ui.accessibility.PageZoomUtils;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetControllerProvider;
 import org.chromium.components.commerce.core.CommerceFeatureUtils;
 import org.chromium.components.commerce.core.CommerceSubscription;
 import org.chromium.components.commerce.core.IdentifierType;
 import org.chromium.components.commerce.core.ManagementType;
 import org.chromium.components.commerce.core.ShoppingService;
 import org.chromium.components.commerce.core.SubscriptionType;
-import org.chromium.components.dom_distiller.core.DomDistillerFeatures;
 import org.chromium.components.dom_distiller.core.DomDistillerUrlUtils;
 import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.components.sync.UserActionableError;
@@ -88,9 +100,13 @@ import org.chromium.components.webapk.lib.client.WebApkValidator;
 import org.chromium.components.webapps.AppBannerManager;
 import org.chromium.components.webapps.WebappsUtils;
 import org.chromium.ui.base.DeviceFormFactor;
+import org.chromium.ui.base.WindowAndroid;
+import org.chromium.ui.modelutil.LayoutViewBuilder;
 import org.chromium.ui.modelutil.MVCListAdapter;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
+import org.chromium.ui.modelutil.ModelListAdapter;
+import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.url.GURL;
 
@@ -98,6 +114,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
 /**
@@ -109,6 +126,10 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
 
     public static final String BOOKMARK_ID_BUNDLE_KEY = "BookmarkId";
     public static final String TAB_ID_BUNDLE_KEY = "TabId";
+    public static final String RECENT_ENTRY_SESSION_ID_BUNDLE_KEY = "RecentEntrySessionId";
+    public static final String RECENT_ENTRY_INSTANCE_ID_BUNDLE_KEY = "RecentEntryInstanceId";
+    public static final String RECENT_ENTRY_SESSION_TAG_BUNDLE_KEY = "RecentEntrySessionTag";
+    public static final String RECENT_ENTRY_TAB_ID_BUNDLE_KEY = "RecentEntryTabId";
 
     private static @Nullable Boolean sItemBookmarkedForTesting;
 
@@ -120,6 +141,8 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
     protected final ToolbarManager mToolbarManager;
     protected final View mDecorView;
     protected final MonotonicObservableSupplier<ReadAloudController> mReadAloudControllerSupplier;
+    protected final @Nullable PageZoomManager mPageZoomManager;
+    protected final @Nullable PageZoomMenuItemCoordinator mPageZoomMenuItemCoordinator;
 
     private CallbackController mCallbackController = new CallbackController();
     protected final NullableObservableSupplier<BookmarkModel> mBookmarkModelSupplier;
@@ -169,6 +192,12 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
         int NUM_ENTRIES = 8;
     }
 
+    @IntDef({CustomMenuItemType.ZOOM_ITEM})
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface CustomMenuItemType {
+        int ZOOM_ITEM = AppMenuItemType.NUM_ENTRIES;
+    }
+
     private @Nullable LayoutStateProvider mLayoutStateProvider;
 
     /**
@@ -186,6 +215,7 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
      *     LayoutStateProvider} associated with the containing activity.
      * @param bookmarkModelSupplier An {@link MonotonicObservableSupplier} for the {@link
      *     BookmarkModel}.
+     * @param pageZoomManager The {@link PageZoomManager} used to manage the page zoom.
      * @param openInAppMenuItemProvider The {@link OpenInAppMenuItemProvider} that may provide an
      *     open in app item.
      */
@@ -199,6 +229,7 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
             @Nullable OneshotSupplier<LayoutStateProvider> layoutStateProvidersSupplier,
             NullableObservableSupplier<BookmarkModel> bookmarkModelSupplier,
             MonotonicObservableSupplier<ReadAloudController> readAloudControllerSupplier,
+            @Nullable PageZoomManager pageZoomManager,
             @Nullable OpenInAppMenuItemProvider openInAppMenuItemProvider) {
         mContext = context;
         mIsTablet = DeviceFormFactor.isNonMultiDisplayContextOnTablet(mContext);
@@ -218,6 +249,9 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
         }
 
         mBookmarkModelSupplier = bookmarkModelSupplier;
+        mPageZoomManager = pageZoomManager;
+        mPageZoomMenuItemCoordinator =
+                pageZoomManager != null ? new PageZoomMenuItemCoordinator(pageZoomManager) : null;
         mOpenInAppMenuItemProvider = openInAppMenuItemProvider;
     }
 
@@ -249,12 +283,12 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
      */
     @VisibleForTesting(otherwise = VisibleForTesting.PROTECTED)
     public boolean shouldShowPageMenu() {
-        boolean isInTabSwitcher = isInTabSwitcher();
+        boolean isInHub = isInHub();
         if (mIsTablet) {
             boolean hasTabs = mTabModelSelector.getCurrentModel().getCount() != 0;
-            return hasTabs && !isInTabSwitcher;
+            return hasTabs && !isInHub;
         } else {
-            return !isInTabSwitcher;
+            return !isInHub;
         }
     }
 
@@ -265,15 +299,15 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
         @MenuGroup int menuGroup = MenuGroup.INVALID;
         if (shouldShowPageMenu()) menuGroup = MenuGroup.PAGE_MENU;
 
-        boolean isInTabSwitcher = isInTabSwitcher();
+        boolean isInHub = isInHub();
         if (mIsTablet) {
             boolean hasTabs = mTabModelSelector.getCurrentModel().getCount() != 0;
-            if (hasTabs && isInTabSwitcher) {
+            if (hasTabs && isInHub) {
                 menuGroup = MenuGroup.OVERVIEW_MODE_MENU;
             } else if (!hasTabs) {
                 menuGroup = MenuGroup.TABLET_EMPTY_MODE_MENU;
             }
-        } else if (isInTabSwitcher) {
+        } else if (isInHub) {
             menuGroup = MenuGroup.OVERVIEW_MODE_MENU;
         }
         assert menuGroup != MenuGroup.INVALID;
@@ -281,12 +315,12 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
     }
 
     /**
-     * @return Whether the grid tab switcher is showing.
+     * @return Whether the Hub is showing.
      */
-    private boolean isInTabSwitcher() {
+    private boolean isInHub() {
         return mLayoutStateProvider != null
-                && mLayoutStateProvider.isLayoutVisible(LayoutType.TAB_SWITCHER)
-                && !mLayoutStateProvider.isLayoutStartingToHide(LayoutType.TAB_SWITCHER);
+                && mLayoutStateProvider.isLayoutVisible(LayoutType.HUB)
+                && !mLayoutStateProvider.isLayoutStartingToHide(LayoutType.HUB);
     }
 
     @Override
@@ -559,16 +593,22 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
                 .build();
     }
 
-    /**
-     * @param currentTab The currentTab for which the app menu is showing.
-     * @return Whether the reader mode preferences menu item should be displayed.
-     */
-    @VisibleForTesting(otherwise = VisibleForTesting.PROTECTED)
-    @Contract("null -> false")
-    public boolean shouldShowReaderModePrefs(@Nullable Tab currentTab) {
-        return currentTab != null
-                && DomDistillerUrlUtils.isDistilledPage(currentTab.getUrl())
-                && !DomDistillerFeatures.sReaderModeDistillInApp.isEnabled();
+    protected MVCListAdapter.ListItem createStandardListItem(
+            PropertyModel model, boolean showIcon) {
+        return new MVCListAdapter.ListItem(
+                showIcon
+                        ? AppMenuHandler.AppMenuItemType.STANDARD
+                        : AppMenuHandler.AppMenuItemType.STANDARD_NO_ICON,
+                model);
+    }
+
+    protected MVCListAdapter.ListItem createMenuItemWithSubmenuListItem(
+            PropertyModel model, boolean showIcon) {
+        return new MVCListAdapter.ListItem(
+                showIcon
+                        ? AppMenuHandler.AppMenuItemType.MENU_ITEM_WITH_SUBMENU
+                        : AppMenuHandler.AppMenuItemType.MENU_ITEM_WITH_SUBMENU_NO_ICON,
+                model);
     }
 
     /**
@@ -582,25 +622,15 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
     }
 
     /** Construct the reader mode menu item. */
-    protected MVCListAdapter.ListItem buildReaderModeItem(Tab currentTab) {
-        return new MVCListAdapter.ListItem(
-                AppMenuHandler.AppMenuItemType.STANDARD,
+    protected MVCListAdapter.ListItem buildReaderModeItem(Tab currentTab, boolean showIcon) {
+        return createStandardListItem(
                 buildModelForStandardMenuItem(
                         R.id.reader_mode_menu_id,
                         DomDistillerUrlUtils.isDistilledPage(currentTab.getUrl())
                                 ? R.string.hide_reading_mode_text
                                 : R.string.show_reading_mode_text,
-                        shouldShowIconBeforeItem() ? R.drawable.ic_mobile_friendly_24dp : 0));
-    }
-
-    /** Construct the reader mode preferences menu item. */
-    protected ListItem buildReaderModePrefsItem() {
-        return new MVCListAdapter.ListItem(
-                AppMenuHandler.AppMenuItemType.STANDARD,
-                buildModelForStandardMenuItem(
-                        R.id.reader_mode_prefs_id,
-                        R.string.menu_reader_mode_prefs,
-                        R.drawable.reader_mode_prefs_icon));
+                        showIcon ? R.drawable.ic_mobile_friendly_24dp : 0),
+                showIcon);
     }
 
     /**
@@ -791,14 +821,15 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
     }
 
     /** Construct the page info menu item. */
-    protected MVCListAdapter.ListItem buildPageInfoItem(@Nullable Tab currentTab) {
+    protected MVCListAdapter.ListItem buildPageInfoItem(
+            @Nullable Tab currentTab, boolean showIcon) {
         MVCListAdapter.ListItem item =
-                new MVCListAdapter.ListItem(
-                        AppMenuHandler.AppMenuItemType.STANDARD,
+                createStandardListItem(
                         buildModelForStandardMenuItem(
                                 R.id.info_menu_id,
                                 R.string.menu_site_controls,
-                                shouldShowIconBeforeItem() ? R.drawable.ic_settings_tune_24dp : 0));
+                                showIcon ? R.drawable.ic_settings_tune_24dp : 0),
+                        showIcon);
         item.model.set(AppMenuItemProperties.ENABLED, currentTab != null);
         return item;
     }
@@ -854,7 +885,9 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
             // This is the 'webapp is already installed' case, so we offer to open the webapp.
             String appName = resolveInfo.loadLabel(mContext.getPackageManager()).toString();
             return new ListItem(
-                    AppMenuItemType.STANDARD,
+                    showIcon
+                            ? AppMenuHandler.AppMenuItemType.STANDARD
+                            : AppMenuHandler.AppMenuItemType.STANDARD_NO_ICON,
                     buildBaseModelForTextItem(R.id.open_webapk_id)
                             .with(
                                     AppMenuItemProperties.TITLE,
@@ -868,7 +901,9 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
                             .build());
         } else {
             return new ListItem(
-                    AppMenuItemType.STANDARD,
+                    showIcon
+                            ? AppMenuHandler.AppMenuItemType.STANDARD
+                            : AppMenuHandler.AppMenuItemType.STANDARD_NO_ICON,
                     buildModelForStandardMenuItem(
                             R.id.universal_install,
                             R.string.menu_install_create_shortcut,
@@ -899,17 +934,51 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
     public @Nullable Bundle getBundleForMenuItem(PropertyModel model) {
         if (model.containsKey(AppMenuBookmarkItemProperties.BOOKMARK_ID)) {
             BookmarkId bookmarkId = model.get(AppMenuBookmarkItemProperties.BOOKMARK_ID);
-            if (bookmarkId != null) {
-                Bundle bundle = new Bundle();
-                bundle.putString(
-                        AppMenuPropertiesDelegateImpl.BOOKMARK_ID_BUNDLE_KEY,
-                        bookmarkId.toString());
-                return bundle;
-            }
+            assert bookmarkId != null;
+
+            Bundle bundle = new Bundle();
+            bundle.putString(
+                    AppMenuPropertiesDelegateImpl.BOOKMARK_ID_BUNDLE_KEY, bookmarkId.toString());
+            return bundle;
         }
         if (model.containsKey(AppMenuTabItemProperties.TAB_ID)) {
             Bundle bundle = new Bundle();
             bundle.putInt(TAB_ID_BUNDLE_KEY, model.get(AppMenuTabItemProperties.TAB_ID));
+            return bundle;
+        }
+        if (model.containsKey(AppMenuRecentEntryItemProperties.FOREIGN_SESSION_TAB)
+                && model.get(AppMenuRecentEntryItemProperties.FOREIGN_SESSION_TAB) != null) {
+            ForeignSessionTab tab =
+                    (ForeignSessionTab)
+                            model.get(AppMenuRecentEntryItemProperties.FOREIGN_SESSION_TAB);
+            assert tab != null;
+
+            String sessionTag = model.get(AppMenuRecentEntryItemProperties.FOREIGN_SESSION_TAG);
+            assert sessionTag != null;
+
+            Bundle bundle = new Bundle();
+            bundle.putString(RECENT_ENTRY_SESSION_TAG_BUNDLE_KEY, sessionTag);
+            bundle.putInt(RECENT_ENTRY_TAB_ID_BUNDLE_KEY, tab.id);
+            return bundle;
+        }
+        if (model.containsKey(AppMenuRecentEntryItemProperties.RECENT_ENTRY)
+                && model.get(AppMenuRecentEntryItemProperties.RECENT_ENTRY) != null) {
+            RecentlyClosedEntry entry =
+                    (RecentlyClosedEntry) model.get(AppMenuRecentEntryItemProperties.RECENT_ENTRY);
+            assert entry != null;
+            Bundle bundle = new Bundle();
+            if (entry instanceof SessionRecentlyClosedEntry sessionEntry) {
+                bundle.putInt(RECENT_ENTRY_SESSION_ID_BUNDLE_KEY, sessionEntry.getSessionId());
+                if (model.containsKey(AppMenuRecentEntryItemProperties.WINDOW_ID)) {
+                    bundle.putInt(
+                            RECENT_ENTRY_INSTANCE_ID_BUNDLE_KEY,
+                            model.get(AppMenuRecentEntryItemProperties.WINDOW_ID));
+                }
+            } else if (entry instanceof RecentlyClosedWindow window) {
+                bundle.putInt(RECENT_ENTRY_INSTANCE_ID_BUNDLE_KEY, window.getInstanceId());
+            } else {
+                assert false;
+            }
             return bundle;
         }
         return null;
@@ -1241,7 +1310,6 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
         // always requests desktop sites.
         boolean itemVisible =
                 !isNativePage
-                        && !shouldShowReaderModePrefs(currentTab)
                         && currentTab != null
                         && currentTab.getWebContents() != null
                         && !DeviceInfo.isDesktop();
@@ -1344,17 +1412,19 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
                     buildModelForMenuItemWithSecondaryButton(
                             R.id.share_menu_id,
                             R.string.menu_share_page,
-                            showIcon ? R.drawable.ic_share_white_24dp : 0,
+                            showIcon ? R.drawable.ic_share_white_24dp : Resources.ID_NULL,
                             R.id.direct_share_menu_id,
                             directShareTitle,
                             directShare.first));
         } else {
             return new ListItem(
-                    AppMenuItemType.STANDARD,
+                    showIcon
+                            ? AppMenuHandler.AppMenuItemType.STANDARD
+                            : AppMenuHandler.AppMenuItemType.STANDARD_NO_ICON,
                     buildModelForStandardMenuItem(
                             R.id.share_menu_id,
                             R.string.menu_share_page,
-                            showIcon ? R.drawable.ic_share_white_24dp : 0));
+                            showIcon ? R.drawable.ic_share_white_24dp : Resources.ID_NULL));
         }
     }
 
@@ -1421,5 +1491,75 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
                     mContext.getString(R.string.open_in_app_desc, info.appName));
         }
         return new ListItem(AppMenuItemType.STANDARD, model);
+    }
+
+    @Override
+    public void registerCustomViewBinders(
+            ModelListAdapter modelListAdapter,
+            SparseArray<BiFunction<Context, PropertyModel, Integer>> customSizingSuppliers) {
+        modelListAdapter.registerType(
+                CustomMenuItemType.ZOOM_ITEM,
+                new LayoutViewBuilder<>(R.layout.page_zoom_menu_item),
+                PageZoomMenuItemViewBinder::bind);
+    }
+
+    @Contract("null -> false")
+    protected boolean shouldShowPageZoomItem(@Nullable Tab currentTab) {
+        if (currentTab == null) return false;
+
+        // If the bottom sheet is currently expanded, remove the menu option.
+        WindowAndroid windowAndroid = currentTab.getWindowAndroid();
+        if (windowAndroid != null) {
+            BottomSheetController bottomSheetController =
+                    BottomSheetControllerProvider.from(windowAndroid);
+            if (bottomSheetController != null && bottomSheetController.isSheetOpen()) {
+                return false;
+            }
+        }
+
+        return shouldShowWebContentsDependentMenuItem(currentTab)
+                && PageZoomUtils.shouldShowZoomMenuItem();
+    }
+
+    protected boolean shouldShowLffPageZoomItem() {
+        return DeviceFormFactor.isNonMultiDisplayContextOnTablet(mContext);
+    }
+
+    private PropertyModel buildNewPageZoomModel() {
+        PropertyKey[] keys =
+                PropertyModel.concatKeys(
+                        AppMenuItemProperties.ALL_KEYS, PageZoomProperties.ALL_KEYS_FOR_MENU_ITEM);
+        Drawable icon =
+                shouldShowIconBeforeItem()
+                        ? AppCompatResources.getDrawable(mContext, R.drawable.ic_zoom)
+                        : null;
+        PropertyModel model =
+                populateBaseModelForTextItem(new PropertyModel.Builder(keys), R.id.page_zoom_id)
+                        .with(
+                                AppMenuItemProperties.TITLE,
+                                mContext.getString(R.string.page_zoom_menu_title))
+                        .with(AppMenuItemProperties.MENU_ITEM_ID, R.id.page_zoom_id)
+                        .with(AppMenuItemProperties.ICON, icon)
+                        .with(
+                                PageZoomProperties.IMMERIVE_MODE_ENABLED,
+                                ChromeFeatureList.sAndroidZoomImmersive.isEnabled())
+                        .build();
+        return model;
+    }
+
+    protected ListItem buildPageZoomItem(Tab currentTab) {
+        assert shouldShowPageZoomItem(currentTab);
+        if (shouldShowLffPageZoomItem()) {
+            assert mPageZoomMenuItemCoordinator != null;
+            PropertyModel model = buildNewPageZoomModel();
+            mPageZoomMenuItemCoordinator.setModel(model);
+            return new ListItem(CustomMenuItemType.ZOOM_ITEM, model);
+        }
+        return new ListItem(
+                AppMenuItemType.STANDARD,
+                buildModelForStandardMenuItem(
+                        R.id.page_zoom_id,
+                        R.string.page_zoom_menu_title,
+                        shouldShowIconBeforeItem() ? R.drawable.ic_zoom : 0));
     }
 }

@@ -147,15 +147,16 @@ using base::test::ios::WaitUntilConditionOrTimeout;
   BOOL fakeIdentityIsNonNil = fakeIdentity != nil;
   EG_TEST_HELPER_ASSERT_TRUE(fakeIdentityIsNonNil, @"Need to give an identity");
 
-  // Required to avoid any problem since the following test is not dependant
-  // to UI, and the previous action has to be totally finished before going
+  // Required to avoid any problem since the following test is not dependent
+  // on UI, and the previous action has to be totally finished before going
   // through the assert.
   GREYAssert(WaitUntilConditionOrTimeout(
                  base::test::ios::kWaitForActionTimeout,
                  ^bool {
                    NSString* primaryAccountGaiaIDString =
                        [SigninEarlGreyAppInterface primaryAccountGaiaIDString];
-                   return primaryAccountGaiaIDString.length > 0;
+                   return [primaryAccountGaiaIDString
+                       isEqualToString:fakeIdentity.gaiaId.ToNSString()];
                  }),
              @"Sign in did not complete.");
   GREYWaitForAppToIdle(@"App failed to idle");
@@ -174,15 +175,15 @@ using base::test::ios::WaitUntilConditionOrTimeout;
 - (void)verifyPrimaryAccountWithEmail:(NSString*)expectedEmail {
   EG_TEST_HELPER_ASSERT_TRUE(expectedEmail.length, @"Need to give an identity");
 
-  // Required to avoid any problem since the following test is not dependant
-  // to UI, and the previous action has to be totally finished before going
+  // Required to avoid any problem since the following test is not dependent
+  // on UI, and the previous action has to be totally finished before going
   // through the assert.
   GREYAssert(WaitUntilConditionOrTimeout(
                  base::test::ios::kWaitForActionTimeout,
                  ^bool {
                    NSString* primaryAccountEmail =
                        [SigninEarlGreyAppInterface primaryAccountEmail];
-                   return primaryAccountEmail.length > 0;
+                   return [primaryAccountEmail isEqualToString:expectedEmail];
                  }),
              @"Sign in did not complete.");
   GREYWaitForAppToIdle(@"App failed to idle");
@@ -199,8 +200,8 @@ using base::test::ios::WaitUntilConditionOrTimeout;
 }
 
 - (void)verifySignedOut {
-  // Required to avoid any problem since the following test is not dependant
-  // to UI, and the previous action has to be totally finished before going
+  // Required to avoid any problem since the following test is not dependent
+  // on UI, and the previous action has to be totally finished before going
   // through the assert.
   GREYWaitForAppToIdle(@"App failed to idle");
 

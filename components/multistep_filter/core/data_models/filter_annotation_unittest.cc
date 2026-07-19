@@ -15,7 +15,7 @@ namespace multistep_filter {
 namespace {
 
 constexpr char kTaskType[] = "task_type1";
-constexpr char kSourceDomain[] = "domain1.com";
+constexpr char kSourceHost[] = "sub.domain1.com";
 constexpr char kKey1[] = "key1";
 constexpr char kValue1[] = "value1";
 constexpr base::Time kCreationTimestamp = base::Time::UnixEpoch();
@@ -40,21 +40,21 @@ TEST(FilterAnnotationTest, FilterAnnotation_Constructor) {
   FilterAnnotation annotation(
       /*id=*/TestUuid(),
       /*task_type=*/kTaskType,
-      /*source_domain=*/kSourceDomain,
+      /*source_host=*/kSourceHost,
       /*creation_timestamp=*/kCreationTimestamp,
       /*attributes=*/{attr});
   EXPECT_EQ(annotation.task_type, kTaskType);
-  EXPECT_EQ(annotation.source_domain, kSourceDomain);
+  EXPECT_EQ(annotation.source_host, kSourceHost);
   EXPECT_EQ(annotation.creation_timestamp, kCreationTimestamp);
   EXPECT_EQ(annotation.attributes.size(), 1u);
   EXPECT_EQ(annotation.attributes[0], attr);
 }
 
 TEST(FilterAnnotationTest, FilterAnnotation_Constructor_InvalidAttributes) {
-  EXPECT_DCHECK_DEATH(
-      FilterAnnotation(TestUuid(), "", kSourceDomain, kCreationTimestamp, {}));
-  EXPECT_DCHECK_DEATH(
-      FilterAnnotation(TestUuid(), kTaskType, "", kCreationTimestamp, {}));
+  EXPECT_DCHECK_DEATH(FilterAnnotation(TestUuid(), "",
+                                       kSourceHost, kCreationTimestamp, {}));
+  EXPECT_DCHECK_DEATH(FilterAnnotation(TestUuid(), kTaskType, "",
+                                       kCreationTimestamp, {}));
 }
 
 TEST(FilterAnnotationTest, FilterAttribute_ToString) {
@@ -64,12 +64,13 @@ TEST(FilterAnnotationTest, FilterAttribute_ToString) {
 
 TEST(FilterAnnotationTest, FilterAnnotation_ToString) {
   FilterAttribute attr(kKey1, kValue1);
-  FilterAnnotation annotation(TestUuid(), kTaskType, kSourceDomain,
+  FilterAnnotation annotation(TestUuid(), kTaskType, kSourceHost,
                               kCreationTimestamp, {attr});
 
   std::string expected =
       "FilterAnnotation(id=00000000-0000-0000-0000-000000000000, "
-      "task_type=task_type1, source_domain=domain1.com, "
+      "task_type=task_type1, "
+      "source_host=sub.domain1.com, "
       "creation_timestamp=" +
       base::NumberToString(
           kCreationTimestamp.ToDeltaSinceWindowsEpoch().InMicroseconds()) +

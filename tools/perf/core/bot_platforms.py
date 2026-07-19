@@ -11,11 +11,11 @@ import os
 import pathlib
 import io
 import shlex
+import urllib.parse
 
 
 from typing import Callable, Final, Iterable, Optional, Union
 
-import six.moves.urllib.parse  # pylint: disable=import-error
 
 from core import benchmark_finders
 from core import benchmark_utils
@@ -131,7 +131,7 @@ class _PerfPlatform(object):
     if self.pinpoint_only:
       return None
     return ('https://ci.chromium.org/p/chrome/builders/ci/%s' %
-            six.moves.urllib.parse.quote(self._name))
+            urllib.parse.quote(self._name))
 
 
 class BenchmarkConfig(object):
@@ -458,6 +458,18 @@ def _speedometer3_crossbench(estimated_runtime: int = 60,
                           flags=flags)
 
 
+@_register("speedometer3-turbolev.crossbench")
+def _speedometer3_turbolev_crossbench(estimated_runtime: int = 60,
+                                      flags: tuple[str, ...] = ()):
+  flags += ("--js-flags=--turbolev", )
+  return CrossbenchConfig(
+      "speedometer3-turbolev.crossbench",
+      "speedometer_3",
+      estimated_runtime=estimated_runtime,
+      flags=flags,
+  )
+
+
 @_register("speedometer3-turbolev_future.crossbench")
 def _speedometer3_turbolev_future_crossbench(estimated_runtime: int = 60,
                                              flags: tuple[str, ...] = ()):
@@ -553,6 +565,17 @@ def _motionmark1_3_crossbench(estimated_runtime: int = 360,
                           flags=flags)
 
 
+@_register('motionmark1.3-turbolev.crossbench')
+def _motionmark1_3_turbolev_crossbench(estimated_runtime: int = 360,
+                                       flags: tuple[str, ...] = ()):
+  flags += ('--js-flags=--turbolev', )
+  return CrossbenchConfig('motionmark1.3-turbolev.crossbench',
+                          'motionmark_1.3',
+                          estimated_runtime=estimated_runtime,
+                          flags=flags)
+
+
+
 @_register('motionmark_main.crossbench')
 def _motionmark_main_crossbench(estimated_runtime: int = 360,
                                 flags: tuple[str, ...] = ()):
@@ -627,6 +650,16 @@ def _jetstream_main_crossbench(estimated_runtime: int = 180,
                           flags=flags)
 
 
+@_register('jetstream3-turbolev.crossbench')
+def _jetstream3_turbolev_crossbench(estimated_runtime: int = 180,
+                                    flags: tuple[str, ...] = ()):
+  flags += ('--js-flags=--turbolev', )
+  return CrossbenchConfig('jetstream3-turbolev.crossbench',
+                          'jetstream_3',
+                          estimated_runtime=estimated_runtime,
+                          flags=flags)
+
+
 @_register('jetstream3-turbolev_future.crossbench')
 def _jetstream3_turbolev_future_crossbench(estimated_runtime: int = 180,
                                            flags: tuple[str, ...] = ()):
@@ -696,6 +729,16 @@ def _crossbench_gma_embedder(estimated_runtime: int = 900,
                           auto_enable_field_trials=False)
 
 
+@_register('shell.embedder.crossbench')
+def _crossbench_shell_embedder(estimated_runtime: int = 900,
+                            flags: tuple[str, ...] = ()):
+  return CrossbenchConfig('shell.embedder.crossbench',
+                          'embedder',
+                          estimated_runtime=estimated_runtime,
+                          flags=flags,
+                          auto_enable_field_trials=False)
+
+
 @_register('devtools_frontend.crossbench')
 def _devtools_frontend_crossbench(estimated_runtime: int = 60,
                                   flags: tuple[str, ...] = ()):
@@ -705,12 +748,23 @@ def _devtools_frontend_crossbench(estimated_runtime: int = 60,
                           flags=flags)
 
 
+@_register('blink-ai.crossbench')
+def _crossbench_blink_ai(estimated_runtime: int = 300,
+                         flags: tuple[str, ...] = ()):
+  return CrossbenchConfig('blink-ai.crossbench',
+                          'blink-ai',
+                          estimated_runtime=estimated_runtime,
+                          stories=('language_model', ),
+                          flags=flags,
+                          auto_enable_field_trials=False)
+
+
 PLATFORM_INFO = {
     'linux-perf': {
         'description': ('Ubuntu-22.04, Precision 3930 Rack, '
                         'NVIDIA GeForce GTX 1660'),
         'num_shards':
-        7,
+        4,
         'platform_os':
         'linux',
         'is_fyi':
@@ -903,7 +957,7 @@ PLATFORM_INFO = {
     },
     'android-pixel4-perf': {
         'description': 'Android R',
-        'num_shards': 44,
+        'num_shards': 38,
         'platform_os': 'android',
         'is_fyi': False
     },
@@ -916,13 +970,13 @@ PLATFORM_INFO = {
     },
     'android-pixel4_webview-perf': {
         'description': 'Android R',
-        'num_shards': 23,
+        'num_shards': 19,
         'platform_os': 'android',
         'is_fyi': False
     },
     'android-pixel4_webview-perf-pgo': {
         'description': 'Android R',
-        'num_shards': 20,
+        'num_shards': 12,
         'platform_os': 'android',
         'is_fyi': False
     },

@@ -54,8 +54,6 @@
 
 namespace autofill::payments {
 
-using IssuerId = autofill::BnplIssuer::IssuerId;
-
 BnplIssuerView::BnplIssuerView(
     base::WeakPtr<SelectBnplIssuerDialogController> controller,
     SelectBnplIssuerDialog* issuer_dialog)
@@ -91,8 +89,7 @@ void BnplIssuerView::PopulateIssuers() {
                            kTemporarilyEligibleCheckoutAmountNotYetKnown;
     const bool issuer_linked = issuer.payment_instrument().has_value();
     const std::pair<BnplIssuer::LightModeImageId, BnplIssuer::DarkModeImageId>
-        image_ids =
-            autofill::GetBnplIssuerIconIds(issuer.issuer_id(), issuer_linked);
+        image_ids = GetBnplIssuerIconIds(issuer.issuer_id(), issuer_linked);
     auto image_view = std::make_unique<views::ThemeTrackingImageView>(
         ui::ImageModel::FromResourceId(image_ids.first.value()),
         ui::ImageModel::FromResourceId(image_ids.second.value()),
@@ -107,11 +104,15 @@ void BnplIssuerView::PopulateIssuers() {
         views::Button::PressedCallback(base::BindRepeating(
             &BnplIssuerView::IssuerSelected, base::Unretained(this), issuer)),
         std::move(image_view), std::u16string(issuer.GetDisplayName()),
-        controller_->GetSelectionOptionText(issuer.issuer_id()), nullptr, true,
-        std::u16string(),
+        GetBnplIssuerSelectionOptionText(
+            issuer.issuer_id(), controller_->GetAppLocale(), issuer_contexts),
+        /*secondary_view=*/nullptr,
+        /*add_vertical_label_spacing=*/true,
+        /*footer=*/std::u16string(),
+        /*icon_label_spacing=*/
         layout_provider->GetDistanceMetric(
             views::DISTANCE_RELATED_LABEL_HORIZONTAL),
-        true);
+        /*multiline_subtitle=*/true);
     issuer_button->SetBorder(views::CreateEmptyBorder(
         gfx::Insets::VH(layout_provider->GetDistanceMetric(
                             views::DISTANCE_UNRELATED_CONTROL_VERTICAL),

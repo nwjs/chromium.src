@@ -132,7 +132,8 @@ WebAppToolbarButtonContainer::WebAppToolbarButtonContainer(
                       .WithWeight(0))
       .SetFlexAllocationOrder(views::FlexAllocationOrder::kReverse);
 
-  const auto* app_controller = browser_view_->browser()->app_controller();
+  const auto* app_controller =
+      web_app::AppBrowserController::From(browser_view_->browser());
 
   // App's origin will not be shown in the unframed mode, it will only be
   // visible in App Settings UI.
@@ -149,6 +150,7 @@ WebAppToolbarButtonContainer::WebAppToolbarButtonContainer(
   if (base::FeatureList::IsEnabled(features::kWebAppInstallDialog) &&
       app_controller->CanUserUninstall() &&
       !app_controller->IsPreinstalledOnly() &&
+      !app_controller->IsIsolatedWebApp() &&
       app_controller->IsFirstLaunchAfterInstall()) {
     auto* button = AddChildView(
         std::make_unique<WebAppUninstallToolbarButton>(base::BindRepeating(
@@ -178,7 +180,9 @@ WebAppToolbarButtonContainer::WebAppToolbarButtonContainer(
   }
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-  if (app_controller->AppUsesWindowControlsOverlay()) {
+  if (app_controller->AppUsesWindowControlsOverlay() &&
+      !base::FeatureList::IsEnabled(
+          features::kDesktopPWAsWindowControlsOverlayWithNoToggle)) {
     window_controls_overlay_toggle_button_ = AddChildView(
         std::make_unique<WindowControlsOverlayToggleButton>(browser_view_));
     views::SetHitTestComponent(window_controls_overlay_toggle_button_,
@@ -186,7 +190,7 @@ WebAppToolbarButtonContainer::WebAppToolbarButtonContainer(
     ConfigureWebAppToolbarButton(window_controls_overlay_toggle_button_,
                                  toolbar_button_provider_);
     window_controls_overlay_toggle_button_->SetVisible(
-        browser_view_->should_show_window_controls_overlay_toggle());
+        browser_view_->is_window_controls_overlay_available());
   }
 
   if (app_controller->HasTitlebarContentSettings()) {
@@ -460,8 +464,8 @@ void WebAppToolbarButtonContainer::FadeInContentSettingIcons() {
 }
 
 void WebAppToolbarButtonContainer::OnUninstallButtonClicked() {
-  browser_view_->browser()->app_controller()->Uninstall(
-      webapps::WebappUninstallSource::kToolbarPostInstall);
+  web_app::AppBrowserController::From(browser_view_->browser())
+      ->Uninstall(webapps::WebappUninstallSource::kToolbarPostInstall);
 }
 
 void WebAppToolbarButtonContainer::ChildPreferredSizeChanged(
@@ -525,7 +529,8 @@ void WebAppToolbarButtonContainer::AddedToWidget() {
 #if BUILDFLAG(IS_MAC)
 void WebAppToolbarButtonContainer::AppShimChanged(
     const webapps::AppId& changed_app_id) {
-  const auto* app_controller = browser_view_->browser()->app_controller();
+  const auto* app_controller =
+      web_app::AppBrowserController::From(browser_view_->browser());
   if (changed_app_id != app_controller->app_id()) {
     return;
   }

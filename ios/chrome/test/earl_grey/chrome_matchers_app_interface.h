@@ -808,17 +808,14 @@
 // Returns a matcher for the button to accept the generated password.
 + (id<GREYMatcher>)useSuggestedPasswordMatcher;
 
-#pragma mark - Tab Grid Edit Mode
+#pragma mark - Tab Grid Overflow Menu
 
-// Returns a matcher for the button to open the context menu for edit actions.
-+ (id<GREYMatcher>)tabGridEditButton;
+// Returns a matcher for the overflow menu button to close all tabs.
++ (id<GREYMatcher>)tabGridOverflowMenuCloseAllButton;
 
-// Returns a matcher for the context menu button to close all tabs.
-+ (id<GREYMatcher>)tabGridEditMenuCloseAllButton;
-
-// Returns a matcher for the context menu button to enter the tab grid tab
+// Returns a matcher for the overflow menu button to enter the tab grid tab
 // selection mode.
-+ (id<GREYMatcher>)tabGridSelectTabsMenuButton;
++ (id<GREYMatcher>)tabGridOverflowMenuSelectTabsButton;
 
 // Returns a matcher for the button to act on the selected tabs.
 + (id<GREYMatcher>)tabGridEditAddToButton;

@@ -57,6 +57,7 @@
 #include "services/network/public/mojom/integrity_policy.mojom-blink.h"
 #include "services/network/public/mojom/no_vary_search.mojom-blink-forward.h"
 #include "services/network/public/mojom/no_vary_search.mojom-blink.h"
+#include "services/network/public/mojom/origin_or_wildcard_header_value.mojom-blink.h"
 #include "services/network/public/mojom/parsed_headers.mojom-blink.h"
 #include "services/network/public/mojom/sri_message_signature.mojom-blink.h"
 #include "services/network/public/mojom/supports_loading_mode.mojom-blink.h"
@@ -244,20 +245,21 @@ blink::ContentSecurityPolicyPtr ConvertToBlink(
       ConvertToBlink(in->trusted_types), ConvertToBlink(in->parsing_errors));
 }
 
-blink::AllowCSPFromHeaderValuePtr ConvertToBlink(
-    const AllowCSPFromHeaderValuePtr& allow_csp_from) {
-  if (!allow_csp_from)
+blink::OriginOrWildcardHeaderValuePtr ConvertToBlink(
+    const OriginOrWildcardHeaderValuePtr& header_value) {
+  if (!header_value) {
     return nullptr;
-  switch (allow_csp_from->which()) {
-    case AllowCSPFromHeaderValue::Tag::kAllowStar:
-      return blink::AllowCSPFromHeaderValue::NewAllowStar(
-          allow_csp_from->get_allow_star());
-    case AllowCSPFromHeaderValue::Tag::kOrigin:
-      return blink::AllowCSPFromHeaderValue::NewOrigin(
-          ConvertToBlink(allow_csp_from->get_origin()));
-    case AllowCSPFromHeaderValue::Tag::kErrorMessage:
-      return blink::AllowCSPFromHeaderValue::NewErrorMessage(
-          ConvertToBlink(allow_csp_from->get_error_message()));
+  }
+  switch (header_value->which()) {
+    case OriginOrWildcardHeaderValue::Tag::kAllowStar:
+      return blink::OriginOrWildcardHeaderValue::NewAllowStar(
+          header_value->get_allow_star());
+    case OriginOrWildcardHeaderValue::Tag::kOrigin:
+      return blink::OriginOrWildcardHeaderValue::NewOrigin(
+          ConvertToBlink(header_value->get_origin()));
+    case OriginOrWildcardHeaderValue::Tag::kErrorMessage:
+      return blink::OriginOrWildcardHeaderValue::NewErrorMessage(
+          ConvertToBlink(header_value->get_error_message()));
   }
 }
 
@@ -393,6 +395,7 @@ blink::ParsedHeadersPtr ConvertToBlink(const ParsedHeadersPtr& in) {
   return blink::ParsedHeaders::New(
       ConvertToBlink(in->content_security_policy),
       ConvertToBlink(in->allow_csp_from), in->connection_allowlists,
+      ConvertToBlink(in->allow_connection_allowlist_from),
       in->cross_origin_embedder_policy, in->cross_origin_opener_policy,
       in->document_isolation_policy, in->integrity_policy,
       in->integrity_policy_report_only, in->origin_agent_cluster,
@@ -610,48 +613,32 @@ std::optional<base::Time> ParseDate(const String& value) {
   return parsed_time;
 }
 
+// Extracts the MIME type from a Content-Type/media-type header value.
+//
+// This function delegates parsing to net::HttpUtil::ParseContentType (which
+// internally calls net::ParseMimeType) for parity with the network process.
+// See net::ParseMimeType for how invalid inputs are handled.
 AtomicString ExtractMIMETypeFromMediaType(const AtomicString& media_type) {
-  unsigned length = media_type.length();
-
-  unsigned pos = 0;
-
-  while (pos < length) {
-    UChar c = media_type[pos];
-    if (c != '\t' && c != ' ')
-      break;
-    ++pos;
-  }
-
-  if (pos == length)
+  if (media_type.empty()) {
     return media_type;
-
-  unsigned type_start = pos;
-
-  unsigned type_end = pos;
-  while (pos < length) {
-    UChar c = media_type[pos];
-
-    // While RFC 2616 does not allow it, other browsers allow multiple values in
-    // the HTTP media type header field, Content-Type. In such cases, the media
-    // type string passed here may contain the multiple values separated by
-    // commas. For now, this code ignores text after the first comma, which
-    // prevents it from simply failing to parse such types altogether.  Later
-    // for better compatibility we could consider using the first or last valid
-    // MIME type instead.
-    // See https://bugs.webkit.org/show_bug.cgi?id=25352 for more discussion.
-    if (c == ',' || c == ';')
-      break;
-
-    if (c != '\t' && c != ' ')
-      type_end = pos + 1;
-
-    ++pos;
   }
 
-  // Use a StringView to create an AtomicString here so we do not allocate an
-  // intermediate string.
-  return AtomicString(
-      StringView(media_type, type_start, type_end - type_start));
+  std::string media_type_std = media_type.Utf8();
+  std::string mime_type;
+  std::string charset;
+  bool had_charset = false;
+
+  net::HttpUtil::ValuesIterator it(media_type_std, ',',
+                                   /*ignore_empty_values=*/true);
+  while (it.GetNext()) {
+    net::HttpUtil::ParseContentType(it.value(), &mime_type, &charset,
+                                    &had_charset, /*boundary=*/nullptr);
+  }
+
+  if (mime_type.empty()) {
+    return g_empty_atom;
+  }
+  return AtomicString::FromUtf8(mime_type);
 }
 
 bool IsHTTPTabOrSpace(UChar c) {

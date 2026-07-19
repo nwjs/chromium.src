@@ -13,11 +13,9 @@
 namespace multistep_filter {
 
 ExtractTaskAttributesResponse CreateExtractTaskAttributesResponse(
-    const std::string& domain,
     const std::string& task_type,
     const std::vector<std::pair<std::string, std::string>>& attributes) {
   ExtractTaskAttributesResponse response;
-  response.set_domain(domain);
   response.set_task_type(task_type);
   for (const auto& attribute : attributes) {
     auto* attr = response.add_task_attributes();
@@ -54,6 +52,11 @@ GetTaskExecutionStrategiesResponse CreateTaskExecutionStrategiesResponse(
   auto* execution = new TaskExecution();
   execution->set_allocated_url_navigation(url_nav);
   strategy->set_allocated_execution(execution);
+
+  auto* suggestion_msg = strategy->mutable_suggestion_message();
+  suggestion_msg->set_short_text("Template");
+  suggestion_msg->set_detailed_text("Template");
+
   return response;
 }
 

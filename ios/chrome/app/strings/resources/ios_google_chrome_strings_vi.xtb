@@ -61,6 +61,7 @@ Những yếu tố cần xem xét:
 <translation id="2120238739383482109">Mở dấu trang trên Chrome.</translation>
 <translation id="2147651015520127414">Chrome xác minh <ph name="ISSUER" /> đã cấp chứng chỉ của trang web này.</translation>
 <translation id="2199719347983604670">Dữ liệu từ Chrome Sync</translation>
+<translation id="2212318912894837281">Nhập cụm mật khẩu để lưu mật khẩu này và lấy dữ liệu Chrome trên mọi thiết bị của bạn</translation>
 <translation id="2213327331203157297">Để vô hiệu hoá Chế độ khoá trong Chrome, hãy tắt chế độ này trên iPhone của bạn.</translation>
 <translation id="2242467532204595597">Dùng Chrome bất cứ lúc nào bạn nhấn vào đường liên kết trong thư/tin nhắn, tài liệu và các ứng dụng khác.</translation>
 <translation id="2256384876478573507">Mở Chrome nhanh hơn khi bạn muốn duyệt web trên iPhone.</translation>
@@ -218,7 +219,7 @@ Hãy thử đợi ít phút rồi chuyển đổi tài khoản. Nếu bạn chuy
 <translation id="6145223986912084844">chrome</translation>
 <translation id="6177442314419606057">Tìm trong Chrome</translation>
 <translation id="6181652351336379338">Tìm kiếm hình ảnh trong Chrome.</translation>
-<translation id="6187085551300363958">Mẹo khi dùng Chrome: Lưu mật khẩu</translation>
+<translation id="6187085551300363958">Mẹo dùng Chrome: Lưu mật khẩu</translation>
 <translation id="6200694931081795166">Cách đặt Chrome làm trình duyệt mặc định:
   1. Mở phần Cài đặt
   2. Nhấn vào Ứng dụng trình duyệt mặc định
@@ -297,7 +298,7 @@ Dữ liệu của bạn được mã hoá bằng cụm mật khẩu. Nhập cụ
 <translation id="7617512710641355143">Chrome được quản lý</translation>
 <translation id="7626032353295482388">Chào mừng bạn đến với Chrome</translation>
 <translation id="7634397654061173327">Để sử dụng các tính năng đảm bảo an toàn cho trẻ trong Chrome, bạn có thể dùng một Tài khoản Google được thiết lập cho trẻ hoặc dùng Chrome mà không cần tài khoản.</translation>
-<translation id="7641448682796883218">Mẹo khi dùng Chrome: Duyệt web an toàn có tăng cường bảo vệ</translation>
+<translation id="7641448682796883218">Mẹo dùng Chrome: Duyệt web an toàn có tăng cường bảo vệ</translation>
 <translation id="7642373780953416937">Nhận cảnh báo về mọi vấn đề liên quan đến quyền riêng tư hoặc bảo mật mà Chrome tự động phát hiện ra.</translation>
 <translation id="7660356333829433649">Quay lại đây để xem thêm các mẹo hữu ích giúp khai thác tối đa Chrome.</translation>
 <translation id="7662994914830945754">Để xem các thẻ của bạn trên bất cứ thiết bị nào mà bạn có dùng Chrome, hãy đăng nhập và bật tính năng đồng bộ hóa</translation>
@@ -371,6 +372,7 @@ Dữ liệu của bạn đã được mã hoá bằng cụm mật khẩu vào <p
 <translation id="9068336935206019333">Mở trong chế độ ẩn danh của Chrome</translation>
 <translation id="9082304295862405388">Gemini có thể sử dụng vị trí chính xác của bạn, tuỳ thuộc vào quyền bạn đã cấp cho Chrome</translation>
 <translation id="909127538042363610">Sử dụng chế độ bảo mật mạnh nhất của Chrome</translation>
+<translation id="9113725809421872108">Xác minh danh tính để lưu mật khẩu này và lấy dữ liệu Chrome trên mọi thiết bị của bạn</translation>
 <translation id="9122931302567044771">Tức là lần nào Chrome cũng yêu cầu trang web dành cho máy tính.</translation>
 <translation id="9176561303811134420">Quản lý phương thức thanh toán trong Chrome</translation>
 <translation id="9181628561061032322">Mở các thẻ gần đây trong Chrome.</translation>

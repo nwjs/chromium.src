@@ -17,6 +17,7 @@
 #include "chrome/browser/ui/views/page_action/multi_icon_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_ink_drop_util.h"
 #include "chrome/grit/branded_strings.h"
+#include "chrome/grit/generated_resources.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
 #include "ui/accessibility/ax_enums.mojom.h"
@@ -32,6 +33,8 @@
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/text_constants.h"
 #include "ui/menus/simple_menu_model.h"
+#include "ui/views/accessibility/view_accessibility.h"
+#include "ui/views/border.h"
 #include "ui/views/bubble/bubble_border.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/button/image_button.h"
@@ -52,7 +55,7 @@ namespace page_actions {
 const int kChipContainerHeight = 36;
 const int kChipIconSize = 20;
 const int kAnchoredMessageHeight = 52;
-const gfx::Insets kAnchoredMessageMarginsInset = gfx::Insets::TLBR(8, 16, 8, 9);
+const int kAnchoredMessageLeftInset = 16;
 const gfx::Insets kAnchoredMessageIconMarginsInset =
     gfx::Insets::TLBR(0, 0, 0, 12);
 const int kAnchoredMessageIconSize = 18;
@@ -144,11 +147,12 @@ AnchoredMessageBubbleView::AnchoredMessageBubbleView(
                            true),
       menu_model_(model.GetAnchoredMessageMenuModel()),
       delegate_(delegate) {
+  set_close_on_deactivate(false);
   SetProperty(views::kElementIdentifierKey, kAnchoredMessageBubbleId);
   SetButtons(static_cast<int>(ui::mojom::DialogButton::kNone));
   SetBackgroundColor(ui::kColorSysSurface);
   set_corner_radius(kAnchoredMessageHeight / 2);
-  set_margins(kAnchoredMessageMarginsInset);
+  set_margins(gfx::Insets());
 
   auto* animating_layout =
       SetLayoutManager(std::make_unique<views::AnimatingLayoutManager>());
@@ -163,6 +167,8 @@ AnchoredMessageBubbleView::AnchoredMessageBubbleView(
   layout->SetCrossAxisAlignment(views::LayoutAlignment::kStretch);
 
   top_row_ = AddChildView(std::make_unique<views::View>());
+  top_row_->SetBorder(views::CreateEmptyBorder(
+      gfx::Insets::TLBR(8, kAnchoredMessageLeftInset, 8, 9)));
   auto* top_row_layout =
       top_row_->SetLayoutManager(std::make_unique<views::FlexLayout>());
   top_row_layout->SetOrientation(views::LayoutOrientation::kHorizontal);
@@ -200,11 +206,12 @@ AnchoredMessageBubbleView::AnchoredMessageBubbleView(
       std::make_unique<views::ImageButton>(base::BindRepeating(
           &AnchoredMessageBubbleView::Delegate::CloseAnchoredMessage,
           base::Unretained(delegate_))));
+  close_button_->SetFocusBehavior(views::View::FocusBehavior::ALWAYS);
   close_button_->SetImageModel(
       views::Button::STATE_NORMAL,
       ui::ImageModel::FromVectorIcon(
           features::IsRoundedIconsEnabled()
-              ? vector_icons::kCloseSmallIcon
+              ? vector_icons::kCloseIcon
               : vector_icons::kCloseChromeRefreshOldIcon,
           ui::kColorIcon, kAnchoredMessageIconSize));
   close_button_->SetTooltipText(l10n_util::GetStringUTF16(IDS_CLOSE));
@@ -216,6 +223,7 @@ AnchoredMessageBubbleView::AnchoredMessageBubbleView(
   menu_button_ = top_row_->AddChildView(std::make_unique<views::MenuButton>(
       base::BindRepeating(&AnchoredMessageBubbleView::MenuButtonPressed,
                           base::Unretained(this))));
+  menu_button_->SetFocusBehavior(views::View::FocusBehavior::ALWAYS);
   ConfigureInkDrop(menu_button_);
   menu_button_->SetTooltipText(
       l10n_util::GetStringUTF16(IDS_ANCHORED_MESSAGE_MENU_TOOLTIP));
@@ -234,7 +242,7 @@ AnchoredMessageBubbleView::AnchoredMessageBubbleView(
   bottom_container_->SetProperty(views::kElementIdentifierKey,
                                  kAnchoredMessageExpandedContentId);
   bottom_container_->SetLayoutManager(std::make_unique<views::BoxLayout>(
-      views::BoxLayout::Orientation::kVertical, gfx::Insets(), 8));
+      views::BoxLayout::Orientation::kVertical, gfx::Insets(), 0));
   bottom_container_->SetVisible(false);
 
   UpdateContent(model);
@@ -306,30 +314,61 @@ void AnchoredMessageBubbleView::UpdateContent(
       }
     }
     expand_button_->Update(icons);
+    expand_button_tooltip_override_ = expandable_content->expand_button_tooltip;
+    collapse_button_tooltip_override_ =
+        expandable_content->collapse_button_tooltip;
+
+    if (expandable_content->expand_button_accessible_name) {
+      expand_button_->GetViewAccessibility().SetName(
+          *expandable_content->expand_button_accessible_name);
+    }
+    UpdateExpandButtonTooltip();
     expand_button_->SetVisible(true);
 
     bottom_container_->RemoveAllChildViews();
 
     auto* separator =
         bottom_container_->AddChildView(std::make_unique<views::Separator>());
-    separator->SetProperty(views::kMarginsKey, gfx::Insets::VH(8, 0));
+    separator->SetProperty(views::kMarginsKey, gfx::Insets::TLBR(0, 0, 6, 0));
+
+    auto* items_container =
+        bottom_container_->AddChildView(std::make_unique<views::View>());
+    items_container->SetLayoutManager(std::make_unique<views::BoxLayout>(
+        views::BoxLayout::Orientation::kVertical,
+        gfx::Insets::TLBR(0, kAnchoredMessageLeftInset, 8, 12), 0));
 
     if (expandable_content->heading) {
-      auto* title_label = bottom_container_->AddChildView(
+      auto* heading_row =
+          items_container->AddChildView(std::make_unique<views::View>());
+      auto* heading_layout =
+          heading_row->SetLayoutManager(std::make_unique<views::BoxLayout>(
+              views::BoxLayout::Orientation::kHorizontal, gfx::Insets(), 8));
+      heading_layout->set_cross_axis_alignment(
+          views::BoxLayout::CrossAxisAlignment::kCenter);
+      heading_layout->set_minimum_cross_axis_size(32);
+
+      auto* title_label = heading_row->AddChildView(
           std::make_unique<views::Label>(*expandable_content->heading));
       title_label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
       title_label->SetTextStyle(views::style::STYLE_BODY_4_MEDIUM);
       title_label->SetEnabledColor(ui::kColorSysOnSurface);
+      title_label->SetElideBehavior(gfx::ELIDE_TAIL);
+      // Set width to 0 so the text will fill available space, but not stretch
+      // the bubble.
+      title_label->SetPreferredSize(
+          gfx::Size(0, title_label->GetPreferredSize().height()));
+      heading_layout->SetFlexForView(title_label, 1);
     }
 
     for (const auto& item : expandable_content->items) {
       auto* item_row =
-          bottom_container_->AddChildView(std::make_unique<views::View>());
+          items_container->AddChildView(std::make_unique<views::View>());
       auto* item_layout =
           item_row->SetLayoutManager(std::make_unique<views::BoxLayout>(
               views::BoxLayout::Orientation::kHorizontal, gfx::Insets(), 8));
       item_layout->set_cross_axis_alignment(
           views::BoxLayout::CrossAxisAlignment::kCenter);
+      item_layout->set_minimum_cross_axis_size(32);
 
       if (item.icon) {
         auto* item_icon =
@@ -337,6 +376,8 @@ void AnchoredMessageBubbleView::UpdateContent(
         item_icon->SetImage(item.icon.value());
         item_icon->SetImageSize(
             gfx::Size(kAnchoredMessageIconSize, kAnchoredMessageIconSize));
+        // Mark the favicon/icon as decorative since the text describes it.
+        item_icon->GetViewAccessibility().SetIsIgnored(true);
       }
 
       auto* item_label =
@@ -345,8 +386,12 @@ void AnchoredMessageBubbleView::UpdateContent(
       item_label->SetTextStyle(views::style::STYLE_BODY_4);
       item_label->SetEnabledColor(ui::kColorSysOnSurface);
       item_label->SetMultiLine(false);
-      item_label->SetMaximumWidthSingleLine(450);
       item_label->SetElideBehavior(gfx::ELIDE_TAIL);
+      // Set width to 0 so the text will fill available space, but not stretch
+      // the bubble.
+      item_label->SetPreferredSize(
+          gfx::Size(0, item_label->GetPreferredSize().height()));
+      item_layout->SetFlexForView(item_label, 1);
     }
   } else {
     expand_button_->SetVisible(false);
@@ -372,7 +417,7 @@ void AnchoredMessageBubbleView::OnThemeChanged() {
         views::Button::STATE_NORMAL,
         ui::ImageModel::FromVectorIcon(
             features::IsRoundedIconsEnabled()
-                ? vector_icons::kCloseSmallIcon
+                ? vector_icons::kCloseIcon
                 : vector_icons::kCloseChromeRefreshOldIcon,
             color_provider->GetColor(ui::kColorSysOnSurfaceVariant),
             kAnchoredMessageIconSize));
@@ -390,7 +435,7 @@ void AnchoredMessageBubbleView::OnThemeChanged() {
 }
 
 bool AnchoredMessageBubbleView::CanActivate() const {
-  return false;  // This widget should not take focus
+  return true;  // Needed for the widget buttons to work on Windows
 }
 
 views::View* AnchoredMessageBubbleView::GetContentsView() {
@@ -412,6 +457,7 @@ AnchoredMessageBubbleView::~AnchoredMessageBubbleView() {
 void AnchoredMessageBubbleView::OnExpandButtonPressed() {
   expanded_ = !expanded_;
   bottom_container_->SetVisible(expanded_);
+  UpdateExpandButtonTooltip();
   SizeToContents();
   if (expanded_) {
     delegate_->AnchoredMessageExpanded();
@@ -451,6 +497,32 @@ void AnchoredMessageBubbleView::OnWidgetDestroying(views::Widget* widget) {
   }
   menu_runner_ = nullptr;
   BubbleDialogDelegate::OnWidgetDestroying(widget);
+}
+
+void AnchoredMessageBubbleView::UpdateExpandButtonTooltip() {
+  if (!expand_button_) {
+    return;
+  }
+  std::u16string tooltip_text;
+  if (expanded_) {
+    tooltip_text = collapse_button_tooltip_override_
+                       ? *collapse_button_tooltip_override_
+                       : l10n_util::GetStringUTF16(
+                             IDS_ANCHORED_MESSAGE_COLLAPSE_BUTTON_TOOLTIP);
+  } else {
+    tooltip_text = expand_button_tooltip_override_
+                       ? *expand_button_tooltip_override_
+                       : l10n_util::GetStringUTF16(
+                             IDS_ANCHORED_MESSAGE_EXPAND_BUTTON_TOOLTIP);
+  }
+  expand_button_->SetTooltipText(tooltip_text);
+
+  // Set the semantic expanded state.
+  if (expanded_) {
+    expand_button_->GetViewAccessibility().SetIsExpanded();
+  } else {
+    expand_button_->GetViewAccessibility().SetIsCollapsed();
+  }
 }
 
 BEGIN_METADATA(AnchoredMessageBubbleView)

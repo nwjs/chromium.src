@@ -49,8 +49,14 @@ class TabModalDialogHost : public web_modal::WebContentsModalDialogHost,
                              const gfx::Rect& new_bounds) override;
 
  private:
-  int GetDialogYCoordinate();
+  // The y-coordinate for modal dialogs on tabs that are not the bottom tab of
+  // a split. This the bottom of the toolbar, minus a small overlap.
+  int GetToolbarOverlappingYCoordinate();
+
+  int GetDialogYCoordinate(int contents_container_view_y, int dialog_height);
   void NotifyPositionRequiresUpdate();
+
+  bool IsBottomTabInSplit();
 
   const raw_ptr<BrowserView> browser_view_;
   const raw_ptr<ContentsContainerView> contents_container_view_;

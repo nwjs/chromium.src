@@ -77,6 +77,12 @@ const TAG_DESC = 'DESC';
 const TAG_TITLE = 'TITLE';
 const TAG_CANVAS = 'CANVAS';
 const TAG_VIDEO = 'VIDEO';
+const TAG_METADATA = 'METADATA';
+const TAG_DEFS = 'DEFS';
+const TAG_SYMBOL = 'SYMBOL';
+const TAG_MASK = 'MASK';
+const TAG_CLIPPATH = 'CLIPPATH';
+const TAG_PATTERN = 'PATTERN';
 
 // Common tags.
 const TAG_IFRAME = 'IFRAME';
@@ -142,6 +148,12 @@ const TAGS_TO_REJECT = [
   TAG_CAPTION,
   TAG_DESC,
   TAG_TITLE,
+  TAG_METADATA,
+  TAG_DEFS,
+  TAG_SYMBOL,
+  TAG_MASK,
+  TAG_CLIPPATH,
+  TAG_PATTERN,
 ];
 
 // Tags that should be strictly rejected if they are invisible,
@@ -3441,8 +3453,8 @@ export function extractAnnotatedPageContent(
   }
 
   const documentWindow = document.defaultView;
-  if (!documentWindow) {
-    // A document without a window doesn't have any value.
+  if (!documentWindow || !document.documentElement) {
+    // A document without a window or root has no content to extract.
     return null;
   }
 

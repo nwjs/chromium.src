@@ -34,8 +34,6 @@
 #include "third_party/blink/public/mojom/input/ime_host.mojom.h"
 #include "third_party/blink/public/mojom/input/stylus_writing_gesture.mojom.h"
 #include "third_party/blink/public/platform/web_text_input_type.h"
-#include "ui/base/ime/ime_text_span.h"
-#include "ui/base/ime/mojom/ime_types_mojom_traits.h"
 
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "content/public/android/content_jni_headers/ImeAdapterImpl_jni.h"
@@ -507,6 +505,16 @@ void ImeAdapterAndroid::HandleStylusWritingGestureAction(
       std::move(gesture_data),
       base::BindOnce(&ImeAdapterAndroid::OnStylusWritingGestureActionCompleted,
                      weak_factory_.GetWeakPtr(), id));
+}
+
+void ImeAdapterAndroid::CancelPreviewGesture() {
+  blink::mojom::FrameWidgetInputHandler* input_handler =
+      GetFocusedFrameWidgetInputHandler();
+  if (!input_handler) {
+    return;
+  }
+
+  input_handler->CancelStylusGesturePreview();
 }
 
 void ImeAdapterAndroid::OnStylusWritingGestureActionCompleted(

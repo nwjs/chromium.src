@@ -6,6 +6,7 @@
 
 #import "base/metrics/field_trial_params.h"
 #import "base/time/time.h"
+#import "components/omnibox/common/omnibox_features.h"
 
 BASE_FEATURE(kComposeboxDevTools, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -56,7 +57,7 @@ bool ShowComposeboxAdditionalAdvancedTools() {
   return base::FeatureList::IsEnabled(kComposeboxAdditionalAdvancedTools);
 }
 
-BASE_FEATURE(kComposeboxCompactMode, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kComposeboxCompactMode, base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool ShowDeepSearchTool() {
   return base::FeatureList::IsEnabled(kComposeboxDeepSearch);
@@ -112,4 +113,16 @@ GetComposeboxConditionalPlusButtonVariant() {
 
 bool IsComposeboxConditionalPlusButtonEnabled() {
   return base::FeatureList::IsEnabled(kComposeboxConditionalPlusButton);
+}
+
+bool IsComposeboxDriveOptionEnabled() {
+  return base::FeatureList::IsEnabled(
+      omnibox::kComposeboxDriveContextMenuOption);
+}
+
+BASE_FEATURE(kComposeboxPhysicalKeyboardReturnKeys,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsComposeboxPhysicalKeyboardReturnKeysEnabled() {
+  return base::FeatureList::IsEnabled(kComposeboxPhysicalKeyboardReturnKeys);
 }

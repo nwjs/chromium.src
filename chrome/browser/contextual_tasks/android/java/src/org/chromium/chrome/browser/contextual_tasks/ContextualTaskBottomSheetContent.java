@@ -27,7 +27,7 @@ public class ContextualTaskBottomSheetContent extends TabBottomSheetContent {
      * @param backgroundColor The background color for the bottom sheet.
      * @param peekViewHeight The height of the peek view in pixels.
      * @param peekViewContainerId The resource ID for the peek view container.
-     * @param emptyPlaceholderContainerId The resource ID for the empty placeholder container.
+     * @param onBackPressed Callback run when the back button/swipe is triggered.
      */
     public ContextualTaskBottomSheetContent(
             View contentView,
@@ -35,14 +35,14 @@ public class ContextualTaskBottomSheetContent extends TabBottomSheetContent {
             @ColorInt int backgroundColor,
             @Px int peekViewHeight,
             @IdRes int peekViewContainerId,
-            @IdRes int emptyPlaceholderContainerId) {
+            Runnable onBackPressed) {
         super(
                 contentView,
                 fullHeightRatio,
                 backgroundColor,
                 peekViewHeight,
                 peekViewContainerId,
-                emptyPlaceholderContainerId);
+                onBackPressed);
     }
 
     @Override

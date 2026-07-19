@@ -135,7 +135,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.Android.ImageMemorySizeInKB" units="KB"
-    expires_after="2026-05-31">
+    expires_after="2027-05-31">
   <owner>peilinwang@google.com</owner>
   <owner>clank-performance-team@google.com</owner>
   <summary>
@@ -561,7 +561,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.Cros.Actions.{NotificationAction}"
-    enum="NotificationTypeDetailed" expires_after="2026-09-13">
+    enum="NotificationTypeDetailed" expires_after="2026-11-29">
   <owner>newcomer@chromium.org</owner>
   <owner>cros-status-area-eng@google.com</owner>
   <summary>
@@ -769,7 +769,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.Engagement.{Type}.Volume{Volume}"
-    units="site-engagement-score*2" expires_after="2026-10-11">
+    units="site-engagement-score*2" expires_after="2026-12-16">
   <owner>antoniosartori@chromium.org</owner>
   <owner>feuunk@chromium.org</owner>
   <summary>
@@ -1102,7 +1102,7 @@ chromium-metrics-reviews@google.com.
 <histogram
     name="Notifications.Scheduler.NotificationLifeCycleEvent{NotificationSchedulerClientType}"
     enum="NotificationSchedulerNotificationLifeCycleEvent"
-    expires_after="2026-10-11">
+    expires_after="2026-12-13">
   <owner>shaktisahu@chromium.org</owner>
   <owner>nyquist@chromium.org</owner>
   <summary>
@@ -1129,7 +1129,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Notifications.Scheduler.Tips.FeatureTypeAction{NotificationTipsFeatureType}"
-    enum="NotificationSchedulerUserActionType" expires_after="2026-10-11">
+    enum="NotificationSchedulerUserActionType" expires_after="2026-12-16">
   <owner>wylieb@google.com</owner>
   <owner>bjfong@google.com</owner>
   <summary>
@@ -1152,7 +1152,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Notifications.Scheduler.Tips.FeatureTypeShown"
-    enum="TipsNotificationsFeatureType" expires_after="2026-10-11">
+    enum="TipsNotificationsFeatureType" expires_after="2026-12-16">
   <owner>wylieb@google.com</owner>
   <owner>bjfong@google.com</owner>
   <summary>
@@ -1164,7 +1164,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Notifications.Tips.FeatureTipPromo.EventType{NotificationTipsFeatureType}"
-    enum="TipsNotificationsFeatureTipPromoEventType" expires_after="2026-10-11">
+    enum="TipsNotificationsFeatureTipPromoEventType" expires_after="2026-12-16">
   <owner>wylieb@google.com</owner>
   <owner>bjfong@google.com</owner>
   <summary>
@@ -1187,15 +1187,16 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
-<histogram name="Notifications.Tips.OptInPromo.EventType"
+<histogram name="Notifications.Tips.OptInPromo.EventType2"
     enum="TipsNotificationsOptInPromoEventType" expires_after="2026-10-11">
   <owner>wylieb@google.com</owner>
   <owner>bjfong@google.com</owner>
   <summary>
     Records the event type for user actions on the Tips Opt In Promo. This is
-    recorded on show, on promo acceptance, and on promo ignore. Ignoring the
-    promo includes dismissal by scrim touch, backpress and swipe away and
-    includes the close button on the promo. This is for Android only.
+    recorded on show, on promo acceptance, on promo decline, and on promo
+    ignore. Declining the promo includes clicking the negative button. Ignoring
+    the promo includes dismissal by scrim touch, backpress, and swipe away. This
+    is for Android only.
   </summary>
 </histogram>
 

@@ -11,15 +11,23 @@
 #include "base/no_destructor.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/test/scoped_feature_list.h"
 #include "chrome/browser/autocomplete/autocomplete_classifier_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/search/search.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/location_bar/location_bar.h"
+#include "chrome/browser/ui/omnibox/omnibox_view.h"
+#include "chrome/browser/ui/search/instant_test_base.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/common/url_constants.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/omnibox/common/omnibox_features.h"
+#include "components/search/ntp_features.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/ssl_status.h"
 #include "content/public/common/content_constants.h"
@@ -27,6 +35,7 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_utils.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "ui/gfx/text_elider.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -262,9 +271,24 @@ IN_PROC_BROWSER_TEST_F(LocationBarModelTest, ShouldElideLongURLs) {
   NavigateAndCheckElided(GURL(std::string("data:abc") + long_text));
 }
 
-// Regression test for crbug.com/40553422.
+// Regression tests for crbug.com/40553422 (and crbug.com/517847434).
+//
+// Chromium supports two NTP architectures and the omnibox-text refresh
+// behavior on navigation differs between them, so both need coverage:
+//
+//   - WebUI NTP (e.g., chrome://new-tab-page): renderer-initiated link
+//     clicks from this scheme are forked to the browser via OpenURL.
+//   - Remote NTP (custom search provider whose new_tab_url is served at
+//     a non-WebUI scheme such as HTTPS): renderer-initiated link clicks
+//     stay on the regular BeginNavigation IPC path.
+//
+// The two tests below exercise each architecture. Both should leave the
+// omnibox showing the destination URL while the navigation is pending.
+
 IN_PROC_BROWSER_TEST_F(LocationBarModelTest,
-                       ShouldDisplayURLWhileNavigatingAwayFromNTP) {
+                       ShouldDisplayURLWhileNavigatingAwayFromWebUiNTP) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+
   LocationBarModel* location_bar_model =
       browser()->GetFeatures().location_bar_model();
 
@@ -273,22 +297,186 @@ IN_PROC_BROWSER_TEST_F(LocationBarModelTest,
   ASSERT_FALSE(location_bar_model->ShouldDisplayURL());
   ASSERT_TRUE(location_bar_model->GetFormattedFullURL().empty());
 
-  const std::string other_url = "https://www.foo.com";
+  OmniboxView* omnibox_view =
+      BrowserWindow::FromBrowser(browser())->GetLocationBar()->GetOmniboxView();
+  ASSERT_TRUE(omnibox_view);
 
-  // Start loading another page. Its URL should be displayed, even though the
-  // current page is still the NTP.
-  content::NavigationController* controller =
-      &browser()->tab_strip_model()->GetActiveWebContents()->GetController();
-  controller->LoadURL(GURL(other_url), content::Referrer(),
-                      ui::PAGE_TRANSITION_LINK, std::string());
-  EXPECT_TRUE(location_bar_model->ShouldDisplayURL());
-  EXPECT_EQ(base::ASCIIToUTF16(other_url),
-            location_bar_model->GetFormattedFullURL());
+  content::WebContents* ntp_tab =
+      browser()->tab_strip_model()->GetActiveWebContents();
 
-  // Of course the same should still hold after committing.
-  content::WaitForLoadStop(
-      browser()->tab_strip_model()->GetActiveWebContents());
+  // Inject and click an anchor in the NTP renderer. /hung keeps the
+  // pending navigation open so we can inspect the omnibox before commit.
+  GURL slow_url(embedded_test_server()->GetURL("/hung"));
+  const char* kNavScriptTemplate = R"(
+      var a = document.createElement('a');
+      a.href = $1;
+      a.innerText = 'Simulated most-visited link';
+      document.body.appendChild(a);
+      a.click();
+  )";
+  content::TestNavigationManager nav_manager(ntp_tab, slow_url);
+  ASSERT_TRUE(content::ExecJs(
+      ntp_tab, content::JsReplace(kNavScriptTemplate, slow_url)));
+  ASSERT_TRUE(nav_manager.WaitForRequestStart());
+
+  // The visible entry should now point at slow_url; the NTP entry is the
+  // last committed one.
+  content::NavigationEntry* pending_entry =
+      ntp_tab->GetController().GetPendingEntry();
+  ASSERT_TRUE(pending_entry);
+  EXPECT_EQ(slow_url, pending_entry->GetURL());
+
+  // LocationBarModel::GetFormattedFullURL() reads live from the visible
+  // entry. Assert structurally because the model may strip the scheme
+  // depending on platform and feature state.
   EXPECT_TRUE(location_bar_model->ShouldDisplayURL());
-  EXPECT_EQ(base::ASCIIToUTF16(other_url),
-            location_bar_model->GetFormattedFullURL());
+  std::string formatted_url =
+      base::UTF16ToUTF8(location_bar_model->GetFormattedFullURL());
+  EXPECT_THAT(formatted_url, ::testing::HasSubstr(slow_url.host()));
+  EXPECT_THAT(formatted_url, ::testing::EndsWith(slow_url.path()));
+
+  // OmniboxView::GetText() is the user-visible textfield contents.
+  std::string omnibox_text = base::UTF16ToUTF8(omnibox_view->GetText());
+  EXPECT_THAT(omnibox_text, ::testing::HasSubstr(slow_url.host()));
+  EXPECT_THAT(omnibox_text, ::testing::EndsWith(slow_url.path()));
+}
+
+// Test fixture for the remote-NTP scenario. Configures a search
+// provider whose new_tab_url is served by an HTTPS embedded test
+// server, so the active NTP loads at a non-WebUI URL.
+class LocationBarModelInstantNTPTest : public LocationBarModelTest,
+                                       public InstantTestBase {
+ public:
+  LocationBarModelInstantNTPTest() = default;
+  ~LocationBarModelInstantNTPTest() override = default;
+
+  void SetUpOnMainThread() override {
+    LocationBarModelTest::SetUpOnMainThread();
+    ASSERT_TRUE(https_test_server().Start());
+    GURL base_url = https_test_server().GetURL("/instant_extended.html?");
+    GURL ntp_url = https_test_server().GetURL("/instant_extended_ntp.html?");
+    ASSERT_NO_FATAL_FAILURE(
+        SetupInstant(browser()->profile(), base_url, ntp_url));
+  }
+
+ protected:
+  // Loads the remote NTP, then injects and clicks an anchor pointing at
+  // /hung. /hung keeps the navigation pending so the test can inspect the
+  // location bar before commit. Returns the slow_url so the test body can
+  // make destination-URL assertions.
+  GURL NavigateRemoteNTPAndClickSlowLink() {
+    LocationBarModel* location_bar_model =
+        browser()->GetFeatures().location_bar_model();
+
+    // Open the remote NTP. The TemplateURLService rewrites
+    // chrome::kChromeUINewTabURL into the configured new_tab_url.
+    EXPECT_TRUE(ui_test_utils::NavigateToURL(browser(),
+                                             GURL(chrome::kChromeUINewTabURL)));
+    content::WebContents* ntp_tab =
+        browser()->tab_strip_model()->GetActiveWebContents();
+    EXPECT_TRUE(search::IsInstantNTP(ntp_tab));
+    EXPECT_FALSE(location_bar_model->ShouldDisplayURL());
+
+    GURL slow_url(https_test_server().GetURL("/hung"));
+    const char* kNavScriptTemplate = R"(
+        var a = document.createElement('a');
+        a.href = $1;
+        a.innerText = 'Simulated most-visited link';
+        document.body.appendChild(a);
+        a.click();
+    )";
+    content::TestNavigationManager nav_manager(ntp_tab, slow_url);
+    EXPECT_TRUE(content::ExecJs(
+        ntp_tab, content::JsReplace(kNavScriptTemplate, slow_url)));
+    EXPECT_TRUE(nav_manager.WaitForRequestStart());
+
+    content::NavigationEntry* pending_entry =
+        ntp_tab->GetController().GetPendingEntry();
+    EXPECT_TRUE(pending_entry);
+    EXPECT_EQ(slow_url, pending_entry->GetURL());
+
+    return slow_url;
+  }
+};
+
+// Variant of the remote-NTP fixture with kNtpDisableBrowserInitiatedLinks
+// enabled.
+class LocationBarModelInstantNTPNoBrowserInitiatedLinksTest
+    : public LocationBarModelInstantNTPTest {
+ public:
+  LocationBarModelInstantNTPNoBrowserInitiatedLinksTest() {
+    scoped_feature_list_.InitAndEnableFeature(
+        ntp_features::kNtpDisableBrowserInitiatedLinks);
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+// Variant of the remote-NTP fixture with kNtpDisableBrowserInitiatedLinks
+// disabled (legacy reclassification behavior).
+class LocationBarModelInstantNTPBrowserInitiatedLinksTest
+    : public LocationBarModelInstantNTPTest {
+ public:
+  LocationBarModelInstantNTPBrowserInitiatedLinksTest() {
+    scoped_feature_list_.InitAndDisableFeature(
+        ntp_features::kNtpDisableBrowserInitiatedLinks);
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+// With the kill switch DISABLED (legacy behavior),
+// ChromeContentBrowserClient::OverrideNavigationParams flips
+// is_renderer_initiated to false on NTP-sourced link clicks, so
+// NavigationControllerImpl::GetVisibleEntry exposes the pending entry as
+// visible. The omnibox shows the destination URL during the pending
+// window.
+IN_PROC_BROWSER_TEST_F(LocationBarModelInstantNTPBrowserInitiatedLinksTest,
+                       ShouldDisplayURLWhileNavigatingAwayFromRemoteNTP) {
+  LocationBarModel* location_bar_model =
+      browser()->GetFeatures().location_bar_model();
+  OmniboxView* omnibox_view =
+      BrowserWindow::FromBrowser(browser())->GetLocationBar()->GetOmniboxView();
+  ASSERT_TRUE(omnibox_view);
+
+  const GURL slow_url = NavigateRemoteNTPAndClickSlowLink();
+  ASSERT_FALSE(::testing::Test::HasFatalFailure());
+
+  EXPECT_TRUE(location_bar_model->ShouldDisplayURL());
+  std::string formatted_url =
+      base::UTF16ToUTF8(location_bar_model->GetFormattedFullURL());
+  EXPECT_THAT(formatted_url, ::testing::HasSubstr(slow_url.host()));
+  EXPECT_THAT(formatted_url, ::testing::EndsWith(slow_url.path()));
+
+  std::string omnibox_text = base::UTF16ToUTF8(omnibox_view->GetText());
+  EXPECT_THAT(omnibox_text, ::testing::HasSubstr(slow_url.host()));
+  EXPECT_THAT(omnibox_text, ::testing::EndsWith(slow_url.path()));
+}
+
+// With the kill switch ENABLED (new behavior),
+// ChromeContentBrowserClient::OverrideNavigationParams leaves
+// is_renderer_initiated as true, so
+// NavigationControllerImpl::GetVisibleEntry refuses to expose the pending
+// entry as visible (URL-spoof protection for renderer-initiated
+// navigations). The omnibox remains on the NTP -- displaying no URL --
+// until the navigation actually commits.
+IN_PROC_BROWSER_TEST_F(LocationBarModelInstantNTPNoBrowserInitiatedLinksTest,
+                       ShouldNotDisplayURLWhileNavigatingAwayFromRemoteNTP) {
+  LocationBarModel* location_bar_model =
+      browser()->GetFeatures().location_bar_model();
+  OmniboxView* omnibox_view =
+      BrowserWindow::FromBrowser(browser())->GetLocationBar()->GetOmniboxView();
+  ASSERT_TRUE(omnibox_view);
+
+  const GURL slow_url = NavigateRemoteNTPAndClickSlowLink();
+  ASSERT_FALSE(::testing::Test::HasFatalFailure());
+
+  // GetVisibleEntry refuses to show the pending entry, so the visible
+  // entry stays on the NTP and the location bar continues to suppress
+  // the URL.
+  EXPECT_FALSE(location_bar_model->ShouldDisplayURL());
+  EXPECT_TRUE(location_bar_model->GetFormattedFullURL().empty());
+  EXPECT_TRUE(omnibox_view->GetText().empty());
 }

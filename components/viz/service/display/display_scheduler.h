@@ -11,6 +11,7 @@
 
 #include "base/cancelable_callback.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/raw_ref.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
@@ -68,11 +69,10 @@ class VIZ_SERVICE_EXPORT DisplayScheduler
       int64_t choreographer_vsync_id,
       base::TimeTicks frame_time,
       base::TimeDelta interval,
-      std::optional<PossibleDeadline> deadline,
-      std::optional<PossibleDeadline> preferred) override;
+      std::optional<PossibleDeadline> selected_deadline) override;
 
   // DisplayDamageTracker::Delegate implementation.
-  void OnDisplayDamaged(SurfaceId surface_id) override;
+  void OnDisplayDamaged(SurfaceId surface_id, BeginFrameId frame_id) override;
   void OnRootFrameMissing(bool missing) override;
   void OnPendingSurfacesChanged() override;
 
@@ -85,16 +85,29 @@ class VIZ_SERVICE_EXPORT DisplayScheduler
   void SetTickClockForTesting(const base::TickClock* tick_clock);
 
  protected:
-  class BeginFrameObserver;
+  class BeginFrameObserver : public BeginFrameObserverBase {
+   public:
+    explicit BeginFrameObserver(DisplayScheduler& scheduler);
+    ~BeginFrameObserver() override;
+
+    // BeginFrameObserverBase implementation.
+    void OnBeginFrameSourcePausedChanged(bool paused) override;
+    bool OnBeginFrameDerivedImpl(const BeginFrameArgs& args) override;
+
+   private:
+    const raw_ref<DisplayScheduler> scheduler_;
+  };
   class BeginFrameRequestObserverImpl;
 
   bool OnBeginFrame(const BeginFrameArgs& args);
   void OnBeginFrameContinuation(const BeginFrameArgs& args);
+  int MaxPendingSwapsForRefreshRate() const;
+  int MaxPendingSwapsForDeadline(const PossibleDeadline& deadline) const;
   int MaxPendingSwaps() const;
 
-  base::TimeTicks current_frame_display_time() const {
-    return current_begin_frame_args_.frame_time +
-           current_begin_frame_args_.interval;
+  base::TimeTicks current_frame_display_time(
+      const BeginFrameArgs& begin_frame_args) const {
+    return begin_frame_args.frame_time + begin_frame_args.interval;
   }
 
   base::TimeTicks NowTicks() const;
@@ -131,25 +144,28 @@ class VIZ_SERVICE_EXPORT DisplayScheduler
   BeginFrameDeadlineMode AdjustedBeginFrameDeadlineMode() const;
   BeginFrameDeadlineMode DesiredBeginFrameDeadlineMode() const;
   virtual void ScheduleBeginFrameDeadline();
-  bool AttemptDrawAndSwap();
+  bool AttemptDrawAndSwap(const BeginFrameArgs& begin_frame_args);
   void OnBeginFrameDeadline();
-  bool DrawAndSwap();
+  bool DrawAndSwap(const BeginFrameArgs& begin_frame_args);
   void MaybeStartObservingBeginFrames();
   void StartObservingBeginFrames();
   void StopObservingBeginFrames();
   bool ShouldDraw() const;
-  void DidFinishFrame(bool did_draw);
+  bool CanDrawForPreviousFrame(const BeginFrameId& begin_frame_id) const;
+  void ForceImmediateSwapForPreviousFrame();
+  void DidFinishFrame(BeginFrameId frame_id, bool did_draw);
   // Updates |has_pending_surfaces_| and returns whether its value changed.
   bool UpdateHasPendingSurfaces();
   void MaybeCreateHintSessions(
       base::flat_set<base::PlatformThreadId> animation_thread_ids,
       base::flat_set<base::PlatformThreadId> renderer_main_thread_ids);
 
-  std::unique_ptr<BeginFrameObserver> begin_frame_observer_;
+  BeginFrameObserver begin_frame_observer_;
   raw_ptr<BeginFrameSource> begin_frame_source_;
   raw_ptr<base::SingleThreadTaskRunner> task_runner_;
 
   BeginFrameArgs current_begin_frame_args_;
+  std::optional<BeginFrameArgs> last_undrawn_begin_frame_args_;
   base::RepeatingClosure begin_frame_deadline_closure_;
   base::DeadlineTimer begin_frame_deadline_timer_;
   base::TimeTicks begin_frame_deadline_task_time_;
@@ -168,6 +184,8 @@ class VIZ_SERVICE_EXPORT DisplayScheduler
   int pending_swaps_;
   const PendingSwapParams pending_swap_params_;
   bool wait_for_all_surfaces_before_draw_;
+  const bool allow_multiple_swaps_per_vsync_ = false;
+  const bool use_platform_preferred_deadlines_ = true;
 
   bool observing_begin_frame_source_;
 

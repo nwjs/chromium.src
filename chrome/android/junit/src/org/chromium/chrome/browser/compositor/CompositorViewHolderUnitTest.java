@@ -14,6 +14,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -106,13 +107,10 @@ import org.chromium.ui.resources.ResourceManager;
 import org.chromium.ui.resources.dynamics.DynamicResourceLoader;
 
 import java.lang.ref.WeakReference;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /** Unit tests for {@link CompositorViewHolder}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@EnableFeatures({ChromeFeatureList.SUPPRESS_TOOLBAR_CAPTURES_AT_GESTURE_END})
 @DisableFeatures({
     ChromeFeatureList.FULLSCREEN_INSETS_API_MIGRATION,
     ChromeFeatureList.FULLSCREEN_INSETS_API_MIGRATION_ON_AUTOMOTIVE
@@ -168,13 +166,6 @@ public class CompositorViewHolderUnitTest {
                         0,
                         InputDevice.SOURCE_CLASS_POINTER,
                         0);
-    }
-
-    private static final class EventSource {
-        static final int IN_MOTION = 0;
-        static final int TOUCH_EVENT_OBSERVER = 1;
-
-        private EventSource() {}
     }
 
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
@@ -281,7 +272,12 @@ public class CompositorViewHolderUnitTest {
         when(mCompositorView.getResourceManager()).thenReturn(mResourceManager);
         when(mResourceManager.getDynamicResourceLoader()).thenReturn(mDynamicResourceLoader);
 
-        mCompositorViewHolder = spy(new CompositorViewHolder(mContext, null));
+        mCompositorViewHolder =
+                org.mockito.Mockito.mock(
+                        CompositorViewHolder.class,
+                        org.mockito.Mockito.withSettings()
+                                .useConstructor(mContext, null)
+                                .defaultAnswer(org.mockito.Mockito.CALLS_REAL_METHODS));
 
         mCompositorViewHolder.setToolbarThemeColorProvider(mToolbarThemeColorProvider);
         mCompositorViewHolder.setLayoutManager(mLayoutManager);
@@ -312,30 +308,6 @@ public class CompositorViewHolderUnitTest {
     @After
     public void tearDown() {
         LocalizationUtils.setRtlForTesting(false);
-    }
-
-    private List<Integer> observeTouchAndMotionEvents() {
-        List<Integer> eventSequence = new ArrayList<>();
-        mCompositorViewHolder
-                .getInMotionSupplier()
-                .addSyncObserverAndPostIfNonNull(
-                        (inMotion) -> eventSequence.add(EventSource.IN_MOTION));
-        // This touch observer is used as a proxy for when ViewGroup#dispatchTouchEvent is called,
-        // which is when the touch is propagated to children.
-        mCompositorViewHolder.addTouchEventObserver(
-                new TouchEventObserver() {
-                    @Override
-                    public boolean onInterceptTouchEvent(MotionEvent e) {
-                        return false;
-                    }
-
-                    @Override
-                    public boolean dispatchTouchEvent(MotionEvent e) {
-                        eventSequence.add(EventSource.TOUCH_EVENT_OBSERVER);
-                        return false;
-                    }
-                });
-        return eventSequence;
     }
 
     // controlsResizeView tests ---
@@ -1119,50 +1091,6 @@ public class CompositorViewHolderUnitTest {
     }
 
     @Test
-    @DisableFeatures({
-        ChromeFeatureList.SUPPRESS_TOOLBAR_CAPTURES_AT_GESTURE_END,
-        ChromeFeatureList.TOOLBAR_STALE_CAPTURE_BUG_FIX
-    })
-    public void testInMotionSupplier() {
-        mCompositorViewHolder.dispatchTouchEvent(MOTION_EVENT_DOWN);
-        mCompositorViewHolder.onInterceptTouchEvent(MOTION_EVENT_DOWN);
-        Assert.assertTrue(mCompositorViewHolder.getInMotionSupplier().get());
-
-        mCompositorViewHolder.dispatchTouchEvent(MOTION_EVENT_UP);
-        mCompositorViewHolder.onInterceptTouchEvent(MOTION_EVENT_UP);
-        Assert.assertFalse(mCompositorViewHolder.getInMotionSupplier().get());
-
-        mCompositorViewHolder.dispatchTouchEvent(MOTION_EVENT_DOWN);
-        mCompositorViewHolder.onInterceptTouchEvent(MOTION_EVENT_DOWN);
-        Assert.assertTrue(mCompositorViewHolder.getInMotionSupplier().get());
-
-        // Simulate a child handling a scroll, where they call requestDisallowInterceptTouchEvent
-        // and then we no longer get onInterceptTouchEvent. The dispatchTouchEvent alone should
-        // still cause our motion status to correctly update.
-        mCompositorViewHolder.requestDisallowInterceptTouchEvent(true);
-        mCompositorViewHolder.dispatchTouchEvent(MOTION_EVENT_UP);
-        Assert.assertFalse(mCompositorViewHolder.getInMotionSupplier().get());
-    }
-
-    @Test
-    @DisableFeatures(ChromeFeatureList.TOOLBAR_STALE_CAPTURE_BUG_FIX)
-    public void testGestureBeginEndInMotionSupplier() {
-        when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
-        mCompositorViewHolder.onNativeLibraryReady(
-                mWindowAndroid, /* tabContentManager= */ null, mPrefService);
-
-        mCompositorViewHolder.onContentChanged();
-        verify(mTab, atLeast(1)).addObserver(mTabObserverCaptor.capture());
-
-        mTabObserverCaptor.getAllValues().forEach((obs) -> obs.onGestureBegin());
-        Assert.assertTrue(mCompositorViewHolder.getInMotionSupplier().get());
-
-        mTabObserverCaptor.getAllValues().forEach((obs) -> obs.onGestureEnd());
-        Assert.assertFalse(mCompositorViewHolder.getInMotionSupplier().get());
-    }
-
-    @Test
-    @EnableFeatures(ChromeFeatureList.TOOLBAR_STALE_CAPTURE_BUG_FIX)
     public void testInMotionSupplier_OnTouch() {
         when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
         mCompositorViewHolder.onNativeLibraryReady(
@@ -1218,21 +1146,6 @@ public class CompositorViewHolderUnitTest {
     }
 
     @Test
-    @DisableFeatures({
-        ChromeFeatureList.TOOLBAR_STALE_CAPTURE_BUG_FIX,
-        ChromeFeatureList.SUPPRESS_TOOLBAR_CAPTURES_AT_GESTURE_END
-    })
-    public void testInMotionOrdering() {
-        // With the 'defer in motion' experiment enabled, touch events are routed to android UI
-        // after being sent to native/web content.
-        List<Integer> eventSequence = observeTouchAndMotionEvents();
-        mCompositorViewHolder.dispatchTouchEvent(MOTION_EVENT_DOWN);
-        assertEquals(
-                Arrays.asList(EventSource.TOUCH_EVENT_OBSERVER, EventSource.IN_MOTION),
-                eventSequence);
-    }
-
-    @Test
     @Config(qualifiers = "sw600dp")
     public void testSetBackgroundRunnable() {
         // Trigger a compositor layout. Verify the background has not yet been removed.
@@ -1268,7 +1181,6 @@ public class CompositorViewHolderUnitTest {
     }
 
     @Test
-    @DisableFeatures(ChromeFeatureList.TOOLBAR_STALE_CAPTURE_BUG_FIX)
     public void testOnControlsOffsetChanged_NoRequestRenderIfScrolling() {
         mCompositorViewHolder.dispatchTouchEvent(MOTION_EVENT_DOWN);
         mCompositorViewHolder.onControlsOffsetChanged(0, 0, false, 0, 0, false, true, false);
@@ -1421,8 +1333,10 @@ public class CompositorViewHolderUnitTest {
     @Test
     @EnableFeatures(ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL)
     public void testSetSideUiStateProviderSupplier() {
-        when(mSideUiStateProvider.getCurrentSideUiSpecs())
-                .thenReturn(SideUiSpecs.EMPTY_SIDE_UI_SPECS);
+        SideUiSpecs emptySideUiSpecs =
+                new SideUiSpecs(/* leftContainerWidth= */ 0, /* rightContainerWidth= */ 0);
+
+        when(mSideUiStateProvider.getCurrentSideUiSpecs()).thenReturn(emptySideUiSpecs);
         mSideUiStateProviderSupplier.set(mSideUiStateProvider);
         runCurrentTasks();
 
@@ -1453,7 +1367,7 @@ public class CompositorViewHolderUnitTest {
         mCompositorViewHolder.onSideUiSpecsChanged(currentSideUiSpecs);
 
         // Verify.
-        verify(mWebContents)
+        verify(mWebContents, atLeastOnce())
                 .setSize(viewportWidth - (startContainerWidth + endContainerWidth), viewportHeight);
     }
 
@@ -1553,5 +1467,142 @@ public class CompositorViewHolderUnitTest {
         mCompositorViewHolder.layout(0, 0, 300, 400);
         mCompositorViewHolder.updateWebContentsSize(mTab);
         assertEquals(new Size(300, 400), mCompositorViewHolder.getLastNormalSize());
+    }
+
+    @Test
+    public void testOnSurfaceResized_BackgroundTabCaptured_SyncsPhysicalSize() {
+        when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
+        mCompositorViewHolder.onNativeLibraryReady(mWindowAndroid, null, mPrefService);
+        when(mPrefService.getBoolean(any())).thenReturn(false);
+
+        // Active foreground tab
+        when(mContentView.getWindowToken()).thenReturn(mock(IBinder.class));
+        when(mWebContents.isBeingCaptured()).thenReturn(false);
+
+        // Add a background captured tab
+        MockTab bgTab = mTabModelSelector.addMockTab();
+        WebContents bgWebContents = mock(WebContents.class);
+        when(bgTab.getWebContents()).thenReturn(bgWebContents);
+        when(bgWebContents.isBeingCaptured()).thenReturn(true);
+
+        int width = 1080;
+        int height = 1920;
+
+        mCompositorViewHolder.onSurfaceResized(width, height);
+
+        // Active foreground tab is updated
+        verify(mCompositorView, times(1))
+                .onPhysicalBackingSizeChanged(eq(mWebContents), eq(width), eq(height));
+        // Background captured tab is ALSO updated
+        verify(mCompositorView, times(1))
+                .onPhysicalBackingSizeChanged(eq(bgWebContents), eq(width), eq(height));
+    }
+
+    @Test
+    public void testOnSurfaceResized_BackgroundTabNotCaptured_DoesNotSyncPhysicalSize() {
+        when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
+        mCompositorViewHolder.onNativeLibraryReady(mWindowAndroid, null, mPrefService);
+        when(mPrefService.getBoolean(any())).thenReturn(false);
+
+        // Active foreground tab
+        when(mContentView.getWindowToken()).thenReturn(mock(IBinder.class));
+        when(mWebContents.isBeingCaptured()).thenReturn(false);
+
+        // Add a background non-captured tab
+        MockTab bgTab = mTabModelSelector.addMockTab();
+        WebContents bgWebContents = mock(WebContents.class);
+        when(bgTab.getWebContents()).thenReturn(bgWebContents);
+        when(bgWebContents.isBeingCaptured()).thenReturn(false);
+
+        int width = 1080;
+        int height = 1920;
+
+        mCompositorViewHolder.onSurfaceResized(width, height);
+
+        // Active foreground tab is updated
+        verify(mCompositorView, times(1))
+                .onPhysicalBackingSizeChanged(eq(mWebContents), eq(width), eq(height));
+        // Background non-captured tab is NOT updated
+        verify(mCompositorView, never())
+                .onPhysicalBackingSizeChanged(eq(bgWebContents), anyInt(), anyInt());
+    }
+
+    @Test
+    public void testKeepScreenOnDeferred_TabSwitchResetsState() throws Exception {
+        when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
+        mCompositorViewHolder.onNativeLibraryReady(
+                mWindowAndroid, /* tabContentManager= */ null, mPrefService);
+        mCompositorViewHolder.onContentChanged();
+
+        // Capture the tab observer on the first tab
+        verify(mTab, atLeast(1)).addObserver(mTabObserverCaptor.capture());
+        TabObserver initialTabObserver = mTabObserverCaptor.getValue();
+
+        // Simulate scroll start on the first tab
+        initialTabObserver.onContentViewScrollingStateChanged(true);
+        assertTrue(mCompositorViewHolder.getInMotionSupplier().get());
+
+        // 2. Add a new tab and switch to it.
+        Tab newTab = mTabModelSelector.addMockTab();
+        ContentView newContentView = mock(ContentView.class);
+        WebContents newWebContents = mock(WebContents.class);
+        when(newTab.getWebContents()).thenReturn(newWebContents);
+        when(newTab.getContentView()).thenReturn(newContentView);
+        when(newTab.getView()).thenReturn(newContentView);
+
+        when(mCompositorViewHolder.getCurrentTab()).thenReturn(newTab);
+
+        // Reset the captor before trigger tab switch to capture the new observer
+        mTabObserverCaptor = ArgumentCaptor.forClass(TabObserver.class);
+
+        // Trigger tab switch in the model selector.
+        mTabModelSelector.getModel(false).setIndex(1, TabSelectionType.FROM_USER);
+        mCompositorViewHolder.onContentChanged();
+
+        // With our fix, the stale scroll state should be cleared immediately upon tab switch.
+        assertFalse(mCompositorViewHolder.getInMotionSupplier().get());
+
+        // Capture the observer on the new tab
+        verify(newTab, atLeast(1)).addObserver(mTabObserverCaptor.capture());
+        TabObserver newTabObserver = mTabObserverCaptor.getValue();
+
+        // Now, the new tab is active.
+        // 3. Simulate user interaction on the new tab (touch down).
+        newTabObserver.onTouchDown();
+
+        // It should call setDeferKeepScreenOnChanges(true) for the new touch sequence.
+        verify(newContentView).setDeferKeepScreenOnChanges(true);
+        reset(newContentView);
+
+        // 4. Simulate user interaction ending on the new tab (touch up).
+        newTabObserver.onTouchUp();
+
+        // It should correctly release the deferral now.
+        verify(newContentView).setDeferKeepScreenOnChanges(false);
+        assertFalse(mCompositorViewHolder.getInMotionSupplier().get());
+    }
+
+    @Test
+    public void testKeepScreenOnDeferred_TabHideResetsState() throws Exception {
+        when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
+        mCompositorViewHolder.onNativeLibraryReady(
+                mWindowAndroid, /* tabContentManager= */ null, mPrefService);
+        mCompositorViewHolder.onContentChanged();
+
+        // Capture the tab observer on the active tab
+        verify(mTab, atLeast(1)).addObserver(mTabObserverCaptor.capture());
+        TabObserver tabObserver = mTabObserverCaptor.getValue();
+
+        // 1. Simulate scroll and touch on the active tab
+        tabObserver.onContentViewScrollingStateChanged(true);
+        tabObserver.onTouchDown();
+
+        assertTrue(mCompositorViewHolder.getInMotionSupplier().get());
+
+        // 2. Call onHidden on the observer.
+        tabObserver.onHidden(mTab, org.chromium.chrome.browser.tab.TabHidingType.ACTIVITY_HIDDEN);
+
+        // 3. Verify that the compositor is no longer in motion.
+        assertFalse(mCompositorViewHolder.getInMotionSupplier().get());
     }
 }

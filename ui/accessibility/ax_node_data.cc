@@ -1418,6 +1418,9 @@ std::string AXNodeData::ToString(bool verbose) const {
       case ax::mojom::StringAttribute::kAriaNotificationIdDeprecated:
         base::StrAppend(&result, {" aria_notification_id=", value});
         break;
+      case ax::mojom::StringAttribute::kCanvasAnnotation:
+        base::StrAppend(&result, {" canvas_annotation=", value});
+        break;
       case ax::mojom::StringAttribute::kCheckedStateDescription:
         base::StrAppend(&result, {" checked_state_description=", value});
         break;
@@ -1480,8 +1483,14 @@ std::string AXNodeData::ToString(bool verbose) const {
       case ax::mojom::StringAttribute::kContainerLiveStatus:
         base::StrAppend(&result, {" container_live=", value});
         break;
+      case ax::mojom::StringAttribute::kMathArg:
+        base::StrAppend(&result, {" math_arg=", value});
+        break;
       case ax::mojom::StringAttribute::kMathContent:
         base::StrAppend(&result, {" math_content=", value});
+        break;
+      case ax::mojom::StringAttribute::kMathIntent:
+        base::StrAppend(&result, {" math_intent=", value});
         break;
       case ax::mojom::StringAttribute::kPlaceholder:
         base::StrAppend(&result, {" placeholder=", value});
@@ -1497,6 +1506,9 @@ std::string AXNodeData::ToString(bool verbose) const {
         break;
       case ax::mojom::StringAttribute::kValue:
         base::StrAppend(&result, {" value=", value});
+        break;
+      case ax::mojom::StringAttribute::kAriaValueText:
+        base::StrAppend(&result, {" aria_valuetext=", value});
         break;
       case ax::mojom::StringAttribute::kVirtualContent:
         base::StrAppend(&result, {" virtual_content=", value});

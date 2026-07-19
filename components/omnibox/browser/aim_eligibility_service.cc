@@ -247,11 +247,20 @@ void AimEligibilityService::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterStringPref(kResponsePrefName, "");
   registry->RegisterIntegerPref(omnibox::kAIModeSettings,
                                 kAiModeAllowedDefault);
+  registry->RegisterIntegerPref(omnibox::kThirdPartyAiChatSettings,
+                                kAiModeAllowedDefault);
 }
 
 // static
 bool AimEligibilityService::IsAimAllowedByPolicy(const PrefService* prefs) {
   return prefs->GetInteger(omnibox::kAIModeSettings) == kAiModeAllowedDefault;
+}
+
+// static
+bool AimEligibilityService::IsAimAllowedByThirdPartyPolicy(
+    const PrefService* prefs) {
+  return prefs->GetInteger(omnibox::kThirdPartyAiChatSettings) ==
+         kAiModeAllowedDefault;
 }
 
 // static
@@ -317,6 +326,10 @@ AimEligibilityService::AimEligibilityService(
                           weak_factory_.GetWeakPtr()));
   pref_change_registrar_.Add(
       omnibox::kAIModeSettings,
+      base::BindRepeating(&AimEligibilityService::OnPolicyChanged,
+                          weak_factory_.GetWeakPtr()));
+  pref_change_registrar_.Add(
+      omnibox::kThirdPartyAiChatSettings,
       base::BindRepeating(&AimEligibilityService::OnPolicyChanged,
                           weak_factory_.GetWeakPtr()));
 
@@ -404,18 +417,27 @@ bool AimEligibilityService::IsAimAllowedByDse() const {
   return search::DefaultSearchProviderIsGoogle(template_url_service_);
 }
 
-bool AimEligibilityService::IsAimLocallyEligible() const {
+bool AimEligibilityService::IsAimAllowedByFeatureAndPolicy() const {
   // Kill switch: If AIM is completely disabled, return false.
   if (!base::FeatureList::IsEnabled(omnibox::kAimEnabled)) {
     return false;
   }
 
-  // Always check Google DSE and Policy requirements.
-  if (!IsAimAllowedByDse() || !IsAimAllowedByPolicy(&pref_service_.get())) {
+  // Check Policy requirements.
+  if (!IsAimAllowedByPolicy(&pref_service_.get())) {
     return false;
   }
 
   return true;
+}
+
+bool AimEligibilityService::IsAimAllowedByThirdPartyPolicy() const {
+  return IsAimAllowedByThirdPartyPolicy(&pref_service_.get());
+}
+
+bool AimEligibilityService::IsAimLocallyEligible() const {
+  // Check core baseline eligibility and Google DSE requirement.
+  return IsAimAllowedByFeatureAndPolicy() && IsAimAllowedByDse();
 }
 
 bool AimEligibilityService::IsAimEligible() const {

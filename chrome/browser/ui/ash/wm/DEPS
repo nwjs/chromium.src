@@ -17,8 +17,6 @@ include_rules = [
   "+chrome/browser/ui/tabs/tab_strip_model.h",
   "+chrome/browser/ui/tabs/tab_strip_model_observer.h",
   "+chrome/browser/ui/views/frame",
-  "+chrome/browser/ui/views/tabs/tab_strip_model.h",
-  "+chrome/browser/ui/views/tabs/tab_strip_model_observer.h",
   "+chrome/browser/ui/webui/ash/scanner_feedback_dialog/scanner_feedback_dialog.h",
 ]
 
@@ -27,6 +25,7 @@ specific_include_rules = {
     "+chrome/browser/ui/browser_tabstrip.h",
     "+chrome/browser/ui/browser_window.h",
     "+chrome/browser/ui/browser_window/public",
+    "+chrome/browser/ui/views/tabs",
     "+chrome/test",
     "+gmock/gmock.h",
   ],

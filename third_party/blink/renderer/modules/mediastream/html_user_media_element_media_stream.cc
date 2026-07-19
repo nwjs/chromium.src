@@ -29,19 +29,10 @@ HTMLUserMediaElementMediaStream& HTMLUserMediaElementMediaStream::From(
 // static
 MediaStream* HTMLUserMediaElementMediaStream::stream(
     HTMLUserMediaElement& element) {
-  return From(element).GetMediaStream();
-}
-
-// static
-ScriptValue HTMLUserMediaElementMediaStream::error(
-    ScriptState* script_state,
-    HTMLUserMediaElement& element) {
-  const auto& error_ref = From(element).error_;
-  if (error_ref.IsEmpty()) {
-    return ScriptValue::CreateNull(script_state->GetIsolate());
+  if (element.IsLegacyMode()) {
+    return nullptr;
   }
-  return ScriptValue(script_state->GetIsolate(),
-                     error_ref.GetAcrossWorld(script_state));
+  return From(element).GetMediaStream();
 }
 
 HTMLUserMediaElementMediaStream::HTMLUserMediaElementMediaStream(
@@ -50,7 +41,6 @@ HTMLUserMediaElementMediaStream::HTMLUserMediaElementMediaStream(
 
 void HTMLUserMediaElementMediaStream::Trace(Visitor* visitor) const {
   visitor->Trace(media_stream_);
-  visitor->Trace(error_);
   Supplement<HTMLUserMediaElement>::Trace(visitor);
 }
 

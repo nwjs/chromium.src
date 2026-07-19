@@ -19,9 +19,9 @@ from enum import Enum
 
 import contextlib
 import hashlib
-import multiprocessing.dummy
 import json
 import os
+import shutil
 import pathlib
 import re
 import string
@@ -41,6 +41,7 @@ sys.path.insert(0, REPOSITORY_ROOT)
 import build.android.gyp.util.build_utils as build_utils  # pylint: disable=wrong-import-position
 import components.cronet.tools.utils as cronet_utils  # pylint: disable=wrong-import-position
 import components.cronet.tools.breakages_constants as breakages_constants  # pylint: disable=wrong-import-position
+import components.cronet.gn2bp.common as gn2bp_common  # pylint: disable=wrong-import-position
 
 _BORINGSSL_PATH = os.path.join(REPOSITORY_ROOT, 'third_party', 'boringssl')
 _BORINGSSL_SCRIPT = os.path.join('src', 'util', 'generate_build_files.py')
@@ -60,7 +61,7 @@ _GN2BP_SCRIPT_PATH = os.path.join(REPOSITORY_ROOT,
                                   'components/cronet/gn2bp/gen_android_bp.py')
 _JAVA_HOME = os.path.join(REPOSITORY_ROOT, 'third_party', 'jdk', 'current')
 _JAVA_PATH = os.path.join(_JAVA_HOME, 'bin', 'java')
-_OUT_DIR = os.path.join(REPOSITORY_ROOT, 'out')
+_GN2BP_OUT_DIR = os.path.join(gn2bp_common.OUT_DIR, 'gn2bp')
 _BREAKAGES_FILE_URL = "https://chromium.googlesource.com/chromium/src/+/refs/heads/main/components/cronet/android/breakages.json?format=TEXT"
 # The changeID of all commits submitted between NOW and last _MONTHS_OF_CHANGELIST
 # months will be collected and checked against the breakages.json
@@ -112,8 +113,9 @@ def _get_current_checkout_version_string() -> str:
     return version
 
 
-def _run_license_generation():
-    cronet_utils.run(["python3", _GENERATE_LICENSE_SCRIPT_PATH])
+def _run_license_generation(output_dir):
+    cronet_utils.run(
+        ["python3", _GENERATE_LICENSE_SCRIPT_PATH, "--dest", output_dir])
 
 
 def _is_trybot():
@@ -122,7 +124,7 @@ def _is_trybot():
 
 def _run_gn2bp(desc_files: Set[tempfile.NamedTemporaryFile],
                skip_build_scripts: bool, delete_temporary_files: bool,
-               channel: str) -> int:
+               channel: str, output_dir: str) -> int:
     """Run gen_android_bp.py to generate Android.bp.gn2bp files."""
     with tempfile.NamedTemporaryFile(
             mode='w+', encoding='utf-8',
@@ -131,10 +133,10 @@ def _run_gn2bp(desc_files: Set[tempfile.NamedTemporaryFile],
         if skip_build_scripts:
             pathlib.Path(build_script_output.name).write_text('{}')
         else:
-            _run_generate_build_scripts(build_script_output.name)
+            _run_generate_build_scripts(build_script_output.name, output_dir)
 
         base_cmd = [
-            sys.executable, _GN2BP_SCRIPT_PATH, '--repo_root', REPOSITORY_ROOT,
+            sys.executable, _GN2BP_SCRIPT_PATH, '--repo_root', output_dir,
             '--build_script_output', build_script_output.name
         ]
         for desc_file in desc_files:
@@ -146,17 +148,20 @@ def _run_gn2bp(desc_files: Set[tempfile.NamedTemporaryFile],
         cronet_utils.run(base_cmd)
 
 
-def _run_generate_build_scripts(output_path: str):
+def _run_generate_build_scripts(output_path: str, output_dir: str):
     """Run generate_build_scripts_output.py.
 
   Args:
     output_path: Path of the file that will contain the output.
+    output_dir: Directory to write generated rust files to.
   """
     cronet_utils.run([
         sys.executable,
         _GENERATE_BUILD_SCRIPT_PATH,
         '--output',
         output_path,
+        '--output-dir',
+        output_dir,
     ])
 
 
@@ -167,22 +172,21 @@ def _write_desc_json(gn_out_dir: str, temp_file: tempfile.NamedTemporaryFile):
         stdout=temp_file)
 
 
-def _gen_extras_bp(import_channel: str):
+def _gen_extras_bp(import_channel: str, output_dir: str):
     """Generate Android.extras.bp."""
     extras_androidbp_template_path = os.path.join(
         REPOSITORY_ROOT, 'components', 'cronet', 'gn2bp', 'templates',
         'Android.extras.bp.template')
     extras_androidbp_template_contents = cronet_utils.read_file(
         extras_androidbp_template_path)
-    extras_androidbp_path = os.path.join(REPOSITORY_ROOT,
-                                         'Android.extras.bp.gn2bp')
+    extras_androidbp_path = os.path.join(output_dir, 'Android.extras.bp')
     cronet_utils.write_file(
         extras_androidbp_path,
         string.Template(extras_androidbp_template_contents).substitute(
             GN2BP_MODULE_PREFIX=f'{import_channel}_cronet_'))
 
 
-def _gen_androidtest_xml(import_channel: str):
+def _gen_androidtest_xml(import_channel: str, output_dir: str):
     """Generate AndroidTest.xml, required to run test in Android."""
     module_prefix = f'{import_channel}_cronet_'
     androidtest_xml_template_path = os.path.join(REPOSITORY_ROOT, 'components',
@@ -191,14 +195,14 @@ def _gen_androidtest_xml(import_channel: str):
                                                  'AndroidTest.xml.template')
     androidtest_xml_template_contents = cronet_utils.read_file(
         androidtest_xml_template_path)
-    androidtest_xml_path = os.path.join(REPOSITORY_ROOT, 'AndroidTest.xml')
+    androidtest_xml_path = os.path.join(output_dir, 'AndroidTest.xml')
     cronet_utils.write_file(
         androidtest_xml_path,
         string.Template(androidtest_xml_template_contents).substitute(
             GN2BP_MODULE_PREFIX=module_prefix))
 
 
-def _gen_boringssl(import_channel: str):
+def _gen_boringssl(import_channel: str, output_dir: str):
     """Generate boringssl Android build files."""
     module_prefix = f'{import_channel}_cronet_'
     boringssl_androidbp_template_path = os.path.join(
@@ -206,15 +210,24 @@ def _gen_boringssl(import_channel: str):
         'boringssl_Android.bp.template')
     boringssl_androidbp_template_contents = cronet_utils.read_file(
         boringssl_androidbp_template_path)
-    boringssl_androidbp_path = os.path.join(_BORINGSSL_PATH,
-                                            'Android.bp.gn2bp')
+    boringssl_androidbp_path = os.path.join(output_dir, 'third_party',
+                                            'boringssl', 'Android.bp')
     cronet_utils.write_file(
         boringssl_androidbp_path,
         string.Template(boringssl_androidbp_template_contents).substitute(
             GN2BP_IMPORT_CHANNEL=import_channel,
             GN2BP_MODULE_PREFIX=module_prefix))
-    cmd = f'cd {_BORINGSSL_PATH} && python3 {_BORINGSSL_SCRIPT} --target-prefix={module_prefix} android'
-    cronet_utils.run(cmd, shell=True)
+    cronet_utils.run([
+        'python3', _BORINGSSL_SCRIPT, f'--target-prefix={module_prefix}',
+        'android'
+    ],
+                     cwd=_BORINGSSL_PATH)
+    # Move generated files to output_dir
+    for filename in ['sources.bp', 'sources.mk']:
+        src = os.path.join(_BORINGSSL_PATH, filename)
+        dst = os.path.join(output_dir, 'third_party', 'boringssl', filename)
+        if os.path.exists(src):
+            shutil.move(src, dst)
 
 
 def _wait_and_fail_if_not_presubmit_verified(change_id: str):
@@ -397,7 +410,7 @@ def _fill_desc_file_for_arch(arch, desc_file, delete_temporary_files):
     # This is why the temporary directory has to be generated
     # beneath the repository root until gn2bp is tweaked to
     # deal with this small differences.
-    with _OptionalExit(tempfile.TemporaryDirectory(dir=_OUT_DIR),
+    with _OptionalExit(tempfile.TemporaryDirectory(dir=gn2bp_common.OUT_DIR),
                        do_exit=delete_temporary_files) as gn_out_dir:
         cronet_utils.gn(gn_out_dir,
                         ' '.join(cronet_utils.get_gn_args_for_aosp(arch)))
@@ -689,29 +702,28 @@ def main():
             tempfile.NamedTemporaryFile(mode="w+",
                                         encoding='utf-8',
                                         delete=delete_temporary_files)
-            for arch in cronet_utils.ARCHS
+            for arch in gn2bp_common.ARCHS
         }
-        with multiprocessing.dummy.Pool(len(
-                arch_to_desc_file.items())) as pool:
-            results = [
-                pool.apply_async(_fill_desc_file_for_arch,
-                                 (arch, desc_file, delete_temporary_files))
-                for (arch, desc_file) in arch_to_desc_file.items()
-            ]
-            for result in results:
-                # We don't care about result, since there isn't one. This is only
-                # needed to re-raises failures raised by _fill_desc_file_for_arch,
-                # if any.
-                result.get()
+        args_list = [(arch, desc_file, delete_temporary_files)
+                     for arch, desc_file in arch_to_desc_file.items()]
+        gn2bp_common.run_concurrently(_fill_desc_file_for_arch, args_list)
 
-        _run_license_generation()
+        # Recreate output directory to ensure a clean state
+        if os.path.exists(_GN2BP_OUT_DIR):
+            shutil.rmtree(_GN2BP_OUT_DIR)
+        os.makedirs(_GN2BP_OUT_DIR)
+
+        _run_license_generation(_GN2BP_OUT_DIR)
         _run_gn2bp(desc_files=arch_to_desc_file.values(),
                    skip_build_scripts=args.skip_build_scripts,
                    delete_temporary_files=delete_temporary_files,
-                   channel=args.channel)
-        _gen_boringssl(args.channel)
-        _gen_extras_bp(args.channel)
-        _gen_androidtest_xml(args.channel)
+                   channel=args.channel,
+                   output_dir=_GN2BP_OUT_DIR)
+        _gen_boringssl(args.channel, _GN2BP_OUT_DIR)
+        _gen_extras_bp(args.channel, _GN2BP_OUT_DIR)
+        _gen_androidtest_xml(args.channel, _GN2BP_OUT_DIR)
+
+        print(f"Generated files have been written to {_GN2BP_OUT_DIR}")
 
         if not args.skip_copybara:
             _run_copybara_to_aosp(

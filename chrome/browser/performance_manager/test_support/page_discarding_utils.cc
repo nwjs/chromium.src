@@ -30,7 +30,10 @@ void MakePageNodeDiscardable(PageNodeImpl* page_node,
                              content::BrowserTaskEnvironment& task_env) {
   page_node->SetIsVisible(false);
   page_node->SetIsAudible(false);
-  page_node->SetType(PageType::kTab);
+  if (page_node->GetType() != PageType::kTab) {
+    ASSERT_EQ(page_node->GetType(), PageType::kUnknown);
+    page_node->SetType(PageType::kTab);
+  }
   const auto kUrl = GURL("https://foo.com");
   page_node->OnMainFrameNavigationCommitted(
       false, base::TimeTicks::Now(), 42, kUrl, "text/html",
@@ -42,14 +45,14 @@ void MakePageNodeDiscardable(PageNodeImpl* page_node,
   task_env.FastForwardBy(base::Minutes(10));
   const auto* eligibility_policy =
       policies::DiscardEligibilityPolicy::GetFromGraph(page_node->graph());
-  CHECK_EQ(eligibility_policy->CanDiscard(page_node, DiscardReason::URGENT),
-           CanDiscardResult::kEligible);
-  CHECK_EQ(eligibility_policy->CanDiscard(page_node, DiscardReason::PROACTIVE),
-           CanDiscardResult::kEligible);
-  CHECK_EQ(eligibility_policy->CanDiscard(page_node, DiscardReason::EXTERNAL),
-           CanDiscardResult::kEligible);
-  CHECK_EQ(eligibility_policy->CanDiscard(page_node, DiscardReason::SUGGESTED),
-           CanDiscardResult::kEligible);
+  ASSERT_EQ(eligibility_policy->CanDiscard(page_node, DiscardReason::URGENT),
+            CanDiscardResult::kEligible);
+  ASSERT_EQ(eligibility_policy->CanDiscard(page_node, DiscardReason::PROACTIVE),
+            CanDiscardResult::kEligible);
+  ASSERT_EQ(eligibility_policy->CanDiscard(page_node, DiscardReason::EXTERNAL),
+            CanDiscardResult::kEligible);
+  ASSERT_EQ(eligibility_policy->CanDiscard(page_node, DiscardReason::SUGGESTED),
+            CanDiscardResult::kEligible);
 }
 
 GraphTestHarnessWithDiscardablePage::GraphTestHarnessWithDiscardablePage()
@@ -137,7 +140,7 @@ void GraphTestHarnessWithMockDiscarder::SetUp() {
       std::make_unique<policies::PageDiscardingHelper>();
   page_discarding_helper->SetMockDiscarderForTesting(std::move(mock_discarder));
   graph()->PassToGraph(std::move(page_discarding_helper));
-  DCHECK(policies::PageDiscardingHelper::GetFromGraph(graph()));
+  ASSERT_TRUE(policies::PageDiscardingHelper::GetFromGraph(graph()));
 }
 
 void GraphTestHarnessWithMockDiscarder::TearDown() {
@@ -148,26 +151,25 @@ void GraphTestHarnessWithMockDiscarder::TearDown() {
 
 void ExpectCanDiscardEligible(const PageNode* page_node,
                               std::vector<DiscardReason> discard_reasons,
-                              base::TimeDelta minimum_time_in_background) {
+                              bool ignore_recent_visibility) {
   DiscardEligibilityPolicy* policy =
       DiscardEligibilityPolicy::GetFromGraph(page_node->GetGraph());
   for (const DiscardReason discard_reason : discard_reasons) {
     std::vector<CannotDiscardReason> reasons_vec;
     CanDiscardResult result = policy->CanDiscard(
-        page_node, discard_reason, minimum_time_in_background, &reasons_vec);
+        page_node, discard_reason, ignore_recent_visibility, &reasons_vec);
     EXPECT_EQ(CanDiscardResult::kEligible, result);
     EXPECT_TRUE(reasons_vec.empty());
   }
 }
 
-void ExpectCanDiscardEligibleAllReasons(
-    const PageNode* page_node,
-    base::TimeDelta minimum_time_in_background) {
+void ExpectCanDiscardEligibleAllReasons(const PageNode* page_node,
+                                        bool ignore_recent_visibility) {
   ExpectCanDiscardEligible(
       page_node,
       {DiscardReason::EXTERNAL, DiscardReason::URGENT, DiscardReason::PROACTIVE,
        DiscardReason::SUGGESTED, DiscardReason::FROZEN_WITH_GROWING_MEMORY},
-      minimum_time_in_background);
+      ignore_recent_visibility);
 }
 
 void ExpectCanDiscardProtected(const PageNode* page_node,
@@ -177,9 +179,9 @@ void ExpectCanDiscardProtected(const PageNode* page_node,
       DiscardEligibilityPolicy::GetFromGraph(page_node->GetGraph());
   for (const DiscardReason discard_reason : discard_reasons) {
     std::vector<CannotDiscardReason> reasons_vec;
-    CanDiscardResult result = policy->CanDiscard(
-        page_node, discard_reason,
-        policies::kNonVisiblePagesUrgentProtectionTime, &reasons_vec);
+    CanDiscardResult result =
+        policy->CanDiscard(page_node, discard_reason,
+                           /*ignore_recent_visibility=*/false, &reasons_vec);
     EXPECT_EQ(CanDiscardResult::kProtected, result);
     EXPECT_TRUE(std::ranges::contains(reasons_vec, protected_reason));
   }
@@ -195,9 +197,9 @@ void ExpectCanDiscardDisallowedAllReasons(
       DiscardEligibilityPolicy::GetFromGraph(page_node->GetGraph());
   for (const DiscardReason discard_reason : discard_reasons) {
     std::vector<CannotDiscardReason> reasons_vec;
-    CanDiscardResult result = policy->CanDiscard(
-        page_node, discard_reason,
-        policies::kNonVisiblePagesUrgentProtectionTime, &reasons_vec);
+    CanDiscardResult result =
+        policy->CanDiscard(page_node, discard_reason,
+                           /*ignore_recent_visibility=*/false, &reasons_vec);
     EXPECT_EQ(CanDiscardResult::kDisallowed, result);
     EXPECT_TRUE(std::ranges::contains(reasons_vec, disallowed_reason));
   }

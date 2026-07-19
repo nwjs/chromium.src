@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "base/functional/callback_helpers.h"
+#include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/extensions/security_dialog_tracker.h"
 #include "components/constrained_window/constrained_window_views.h"
 #include "content/public/browser/web_contents.h"
@@ -67,6 +68,8 @@ class DigitalIdentityMultiStepDialogDelegate
       std::unique_ptr<views::View> custom_body_field);
 
   views::Widget::ClosedReason get_closed_reason() { return closed_reason_; }
+
+  bool ShouldAllowKeyEventsDuringInputProtection() const override;
 
  private:
   bool OnDialogAccepted();
@@ -216,6 +219,83 @@ void DigitalIdentityMultiStepDialogDelegate::ResetCallbacks() {
   SetCloseCallback(base::OnceClosure());
 }
 
+bool DigitalIdentityMultiStepDialogDelegate::
+    ShouldAllowKeyEventsDuringInputProtection() const {
+  return false;
+}
+
+// static
+std::unique_ptr<views::BoxLayoutView>
+DigitalIdentityMultiStepDialog::CreateHeaderView(
+    std::u16string title,
+    std::u16string body_text,
+    std::unique_ptr<views::ImageViewBase> illustration) {
+  constexpr int kImageMarginTop = 0;
+  constexpr int kImageMarginBottom = 2;
+  constexpr int kImageHeight = 112;
+  constexpr int kHeaderHeight =
+      kImageHeight + kImageMarginTop + kImageMarginBottom;
+
+  const gfx::Insets& insets =
+      ChromeLayoutProvider::Get()->GetDialogInsetsForContentType(
+          views::DialogContentType::kText, views::DialogContentType::kText);
+  const int available_width =
+      ChromeLayoutProvider::Get()->GetDistanceMetric(
+          views::DISTANCE_MODAL_DIALOG_PREFERRED_WIDTH) -
+      insets.right() - insets.left();
+  const gfx::Size header_size(available_width, kHeaderHeight);
+  // `illustration` will horizontally center if the width is
+  // larger than the size from the Lottie file, but the height is just used to
+  // truncate the image, so that is disabled with a very large value.
+  illustration->SetPreferredSize(gfx::Size(available_width, 9999));
+  illustration->SetBorder(views::CreateEmptyBorder(
+      gfx::Insets::TLBR(kImageMarginTop, 0, kImageMarginBottom, 0)));
+  illustration->SetSize(header_size);
+  illustration->SetVerticalAlignment(views::ImageView::Alignment::kLeading);
+
+  auto illustration_container_view =
+      views::Builder<views::BoxLayoutView>()
+          .SetOrientation(views::BoxLayout::Orientation::kVertical)
+          .SetInsideBorderInsets(gfx::Insets())
+          .SetPreferredSize(header_size)
+          .Build();
+  illustration_container_view->AddChildView(std::move(illustration));
+
+  auto header_view =
+      views::Builder<views::BoxLayoutView>()
+          .SetOrientation(views::BoxLayout::Orientation::kVertical)
+          .SetInsideBorderInsets(gfx::Insets())
+          .SetBetweenChildSpacing(
+              views::LayoutProvider::Get()->GetDistanceMetric(
+                  views::DISTANCE_RELATED_CONTROL_VERTICAL))
+          .Build();
+  header_view->AddChildView(std::move(illustration_container_view));
+
+  // Add title if not empty
+  if (!title.empty()) {
+    auto title_label = views::Builder<views::Label>()
+                           .SetText(title)
+                           .SetTextContext(views::style::CONTEXT_DIALOG_TITLE)
+                           .SetHorizontalAlignment(gfx::ALIGN_LEFT)
+                           .Build();
+    header_view->AddChildView(std::move(title_label));
+    header_view->GetViewAccessibility().SetRole(ax::mojom::Role::kAlertDialog);
+    header_view->GetViewAccessibility().SetName(std::move(title));
+  }
+
+  // Add body text if not empty
+  if (!body_text.empty()) {
+    auto body_label = views::Builder<views::Label>()
+                          .SetText(std::move(body_text))
+                          .SetTextContext(views::style::CONTEXT_LABEL)
+                          .SetMultiLine(true)
+                          .SetHorizontalAlignment(gfx::ALIGN_LEFT)
+                          .Build();
+    header_view->AddChildView(std::move(body_label));
+  }
+  return header_view;
+}
+
 DigitalIdentityMultiStepDialog::TestApi::TestApi(
     DigitalIdentityMultiStepDialog* dialog)
     : dialog_(dialog) {}
@@ -273,10 +353,18 @@ void DigitalIdentityMultiStepDialog::TryShow(
                    std::move(custom_body_field));
 
   if (new_dialog_delegate) {
+    base::WeakPtr<DigitalIdentityMultiStepDialog> weak_ptr =
+        weak_ptr_factory_.GetWeakPtr();
     // views::Widget takes ownership of `new_dialog_delegate`.
-    dialog_ = constrained_window::ShowWebModalDialogViews(
-                  new_dialog_delegate.release(), web_contents_.get())
-                  ->GetWeakPtr();
+    views::Widget* widget = constrained_window::ShowWebModalDialogViews(
+        new_dialog_delegate.release(), web_contents_.get());
+    // `ShowWebModalDialogViews` can spin a nested message loop and
+    // synchronously destroy `this`. Check `weak_ptr` before accessing member
+    // variables.
+    if (!weak_ptr) {
+      return;
+    }
+    dialog_ = widget->GetWeakPtr();
     extensions::SecurityDialogTracker::GetInstance()->AddSecurityDialog(
         dialog_.get());
   }

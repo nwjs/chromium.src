@@ -25,10 +25,14 @@ uint64_t g_current_sequence_number = 0;
 
 UndoStep::UndoStep(Document* document,
                    const SelectionForUndoStep& starting_selection,
-                   const SelectionForUndoStep& ending_selection)
+                   const SelectionForUndoStep& ending_selection,
+                   const SelectionForUndoStep& starting_dom_selection,
+                   const SelectionForUndoStep& ending_dom_selection)
     : document_(document),
       starting_selection_(starting_selection),
       ending_selection_(ending_selection),
+      starting_dom_selection_(starting_dom_selection),
+      ending_dom_selection_(ending_dom_selection),
       sequence_number_(++g_current_sequence_number) {
   // Note: Both |starting_selection| and |ending_selection| can be null,
   // Note: |starting_selection_| can be disconnected when forward-delete.
@@ -66,7 +70,7 @@ void UndoStep::Unapply() {
       InputEvent::InputType::kHistoryUndo, g_null_atom,
       InputEvent::EventIsComposing::kNotComposing, nullptr);
 
-  const SelectionInDOMTree& new_selection =
+  const SelectionInDomTree& new_selection =
       CorrectedSelectionAfterCommand(StartingSelection(), document_);
   ChangeSelectionAfterCommand(frame, new_selection,
                               SetSelectionOptions::Builder()
@@ -82,7 +86,7 @@ void UndoStep::Unapply() {
 
   // Take selection `FrameSelection` which `ChangeSelectionAfterCommand()` set.
   editor.RespondToChangedContents(
-      frame->Selection().GetSelectionInDOMTree().Anchor());
+      frame->Selection().GetSelectionInDomTree().Anchor());
 }
 
 void UndoStep::Reapply() {
@@ -111,7 +115,7 @@ void UndoStep::Reapply() {
       InputEvent::InputType::kHistoryRedo, g_null_atom,
       InputEvent::EventIsComposing::kNotComposing, nullptr);
 
-  const SelectionInDOMTree& new_selection =
+  const SelectionInDomTree& new_selection =
       CorrectedSelectionAfterCommand(EndingSelection(), document_);
   ChangeSelectionAfterCommand(frame, new_selection,
                               SetSelectionOptions::Builder()
@@ -127,7 +131,7 @@ void UndoStep::Reapply() {
 
   // Take selection `FrameSelection` which `ChangeSelectionAfterCommand()` set.
   editor.RespondToChangedContents(
-      frame->Selection().GetSelectionInDOMTree().Anchor());
+      frame->Selection().GetSelectionInDomTree().Anchor());
 }
 
 void UndoStep::Append(SimpleEditCommand* command) {
@@ -146,6 +150,14 @@ void UndoStep::SetEndingSelection(const SelectionForUndoStep& selection) {
   ending_selection_ = selection;
 }
 
+void UndoStep::SetStartingDomSelection(const SelectionForUndoStep& selection) {
+  starting_dom_selection_ = selection;
+}
+
+void UndoStep::SetEndingDomSelection(const SelectionForUndoStep& selection) {
+  ending_dom_selection_ = selection;
+}
+
 String UndoStep::ToString() const {
   StringBuilder builder;
   builder.Append("UndoStep {commands:[\n    ");
@@ -159,6 +171,8 @@ void UndoStep::Trace(Visitor* visitor) const {
   visitor->Trace(document_);
   visitor->Trace(starting_selection_);
   visitor->Trace(ending_selection_);
+  visitor->Trace(starting_dom_selection_);
+  visitor->Trace(ending_dom_selection_);
   visitor->Trace(commands_);
 }
 

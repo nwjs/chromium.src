@@ -53,7 +53,6 @@
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_sync_bridge.h"
 #include "chrome/common/chrome_paths.h"
-#include "chrome/common/extensions/extension_constants.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -431,7 +430,7 @@ IN_PROC_BROWSER_TEST_F(FileHandlerDialogBrowserTest,
   content::WebContentsDestroyedWatcher watcher(web_contents);
   Browser* files_app_browser =
       FindSystemWebAppBrowser(profile(), SystemWebAppType::FILE_MANAGER);
-  files_app_browser->window()->Close();
+  files_app_browser->GetWindow()->Close();
   watcher.Wait();
 
   // Expect a kCancelledAtSetup TaskResult.
@@ -712,7 +711,7 @@ gfx::NativeWindow LaunchFilesAppAndWait(Profile* profile) {
   ash::LaunchSystemWebAppAsync(profile, ash::SystemWebAppType::FILE_MANAGER,
                                params);
   Browser* files_app = ui_test_utils::WaitForBrowserToOpen();
-  return files_app->window()->GetNativeWindow();
+  return files_app->GetWindow()->GetNativeWindow();
 }
 
 class CloudUploadDialogNoTasksBrowserTest
@@ -1504,7 +1503,7 @@ IN_PROC_BROWSER_TEST_F(
   // Launch a settings page.
   ash::LaunchSystemWebAppAsync(profile(), ash::SystemWebAppType::SETTINGS);
   Browser* files_app = ui_test_utils::WaitForBrowserToOpen();
-  gfx::NativeWindow settings = files_app->window()->GetNativeWindow();
+  gfx::NativeWindow settings = files_app->GetWindow()->GetNativeWindow();
 
   auto* modal_parent_widget =
       views::Widget::GetWidgetForNativeWindow(modal_parent);
@@ -2161,5 +2160,6 @@ IN_PROC_BROWSER_TEST_F(CloudOpenTaskBrowserTest,
 
 void NonManagedUserWebUIBrowserTest::SetUpCommandLine(
     base::CommandLine* command_line) {
+  WebUIMochaBrowserTest::SetUpCommandLine(command_line);
   ash::cloud_upload::SetUpCommandLineForNonManagedUser(command_line);
 }

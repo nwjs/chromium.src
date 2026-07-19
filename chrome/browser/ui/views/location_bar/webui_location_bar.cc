@@ -4,6 +4,10 @@
 
 #include "chrome/browser/ui/views/location_bar/webui_location_bar.h"
 
+#include <memory>
+#include <utility>
+#include <vector>
+
 #include "base/notimplemented.h"
 #include "build/branding_buildflags.h"
 #include "build/buildflag.h"
@@ -123,6 +127,14 @@ void WebUILocationBar::PropagateOmniboxUpdate(
   toolbar_delegate_->OnOmniboxViewStateChanged(std::move(omnibox_state));
 }
 
+void WebUILocationBar::PropagateFocusRequest(
+    toolbar_ui_api::mojom::FocusRequestTarget target) {
+  // TODO(crbug.com/503784990): Handle immersive lock; this is tricky since
+  // our focus request is async. Compare OmniboxViewViews::SetFocus.
+
+  toolbar_delegate_->OnFocusRequested(target);
+}
+
 void WebUILocationBar::OnThemeChanged() {
   if (!is_initialized_) {
     return;
@@ -142,11 +154,12 @@ WebUILocationBar::OnOmniboxAction(
 
 void WebUILocationBar::FocusLocation(bool is_user_initiated,
                                      bool clear_focus_if_failed) {
-  NOTIMPLEMENTED();
+  omnibox_view_->SetFocus(is_user_initiated);
 }
 
 void WebUILocationBar::FocusSearch() {
-  NOTIMPLEMENTED();
+  omnibox_view_->SetFocusWithTarget(
+      toolbar_ui_api::mojom::FocusRequestTarget::kSearch);
 }
 
 void WebUILocationBar::UpdateFocusBehavior(bool toolbar_visible) {
@@ -161,6 +174,8 @@ void WebUILocationBar::UpdateContentSettingsIcons() {
   }
 
   bool permission_dashboard_changed = false;
+  bool dashboard_updated = false;
+
   if (base::FeatureList::IsEnabled(
           content_settings::features::kLeftHandSideActivityIndicators)) {
     ContentSettingImageModel* media_stream_model =
@@ -169,6 +184,21 @@ void WebUILocationBar::UpdateContentSettingsIcons() {
     if (media_stream_model) {
       permission_dashboard_changed |=
           permission_dashboard_controller_->Update(media_stream_model);
+      if (media_stream_model->is_visible()) {
+        dashboard_updated = true;
+      }
+    }
+  }
+
+  if (!dashboard_updated &&
+      base::FeatureList::IsEnabled(
+          content_settings::features::kLeftHandSideSensorActivityIndicators)) {
+    ContentSettingImageModel* sensors_model =
+        content_setting_image_control_.GetModel(
+            ContentSettingImageModel::ImageType::kSensors);
+    if (sensors_model) {
+      permission_dashboard_changed |=
+          permission_dashboard_controller_->Update(sensors_model);
     }
   }
 
@@ -287,6 +317,11 @@ bool WebUILocationBar::IsEditingOrEmpty() const {
   return omnibox_view_ && omnibox_view_->IsEditingOrEmpty();
 }
 
+bool WebUILocationBar::IsMouseHovered() const {
+  return IsVisible() && BoundsInScreen().Contains(
+                            display::Screen::Get()->GetCursorScreenPoint());
+}
+
 void WebUILocationBar::InvalidateLayout() {
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, base::BindOnce(&WebUILocationBar::OnChanged,
@@ -356,6 +391,7 @@ void WebUILocationBar::UpdateLhsChipsState(bool icon_known) {
     ui::ImageModel maybe_new_icon =
         UpdateLocationIcon(mojo_security_level, is_text_dangerous);
     if (!maybe_new_icon.IsEmpty()) {
+      bool icon_handled = false;
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
       if (auto maybe_resource_id =
               location_bar::MaybeGetGradientGoogleSuperGIcon(maybe_new_icon)) {
@@ -369,9 +405,10 @@ void WebUILocationBar::UpdateLhsChipsState(bool icon_known) {
         }
         // Google logo icons aren't clickable.
         is_clickable = false;
-      } else
+        icon_handled = true;
+      }
 #endif
-      {
+      if (!icon_handled) {
         location_icon_ =
             toolbar_delegate_->GetIconTable().RegisterImageModelTryReuse(
                 maybe_new_icon, location_icon_);
@@ -640,6 +677,12 @@ void WebUILocationBar::OnLhsChipDrag(
                                           allowed_operations, source);
 }
 
+void WebUILocationBar::AnnounceAlert(const std::u16string& announcement) {
+  if (toolbar_delegate_) {
+    toolbar_delegate_->AnnounceAlert(announcement);
+  }
+}
+
 bool WebUILocationBar::ShouldHideContentSettingImage() {
   if (omnibox_controller_->edit_model()->user_input_in_progress()) {
     return true;
@@ -701,17 +744,43 @@ void WebUILocationBar::UpdateLocationBarFlagsState() {
 }
 
 void WebUILocationBar::UpdateSelectedKeywordState() {
+  if (!omnibox_controller_) {  // null in some tests.
+    return;
+  }
+
+  const std::u16string& current_keyword =
+      omnibox_controller_->edit_model()->keyword();
+  bool is_keyword_selected =
+      omnibox_controller_->edit_model()->is_keyword_selected();
+  if (last_search_keyword_ == current_keyword &&
+      last_is_keyword_selected_ == is_keyword_selected) {
+    // Avoid recomputing this state, especially icon.
+    return;
+  }
+  last_search_keyword_ = current_keyword;
+  last_is_keyword_selected_ = is_keyword_selected;
+
+  Profile* profile = browser_->profile();
+
   // Purposefully start with null here.
   toolbar_ui_api::mojom::SelectedKeywordStatePtr keyword_state;
-  if (omnibox_controller_ &&
-      omnibox_controller_->edit_model()->is_keyword_selected()) {
+  if (is_keyword_selected) {
     keyword_state = toolbar_ui_api::mojom::SelectedKeywordState::New();
+
+    auto* template_url_service =
+        TemplateURLServiceFactory::GetForProfile(profile);
     SelectedKeywordView::KeywordLabelNames keyword_labels =
-        SelectedKeywordView::GetKeywordLabelNames(
-            omnibox_controller_->edit_model()->keyword(),
-            TemplateURLServiceFactory::GetForProfile(browser_->profile()));
+        SelectedKeywordView::GetKeywordLabelNames(current_keyword,
+                                                  template_url_service);
     keyword_state->short_name = keyword_labels.short_name;
     keyword_state->full_name = keyword_labels.full_name;
+
+    keyword_icon_ =
+        toolbar_delegate_->GetIconTable().RegisterImageModelTryReuse(
+            SelectedKeywordView::GetKeywordIcon(
+                current_keyword, omnibox_controller_.get(), profile),
+            keyword_icon_);
+    keyword_state->icon = keyword_icon_;
   }
   toolbar_delegate_->OnSelectedKeywordChanged(std::move(keyword_state));
 }

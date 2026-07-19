@@ -35,10 +35,13 @@ import org.chromium.chrome.browser.ui.actions.ActionProperties;
 import org.chromium.chrome.browser.ui.actions.ActionRegistry;
 import org.chromium.chrome.browser.ui.actions.R;
 import org.chromium.chrome.browser.ui.bottombar.BottomBarConfigUtils;
+import org.chromium.chrome.browser.ui.bottombar.BottomBarMetrics;
 import org.chromium.chrome.browser.ui.browser_window.ChromeAndroidTask;
 import org.chromium.chrome.browser.ui.messages.snackbar.Snackbar;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
+import org.chromium.chrome.browser.user_education.UserEducationHelper;
 import org.chromium.components.feature_engagement.EventConstants;
+import org.chromium.ui.drawable.DirtyDotDrawableWrapper;
 import org.chromium.ui.modelutil.PropertyModel;
 
 import java.util.List;
@@ -56,6 +59,7 @@ public class GlicActionCoordinator {
     private final Supplier<@Nullable TabModelSelector> mTabModelSelectorSupplier;
     private final Activity mActivity;
     private final SnackbarManager mSnackbarManager;
+    private final UserEducationHelper mUserEducationHelper;
     private @Nullable GlicTaskMenuCoordinator mTaskMenuCoordinator;
     private final Drawable mDefaultDrawable;
     private final Drawable mFilledDrawable;
@@ -71,12 +75,14 @@ public class GlicActionCoordinator {
             Supplier<@Nullable ChromeAndroidTask> taskSupplier,
             BrowserControlsVisibilityManager browserControlsVisibilityManager,
             Supplier<@Nullable TabModelSelector> tabModelSelectorSupplier,
-            SnackbarManager snackbarManager) {
+            SnackbarManager snackbarManager,
+            UserEducationHelper userEducationHelper) {
         mActivity = activity;
         mToggleGlicCallback = toggleGlicCallback;
         mTabSupplier = tabSupplier;
         mTabModelSelectorSupplier = tabModelSelectorSupplier;
         mSnackbarManager = snackbarManager;
+        mUserEducationHelper = userEducationHelper;
         mGlicActionModelSupplier = actionRegistry.get(ActionId.GLIC);
 
         mStateController =
@@ -118,10 +124,22 @@ public class GlicActionCoordinator {
 
         mDefaultDrawable = AppCompatResources.getDrawable(activity, glicIconResId);
         mFilledDrawable = AppCompatResources.getDrawable(activity, R.drawable.ic_spark_filled_24dp);
-        mWorkingDrawable = GlicUiHelper.createWorkingDrawable(activity, mFilledDrawable);
-        Drawable dirtyDotFilledSpark =
-                AppCompatResources.getDrawable(
-                        activity, R.drawable.glic_dirty_dot_filled_spark_24dp);
+
+        // Create a separate instance of the spark icon for mWorkingDrawable.
+        // Sharing the same drawable instance (mFilledDrawable) across multiple states
+        // causes the ImageView's callback clearing logic to break the callback chain of
+        // the child drawable. This results in the spark icon layer losing its themed tint
+        // initially when entering the WORKING state, until  a hover/state change forces a full view
+        // redraw.
+        Drawable workingSparkIcon =
+                AppCompatResources.getDrawable(activity, R.drawable.ic_spark_filled_24dp);
+        mWorkingDrawable = GlicUiHelper.createWorkingDrawable(activity, workingSparkIcon);
+
+        Drawable sparkIcon =
+                AppCompatResources.getDrawable(activity, R.drawable.ic_spark_filled_24dp);
+        int dotColor = activity.getColor(R.color.default_icon_color_accent1_baseline);
+        int dotSize = activity.getResources().getDimensionPixelSize(R.dimen.glic_dirty_dot_size);
+        Drawable dirtyDotFilledSpark = new DirtyDotDrawableWrapper(sparkIcon, dotColor, dotSize);
         mReviewDrawable = dirtyDotFilledSpark;
         mDoneDrawable = dirtyDotFilledSpark;
     }
@@ -129,6 +147,7 @@ public class GlicActionCoordinator {
     private void onModelChanged(@Nullable PropertyModel model) {
         if (model == null) return;
         model.set(ActionProperties.ON_PRESS_CALLBACK, this::onGlicActionPressed);
+        model.set(ActionProperties.USER_EDUCATION_HELPER, mUserEducationHelper);
         updateButtonState();
     }
 
@@ -165,6 +184,10 @@ public class GlicActionCoordinator {
             TrackerFactory.getTrackerForProfile(currentTab.getProfile())
                     .notifyEvent(EventConstants.ANDROID_BOTTOM_BAR_GLIC_USED);
         }
+
+        BottomBarMetrics.recordGlicButtonState(
+                mStateController.getButtonState(), mStateController.isPanelOpen());
+
         List<ActorTask> tasks = mStateController.getActiveTasks();
 
         boolean isOnActingTab =
@@ -174,6 +197,7 @@ public class GlicActionCoordinator {
         // If there are no tasks, or we are already on the tab with the active task, just toggle
         // Glic.
         if (tasks == null || tasks.isEmpty() || isOnActingTab) {
+            BottomBarMetrics.recordGlicConvoResult(mStateController.isPanelOpen());
             mToggleGlicCallback.onClick(false, GlicInvocationSource.TOOLBAR_BUTTON);
             mStateController.updateButtonState();
             return;
@@ -186,7 +210,8 @@ public class GlicActionCoordinator {
                             view.getContext(),
                             mTabModelSelectorSupplier,
                             mToggleGlicCallback,
-                            GlicInvocationSource.TOOLBAR_BUTTON);
+                            GlicInvocationSource.TOOLBAR_BUTTON,
+                            GlicTaskMenuCoordinator.ButtonSource.BOTTOM_BAR);
         }
         mTaskMenuCoordinator.show(view, tasks);
     }

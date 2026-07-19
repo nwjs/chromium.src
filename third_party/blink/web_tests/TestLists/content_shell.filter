@@ -26,7 +26,7 @@ virtual/unload-allowed/wpt_internal/*
 virtual/indexeddb_leveldb/wpt_internal/*
 virtual/cpu-compositing/wpt_internal/*
 virtual/gpu/wpt_internal/*
-virtual/unbounded-element-disabled/wpt_internal/*
+virtual/unbounded-element/wpt_internal/*
 
 # Blocklisted tests fail unexpectedly on headless shell for at least one
 # platform, so continue running them on content shell.
@@ -36,32 +36,8 @@ external/wpt/background-fetch/fetch-uploads.https.window.html
 external/wpt/background-fetch/match.https.window.html
 external/wpt/background-fetch/update-ui.https.window.html
 external/wpt/client-hints/viewport-size/viewport-size-window-different-dimensions.https.html
-external/wpt/compat/webkit-box-clamp-bottom-border.html
-external/wpt/compat/webkit-box-horizontal-rtl-variants.html
-external/wpt/compat/webkit-box-rtl-flex.html
-external/wpt/console/console-log-large-array.any.html
-external/wpt/content-security-policy/report-hash/*
-external/wpt/cookiestore/cookieStore_subscribe_arguments.https.any.html
-external/wpt/cookies/attributes/attributes-ctl.sub.html
-external/wpt/cookies/attributes/domain.sub.html
-external/wpt/css/compositing/mix-blend-mode/mix-blend-mode-animation.html
-external/wpt/css/compositing/mix-blend-mode/mix-blend-mode-blended-element-interposed.html
 external/wpt/css/compositing/mix-blend-mode/mix-blend-mode-blended-with-transform-and-perspective.html
-external/wpt/css/compositing/mix-blend-mode/mix-blend-mode-border-image.html
 external/wpt/css/compositing/mix-blend-mode/mix-blend-mode-both-parent-and-blended-with-3D-transform.html
-external/wpt/css/compositing/mix-blend-mode/mix-blend-mode-canvas-parent.html
-external/wpt/css/compositing/mix-blend-mode/mix-blend-mode-canvas-sibling.html
-external/wpt/css/compositing/mix-blend-mode/mix-blend-mode-filter.html
-external/wpt/css/compositing/mix-blend-mode/mix-blend-mode-iframe-parent.html
-external/wpt/css/compositing/mix-blend-mode/mix-blend-mode-iframe-sibling.html
-external/wpt/css/compositing/mix-blend-mode/mix-blend-mode-mask.html
-external/wpt/css/compositing/mix-blend-mode/mix-blend-mode-paragraph-background-image.html
-external/wpt/css/compositing/mix-blend-mode/mix-blend-mode-paragraph.html
-external/wpt/css/compositing/mix-blend-mode/mix-blend-mode-parent-with-text.html
-external/wpt/css/compositing/mix-blend-mode/mix-blend-mode-script.html
-external/wpt/css/compositing/mix-blend-mode/mix-blend-mode-simple.html
-external/wpt/css/compositing/mix-blend-mode/mix-blend-mode-stacking-context-001.html
-external/wpt/css/compositing/mix-blend-mode/mix-blend-mode-svg.html
 external/wpt/css/compositing/mix-blend-mode/mix-blend-mode-with-transform-and-preserve-3D.html
 external/wpt/css/compositing/root-element-opacity-change.html
 external/wpt/css/compositing/svg/mix-blend-mode-svg-rectangle.html
@@ -78,9 +54,6 @@ external/wpt/css/CSS2/linebox/inline-formatting-context-004.xht
 external/wpt/css/CSS2/linebox/inline-formatting-context-005.xht
 external/wpt/css/CSS2/linebox/inline-formatting-context-006.xht
 external/wpt/css/CSS2/linebox/inline-formatting-context-007.xht
-external/wpt/css/CSS2/linebox/vertical-align-nested-top-001.html
-external/wpt/css/CSS2/linebox/vertical-align-sub-001.xht
-external/wpt/css/CSS2/linebox/vertical-align-super-001.xht
 external/wpt/css/CSS2/normal-flow/block-in-inline-remove-000.xht
 external/wpt/css/CSS2/normal-flow/block-in-inline-remove-002.xht
 external/wpt/css/CSS2/normal-flow/block-in-inline-remove-004.xht
@@ -200,25 +173,11 @@ external/wpt/css/css-flexbox/flex-container*
 external/wpt/css/css-flexbox/flexbox_visibility-collapse.html
 external/wpt/css/css-flexbox/intrinsic-size/row-use-cases-001.html
 external/wpt/css/css-flexbox/scrollbars*
-external/wpt/css/css-fonts/cjk-kerning.html
 external/wpt/css/css-fonts/fallback-url-to-local.html
 external/wpt/css/css-fonts/font-display/font-display-change.html
-external/wpt/css/css-fonts/font-display/font-display.html
 external/wpt/css/css-fonts/font-display/font-display-preload.html
-external/wpt/css/css-fonts/font-face-range-order.html
-external/wpt/css/css-fonts/font-face-unicode-range-nbsp.html
-external/wpt/css/css-fonts/font-feature-settings-descriptor-01.html
-external/wpt/css/css-fonts/font-size-adjust-012.html
-external/wpt/css/css-fonts/font-variant-ligatures-11.optional.html
-external/wpt/css/css-fonts/generic-family-keywords-001.html
-external/wpt/css/css-fonts/matching/fixed-stretch-style-over-weight.html
 external/wpt/css/css-fonts/matching/font-unicode-PUA.html
-external/wpt/css/css-fonts/matching/stretch-distance-over-weight-distance.html
-external/wpt/css/css-fonts/matching/style-ranges-over-weight-direction.html
-external/wpt/css/css-fonts/size-adjust-01.html
 external/wpt/css/css-fonts/system-ui-mixed.html
-external/wpt/css/css-fonts/variations/at-font-face-font-matching.html
-external/wpt/css/css-fonts/variations/variable-box-font.html
 external/wpt/css/css-highlight-api/highlight-text-across-elements.html
 external/wpt/css/css-highlight-api/highlight-text-decorations.html
 external/wpt/css/css-highlight-api/highlight-text.html
@@ -273,33 +232,9 @@ external/wpt/css/css-position/position-absolute-iframe-print-002.sub.html
 external/wpt/css/css-position/position-fixed-scroll-overlap.html
 external/wpt/css/css-pseudo/active-selection-014.html
 external/wpt/css/css-pseudo/first-letter-001.html
-external/wpt/css/css-pseudo/first-letter-002.html
-external/wpt/css/css-pseudo/first-letter-003.html
-external/wpt/css/css-pseudo/first-letter-and-sibling-display-change.html
-external/wpt/css/css-pseudo/first-letter-and-whitespace.html
-external/wpt/css/css-pseudo/first-letter-list-item-dynamic-001.html
-external/wpt/css/css-pseudo/first-line-with-inline-block.html
-external/wpt/css/css-pseudo/highlight-cascade/cascade-highlight-005.html
 external/wpt/css/css-pseudo/highlight-cascade/highlight-cascade-008.html
 external/wpt/css/css-pseudo/highlight-cascade/highlight-currentcolor-painting-properties-001.html
 external/wpt/css/css-pseudo/highlight-cascade/highlight-currentcolor-painting-properties-002.html
-external/wpt/css/css-pseudo/highlight-cascade/highlight-currentcolor-root-explicit-default-002.html
-external/wpt/css/css-pseudo/highlight-painting-002.html
-external/wpt/css/css-pseudo/highlight-painting-003.html
-external/wpt/css/css-pseudo/highlight-painting-004.html
-external/wpt/css/css-pseudo/highlight-painting-shadows-horizontal.html
-external/wpt/css/css-pseudo/highlight-painting-shadows-vertical.html
-external/wpt/css/css-pseudo/marker-computed-size.html
-external/wpt/css/css-pseudo/marker-content-008.tentative.html
-external/wpt/css/css-pseudo/selection-contenteditable-011.html
-external/wpt/css/css-pseudo/target-text-006.html
-external/wpt/css/css-pseudo/target-text-010.html
-external/wpt/css/css-pseudo/target-text-dynamic-001.html
-external/wpt/css/css-pseudo/target-text-dynamic-002.html
-external/wpt/css/css-pseudo/target-text-dynamic-003.html
-external/wpt/css/css-pseudo/target-text-dynamic-004.html
-external/wpt/css/css-pseudo/target-text-shadow-horizontal.html
-external/wpt/css/css-pseudo/target-text-shadow-vertical.html
 external/wpt/css/css-ruby/block-ruby-003.html
 external/wpt/css/css-ruby/ruby-inlinize-recursive-simple.html
 external/wpt/css/css-ruby/ruby-text-combine-upright-001a.html
@@ -392,13 +327,7 @@ external/wpt/css/css-writing-modes/mongolian-orientation-002.html
 external/wpt/css/css-writing-modes/relpos-inline-overflowing-block-vrl.html
 external/wpt/css/css-writing-modes/sizing-orthog-htb-*
 external/wpt/css/css-writing-modes/wm-propagation-*
-external/wpt/css/filter-effects/css-filters-animation-opacity.html
 external/wpt/css/filter-effects/drop-shadow-currentcolor-dynamic-003.html
-external/wpt/css/filter-effects/clip-under-filter-001.html
-external/wpt/css/filter-effects/clip-under-filter-002.html
-external/wpt/css/filter-effects/effect-reference-on-span.html
-external/wpt/css/filter-effects/filtered-html-is-not-container.html
-external/wpt/css/filter-effects/repaint-added-backdrop-filter.html
 external/wpt/css/mediaqueries/test_media_queries.html
 external/wpt/css/motion/offset-path-*
 external/wpt/css/selectors/dir-style-04.html
@@ -412,7 +341,6 @@ external/wpt/density-size-correction/density-corrected-image-in-canvas.html
 external/wpt/dom/events/scrolling/input-text-scroll-event-when-using-arrow-keys.html
 external/wpt/dom/events/scrolling/scrollend-event-fired-after-snap.html
 external/wpt/dom/events/scrolling/scrollend-event-fires-on-visual-viewport.html
-external/wpt/dom/events/scrolling/scrollend-event-fires-to-iframe-window.html
 external/wpt/dom/events/scrolling/wheel-event-transactions-basic.html?include=scroll-over-scrollable-child
 external/wpt/dom/events/scrolling/wheel-event-transactions-basic.html?include=target-basic
 external/wpt/dom/events/scrolling/wheel-event-transactions-target-display-change.html?include=contents
@@ -873,7 +801,6 @@ virtual/produce-compile-hints/external/wpt/html/semantics/scripting-1/the-script
 virtual/produce-compile-hints/external/wpt/html/semantics/scripting-1/the-script-element/moving-between-documents/ordering/*
 virtual/produce-compile-hints/external/wpt/fetch/fetch-later/new-window.https.window.html
 virtual/produce-compile-hints/external/wpt/fetch/stale-while-revalidate/stale-*
-virtual/snapshot-scroll-timelines-post-layout/external/wpt/scroll-animations/scroll-timelines/layout-changes-on-percentage-based-timeline.html
 virtual/scalefactor200/external/wpt/css/filter-effects/backdrop-filter*
 virtual/scalefactor200/external/wpt/css/filter-effects/css-filters-animation-opacity.html
 virtual/scalefactor200/external/wpt/css/filter-effects/drop-shadow-currentcolor-dynamic-003.html
@@ -933,4 +860,4 @@ virtual/webnn-service-with-gpu/*
 virtual/lna-webrtc/wpt_internal/*
 
 # Requires content plugin, see crbug.com/476646486:
-virtual/prevent-svg-filter-paint/external/wpt/svg/styling/svg-filter-render-web-plugin.tentative.https.html
+external/wpt/svg/styling/svg-filter-render-web-plugin.tentative.https.html

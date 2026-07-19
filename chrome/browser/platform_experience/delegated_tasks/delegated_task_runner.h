@@ -1,0 +1,57 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef CHROME_BROWSER_PLATFORM_EXPERIENCE_DELEGATED_TASKS_DELEGATED_TASK_RUNNER_H_
+#define CHROME_BROWSER_PLATFORM_EXPERIENCE_DELEGATED_TASKS_DELEGATED_TASK_RUNNER_H_
+
+#include <memory>
+
+#include "base/functional/callback.h"
+#include "base/time/time.h"
+#include "chrome/browser/platform_experience/delegated_tasks/delegated_task.h"
+
+namespace platform_experience {
+
+class PehLauncher;
+
+struct DelegatedTaskResult {
+  DelegatedTaskStatus status;
+  base::TimeDelta execution_time;
+};
+
+using DelegatedTaskCompletionCallback =
+    base::OnceCallback<void(DelegatedTaskResult)>;
+
+// `DelegatedTaskRunner` handles executing tasks, waiting for task
+// completion/timeout and UMA telemetry.
+class DelegatedTaskRunner {
+ public:
+  // Creates the `DelegatedTaskRunner` with the default `PehLauncher` instance.
+  DelegatedTaskRunner();
+
+  // Creates the `DelegatedTaskRunner` with custom `PehLauncher` instance.
+  // Useful for injecting mock launcher in tests.
+  explicit DelegatedTaskRunner(std::unique_ptr<PehLauncher> peh_launcher);
+
+  ~DelegatedTaskRunner();
+
+  DelegatedTaskRunner(const DelegatedTaskRunner&) = delete;
+  DelegatedTaskRunner& operator=(const DelegatedTaskRunner&) = delete;
+
+  // Runs the provided task and asynchronously returns the task completion
+  // result in the `callback`.
+  void Run(const DelegatedTask& task, DelegatedTaskCompletionCallback callback);
+
+ private:
+  void CleanupAndReturnResult(DelegatedTaskStatus status);
+
+  base::TimeTicks task_start_time_;
+  DelegatedTaskCompletionCallback completion_callback_;
+
+  std::unique_ptr<PehLauncher> peh_launcher_;
+};
+
+}  // namespace platform_experience
+
+#endif  // CHROME_BROWSER_PLATFORM_EXPERIENCE_DELEGATED_TASKS_DELEGATED_TASK_RUNNER_H_

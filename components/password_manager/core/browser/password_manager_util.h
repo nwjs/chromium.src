@@ -23,6 +23,7 @@ class PasswordManagerDriver;
 class PasswordManagerClient;
 struct PasswordFormDigest;
 struct StoredCredential;
+class BrowserSavePasswordProgressLogger;
 }  // namespace password_manager
 
 namespace autofill {
@@ -59,6 +60,10 @@ void UpdateMetadataForUsage(password_manager::PasswordForm* credential);
 // iOS and required to always return non-null.
 bool IsLoggingActive(password_manager::PasswordManagerClient* client);
 
+// Returns a logger if logging is active.
+std::unique_ptr<password_manager::BrowserSavePasswordProgressLogger>
+GetLoggerIfAvailable(password_manager::PasswordManagerClient* client);
+
 // True iff the manual password generation is enabled for the current site.
 bool ManualPasswordGenerationEnabled(
     password_manager::PasswordManagerDriver* driver);
@@ -72,6 +77,11 @@ void UserTriggeredManualGenerationFromContextMenu(
 
 // Checks if password saving is possible at a storage level.
 bool IsAbleToSavePasswords(password_manager::PasswordManagerClient* client);
+
+// Returns true if the only blocking error is a trusted vault error.
+bool IsSavingBlockedByTrustedVaultError(
+    const password_manager::PasswordManagerClient* client,
+    const password_manager::PasswordFormManagerForUI* form_manager);
 
 // Excluding protocol from a signon_realm means to remove from the signon_realm
 // what is before the web origin (with the protocol excluded as well). For

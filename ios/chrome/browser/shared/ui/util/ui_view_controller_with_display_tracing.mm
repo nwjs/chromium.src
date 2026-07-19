@@ -8,12 +8,14 @@
 
 #import <string>
 
+#import "base/feature_list.h"
 #import "base/metrics/histogram_functions.h"
 #import "base/rand_util.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/trace_event/trace_event.h"
 #import "base/trace_event/typed_macros.h"
 #import "build/build_config.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 
 namespace {
 enum class UIUpdatePhase {
@@ -27,6 +29,10 @@ enum class UIUpdatePhase {
   kBeforeLowLatencyCATransactionCommit,
   kMaybeGesture,
 };
+
+// Shared event dispatch timestamp, set by the top-level view controller in the
+// view controller hierarchy that has the gesture tracing option enabled.
+base::TimeTicks g_possibleGestureTimestamp;
 }  // namespace
 
 // A private delegate that handles the tracing gesture recognizers' callbacks to
@@ -60,7 +66,6 @@ enum class UIUpdatePhase {
   NSTimeInterval _minSupportedFramePeriod;
   int _lastDroppedFrames;
   const char* _currentGesture;
-  base::TimeTicks _possibleGestureTimestamp;
   DisplayTracingGestureDelegate* _gestureDelegate;
 #if !BUILDFLAG(IS_IOS_MACCATALYST)
   UIUpdateLink* _updateLink;
@@ -92,7 +97,11 @@ enum class UIUpdatePhase {
           displayTracingOptions:
               (UIViewControllerDisplayTracingOptions)displayTracingOptions {
   if ((self = [super initWithNibName:nibNameOrNil bundle:nibBundleOrNil])) {
-    _displayTracingOptions = displayTracingOptions;
+    if (!IsDisplayTracingEnabled()) {
+      _displayTracingOptions = UIViewControllerDisplayTracingOptionNone;
+    } else {
+      _displayTracingOptions = displayTracingOptions;
+    }
     [self commonInit];
   }
   return self;
@@ -107,7 +116,11 @@ enum class UIUpdatePhase {
         displayTracingOptions:
             (UIViewControllerDisplayTracingOptions)displayTracingOptions {
   if ((self = [super initWithCoder:coder])) {
-    _displayTracingOptions = displayTracingOptions;
+    if (!IsDisplayTracingEnabled()) {
+      _displayTracingOptions = UIViewControllerDisplayTracingOptionNone;
+    } else {
+      _displayTracingOptions = displayTracingOptions;
+    }
     [self commonInit];
   }
   return self;
@@ -204,6 +217,18 @@ enum class UIUpdatePhase {
                    }];
     };
 
+    // Detect whether this view controller is top-level in the display tracing
+    // hierarchy.
+    BOOL isTopLevel = YES;
+    UIViewController* parent = self.parentViewController;
+    while (parent) {
+      if ([parent isKindOfClass:[UIViewControllerWithDisplayTracing class]]) {
+        isTopLevel = NO;
+        break;
+      }
+      parent = parent.parentViewController;
+    }
+
     if (_displayTracingOptions & UIViewControllerDisplayTracingOptionDisplay) {
       // Determine the target frame interval based on the display's maximum
       // frame rate. We use 60fps as a baseline. If the display supports a
@@ -224,15 +249,16 @@ enum class UIUpdatePhase {
       _currentFramePeriodEstimate = 1.0 / maxFramesPerSecond;
     }
 
-    if (_displayTracingOptions & UIViewControllerDisplayTracingOptionGesture) {
+    if (isTopLevel && (_displayTracingOptions &
+                       UIViewControllerDisplayTracingOptionGesture)) {
       registerPhase(UIUpdateActionPhase.beforeEventDispatch,
                     UIUpdatePhase::kMaybeGesture);
       registerPhase(UIUpdateActionPhase.beforeLowLatencyEventDispatch,
                     UIUpdatePhase::kMaybeGesture);
     }
 
-    if (_displayTracingOptions &
-        UIViewControllerDisplayTracingOptionEventDispatch) {
+    if (isTopLevel && (_displayTracingOptions &
+                       UIViewControllerDisplayTracingOptionEventDispatch)) {
       registerPhase(UIUpdateActionPhase.beforeEventDispatch,
                     UIUpdatePhase::kBeforeEventDispatch);
       registerPhase(UIUpdateActionPhase.afterEventDispatch,
@@ -389,7 +415,7 @@ enum class UIUpdatePhase {
     case UIUpdatePhase::kMaybeGesture:
       // At this time we know an event is queued, but we don't yet know whether
       // it will be recognized as a gesture we care about.
-      _possibleGestureTimestamp = base::TimeTicks::Now();
+      g_possibleGestureTimestamp = base::TimeTicks::Now();
       break;
     default:
       break;
@@ -417,9 +443,7 @@ enum class UIUpdatePhase {
                                 isLowLatency:(BOOL)isLowLatency {
   [self endCurrentPhaseIfNeeded];
   bool shouldRecordGestureLatency =
-      _currentGesture && !_possibleGestureTimestamp.is_null() /*&&
-                         base::ShouldRecordSubsampledMetric(0.01)*/
-      ;
+      _currentGesture && !g_possibleGestureTimestamp.is_null();
 
   if ((_displayTracingOptions & UIViewControllerDisplayTracingOptionDisplay) ||
       shouldRecordGestureLatency) {
@@ -509,7 +533,7 @@ enum class UIUpdatePhase {
       std::string histogram_name =
           "IOS.InputLatency." + _className + "." + _currentGesture;
       base::TimeDelta inputToCommitTimeDelta =
-          nowInTicks - _possibleGestureTimestamp;
+          nowInTicks - g_possibleGestureTimestamp;
       base::UmaHistogramTimes(histogram_name + ".InputToCommit",
                               inputToCommitTimeDelta);
       base::UmaHistogramTimes(histogram_name + ".CommitToDisplay",
@@ -528,7 +552,6 @@ enum class UIUpdatePhase {
 
   _flowID = 0;
   _currentGesture = nullptr;
-  _possibleGestureTimestamp = base::TimeTicks();
 }
 #endif  // !BUILDFLAG(IS_IOS_MACCATALYST)
 @end

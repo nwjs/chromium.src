@@ -102,6 +102,7 @@
 #include "chrome/browser/ssl/stateful_ssl_host_state_delegate_factory.h"
 #include "chrome/browser/startup_data.h"
 #include "chrome/browser/storage/storage_notification_service_factory.h"
+#include "chrome/browser/subscription_eligibility/subscription_eligibility_service_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/transition_manager/full_browser_transition_manager.h"
 #include "chrome/browser/ui/signin/dice_migration_service.h"
@@ -123,7 +124,6 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
-#include "chrome/grit/branded_strings.h"
 #include "components/background_sync/background_sync_controller_impl.h"
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/browser_sync/sync_to_signin_migration.h"
@@ -159,6 +159,8 @@
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/site_isolation/site_isolation_policy.h"
 #include "components/spellcheck/spellcheck_buildflags.h"
+#include "components/subscription_eligibility/subscription_eligibility_prefs.h"
+#include "components/subscription_eligibility/subscription_eligibility_service.h"
 #include "components/supervised_user/core/common/pref_names.h"
 #include "components/supervised_user/core/common/supervised_user_constants.h"
 #include "components/sync/base/features.h"
@@ -184,6 +186,7 @@
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "pdf/buildflags.h"
 #include "printing/buildflags/buildflags.h"
+#include "profile_load_tracker_win.h"
 #include "services/data_decoder/public/cpp/data_decoder.h"
 #include "services/preferences/public/mojom/preferences.mojom.h"
 #include "services/preferences/public/mojom/tracked_preference_validation_delegate.mojom.h"
@@ -505,6 +508,12 @@ ProfileImpl::ProfileImpl(
         this, profile_metrics::BrowserProfileType::kRegular);
   }
 
+#if BUILDFLAG(IS_WIN)
+  if (base::FeatureList::IsEnabled(features::kProfileLoadTracker)) {
+    profile_load_tracker_ = std::make_unique<ProfileLoadTracker>(*this);
+  }
+#endif
+
   if (delegate_) {
     delegate_->OnProfileCreationStarted(this, create_mode);
   }
@@ -621,7 +630,10 @@ void ProfileImpl::LoadPrefsForNormalStartup(bool async_prefs) {
     ash::DeviceSettingsService::Get()->LoadIfNotPresent();
 
   user_cloud_policy_manager_ash_ = policy::CreateUserCloudPolicyManagerAsh(
-      this, force_immediate_policy_load, io_task_runner_);
+      g_browser_process->local_state(),
+      g_browser_process->shared_url_loader_factory(),
+      g_browser_process->platform_part()->browser_policy_connector_ash(), this,
+      force_immediate_policy_load, io_task_runner_);
 
   cloud_policy_manager = nullptr;
   policy_provider = GetUserCloudPolicyManagerAsh();
@@ -765,6 +777,11 @@ void ProfileImpl::DoFinalInit(CreateMode create_mode) {
       base::BindRepeating(&ProfileImpl::UpdateIsEphemeralInStorage,
                           base::Unretained(this)));
 
+  pref_change_registrar_.Add(
+      subscription_eligibility::prefs::kAiSubscriptionTier,
+      base::BindRepeating(&ProfileImpl::UpdateAiSubscriptionTierInStorage,
+                          base::Unretained(this)));
+
   base::FilePath base_cache_path;
   // It would be nice to use PathService for fetching this directory, but
   // the cache directory depends on the profile directory, which isn't available
@@ -776,6 +793,7 @@ void ProfileImpl::DoFinalInit(CreateMode create_mode) {
   // Initialize components that depend on the current value.
   UpdateSupervisedUserIdInStorage();
   UpdateIsEphemeralInStorage();
+  UpdateAiSubscriptionTierInStorage();
 
   // Background mode and plugins are not used with all profiles. These use
   // KeyedServices that might not be available such as the ExtensionSystem for
@@ -1655,6 +1673,14 @@ void ProfileImpl::SetCreationTimeForTesting(base::Time creation_time) {
   prefs_->SetTime(prefs::kProfileCreationTime, creation_time);
 }
 
+#if BUILDFLAG(IS_WIN)
+void ProfileImpl::AckCrashForTracking() {
+  if (profile_load_tracker_) {
+    profile_load_tracker_->AckCrashForTracking();
+  }
+}
+#endif
+
 bool ProfileImpl::IsSignedIn() {
   signin::IdentityManager* identity_manager =
       IdentityManagerFactory::GetForProfile(this);
@@ -1737,6 +1763,24 @@ void ProfileImpl::UpdateIsEphemeralInStorage() {
   if (entry && !entry->IsOmitted()) {
     entry->SetIsEphemeral(
         GetPrefs()->GetBoolean(prefs::kForceEphemeralProfiles));
+  }
+}
+
+void ProfileImpl::UpdateAiSubscriptionTierInStorage() {
+  // Note: The profile must be loaded at least once in memory, in order for
+  // these values to be written in the storage entry.
+  ProfileAttributesEntry* entry = g_browser_process->profile_manager()
+                                      ->GetProfileAttributesStorage()
+                                      .GetProfileAttributesWithPath(GetPath());
+  if (entry) {
+    // TODO(crbug.com/522296672): Specify the right way to obtain this
+    // information as `GetAiSubscriptionTier` only works for certain groups of
+    // users.
+    auto* subscription_service = subscription_eligibility::
+        SubscriptionEligibilityServiceFactory::GetForProfile(this);
+    entry->SetAiSubscriptionTier(
+        subscription_service ? subscription_service->GetAiSubscriptionTier()
+                             : 0);
   }
 }
 

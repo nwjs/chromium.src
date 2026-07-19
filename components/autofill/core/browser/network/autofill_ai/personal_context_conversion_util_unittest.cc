@@ -32,6 +32,18 @@ void ExpectAttributeValue(const EntityInstance& entity,
   ASSERT_TRUE(attr.has_value())
       << "Missing attribute " << static_cast<int>(attribute_name);
   EXPECT_EQ(attr->GetCompleteRawInfo(), expected_value);
+  EXPECT_FALSE(attr->masked());
+}
+
+void ExpectMaskedAttributeValue(const EntityInstance& entity,
+                                AttributeTypeName attribute_name,
+                                const std::u16string& expected_value) {
+  base::optional_ref<const AttributeInstance> attr =
+      entity.attribute(AttributeType(attribute_name));
+  ASSERT_TRUE(attr.has_value())
+      << "Missing attribute " << static_cast<int>(attribute_name);
+  EXPECT_EQ(attr->GetCompleteRawInfo(), expected_value);
+  EXPECT_TRUE(attr->masked());
 }
 
 TEST(AutofillAiPersonalContextConverters, ConvertPassport) {
@@ -60,10 +72,31 @@ TEST(AutofillAiPersonalContextConverters, ConvertPassport) {
   EXPECT_TRUE(result.are_attributes_read_only().value());
 
   ExpectAttributeValue(result, kPassportName, u"Jane Doe");
-  ExpectAttributeValue(result, kPassportNumber, u"P12345");
+  ExpectMaskedAttributeValue(result, kPassportNumber, u"P12345");
   ExpectAttributeValue(result, kPassportCountry, u"US");
   ExpectAttributeValue(result, kPassportExpirationDate, u"2030-05-20");
   ExpectAttributeValue(result, kPassportIssueDate, u"2020-05-20");
+}
+
+TEST(AutofillAiPersonalContextConverters, ConvertPassport_Unmasked) {
+  personal_context::proto::Passport passport;
+  passport.set_name("Jane Doe");
+  passport.set_number("P12345");
+  passport.set_issuing_country("US");
+
+  personal_context::proto::Entity entity;
+  *entity.mutable_passport() = passport;
+
+  std::optional<EntityInstance> opt_result =
+      PersonalContextEntityToEntityInstance(entity, /*is_masked=*/false);
+
+  ASSERT_TRUE(opt_result.has_value());
+  const EntityInstance& result = opt_result.value();
+
+  EXPECT_EQ(result.type().name(), EntityTypeName::kPassport);
+  ExpectAttributeValue(result, kPassportName, u"Jane Doe");
+  ExpectAttributeValue(result, kPassportNumber, u"P12345");
+  ExpectAttributeValue(result, kPassportCountry, u"US");
 }
 
 TEST(AutofillAiPersonalContextConverters, ConvertDriversLicense) {
@@ -90,10 +123,31 @@ TEST(AutofillAiPersonalContextConverters, ConvertDriversLicense) {
   EXPECT_EQ(result.type().name(), EntityTypeName::kDriversLicense);
 
   ExpectAttributeValue(result, kDriversLicenseName, u"John Smith");
-  ExpectAttributeValue(result, kDriversLicenseNumber, u"DL9876");
+  ExpectMaskedAttributeValue(result, kDriversLicenseNumber, u"DL9876");
   ExpectAttributeValue(result, kDriversLicenseState, u"CA");
   ExpectAttributeValue(result, kDriversLicenseExpirationDate, u"2028-12-31");
   ExpectAttributeValue(result, kDriversLicenseIssueDate, u"2018-01-01");
+}
+
+TEST(AutofillAiPersonalContextConverters, ConvertDriversLicense_Unmasked) {
+  personal_context::proto::DriversLicense dl;
+  dl.set_name("John Smith");
+  dl.set_number("DL9876");
+  dl.set_state("CA");
+
+  personal_context::proto::Entity entity;
+  *entity.mutable_drivers_license() = dl;
+
+  std::optional<EntityInstance> opt_result =
+      PersonalContextEntityToEntityInstance(entity, /*is_masked=*/false);
+
+  ASSERT_TRUE(opt_result.has_value());
+  const EntityInstance& result = opt_result.value();
+
+  EXPECT_EQ(result.type().name(), EntityTypeName::kDriversLicense);
+  ExpectAttributeValue(result, kDriversLicenseName, u"John Smith");
+  ExpectAttributeValue(result, kDriversLicenseNumber, u"DL9876");
+  ExpectAttributeValue(result, kDriversLicenseState, u"CA");
 }
 
 TEST(AutofillAiPersonalContextConverters, ConvertNationalIdCard) {
@@ -120,10 +174,31 @@ TEST(AutofillAiPersonalContextConverters, ConvertNationalIdCard) {
   EXPECT_EQ(result.type().name(), EntityTypeName::kNationalIdCard);
 
   ExpectAttributeValue(result, kNationalIdCardName, u"Alice Green");
-  ExpectAttributeValue(result, kNationalIdCardNumber, u"NID5432");
+  ExpectMaskedAttributeValue(result, kNationalIdCardNumber, u"NID5432");
   ExpectAttributeValue(result, kNationalIdCardCountry, u"DE");
   ExpectAttributeValue(result, kNationalIdCardExpirationDate, u"2029-06-15");
   ExpectAttributeValue(result, kNationalIdCardIssueDate, u"2019-06-15");
+}
+
+TEST(AutofillAiPersonalContextConverters, ConvertNationalIdCard_Unmasked) {
+  personal_context::proto::NationalId nid;
+  nid.set_name("Alice Green");
+  nid.set_number("NID5432");
+  nid.set_issuing_country("DE");
+
+  personal_context::proto::Entity entity;
+  *entity.mutable_national_id() = nid;
+
+  std::optional<EntityInstance> opt_result =
+      PersonalContextEntityToEntityInstance(entity, /*is_masked=*/false);
+
+  ASSERT_TRUE(opt_result.has_value());
+  const EntityInstance& result = opt_result.value();
+
+  EXPECT_EQ(result.type().name(), EntityTypeName::kNationalIdCard);
+  ExpectAttributeValue(result, kNationalIdCardName, u"Alice Green");
+  ExpectAttributeValue(result, kNationalIdCardNumber, u"NID5432");
+  ExpectAttributeValue(result, kNationalIdCardCountry, u"DE");
 }
 
 TEST(AutofillAiPersonalContextConverters, ConvertFlightReservation) {
@@ -134,8 +209,10 @@ TEST(AutofillAiPersonalContextConverters, ConvertFlightReservation) {
   flight.set_passenger_name("Bob Dylan");
   flight.set_departure_airport("FRA");
   flight.set_arrival_airport("JFK");
-  // 2026-05-28 12:00:00 UTC is 1779969600 seconds since Unix epoch
-  flight.mutable_departure_time()->set_seconds(1779969600);
+  flight.mutable_departure_time()->set_year(2026);
+  flight.mutable_departure_time()->set_month(5);
+  flight.mutable_departure_time()->set_day(28);
+  flight.mutable_departure_time()->set_hours(12);
 
   personal_context::proto::Entity entity;
   *entity.mutable_flight_reservation() = flight;
@@ -155,6 +232,34 @@ TEST(AutofillAiPersonalContextConverters, ConvertFlightReservation) {
   ExpectAttributeValue(result, kFlightReservationPassengerName, u"Bob Dylan");
   ExpectAttributeValue(result, kFlightReservationDepartureAirport, u"FRA");
   ExpectAttributeValue(result, kFlightReservationArrivalAirport, u"JFK");
+  ExpectAttributeValue(result, kFlightReservationDepartureDate, u"2026-05-28");
+}
+
+TEST(AutofillAiPersonalContextConverters, ConvertFlightReservationWithOffset) {
+  personal_context::proto::FlightReservation flight;
+  flight.set_flight_number("LH456");
+  flight.set_departure_airport("FRA");
+  flight.set_arrival_airport("JFK");
+  // 2026-05-28 12:00:00.
+  flight.mutable_departure_time()->set_year(2026);
+  flight.mutable_departure_time()->set_month(5);
+  flight.mutable_departure_time()->set_day(28);
+  flight.mutable_departure_time()->set_hours(12);
+  // UTC-4 (offset -14400s). Absolute time is 16:00:00 UTC.
+  flight.mutable_departure_time()->mutable_utc_offset()->set_seconds(-14400);
+
+  personal_context::proto::Entity entity;
+  *entity.mutable_flight_reservation() = flight;
+
+  std::optional<EntityInstance> opt_result =
+      PersonalContextEntityToEntityInstance(entity);
+
+  ASSERT_TRUE(opt_result.has_value());
+  const EntityInstance& result = opt_result.value();
+
+  EXPECT_EQ(result.type().name(), EntityTypeName::kFlightReservation);
+  EXPECT_EQ(test_api(result).frecency_override(), "2026-05-28T16:00:00.000Z");
+
   ExpectAttributeValue(result, kFlightReservationDepartureDate, u"2026-05-28");
 }
 
@@ -194,7 +299,9 @@ TEST(AutofillAiPersonalContextConverters, ConvertOrder) {
   order.set_account("user@test.com");
   order.set_merchant_name("E-Shop");
   order.set_merchant_domain("eshop.com");
-  order.mutable_order_time()->set_seconds(1779969600);
+  order.mutable_order_date()->set_year(2026);
+  order.mutable_order_date()->set_month(5);
+  order.mutable_order_date()->set_day(28);
   order.add_product_names("Book A");
   order.add_product_names("Toy B");
 
@@ -222,7 +329,9 @@ TEST(AutofillAiPersonalContextConverters, ConvertShipment) {
   shipment.set_tracking_number("TRACK-888");
   shipment.set_carrier_name("ExpressMail");
   shipment.set_carrier_domain("expressmail.com");
-  shipment.mutable_estimated_delivery_time()->set_seconds(1779969600);
+  shipment.mutable_ship_date()->set_year(2026);
+  shipment.mutable_ship_date()->set_month(5);
+  shipment.mutable_ship_date()->set_day(28);
   shipment.add_associated_order_ids("ORD-001");
   shipment.add_associated_order_ids("ORD-002");
 
@@ -240,7 +349,7 @@ TEST(AutofillAiPersonalContextConverters, ConvertShipment) {
   ExpectAttributeValue(result, kShipmentTrackingNumber, u"TRACK-888");
   ExpectAttributeValue(result, kShipmentCarrierName, u"ExpressMail");
   ExpectAttributeValue(result, kShipmentCarrierDomain, u"expressmail.com");
-  ExpectAttributeValue(result, kShipmentEstimatedDeliveryDate, u"2026-05-28");
+  ExpectAttributeValue(result, kShipmentShippedDate, u"2026-05-28");
   ExpectAttributeValue(result, kShipmentOrderIds, u"ORD-001, ORD-002");
 }
 

@@ -379,8 +379,10 @@ String ScanTextResult<UChar>::TextToString() const {
 //   events that may be fired. Allowing this could be problematic if the fast
 //   path fails. For example, the 'onload' event of an <img> would be called
 //   multiple times if parsing fails.
-// - Fails if a text is encountered larger than Text::kDefaultLengthLimit. This
-//   requires special processing.
+// - When the SplitLargeTextNodes feature is enabled, fails if a text is
+//   encountered larger than
+//   HTMLConstructionSite::kObsoleteTextNodeLengthLimit. This requires special
+//   processing.
 // - Fails if a deep hierarchy is encountered. This is both to avoid a crash,
 //   but also at a certain depth elements get added as siblings vs children (see
 //   use of HTMLConstructionSite::kMaximumHTMLParserDOMTreeDepth).
@@ -451,7 +453,7 @@ class HTMLFastPathParser {
     return false;
   }
 
-  int NumberOfBytesParsed() const { return sizeof(Char) * pos_; }
+  size_t NumberOfBytesParsed() const { return sizeof(Char) * pos_; }
 
   HtmlFastPathResult parse_result() const { return parse_result_; }
 
@@ -1292,13 +1294,16 @@ class HTMLFastPathParser {
       DCHECK(scanned_text.text.empty() || !scanned_text.escaped_text);
       if (!scanned_text.text.empty()) {
         const auto text = scanned_text.text;
-        if (text.size() >= Text::kDefaultLengthLimit) {
+        if (RuntimeEnabledFeatures::SplitLargeTextNodesEnabled() &&
+            text.size() >= HTMLConstructionSite::kObsoleteTextNodeLengthLimit) {
           return Fail(HtmlFastPathResult::kFailedBigText);
         }
         parent->ParserAppendChildInDocumentFragment(
             Text::Create(document_, scanned_text.TryCanonicalizeString()));
       } else if (scanned_text.escaped_text) {
-        if (scanned_text.escaped_text->size() >= Text::kDefaultLengthLimit) {
+        if (RuntimeEnabledFeatures::SplitLargeTextNodesEnabled() &&
+            scanned_text.escaped_text->size() >=
+                HTMLConstructionSite::kObsoleteTextNodeLengthLimit) {
           return Fail(HtmlFastPathResult::kFailedBigText);
         }
         parent->ParserAppendChildInDocumentFragment(
@@ -1772,11 +1777,10 @@ bool TryParsingHTMLFragmentImpl(const base::span<const Char>& source,
                                 HTMLFragmentParsingBehaviorSet behavior,
                                 bool* failed_because_unsupported_tag) {
   base::ElapsedTimer parse_timer;
-  int number_of_bytes_parsed;
   HTMLFastPathParser<Char> parser{source, document, root_node};
   const bool success = parser.Run(context_element, behavior);
   LogFastPathResult(parser.parse_result());
-  number_of_bytes_parsed = parser.NumberOfBytesParsed();
+  size_t number_of_bytes_parsed = parser.NumberOfBytesParsed();
   // The time needed to parse is typically < 1ms (even at the 99%).
   if (success) {
     UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(

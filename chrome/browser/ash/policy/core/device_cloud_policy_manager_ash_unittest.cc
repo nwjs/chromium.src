@@ -328,7 +328,9 @@ class DeviceCloudPolicyManagerAshTest
   }
 
   void InitDeviceCloudPolicyInitializer() {
-    manager_->Initialize(TestingBrowserProcess::GetGlobal()->local_state());
+    manager_->Initialize(
+        TestingBrowserProcess::GetGlobal()->local_state(),
+        TestingBrowserProcess::GetGlobal()->shared_url_loader_factory());
     EnrollmentRequisitionManager::Initialize(
         CHECK_DEREF(TestingBrowserProcess::GetGlobal()->local_state()));
     initializer_ = std::make_unique<DeviceCloudPolicyInitializer>(
@@ -429,7 +431,9 @@ TEST_F(DeviceCloudPolicyManagerAshTest, FreshDevice) {
   FlushDeviceSettings();
   EXPECT_TRUE(manager_->IsInitializationComplete(POLICY_DOMAIN_CHROME));
 
-  manager_->Initialize(TestingBrowserProcess::GetGlobal()->local_state());
+  manager_->Initialize(
+      TestingBrowserProcess::GetGlobal()->local_state(),
+      TestingBrowserProcess::GetGlobal()->shared_url_loader_factory());
 
   PolicyBundle bundle;
   EXPECT_TRUE(manager_->policies().Equals(bundle));
@@ -795,16 +799,15 @@ class DeviceCloudPolicyManagerAshEnrollmentTest
         test_url_loader_factory_.GetSafeWeakWrapper(),
         CloudPolicyClient::DeviceDMTokenCallback());
 
-    const auto& local_state =
+    auto& local_state =
         CHECK_DEREF(TestingBrowserProcess::GetGlobal()->local_state());
     enrollment_handler_ = std::make_unique<EnrollmentHandler>(
-        store_, install_attributes_.get(), &state_keys_broker_,
-        &mock_attestation_flow_, std::move(client),
-        base::SingleThreadTaskRunner::GetCurrentDefault(), enrollment_config,
-        std::move(auth), install_attributes_->GetDeviceId(),
+        &local_state, test_url_loader_factory_.GetSafeWeakWrapper(), store_,
+        install_attributes_.get(), &state_keys_broker_, &mock_attestation_flow_,
+        std::move(client), base::SingleThreadTaskRunner::GetCurrentDefault(),
+        enrollment_config, std::move(auth), install_attributes_->GetDeviceId(),
         EnrollmentRequisitionManager::GetDeviceRequisition(local_state),
         EnrollmentRequisitionManager::GetSubOrganization(local_state),
-
         base::BindOnce(&DeviceCloudPolicyManagerAshEnrollmentTest::Done,
                        base::Unretained(this)));
     enrollment_handler_->SetSigningServiceProviderForTesting(

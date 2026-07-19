@@ -24,6 +24,7 @@
 #include "components/omnibox/browser/enterprise_search_aggregator_suggestions_service.h"
 #include "components/omnibox/browser/page_classification_functions.h"
 #include "components/search/search.h"
+#include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_service.h"
 #include "components/variations/net/variations_http_headers.h"
 #include "net/base/load_flags.h"
@@ -41,6 +42,9 @@ namespace {
 // Maximum length of page title sent to Suggest via `pageTitle` CGI param,
 // expressed as number of Unicode characters (codepoints).
 const size_t kMaxPageTitleLength = 128;
+
+// Suggest query parameter for setting the SuggestInventory for the request.
+constexpr char kSuggestInventoryParam[] = "azi";
 
 // TODO(crbug.com/842922363): Combine with the similar function in
 // zero_suggest_provider.cc.
@@ -316,6 +320,48 @@ GURL AddSmartComposePreviousQueryToEndpointUrl(
   return modified_url;
 }
 
+GURL AddSuggestInventoryParamToEndpointUrl(
+    const TemplateURLRef::SearchTermsArgs& search_terms_args,
+    const GURL& url_to_modify) {
+  GURL modified_url = GURL(url_to_modify);
+  if (search_terms_args.suggest_inventory !=
+      omnibox::SuggestInventory::SUGGEST_INVENTORY_DEFAULT) {
+    modified_url = net::AppendOrReplaceQueryParameter(
+        modified_url, kSuggestInventoryParam,
+        base::NumberToString(
+            static_cast<int>(search_terms_args.suggest_inventory)));
+  }
+  return modified_url;
+}
+
+GURL ReplaceLensSuggestPathPlaceholderInEndpointUrl(
+    const TemplateURLRef::SearchTermsArgs& search_terms_args,
+    const GURL& url_to_modify) {
+  if (search_terms_args.request_source !=
+      SearchTermsData::RequestSource::LENS_OVERLAY) {
+    return url_to_modify;
+  }
+
+  std::string current_client;
+  if (!net::GetValueForKeyInQuery(url_to_modify, "client", &current_client) ||
+      current_client.empty()) {
+    return url_to_modify;
+  }
+
+  std::string modified_url = url_to_modify.spec();
+  base::ReplaceSubstringsAfterOffset(
+      &modified_url, 0, TemplateURLService::kLensOverlaySuggestPathPlaceholder,
+      TemplateURL::GetSuggestionPath(current_client));
+
+  const bool found_placeholder =
+      modified_url.find(
+          TemplateURLService::kLensOverlaySuggestPathPlaceholder) !=
+      std::string::npos;
+  CHECK(!found_placeholder);
+
+  return GURL(modified_url);
+}
+
 }  // namespace
 
 RemoteSuggestionsService::Delegate::Delegate() = default;
@@ -384,7 +430,8 @@ GURL RemoteSuggestionsService::EndpointUrl(
     case metrics::OmniboxEventProto::SRP_OMNIBOX_COMPOSEBOX:
     case metrics::OmniboxEventProto::OTHER_OMNIBOX_COMPOSEBOX:
       if (search_terms_args.lens_overlay_suggest_inputs.has_value() &&
-          !search_terms_args.input_state.image_gen_upload_active) {
+          search_terms_args.input_state.active_tool ==
+              omnibox::ToolMode::TOOL_MODE_UNSPECIFIED) {
         url = net::AppendOrReplaceQueryParameter(url, "client",
                                                  "chrome-contextual");
       }
@@ -408,6 +455,8 @@ GURL RemoteSuggestionsService::EndpointUrl(
   url = AddLensOverlaySuggestInputsDataToEndpointUrl(search_terms_args, url);
   url = AddAimInputStateParamsToEndpointUrl(search_terms_args, url);
   url = AddSmartComposePreviousQueryToEndpointUrl(search_terms_args, url);
+  url = ReplaceLensSuggestPathPlaceholderInEndpointUrl(search_terms_args, url);
+  url = AddSuggestInventoryParamToEndpointUrl(search_terms_args, url);
 
   return url;
 }

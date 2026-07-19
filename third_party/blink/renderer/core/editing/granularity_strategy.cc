@@ -69,18 +69,18 @@ SelectionStrategy CharacterGranularityStrategy::GetType() const {
 
 void CharacterGranularityStrategy::Clear() {}
 
-SelectionInDOMTree CharacterGranularityStrategy::UpdateExtent(
+SelectionInDomTree CharacterGranularityStrategy::UpdateExtent(
     const gfx::Point& extent_point,
     LocalFrame* frame) {
   const VisiblePosition& extent_position = CreateVisiblePosition(
       PositionForContentsPointRespectingEditingBoundary(extent_point, frame));
   const VisibleSelection& selection =
-      frame->Selection().ComputeVisibleSelectionInDOMTree();
+      frame->Selection().ComputeVisibleSelectionInDomTree();
   if (extent_position.IsNull() || selection.VisibleAnchor().DeepEquivalent() ==
                                       extent_position.DeepEquivalent()) {
     return selection.AsSelection();
   }
-  return SelectionInDOMTree::Builder()
+  return SelectionInDomTree::Builder()
       .Collapse(selection.Anchor())
       .Extend(extent_position.DeepEquivalent())
       .SetAffinity(selection.Affinity())
@@ -105,11 +105,11 @@ void DirectionGranularityStrategy::Clear() {
   diff_extent_point_from_extent_position_ = gfx::Vector2d();
 }
 
-SelectionInDOMTree DirectionGranularityStrategy::UpdateExtent(
+SelectionInDomTree DirectionGranularityStrategy::UpdateExtent(
     const gfx::Point& extent_point,
     LocalFrame* frame) {
   const VisibleSelection& selection =
-      frame->Selection().ComputeVisibleSelectionInDOMTree();
+      frame->Selection().ComputeVisibleSelectionInDomTree();
 
   if (state_ == StrategyState::kCleared)
     state_ = StrategyState::kExpanding;
@@ -169,7 +169,7 @@ SelectionInDOMTree DirectionGranularityStrategy::UpdateExtent(
   // without a line change.
   if (vertical_change &&
       InSameLine(new_offset_focus_position, old_offset_focus_position)) {
-    return SelectionInDOMTree::Builder()
+    return SelectionInDomTree::Builder()
         .Collapse(selection.Anchor())
         .Extend(new_offset_focus_position.DeepEquivalent())
         .SetAffinity(selection.Affinity())
@@ -297,7 +297,7 @@ SelectionInDOMTree DirectionGranularityStrategy::UpdateExtent(
   diff_extent_point_from_extent_position_ =
       extent_point + gfx::Vector2d(offset_, 0) -
       PositionLocation(new_selection_extent);
-  return SelectionInDOMTree::Builder(selection.AsSelection())
+  return SelectionInDomTree::Builder(selection.AsSelection())
       .Collapse(selection.Anchor())
       .Extend(new_selection_extent.DeepEquivalent())
       .Build();

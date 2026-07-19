@@ -36,8 +36,7 @@ BASE_FEATURE(kLensOverlayTranslateLanguages, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kLensOverlayImageContextMenuActions,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kLensOverlayContextualSearchbox,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kLensOverlayContextualSearchbox, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLensOverlaySuggestionsMigration,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -91,7 +90,7 @@ BASE_FEATURE(kLensSearchNotFoundOnPageToast,
              "kLensSearchNotFoundOnPageToast",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kLensSearchAimM3, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kLensSearchAimM3, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kLensSearchAimM3EnUs, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kLensSearchAimM3UseAimEligibility,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -136,16 +135,33 @@ BASE_FEATURE(kLensSendVitForSingleContextNextQueries,
 
 BASE_FEATURE(kLensSendRawFileMediaTypes, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kLensSendUrlsInComposeboxes, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kLensSendQuerySubmissionTime, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kLensSendUrlsInComposeboxes,
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+             base::FEATURE_DISABLED_BY_DEFAULT
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT
+#endif
+);
 
 BASE_FEATURE(kLensOnlySendAaiForModalityChips,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+const base::FeatureParam<bool> kLensOnlySendAaiExcludeRawAndDriveFiles{
+    &kLensOnlySendAaiForModalityChips, "exclude_raw_and_drive_files", true};
 
 BASE_FEATURE(kLensRestrictAnnotatedPageContentToSameSiteFramesForNextQueries,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLensDeleteContextOnPageNavigation,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+const char kLensOverlayAndroidImplIntent[] = "intent";
+const char kLensOverlayAndroidImplWebUI[] = "webui";
+
+const base::FeatureParam<std::string> kLensOverlayAndroidImplType{
+    &kLensOverlayAndroid, "implementation_type", kLensOverlayAndroidImplIntent};
 
 constexpr base::FeatureParam<int> kLensUpdatedFeedbackToastTimeoutMs{
     &kLensUpdatedFeedbackEntrypoint, "feedback-toast-timeout-ms", 8000};
@@ -1329,6 +1345,10 @@ bool IsLensSendUrlsInComposeboxesEnabled() {
 
 bool IsLensOnlySendAaiForModalityChipsEnabled() {
   return base::FeatureList::IsEnabled(kLensOnlySendAaiForModalityChips);
+}
+
+bool IsLensOnlySendAaiExcludeRawAndDriveFilesEnabled() {
+  return kLensOnlySendAaiExcludeRawAndDriveFiles.Get();
 }
 
 }  // namespace lens::features

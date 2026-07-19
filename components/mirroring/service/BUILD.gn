@@ -97,8 +97,6 @@ source_set("unittests") {
     "remoting_sender_unittest.cc",
     "rpc_dispatcher_impl_unittest.cc",
     "rtp_stream_unittest.cc",
-    "value_util.cc",
-    "value_util.h",
     "video_capture_client_unittest.cc",
   ]
 

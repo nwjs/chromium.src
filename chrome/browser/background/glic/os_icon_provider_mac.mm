@@ -14,7 +14,6 @@
 #include "chrome/browser/glic/browser_ui/glic_vector_icon_manager.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/public/features.h"
-#include "chrome/grit/generated_resources.h"
 #include "components/omnibox/browser/vector_icons.h"  // nogncheck
 #include "components/prefs/pref_service.h"
 #include "third_party/skia/include/core/SkColor.h"
@@ -162,10 +161,26 @@ OSIconProviderMac::OSIconProviderMac(PrefService& prefs,
 OSIconProviderMac::~OSIconProviderMac() = default;
 
 gfx::ImageSkia OSIconProviderMac::GetIcon() const {
-  if (base::FeatureList::IsEnabled(features::kGlicOSIconVariant) &&
-      features::kGlicOSIconVariantParam.Get() == 0) {
+  if (base::FeatureList::IsEnabled(features::kGlicOSIconVariant)) {
+    int variant = features::kGlicOSIconVariantParam.Get();
+    int resource_id = IDR_GLIC_OS_ICON_VARIANT_0;
+    switch (variant) {
+      case 0:
+        resource_id = IDR_GLIC_OS_ICON_VARIANT_0;
+        break;
+      case 1:
+        resource_id = IDR_GLIC_OS_ICON_VARIANT_1;
+        break;
+      case 2:
+        resource_id = IDR_GLIC_OS_ICON_VARIANT_2;
+        break;
+      default:
+        // Fallback to variant 0 for unexpected values.
+        resource_id = IDR_GLIC_OS_ICON_VARIANT_0;
+        break;
+    }
     return gfx::CreateVectorIcon(
-        glic::GlicVectorIconManager::GetVectorIcon(IDR_GLIC_OS_ICON_VARIANT),
+        glic::GlicVectorIconManager::GetVectorIcon(resource_id),
         features::kGlicChromeStatusIconSizePx.Get(), SK_ColorWHITE);
   }
   if (GetUseAltIcon() && !features::kGlicChromeStatusIconLogOnly.Get()) {

@@ -10,7 +10,9 @@
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
+#include "build/build_config.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
+#include "chrome/browser/actor/actor_keyed_service_browsertest.h"
 #include "chrome/browser/actor/actor_proto_conversion.h"
 #include "chrome/browser/actor/actor_task_metadata.h"
 #include "chrome/browser/actor/actor_test_util.h"
@@ -22,19 +24,25 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/platform_browser_test.h"
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/test/base/ui_test_utils.h"
+#endif
 #include "components/actor/core/actor_features.h"
 #include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
 #include "components/optimization_guide/core/filters/optimization_hints_component_update_listener.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
+#include "components/page_content_annotations/content/page_context_fetcher.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/sessions/core/session_id.h"
 #include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/render_widget_host.h"
 #include "content/public/common/result_codes.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_frame_navigation_observer.h"
 #include "net/dns/mock_host_resolver.h"
+#include "third_party/blink/public/common/features.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/android_info.h"
@@ -56,87 +64,76 @@ using ::base::test::TestFuture;
 
 namespace actor {
 
-namespace {
+ActorKeyedServiceBrowserTest::ActorKeyedServiceBrowserTest() {
+  scoped_feature_list_.InitWithFeaturesAndParameters(
+      /*enabled_features=*/
+      {
+          {features::kGlic, {}},
+          {features::kGlicActor, {}},
+          {blink::features::kAIPageContentTrackedElementsIframe, {}},
+          {page_content_annotations::kGlicTabScreenshotExperiment,
+           {{"screenshot_timeout_ms", "30s"}}},
+      },
+      /*disabled_features=*/{features::kGlicWarming});
+}
 
-class ActorKeyedServiceBrowserTest : public PlatformBrowserTest {
- public:
-  ActorKeyedServiceBrowserTest() {
-    // TODO(crbug.com/443783931): Add test coverage for
-    // kGlicTabScreenshotPaintPreviewBackend.
-    scoped_feature_list_.InitWithFeatures(
-        /*enabled_features=*/{features::kGlic,
-#if BUILDFLAG(IS_ANDROID)
-                              chrome::android::kBrowserWindowInterfaceMobile,
-#endif
-                              features::kGlicActor},
-        /*disabled_features=*/{features::kGlicWarming});
-  }
-  ActorKeyedServiceBrowserTest(const ActorKeyedServiceBrowserTest&) = delete;
-  ActorKeyedServiceBrowserTest& operator=(const ActorKeyedServiceBrowserTest&) =
-      delete;
+ActorKeyedServiceBrowserTest::~ActorKeyedServiceBrowserTest() = default;
 
-  ~ActorKeyedServiceBrowserTest() override = default;
-
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    PlatformBrowserTest::SetUpCommandLine(command_line);
-    SetUpBlocklist(command_line, "blocked.example.com");
+void ActorKeyedServiceBrowserTest::SetUpCommandLine(
+    base::CommandLine* command_line) {
+  PlatformBrowserTest::SetUpCommandLine(command_line);
+  SetUpBlocklist(command_line, "blocked.example.com");
 #if BUILDFLAG(IS_CHROMEOS)
-    command_line->AppendSwitch(
-        ash::switches::kIgnoreUserProfileMappingForTests);
+  command_line->AppendSwitch(ash::switches::kIgnoreUserProfileMappingForTests);
 #endif
-  }
+}
 
-  void SetUpOnMainThread() override {
+void ActorKeyedServiceBrowserTest::SetUpOnMainThread() {
 #if BUILDFLAG(IS_ANDROID)
-    // TODO(crbug.com/517619366): Decouple test from Glic eligibility criteria.
-    if (base::android::android_info::sdk_int() <
-        base::android::android_info::SDK_VERSION_S) {
-      GTEST_SKIP() << "Actor requires Android S+ to run";
-    }
+  // TODO(crbug.com/517619366): Decouple test from Glic eligibility criteria.
+  if (base::android::android_info::sdk_int() <
+      base::android::android_info::SDK_VERSION_S) {
+    GTEST_SKIP() << "Actor requires Android S+ to run";
+  }
 #endif
-    PlatformBrowserTest::SetUpOnMainThread();
-    host_resolver()->AddRule("*", "127.0.0.1");
-    ASSERT_TRUE(embedded_test_server()->Start());
-    ASSERT_TRUE(embedded_https_test_server().Start());
+  PlatformBrowserTest::SetUpOnMainThread();
+  host_resolver()->AddRule("*", "127.0.0.1");
+  ASSERT_TRUE(embedded_test_server()->Start());
+  ASSERT_TRUE(embedded_https_test_server().Start());
 
-    // Optimization guide uses this histogram to signal initialization in tests.
-    auto* optimization_guide_init_histogram =
-        "OptimizationGuide.HintsManager.HintCacheInitialized";
-    if (histogram_tester_for_init_.GetTotalSum(
-            optimization_guide_init_histogram) == 0) {
-      optimization_guide::RetryForHistogramUntilCountReached(
-          &histogram_tester_for_init_, optimization_guide_init_histogram, 1);
-    }
-
-    // Simulate the component loading, as the implementation checks it, but the
-    // actual list is set via the command line.
-    ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
-    optimization_guide::OptimizationHintsComponentUpdateListener::GetInstance()
-        ->MaybeUpdateHintsComponent(
-            {base::Version("123"),
-             temp_dir_.GetPath().Append(FILE_PATH_LITERAL("dont_care"))});
+  // Optimization guide uses this histogram to signal initialization in tests.
+  auto* optimization_guide_init_histogram =
+      "OptimizationGuide.HintsManager.HintCacheInitialized";
+  if (histogram_tester_for_init_.GetTotalSum(
+          optimization_guide_init_histogram) == 0) {
+    optimization_guide::RetryForHistogramUntilCountReached(
+        &histogram_tester_for_init_, optimization_guide_init_histogram, 1);
   }
 
- protected:
-  tabs::TabInterface* active_tab() {
-    return chrome_test_utils::GetActiveTab(this);
-  }
+  ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
+  optimization_guide::OptimizationHintsComponentUpdateListener::GetInstance()
+      ->MaybeUpdateHintsComponent(
+          {base::Version("123"),
+           temp_dir_.GetPath().Append(FILE_PATH_LITERAL("dont_care"))});
+}
 
-  content::WebContents* web_contents() { return active_tab()->GetContents(); }
+tabs::TabInterface* ActorKeyedServiceBrowserTest::active_tab() {
+  return chrome_test_utils::GetActiveTab(this);
+}
 
-  content::RenderFrameHost* main_frame() {
-    return web_contents()->GetPrimaryMainFrame();
-  }
+content::WebContents* ActorKeyedServiceBrowserTest::web_contents() {
+  return active_tab()->GetContents();
+}
 
-  ActorKeyedService* actor_keyed_service() {
-    return ActorKeyedService::Get(GetProfile());
-  }
+content::RenderFrameHost* ActorKeyedServiceBrowserTest::main_frame() {
+  return web_contents()->GetPrimaryMainFrame();
+}
 
- private:
-  base::HistogramTester histogram_tester_for_init_;
-  base::test::ScopedFeatureList scoped_feature_list_;
-  base::ScopedTempDir temp_dir_;
-};
+ActorKeyedService* ActorKeyedServiceBrowserTest::actor_keyed_service() {
+  return ActorKeyedService::Get(GetProfile());
+}
+
+namespace {
 
 IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest, StartStopTask) {
   TaskId first_task_id = actor_keyed_service()->CreateTask(
@@ -153,7 +150,7 @@ IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest, StartStopTask) {
 }
 
 // TODO(crbug.com/439247740): Fails on Win ASan and Android.
-#if BUILDFLAG(IS_WIN) && defined(ADDRESS_SANITIZER) || BUILDFLAG(IS_ANDROID)
+#if (BUILDFLAG(IS_WIN) && defined(ADDRESS_SANITIZER)) || BUILDFLAG(IS_ANDROID)
 #define MAYBE_StartNavigateStopTask DISABLED_StartNavigateStopTask
 #else
 #define MAYBE_StartNavigateStopTask StartNavigateStopTask
@@ -219,6 +216,75 @@ IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest,
   EXPECT_EQ(frame_metadata.meta_tags(1).content(), "ruth");
   EXPECT_EQ(frame_metadata.meta_tags(2).name(), "sis");
   EXPECT_EQ(frame_metadata.meta_tags(2).content(), "val");
+
+  actor_keyed_service()->StopTask(task_id,
+                                  ActorTask::StoppedReason::kTaskComplete);
+}
+
+// TODO(b/484011242): Fix flakiness and re-enable this test on Android.
+#if BUILDFLAG(IS_ANDROID)
+#define MAYBE_RequestTabObservation_HasScreenshotInfo \
+  DISABLED_RequestTabObservation_HasScreenshotInfo
+#else
+#define MAYBE_RequestTabObservation_HasScreenshotInfo \
+  RequestTabObservation_HasScreenshotInfo
+#endif
+IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest,
+                       MAYBE_RequestTabObservation_HasScreenshotInfo) {
+  const GURL url =
+      embedded_https_test_server().GetURL("/actor/simple_iframe.html");
+  ASSERT_TRUE(chrome_test_utils::NavigateToURL(web_contents(), url));
+
+  content::RenderFrameHost* main_frame = web_contents()->GetPrimaryMainFrame();
+
+  // Wait for main frame layout/render.
+  {
+    TestFuture<bool> future;
+    main_frame->GetRenderWidgetHost()->InsertVisualStateCallback(
+        future.GetCallback());
+    ASSERT_TRUE(future.Wait()) << "Timeout waiting for syncing with renderer";
+  }
+
+  // Wait for child frame layout/render.
+  {
+    content::RenderFrameHost* child_frame =
+        content::ChildFrameAt(main_frame, 0);
+    ASSERT_TRUE(child_frame);
+
+    TestFuture<bool> future;
+    child_frame->GetRenderWidgetHost()->InsertVisualStateCallback(
+        future.GetCallback());
+    ASSERT_TRUE(future.Wait())
+        << "Timeout waiting for syncing with subframe renderer";
+  }
+
+  content::WaitForCopyableViewInWebContents(web_contents());
+
+  TaskId task_id = actor_keyed_service()->CreateTask(
+      TestTaskSourceInfo(), NoEnterprisePolicyChecker());
+
+  TestFuture<ActorKeyedService::TabObservationResult> future;
+  actor_keyed_service()->RequestTabObservation(
+      *active_tab(), task_id, std::nullopt, future.GetCallback());
+
+  const ActorKeyedService::TabObservationResult& result = future.Get();
+  ASSERT_TRUE(result.has_value());
+  ASSERT_TRUE(result.value());
+
+  optimization_guide::proto::TabObservation observation;
+  FillInTabObservation(**result, observation);
+
+  ASSERT_TRUE(observation.has_screenshot_info());
+  const auto& screenshot_info = observation.screenshot_info();
+  ASSERT_EQ(screenshot_info.iframe_info_size(), 1);
+  const auto& iframe_info = screenshot_info.iframe_info(0);
+  EXPECT_EQ(iframe_info.url(),
+            embedded_https_test_server().GetURL("/actor/blank.html").spec());
+  EXPECT_TRUE(iframe_info.has_bounding_box());
+  EXPECT_GE(iframe_info.bounding_box().x(), 0);
+  EXPECT_GE(iframe_info.bounding_box().y(), 0);
+  EXPECT_GT(iframe_info.bounding_box().width(), 0);
+  EXPECT_GT(iframe_info.bounding_box().height(), 0);
 
   actor_keyed_service()->StopTask(task_id,
                                   ActorTask::StoppedReason::kTaskComplete);
@@ -321,33 +387,6 @@ IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest,
   EXPECT_FALSE(actions_result->tabs()[0].has_screenshot());
 }
 
-IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest, StopPausedTask) {
-  TaskId task_id = actor_keyed_service()->CreateTask(
-      TestTaskSourceInfo(), NoEnterprisePolicyChecker());
-  // Navigate the active tab to a new page.
-  ASSERT_TRUE(chrome_test_utils::NavigateToURL(
-      web_contents(),
-      embedded_https_test_server().GetURL("/actor/blank.html")));
-
-  {
-    actor::ActorTask* task = actor_keyed_service()->GetTask(task_id);
-    actor::AddTabToTask(*active_tab(), *task);
-
-    task->Pause(/*from_actor=*/false);
-    CHECK(!task->IsCompleted());
-  }
-  base::RunLoop run_loop;
-  auto discard = active_tab()->RegisterWillDetach(base::BindRepeating(
-      [](base::RepeatingClosure run_loop_closure, tabs::TabInterface* tab,
-         tabs::TabInterface::DetachReason reason) { run_loop_closure.Run(); },
-      run_loop.QuitClosure()));
-  active_tab()->Close();
-  run_loop.Run();
-
-  // The task should be destroyed.
-  EXPECT_FALSE(actor_keyed_service()->GetTask(task_id));
-}
-
 #if !BUILDFLAG(IS_ANDROID)
 IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest,
                        AddsTabBlockedByCrossProfileCheck) {
@@ -361,7 +400,7 @@ IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest,
       profiles::testing::CreateProfileSync(profile_manager, profile_path);
 
   Browser* browser2 = Browser::Create(Browser::CreateParams(&profile2, true));
-  chrome::NewTab(browser2);
+  chrome::NewTab(browser2, NewTabTypes::kNoUserAction);
   tabs::TabInterface* tab2 = browser2->GetActiveTabInterface();
 
   ActorTask* task = actor_keyed_service()->GetTask(task_id);
@@ -374,7 +413,7 @@ IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest,
   ASSERT_TRUE(result);
   EXPECT_EQ(result->code, mojom::ActionResultCode::kTaskWentAway);
 
-  browser2->window()->Close();
+  browser2->GetWindow()->Close();
 }
 
 IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest,
@@ -389,7 +428,7 @@ IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest,
       profiles::testing::CreateProfileSync(profile_manager, profile_path);
 
   Browser* browser2 = Browser::Create(Browser::CreateParams(&profile2, true));
-  chrome::NewTab(browser2);
+  chrome::NewTab(browser2, NewTabTypes::kNoUserAction);
   tabs::TabInterface* tab2 = browser2->GetActiveTabInterface();
 
   ActorTask* task = actor_keyed_service()->GetTask(task_id);
@@ -399,9 +438,8 @@ IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest,
 
   EXPECT_FALSE(task->GetLastActedTabs().contains(tab2->GetHandle()));
 
-  browser2->window()->Close();
+  browser2->GetWindow()->Close();
 }
 #endif
-
 }  // namespace
 }  // namespace actor

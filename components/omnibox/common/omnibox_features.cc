@@ -5,6 +5,7 @@
 #include "components/omnibox/common/omnibox_features.h"
 
 #include "base/feature_list.h"
+#include "build/android_buildflags.h"
 #include "build/build_config.h"
 
 #if BUILDFLAG(IS_ANDROID)
@@ -87,10 +88,19 @@ BASE_FEATURE(kLocalHistoryZeroSuggestBeyondNTP, DISABLED);
 // Enables showing tabs from other devices in zero-prefix suggest.
 BASE_FEATURE(kOmniboxCrossDeviceTabZeroSuggest, DISABLED);
 BASE_FEATURE_PARAM(int,
-                   kOmniboxCrossDeviceTabZeroSuggestMaxAge,
+                   kOmniboxCrossDeviceTabZeroSuggestMaxAgeMinutes,
                    &kOmniboxCrossDeviceTabZeroSuggest,
-                   "max_age_minutes",
                    5);
+BASE_FEATURE_PARAM(
+    int,
+    kOmniboxCrossDeviceTabZeroSuggestDelayedContinuationMaxAgeMinutes,
+    &kOmniboxCrossDeviceTabZeroSuggest,
+    720);
+BASE_FEATURE_PARAM(
+    int,
+    kOmniboxCrossDeviceTabZeroSuggestMaxDelayedContinuationUptimeMinutes,
+    &kOmniboxCrossDeviceTabZeroSuggest,
+    5);
 
 // Enables the use of a request debouncer to throttle the number of ZPS prefetch
 // requests initiated over a given period of time (to help minimize the
@@ -125,9 +135,7 @@ BASE_FEATURE(kOnDeviceTailEnableEnglishModel,
              ENABLED);
 
 // Feature used to fetch document suggestions.
-BASE_FEATURE(kDocumentProvider,
-             "OmniboxDocumentProvider",
-             enable_if(!IS_ANDROID && !IS_IOS));
+BASE_FEATURE(kDocumentProvider, "OmniboxDocumentProvider", enable_if(!IS_IOS));
 
 // If enabled, the authentication requirement for Drive suggestions is based on
 // whether the primary account is available, i.e., the user is signed into
@@ -170,16 +178,6 @@ BASE_FEATURE(kMostVisitedTilesHorizontalRenderGroup,
 // accommodate the autocompletions.
 BASE_FEATURE(kRichAutocompletion, "OmniboxRichAutocompletion", ENABLED);
 
-// When enabled, the multimodal input button is shown in the Omnibox.
-BASE_FEATURE(kOmniboxMultimodalInput, ENABLED);
-
-// An additional gate to the behavior of OmniboxMultimodalInput on desktop.
-BASE_FEATURE(kAndroidDesktopAimGate, DISABLED);
-
-// Whether the AI Mode entrypoint is shown in the Omnibox as a RHS button. Only
-// used on desktop platforms.
-BASE_FEATURE(kAiModeOmniboxEntryPoint, ENABLED);
-
 // Whether the aim button should dynamically change to portray the submission
 // type.
 BASE_FEATURE(kDynamicAimSubmit, DISABLED);
@@ -196,6 +194,15 @@ BASE_FEATURE(kHideAimEntrypointOnUserInput,
 // Hides the AIM entrypoint in the Omnibox when the default suggestion is a URL.
 // Only used on desktop platforms.
 BASE_FEATURE(kHideAimEntrypointForUrlSuggestions, DISABLED);
+
+// When enabled, the multimodal input button is shown in the Omnibox.
+BASE_FEATURE(kOmniboxMultimodalInput, DISABLED);
+
+// An additional gate to the behavior of OmniboxMultimodalInput on desktop.
+BASE_FEATURE(kAndroidDesktopAimGate, DISABLED);
+
+// Enables the AIM entrypoint for third party search engines.
+BASE_FEATURE(kAim3pEntrypoint, DISABLED);
 
 // When enabled, AI mode will remove verbatim suggestions from the suggestions
 // list.
@@ -307,6 +314,9 @@ BASE_FEATURE(kOmniboxAppendInvocationSource, DISABLED);
 // Enable asynchronous Omnibox/Suggest view inflation.
 BASE_FEATURE(kOmniboxAsyncViewInflation, DISABLED);
 
+// Enable asynchronous Fusebox view inflation.
+BASE_FEATURE(kOmniboxFuseboxAsyncInflation, DISABLED);
+
 // Use FusedLocationProvider on Android to fetch device location.
 BASE_FEATURE(kUseFusedLocationProvider, ENABLED);
 
@@ -326,11 +336,6 @@ BASE_FEATURE(kOmniboxItemDecoration, DISABLED);
 
 // When the first suggestion is a url, the favicon is shown in the status view.
 BASE_FEATURE(kExactMatchFavicons, DISABLED);
-
-// If enabled, the omnibox will use the short suggest path.
-BASE_FEATURE(kUseShortSuggestPathV1,
-             "OmniboxUseShortSuggestPathV1",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // The features below allow tuning number of suggestions offered to users in
 // specific contexts. These features are default enabled and are used to control
@@ -386,10 +391,19 @@ BASE_FEATURE(kComposeboxAttachmentsTypedState, DISABLED);
 
 // Whether to enable Google Drive context menu option in the composebox.
 BASE_FEATURE(kComposeboxDriveContextMenuOption, DISABLED);
+const base::FeatureParam<bool> kComposeboxDriveIdentityFallback{
+    &kComposeboxDriveContextMenuOption, "enable_identity_fallback", true};
 
 // Whether to enable Google Drive context menu option's disclaimer flow in the
 // composebox.
 BASE_FEATURE(kComposeboxDriveContextMenuOptionDisclaimer, DISABLED);
+
+// Whether to force the Google Drive disclaimer to be accepted. This flag is
+// only used for testing purposes since dasher accounts are not allowed to
+// consent via pContext.
+BASE_FEATURE(kForceDriveDisclaimerAccepted,
+             "ForceDriveDisclaimerAccepted",
+             DISABLED);
 
 // Whether the composebox should show a verbatim match for context in
 // zero-suggest.
@@ -402,8 +416,6 @@ BASE_FEATURE(kDisableComposeboxWarmupRequests, DISABLED);
 BASE_FEATURE(kAimUrlInterceptPassthrough, DISABLED);
 
 BASE_FEATURE(kOmniboxDebugLogs, base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kThinkingModelIconUpdate, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Kill switch - Enables voice search coherence across composeboxes in NTP,
 // cobrowsing, omnibox by default, unless feature param overrides.
@@ -458,9 +470,6 @@ BASE_FEATURE(kDiagnostics, "OmniboxDiagnostics", DISABLED);
 // Force the realbox on Android regardless of platform/configuration checks.
 BASE_FEATURE(kForceAndroidRealbox, DISABLED);
 
-// When enabled, offer a desktop-like omnibox UI enhancement on large form
-// factors.
-BASE_FEATURE(kOmniboxImprovementForLFF, ENABLED);
 
 // If enabled, disables ligatures in the URL bar on Android.
 BASE_FEATURE(kUrlBarWithoutLigatures, ENABLED);
@@ -480,6 +489,7 @@ static int64_t JNI_OmniboxFeatureMap_GetNativeMap(JNIEnv* env) {
       &kForceAndroidRealbox,
       &kOmniboxTouchDownTriggerForPrefetch,
       &kOmniboxAsyncViewInflation,
+      &kOmniboxFuseboxAsyncInflation,
       &kRichAutocompletion,
       &kUrlBarWithoutLigatures,
       &kUseFusedLocationProvider,
@@ -493,7 +503,6 @@ static int64_t JNI_OmniboxFeatureMap_GetNativeMap(JNIEnv* env) {
       &kOmniboxMultimodalInput,
       &kAndroidDesktopAimGate,
       &kMultilineEditField,
-      &kOmniboxImprovementForLFF,
       &kServeJavaCachedZeroSuggest,
       &kAIMSuppressVerbatimMatch,
       &kResetSuggestionsScroll,

@@ -12,11 +12,59 @@ import {getHtml as getContextMenuHtml} from './ntp_composebox_context_menu.html.
 export function getHtml(this: NtpComposeboxElement) {
   // clang-format off
   return html`<!--_html_template_start_-->
-    <ntp-error-scrim id="errorScrim" part="error-scrim"
-        ?compact-mode="${this.files.size === 0}"
-        .errorMessage="${this.errorMessage}"
-        @dismiss-error-scrim="${this.onDismissErrorScrim}">
-    </ntp-error-scrim>
+    <search-animated-glow id="animatedSearchElement"
+        animation-state="${this.animationState}"
+        entrypoint-name="Realbox"
+        .coloredTicTacVoiceAnimationEnabled="${this.voiceSearchCoherenceEnabled}"
+        .requiresVoice="${this.shouldShowVoiceSearchAnimation()}"
+        .transcript="${this.transcript}"
+        .receivedSpeech="${this.receivedSpeech}"
+        .isListening="${this.isListening}"
+        .energyEffectAnimationEnabled="${this.energyEffectAnimationEnabled}"
+        .darkThemeColorsEnabled="${false}"
+        exportparts="composebox-background">
+      ${this.showFileCarousel && this.shouldShowVoiceSearchAnimation() &&
+          this.voiceSearchCoherenceEnabled ? html`
+        <div id="voiceCarouselContainer"
+            slot="carousel"
+            part="carousel-container">
+          <div id="voiceCarouselContainerInner"
+              class="carousel-container-inner">
+            <cr-composebox-file-carousel
+              id="voiceSearchCarousel"
+              .files="${this.getFilteredCarouselFiles()}"
+              enable-scrolling
+              @delete-file="${this.onDeleteFile}">
+            </cr-composebox-file-carousel>
+          </div>
+        </div>
+      ` : ''}
+      ${this.shouldShowVoiceSearchAnimation() &&
+            this.voiceSearchCoherenceEnabled && this.inToolMode
+          ? html`<div class=
+              "context-menu-container voice-context-menu-container"
+                    id="voiceToolChipsContainer"
+                    slot="tool-chip"
+                    part="tool-chips-container">
+                  <cr-composebox-tool-chip
+                    exportparts="tool-chip-label"
+                    .inputState="${this.inputState}"
+                    .isCanvasQuerySubmitted="
+                        ${this.isCanvasQuerySubmitted}"
+                    @tool-click="${this.onToolClick}"
+                    part="tool-chip">
+                  </cr-composebox-tool-chip>
+                </div>
+      ` : ''}
+    </search-animated-glow>
+    ${this.errorMessage ?
+      html`<ntp-error-scrim id="errorScrim" part="error-scrim"
+          ?compact-mode="${this.searchboxLayoutMode === 'Compact' &&
+                          this.files.size === 0}"
+          .errorMessage="${this.errorMessage}"
+          @dismiss-error-scrim="${this.onDismissErrorScrim}">
+      </ntp-error-scrim>`
+    : ''}
     <div id="composebox" part="composebox" ?inert="${!!this.errorMessage}"
         @keydown="${this.onKeydown}"
         @dragenter="${this.dragAndDropHandler_.handleDragEnter}"
@@ -38,13 +86,13 @@ export function getHtml(this: NtpComposeboxElement) {
             .cancelButtonTitle="${this.computeCancelButtonTitle()}"
             @input-input="${this.onInputInput}"
             @input-focusin="${this.onInputFocusin}"
-            @cancel-click="${this.onCancelClick}">
+            @cancel-click="${this.onCancelClick}"
+            @clear-smart-compose="${this.onClearSmartCompose}">
         </cr-composebox-input>
         <div id="context" part="context-entrypoint">
           <cr-composebox-file-inputs id="fileInputs"
               @file-change="${this.onFileChange}"
               .disableFileInputs="${this.shouldDisableFileInputs()}">
-            ${this.hasTabs() ? '' : getContextMenuHtml.bind(this)()}
             <div id="carouselContainer" part="carousel-container">
               <div class="carousel-container-inner">
                 ${this.showFileCarousel ? html`
@@ -55,8 +103,8 @@ export function getHtml(this: NtpComposeboxElement) {
                     .files="${this.getFilteredCarouselFiles()}"
                     @delete-file="${this.onDeleteFile}">
                   </cr-composebox-file-carousel> ` : ''}
-                  ${this.hasTabs() && this.contextMenuEnabled ? html`
-                    ${getContextMenuHtml.bind(this)()}
+                  ${this.contextMenuEnabled ? html`
+                      ${getContextMenuHtml.bind(this)()}
                   ` : ''}
                   ${this.inToolMode ? html`
                   <div class="context-menu-container" id="toolChipsContainer"
@@ -71,6 +119,16 @@ export function getHtml(this: NtpComposeboxElement) {
                   </div>
                   ` : ''}
               </div>
+              ${this.shouldShowSubmitButton() ? html`
+              <cr-composebox-submit
+                exportparts="action-icon, submit, submit-icon, submit-overlay"
+                ?disabled="${!this.canSubmitFilesAndInput}"
+                .iconType="${this.submitButtonIconType}"
+                .submitButtonTitle="${this.i18n('composeboxSubmitButtonTitle')}"
+                @submit-click="${this.onSubmitClick}"
+                @submit-focusin="${this.onSubmitFocusin}">
+              </cr-composebox-submit>
+              ` : ''}
             </div>
             ${this.shouldShowDivider() ? html`
             <div class="carousel-divider" part="carousel-divider"></div>
@@ -94,6 +152,31 @@ export function getHtml(this: NtpComposeboxElement) {
         </div>
       </div>
     </div>
+  ${this.shouldShowVoiceSearch() ? html`
+    <cr-composebox-voice-search id="voiceSearch"
+        @voice-permission-changed="${this.onVoicePermissionChanged}"
+        @voice-search-cancel="${this.onVoiceSearchCancel}"
+        @voice-search-final-result="${this.onVoiceSearchFinalResult}"
+        @voice-search-error="${this.onVoiceSearchError}"
+        @transcript-update="${this.onTranscriptUpdate}"
+        @speech-received="${this.onSpeechReceived}"
+        @recording-stopped="${this.onRecordingStopped}"
+        .submitStopButtonsEnabled="${this.voiceSearchCoherenceEnabled}"
+        .liveTranscriptEnabled="${!this.voiceSearchCoherenceEnabled}"
+        .submitButtonIconType="${this.submitButtonIconType}"
+        .dynamicTimeoutEnabled="${false}"
+        .pageCallbackRouter="${this.getSearchboxCallbackRouter()}"
+        exportparts="voice-close-button, voice-details-link, voice-stop-button, voice-submit-button">
+    </cr-composebox-voice-search>
+  ` : ''}
+  ${this.shouldShowSuggestionActivityLink() ? html`
+    <div id="suggestionActivity">
+      <localized-link
+        .localizedString="${this.i18nAdvanced('suggestionActivityLink')}"
+        @link-clicked="${this.onLinkClicked}">
+      </localized-link>
+    </div>
+  `: ''}
   <!--_html_template_end_-->`;
   // clang-format on
 }

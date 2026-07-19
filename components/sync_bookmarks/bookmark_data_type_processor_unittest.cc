@@ -25,6 +25,8 @@
 #include "components/favicon/core/test/mock_favicon_service.h"
 #include "components/sync/base/client_tag_hash.h"
 #include "components/sync/base/features.h"
+#include "components/sync/base/server_defined_unique_tags.h"
+#include "components/sync/base/time.h"
 #include "components/sync/base/unique_position.h"
 #include "components/sync/engine/data_type_activation_response.h"
 #include "components/sync/model/data_type_activation_request.h"
@@ -61,9 +63,6 @@ using testing::UnorderedElementsAre;
 
 using syncer::ModelError;
 
-const char kBookmarkBarTag[] = "bookmark_bar";
-const char kOtherBookmarksTag[] = "other_bookmarks";
-const char kMobileBookmarksTag[] = "synced_bookmarks";
 const char kBookmarkBarId[] = "bookmark_bar_id";
 const char kOtherBookmarksId[] = "other_bookmarks_id";
 const char kMobileBookmarksId[] = "mobile_bookmarks_id";
@@ -149,14 +148,18 @@ sync_pb::BookmarkMetadata CreateNodeMetadata(
     const std::string& server_id,
     const syncer::UniquePosition& unique_position =
         syncer::UniquePosition::InitialPosition(
-            syncer::UniquePosition::RandomSuffix())) {
+            syncer::UniquePosition::RandomSuffix()),
+    int64_t server_version = 0) {
   sync_pb::BookmarkMetadata bookmark_metadata;
   bookmark_metadata.set_id(node->id());
   bookmark_metadata.mutable_metadata()->set_server_id(server_id);
+  bookmark_metadata.mutable_metadata()->set_server_version(server_version);
   bookmark_metadata.mutable_metadata()->set_client_tag_hash(
       syncer::ClientTagHash::FromUnhashed(syncer::BOOKMARKS,
                                           node->uuid().AsLowercaseString())
           .value());
+  bookmark_metadata.mutable_metadata()->set_creation_time(
+      syncer::TimeToProtoTime(base::Time::Now()));
   *bookmark_metadata.mutable_metadata()->mutable_unique_position() =
       unique_position.ToProto();
   // Required by SyncedBookmarkTracker during validation of local metadata.
@@ -206,15 +209,15 @@ syncer::UpdateResponseDataList CreateUpdateResponseDataListForPermanentNodes() {
   // Add update for the permanent folders.
   updates.push_back(
       CreateUpdateResponseData({kBookmarkBarId, std::string(), std::string(),
-                                kBookmarksRootId, kBookmarkBarTag},
+                                kBookmarksRootId, syncer::kBookmarkBarTag},
                                kRandomPosition, /*response_version=*/0));
   updates.push_back(
       CreateUpdateResponseData({kOtherBookmarksId, std::string(), std::string(),
-                                kBookmarksRootId, kOtherBookmarksTag},
+                                kBookmarksRootId, syncer::kOtherBookmarksTag},
                                kRandomPosition, /*response_version=*/0));
   updates.push_back(CreateUpdateResponseData(
       {kMobileBookmarksId, std::string(), std::string(), kBookmarksRootId,
-       kMobileBookmarksTag},
+       syncer::kSyncedBookmarksTag},
       kRandomPosition, /*response_version=*/0));
 
   return updates;
@@ -734,6 +737,84 @@ TEST_F(BookmarkDataTypeProcessorTest, ShouldApplyGcDirective) {
   ASSERT_THAT(
       unsynced_entities,
       UnorderedElementsAre(TrackedEntityCorrespondsToBookmarkNode(node4)));
+}
+
+TEST_F(BookmarkDataTypeProcessorTest, ShouldApplyGcDirectiveWithLocalDeletion) {
+  const std::string kTitle = "title";
+  const GURL kUrl("https://www.url.com");
+
+  const bookmarks::BookmarkNode* bookmark_bar =
+      bookmark_model()->bookmark_bar_node();
+
+  // Create a synced node.
+  const bookmarks::BookmarkNode* node = bookmark_model()->AddURL(
+      bookmark_bar, /*index=*/0, base::UTF8ToUTF16(kTitle), kUrl);
+
+  SimulateModelReadyToSyncWithInitialSyncDone();
+  SimulateOnSyncStarting();
+  SimulateConnectSync();
+
+  const SyncedBookmarkTrackerEntity* entity =
+      processor()->GetTrackerForTest()->GetEntityForBookmarkNode(node);
+  ASSERT_THAT(entity, NotNull());
+  ASSERT_FALSE(entity->IsUnsynced());
+
+  // Delete the node locally. It becomes a tombstone in the tracker.
+  bookmark_model()->underlying_model()->Remove(
+      node, bookmarks::metrics::BookmarkEditSource::kOther, FROM_HERE);
+  const std::string server_id = entity->metadata().server_id();
+  ASSERT_TRUE(entity->metadata().is_deleted());
+  ASSERT_EQ(entity->bookmark_node(), nullptr);
+  ASSERT_TRUE(entity->IsUnsynced());
+
+  // Process an update with a GC directive (version watermark).
+  // The update list is empty.
+  syncer::UpdateResponseDataList updates;
+  sync_pb::GarbageCollectionDirective garbage_collection_directive;
+  garbage_collection_directive.set_version_watermark(1);
+
+  // This should NOT crash (specifically it should not dereference null node).
+  processor()->OnUpdateReceived(CreateDataTypeState(), std::move(updates),
+                                garbage_collection_directive);
+
+  // The tombstone should be removed from tracker because it is also deleted on
+  // the server (not present in updates during GC directive).
+  EXPECT_EQ(processor()->GetTrackerForTest()->GetEntityForSyncId(server_id),
+            nullptr);
+}
+
+TEST_F(BookmarkDataTypeProcessorTest,
+       ShouldDeleteSyncedBookmarksUponClearMetadata) {
+  const std::string kTitle = "title";
+  const GURL kUrl("https://www.url.com");
+
+  const bookmarks::BookmarkNode* bookmark_bar =
+      bookmark_model()->bookmark_bar_node();
+
+  // Create a synced node.
+  const bookmarks::BookmarkNode* node = bookmark_model()->AddURL(
+      bookmark_bar, /*index=*/0, base::UTF8ToUTF16(kTitle), kUrl);
+
+  SimulateModelReadyToSyncWithInitialSyncDone();
+  SimulateOnSyncStarting();
+  SimulateConnectSync();
+
+  const SyncedBookmarkTrackerEntity* entity =
+      processor()->GetTrackerForTest()->GetEntityForBookmarkNode(node);
+  ASSERT_THAT(entity, NotNull());
+  ASSERT_FALSE(entity->IsUnsynced());
+
+  // Process an update with a GC directive (clear_metadata).
+  // The update list is empty.
+  syncer::UpdateResponseDataList updates;
+  sync_pb::GarbageCollectionDirective garbage_collection_directive;
+  garbage_collection_directive.set_clear_metadata(true);
+
+  processor()->OnUpdateReceived(CreateDataTypeState(), std::move(updates),
+                                garbage_collection_directive);
+
+  EXPECT_TRUE(
+      bookmark_model()->underlying_model()->GetNodesByURL(kUrl).empty());
 }
 
 TEST_F(

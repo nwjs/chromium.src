@@ -3,16 +3,14 @@
 // found in the LICENSE file.
 
 import {hexToColor, MIN_TEXTBOX_SIZE_PX, TEXT_COLORS, TextAlignment, TextStyle, TextTypeface} from 'chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/pdf_viewer_wrapper.js';
-import {microtasksFinished} from 'chrome://webui-test/test_util.js';
+import {eventToPromise, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 import {assertPositionAndSize, dragHandle, initializeBox, setupTextBoxTest} from './ink2_text_box_test_utils.js';
 import {getRequiredElement} from './test_util.js';
-
-const {manager, textbox} = setupTextBoxTest();
-
 chrome.test.runTests([
   // Test drawing the box based on data from the manager.
   async function testDrawsBox() {
+    const {textbox} = await setupTextBoxTest();
     // Initial state. Textbox is not visible because it hasn't received an
     // initialize-text-box event yet.
     chrome.test.assertTrue(textbox.hidden);
@@ -27,7 +25,7 @@ chrome.test.runTests([
     // height = 2 * y - 2 * outer padding = 20px + specified height
 
     // Create a 160x40 box at 80, 120.
-    initializeBox(manager, 160, 40, 80, 120);
+    initializeBox(160, 40, 80, 120);
     await microtasksFinished();
     chrome.test.assertFalse(textbox.hidden);
     assertPositionAndSize(textbox, '184px', '60px', '63px', '105px');
@@ -41,7 +39,7 @@ chrome.test.runTests([
     chrome.test.assertEq('', textbox.$.textbox.value);
 
     // Update to a 100x200 box at 400, 300 with "Hello World" text.
-    initializeBox(manager, 100, 200, 400, 300);
+    initializeBox(100, 200, 400, 300);
     await microtasksFinished();
     textbox.$.textbox.value = 'Hello World';
     textbox.$.textbox.dispatchEvent(new CustomEvent('input'));
@@ -59,8 +57,9 @@ chrome.test.runTests([
 
   // Test that the textbox styles change based on an update event.
   async function testTextbox() {
+    const {manager, textbox} = await setupTextBoxTest();
     // Update to a 100x200 box at 400, 300.
-    initializeBox(manager, 100, 200, 400, 300);
+    initializeBox(100, 200, 400, 300);
     await microtasksFinished();
     chrome.test.assertFalse(textbox.hidden);
     chrome.test.assertEq('', textbox.$.textbox.value);
@@ -116,23 +115,13 @@ chrome.test.runTests([
     manager.setTextAlignment(TextAlignment.RIGHT);
     await microtasksFinished();
     chrome.test.assertEq('right', textboxStyles.getPropertyValue('text-align'));
-
-    // Reset everything for later tests.
-    manager.setTextTypeface(TextTypeface.SANS_SERIF);
-    manager.setTextSize(12);
-    manager.setTextStyles({
-      [TextStyle.BOLD]: false,
-      [TextStyle.ITALIC]: false,
-    });
-    manager.setTextColor(hexToColor(TEXT_COLORS[0]!.color));
-    manager.setTextAlignment(TextAlignment.LEFT);
-    await microtasksFinished();
     chrome.test.succeed();
   },
 
   async function testDragHandles() {
+    const {textbox} = await setupTextBoxTest(1015, 500, 1000, 1000);
     // Initialize to a 100x200 box at 400, 300.
-    initializeBox(manager, 100, 200, 400, 300);
+    initializeBox(100, 200, 400, 300);
     await microtasksFinished();
     chrome.test.assertFalse(textbox.hidden);
     assertPositionAndSize(textbox, '124px', '220px', '383px', '285px');
@@ -218,7 +207,10 @@ chrome.test.runTests([
   },
 
   async function testAutoResize() {
-    // Textbox is in clamped size from the previous test.
+    const {textbox} = await setupTextBoxTest(1015, 500, 1000, 1000);
+    initializeBox(24, 24, 416, 300);
+    await microtasksFinished();
+    // Textbox is initialized to the minimum clamped size.
     const clampedTextareaWidth = textbox.$.textbox.clientWidth;
     const clampedTextareaHeight = textbox.$.textbox.clientHeight;
     // Add 10 to min size for measured clientWidth due to padding.
@@ -259,17 +251,13 @@ chrome.test.runTests([
     assertPositionAndSize(
         textbox, '324px', `${updatedHeight - 100}px`, '399px', '285px');
 
-    // Reset the sample text for later tests.
-    textbox.$.textbox.value = '';
-    textbox.$.textbox.dispatchEvent(new CustomEvent('input'));
-    await microtasksFinished();
-
     chrome.test.succeed();
   },
 
   async function testResizeClampedToPageBoundaries() {
+    const {textbox} = await setupTextBoxTest(1015, 500, 1000, 1000);
     // Initialize to a 100x100 box at 400, 300.
-    initializeBox(manager, 100, 100, 400, 300);
+    initializeBox(100, 100, 400, 300);
     await microtasksFinished();
     assertPositionAndSize(textbox, '124px', '120px', '383px', '285px');
 
@@ -351,8 +339,9 @@ chrome.test.runTests([
   },
 
   async function testMove() {
+    const {textbox} = await setupTextBoxTest(1015, 500, 1000, 1000);
     // Initialize to a 100x100 box at 400, 300.
-    initializeBox(manager, 100, 100, 400, 300);
+    initializeBox(100, 100, 400, 300);
     await microtasksFinished();
     assertPositionAndSize(textbox, '124px', '120px', '383px', '285px');
     await dragHandle(textbox, 100, 100);
@@ -370,8 +359,9 @@ chrome.test.runTests([
   },
 
   async function testMoveToPageBoundaries() {
+    const {textbox} = await setupTextBoxTest(1015, 500, 1000, 1000);
     // Initialize to a 100x100 box at 400, 300.
-    initializeBox(manager, 100, 100, 400, 300);
+    initializeBox(100, 100, 400, 300);
     await microtasksFinished();
     assertPositionAndSize(textbox, '124px', '120px', '383px', '285px');
 
@@ -398,6 +388,23 @@ chrome.test.runTests([
     // Drag the box past the bottom right corner and ensure it stops moving.
     await dragHandle(textbox, 1200, 200);
     assertPositionAndSize(textbox, '124px', '120px', '893px', '888px');
+
+    chrome.test.succeed();
+  },
+
+  async function testFocusEventDispatchesTextboxFocused() {
+    const {textbox} = await setupTextBoxTest();
+    initializeBox(100, 100, 400, 300);
+    await microtasksFinished();
+
+    const whenFocused = eventToPromise<CustomEvent>('textbox-focused', textbox);
+    textbox.dispatchEvent(new FocusEvent('focus'));
+
+    const event = await whenFocused;
+    chrome.test.assertEq(400, event.detail.locationX);
+    chrome.test.assertEq(300, event.detail.locationY);
+    chrome.test.assertEq(100, event.detail.width);
+    chrome.test.assertEq(100, event.detail.height);
 
     chrome.test.succeed();
   },

@@ -22,6 +22,7 @@
 #include "chrome/test/base/search_test_utils.h"
 #include "components/omnibox/browser/autocomplete_controller.h"
 #include "components/omnibox/browser/autocomplete_controller_emitter.h"
+#include "components/omnibox/browser/autocomplete_enums.h"
 #include "components/omnibox/browser/autocomplete_input.h"
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/omnibox/browser/autocomplete_result.h"
@@ -73,7 +74,7 @@ void InputKeys(Browser* browser, const std::vector<ui::KeyboardCode>& keys) {
 }
 
 LocationBar* GetLocationBar(Browser* browser) {
-  return browser->window()->GetLocationBar();
+  return BrowserWindow::FromBrowser(browser)->GetLocationBar();
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
 
@@ -140,6 +141,15 @@ class OmniboxApiTest : public ExtensionApiTest {
     // consistent.
     search_test_utils::WaitForTemplateURLServiceToLoad(
         TemplateURLServiceFactory::GetForProfile(profile()));
+  }
+
+  void TearDownOnMainThread() override {
+#if BUILDFLAG(IS_ANDROID)
+    // On Android, AutocompleteController is a KeyedService and persists across
+    // tests. Stop it to prevent polluted state in subsequent tests.
+    GetAutocompleteController()->Stop(AutocompleteStopReason::kClobbered);
+#endif
+    ExtensionApiTest::TearDownOnMainThread();
   }
 
 #if BUILDFLAG(IS_ANDROID)
@@ -769,9 +779,11 @@ IN_PROC_BROWSER_TEST_F(OmniboxApiTest, SetDefaultSuggestionFailures) {
                  content: 'content',
              };
              const expectedError = /Unexpected property: 'content'./;
+             // Verify `chrome.omnibox.setDefaultSuggestion` throws on invalid
+             // suggestion property.
              chrome.test.assertThrows(
-                 chrome.omnibox.setDefaultSuggestion,
-                 [invalidSuggestion],
+                 chrome.omnibox.setDefaultSuggestion.bind(
+                     null, invalidSuggestion),
                  expectedError);
              chrome.test.succeed();
            },
@@ -807,9 +819,6 @@ IN_PROC_BROWSER_TEST_F(OmniboxApiTest, SetDefaultSuggestionFailures) {
   ASSERT_TRUE(RunExtensionTest(test_dir.UnpackedPath(), {}, {})) << message_;
 }
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-// TODO(crbug.com/405219624): Port these tests to desktop Android. Most require
-// access to the Views location bar, which is not available on Android.
 // Flaky on Linux TSan. https://crbug.com/40826642
 #if (BUILDFLAG(IS_LINUX) && defined(THREAD_SANITIZER))
 #define MAYBE_SetDefaultSuggestion DISABLED_SetDefaultSuggestion
@@ -842,6 +851,11 @@ IN_PROC_BROWSER_TEST_F(OmniboxApiTest, MAYBE_SetDefaultSuggestion) {
 
   AutocompleteController* autocomplete_controller = GetAutocompleteController();
 
+#if BUILDFLAG(IS_ANDROID)
+  AutocompleteInput input(u"word d", metrics::OmniboxEventProto::NTP,
+                          ChromeAutocompleteSchemeClassifier(profile()));
+  autocomplete_controller->Start(input);
+#else
   chrome::FocusLocationBar(browser());
   ASSERT_TRUE(ui_test_utils::IsViewFocused(browser(), VIEW_ID_OMNIBOX));
 
@@ -850,6 +864,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxApiTest, MAYBE_SetDefaultSuggestion) {
   // trigger the extension.
   InputKeys(browser(), {ui::VKEY_W, ui::VKEY_O, ui::VKEY_R, ui::VKEY_D,
                         ui::VKEY_SPACE, ui::VKEY_D});
+#endif
   WaitForAutocompleteDone();
   EXPECT_TRUE(autocomplete_controller->done());
 
@@ -875,6 +890,10 @@ IN_PROC_BROWSER_TEST_F(OmniboxApiTest, MAYBE_SetDefaultSuggestion) {
     VerifyMatchComponents(expected_components, match);
   }
 }
+
+// TODO(crbug.com/405219624): Port these tests to desktop Android. Most require
+// access to the Views location bar, which is not available on Android.
+#if BUILDFLAG(ENABLE_EXTENSIONS)
 
 // Tests an extension passing empty suggestions. Regression test for
 // https://crbug.com/40227079.
@@ -964,11 +983,8 @@ IN_PROC_BROWSER_TEST_F(OmniboxApiTest, MAYBE_PassEmptySuggestions) {
 class UnscopedOmniboxApiTest : public OmniboxApiTest {
  public:
   UnscopedOmniboxApiTest() {
-    // TODO(crbug.com/441102004): Update UnscopedExtensionZeroSuggest to support
-    //   kAiModeOmniboxEntryPoint.
-    scoped_feature_list_.InitWithFeatures(
-        {extensions_features::kExperimentalOmniboxLabs},
-        {omnibox::kAiModeOmniboxEntryPoint});
+    scoped_feature_list_.InitAndEnableFeature(
+        extensions_features::kExperimentalOmniboxLabs);
   }
 
   // Helper function to set the stop timer duration for the autocomplete

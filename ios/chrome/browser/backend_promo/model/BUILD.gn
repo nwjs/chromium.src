@@ -10,6 +10,7 @@ source_set("model") {
   ]
   deps = [
     "//components/keyed_service/core",
+    "//ios/chrome/browser/feature_engagement/model",
     "//ios/chrome/browser/shared/model/browser",
     "//ios/chrome/browser/shared/model/profile",
     "//ios/chrome/browser/shared/model/profile:profile_keyed_service_factory",
@@ -26,6 +27,24 @@ source_set("backend_promo_profile_agent") {
     ":model",
     "//base",
     "//ios/chrome/app/profile",
+    "//ios/chrome/browser/shared/coordinator/scene:scene_state_header",
     "//ios/chrome/browser/shared/model/profile",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [ "backend_promo_profile_agent_unittest.mm" ]
+  deps = [
+    ":backend_promo_profile_agent",
+    ":model",
+    "//base",
+    "//base/test:test_support",
+    "//ios/chrome/app/profile",
+    "//ios/chrome/app/profile:test_utils",
+    "//ios/chrome/browser/shared/coordinator/scene:scene_state_header",
+    "//ios/chrome/browser/shared/model/profile/test",
+    "//ios/web/public/test",
+    "//testing/gtest",
   ]
 }

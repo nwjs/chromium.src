@@ -63,7 +63,6 @@ inline constexpr char kChromeUICrostiniInstallerHost[] = "crostini-installer";
 inline constexpr char kChromeUICrostiniInstallerURL[] =
     "chrome://crostini-installer";
 inline constexpr char kChromeUICryptohomeHost[] = "cryptohome";
-inline constexpr char kChromeUIDeviceEmulatorHost[] = "device-emulator";
 inline constexpr char kChromeUIDlpInternalsHost[] = "dlp-internals";
 inline constexpr char kChromeUIDriveInternalsHost[] = "drive-internals";
 
@@ -187,7 +186,6 @@ inline constexpr char kChromeUIUrgentPasswordExpiryNotificationHost[] =
 inline constexpr char kChromeUIUrgentPasswordExpiryNotificationURL[] =
     "chrome://urgent-password-expiry-notification/";
 inline constexpr char kChromeUIUserImageHost[] = "userimage";
-inline constexpr char kChromeUIVmHost[] = "vm";
 
 }  // namespace ash
 

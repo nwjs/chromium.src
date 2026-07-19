@@ -476,6 +476,7 @@ class NET_EXPORT_PRIVATE QuicSessionPool
   // Creates a datagram socket. |source| is the NetLogSource for the entity
   // trying to create the socket, if it has one.
   std::unique_ptr<DatagramClientSocket> CreateSocket(
+      handles::NetworkHandle target_network,
       NetLog* net_log,
       const NetLogSource& source);
 
@@ -662,6 +663,11 @@ class NET_EXPORT_PRIVATE QuicSessionPool
       handles::NetworkHandle network,
       MultiplexedSessionCreationInitiator session_creation_initiator,
       std::optional<ConnectionManagementConfig> connection_management_config);
+  // TODO(crbug.com/518753285): Proxied connections do not currently support
+  // connection migration. This means that this is never called with
+  // `network` != handles::kInvalidNetworkHandle. Drop the `network` parameter
+  // and revisit this choice once connection migration is supported for proxied
+  // connections.
   int CreateSessionOnProxyStream(
       CreateSessionCallback callback,
       QuicSessionAliasKey key,
@@ -692,6 +698,8 @@ class NET_EXPORT_PRIVATE QuicSessionPool
       MultiplexedSessionCreationInitiator session_creation_initiator,
       std::optional<ConnectionManagementConfig> connection_management_config,
       int rv);
+  // TODO(crbug.com/518753285): Stop accepting a `network` parameter. Instead,
+  // rely on socket being already bound to the correct network.
   base::expected<QuicSessionAttempt::CreateSessionResult, int>
   CreateSessionHelper(
       QuicSessionAliasKey key,
@@ -913,6 +921,10 @@ class NET_EXPORT_PRIVATE QuicSessionPool
 
   std::map<QuicSessionKey, std::unique_ptr<ConnectionChangeNotifier>>
       connection_change_notifier_;
+
+  // Used to override the clock used by QuicCryptoClientConfigOwner to test
+  // cache evictions.
+  raw_ptr<base::Clock> clock_for_testing_ = nullptr;
 
   // This needs to be below `task_runner_`, since in some tests, it often points
   // to a TickClock owned by the TestMockTimeTaskRunner that `task_runner_`

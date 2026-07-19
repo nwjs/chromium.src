@@ -67,7 +67,6 @@ source_set("quick_answers") {
     "//content/public/browser",
     "//google_apis",
     "//net",
-    "//services/data_decoder/public/cpp",
     "//services/network/public/cpp",
     "//ui/base",
     "//ui/color:color_headers",
@@ -116,16 +115,11 @@ source_set("unit_tests") {
     "//chromeos/services/machine_learning/public/mojom",
     "//content/test:test_support",
     "//google_apis",
-    "//services/data_decoder/public/cpp:test_support",
     "//services/network:test_support",
     "//testing/gmock",
     "//testing/gtest",
     "//ui/color:color_headers",
   ]
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 source_set("test_support") {

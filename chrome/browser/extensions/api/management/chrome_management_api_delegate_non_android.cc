@@ -15,6 +15,7 @@
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/apps/app_service/browser_app_launcher.h"
 #include "chrome/browser/extensions/api/management/chrome_management_api_delegate.h"
+#include "chrome/browser/extensions/chrome_app_deprecation.h"
 #include "chrome/browser/extensions/chrome_extension_function_details.h"
 #include "chrome/browser/extensions/launch_util.h"
 #include "chrome/browser/favicon/favicon_service_factory.h"
@@ -28,7 +29,6 @@
 #include "chrome/browser/ui/scoped_tabbed_browser_displayer.h"
 #include "chrome/browser/ui/tab_helpers.h"
 #include "chrome/browser/ui/web_applications/web_app_dialog_utils.h"
-#include "chrome/browser/web_applications/extension_status_utils.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
 #include "chrome/browser/web_applications/proto/web_app_install_state.pb.h"
 #include "chrome/browser/web_applications/scheduler/fetch_installability_for_chrome_management_result.h"
@@ -60,8 +60,6 @@
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
-#include "extensions/browser/manifest_v2_experiment_manager.h"
-#include "extensions/browser/mv2_experiment_stage.h"
 #include "extensions/common/api/management.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_id.h"
@@ -389,41 +387,6 @@ void ChromeManagementAPIDelegate::InstallOrLaunchReplacementWebApp(
       web_app_url, web_contents_ptr,
       base::BindOnce(&OnWebAppInstallabilityChecked, profile->GetWeakPtr(),
                      std::move(callback), std::move(web_contents)));
-}
-
-void ChromeManagementAPIDelegate::ShowMv2DeprecationReEnableDialog(
-    content::BrowserContext* context,
-    content::WebContents* web_contents,
-    const Extension& extension,
-    base::OnceCallback<void(bool)> done_callback) const {
-  // Extension should only be disabled due to MV2 deprecation in the "disable"
-  // experiment stage.
-  auto* mv2_experiment_manager = ManifestV2ExperimentManager::Get(context);
-  CHECK_EQ(mv2_experiment_manager->GetCurrentExperimentStage(),
-           MV2ExperimentStage::kDisableWithReEnable);
-
-  // Tests can auto confirm the re-enable dialog.
-  auto confirm_value = ScopedTestDialogAutoConfirm::GetAutoConfirmValue();
-  switch (confirm_value) {
-    case ScopedTestDialogAutoConfirm::NONE:
-      // Continue, auto confirm has not been set.
-      break;
-    case ScopedTestDialogAutoConfirm::CANCEL:
-      CHECK_IS_TEST();
-      std::move(done_callback).Run(/*enable_allowed=*/false);
-      return;
-    case ScopedTestDialogAutoConfirm::ACCEPT:
-    case ScopedTestDialogAutoConfirm::ACCEPT_AND_OPTION:
-      CHECK_IS_TEST();
-      std::move(done_callback).Run(/*enable_allowed=*/true);
-      return;
-  }
-
-  gfx::NativeWindow parent = web_contents
-                                 ? web_contents->GetTopLevelNativeWindow()
-                                 : gfx::NativeWindow();
-  ::extensions::ShowMv2DeprecationReEnableDialog(
-      parent, extension.id(), extension.name(), std::move(done_callback));
 }
 
 }  // namespace extensions

@@ -86,6 +86,8 @@
 #include "components/js_injection/browser/js_communication_host.h"
 #include "components/js_injection/common/enum.mojom.h"
 #include "components/navigation_interception/intercept_navigation_delegate.h"
+#include "components/performance_manager/embedder/performance_manager_registry.h"
+#include "components/performance_manager/public/graph/page_node.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "components/security_interstitials/content/security_interstitial_tab_helper.h"
 #include "components/sensitive_content/android/android_sensitive_content_client.h"
@@ -158,8 +160,6 @@ namespace android_webview {
 class CompositorFrameConsumer;
 
 namespace {
-
-bool g_should_download_favicons = false;
 
 std::string* g_locale() {
   static base::NoDestructor<std::string> locale;
@@ -294,6 +294,12 @@ AwContents::AwContents(std::unique_ptr<WebContents> web_contents)
   icon_helper_->SetListener(this);
   web_contents_->SetUserData(android_webview::kAwContentsUserDataKey,
                              std::make_unique<AwContentsUserData>(this));
+  if (auto* pm_registry =
+          performance_manager::PerformanceManagerRegistry::GetInstance()) {
+    pm_registry->MaybeCreatePageNodeForWebContents(web_contents_.get());
+    pm_registry->SetPageType(web_contents_.get(),
+                             performance_manager::PageType::kTab);
+  }
   browser_view_renderer_.RegisterWithWebContents(web_contents_.get());
 
   viz::FrameSinkId frame_sink_id;
@@ -880,8 +886,12 @@ void AwContents::OnFindResultReceived(int active_ordinal,
                                        finished);
 }
 
-bool AwContents::ShouldDownloadFavicon(const GURL& icon_url) {
-  return g_should_download_favicons;
+bool AwContents::ShouldDownloadFavicon() {
+  if (!base::FeatureList::IsEnabled(features::kWebViewDownloadFavicons)) {
+    return false;
+  }
+  AwSettings* aw_settings = AwSettings::FromWebContents(web_contents_.get());
+  return aw_settings->ShouldDownloadFavicon();
 }
 
 void AwContents::OnReceivedIcon(const GURL& icon_url, const SkBitmap& bitmap) {
@@ -1461,6 +1471,51 @@ void AwContents::FlushBackForwardCache(JNIEnv* env, int32_t reason) {
       static_cast<NotRestoredReason>(reason));
 }
 
+AwContents::PrerenderInfo::PrerenderInfo(
+    std::unique_ptr<content::PrerenderHandle> prerender_handle,
+    base::OnceClosure activation_callback,
+    base::OnceClosure error_callback)
+    : handle(std::move(prerender_handle)) {
+  activation_callbacks.push_back(std::move(activation_callback));
+  error_callbacks.push_back(std::move(error_callback));
+  handle->AddObserver(this);
+}
+
+AwContents::PrerenderInfo::~PrerenderInfo() {
+  if (handle) {
+    handle->RemoveObserver(this);
+  }
+}
+
+void AwContents::PrerenderInfo::OnLifecycleStateChanged(
+    content::PrerenderLifecycleStatus status) {
+  switch (status) {
+    case content::PrerenderLifecycleStatus::kActivated:
+      for (auto& cb : activation_callbacks) {
+        if (cb) {
+          std::move(cb).Run();
+        }
+      }
+      activation_callbacks.clear();
+      break;
+    case content::PrerenderLifecycleStatus::kHttpBadResponse:
+    case content::PrerenderLifecycleStatus::kStop:
+    case content::PrerenderLifecycleStatus::kOtherFailure:
+      for (auto& cb : error_callbacks) {
+        if (cb) {
+          std::move(cb).Run();
+        }
+      }
+      error_callbacks.clear();
+      break;
+    case content::PrerenderLifecycleStatus::kHTTPSuccessResponse:
+      // WebView does not need to react to headers received successfully.
+      break;
+    case content::PrerenderLifecycleStatus::kCancelled:
+      break;
+  }
+}
+
 int64_t AwContents::StartPrerendering(
     JNIEnv* env,
     const std::string& prerendering_url,
@@ -1470,31 +1525,31 @@ int64_t AwContents::StartPrerendering(
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   // Clean up the canceled handles.
-  base::EraseIf(prerender_handles_,
-                [](std::unique_ptr<content::PrerenderHandle>& handle) {
-                  return !handle->IsValid();
+  base::EraseIf(prerender_infos_,
+                [](const std::unique_ptr<PrerenderInfo>& info) {
+                  return !info || !info->handle || !info->handle->IsValid();
                 });
 
   GURL url(prerendering_url);
   std::optional<net::HttpNoVarySearchData> no_vary_search_hint =
       GetExpectedNoVarySearchFromPrefetchParameters(env, j_prefetch_params);
 
-  for (auto it = prerender_handles_.begin(); it != prerender_handles_.end();
-       ++it) {
-    const std::unique_ptr<content::PrerenderHandle>& handle = *it;
+  for (auto it = prerender_infos_.begin(); it != prerender_infos_.end(); ++it) {
+    const std::unique_ptr<PrerenderInfo>& info = *it;
+    const std::unique_ptr<content::PrerenderHandle>& handle = info->handle;
 
     // If the handle is equivalent to the given URL and the No-Vary-Search hint,
     // add the callbacks to the handle instead of starting a new one.
     if (IsPrerenderHandleEquivalentTo(handle, url, no_vary_search_hint)) {
-      handle->AddActivationCallback(std::move(activation_callback));
-      handle->AddErrorCallback(std::move(error_callback));
+      info->activation_callbacks.push_back(std::move(activation_callback));
+      info->error_callbacks.push_back(std::move(error_callback));
       return handle->GetPrerenderHostId().GetUnsafeValue();
     }
 
     // If the handle is not equivalent but has the same prerendering URL, cancel
     // it to start a new one with the new No-Vary-Search hint.
     if (handle->GetInitialPrerenderingUrl() == url) {
-      prerender_handles_.erase(it);
+      prerender_infos_.erase(it);
       break;
     }
   }
@@ -1506,10 +1561,10 @@ int64_t AwContents::StartPrerendering(
     // attempt. If the handles are already empty, other embedder triggers should
     // be running. In that case, there is no way to trigger. Let this request
     // fail eventually.
-    if (prerender_handles_.empty()) {
+    if (prerender_infos_.empty()) {
       break;
     }
-    prerender_handles_.pop_front();
+    prerender_infos_.pop_front();
   }
 
   net::HttpRequestHeaders additional_headers =
@@ -1553,9 +1608,9 @@ int64_t AwContents::StartPrerendering(
   int64_t host_id = -1;
   if (prerender_handle) {
     host_id = prerender_handle->GetPrerenderHostId().GetUnsafeValue();
-    prerender_handle->AddActivationCallback(std::move(activation_callback));
-    prerender_handle->AddErrorCallback(std::move(error_callback));
-    prerender_handles_.push_back(std::move(prerender_handle));
+    prerender_infos_.push_back(std::make_unique<PrerenderInfo>(
+        std::move(prerender_handle), std::move(activation_callback),
+        std::move(error_callback)));
   } else {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, std::move(error_callback));
@@ -1566,11 +1621,11 @@ int64_t AwContents::StartPrerendering(
 void AwContents::CancelPrerendering(JNIEnv* env, int64_t prerender_id) {
   content::PrerenderHostId host_id =
       content::PrerenderHostId::FromUnsafeValue(prerender_id);
-  base::EraseIf(
-      prerender_handles_,
-      [host_id](const std::unique_ptr<content::PrerenderHandle>& handle) {
-        return handle->GetPrerenderHostId() == host_id;
-      });
+  base::EraseIf(prerender_infos_,
+                [host_id](const std::unique_ptr<PrerenderInfo>& info) {
+                  return info && info->handle &&
+                         info->handle->GetPrerenderHostId() == host_id;
+                });
 }
 
 void AwContents::CancelAllPrerendering(JNIEnv* env) {
@@ -1637,10 +1692,6 @@ void AwContents::ResumeLoadingCreatedPopupWebContents(JNIEnv* env) {
   web_contents_->ResumeLoadingCreatedWebContents();
 }
 
-static void JNI_AwContents_SetShouldDownloadFavicons(JNIEnv* env) {
-  g_should_download_favicons = true;
-}
-
 namespace {
 
 // Post a task to a background thread to log a site visit.
@@ -1665,7 +1716,7 @@ void AwContents::PrimaryPageChanged(content::Page& page) {
   // TODO(https://crbug.com/378601799): Consider allowing prerendered pages
   // triggered by the WebView prerender API to outlive PrimaryPageChanged. See
   // the issue for the context.
-  prerender_handles_.clear();
+  prerender_infos_.clear();
 
   std::string scheme = page.GetMainDocument().GetLastCommittedURL().GetScheme();
   const url::Origin& origin = page.GetMainDocument().GetLastCommittedOrigin();

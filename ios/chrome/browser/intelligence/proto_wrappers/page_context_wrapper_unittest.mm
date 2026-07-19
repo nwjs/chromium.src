@@ -2029,7 +2029,8 @@ TEST_P(PageContextWrapperTest, PopulatePageContext_RichExtraction) {
           "    <a href='https://example.com' style='display: block;' "
           "       rel=\"noopener noreferrer\">Link</a>"
           "    <div style='width: 200px; height: 200px;'></div>"
-          "</div>"),
+          "</div>"
+          "<canvas width='10' height='10'></canvas>"),
       Iframe(TestOrigin::kCrossA,
              HtmlPage("Child Cross Origin",
                       Paragraph("Child frame cross-origin text")),
@@ -2086,7 +2087,7 @@ TEST_P(PageContextWrapperTest, PopulatePageContext_RichExtraction) {
   EXPECT_TRUE(root.content_attributes().has_common_ancestor_dom_node_id());
   EXPECT_EQ(root.content_attributes().common_ancestor_dom_node_id(), 1);
 
-  ASSERT_EQ(root.children_nodes_size(), 3);
+  ASSERT_EQ(root.children_nodes_size(), 4);
 
   // Verify root node content.
 
@@ -2194,11 +2195,11 @@ TEST_P(PageContextWrapperTest, PopulatePageContext_RichExtraction) {
   //   |   | Iframe (Cross-Origin)    |
   //   |   |   - P ("Child ...")      |
   //   |   +--------------------------+
-  const auto& iframe = root.children_nodes(1);
+  const auto& iframe = root.children_nodes(2);
   EXPECT_EQ(iframe.content_attributes().attribute_type(),
             optimization_guide::proto::CONTENT_ATTRIBUTE_IFRAME);
   EXPECT_TRUE(iframe.content_attributes().has_common_ancestor_dom_node_id());
-  EXPECT_EQ(iframe.content_attributes().common_ancestor_dom_node_id(), 8);
+  EXPECT_EQ(iframe.content_attributes().common_ancestor_dom_node_id(), 9);
   EXPECT_EQ(iframe.content_attributes().iframe_data().frame_data().url(),
             page_helper_->GetUrlForId("iframe_cross").spec());
   EXPECT_EQ(iframe.content_attributes().iframe_data().frame_data().title(),
@@ -2253,13 +2254,14 @@ TEST_P(PageContextWrapperTest, PopulatePageContext_RichExtraction) {
   //   |   | Iframe (Same-Origin)     |
   //   |   |   - P ("Child frame 3")  |
   //   |   +--------------------------+
-  const auto& same_origin_iframe = root.children_nodes(2);
+  const auto& same_origin_iframe = root.children_nodes(3);
   EXPECT_EQ(same_origin_iframe.content_attributes().attribute_type(),
             optimization_guide::proto::CONTENT_ATTRIBUTE_IFRAME);
   EXPECT_TRUE(same_origin_iframe.content_attributes()
                   .has_common_ancestor_dom_node_id());
   EXPECT_EQ(
-      same_origin_iframe.content_attributes().common_ancestor_dom_node_id(), 9);
+      same_origin_iframe.content_attributes().common_ancestor_dom_node_id(),
+      10);
   EXPECT_EQ(same_origin_iframe.content_attributes()
                 .iframe_data()
                 .frame_data()
@@ -2323,6 +2325,13 @@ TEST_P(PageContextWrapperTest, PopulatePageContext_RichExtraction) {
   EXPECT_EQ(
       same_origin_iframe_text.content_attributes().text_data().text_content(),
       "Child frame 3 text");
+
+  // ---------------------------------------------------------
+  // Section 4: Canvas
+  // ---------------------------------------------------------
+  const auto& canvas_node = root.children_nodes(1);
+  EXPECT_EQ(canvas_node.content_attributes().attribute_type(),
+            optimization_guide::proto::CONTENT_ATTRIBUTE_CANVAS);
 }
 
 // Tests that all the nested iframes on different origins are put under their
@@ -5412,7 +5421,8 @@ TEST_P(PageContextWrapperTest,
               "<div style='width: 50px; height: 50px; overflow: hidden;' "
               "id='hidden'>"
               "  <div style='width: 100px; height: 100px;'>Content</div>"
-              "</div>"));
+              "</div>"
+              "<canvas width='10' height='10'></canvas>"));
 
   std::string main_html = page_helper_->Build(page_structure);
   web::test::LoadHtml(base::SysUTF8ToNSString(main_html),
@@ -6632,6 +6642,67 @@ TEST_P(PageContextWrapperTest,
             "Accept 2");
 }
 
+// Tests that the extraction pipeline prunes SVG metadata and layout tags
+// completely.
+TEST_P(PageContextWrapperTest,
+       PopulatePageContext_RichExtraction_PruningSvgMetadataNodes) {
+  if (!IsRefactored()) {
+    return;
+  }
+
+  auto page_structure =
+      HtmlPage("SVG Pruning Check", Paragraph("Accept 1"),
+               RawHtml("<svg>"
+                       "  <metadata>metadata content</metadata>"
+                       "  <defs>defs content</defs>"
+                       "  <symbol>symbol content</symbol>"
+                       "  <mask>mask content</mask>"
+                       "  <clipPath>clipPath content</clipPath>"
+                       "  <pattern>pattern content</pattern>"
+                       "</svg>"),
+               Paragraph("Accept 2"));
+
+  std::string main_html = page_helper_->Build(page_structure);
+  web::test::LoadHtml(base::SysUTF8ToNSString(main_html),
+                      test_server_.GetURL(kMainPagePath), web_state());
+
+  PageContextWrapperConfig config =
+      PageContextWrapperConfigBuilder()
+          .SetUseRichExtraction(true)
+          .SetUseRefactoredExtractor(IsRefactored())
+          .Build();
+
+  PageContextWrapperCallbackResponse response = RunPageContextWrapperWithConfig(
+      web_state(), config, ^(PageContextWrapper* wrapper) {
+        wrapper.shouldGetAnnotatedPageContent = YES;
+      });
+
+  ASSERT_TRUE(response.has_value());
+  std::unique_ptr<optimization_guide::proto::PageContext> page_context =
+      std::move(response.value());
+
+  ASSERT_TRUE(page_context);
+  ASSERT_TRUE(page_context->has_annotated_page_content());
+
+  const auto& actual_apc = page_context->annotated_page_content();
+  const auto& root = actual_apc.root_node();
+
+  ASSERT_EQ(root.children_nodes_size(), 3);
+  EXPECT_EQ(root.children_nodes(0)
+                .children_nodes(0)
+                .content_attributes()
+                .text_data()
+                .text_content(),
+            "Accept 1");
+  EXPECT_EQ(root.children_nodes(1).children_nodes_size(), 0);
+  EXPECT_EQ(root.children_nodes(2)
+                .children_nodes(0)
+                .content_attributes()
+                .text_data()
+                .text_content(),
+            "Accept 2");
+}
+
 // Tests that the focused frame on cross origin is correctly identified and its
 // token is populated in the PageInteractionInfo.
 TEST_P(PageContextWrapperTest,
@@ -7166,6 +7237,68 @@ TEST_P(PageContextWrapperTest,
       checkbox_input.content_attributes().geometry().has_outer_bounding_box());
   EXPECT_FALSE(
       password_input.content_attributes().geometry().has_outer_bounding_box());
+}
+
+// Tests that the version and mode fields are correctly populated in the
+// AnnotatedPageContent proto based on the configured extraction mode.
+TEST_P(PageContextWrapperTest, PopulatePageContext_ApcVersionAndMode) {
+  if (!IsRefactored()) {
+    return;
+  }
+
+  auto page_structure = HtmlPage("Title", RawHtml("<div><p>Text</p></div>"));
+
+  std::string main_html = page_helper_->Build(page_structure);
+  web::test::LoadHtml(base::SysUTF8ToNSString(main_html),
+                      test_server_.GetURL(kMainPagePath), web_state());
+
+  auto verify_version_and_mode =
+      [&](bool use_rich, bool use_actionable,
+          optimization_guide::proto::AnnotatedPageContentVersion
+              expected_version,
+          optimization_guide::proto::AnnotatedPageContentMode expected_mode) {
+        PageContextWrapperConfig config =
+            PageContextWrapperConfigBuilder()
+                .SetUseRichExtraction(use_rich)
+                .SetUseRichExtractionWithActionable(use_actionable)
+                .Build();
+
+        PageContextWrapperCallbackResponse response =
+            RunPageContextWrapperWithConfig(
+                web_state(), config, ^(PageContextWrapper* wrapper) {
+                  wrapper.shouldGetAnnotatedPageContent = YES;
+                });
+
+        ASSERT_TRUE(response.has_value());
+        const auto& page_context = *response.value();
+        const auto& actual_apc = page_context.annotated_page_content();
+
+        EXPECT_EQ(actual_apc.version(), expected_version)
+            << "Failed for use_rich: " << use_rich
+            << ", use_actionable: " << use_actionable;
+        EXPECT_EQ(actual_apc.mode(), expected_mode)
+            << "Failed for use_rich: " << use_rich
+            << ", use_actionable: " << use_actionable;
+      };
+
+  // Rich Extraction and Actionable Mode Enabled
+  verify_version_and_mode(
+      /*use_rich=*/true, /*use_actionable=*/true,
+      optimization_guide::proto::ANNOTATED_PAGE_CONTENT_VERSION_1_0,
+      optimization_guide::proto::
+          ANNOTATED_PAGE_CONTENT_MODE_ACTIONABLE_ELEMENTS);
+
+  // Rich Extraction Enabled, Actionable Mode Disabled
+  verify_version_and_mode(
+      /*use_rich=*/true, /*use_actionable=*/false,
+      optimization_guide::proto::ANNOTATED_PAGE_CONTENT_VERSION_1_0,
+      optimization_guide::proto::ANNOTATED_PAGE_CONTENT_MODE_DEFAULT);
+
+  // Rich Extraction Disabled
+  verify_version_and_mode(
+      /*use_rich=*/false, /*use_actionable=*/false,
+      optimization_guide::proto::ANNOTATED_PAGE_CONTENT_VERSION_1_0,
+      optimization_guide::proto::ANNOTATED_PAGE_CONTENT_MODE_DEFAULT);
 }
 
 INSTANTIATE_TEST_SUITE_P(,

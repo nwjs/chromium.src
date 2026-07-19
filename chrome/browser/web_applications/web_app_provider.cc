@@ -67,7 +67,6 @@
 #include "chrome/browser/web_applications/web_contents/web_contents_manager.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
-#include "chrome/grit/generated_resources.h"
 #include "components/prefs/pref_service.h"
 #include "components/sync/model/data_type_store_service.h"
 #include "components/webapps/common/manifest_id_constants.h"
@@ -384,7 +383,8 @@ void WebAppProvider::StartImpl() {
 void WebAppProvider::CreateSubsystems(Profile* profile) {
   audio_focus_id_map_ = std::make_unique<WebAppAudioFocusIdMap>();
   ui_manager_ = WebAppUiManager::Create(profile);
-  install_manager_ = std::make_unique<WebAppInstallManager>(profile);
+  install_manager_ =
+      std::make_unique<WebAppInstallManager>(profile->GetPrefs());
   manifest_update_manager_ = std::make_unique<ManifestUpdateManager>();
   externally_managed_app_manager_ =
       std::make_unique<ExternallyManagedAppManager>(profile);

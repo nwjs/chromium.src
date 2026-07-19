@@ -35,6 +35,10 @@ COMPONENTS_DOWNLOAD_EXPORT BASE_DECLARE_FEATURE(kShowDownloadScanningState);
 // images and videos on the Android Downloads page, in place of the default
 // large preview cards. See crbug.com/505631139.
 COMPONENTS_DOWNLOAD_EXPORT BASE_DECLARE_FEATURE(kDownloadsCompactListView);
+
+// Whether to remap generic MIME types (like application/octet-stream) to more
+// specific MIME types deduced from the filename extension on Android.
+COMPONENTS_DOWNLOAD_EXPORT BASE_DECLARE_FEATURE(kRemapGenericMimeType);
 #endif
 
 // Whether download notification service uses new unified API based on offline
@@ -79,6 +83,10 @@ COMPONENTS_DOWNLOAD_EXPORT BASE_DECLARE_FEATURE(
 COMPONENTS_DOWNLOAD_EXPORT BASE_DECLARE_FEATURE(
     kOpenDownloadInFilesAppIfNoHandlerFound);
 #endif  // BUILDFLAG(IS_ANDROID)
+
+// Whether to defer download history loading until first use.
+COMPONENTS_DOWNLOAD_EXPORT BASE_DECLARE_FEATURE(
+    kDeferredDownloadHistoryLoading);
 }  // namespace features
 
 }  // namespace download

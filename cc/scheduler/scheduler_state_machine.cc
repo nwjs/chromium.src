@@ -30,12 +30,17 @@ namespace cc {
 
 namespace {
 // Surfaces and CompositorTimingHistory don't support more than 1 pending swap.
-const int kMaxPendingSubmitFrames = 1;
+constexpr int kMaxPendingSubmitFrames = 1;
+
+constexpr float kFrameThrottlingSlackFactor = 0.9;
 
 bool IsEligibleToThrottleMainFrameRate() {
 #if BUILDFLAG(IS_ANDROID)
-  // Still requires balancing tradeoffs for desktop Android, not enabled yet.
-  return !base::android::device_info::is_desktop();
+  // Still requires balancing tradeoffs for desktop Android, not enabled
+  // unconditionally yet.
+  return !base::android::device_info::is_desktop() ||
+         base::FeatureList::IsEnabled(
+             features::kThrottleMainFrameTo60HzDesktopAndroid);
 #else
   return true;
 #endif
@@ -64,10 +69,33 @@ bool ShouldThrottleMainFrameRate(const SchedulerSettings& settings) {
 #endif  // BUILDFLAG(IS_ANDROID)
 }
 
+base::TimeDelta ThrottledFrameRateWithSlack(base::TimeDelta frame_interval,
+                                            int factor) {
+  return kFrameThrottlingSlackFactor * frame_interval * factor;
+}
+
+perfetto::NamedTrack GetTracingTrack(
+    const SchedulerStateMachine* state_machine) {
+  return perfetto::NamedTrack::FromPointer("cc::SchedulerStateMachine",
+                                           state_machine);
+}
+
 }  // namespace
 
 SchedulerStateMachine::SchedulerStateMachine(const SchedulerSettings& settings)
-    : settings_(settings) {}
+    : settings_(settings),
+      repeated_no_damage_frame_throttling_threshold1_(
+          std::max(1,
+                   features::kThrottleRepeatedNoDamageFramesThreshold1.Get())),
+      repeated_no_damage_frame_throttling_threshold2_(
+          std::max(1,
+                   features::kThrottleRepeatedNoDamageFramesThreshold2.Get())),
+      repeated_no_damage_frame_throttling_factor1_(std::max(
+          1,
+          features::kThrottleRepeatedNoDamageFramesIntervalFactor1.Get())),
+      repeated_no_damage_frame_throttling_factor2_(std::max(
+          1,
+          features::kThrottleRepeatedNoDamageFramesIntervalFactor2.Get())) {}
 
 SchedulerStateMachine::~SchedulerStateMachine() = default;
 
@@ -610,6 +638,13 @@ bool SchedulerStateMachine::ShouldSendBeginMainFrame() const {
 bool SchedulerStateMachine::ShouldThrottleSendBeginMainFrame() const {
   bool result = false;
   auto throttled_interval = MainFrameThrottledInterval();
+
+  if (base::FeatureList::IsEnabled(features::kThrottleRepeatedNoDamageFrames)) {
+    throttled_interval =
+        std::max(throttled_interval,
+                 main_frame_consecutive_no_damage_throttled_interval_);
+  }
+
   if (throttled_interval.is_positive() &&
       last_begin_impl_frame_time_ - last_sent_begin_main_frame_time_ <
           throttled_interval) {
@@ -886,6 +921,13 @@ bool SchedulerStateMachine::CheckWillCommit() const {
 }
 
 void SchedulerStateMachine::WillCommit(bool commit_has_no_updates) {
+  if (commit_has_no_updates) {
+    consecutive_no_damage_main_frames_++;
+  } else {
+    consecutive_no_damage_main_frames_ = 0;
+  }
+  UpdateConsecutiveNoDamageThrottlingInterval();
+
   bool can_have_pending_tree =
       commit_has_no_updates &&
       (settings_.main_frame_before_activation_enabled ||
@@ -1440,9 +1482,8 @@ void SchedulerStateMachine::FrameIntervalUpdated(
   //
   // Apply some slack, so that if for some reason the interval is a bit larger
   // than 8.33333333333333ms, then we catch it still.
-  constexpr float kSlackFactor = .9;
   bool fast_vsync_interval =
-      frame_interval < base::Hertz(120) * (1 / kSlackFactor);
+      frame_interval < base::Hertz(120) * (1 / kFrameThrottlingSlackFactor);
   if (fast_vsync_interval && IsEligibleToThrottleMainFrameRate()) {
     features::SetIsEligibleForThrottleMainFrameTo60Hz(true);
   }
@@ -1453,7 +1494,8 @@ void SchedulerStateMachine::FrameIntervalUpdated(
     // Use interval / 2 rather than an actual interval as refresh rates are
     // not necessarily 120: it could be something really close, or it could be
     // 144Hz for instance.
-    main_frame_throttled_interval_ = kSlackFactor * frame_interval * 2;
+    main_frame_throttled_interval_ =
+        ThrottledFrameRateWithSlack(frame_interval, 2);
     TRACE_EVENT("cc", "ThrottleMainFrame", "interval",
                 main_frame_throttled_interval_);
   } else {
@@ -1521,7 +1563,7 @@ void SchedulerStateMachine::SetNeedsPrepareTiles() {
 void SchedulerStateMachine::DidSubmitCompositorFrame() {
   if (!base::FeatureList::IsEnabled(features::kNoCompositorFrameAcks)) {
     TRACE_EVENT_BEGIN("cc", "Scheduler:pending_submit_frames",
-                      perfetto::Track::FromPointer(this), "pending_frames",
+                      GetTracingTrack(this), "pending_frames",
                       pending_submit_frames_);
 
     // If we are running with no frame rate limits, the GPU process can submit
@@ -1551,7 +1593,7 @@ void SchedulerStateMachine::DidReceiveCompositorFrameAck() {
     NOTREACHED();
   } else {
     TRACE_EVENT_END("cc", /*"Scheduler:pending_submit_frames"*/
-                    perfetto::Track::FromPointer(this), "pending_frames",
+                    GetTracingTrack(this), "pending_frames",
                     pending_submit_frames_);
     pending_submit_frames_--;
   }
@@ -1753,10 +1795,37 @@ bool SchedulerStateMachine::HasInitializedLayerTreeFrameSink() const {
   NOTREACHED();
 }
 
-void SchedulerStateMachine::SetShouldThrottleFrameRate(bool flag) {
-  if (base::FeatureList::IsEnabled(features::kRenderThrottleFrameRate)) {
-    throttle_frame_rate_ = flag;
+
+void SchedulerStateMachine::UpdateConsecutiveNoDamageThrottlingInterval() {
+  if (!base::FeatureList::IsEnabled(
+          features::kThrottleRepeatedNoDamageFrames)) {
+    return;
   }
+
+  if (DisableThrottlingDueToHighFramerateRequests()) {
+    consecutive_no_damage_main_frames_ = 0;
+    main_frame_consecutive_no_damage_throttled_interval_ = base::TimeDelta();
+    return;
+  }
+
+  const int count = consecutive_no_damage_main_frames_;
+  base::TimeDelta interval;
+
+  if (count >= repeated_no_damage_frame_throttling_threshold2_ +
+                   repeated_no_damage_frame_throttling_threshold1_) {
+    interval = ThrottledFrameRateWithSlack(
+        unthrottled_frame_interval_,
+        repeated_no_damage_frame_throttling_factor2_ *
+            repeated_no_damage_frame_throttling_factor1_);
+  } else if (count >= repeated_no_damage_frame_throttling_threshold1_) {
+    interval = ThrottledFrameRateWithSlack(
+        unthrottled_frame_interval_,
+        repeated_no_damage_frame_throttling_factor1_);
+  } else {
+    interval = base::TimeDelta();
+  }
+
+  main_frame_consecutive_no_damage_throttled_interval_ = interval;
 }
 
 void SchedulerStateMachine::SetRequestHighFramerate(bool flag) {
@@ -1770,23 +1839,18 @@ void SchedulerStateMachine::SetRequestHighFramerate(bool flag) {
   }
 }
 
+bool SchedulerStateMachine::DisableThrottlingDueToHighFramerateRequests()
+    const {
+  return high_framerate_requests_count_ > 0 &&
+         base::FeatureList::IsEnabled(
+             features::kHighFramerateRequestFromClient);
+}
+
 base::TimeDelta SchedulerStateMachine::MainFrameThrottledInterval() const {
-  if (!throttle_frame_rate_) {
-    if (high_framerate_requests_count_ &&
-        base::FeatureList::IsEnabled(
-            features::kHighFramerateRequestFromClient)) {
-      return base::TimeDelta();
-    } else {
-      return main_frame_throttled_interval_;
-    }
+  if (DisableThrottlingDueToHighFramerateRequests()) {
+    return base::TimeDelta();
   } else {
-    auto throttled_interval =
-        std::max(base::Hertz(features::kRenderThrottledFrameIntervalHz.Get()),
-                 main_frame_throttled_interval_);
-    if (throttled_interval < unthrottled_frame_interval_) {
-      return base::TimeDelta();
-    }
-    return throttled_interval;
+    return main_frame_throttled_interval_;
   }
 }
 

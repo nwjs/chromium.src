@@ -318,6 +318,7 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   void DispatchPersistedPageshow(base::TimeTicks navigation_start);
   void DispatchPagehide(mojom::blink::PagehideDispatch pagehide_dispatch);
   void HookBackForwardCacheEviction(bool hook);
+  void FlushRestoreCallbacks();
 
   float DefaultMinimumPageScaleFactor() const;
   float DefaultMaximumPageScaleFactor() const;
@@ -575,6 +576,10 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   // browser has processed it.
   void SendWindowRectToMainFrameHost(const gfx::Rect& bounds,
                                      base::OnceClosure ack_callback);
+  void SendMoveWindowToMainFrameHost(const gfx::Point& origin,
+                                     base::OnceClosure ack_callback);
+  void SendResizeWindowToMainFrameHost(const gfx::Size& size,
+                                       base::OnceClosure ack_callback);
 
   // Tells the browser that another page has accessed the DOM of the initial
   // empty document of a main frame.

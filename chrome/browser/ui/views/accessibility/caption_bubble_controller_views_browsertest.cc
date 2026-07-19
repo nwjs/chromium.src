@@ -20,6 +20,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/views/accessibility/caption_bubble_context_views.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -42,7 +43,6 @@
 #include "content/public/test/scoped_accessibility_mode_override.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "media/base/media_switches.h"
-#include "media/mojo/mojom/speech_recognition_service.mojom.h"
 #include "ui/accessibility/ax_mode.h"
 #include "ui/base/buildflags.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -52,7 +52,6 @@
 #include "ui/gfx/font_list.h"
 #include "ui/views/accessibility/ax_virtual_view.h"
 #include "ui/views/accessibility/view_accessibility.h"
-#include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/button/md_text_button.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
@@ -424,7 +423,7 @@ class CaptionBubbleControllerViewsTest
   }
 
   void SetWindowBounds(const gfx::Rect& bounds) {
-    browser()->window()->SetBounds(bounds);
+    browser()->GetWindow()->SetBounds(bounds);
     base::RunLoop().RunUntilIdle();
   }
 
@@ -559,7 +558,7 @@ IN_PROC_BROWSER_TEST_P(CaptionBubbleControllerViewsTest,
 
   SetWindowBounds(gfx::Rect(10, 10, 800, 600));
   gfx::Rect context_rect = views::Widget::GetWidgetForNativeWindow(
-                               browser()->window()->GetNativeWindow())
+                               browser()->GetWindow()->GetNativeWindow())
                                ->GetClientAreaBoundsInScreen();
 
   OnPartialTranscription("Mantis shrimp have 12-16 photoreceptors");
@@ -916,10 +915,12 @@ IN_PROC_BROWSER_TEST_P(CaptionBubbleControllerViewsTest,
   browser()->profile()->GetPrefs()->SetString(prefs::kLiveCaptionLanguageCode,
                                               "fr");
 
-  SkColor default_color = browser()->window()->GetColorProvider()->GetColor(
-      ui::kColorLiveCaptionBubbleForegroundDefault);
+  SkColor default_color =
+      BrowserWindow::FromBrowser(browser())->GetColorProvider()->GetColor(
+          ui::kColorLiveCaptionBubbleForegroundDefault);
   SkColor language_label_color =
-      browser()->window()->GetColorProvider()->GetColor(ui::kColorRefPrimary80);
+      BrowserWindow::FromBrowser(browser())->GetColorProvider()->GetColor(
+          ui::kColorRefPrimary80);
   ui::CaptionStyle caption_style;
 
   GetController()->UpdateCaptionStyle(std::nullopt);
@@ -1000,8 +1001,9 @@ IN_PROC_BROWSER_TEST_P(CaptionBubbleControllerViewsTest,
 
 IN_PROC_BROWSER_TEST_P(CaptionBubbleControllerViewsTest,
                        UpdateCaptionStyleBackgroundColor) {
-  SkColor default_color = browser()->window()->GetColorProvider()->GetColor(
-      ui::kColorLiveCaptionBubbleBackgroundDefault);
+  SkColor default_color =
+      BrowserWindow::FromBrowser(browser())->GetColorProvider()->GetColor(
+          ui::kColorLiveCaptionBubbleBackgroundDefault);
   ui::CaptionStyle caption_style;
 
   GetController()->UpdateCaptionStyle(std::nullopt);

@@ -78,6 +78,7 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/waap/initial_webui_window_metrics_manager.h"
 #include "chrome/browser/ui/webui/whats_new/whats_new_util.h"
+#include "chrome/browser/ui/window_metadata/window_metadata_controller.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/extensions/extension_metrics.h"
@@ -477,7 +478,7 @@ class SessionRestoreImpl : public BrowserCollectionObserver {
       browser->tab_strip_model()->ActivateTabAt(
           0, TabStripUserGestureDetails(
                  TabStripUserGestureDetails::GestureType::kOther));
-      browser->window()->Show();
+      browser->GetWindow()->Show();
     }
     NotifySessionServiceOfRestoredTabs(browser,
                                        browser->tab_strip_model()->count());
@@ -533,7 +534,7 @@ class SessionRestoreImpl : public BrowserCollectionObserver {
         startup_tabs_.emplace_back(chrome::ChromeUINewTabURLAsGURL());
       }
       AppendURLsToBrowser(browser, startup_tabs_);
-      browser->window()->Show();
+      browser->GetWindow()->Show();
     }
 
     // Remove any tabs that have been deleted.
@@ -766,7 +767,7 @@ class SessionRestoreImpl : public BrowserCollectionObserver {
     // Determine if there is a visible window, or if the active window exists.
     // Even if all windows are ui::mojom::WindowShowState::kMinimized, if one of
     // them is the active window it will be made visible by the call to
-    // browser_to_activate->window()->Activate() later on in this method.
+    // browser_to_activate->GetWindow()->Activate() later on in this method.
     bool has_visible_browser = false;
     for (const auto& window : *windows) {
       if (window->show_state != ui::mojom::WindowShowState::kMinimized ||
@@ -824,7 +825,7 @@ class SessionRestoreImpl : public BrowserCollectionObserver {
             window->window_id.id());
 
 #if BUILDFLAG(IS_CHROMEOS)
-        aura::Window* browser_window = browser->window()->GetNativeWindow();
+        aura::Window* browser_window = browser->GetWindow()->GetNativeWindow();
         if (occlusion_helper) {
           occlusion_helper->DisableWindowAnimation(browser_window);
         }
@@ -839,7 +840,8 @@ class SessionRestoreImpl : public BrowserCollectionObserver {
       if (is_normal_window) {
         has_normal_browser = true;
         last_normal_browser = browser;
-        browser->SetWindowUserTitle(window->user_title);
+        WindowMetadataController::From(browser)->SetWindowUserTitle(
+            window->user_title);
       }
 
       // 3. Track TYPE_APP browsers.
@@ -930,7 +932,7 @@ class SessionRestoreImpl : public BrowserCollectionObserver {
         "SessionRestore-CreatingTabs-End", false);
 #endif
     if (browser_to_activate) {
-      browser_to_activate->window()->Activate();
+      browser_to_activate->GetWindow()->Activate();
     }
 
     // If last_normal_browser is NULL and startup_tabs_ is non-empty,
@@ -998,8 +1000,10 @@ class SessionRestoreImpl : public BrowserCollectionObserver {
     std::map<split_tabs::SplitTabId, std::vector<tabs::TabInterface*>>
         tabs_by_split_id;
 
-    const base::Time epoch_time = base::Time::UnixEpoch();
-    const base::TimeTicks epoch_time_ticks = base::TimeTicks::UnixEpoch();
+    // Anchor both clocks to the current instant so the last active time (a
+    // base::Time) can be mapped onto the TimeTicks timeline WebContents wants.
+    const base::Time now = base::Time::Now();
+    const base::TimeTicks now_ticks = base::TimeTicks::Now();
     for (int i = 0; i < static_cast<int>(window.tabs.size()); ++i) {
       const sessions::SessionTab& tab = *(window.tabs[i]);
 
@@ -1009,8 +1013,8 @@ class SessionRestoreImpl : public BrowserCollectionObserver {
           (initial_tab_count == 0) && (i == selected_tab_index);
 
       // Convert the last active time because WebContents needs a TimeTicks.
-      const base::TimeDelta delta = tab.last_active_time - epoch_time;
-      const base::TimeTicks last_active_time_ticks = epoch_time_ticks + delta;
+      const base::TimeTicks last_active_time_ticks =
+          now_ticks - (now - tab.last_active_time);
 
       // If the browser already has tabs, we want to restore the new ones after
       // the existing ones. E.g. this happens in Win8 Metro where we merge
@@ -1282,7 +1286,7 @@ class SessionRestoreImpl : public BrowserCollectionObserver {
       return;
     }
 
-    browser->window()->Show();
+    browser->GetWindow()->Show();
     browser->set_is_session_restore(false);
   }
 
@@ -1334,7 +1338,7 @@ class SessionRestoreImpl : public BrowserCollectionObserver {
       params.creation_source = Browser::CreationSource::kLastAndUrlsStartupPref;
       Browser* new_browser = Browser::Create(params);
       AppendURLsToBrowser(new_browser, startup_tabs_from_last_and_urls_pref);
-      new_browser->window()->Show();
+      new_browser->GetWindow()->Show();
       browser_to_activate = new_browser;
     }
     return browser_to_activate;
@@ -1369,7 +1373,7 @@ class SessionRestoreImpl : public BrowserCollectionObserver {
     // the window, and then asynchronously deleting it.
     return browser_ && browser_->is_type_normal() &&
            !browser_->profile()->IsOffTheRecord() &&
-           browser_->window()->IsVisible();
+           browser_->GetWindow()->IsVisible();
   }
 
   // The profile to create the sessions for.

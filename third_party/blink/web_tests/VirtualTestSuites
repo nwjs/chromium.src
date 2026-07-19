@@ -44,7 +44,21 @@
     "expires": "Mar 1, 2027"
   },
   {
-    "prefix": "ai-prompt-api-legacy-params-disabled",
+    "prefix": "ai_classifier",
+    "platforms": ["Linux", "Mac", "Win"],
+    "bases": [
+      "external/wpt/ai/classifier"
+    ],
+    "args": ["--enable-features=AIClassifierAPI"],
+    "exclusive_tests": "ALL",
+    "owners": [
+      "msw@chromium.org",
+      "jingyun@google.com"
+    ],
+    "expires": "Jun 1, 2027"
+  },
+  {
+    "prefix": "ai-prompt-api-all-params",
     "platforms": [
       "Linux",
       "Mac",
@@ -52,16 +66,17 @@
       "ChromeOS"
     ],
     "bases": [
+      "external/wpt/ai/language-model",
       "http/tests/inspector-protocol/issues/language-model-params.js"
     ],
     "args": [
-      "--disable-blink-features=AIPromptAPILegacyParams,AIPromptAPIParams"
+      "--enable-blink-features=AIPromptAPIParams,AIPromptAPILegacyParams"
     ],
     "owners": [
       "msw@chromium.org",
       "iahouma@google.com"
     ],
-    "expires": "Jan 1, 2027"
+    "expires": "Jun 5, 2027"
   },
   {
     "prefix": "ai-prompt-api-legacy-params",
@@ -111,10 +126,10 @@
     "prefix": "service-worker-intercept-downloads",
     "platforms": ["Linux", "Mac", "Win"],
     "bases": [
-      "external/wpt/service-workers/service-worker/fetch-event-download.https.html",
-      "external/wpt/service-workers/service-worker/fetch-event-download-respond-with.https.html",
-      "external/wpt/service-workers/service-worker/fetch-event-download-fallback.https.html",
-      "external/wpt/service-workers/service-worker/fetch-event-download-out-of-scope.https.html"
+      "external/wpt/service-workers/service-worker/tentative/fetch-event-download.https.html",
+      "external/wpt/service-workers/service-worker/tentative/fetch-event-download-respond-with.https.html",
+      "external/wpt/service-workers/service-worker/tentative/fetch-event-download-fallback.https.html",
+      "external/wpt/service-workers/service-worker/tentative/fetch-event-download-out-of-scope.https.html"
     ],
     "args": ["--enable-features=ServiceWorkerInterceptDownloads"],
     "exclusive_tests": "ALL",
@@ -310,6 +325,7 @@
       "css3/viewport-percentage-lengths/viewport-percentage-lengths-scaled-normal-scrollbars.html",
       "css3/viewport-percentage-lengths/viewport-percentage-lengths-scaled-overlay-scrollbars.html",
       "external/wpt/css/css-break/grid/grid-item-fragmentation-023.html",
+      "external/wpt/css/css-transforms/3d-point-mapping-deep.html",
       "fast/dom/Element/scale-page-bounding-client-rect.html",
       "fast/dom/Element/scale-page-client-rects.html",
       "fast/dom/HTMLObjectElement/update-data.html",
@@ -325,7 +341,6 @@
       "paint/invalidation/compositing/subpixel-offset-scaled-will-change-transform.html",
       "paint/invalidation/transform/subpixel-offset-scaled-transform.html",
       "transforms/3d/hit-testing/hover-rotated-with-children-negative-z.html",
-      "transforms/3d/point-mapping/3d-point-mapping-deep.html",
       "transforms/rotate.html"
     ],
     "args": [
@@ -421,7 +436,7 @@
       "http/tests/inspector-protocol/issues/connection-allowlists"
     ],
     "exclusive_tests": "ALL",
-    "args": [ "--enable-features=ConnectionAllowlists,OverrideConnectionAllowlistOriginTrial" ],
+    "args": [ "--enable-features=ConnectionAllowlists:ConnectionAllowlistsEarlyHints/true,OverrideConnectionAllowlistOriginTrial" ],
     "expires": "Dec 1, 2026"
   },
   {
@@ -573,25 +588,6 @@
     "owners": [
       "awillia@chromium.org"
     ]
-  },
-  {
-    "prefix": "css-gap-decorations-disabled",
-    "platforms": ["Linux"],
-    "bases": [
-      "animations/interpolation/webkit-column-rule-color-interpolation.html",
-      "animations/interpolation/webkit-column-rule-width-interpolation.html",
-      "external/wpt/css/css-multicol/animation/column-rule-color-interpolation.html",
-      "external/wpt/css/css-animations/responsive/column-rule-color-001.html",
-      "external/wpt/web-animations/animation-model/animation-types/accumulation-per-property-001.html",
-      "external/wpt/web-animations/animation-model/animation-types/addition-per-property-001.html",
-      "external/wpt/web-animations/animation-model/animation-types/interpolation-per-property-001.html",
-      "external/wpt/css/css-multicol/multicol-nested-column-rule-002.html",
-      "external/wpt/css/css-break/out-of-flow-in-multicolumn-109.html",
-      "external/wpt/css/css-break/out-of-flow-in-multicolumn-098.html",
-      "external/wpt/css/css-break/out-of-flow-in-multicolumn-097.html"],
-    "args": ["--disable-blink-features=CSSGapDecoration"],
-    "expires": "June 1, 2026",
-    "owners": ["samomekarajr@microsoft.com", "almaher@microsoft.com", "javiercon@microsoft.com"]
   },
   {
     "prefix": "computed-width-values-depend-on-style-values",
@@ -784,7 +780,8 @@
     "prefix": "webmcp",
     "platforms": ["Linux"],
     "bases": [
-      "inspector-protocol/webmcp"
+      "inspector-protocol/webmcp",
+      "http/tests/inspector-protocol/webmcp"
     ],
     "args": [
       "--enable-features=DevToolsWebMCPSupport"
@@ -816,7 +813,7 @@
   {
     "prefix": "dialog-close-when-open-removed-disabled",
     "owners": [
-      "masonf@chromium.org"
+      "jarhar@chromium.org"
     ],
     "platforms": [
       "Linux"
@@ -827,7 +824,7 @@
     "args": [
       "--disable-blink-features=DialogCloseWhenOpenRemoved"
     ],
-    "expires": "Jun 1, 2026"
+    "expires": "Jun 1, 2027"
   },
   {
     "prefix": "direct-sockets",
@@ -2008,7 +2005,7 @@
       "hchao@chromium.org",
       "chrome-secure-web-and-net@chromium.org"
     ],
-    "expires": "June 1, 2026"
+    "expires": "June 1, 2027"
   },
   {
     "prefix": "log-dns-prefetch-and-preconnect",
@@ -2481,8 +2478,8 @@
       "html5lib/generated/run-html5test-com-write.html",
       "html5lib/generated/run-tests1-data.html",
       "html5lib/generated/run-tests1-write.html",
-      "external/wpt/html/syntax/parsing/html5lib_html5test-com.html",
-      "external/wpt/html/syntax/parsing/html5lib_tests1.html",
+      "external/wpt/html/syntax/parsing/html5lib_url.html?file=html5test-com",
+      "external/wpt/html/syntax/parsing/html5lib_url.html?file=tests1",
       "external/wpt/html/syntax/xmldecl/xmldecl-1.html",
       "external/wpt/html/syntax/xmldecl/xmldecl-2.html"
     ],
@@ -2503,7 +2500,7 @@
       "external/wpt/html/semantics/permission-element"
     ],
     "args": [
-      "--enable-blink-features=UserMediaElement,InstallElement"
+      "--enable-blink-features=UserMediaElement,InstallElement,UserMediaElementLegacy"
     ],
     "owners": [
       "permissions-core@google.com"
@@ -2677,31 +2674,9 @@
     "expires": "Jul 3, 2025"
   },
   {
-    "prefix": "prerender-by-form-submission",
-    "platforms": [
-      "Linux",
-      "Mac",
-      "Win"
-    ],
-    "bases": [
-      "external/wpt/speculation-rules/prerender/activation-by-form-submission.https.html",
-      "external/wpt/speculation-rules/prerender/csp-form-action.https.html"
-    ],
-    "exclusive_tests": "ALL",
-    "args": [
-      "--enable-blink-features=PrerenderActivationByFormSubmission,PrerenderUntilScript"
-    ],
-    "owners": [
-      "robertlin@chromium.org"
-    ],
-    "expires": "Jul 1, 2026"
-  },
-  {
     "prefix": "prerender2-fallback-prefetch-spec-rules",
     "platforms": [
-      "Linux",
-      "Mac",
-      "Win"
+      "Webview"
     ],
     "bases": [
       "http/tests/inspector-protocol/prefetch",
@@ -2858,24 +2833,6 @@
     "expires": "Nov 29, 2025"
   },
   {
-    "prefix": "snapshot-scroll-timelines-post-layout",
-    "owners": [
-      "futhark@chromium.org",
-      "flackr@chromium.org"
-    ],
-    "platforms": [
-      "Linux"
-    ],
-    "bases": [
-      "external/wpt/scroll-animations/",
-      "fast/animation/scroll-animations/"
-    ],
-    "args": [
-      "--enable-blink-features=SnapshotScrollTimelinesPostLayout"
-    ],
-    "expires": "Jun 1, 2026"
-  },
-  {
     "prefix": "scalefactor150",
     "platforms": [
       "Linux",
@@ -2924,6 +2881,7 @@
       "external/wpt/css/css-grid/animation",
       "external/wpt/css/css-sizing/responsive-iframe/responsive-iframe.html",
       "external/wpt/css/css-sizing/responsive-iframe/responsive-iframe-dom-content-loaded.html",
+      "external/wpt/css/css-sizing/responsive-iframe/responsive-iframe-navigation.html",
       "external/wpt/css/printing",
       "external/wpt/largest-contentful-paint",
       "fast/forms/file/file-appearance-no-default-width.html",
@@ -2997,7 +2955,7 @@
     "args": [
       "--disable-blink-features=ScopedCustomElementRegistry"
     ],
-    "expires": "Jun 1, 2026"
+    "expires": "Jul 1, 2026"
   },
   {
     "prefix": "select-audio-output",
@@ -3086,6 +3044,25 @@
     "owners": [
       "syg@chromium.org",
       "samuelmaddock@electronjs.org"
+    ]
+  },
+  {
+    "prefix": "shadow-root-namespace-check",
+    "platforms": [
+      "Linux",
+      "Mac",
+      "Win"
+    ],
+    "bases": [
+      "external/wpt/shadow-dom/attach-shadow-non-html-namespace.html"
+    ],
+    "exclusive_tests": "ALL",
+    "args": [
+      "--enable-blink-features=ShadowRootNamespaceCheck"
+    ],
+    "expires": "Jun 10, 2027",
+    "owners": [
+      "daniec@microsoft.com"
     ]
   },
   {
@@ -3330,7 +3307,6 @@
       "media/stable",
       "webexposed",
       "compositing/filters",
-      "external/wpt/soft-navigation-heuristics/smoke/tentative/lcp.html",
       "wpt_internal/performance-timeline/performance-user-timing-mark-feature-usage.html",
       "wpt_internal/wasm/custom_descriptors_feature.any.js",
       "wpt_internal/origin_trials/webmcp/webmcp-origin-trial-disabled.https.html",
@@ -3347,20 +3323,6 @@
       "--disable-field-trial-config"
     ],
     "expires": "never"
-  },
-  {
-    "prefix": "enable-shared-worker-bfcache",
-    "owners": ["annasato@chromium.org"],
-    "platforms": ["Mac", "Win", "Linux"],
-    "bases": [
-      "wpt_internal/shared-worker/back-forward-cache/shared-worker-client-postmessage-transferred-port.window.js",
-      "wpt_internal/shared-worker/back-forward-cache/shared-worker-client-postmessage.window.js"
-    ],
-    "exclusive_tests": "ALL",
-    "args": [
-      "--enable-features=BFCacheWithSharedWorker"
-    ],
-    "expires": "Jun 10, 2026"
   },
   {
     "prefix": "symphonia-audio-decoding",
@@ -3669,9 +3631,8 @@
       "external/wpt/css/cssom-view/scroll-behavior-smooth-after-hiding-iframe.html",
       "external/wpt/fetch/compression-dictionary/dictionary-fetch-with-link-element.tentative.https.html",
       "external/wpt/fetch/compression-dictionary/dictionary-fetch-with-link-header.tentative.https.html",
-      "external/wpt/html/canvas/element/manual/draw-element-image/invalidation-during-onpaint.tentative.html",
-      "external/wpt/html/canvas/element/manual/draw-element-image/onpaint-invalidation-crash.tentative.html",
-      "external/wpt/html/canvas/element/manual/draw-element-image/onpaint-outside-invalidation-crash.tentative.html",
+      "external/wpt/html/canvas/element/manual/draw-element-image",
+      "external/wpt/html/canvas/offscreen/manual/draw-element-image",
       "external/wpt/html/canvas/offscreen/manual/convert-to-blob",
       "external/wpt/html/semantics/embedded-content/the-img-element/decode",
       "external/wpt/intersection-observer/animating.html",
@@ -3695,6 +3656,7 @@
       "synthetic_gestures",
       "transitions",
       "view-transition",
+      "wpt_internal/webgl/draw-element-image",
       "wpt_internal/html/script-execution",
       "wpt_internal/scheduler/integration_tests",
       "wpt_internal/view-transition",
@@ -3896,6 +3858,8 @@
     ],
     "expires": "never"
   },
+  "This suite disables unload deprecation and allows tests to run with unload handlers.",
+  "It should not expire as long as there are tests that use unload.",
   {
     "prefix": "unload-allowed",
     "platforms": [
@@ -3973,7 +3937,7 @@
       "external/wpt/html/browsers/browsing-the-web/unloading-documents/unload/unload-main-frame-same-origin.window.js",
       "external/wpt/html/browsers/browsing-the-web/unloading-documents/unload/unload-main-frame-cross-origin.window.js"
     ],
-    "expires": "Jun 1, 2026",
+    "expires": "never",
     "owners": [
       "fergal@chromium.org",
       "rakina@chromium.org"
@@ -4222,8 +4186,6 @@
     ],
     "bases": [
       "external/wpt/webnn/idlharness.https.any.html",
-      "external/wpt/webnn/idlharness.https.any.serviceworker.html",
-      "external/wpt/webnn/idlharness.https.any.sharedworker.html",
       "external/wpt/webnn/idlharness.https.any.worker.html",
       "external/wpt/webnn/conformance_tests/abs.https.any.html?cpu",
       "external/wpt/webnn/conformance_tests/add.https.any.html?cpu",
@@ -4232,9 +4194,6 @@
       "external/wpt/webnn/conformance_tests/batch_normalization.https.any.html?cpu",
       "external/wpt/webnn/conformance_tests/batch_normalization_constant.https.any.html?cpu",
       "external/wpt/webnn/conformance_tests/byob_readtensor.https.any.html?cpu",
-      "external/wpt/webnn/conformance_tests/byob_readtensor.https.any.serviceworker.html?cpu",
-      "external/wpt/webnn/conformance_tests/byob_readtensor.https.any.sharedworker.html?cpu",
-      "external/wpt/webnn/conformance_tests/byob_readtensor.https.any.worker.html?cpu",
       "external/wpt/webnn/conformance_tests/cast.https.any.html?cpu",
       "external/wpt/webnn/conformance_tests/ceil.https.any.html?cpu",
       "external/wpt/webnn/conformance_tests/clamp.https.any.html?cpu",
@@ -4265,13 +4224,7 @@
       "external/wpt/webnn/conformance_tests/hard_sigmoid.https.any.html?cpu",
       "external/wpt/webnn/conformance_tests/hard_swish.https.any.html?cpu",
       "external/wpt/webnn/conformance_tests/identity.https.any.html?cpu",
-      "external/wpt/webnn/conformance_tests/identity.https.any.serviceworker.html?cpu",
-      "external/wpt/webnn/conformance_tests/identity.https.any.sharedworker.html?cpu",
-      "external/wpt/webnn/conformance_tests/identity.https.any.worker.html?cpu",
       "external/wpt/webnn/conformance_tests/inputs-are-not-modified.https.any.html?cpu",
-      "external/wpt/webnn/conformance_tests/inputs-are-not-modified.https.any.serviceworker.html?cpu",
-      "external/wpt/webnn/conformance_tests/inputs-are-not-modified.https.any.sharedworker.html?cpu",
-      "external/wpt/webnn/conformance_tests/inputs-are-not-modified.https.any.worker.html?cpu",
       "external/wpt/webnn/conformance_tests/inputs-with-special-names.https.any.html?cpu",
       "external/wpt/webnn/conformance_tests/instance_normalization.https.any.html?cpu",
       "external/wpt/webnn/conformance_tests/is_nan.https.any.html?cpu",
@@ -4300,15 +4253,9 @@
       "external/wpt/webnn/conformance_tests/operations-with-special-names.https.any.html?cpu",
       "external/wpt/webnn/conformance_tests/pad.https.any.html?cpu",
       "external/wpt/webnn/conformance_tests/parallel-dispatch.https.any.html?cpu",
-      "external/wpt/webnn/conformance_tests/parallel-dispatch.https.any.serviceworker.html?cpu",
-      "external/wpt/webnn/conformance_tests/parallel-dispatch.https.any.sharedworker.html?cpu",
-      "external/wpt/webnn/conformance_tests/parallel-dispatch.https.any.worker.html?cpu",
       "external/wpt/webnn/conformance_tests/pow.https.any.html?cpu",
       "external/wpt/webnn/conformance_tests/prelu.https.any.html?cpu",
       "external/wpt/webnn/conformance_tests/qdq_subgraph.https.any.html?cpu",
-      "external/wpt/webnn/conformance_tests/qdq_subgraph.https.any.serviceworker.html?cpu",
-      "external/wpt/webnn/conformance_tests/qdq_subgraph.https.any.sharedworker.html?cpu",
-      "external/wpt/webnn/conformance_tests/qdq_subgraph.https.any.worker.html?cpu",
       "external/wpt/webnn/conformance_tests/quantizeLinear.https.any.html?cpu",
       "external/wpt/webnn/conformance_tests/reciprocal.https.any.html?cpu",
       "external/wpt/webnn/conformance_tests/reduce_l1.https.any.html?cpu",
@@ -4327,14 +4274,9 @@
       "external/wpt/webnn/conformance_tests/reverse.https.any.html?cpu",
       "external/wpt/webnn/conformance_tests/round_even.https.any.html?cpu",
       "external/wpt/webnn/conformance_tests/scalars.https.any.html?cpu",
-      "external/wpt/webnn/conformance_tests/scalars.https.any.serviceworker.html?cpu",
-      "external/wpt/webnn/conformance_tests/scalars.https.any.sharedworker.html?cpu",
-      "external/wpt/webnn/conformance_tests/scalars.https.any.worker.html?cpu",
       "external/wpt/webnn/conformance_tests/scatterElements.https.any.html?cpu",
       "external/wpt/webnn/conformance_tests/scatterND.https.any.html?cpu",
       "external/wpt/webnn/conformance_tests/shared_arraybuffer_constant.https.any.html?cpu",
-      "external/wpt/webnn/conformance_tests/shared_arraybuffer_constant.https.any.serviceworker.html?cpu",
-      "external/wpt/webnn/conformance_tests/shared_arraybuffer_constant.https.any.worker.html?cpu",
       "external/wpt/webnn/conformance_tests/sigmoid.https.any.html?cpu",
       "external/wpt/webnn/conformance_tests/sign.https.any.html?cpu",
       "external/wpt/webnn/conformance_tests/sin.https.any.html?cpu",
@@ -4346,15 +4288,9 @@
       "external/wpt/webnn/conformance_tests/sqrt.https.any.html?cpu",
       "external/wpt/webnn/conformance_tests/sub.https.any.html?cpu",
       "external/wpt/webnn/conformance_tests/subgraph.https.any.html?cpu",
-      "external/wpt/webnn/conformance_tests/subgraph.https.any.serviceworker.html?cpu",
-      "external/wpt/webnn/conformance_tests/subgraph.https.any.sharedworker.html?cpu",
-      "external/wpt/webnn/conformance_tests/subgraph.https.any.worker.html?cpu",
       "external/wpt/webnn/conformance_tests/tan.https.any.html?cpu",
       "external/wpt/webnn/conformance_tests/tanh.https.any.html?cpu",
       "external/wpt/webnn/conformance_tests/tensor.https.any.html?cpu",
-      "external/wpt/webnn/conformance_tests/tensor.https.any.serviceworker.html?cpu",
-      "external/wpt/webnn/conformance_tests/tensor.https.any.sharedworker.html?cpu",
-      "external/wpt/webnn/conformance_tests/tensor.https.any.worker.html?cpu",
       "external/wpt/webnn/conformance_tests/tile.https.any.html?cpu",
       "external/wpt/webnn/conformance_tests/transpose.https.any.html?cpu",
       "external/wpt/webnn/conformance_tests/triangular.https.any.html?cpu",
@@ -4362,36 +4298,18 @@
       "external/wpt/webnn/validation_tests/argMinMax.https.any.html?cpu",
       "external/wpt/webnn/validation_tests/batchNormalization.https.any.html?cpu",
       "external/wpt/webnn/validation_tests/build-more-than-once.https.any.html?cpu",
-      "external/wpt/webnn/validation_tests/build-more-than-once.https.any.serviceworker.html?cpu",
-      "external/wpt/webnn/validation_tests/build-more-than-once.https.any.sharedworker.html?cpu",
-      "external/wpt/webnn/validation_tests/build-more-than-once.https.any.worker.html?cpu",
       "external/wpt/webnn/validation_tests/cast.https.any.html?cpu",
       "external/wpt/webnn/validation_tests/clamp.https.any.html?cpu",
       "external/wpt/webnn/validation_tests/concat.https.any.html?cpu",
       "external/wpt/webnn/validation_tests/constant-changed-buffer.https.any.html?cpu",
-      "external/wpt/webnn/validation_tests/constant-changed-buffer.https.any.serviceworker.html?cpu",
-      "external/wpt/webnn/validation_tests/constant-changed-buffer.https.any.sharedworker.html?cpu",
-      "external/wpt/webnn/validation_tests/constant-changed-buffer.https.any.worker.html?cpu",
       "external/wpt/webnn/validation_tests/constant.https.any.html?cpu",
-      "external/wpt/webnn/validation_tests/constant.https.any.serviceworker.html?cpu",
-      "external/wpt/webnn/validation_tests/constant.https.any.sharedworker.html?cpu",
-      "external/wpt/webnn/validation_tests/constant.https.any.worker.html?cpu",
       "external/wpt/webnn/validation_tests/conv2d.https.any.html?cpu",
       "external/wpt/webnn/validation_tests/convTranspose2d.https.any.html?cpu",
       "external/wpt/webnn/validation_tests/cumulativeSum.https.any.html?cpu",
       "external/wpt/webnn/validation_tests/createContext.https.any.html?cpu",
-      "external/wpt/webnn/validation_tests/createContext.https.any.serviceworker.html?cpu",
-      "external/wpt/webnn/validation_tests/createContext.https.any.sharedworker.html?cpu",
-      "external/wpt/webnn/validation_tests/createContext.https.any.worker.html?cpu",
       "external/wpt/webnn/validation_tests/dequantizeLinear.https.any.html?cpu",
       "external/wpt/webnn/validation_tests/destroyContext.https.any.html?cpu",
-      "external/wpt/webnn/validation_tests/destroyContext.https.any.serviceworker.html?cpu",
-      "external/wpt/webnn/validation_tests/destroyContext.https.any.sharedworker.html?cpu",
-      "external/wpt/webnn/validation_tests/destroyContext.https.any.worker.html?cpu",
       "external/wpt/webnn/validation_tests/destroyGraph.https.any.html?cpu",
-      "external/wpt/webnn/validation_tests/destroyGraph.https.any.serviceworker.html?cpu",
-      "external/wpt/webnn/validation_tests/destroyGraph.https.any.sharedworker.html?cpu",
-      "external/wpt/webnn/validation_tests/destroyGraph.https.any.worker.html?cpu",
       "external/wpt/webnn/validation_tests/elementwise-binary.https.any.html?op=add&device=cpu",
       "external/wpt/webnn/validation_tests/elementwise-binary.https.any.html?op=div&device=cpu",
       "external/wpt/webnn/validation_tests/elementwise-binary.https.any.html?op=max&device=cpu",
@@ -4424,14 +4342,8 @@
       "external/wpt/webnn/validation_tests/hardSigmoid.https.any.html?cpu",
       "external/wpt/webnn/validation_tests/hardSwish.https.any.html?cpu",
       "external/wpt/webnn/validation_tests/input.https.any.html?cpu",
-      "external/wpt/webnn/validation_tests/input.https.any.serviceworker.html?cpu",
-      "external/wpt/webnn/validation_tests/input.https.any.sharedworker.html?cpu",
-      "external/wpt/webnn/validation_tests/input.https.any.worker.html?cpu",
       "external/wpt/webnn/validation_tests/instanceNormalization.https.any.html?cpu",
       "external/wpt/webnn/validation_tests/invalid-rank.https.any.html?cpu",
-      "external/wpt/webnn/validation_tests/invalid-rank.https.any.serviceworker.html?cpu",
-      "external/wpt/webnn/validation_tests/invalid-rank.https.any.sharedworker.html?cpu",
-      "external/wpt/webnn/validation_tests/invalid-rank.https.any.worker.html?cpu",
       "external/wpt/webnn/validation_tests/layerNormalization.https.any.html?cpu",
       "external/wpt/webnn/validation_tests/leakyRelu.https.any.html?cpu",
       "external/wpt/webnn/validation_tests/linear.https.any.html?cpu",
@@ -4441,9 +4353,6 @@
       "external/wpt/webnn/validation_tests/opSupportLimits.https.any.html?cpu",
       "external/wpt/webnn/validation_tests/pad.https.any.html?cpu",
       "external/wpt/webnn/validation_tests/pooling-and-reduction-keep-dims.https.any.html?cpu",
-      "external/wpt/webnn/validation_tests/pooling-and-reduction-keep-dims.https.any.serviceworker.html?cpu",
-      "external/wpt/webnn/validation_tests/pooling-and-reduction-keep-dims.https.any.sharedworker.html?cpu",
-      "external/wpt/webnn/validation_tests/pooling-and-reduction-keep-dims.https.any.worker.html?cpu",
       "external/wpt/webnn/validation_tests/pooling.https.any.html?cpu",
       "external/wpt/webnn/validation_tests/prelu.https.any.html?cpu",
       "external/wpt/webnn/validation_tests/quantizeLinear.https.any.html?cpu",
@@ -4465,9 +4374,6 @@
       "external/wpt/webnn/validation_tests/transpose.https.any.html?cpu",
       "external/wpt/webnn/validation_tests/triangular.https.any.html?cpu",
       "external/wpt/webnn/validation_tests/unprintableNames.https.any.html?cpu",
-      "external/wpt/webnn/validation_tests/unprintableNames.https.any.serviceworker.html?cpu",
-      "external/wpt/webnn/validation_tests/unprintableNames.https.any.sharedworker.html?cpu",
-      "external/wpt/webnn/validation_tests/unprintableNames.https.any.worker.html?cpu",
       "external/wpt/webnn/validation_tests/where.https.any.html?cpu"
     ],
     "exclusive_tests": "ALL",
@@ -4475,7 +4381,7 @@
       "--enable-features=WebMachineLearningNeuralNetwork",
       "--disable-features=WebNNOnnxRuntime"
     ],
-    "expires": "Jun 1, 2026",
+    "expires": "Jun 1, 2027",
     "owners": [
       "rafael.cintron@microsoft.com",
       "ningxin.hu@intel.com",
@@ -4502,9 +4408,6 @@
       "external/wpt/webnn/conformance_tests/batch_normalization.https.any.html?npu",
       "external/wpt/webnn/conformance_tests/batch_normalization_constant.https.any.html?npu",
       "external/wpt/webnn/conformance_tests/byob_readtensor.https.any.html?npu",
-      "external/wpt/webnn/conformance_tests/byob_readtensor.https.any.serviceworker.html?npu",
-      "external/wpt/webnn/conformance_tests/byob_readtensor.https.any.sharedworker.html?npu",
-      "external/wpt/webnn/conformance_tests/byob_readtensor.https.any.worker.html?npu",
       "external/wpt/webnn/conformance_tests/cast.https.any.html?npu",
       "external/wpt/webnn/conformance_tests/ceil.https.any.html?npu",
       "external/wpt/webnn/conformance_tests/clamp.https.any.html?npu",
@@ -4535,13 +4438,7 @@
       "external/wpt/webnn/conformance_tests/hard_sigmoid.https.any.html?npu",
       "external/wpt/webnn/conformance_tests/hard_swish.https.any.html?npu",
       "external/wpt/webnn/conformance_tests/identity.https.any.html?npu",
-      "external/wpt/webnn/conformance_tests/identity.https.any.serviceworker.html?npu",
-      "external/wpt/webnn/conformance_tests/identity.https.any.sharedworker.html?npu",
-      "external/wpt/webnn/conformance_tests/identity.https.any.worker.html?npu",
       "external/wpt/webnn/conformance_tests/inputs-are-not-modified.https.any.html?npu",
-      "external/wpt/webnn/conformance_tests/inputs-are-not-modified.https.any.serviceworker.html?npu",
-      "external/wpt/webnn/conformance_tests/inputs-are-not-modified.https.any.sharedworker.html?npu",
-      "external/wpt/webnn/conformance_tests/inputs-are-not-modified.https.any.worker.html?npu",
       "external/wpt/webnn/conformance_tests/inputs-with-special-names.https.any.html?npu",
       "external/wpt/webnn/conformance_tests/instance_normalization.https.any.html?npu",
       "external/wpt/webnn/conformance_tests/is_nan.https.any.html?npu",
@@ -4570,15 +4467,9 @@
       "external/wpt/webnn/conformance_tests/operations-with-special-names.https.any.html?npu",
       "external/wpt/webnn/conformance_tests/pad.https.any.html?npu",
       "external/wpt/webnn/conformance_tests/parallel-dispatch.https.any.html?npu",
-      "external/wpt/webnn/conformance_tests/parallel-dispatch.https.any.serviceworker.html?npu",
-      "external/wpt/webnn/conformance_tests/parallel-dispatch.https.any.sharedworker.html?npu",
-      "external/wpt/webnn/conformance_tests/parallel-dispatch.https.any.worker.html?npu",
       "external/wpt/webnn/conformance_tests/pow.https.any.html?npu",
       "external/wpt/webnn/conformance_tests/prelu.https.any.html?npu",
       "external/wpt/webnn/conformance_tests/qdq_subgraph.https.any.html?npu",
-      "external/wpt/webnn/conformance_tests/qdq_subgraph.https.any.serviceworker.html?npu",
-      "external/wpt/webnn/conformance_tests/qdq_subgraph.https.any.sharedworker.html?npu",
-      "external/wpt/webnn/conformance_tests/qdq_subgraph.https.any.worker.html?npu",
       "external/wpt/webnn/conformance_tests/quantizeLinear.https.any.html?npu",
       "external/wpt/webnn/conformance_tests/reciprocal.https.any.html?npu",
       "external/wpt/webnn/conformance_tests/reduce_l1.https.any.html?npu",
@@ -4597,14 +4488,9 @@
       "external/wpt/webnn/conformance_tests/reverse.https.any.html?npu",
       "external/wpt/webnn/conformance_tests/round_even.https.any.html?npu",
       "external/wpt/webnn/conformance_tests/scalars.https.any.html?npu",
-      "external/wpt/webnn/conformance_tests/scalars.https.any.serviceworker.html?npu",
-      "external/wpt/webnn/conformance_tests/scalars.https.any.sharedworker.html?npu",
-      "external/wpt/webnn/conformance_tests/scalars.https.any.worker.html?npu",
       "external/wpt/webnn/conformance_tests/scatterElements.https.any.html?npu",
       "external/wpt/webnn/conformance_tests/scatterND.https.any.html?npu",
       "external/wpt/webnn/conformance_tests/shared_arraybuffer_constant.https.any.html?npu",
-      "external/wpt/webnn/conformance_tests/shared_arraybuffer_constant.https.any.serviceworker.html?npu",
-      "external/wpt/webnn/conformance_tests/shared_arraybuffer_constant.https.any.worker.html?npu",
       "external/wpt/webnn/conformance_tests/sigmoid.https.any.html?npu",
       "external/wpt/webnn/conformance_tests/sign.https.any.html?npu",
       "external/wpt/webnn/conformance_tests/sin.https.any.html?npu",
@@ -4616,15 +4502,9 @@
       "external/wpt/webnn/conformance_tests/sqrt.https.any.html?npu",
       "external/wpt/webnn/conformance_tests/sub.https.any.html?npu",
       "external/wpt/webnn/conformance_tests/subgraph.https.any.html?npu",
-      "external/wpt/webnn/conformance_tests/subgraph.https.any.serviceworker.html?npu",
-      "external/wpt/webnn/conformance_tests/subgraph.https.any.sharedworker.html?npu",
-      "external/wpt/webnn/conformance_tests/subgraph.https.any.worker.html?npu",
       "external/wpt/webnn/conformance_tests/tan.https.any.html?npu",
       "external/wpt/webnn/conformance_tests/tanh.https.any.html?npu",
       "external/wpt/webnn/conformance_tests/tensor.https.any.html?npu",
-      "external/wpt/webnn/conformance_tests/tensor.https.any.serviceworker.html?npu",
-      "external/wpt/webnn/conformance_tests/tensor.https.any.sharedworker.html?npu",
-      "external/wpt/webnn/conformance_tests/tensor.https.any.worker.html?npu",
       "external/wpt/webnn/conformance_tests/tile.https.any.html?npu",
       "external/wpt/webnn/conformance_tests/transpose.https.any.html?npu",
       "external/wpt/webnn/conformance_tests/triangular.https.any.html?npu",
@@ -4632,36 +4512,18 @@
       "external/wpt/webnn/validation_tests/argMinMax.https.any.html?npu",
       "external/wpt/webnn/validation_tests/batchNormalization.https.any.html?npu",
       "external/wpt/webnn/validation_tests/build-more-than-once.https.any.html?npu",
-      "external/wpt/webnn/validation_tests/build-more-than-once.https.any.serviceworker.html?npu",
-      "external/wpt/webnn/validation_tests/build-more-than-once.https.any.sharedworker.html?npu",
-      "external/wpt/webnn/validation_tests/build-more-than-once.https.any.worker.html?npu",
       "external/wpt/webnn/validation_tests/cast.https.any.html?npu",
       "external/wpt/webnn/validation_tests/clamp.https.any.html?npu",
       "external/wpt/webnn/validation_tests/concat.https.any.html?npu",
       "external/wpt/webnn/validation_tests/constant-changed-buffer.https.any.html?npu",
-      "external/wpt/webnn/validation_tests/constant-changed-buffer.https.any.serviceworker.html?npu",
-      "external/wpt/webnn/validation_tests/constant-changed-buffer.https.any.sharedworker.html?npu",
-      "external/wpt/webnn/validation_tests/constant-changed-buffer.https.any.worker.html?npu",
       "external/wpt/webnn/validation_tests/constant.https.any.html?npu",
-      "external/wpt/webnn/validation_tests/constant.https.any.serviceworker.html?npu",
-      "external/wpt/webnn/validation_tests/constant.https.any.sharedworker.html?npu",
-      "external/wpt/webnn/validation_tests/constant.https.any.worker.html?npu",
       "external/wpt/webnn/validation_tests/conv2d.https.any.html?npu",
       "external/wpt/webnn/validation_tests/convTranspose2d.https.any.html?npu",
       "external/wpt/webnn/validation_tests/cumulativeSum.https.any.html?npu",
       "external/wpt/webnn/validation_tests/createContext.https.any.html?npu",
-      "external/wpt/webnn/validation_tests/createContext.https.any.serviceworker.html?npu",
-      "external/wpt/webnn/validation_tests/createContext.https.any.sharedworker.html?npu",
-      "external/wpt/webnn/validation_tests/createContext.https.any.worker.html?npu",
       "external/wpt/webnn/validation_tests/dequantizeLinear.https.any.html?npu",
       "external/wpt/webnn/validation_tests/destroyContext.https.any.html?npu",
-      "external/wpt/webnn/validation_tests/destroyContext.https.any.serviceworker.html?npu",
-      "external/wpt/webnn/validation_tests/destroyContext.https.any.sharedworker.html?npu",
-      "external/wpt/webnn/validation_tests/destroyContext.https.any.worker.html?npu",
       "external/wpt/webnn/validation_tests/destroyGraph.https.any.html?npu",
-      "external/wpt/webnn/validation_tests/destroyGraph.https.any.serviceworker.html?npu",
-      "external/wpt/webnn/validation_tests/destroyGraph.https.any.sharedworker.html?npu",
-      "external/wpt/webnn/validation_tests/destroyGraph.https.any.worker.html?npu",
       "external/wpt/webnn/validation_tests/elementwise-binary.https.any.html?op=add&device=npu",
       "external/wpt/webnn/validation_tests/elementwise-binary.https.any.html?op=div&device=npu",
       "external/wpt/webnn/validation_tests/elementwise-binary.https.any.html?op=max&device=npu",
@@ -4694,14 +4556,8 @@
       "external/wpt/webnn/validation_tests/hardSigmoid.https.any.html?npu",
       "external/wpt/webnn/validation_tests/hardSwish.https.any.html?npu",
       "external/wpt/webnn/validation_tests/input.https.any.html?npu",
-      "external/wpt/webnn/validation_tests/input.https.any.serviceworker.html?npu",
-      "external/wpt/webnn/validation_tests/input.https.any.sharedworker.html?npu",
-      "external/wpt/webnn/validation_tests/input.https.any.worker.html?npu",
       "external/wpt/webnn/validation_tests/instanceNormalization.https.any.html?npu",
       "external/wpt/webnn/validation_tests/invalid-rank.https.any.html?npu",
-      "external/wpt/webnn/validation_tests/invalid-rank.https.any.serviceworker.html?npu",
-      "external/wpt/webnn/validation_tests/invalid-rank.https.any.sharedworker.html?npu",
-      "external/wpt/webnn/validation_tests/invalid-rank.https.any.worker.html?npu",
       "external/wpt/webnn/validation_tests/layerNormalization.https.any.html?npu",
       "external/wpt/webnn/validation_tests/leakyRelu.https.any.html?npu",
       "external/wpt/webnn/validation_tests/linear.https.any.html?npu",
@@ -4711,9 +4567,6 @@
       "external/wpt/webnn/validation_tests/opSupportLimits.https.any.html?npu",
       "external/wpt/webnn/validation_tests/pad.https.any.html?npu",
       "external/wpt/webnn/validation_tests/pooling-and-reduction-keep-dims.https.any.html?npu",
-      "external/wpt/webnn/validation_tests/pooling-and-reduction-keep-dims.https.any.serviceworker.html?npu",
-      "external/wpt/webnn/validation_tests/pooling-and-reduction-keep-dims.https.any.sharedworker.html?npu",
-      "external/wpt/webnn/validation_tests/pooling-and-reduction-keep-dims.https.any.worker.html?npu",
       "external/wpt/webnn/validation_tests/pooling.https.any.html?npu",
       "external/wpt/webnn/validation_tests/prelu.https.any.html?npu",
       "external/wpt/webnn/validation_tests/quantizeLinear.https.any.html?npu",
@@ -4735,9 +4588,6 @@
       "external/wpt/webnn/validation_tests/transpose.https.any.html?npu",
       "external/wpt/webnn/validation_tests/triangular.https.any.html?npu",
       "external/wpt/webnn/validation_tests/unprintableNames.https.any.html?npu",
-      "external/wpt/webnn/validation_tests/unprintableNames.https.any.serviceworker.html?npu",
-      "external/wpt/webnn/validation_tests/unprintableNames.https.any.sharedworker.html?npu",
-      "external/wpt/webnn/validation_tests/unprintableNames.https.any.worker.html?npu",
       "external/wpt/webnn/validation_tests/where.https.any.html?npu"
     ],
     "exclusive_tests": "ALL",
@@ -4745,7 +4595,7 @@
       "--enable-features=WebMachineLearningNeuralNetwork",
       "--disable-features=WebNNOnnxRuntime"
     ],
-    "expires": "Jun 1, 2026",
+    "expires": "Jun 1, 2027",
     "owners": [
       "rafael.cintron@microsoft.com",
       "ningxin.hu@intel.com",
@@ -4773,9 +4623,6 @@
       "external/wpt/webnn/conformance_tests/batch_normalization.https.any.html?gpu",
       "external/wpt/webnn/conformance_tests/batch_normalization_constant.https.any.html?gpu",
       "external/wpt/webnn/conformance_tests/byob_readtensor.https.any.html?gpu",
-      "external/wpt/webnn/conformance_tests/byob_readtensor.https.any.serviceworker.html?gpu",
-      "external/wpt/webnn/conformance_tests/byob_readtensor.https.any.sharedworker.html?gpu",
-      "external/wpt/webnn/conformance_tests/byob_readtensor.https.any.worker.html?gpu",
       "external/wpt/webnn/conformance_tests/cast.https.any.html?gpu",
       "external/wpt/webnn/conformance_tests/ceil.https.any.html?gpu",
       "external/wpt/webnn/conformance_tests/clamp.https.any.html?gpu",
@@ -4806,13 +4653,7 @@
       "external/wpt/webnn/conformance_tests/hard_sigmoid.https.any.html?gpu",
       "external/wpt/webnn/conformance_tests/hard_swish.https.any.html?gpu",
       "external/wpt/webnn/conformance_tests/identity.https.any.html?gpu",
-      "external/wpt/webnn/conformance_tests/identity.https.any.serviceworker.html?gpu",
-      "external/wpt/webnn/conformance_tests/identity.https.any.sharedworker.html?gpu",
-      "external/wpt/webnn/conformance_tests/identity.https.any.worker.html?gpu",
       "external/wpt/webnn/conformance_tests/inputs-are-not-modified.https.any.html?gpu",
-      "external/wpt/webnn/conformance_tests/inputs-are-not-modified.https.any.serviceworker.html?gpu",
-      "external/wpt/webnn/conformance_tests/inputs-are-not-modified.https.any.sharedworker.html?gpu",
-      "external/wpt/webnn/conformance_tests/inputs-are-not-modified.https.any.worker.html?gpu",
       "external/wpt/webnn/conformance_tests/inputs-with-special-names.https.any.html?gpu",
       "external/wpt/webnn/conformance_tests/instance_normalization.https.any.html?gpu",
       "external/wpt/webnn/conformance_tests/is_nan.https.any.html?gpu",
@@ -4841,15 +4682,9 @@
       "external/wpt/webnn/conformance_tests/operations-with-special-names.https.any.html?gpu",
       "external/wpt/webnn/conformance_tests/pad.https.any.html?gpu",
       "external/wpt/webnn/conformance_tests/parallel-dispatch.https.any.html?gpu",
-      "external/wpt/webnn/conformance_tests/parallel-dispatch.https.any.serviceworker.html?gpu",
-      "external/wpt/webnn/conformance_tests/parallel-dispatch.https.any.sharedworker.html?gpu",
-      "external/wpt/webnn/conformance_tests/parallel-dispatch.https.any.worker.html?gpu",
       "external/wpt/webnn/conformance_tests/pow.https.any.html?gpu",
       "external/wpt/webnn/conformance_tests/prelu.https.any.html?gpu",
       "external/wpt/webnn/conformance_tests/qdq_subgraph.https.any.html?gpu",
-      "external/wpt/webnn/conformance_tests/qdq_subgraph.https.any.serviceworker.html?gpu",
-      "external/wpt/webnn/conformance_tests/qdq_subgraph.https.any.sharedworker.html?gpu",
-      "external/wpt/webnn/conformance_tests/qdq_subgraph.https.any.worker.html?gpu",
       "external/wpt/webnn/conformance_tests/quantizeLinear.https.any.html?gpu",
       "external/wpt/webnn/conformance_tests/reciprocal.https.any.html?gpu",
       "external/wpt/webnn/conformance_tests/reduce_l1.https.any.html?gpu",
@@ -4868,14 +4703,9 @@
       "external/wpt/webnn/conformance_tests/reverse.https.any.html?gpu",
       "external/wpt/webnn/conformance_tests/round_even.https.any.html?gpu",
       "external/wpt/webnn/conformance_tests/scalars.https.any.html?gpu",
-      "external/wpt/webnn/conformance_tests/scalars.https.any.serviceworker.html?gpu",
-      "external/wpt/webnn/conformance_tests/scalars.https.any.sharedworker.html?gpu",
-      "external/wpt/webnn/conformance_tests/scalars.https.any.worker.html?gpu",
       "external/wpt/webnn/conformance_tests/scatterElements.https.any.html?gpu",
       "external/wpt/webnn/conformance_tests/scatterND.https.any.html?gpu",
       "external/wpt/webnn/conformance_tests/shared_arraybuffer_constant.https.any.html?gpu",
-      "external/wpt/webnn/conformance_tests/shared_arraybuffer_constant.https.any.serviceworker.html?gpu",
-      "external/wpt/webnn/conformance_tests/shared_arraybuffer_constant.https.any.worker.html?gpu",
       "external/wpt/webnn/conformance_tests/sigmoid.https.any.html?gpu",
       "external/wpt/webnn/conformance_tests/sign.https.any.html?gpu",
       "external/wpt/webnn/conformance_tests/sin.https.any.html?gpu",
@@ -4887,15 +4717,9 @@
       "external/wpt/webnn/conformance_tests/sqrt.https.any.html?gpu",
       "external/wpt/webnn/conformance_tests/sub.https.any.html?gpu",
       "external/wpt/webnn/conformance_tests/subgraph.https.any.html?gpu",
-      "external/wpt/webnn/conformance_tests/subgraph.https.any.serviceworker.html?gpu",
-      "external/wpt/webnn/conformance_tests/subgraph.https.any.sharedworker.html?gpu",
-      "external/wpt/webnn/conformance_tests/subgraph.https.any.worker.html?gpu",
       "external/wpt/webnn/conformance_tests/tan.https.any.html?gpu",
       "external/wpt/webnn/conformance_tests/tanh.https.any.html?gpu",
       "external/wpt/webnn/conformance_tests/tensor.https.any.html?gpu",
-      "external/wpt/webnn/conformance_tests/tensor.https.any.serviceworker.html?gpu",
-      "external/wpt/webnn/conformance_tests/tensor.https.any.sharedworker.html?gpu",
-      "external/wpt/webnn/conformance_tests/tensor.https.any.worker.html?gpu",
       "external/wpt/webnn/conformance_tests/tile.https.any.html?gpu",
       "external/wpt/webnn/conformance_tests/transpose.https.any.html?gpu",
       "external/wpt/webnn/conformance_tests/triangular.https.any.html?gpu",
@@ -4903,36 +4727,18 @@
       "external/wpt/webnn/validation_tests/argMinMax.https.any.html?gpu",
       "external/wpt/webnn/validation_tests/batchNormalization.https.any.html?gpu",
       "external/wpt/webnn/validation_tests/build-more-than-once.https.any.html?gpu",
-      "external/wpt/webnn/validation_tests/build-more-than-once.https.any.serviceworker.html?gpu",
-      "external/wpt/webnn/validation_tests/build-more-than-once.https.any.sharedworker.html?gpu",
-      "external/wpt/webnn/validation_tests/build-more-than-once.https.any.worker.html?gpu",
       "external/wpt/webnn/validation_tests/cast.https.any.html?gpu",
       "external/wpt/webnn/validation_tests/clamp.https.any.html?gpu",
       "external/wpt/webnn/validation_tests/concat.https.any.html?gpu",
       "external/wpt/webnn/validation_tests/constant-changed-buffer.https.any.html?gpu",
-      "external/wpt/webnn/validation_tests/constant-changed-buffer.https.any.serviceworker.html?gpu",
-      "external/wpt/webnn/validation_tests/constant-changed-buffer.https.any.sharedworker.html?gpu",
-      "external/wpt/webnn/validation_tests/constant-changed-buffer.https.any.worker.html?gpu",
       "external/wpt/webnn/validation_tests/constant.https.any.html?gpu",
-      "external/wpt/webnn/validation_tests/constant.https.any.serviceworker.html?gpu",
-      "external/wpt/webnn/validation_tests/constant.https.any.sharedworker.html?gpu",
-      "external/wpt/webnn/validation_tests/constant.https.any.worker.html?gpu",
       "external/wpt/webnn/validation_tests/conv2d.https.any.html?gpu",
       "external/wpt/webnn/validation_tests/convTranspose2d.https.any.html?gpu",
       "external/wpt/webnn/validation_tests/cumulativeSum.https.any.html?gpu",
       "external/wpt/webnn/validation_tests/createContext.https.any.html?gpu",
-      "external/wpt/webnn/validation_tests/createContext.https.any.serviceworker.html?gpu",
-      "external/wpt/webnn/validation_tests/createContext.https.any.sharedworker.html?gpu",
-      "external/wpt/webnn/validation_tests/createContext.https.any.worker.html?gpu",
       "external/wpt/webnn/validation_tests/dequantizeLinear.https.any.html?gpu",
       "external/wpt/webnn/validation_tests/destroyContext.https.any.html?gpu",
-      "external/wpt/webnn/validation_tests/destroyContext.https.any.serviceworker.html?gpu",
-      "external/wpt/webnn/validation_tests/destroyContext.https.any.sharedworker.html?gpu",
-      "external/wpt/webnn/validation_tests/destroyContext.https.any.worker.html?gpu",
       "external/wpt/webnn/validation_tests/destroyGraph.https.any.html?gpu",
-      "external/wpt/webnn/validation_tests/destroyGraph.https.any.serviceworker.html?gpu",
-      "external/wpt/webnn/validation_tests/destroyGraph.https.any.sharedworker.html?gpu",
-      "external/wpt/webnn/validation_tests/destroyGraph.https.any.worker.html?gpu",
       "external/wpt/webnn/validation_tests/elementwise-binary.https.any.html?op=add&device=gpu",
       "external/wpt/webnn/validation_tests/elementwise-binary.https.any.html?op=div&device=gpu",
       "external/wpt/webnn/validation_tests/elementwise-binary.https.any.html?op=max&device=gpu",
@@ -4965,14 +4771,8 @@
       "external/wpt/webnn/validation_tests/hardSigmoid.https.any.html?gpu",
       "external/wpt/webnn/validation_tests/hardSwish.https.any.html?gpu",
       "external/wpt/webnn/validation_tests/input.https.any.html?gpu",
-      "external/wpt/webnn/validation_tests/input.https.any.serviceworker.html?gpu",
-      "external/wpt/webnn/validation_tests/input.https.any.sharedworker.html?gpu",
-      "external/wpt/webnn/validation_tests/input.https.any.worker.html?gpu",
       "external/wpt/webnn/validation_tests/instanceNormalization.https.any.html?gpu",
       "external/wpt/webnn/validation_tests/invalid-rank.https.any.html?gpu",
-      "external/wpt/webnn/validation_tests/invalid-rank.https.any.serviceworker.html?gpu",
-      "external/wpt/webnn/validation_tests/invalid-rank.https.any.sharedworker.html?gpu",
-      "external/wpt/webnn/validation_tests/invalid-rank.https.any.worker.html?gpu",
       "external/wpt/webnn/validation_tests/layerNormalization.https.any.html?gpu",
       "external/wpt/webnn/validation_tests/leakyRelu.https.any.html?gpu",
       "external/wpt/webnn/validation_tests/linear.https.any.html?gpu",
@@ -4982,9 +4782,6 @@
       "external/wpt/webnn/validation_tests/opSupportLimits.https.any.html?gpu",
       "external/wpt/webnn/validation_tests/pad.https.any.html?gpu",
       "external/wpt/webnn/validation_tests/pooling-and-reduction-keep-dims.https.any.html?gpu",
-      "external/wpt/webnn/validation_tests/pooling-and-reduction-keep-dims.https.any.serviceworker.html?gpu",
-      "external/wpt/webnn/validation_tests/pooling-and-reduction-keep-dims.https.any.sharedworker.html?gpu",
-      "external/wpt/webnn/validation_tests/pooling-and-reduction-keep-dims.https.any.worker.html?gpu",
       "external/wpt/webnn/validation_tests/pooling.https.any.html?gpu",
       "external/wpt/webnn/validation_tests/prelu.https.any.html?gpu",
       "external/wpt/webnn/validation_tests/quantizeLinear.https.any.html?gpu",
@@ -5006,9 +4803,6 @@
       "external/wpt/webnn/validation_tests/transpose.https.any.html?gpu",
       "external/wpt/webnn/validation_tests/triangular.https.any.html?gpu",
       "external/wpt/webnn/validation_tests/unprintableNames.https.any.html?gpu",
-      "external/wpt/webnn/validation_tests/unprintableNames.https.any.serviceworker.html?gpu",
-      "external/wpt/webnn/validation_tests/unprintableNames.https.any.sharedworker.html?gpu",
-      "external/wpt/webnn/validation_tests/unprintableNames.https.any.worker.html?gpu",
       "external/wpt/webnn/validation_tests/where.https.any.html?gpu"
     ],
     "exclusive_tests": "ALL",
@@ -5017,7 +4811,7 @@
       "--enable-features=WebMachineLearningNeuralNetwork",
       "--disable-features=WebNNOnnxRuntime"
     ],
-    "expires": "Jun 1, 2026",
+    "expires": "Jun 1, 2027",
     "owners": [
       "rafael.cintron@microsoft.com",
       "ningxin.hu@intel.com",
@@ -5210,7 +5004,7 @@
     "expires": "Feb 1, 2027"
   },
   {
-    "prefix": "dom_storage_sqlite",
+    "prefix": "dom_storage_leveldb",
     "owners": [
       "evanstade@microsoft.com",
       "stevebe@microsoft.com",
@@ -5225,8 +5019,8 @@
       "external/wpt/webstorage",
       "storage/domstorage"
     ],
-    "args": ["--enable-features=DomStorageSqlite"],
-    "expires": "Aug 13, 2026"
+    "args": ["--enable-features=DomStorageSqliteNewDatabases:DomStorageSqliteNewDatabasesStage/UseLevelDbOnly"],
+    "expires": "Feb 1, 2027"
   },
   {
     "prefix": "durable-messages",
@@ -5296,55 +5090,6 @@
     "expires": "Jan 1, 2027"
   },
   {
-    "prefix": "prevent-svg-filter-paint",
-    "owners": [
-      "arichiv@chromium.org",
-      "pdr@chromium.org"
-    ],
-    "platforms": [
-      "Android",
-      "ChromeOS",
-      "Linux",
-      "Mac",
-      "Webview",
-      "Win"
-    ],
-    "bases": [
-      "external/wpt/svg/styling/svg-filter-render-cross-origin-frame-in-cross-origin-frame.tentative.sub.https.html",
-      "external/wpt/svg/styling/svg-filter-render-cross-origin-frame-in-same-origin-frame.tentative.https.html",
-      "external/wpt/svg/styling/svg-filter-render-cross-origin-frame.tentative.sub.https.html",
-      "external/wpt/svg/styling/svg-filter-render-cross-origin-navigation-in-srcdoc-frame.tentative.sub.https.html",
-      "external/wpt/svg/styling/svg-filter-render-same-origin-frame-in-cross-origin-frame.tentative.sub.https.html",
-      "external/wpt/svg/styling/svg-filter-render-same-origin-frame-in-same-origin-frame.tentative.https.html",
-      "external/wpt/svg/styling/svg-filter-render-same-origin-frame-reload-as-sandbox.tentative.https.html",
-      "external/wpt/svg/styling/svg-filter-render-same-origin-frame.tentative.https.html",
-      "external/wpt/svg/styling/svg-filter-render-sandbox-frame.tentative.https.html",
-      "external/wpt/svg/styling/svg-filter-render-srcdoc-frame.tentative.https.html",
-      "external/wpt/svg/styling/svg-filter-render-web-plugin.tentative.https.html",
-      "http/tests/inspector-protocol/issues/deprecation-prevent-svg-filter-paint.js",
-      "wpt_internal/svg"
-    ],
-    "exclusive_tests": [
-      "external/wpt/svg/styling/svg-filter-render-cross-origin-frame-in-cross-origin-frame.tentative.sub.https.html",
-      "external/wpt/svg/styling/svg-filter-render-cross-origin-frame-in-same-origin-frame.tentative.https.html",
-      "external/wpt/svg/styling/svg-filter-render-cross-origin-frame.tentative.sub.https.html",
-      "external/wpt/svg/styling/svg-filter-render-cross-origin-navigation-in-srcdoc-frame.tentative.sub.https.html",
-      "external/wpt/svg/styling/svg-filter-render-same-origin-frame-in-cross-origin-frame.tentative.sub.https.html",
-      "external/wpt/svg/styling/svg-filter-render-same-origin-frame-in-same-origin-frame.tentative.https.html",
-      "external/wpt/svg/styling/svg-filter-render-same-origin-frame-reload-as-sandbox.tentative.https.html",
-      "external/wpt/svg/styling/svg-filter-render-same-origin-frame.tentative.https.html",
-      "external/wpt/svg/styling/svg-filter-render-sandbox-frame.tentative.https.html",
-      "external/wpt/svg/styling/svg-filter-render-srcdoc-frame.tentative.https.html",
-      "external/wpt/svg/styling/svg-filter-render-web-plugin.tentative.https.html",
-      "http/tests/inspector-protocol/issues/deprecation-prevent-svg-filter-paint.js",
-      "wpt_internal/svg/svg-filter-render.sub.https.html"
-    ],
-    "args": [
-      "--enable-features=PreventSvgFilterPaint:PreventSvgFilterPaintOnLocalFrameRestricted/true/PreventSvgFilterPaintOnRemoteFrame/true/PreventSvgFilterPaintOnWebPlugin/true"
-    ],
-    "expires": "Nov 1, 2026"
-  },
-  {
     "prefix": "popover-hint-new-behavior-disabled",
     "platforms": ["Linux", "Mac", "Win"],
     "bases": [
@@ -5388,25 +5133,18 @@
     "expires": "never"
   },
   "This is for the Unbounded Element API. See crbug.com/508672616.",
-  "This virtual suite just ensures nothing breaks when the flag is disabled.",
   {
-    "prefix": "unbounded-element-disabled",
-    "platforms": [
-      "Linux",
-      "Mac",
-      "Win",
-      "ChromeOS"
-    ],
-    "bases": [
-      "wpt_internal/html/rendering/unbounded_element"
-    ],
+    "prefix": "unbounded-element",
+    "platforms": ["Linux", "Mac", "Win"],
+    "bases": ["wpt_internal/html/rendering/unbounded-element"],
     "args": [
-      "--disable-blink-features=UnboundedElement,UnboundedElementOnTheOpenWeb"
+      "--enable-features=UnboundedElement,UnboundedElementOnTheOpenWeb",
+      "--disable-features=TreesInViz"
     ],
     "owners": [
       "masonf@chromium.org"
     ],
-    "expires": "Dec 1, 2026"
+    "expires": "Jan 1, 2027"
   },
   {
     "prefix": "canvas-draw-element-image-hardware-video",
@@ -5414,9 +5152,70 @@
     "platforms": ["Linux", "Mac", "Win"],
     "bases": [
       "external/wpt/html/canvas/element/manual/draw-element-image/video.tentative.html",
-      "external/wpt/html/canvas/offscreen/manual/draw-element-image/video-worker.tentative.html"
+      "external/wpt/html/canvas/offscreen/manual/draw-element-image/video-worker.tentative.html",
+      "wpt_internal/webgl/draw-element-image/webgl-video.html",
+      "wpt_internal/webgl/draw-element-image/webgl-video-worker-pixeltest.html",
+      "wpt_internal/webgl/draw-element-image/webgl-video-worker-reftest.html"
     ],
     "args": ["--use-gpu-in-tests", "--enable-threaded-compositing"],
     "expires": "never"
+  },
+  {
+    "prefix": "disable-css-line-clamp-longhands",
+    "platforms": [
+      "Linux"
+    ],
+    "bases": [
+      "external/wpt/css/css-overflow/line-clamp",
+      "external/wpt/css/css-overflow/parsing",
+      "external/wpt/css/css-overflow/inheritance.html",
+      "external/wpt/compat/webkit-box-clamp-bottom-border.html",
+      "external/wpt/compat/webkit-box-clamp-visibility-change.html",
+      "external/wpt/css/css-flexbox/alignment/flex-align-baseline-line-clamp-001.tentative.html",
+      "external/wpt/css/css-flexbox/alignment/flex-align-baseline-line-clamp-002.tentative.html",
+      "external/wpt/css/css-flexbox/alignment/flex-align-baseline-line-clamp-003.tentative.html",
+      "external/wpt/css/css-grid/alignment/grid-align-baseline-line-clamp-001.tentative.html",
+      "external/wpt/css/css-grid/alignment/grid-align-baseline-line-clamp-002.tentative.html",
+      "external/wpt/css/css-grid/alignment/grid-align-baseline-line-clamp-003.tentative.html",
+      "external/wpt/css/css-inline/baseline-source/baseline-source-first-001.html",
+      "external/wpt/css/css-inline/baseline-source/baseline-source-first-002.html",
+      "external/wpt/css/css-inline/baseline-source/baseline-source-first-003.html",
+      "external/wpt/css/css-inline/baseline-source/baseline-source-last-001.html",
+      "external/wpt/css/css-inline/baseline-source/baseline-source-last-002.html",
+      "external/wpt/css/css-inline/baseline-source/baseline-source-last-003.html",
+      "external/wpt/css/css-inline/text-box-trim/text-box-trim-line-clamp-001.html",
+      "external/wpt/css/css-inline/text-box-trim/text-box-trim-line-clamp-002.html",
+      "external/wpt/css/css-text/white-space/text-wrap-balance-005.html",
+      "external/wpt/css/css-text/white-space/text-wrap-balance-line-clamp-001.html",
+      "external/wpt/css/css-text/white-space/text-wrap-balance-line-clamp-002.html",
+      "external/wpt/css/css-text/white-space/text-wrap-balance-line-clamp-003.html",
+      "external/wpt/css/css-text/white-space/text-wrap-balance-line-clamp-004.html",
+      "external/wpt/css/css-text/white-space/text-wrap-balance-line-clamp-005.html",
+      "external/wpt/css/css-text/white-space/text-wrap-balance-line-clamp-006.html",
+      "external/wpt/css/css-text/white-space/text-wrap-balance-line-clamp-007.html",
+      "external/wpt/css/css-text/white-space/text-wrap-pretty-line-clamp-crash-001.html",
+      "external/wpt/css/css-ui/text-overflow-string-001.html",
+      "external/wpt/css/css-ui/text-overflow-string-002.html",
+      "external/wpt/css/css-ui/text-overflow-string-003.html",
+      "external/wpt/css/css-ui/text-overflow-string-004.html",
+      "external/wpt/css/css-ui/text-overflow-string-005.html",
+      "external/wpt/css/css-ui/text-overflow-string-006.html",
+      "fast/deprecated-flexbox/dynamically-change-line-clamp.html",
+      "fast/deprecated-flexbox/line-clamp-crash.html",
+      "fast/deprecated-flexbox/line-clamp-removed-dynamically.html",
+      "fast/overflow/line-clamp-and-columns.html",
+      "fast/overflow/line-clamp-ellipsis-in-free-space.html",
+      "fast/overflow/line-clamp-floats-dont-grow-container.html",
+      "fast/overflow/line-clamp-hides-trailing-anchor.html",
+      "fast/overflow/line-clamp.html",
+      "paint/invalidation/text-line-clamp-truncation.html"
+    ],
+    "args": [
+      "--disable-blink-features=CSSLineClampAsShorthand"
+    ],
+    "owners": [
+      "abotella@igalia.com"
+    ],
+    "expires": "Dec 31, 2026"
   }
 ]

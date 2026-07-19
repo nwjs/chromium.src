@@ -289,7 +289,7 @@ def __step_config(ctx, step_config):
                 "third_party/rust-toolchain:toolchain",
             ],
             "handler": "rust_build_handler",
-            "remote": remote and config.get(ctx, "cog"),
+            "remote": (remote and config.get(ctx, "cog")) or config.get(ctx, "default-remote"),
             "timeout": "2m",
         },
         {
@@ -298,7 +298,7 @@ def __step_config(ctx, step_config):
             "inputs": [
                 "third_party/rust-toolchain:toolchain",
             ],
-            "remote": remote and config.get(ctx, "cog"),
+            "remote": (remote and config.get(ctx, "cog")) or config.get(ctx, "default-remote"),
             "timeout": "2m",
         },
         {
@@ -317,6 +317,15 @@ def __step_config(ctx, step_config):
             "command_prefix": "python3 ../../build/rust/gni_impl/run_bindgen.py",
             "inputs": rust_toolchain + clang_inputs,
             "remote": False,
+            "timeout": "2m",
+        },
+        {
+            "name": "rust/rustc_print_cfg",
+            "command_prefix": "python3 ../../build/rust/gni_impl/rustc_print_cfg.py",
+            "inputs": [
+                "third_party/rust-toolchain:toolchain",
+            ],
+            "remote": remote,
             "timeout": "2m",
         },
     ])

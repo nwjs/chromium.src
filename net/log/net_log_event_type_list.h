@@ -1011,6 +1011,8 @@ EVENT_TYPE(TCP_CONNECT_JOB_CREATE_SECOND_CONNECTOR)
 //     "selected_trust_anchor_ids_for_retry": <Optional: comma-separated trust
 //                                             anchor IDs sent in the TLS
 //                                             ClientHello on retry>,
+//     "requested_server_padding": <Optional: Amount of server padding
+//                                  requested>,
 //   }
 EVENT_TYPE(SSL_CONNECT_JOB_SSL_CONNECT)
 
@@ -2529,6 +2531,7 @@ EVENT_TYPE(QUIC_SESSION_POOL_JOB_RESULT)
 //                                   DNS record>,
 //     "selected_trust_anchor_ids": <trust anchor IDs sent in the TLS
 //                                   ClientHello>,
+//     "server_padding": <optional, amount of server padding requested>
 //   }
 EVENT_TYPE(QUIC_SESSION)
 
@@ -2953,6 +2956,12 @@ EVENT_TYPE(QUIC_SESSION_CRYPTO_FRAME_SENT)
 //    "offset": <The offset of the CRYPTO frame>
 //  }
 EVENT_TYPE(QUIC_SESSION_CRYPTO_FRAME_RECEIVED)
+
+// Session completed the Crypto Handshake
+//  {
+//    "received_server_padding": <Whether server padding was received>,
+//  }
+EVENT_TYPE(QUIC_SESSION_CRYPTO_HANDSHAKE_COMPLETE)
 
 // Session sent a STOP_SENDING frame.
 //  {
@@ -5243,3 +5252,16 @@ EVENT_TYPE(PROXY_OVERRIDE_END_HOST_RESOLUTION)
 //       }]
 //   }
 EVENT_TYPE(PROXY_RESOLUTION_OVERRIDE_RULE_APPLIED)
+
+// This event is logged by a TrustedHeaderClient when it modifies headers
+// during OnBeforeSendHeaders. The event can be logged by multiple clients,
+// each putting their own dictionary under a distinct key.
+//   {
+//      "http_header_injection_policy": {
+//         <header name>: {
+//           "value": <string>,
+//           "is_override": <bool>
+//         }, ...
+//      }
+//   }
+EVENT_TYPE(ON_BEFORE_SEND_HEADERS_RESULT)

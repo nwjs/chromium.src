@@ -117,7 +117,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.AdaptiveToolbarButton.Shown"
-    enum="AdaptiveToolbarButtonVariant" expires_after="2026-10-04">
+    enum="AdaptiveToolbarButtonVariant" expires_after="2026-12-06">
   <owner>jinsukkiim@google.com</owner>
   <owner>clank-app-team@google.com</owner>
   <summary>
@@ -136,30 +136,8 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="CustomTabs.AuthTab.ExternalNavigationScheme"
-    enum="CustomTabsAuthScheme" expires_after="2026-10-25">
-  <owner>sinansahin@google.com</owner>
-  <owner>chrome-connective-tissue@google.com</owner>
-  <summary>
-    Records the scheme of the external navigation URL for Custom Tabs that were
-    launched with a redirect_uri param. Not recorded for Auth Tabs. Recorded
-    when a URL is sent as an intent to the system. Android only.
-  </summary>
-</histogram>
-
-<histogram name="CustomTabs.AuthTab.RedirectUriScheme"
-    enum="CustomTabsAuthScheme" expires_after="2026-06-22">
-  <owner>sinansahin@google.com</owner>
-  <owner>chrome-connective-tissue@google.com</owner>
-  <summary>
-    Records the scheme of the redirect_uri param within the URL used to launch
-    the Custom Tab. Recorded when the Custom Tab receives and handles the
-    initial intent. Android only.
-  </summary>
-</histogram>
-
-<histogram name="CustomTabs.AuthTab.TimeToDalVerification.SinceFlowCompletion"
-    units="ms" expires_after="2026-06-22">
+<histogram name="CustomTabs.AuthTab.TimeToDalVerification.SinceFlowCompletion2"
+    units="ms" expires_after="2027-06-16">
   <owner>sinansahin@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -171,8 +149,8 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="CustomTabs.AuthTab.TimeToDalVerification.SinceStart"
-    units="ms" expires_after="2026-06-22">
+<histogram name="CustomTabs.AuthTab.TimeToDalVerification.SinceStart2"
+    units="ms" expires_after="2027-06-16">
   <owner>sinansahin@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -232,7 +210,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.ClientAppId" enum="ClientAppId"
-    expires_after="2026-09-27">
+    expires_after="2026-11-29">
   <owner>yusufo@chromium.org</owner>
   <summary>
     Android: AppId declared by the launching application in EXTRA_APPLICATION_ID
@@ -264,7 +242,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.CloseCause" enum="CustomTabsCloseCause"
-    expires_after="2026-09-27">
+    expires_after="2026-11-29">
   <owner>jinsukkim@chromium.org</owner>
   <owner>twellington@chromium.org</owner>
   <owner>cct-team@google.com</owner>
@@ -341,7 +319,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.DetachedResourceRequest.FinalStatus"
-    enum="NetErrorCodes" expires_after="2026-10-18">
+    enum="NetErrorCodes" expires_after="2026-12-20">
   <owner>lizeb@chromium.org</owner>
   <owner>cct-team@google.com</owner>
   <summary>
@@ -525,9 +503,8 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.IncognitoCCTCallerId" enum="IncognitoCCTCallerId"
-    expires_after="2026-03-23">
-  <owner>dullweber@google.com</owner>
-  <owner>arabm@google.com</owner>
+    expires_after="2026-12-05">
+  <owner>yawfrempong@google.com</owner>
   <owner>chrome-incognito@google.com</owner>
   <owner>cct-team@google.com</owner>
   <summary>
@@ -535,6 +512,9 @@ chromium-metrics-reviews@google.com.
     feature name is recorded, for external calls, either Google App or
     Non-Google App categories are recorded. The metric is recorded when an
     Incognito CCT opening intent is received.
+
+    Warning: this histogram was expired from 2026-03-23 to 2026-12-04; data may
+    be missing.
   </summary>
 </histogram>
 
@@ -653,6 +633,42 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="CustomTabs.PageContent.Eligibility"
+    enum="CustomTabsPageContentEligibility" expires_after="2026-12-15">
+  <owner>jinsukkim@google.com</owner>
+  <owner>tivi@google.com</owner>
+  <owner>chrome-connective-tissue@google.com</owner>
+  <summary>
+    Records Custom Tab page content features eligibility, detailing if it was
+    enabled by embedder, by Chrome developer experiment, or disqualified.
+    Android only. Logged once per button click.
+  </summary>
+</histogram>
+
+<histogram name="CustomTabs.PageContent.Outcome"
+    enum="CustomTabsPageContentExtractionResult" expires_after="2026-12-15">
+  <owner>jinsukkim@google.com</owner>
+  <owner>tivi@google.com</owner>
+  <owner>chrome-connective-tissue@google.com</owner>
+  <summary>
+    Records the detailed outcome of requesting/generating page content values
+    (annotated page content URI, screenshots, or file content URIs) for Custom
+    Tabs actions. Android only. Logged once per button click.
+  </summary>
+</histogram>
+
+<histogram name="CustomTabs.PageContent.RequestedTypes"
+    enum="CustomTabsPageContentRequestedType" expires_after="2026-12-15">
+  <owner>jinsukkim@google.com</owner>
+  <owner>tivi@google.com</owner>
+  <owner>chrome-connective-tissue@google.com</owner>
+  <summary>
+    Records each content type (APC, Screenshot, or File) requested inside the
+    custom bottom bar view click map from Embedder. Android only. Logged once
+    per button click.
+  </summary>
+</histogram>
+
 <histogram name="CustomTabs.PageInsights.Event" enum="PageInsightsEvent"
     expires_after="2024-12-08">
   <owner>jinsukkim@chromium.org</owner>
@@ -726,7 +742,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.ResetTimeout.ElapsedTimeInMinutesOnReturn"
-    units="minutes" expires_after="2026-10-18">
+    units="minutes" expires_after="2026-12-20">
   <owner>tivi@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -742,7 +758,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.ResetTimeout.IsFromEmbedder" enum="Boolean"
-    expires_after="2026-10-18">
+    expires_after="2026-12-20">
   <owner>tivi@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -753,7 +769,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.ResetTimeout.Outcome"
-    enum="CustomTabsResetTimeoutOutcome" expires_after="2026-10-18">
+    enum="CustomTabsResetTimeoutOutcome" expires_after="2026-12-20">
   <owner>tivi@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -968,7 +984,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.WarmupStateOnLaunch" enum="WarmupStateOnLaunch"
-    expires_after="2026-09-27">
+    expires_after="2026-11-29">
   <owner>lizeb@chromium.org</owner>
   <summary>
     Recorded only on Android. Reports whether warmup() has been called when a

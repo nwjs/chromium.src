@@ -99,11 +99,17 @@ struct VideoCodecParams {
   int max_number_of_video_buffers_used = kDefaultNumberOfVideoBuffers;
 
   int number_of_encode_threads = 1;
+
+  // The codec parameter string, as defined by RFC 6381.
+  std::string codec_parameter;
 };
 
 // These parameters are only for audio encoders.
 struct AudioCodecParams {
   AudioCodec codec = AudioCodec::kUnknown;
+
+  // The codec parameter string, as defined by RFC 6381.
+  std::string codec_parameter;
 };
 
 struct FrameSenderConfig {
@@ -115,9 +121,9 @@ struct FrameSenderConfig {
                     bool use_hardware_encoder,
                     int rtp_timebase,
                     int channels,
-                    int max_bitrate,
-                    int min_bitrate,
-                    int start_bitrate,
+                    uint32_t max_bitrate,
+                    uint32_t min_bitrate,
+                    uint32_t start_bitrate,
                     double max_frame_rate,
                     std::optional<VideoCodecParams> video_codec_params,
                     std::optional<AudioCodecParams> audio_codec_params);
@@ -169,9 +175,9 @@ struct FrameSenderConfig {
   // For now, only fixed bitrate is used for audio encoding. So for audio,
   // |max_bitrate| is used, and the other two will be overridden if they are not
   // equal to |max_bitrate|.
-  int max_bitrate = 0;
-  int min_bitrate = 0;
-  int start_bitrate = 0;
+  uint32_t max_bitrate = 0;
+  uint32_t min_bitrate = 0;
+  uint32_t start_bitrate = 0;
 
   double max_frame_rate = kDefaultMaxFrameRate;
 

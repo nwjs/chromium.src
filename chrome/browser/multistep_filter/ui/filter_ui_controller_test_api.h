@@ -9,7 +9,18 @@
 
 #include "base/memory/raw_ref.h"
 #include "chrome/browser/multistep_filter/ui/filter_ui_controller.h"
+#include "components/favicon_base/favicon_types.h"
 #include "components/multistep_filter/core/data_models/url_filter_suggestion.h"
+
+namespace page_actions {
+class PageActionController;
+}  // namespace page_actions
+
+namespace favicon {
+class FaviconService;
+}  // namespace favicon
+
+class PrefService;
 
 namespace multistep_filter {
 
@@ -20,12 +31,62 @@ class FilterUiControllerTestApi {
   explicit FilterUiControllerTestApi(FilterUiController& controller)
       : controller_(controller) {}
 
-  const std::optional<UrlFilterSuggestion>& current_url_filter_suggestion() const {
-    return controller_->current_url_filter_suggestion_;
+  const std::optional<FilterUiController::SuggestionState>& suggestion_state()
+      const {
+    return controller_->suggestion_state_;
   }
 
   void set_service(MultistepFilterService* service) {
     controller_->service_ = service;
+  }
+
+  void set_page_action_controller(
+      page_actions::PageActionController* controller) {
+    controller_->page_action_controller_ = controller;
+    if (controller) {
+      controller_->RegisterAsPageActionObserver(*controller);
+    }
+  }
+
+  void set_favicon_service(favicon::FaviconService* service) {
+    controller_->favicon_service_ = service;
+  }
+
+  void set_pref_service(PrefService* service) {
+    controller_->pref_service_ = service;
+  }
+
+  // Exposes the private OnFaviconAvailable method to simulate asynchronous
+  // favicon fetch returns in unit tests.
+  void OnFaviconAvailable(UrlFilterSuggestion suggestion,
+                          const favicon_base::FaviconImageResult& result) {
+    controller_->OnFaviconAvailable(suggestion, result);
+  }
+
+  // Exposes private SimpleMenuModel::Delegate overrides for verification.
+  bool IsCommandIdChecked(int command_id) const {
+    return controller_->IsCommandIdChecked(command_id);
+  }
+
+  bool IsCommandIdEnabled(int command_id) const {
+    return controller_->IsCommandIdEnabled(command_id);
+  }
+
+  // Exposes private ExecuteCommand method to simulate menu/command clicks in
+  // tests.
+  void ExecuteCommand(int command_id, int event_flags) {
+    controller_->ExecuteCommand(command_id, event_flags);
+  }
+
+  // Exposes private observer callbacks for unit test simulation.
+  void OnPageActionAnchoredMessageShown(
+      const page_actions::PageActionState& page_action) {
+    controller_->OnPageActionAnchoredMessageShown(page_action);
+  }
+
+  void OnPageActionAnchoredMessageHidden(
+      const page_actions::PageActionState& page_action) {
+    controller_->OnPageActionAnchoredMessageHidden(page_action);
   }
 
  private:

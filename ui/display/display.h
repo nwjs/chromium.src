@@ -74,8 +74,6 @@ class DISPLAY_EXPORT Display final {
     UNAVAILABLE,
   };
 
-  static constexpr float kRefreshRateEpsilon = 0.01f;
-
   // Creates a display with kInvalidDisplayId as default.
   Display();
   explicit Display(int64_t id);
@@ -150,6 +148,27 @@ class DISPLAY_EXPORT Display final {
   // values depend on each platforms.
   float device_scale_factor() const { return device_scale_factor_; }
   void set_device_scale_factor(float scale) { device_scale_factor_ = scale; }
+
+  // Gets/Sets the display's text scale multiplier.
+  //
+  // For most users this is expected to be 1.0, but some platforms offer an
+  // accessibility option to increase the text size without increasing the size
+  // of other UI elements. When the user has selected such an option, this value
+  // is expected to match their selection.
+  //
+  // This value is also expected to be factored into the device_scale_factor.
+  // For example, if the user has selected a 1.5x text size, and the actual
+  // native device scale factor is 2.0x, then this value is expected to be 1.5,
+  // and the device_scale_factor is expected to be 1.5x2.0=3.0. This means views
+  // that only handle scaling everything by device_scale_factor will still
+  // provide the user with correctly sized text, while views that handle text
+  // scaling independently of overall device scale (like web pages that use
+  // text-scale) can factor out the text and device portions.
+  float text_scale_multiplier() const { return text_scale_multiplier_; }
+  void set_text_scale_multiplier(float scale) {
+    text_scale_multiplier_ = scale;
+  }
+
   void set_pixels_per_inch(float pixels_per_inch_x, float pixels_per_inch_y) {
     pixels_per_inch_x_ = pixels_per_inch_x;
     pixels_per_inch_y_ = pixels_per_inch_y;
@@ -315,17 +334,18 @@ class DISPLAY_EXPORT Display final {
   gfx::Size size_in_pixels_;
   gfx::Point native_origin_;
   gfx::Rect work_area_;
-  float device_scale_factor_;
-  float pixels_per_inch_x_;
-  float pixels_per_inch_y_;
+  float device_scale_factor_ = 1.0f;
+  float text_scale_multiplier_ = 1.0f;
+  float pixels_per_inch_x_ = 0.0f;
+  float pixels_per_inch_y_ = 0.0f;
   Rotation rotation_ = ROTATE_0;
   std::optional<Rotation> panel_rotation_;
   TouchSupport touch_support_ = TouchSupport::UNKNOWN;
   AccelerometerSupport accelerometer_support_ = AccelerometerSupport::UNKNOWN;
   gfx::Size maximum_cursor_size_;
   scoped_refptr<const gfx::DisplayColorSpacesRef> color_spaces_;
-  int color_depth_;
-  int depth_per_component_;
+  int color_depth_ = kDefaultBitsPerPixel;
+  int depth_per_component_ = kDefaultBitsPerComponent;
   bool is_monochrome_ = false;
   bool detected_ = true;
   float display_frequency_ = 0;

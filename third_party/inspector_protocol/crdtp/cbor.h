@@ -46,14 +46,17 @@ namespace cbor {
 // Checks whether |msg| is a cbor message.
 CRDTP_EXPORT bool IsCBORMessage(span<uint8_t> msg);
 
-// Performs a leightweight check of |msg|.
+// Performs a lightweight check of |msg|. If the check succeeds, evenlope outer
+// size is returned, otherwise an error status.
 // Disallows:
 // - Empty message
 // - Not starting with the two bytes 0xd8, 0x5a
 // - Empty envelope (all length bytes are 0)
 // - Not starting with a map after the envelope stanza
+// - Envelope outer size exceeding input span (`msg`) size
 // DevTools messages should pass this check.
-CRDTP_EXPORT Status CheckCBORMessage(span<uint8_t> msg);
+
+CRDTP_EXPORT StatusOr<size_t> CheckCBORMessage(span<uint8_t> msg);
 
 // =============================================================================
 // Encoding individual CBOR items
@@ -324,6 +327,7 @@ CRDTP_EXPORT span<uint8_t> GetString8ValueFromMap(span<uint8_t> message,
                                                   span<uint8_t> string8_key);
 // Safely checks if |key| exists in the top-level of a CBOR encoded map wrapped
 // in an envelope. Shallow parser that skips nested structures.
+// |key| should be ASCII. Supports STRING8 and STRING16 keys.
 // Returns true as soon as the key is found at the top level.
 CRDTP_EXPORT bool HasKeyInMap(span<uint8_t> message, span<uint8_t> key);
 

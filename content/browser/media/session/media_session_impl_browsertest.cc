@@ -40,6 +40,7 @@
 #include "content/public/test/prerender_test_util.h"
 #include "content/shell/browser/shell.h"
 #include "content/test/content_browser_test_utils_internal.h"
+#include "media/audio/audio_constants.h"
 #include "media/base/media_content_type.h"
 #include "media/base/media_switches.h"
 #include "net/base/filename_util.h"
@@ -64,7 +65,6 @@ using ::testing::NiceMock;
 namespace {
 
 const double kDefaultVolumeMultiplier = 1.0;
-const double kDuckingVolumeMultiplier = 0.2;
 const double kDifferentDuckingVolumeMultiplier = 0.018;
 
 const std::u16string kExpectedSourceTitlePrefix = u"http://example.com:";
@@ -593,14 +593,14 @@ IN_PROC_BROWSER_TEST_P(MediaSessionImplParamBrowserTest,
   StartNewPlayer(player_observer.get());
   SystemStartDucking();
 
-  EXPECT_FLOAT_EQ(kDuckingVolumeMultiplier,
+  EXPECT_FLOAT_EQ(media::kDefaultDuckingVolumeMultiplier,
                   player_observer->GetVolumeMultiplier(0));
-  EXPECT_FLOAT_EQ(kDuckingVolumeMultiplier,
+  EXPECT_FLOAT_EQ(media::kDefaultDuckingVolumeMultiplier,
                   player_observer->GetVolumeMultiplier(1));
 
   StartNewPlayer(player_observer.get());
 
-  EXPECT_FLOAT_EQ(kDuckingVolumeMultiplier,
+  EXPECT_FLOAT_EQ(media::kDefaultDuckingVolumeMultiplier,
                   player_observer->GetVolumeMultiplier(2));
 }
 
@@ -657,7 +657,7 @@ IN_PROC_BROWSER_TEST_P(MediaSessionImplParamBrowserTest,
   EXPECT_FALSE(IsActive());
 
   SystemStartDucking();
-  EXPECT_FLOAT_EQ(kDuckingVolumeMultiplier,
+  EXPECT_FLOAT_EQ(media::kDefaultDuckingVolumeMultiplier,
                   player_observer->GetVolumeMultiplier(player_id));
 
   // On resume, ducking should stop.
@@ -2727,7 +2727,8 @@ IN_PROC_BROWSER_TEST_F(MediaSessionImplBrowserTest, UpdateFaviconURL) {
       /*is_default_icon=*/false));
 
   media_session_->DidUpdateFaviconURL(
-      shell()->web_contents()->GetPrimaryMainFrame(), favicons);
+      shell()->web_contents()->GetPrimaryMainFrame(), favicons,
+      blink::mojom::FaviconUpdateReason::kPageLoad);
 
   {
     std::vector<media_session::MediaImage> expected_images;
@@ -2756,7 +2757,8 @@ IN_PROC_BROWSER_TEST_F(MediaSessionImplBrowserTest, UpdateFaviconURL) {
     media_session::test::MockMediaSessionMojoObserver observer(*media_session_);
     media_session_->DidUpdateFaviconURL(
         shell()->web_contents()->GetPrimaryMainFrame(),
-        std::vector<blink::mojom::FaviconURLPtr>());
+        std::vector<blink::mojom::FaviconURLPtr>(),
+        blink::mojom::FaviconUpdateReason::kPageLoad);
     observer.WaitForExpectedImagesOfType(
         media_session::mojom::MediaSessionImageType::kSourceIcon,
         std::vector<media_session::MediaImage>());
@@ -2772,7 +2774,8 @@ IN_PROC_BROWSER_TEST_F(MediaSessionImplBrowserTest,
       /*is_default_icon=*/false));
 
   media_session_->DidUpdateFaviconURL(
-      shell()->web_contents()->GetPrimaryMainFrame(), favicons);
+      shell()->web_contents()->GetPrimaryMainFrame(), favicons,
+      blink::mojom::FaviconUpdateReason::kPageLoad);
 
   {
     std::vector<media_session::MediaImage> expected_images;
@@ -2836,7 +2839,8 @@ class FaviconWaiter : public WebContentsObserver {
 
   void DidUpdateFaviconURL(
       RenderFrameHost* render_frame_host,
-      const std::vector<blink::mojom::FaviconURLPtr>& candidates) override {
+      const std::vector<blink::mojom::FaviconURLPtr>& candidates,
+      blink::mojom::FaviconUpdateReason reason) override {
     received_favicon_ = true;
     run_loop_.Quit();
   }
@@ -3123,7 +3127,8 @@ IN_PROC_BROWSER_TEST_F(MediaSessionImplBrowserTest, CacheFaviconImages) {
                                     valid_sizes, /*is_default_icon=*/false));
 
   media_session_->DidUpdateFaviconURL(
-      shell()->web_contents()->GetPrimaryMainFrame(), favicons);
+      shell()->web_contents()->GetPrimaryMainFrame(), favicons,
+      blink::mojom::FaviconUpdateReason::kPageLoad);
 
   media_session::MediaImage test_image;
   test_image.src = favicon_server().GetURL("/favicon.ico");
@@ -3497,7 +3502,8 @@ IN_PROC_BROWSER_TEST_F(MediaSessionImplPrerenderingBrowserTest,
       /*is_default_icon=*/false));
 
   media_session_->DidUpdateFaviconURL(
-      shell()->web_contents()->GetPrimaryMainFrame(), favicons);
+      shell()->web_contents()->GetPrimaryMainFrame(), favicons,
+      blink::mojom::FaviconUpdateReason::kPageLoad);
   media_session::MediaImage test_image;
   test_image.src = test_image_src;
   test_image.sizes = valid_sizes;
@@ -3657,8 +3663,16 @@ IN_PROC_BROWSER_TEST_F(MediaSessionImplWithBackForwardCacheBrowserTest,
   EXPECT_TRUE(player_observer->IsPlaying(1));
 }
 
+// TODO(crbug.com/521159836): Re-enable on Linux MSAN.
+#if BUILDFLAG(IS_LINUX) && defined(MEMORY_SANITIZER)
+#define MAYBE_RecordsUkm_BrowserInitiated_AutoPip_IsDryRun \
+  DISABLED_RecordsUkm_BrowserInitiated_AutoPip_IsDryRun
+#else
+#define MAYBE_RecordsUkm_BrowserInitiated_AutoPip_IsDryRun \
+  RecordsUkm_BrowserInitiated_AutoPip_IsDryRun
+#endif
 IN_PROC_BROWSER_TEST_P(MediaSessionImplUkmBrowserTest,
-                       RecordsUkm_BrowserInitiated_AutoPip_IsDryRun) {
+                       MAYBE_RecordsUkm_BrowserInitiated_AutoPip_IsDryRun) {
   EXPECT_TRUE(NavigateToURL(
       shell(), embedded_test_server()->GetURL("example.com",
                                               "/media/session/position.html")));

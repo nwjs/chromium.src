@@ -53,11 +53,11 @@ class DisplaySchedulerWebView : public viz::DisplaySchedulerBase,
       int64_t choreographer_vsync_id,
       base::TimeTicks frame_time,
       base::TimeDelta interval,
-      std::optional<viz::PossibleDeadline> deadline,
-      std::optional<viz::PossibleDeadline> preferred) override {}
+      std::optional<viz::PossibleDeadline> deadline) override {}
 
   // DisplayDamageTracker::Delegate implementation.
-  void OnDisplayDamaged(viz::SurfaceId surface_id) override;
+  void OnDisplayDamaged(viz::SurfaceId surface_id,
+                        viz::BeginFrameId frame_id) override;
   void OnRootFrameMissing(bool missing) override {}
   void OnPendingSurfacesChanged() override {}
 

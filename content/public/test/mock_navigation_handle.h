@@ -234,6 +234,9 @@ class MockNavigationHandle : public NavigationHandle {
   const std::optional<GURL>& GetInitiatorBaseUrl() override {
     return initiator_base_url_;
   }
+  MOCK_METHOD(scoped_refptr<InitiatorNavigationState>,
+              GetInitiatorNavigationState,
+              ());
   const std::vector<std::string>& GetDnsAliases() override {
     static const base::NoDestructor<std::vector<std::string>>
         emptyvector_result;
@@ -274,7 +277,6 @@ class MockNavigationHandle : public NavigationHandle {
               GetNavigationDiscardReason,
               ());
   MOCK_METHOD(bool, NeedsUrlLoader, ());
-  MOCK_METHOD(bool, IsInitialWebUISyncNavigation, ());
   MOCK_METHOD(bool, IsInitialWebUINavigation, ());
 
 #if BUILDFLAG(IS_ANDROID)

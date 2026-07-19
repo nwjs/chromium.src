@@ -11,6 +11,7 @@
 
 #include "base/values.h"
 
+class PrefService;
 class Profile;
 
 namespace ash {
@@ -34,20 +35,16 @@ bool HasSystemTimezonePolicy();
 // Apply TimeZone update from TimeZoneProvider.
 void ApplyTimeZone(const TimeZoneResponseData* timezone);
 
-// Returns true if given timezone preference is enterprise-managed.
-// Works for:
-// - kSystemTimezone
-// - ash::prefs::kUserTimezone
-// - ash::prefs::kResolveTimezoneByGeolocationMethod
-bool IsTimezonePrefsManaged(const std::string& pref_name);
 
 // Updates system timezone from user profile data if needed.
 // This is called from `Preferences` after updating profile
 // preferences to apply new value to system time zone.
-void UpdateSystemTimezone(Profile* profile);
+void UpdateSystemTimezone(PrefService& local_state, Profile* profile);
 
 // This is called from UI code to apply user-selected time zone.
-void SetTimezoneFromUI(Profile* profile, const std::string& timezone_id);
+void SetTimezoneFromUI(PrefService& local_state,
+                       Profile* profile,
+                       const std::string& timezone_id);
 
 }  // namespace system
 }  // namespace ash

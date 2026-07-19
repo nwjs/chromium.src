@@ -17,6 +17,7 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "ui/accessibility/accessibility_features.h"
+#include "ui/accessibility/ax_features.mojom.h"
 
 class ReadAnythingMochaBrowserTest : public WebUIMochaBrowserTest {
  protected:
@@ -26,7 +27,7 @@ class ReadAnythingMochaBrowserTest : public WebUIMochaBrowserTest {
     scoped_feature_list_.InitWithFeatures(
         {features::kReadAnythingImagesViaAlgorithm},
         {features::kReadAnythingReadAloudPhraseHighlighting,
-         features::kReadAnythingDocsIntegration});
+         ax::mojom::features::kReadAnythingDocsIntegration});
   }
 
   void RunSidePanelTest(const std::string& file, const std::string& trigger) {
@@ -144,7 +145,13 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, MAYBE_Common) {
   RunSidePanelTest("side_panel/read_anything/common_test.js", "mocha.run()");
 }
 
-IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, RectCalculations) {
+// TODO(crbug.com/502069860): Re-enable after fixing flakiness.
+#if BUILDFLAG(IS_WIN)
+#define MAYBE_RectCalculations DISABLED_RectCalculations
+#else
+#define MAYBE_RectCalculations RectCalculations
+#endif
+IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, MAYBE_RectCalculations) {
   RunSidePanelTest("side_panel/read_anything/rect_calculations_test.js",
                    "mocha.run()");
 }
@@ -191,6 +198,11 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, FontMenu) {
 
 IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, SimpleActionMenu) {
   RunSidePanelTest("side_panel/read_anything/simple_action_menu_test.js",
+                   "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, GroupedActionMenu) {
+  RunSidePanelTest("side_panel/read_anything/grouped_action_menu_test.js",
                    "mocha.run()");
 }
 
@@ -336,14 +348,7 @@ IN_PROC_BROWSER_TEST_F(ImmersiveReadAnythingMochaTest, SettingsMenu) {
                    "mocha.run()");
 }
 
-// TODO(crbug.com/509759561): Re-enable after fixing flakiness.
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_ToolbarSettingsMenu DISABLED_ToolbarSettingsMenu
-#else
-#define MAYBE_ToolbarSettingsMenu ToolbarSettingsMenu
-#endif
-IN_PROC_BROWSER_TEST_F(ImmersiveReadAnythingMochaTest,
-                       MAYBE_ToolbarSettingsMenu) {
+IN_PROC_BROWSER_TEST_F(ImmersiveReadAnythingMochaTest, ToolbarSettingsMenu) {
   RunSidePanelTest("side_panel/read_anything/toolbar_settings_menu_test.js",
                    "mocha.run()");
 }

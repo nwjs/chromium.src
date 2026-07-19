@@ -66,7 +66,7 @@ BASE_FEATURE(kSharedHighlightingIOS, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kIOSBrowserEditMenuMetrics, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kIOSCustomFileUploadMenu, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIOSCustomFileUploadMenu, base::FEATURE_ENABLED_BY_DEFAULT);
 
 const char kIOSDockingPromoV2VariationParam[] =
     "IOSDockingPromoV2VariationParam";
@@ -104,7 +104,6 @@ BASE_FEATURE(kLensOverlayCustomBottomSheet, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLensSearchHeadersCheckEnabled, base::FEATURE_ENABLED_BY_DEFAULT);
 
-
 BASE_FEATURE(kOmniboxDRSPrototype, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kEnableTraitCollectionWorkAround,
@@ -115,15 +114,6 @@ BASE_FEATURE(kRemoveExcessNTPs, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kTCRexKillSwitch,
              "kTCRexKillSwitch",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kTabGridNewTransitions, base::FEATURE_ENABLED_BY_DEFAULT);
-
-bool IsNewTabGridTransitionsEnabled() {
-  if (IsChromeNextIaEnabled()) {
-    return true;
-  }
-  return base::FeatureList::IsEnabled(kTabGridNewTransitions);
-}
 
 BASE_FEATURE(kTabSwitcherOverflowMenu, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -233,6 +223,12 @@ DownloadListUIType CurrentDownloadListUIType() {
 }
 
 BASE_FEATURE(kDownloadList, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kDownloadListPagination, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsDownloadListPaginationEnabled() {
+  return base::FeatureList::IsEnabled(kDownloadListPagination);
+}
 
 const char kEnableServerDrivenBackgroundRefreshSchedule[] =
     "EnableServerDrivenBackgroundRefreshSchedule";
@@ -383,19 +379,6 @@ bool IsIOSKeyboardAccessoryDefaultViewEnabled() {
   return base::FeatureList::IsEnabled(kIOSKeyboardAccessoryDefaultView);
 }
 
-BASE_FEATURE(kIOSKeyboardAccessoryTwoBubble, base::FEATURE_ENABLED_BY_DEFAULT);
-
-bool IsIOSKeyboardAccessoryTwoBubbleEnabled() {
-  return base::FeatureList::IsEnabled(kIOSKeyboardAccessoryTwoBubble);
-}
-
-// Feature parameter for kIOSKeyboardAccessoryTwoBubble.
-BASE_FEATURE_PARAM(bool,
-                   kIOSKeyboardAccessoryTwoBubbleKeyboardIconParam,
-                   &kIOSKeyboardAccessoryTwoBubble,
-                   kIOSKeyboardAccessoryTwoBubbleKeyboardIconParamName,
-                   true);
-
 BASE_FEATURE(kInactiveNavigationAfterAppLaunchKillSwitch,
              "kInactiveNavigationAfterAppLaunchKillSwitch",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -426,14 +409,11 @@ BASE_FEATURE(kSeparateProfilesForManagedAccounts,
 BASE_FEATURE(kAuthenticationFlowReauthFirstKillswitch,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Feature parameter for kSeparateProfilesForManagedAccountsForceMigration.
-constexpr base::FeatureParam<base::TimeDelta> kMultiProfileMigrationGracePeriod{
-    &kSeparateProfilesForManagedAccountsForceMigration,
-    /*name=*/"MultiProfileMigrationGracePeriod",
-    /*default_value=*/base::Days(90)};
-
 BASE_FEATURE(kSeparateProfilesForManagedAccountsForceMigration,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSeparateProfilesForManagedAccountsImmediateForceMigration,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kOmahaResyncTimerOnForeground, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -664,30 +644,13 @@ BASE_FEATURE(kNotificationCollisionManagement,
 BASE_FEATURE(kIOSProvidesAppNotificationSettings,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kNTPBackgroundCustomization, base::FEATURE_ENABLED_BY_DEFAULT);
-
-bool IsNTPBackgroundCustomizationEnabled() {
-  return base::FeatureList::IsEnabled(kNTPBackgroundCustomization);
-}
-
-BASE_FEATURE_PARAM(int,
-                   kMaxRecentlyUsedBackgrounds,
-                   &kNTPBackgroundCustomization,
-                   "max-recently-used-backgrounds",
-                   7);
-
-int MaxRecentlyUsedBackgrounds() {
-  return kMaxRecentlyUsedBackgrounds.Get();
-}
-
 BASE_FEATURE(kNTPBackgroundColorSlider, base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsNTPBackgroundColorSliderEnabled() {
   return base::FeatureList::IsEnabled(kNTPBackgroundColorSlider);
 }
 
-BASE_FEATURE(kNTPBackgroundDownsampleImage,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kNTPBackgroundDownsampleImage, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kRunDefaultStatusCheck, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -935,15 +898,6 @@ bool IsComposeboxIOSEnabled() {
 BASE_FEATURE(kContextMenuPreviewDownsampleImage,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kTabGroupColorOnSurface, base::FEATURE_DISABLED_BY_DEFAULT);
-
-bool IsTabGroupColorOnSurfaceEnabled() {
-  if (IsUpdateTabGroupColorsEnabled()) {
-    return true;
-  }
-  return base::FeatureList::IsEnabled(kTabGroupColorOnSurface);
-}
-
 BASE_FEATURE(kOmniboxCrashFixKillSwitch, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsOmniboxCrashFixKillSwitchEnabled() {
@@ -1043,28 +997,10 @@ bool IsChromeNextIaShareIconVisible() {
   return IsChromeNextIaEnabled() && kChromeNextIaShareIconVisible.Get();
 }
 
-BASE_FEATURE(kComposeboxAIMDisabled, base::FEATURE_ENABLED_BY_DEFAULT);
-
-bool IsAIOmniboxLaunchedCountry() {
-  variations::VariationsService* variations_service =
-      GetApplicationContext()->GetVariationsService();
-  bool is_launched_country =
-      variations_service &&
-      base::ToLowerASCII(GetCurrentCountryCode(variations_service)) == "us";
-  return is_launched_country;
-}
+BASE_FEATURE(kComposeboxAIMDisabled, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsComposeboxAIMDisabled() {
-  auto* feature_list = base::FeatureList::GetInstance();
-  if (feature_list &&
-      feature_list->IsFeatureOverridden(kComposeboxAIMDisabled.name)) {
-    // Important: If a server-side config applies to this client (i.e. after
-    // accounting for its filters), but the client gets assigned to the default
-    // group, they will still take this code path and receive the state
-    // specified via BASE_FEATURE() above.
-    return base::FeatureList::IsEnabled(kComposeboxAIMDisabled);
-  }
-  return !IsAIOmniboxLaunchedCountry();
+  return base::FeatureList::IsEnabled(kComposeboxAIMDisabled);
 }
 
 NSString* const kNewStartupFlowKey = @"IsEnableNewStartupFlowEnabled";
@@ -1120,18 +1056,17 @@ bool IsUseSceneViewControllerEnabled() {
   return base::FeatureList::IsEnabled(kUseSceneViewController);
 }
 
+BASE_FEATURE(kDisplayTracing, base::FEATURE_ENABLED_BY_DEFAULT);
+
+bool IsDisplayTracingEnabled() {
+  return base::FeatureList::IsEnabled(kDisplayTracing);
+}
+
 BASE_FEATURE(kDisableComposeboxFromAIMNTP, base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsDisableComposeboxFromAIMNTPEnabled() {
   return base::FeatureList::IsEnabled(kDisableComposeboxFromAIMNTP);
 }
-
-BASE_FEATURE(kAIMCobrowseDebugEntrypoint, base::FEATURE_DISABLED_BY_DEFAULT);
-
-bool IsAIMCobrowseDebugEntrypointEnabled() {
-  return base::FeatureList::IsEnabled(kAIMCobrowseDebugEntrypoint);
-}
-
 const char kAIMCobrowseHeaderParam[] = "kNTPMIAEntrypointParam";
 const char kAIMCobrowseHeaderParamOptionA[] = "kAIMCobrowseHeaderParamOptionA";
 const char kAIMCobrowseHeaderParamOptionB[] = "kAIMCobrowseHeaderParamOptionB";
@@ -1210,7 +1145,8 @@ bool IsGridMediatorSnapshotUpdateBatchGuardEnabled() {
 BASE_FEATURE(kAssistantSidePanel, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsAssistantSidePanelEnabled() {
-  return base::FeatureList::IsEnabled(kAssistantSidePanel);
+  return base::FeatureList::IsEnabled(kAssistantSidePanel) &&
+         IsChromeNextIaEnabled() && IsFullscreenRefactoringEnabled();
 }
 
 BASE_FEATURE(kYourSavedInfoSettingsPageIos, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1300,3 +1236,56 @@ BASE_FEATURE(kIdentityAwareness, base::FEATURE_DISABLED_BY_DEFAULT);
 bool IsIdentityAwarenessEnabled() {
   return base::FeatureList::IsEnabled(kIdentityAwareness);
 }
+
+BASE_FEATURE(kAiAvatarRingIos, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsAiAvatarRingIosEnabled() {
+  return base::FeatureList::IsEnabled(kAiAvatarRingIos);
+}
+
+BASE_FEATURE(kInfobarBannerRevamp, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsInfobarBannerRevampEnabled() {
+  return base::FeatureList::IsEnabled(kInfobarBannerRevamp);
+}
+
+BASE_FEATURE(kIOSPhishGuardPasteShortcutDetection,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+bool IsIOSPhishGuardPasteShortcutDetectionEnabled() {
+  return base::FeatureList::IsEnabled(kIOSPhishGuardPasteShortcutDetection);
+}
+
+BASE_FEATURE(kAppBarHideLabels, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsAppBarLabelsHidden() {
+  return base::FeatureList::IsEnabled(kAppBarHideLabels);
+}
+
+BASE_FEATURE(kSupportGoogleOneDeepLink, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsGoogleOneDeepLinkEnabled() {
+  return base::FeatureList::IsEnabled(kSupportGoogleOneDeepLink);
+}
+
+BASE_FEATURE(kEnableDiscoverBackgroundRefresh,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsDiscoverBackgroundRefreshEnabled() {
+  return base::FeatureList::IsEnabled(kEnableDiscoverBackgroundRefresh);
+}
+
+const base::FeatureParam<base::TimeDelta>
+    kDiscoverFeedBackgroundRefreshNoServiceInterval{
+        &kEnableDiscoverBackgroundRefresh,
+        "discover_refresh_no_service_interval", base::Minutes(30)};
+
+const base::FeatureParam<base::TimeDelta>
+    kDiscoverFeedBackgroundRefreshNoDateInterval{
+        &kEnableDiscoverBackgroundRefresh, "discover_refresh_no_date_interval",
+        base::Hours(24)};  // 1 day
+
+const base::FeatureParam<base::TimeDelta>
+    kDiscoverFeedBackgroundRefreshMinBuffer{&kEnableDiscoverBackgroundRefresh,
+                                            "discover_refresh_min_buffer",
+                                            base::Minutes(15)};

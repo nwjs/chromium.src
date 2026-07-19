@@ -9,6 +9,7 @@
 #import "base/metrics/user_metrics.h"
 #import "base/strings/strcat.h"
 #import "base/strings/sys_string_conversions.h"
+#import "components/strings/grit/components_strings.h"
 #import "components/webauthn/ios/features.h"
 #import "components/webauthn/ios/passkey_suggestion_utils.h"
 #import "ios/chrome/browser/autofill/manual_fill/model/manual_fill_credential.h"
@@ -82,9 +83,8 @@
   return self;
 }
 
-- (void)configureCell:(ManualFillPasswordCell*)cell
-           withStyler:(ChromeTableViewStyler*)styler {
-  [super configureCell:cell withStyler:styler];
+- (void)configureCell:(ManualFillPasswordCell*)cell {
+  [super configureCell:cell];
   [cell setUpWithCredential:self.credential
                   contentInjector:self.contentInjector
                       menuActions:self.menuActions
@@ -493,11 +493,10 @@ void LogAutofillFormButtonTappedMetrics(BOOL from_all_passwords_context,
   NSString* credentialSubtext = nil;
   if (IsConditionalPasskeyLoginEnabled()) {
     if (_credentialType == ManualFillCredentialType::kPasskey) {
-      credentialSubtext = webauthn::ComputePasskeyDescription(
-          self.credential.displayName, self.credential.displayName);
+      credentialSubtext = webauthn::FormatPasskeyManualFillSubtitle(
+          self.credential.displayName);
     } else {
-      credentialSubtext =
-          l10n_util::GetNSString(IDS_IOS_MANUAL_FALLBACK_PASSWORD_SUBTEXT);
+      credentialSubtext = l10n_util::GetNSString(IDS_IOS_PASSWORD_SUBTEXT);
     }
   }
   return CreateCredentialSubtitle(self.credential.host,

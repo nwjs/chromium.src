@@ -35,14 +35,12 @@
 #include "chrome/browser/ash/file_manager/path_util.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/chromeos/drivefs/drivefs_native_message_host.h"
-#include "chrome/browser/download/download_prefs.h"
 #include "chrome/browser/net/system_network_context_manager.h"
 #include "chrome/browser/notifications/notification_display_service.h"
 #include "chrome/browser/notifications/notification_handler.h"
 #include "chrome/browser/profiles/incognito_helpers.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/common/pref_names.h"
 #include "chromeos/ash/components/drivefs/drivefs_bootstrap.h"
 #include "chromeos/ash/components/drivefs/drivefs_pinning_manager.h"
 #include "chromeos/ash/components/drivefs/drivefs_search_query.h"
@@ -702,17 +700,13 @@ void DriveIntegrationService::Shutdown() {
 }
 
 void DriveIntegrationService::SetEnabled(bool enabled) {
-  // If Drive is being disabled, ensure the download destination preference to
-  // be out of Drive. Do this before "Do nothing if not changed." because we
-  // want to run the check for the first SetEnabled() called in the constructor,
-  // which may be a change from false to false.
-  if (!enabled) {
-    AvoidDriveAsDownloadDirectoryPreference();
-  }
-
   // Do nothing if not changed.
   if (enabled_ == enabled) {
     return;
+  }
+
+  if (!enabled) {
+    observers_.Notify(&Observer::OnDriveWillBeDisabled);
   }
 
   if (enabled) {
@@ -1202,22 +1196,6 @@ void DriveIntegrationService::InitializeAfterMetadataInitialized(
   }
 }
 
-void DriveIntegrationService::AvoidDriveAsDownloadDirectoryPreference() {
-  if (DownloadDirectoryPreferenceIsInDrive()) {
-    GetPrefs()->SetFilePath(
-        ::prefs::kDownloadDefaultDirectory,
-        file_manager::util::GetDownloadsFolderForProfile(profile_));
-  }
-}
-
-bool DriveIntegrationService::DownloadDirectoryPreferenceIsInDrive() {
-  const auto downloads_path =
-      GetPrefs()->GetFilePath(::prefs::kDownloadDefaultDirectory);
-  const auto* user = ash::ProfileHelper::Get()->GetUserByProfile(profile_);
-  return user && user->GetAccountId().HasAccountIdKey() &&
-         GetMountPointPath().IsParent(downloads_path);
-}
-
 void DriveIntegrationService::MigratePinnedFiles() {
   if (!metadata_storage_) {
     return;
@@ -1302,42 +1280,6 @@ void DriveIntegrationService::ClearOfflineFiles(
   }
 
   GetDriveFsInterface()->ClearOfflineFiles(std::move(callback));
-}
-
-void DriveIntegrationService::GetQuickAccessItems(
-    int max_number,
-    GetQuickAccessItemsCallback callback) {
-  if (!GetDriveFsHost()) {
-    std::move(callback).Run(FILE_ERROR_SERVICE_UNAVAILABLE, {});
-    return;
-  }
-
-  auto query = drivefs::mojom::QueryParameters::New();
-  query->page_size = max_number;
-  query->query_kind = drivefs::mojom::QueryKind::kQuickAccess;
-
-  auto on_response =
-      base::BindOnce(&DriveIntegrationService::OnGetQuickAccessItems,
-                     weak_ptr_factory_.GetWeakPtr(), std::move(callback));
-
-  GetDriveFsHost()->PerformSearch(std::move(query), std::move(on_response));
-}
-
-void DriveIntegrationService::OnGetQuickAccessItems(
-    GetQuickAccessItemsCallback callback,
-    FileError error,
-    std::optional<std::vector<drivefs::mojom::QueryItemPtr>> items) {
-  if (error != FILE_ERROR_OK || !items.has_value()) {
-    std::move(callback).Run(error, {});
-    return;
-  }
-
-  std::vector<QuickAccessItem> result;
-  result.reserve(items->size());
-  for (const auto& item : *items) {
-    result.push_back({item->path, item->metadata->quick_access->score});
-  }
-  std::move(callback).Run(error, std::move(result));
 }
 
 void DriveIntegrationService::SearchDriveByFileName(

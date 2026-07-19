@@ -159,6 +159,12 @@
                   '|.*SidePanel.*\.java'\
                   '|.*SideUi.*\.java'
     },
+    'android_side_panel_ui': {
+      'filepath': 'chrome/browser/ui/side_panel_container/'\
+                  '|chrome/browser/ui/side_ui/'\
+                  '|.*SidePanel.*\.java'\
+                  '|.*SideUi.*\.java'
+    },
     'android_startup_metrics': {
       'filepath': 'chrome/android/java/src/org/chromium/chrome/browser/metrics/.*StartupMetricsTracker.java' \
                   '|chrome/android/java/src/org/chromium/chrome/browser/metrics/SimpleStartupForegroundSessionDetector.java'
@@ -737,6 +743,9 @@
     },
     'cast_channel': {
       'filepath':  'components/cast_channel/'
+    },
+    'cast_receiver_streaming': {
+      'filepath': 'components/cast_receiver/.*/streaming_',
     },
     'cast_streaming': {
       'filepath': 'media/cast/' \
@@ -2594,9 +2603,9 @@
                            'clhager@google.com',
                            'linyuh@google.com',
                            'mschillaci@google.com',
-                           'nemco@google.com',
                            'shuyng@google.com',
                            'sinansahin@google.com'],
+    'android_side_panel_ui': ['nemco+watch@google.com'],
     'android_startup_metrics': ['pasko+watch@chromium.org'],
     'android_studio': ['wnwen+watch@chromium.org',
                        'nyquist+watch@chromium.org'],
@@ -2652,7 +2661,6 @@
     'aura_compositor': ['jbauman+watch@chromium.org'],
     'autofill_payments': ['armalhotra+autofillwatch@google.com',
                           'osaul+autofillwatch@google.com',
-                          'shgar+autofillwatch@google.com',
                           'siashah+autofillwatch@chromium.org',
                           'siyua+autofillwatch@chromium.org',
                           'vinnypersky+autofillwatch@google.com'],
@@ -2836,6 +2844,7 @@
                          'ryanchung+watch@chromium.org'],
     'cast_channel': ['mfoltz+watch-media@chromium.org',
                      'ryanchung+watch@chromium.org'],
+    'cast_receiver_streaming': ['inca-eng+reviews@google.com'],
     'cast_streaming': ['jasonroberts+watch@google.com',
                        'jophba+watch@chromium.org',
                        'mfoltz+watch-media@chromium.org'],
@@ -3073,8 +3082,7 @@
     'input_devices': ['spang+watch@chromium.org'],
     'installable': ['dmurph+watching-installable@chromium.org',
                     'webappwatch@microsoft.com'],
-    'installer_linux': ['kubo@igalia.com',
-                        'mmoss@chromium.org'],
+    'installer_linux': ['kubo@igalia.com'],
     'installer_win': ['grt+watch@chromium.org',
                       'wfh+watch@chromium.org'],
     'ios': ['ios-reviews@chromium.org'],

@@ -49,10 +49,12 @@
 #include "third_party/blink/renderer/core/html/forms/html_button_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_data_list_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_element.h"
+#include "third_party/blink/renderer/core/html/forms/html_input_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_opt_group_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_select_element.h"
 #include "third_party/blink/renderer/core/html/forms/menu_list_inner_element.h"
 #include "third_party/blink/renderer/core/html/forms/popup_menu.h"
+#include "third_party/blink/renderer/core/html/html_div_element.h"
 #include "third_party/blink/renderer/core/html/html_hr_element.h"
 #include "third_party/blink/renderer/core/html/html_slot_element.h"
 #include "third_party/blink/renderer/core/html/html_span_element.h"
@@ -325,6 +327,7 @@ class MenuListSelectType final : public SelectType {
   Member<PopoverElementForAppearanceBase> popover_;
   Member<HTMLSelectElement::SelectAutofillPreviewElement> autofill_popover_;
   Member<HTMLDivElement> autofill_popover_text_;
+  Member<HTMLSlotElement> popover_input_slot_;
   Member<HTMLSlotElement> popover_options_slot_;
   // TODO(40146374): The option_slot_ can be removed when the CustomizableSelect
   // flag is removed.
@@ -353,6 +356,7 @@ void MenuListSelectType::Trace(Visitor* visitor) const {
   visitor->Trace(popover_);
   visitor->Trace(autofill_popover_);
   visitor->Trace(autofill_popover_text_);
+  visitor->Trace(popover_input_slot_);
   visitor->Trace(popover_options_slot_);
   visitor->Trace(option_slot_);
   visitor->Trace(inner_element_);
@@ -615,8 +619,7 @@ void MenuListSelectType::CreateShadowSubtree(ShadowRoot& root) {
 
   popover_options_slot_ = MakeGarbageCollected<HTMLSlotElement>(doc);
   popover_options_slot_->SetIdAttribute(
-      shadow_element_names::kSelectPopoverOptions);
-  popover_->AppendChild(popover_options_slot_);
+      shadow_element_names::kPseudoSelectOptionsSlot);
 
   autofill_popover_ =
       MakeGarbageCollected<HTMLSelectElement::SelectAutofillPreviewElement>(
@@ -630,11 +633,49 @@ void MenuListSelectType::CreateShadowSubtree(ShadowRoot& root) {
   autofill_popover_text_->SetShadowPseudoId(
       shadow_element_names::kSelectAutofillPreviewText);
   autofill_popover_->appendChild(autofill_popover_text_);
+
+  if (RuntimeEnabledFeatures::FilterableSelectEnabled() &&
+      select_->NumDescendantInputs()) {
+    // In this case, the shadow root should have a place to slot inputs and
+    // include an extra listbox element to wrap the options:
+    // <select>
+    //   #shadow-root
+    //     <div>inner element</div>
+    //     <slot name=select-button></slot>
+    //     <div popover pseudo="::picker(select)">
+    //       <slot name=select-input></slot>
+    //       <div role=listbox>
+    //         <slot name=select-options></slot>
+    //       </div>
+    //     </div>
+    //     <div popover pseudo=select-autofill-preview></div>
+    popover_input_slot_ = MakeGarbageCollected<HTMLSlotElement>(doc);
+    popover_input_slot_->SetIdAttribute(shadow_element_names::kSelectInput);
+    popover_->AppendChild(popover_input_slot_);
+
+    HTMLDivElement* listbox = MakeGarbageCollected<HTMLDivElement>(doc);
+    listbox->SetShadowPseudoId(shadow_element_names::kSelectListbox);
+    listbox->setAttribute(html_names::kRoleAttr, AtomicString("listbox"));
+    popover_->AppendChild(listbox);
+    listbox->AppendChild(popover_options_slot_);
+  } else {
+    CHECK(!select_->NumDescendantInputs());
+    popover_input_slot_ = nullptr;
+    popover_->AppendChild(popover_options_slot_);
+  }
 }
 
 void MenuListSelectType::ManuallyAssignSlots() {
+  if (RuntimeEnabledFeatures::FilterableSelectEnabled()) {
+    // When there are any descendant input elements of the select, we should
+    // have popover_input_slot_ to slot them into. Otherwise,
+    // popover_input_slot_ should be null.
+    CHECK_EQ(!!popover_input_slot_, !!select_->NumDescendantInputs());
+  }
+
   HTMLButtonElement* first_button = nullptr;
   VectorOf<Node> all_children_except_first_button;
+  VectorOf<Node> children_with_descendant_input;
   bool after_first_element = false;
   for (Node& child : NodeTraversal::ChildrenOf(*select_)) {
     if (!child.IsSlotable()) {
@@ -649,6 +690,27 @@ void MenuListSelectType::ManuallyAssignSlots() {
         }
       }
     }
+
+    if (RuntimeEnabledFeatures::FilterableSelectEnabled() &&
+        select_->NumDescendantInputs()) {
+      CHECK(popover_input_slot_);
+      if (IsA<HTMLInputElement>(child)) {
+        children_with_descendant_input.push_back(child);
+        continue;
+      }
+      auto it = select_->ChildrenDescendantCounts().find(&child);
+      if (it != select_->ChildrenDescendantCounts().end()) {
+        if (it->value.num_inputs && !it->value.num_options) {
+          // Only slot children into popover_input_slot_ if there is a
+          // descendant input element and there aren't any option element
+          // descendants. If there are both options and inputs, then this child
+          // will go into the slot for options.
+          children_with_descendant_input.push_back(child);
+          continue;
+        }
+      }
+    }
+
     all_children_except_first_button.push_back(child);
   }
 
@@ -660,6 +722,10 @@ void MenuListSelectType::ManuallyAssignSlots() {
   }
   button_slot_->Assign(first_button);
   popover_options_slot_->Assign(all_children_except_first_button);
+  if (popover_input_slot_) {
+    CHECK(RuntimeEnabledFeatures::FilterableSelectEnabled());
+    popover_input_slot_->Assign(children_with_descendant_input);
+  }
 }
 
 HTMLButtonElement* MenuListSelectType::SlottedButton() const {
@@ -1054,28 +1120,6 @@ String MenuListSelectType::UpdateTextStyleInternal() {
       builder->SetTextAlign(option_style->GetTextAlign(true));
     }
 
-    if (inner_style &&
-        RuntimeEnabledFeatures::SelectRemoveOverflowHiddenEnabled()) {
-      if (auto* select_style = select_->GetComputedStyle()) {
-        if (select_style->TextOverflow() != inner_style->TextOverflow()) {
-          if (!builder) {
-            builder = ComputedStyleBuilder(*inner_style);
-          }
-          MenuListInnerElement::UpdateOverflowStyle(*builder, *select_style);
-        } else {
-          // If text-overflow matches, then overflow should always be set
-          // accordingly.
-          if (inner_style->TextOverflow().IsEllipsis()) {
-            DCHECK_EQ(inner_style->OverflowX(), EOverflow::kHidden);
-            DCHECK_EQ(inner_style->OverflowY(), EOverflow::kHidden);
-          } else {
-            DCHECK_EQ(inner_style->OverflowX(), EOverflow::kVisible);
-            DCHECK_EQ(inner_style->OverflowY(), EOverflow::kVisible);
-          }
-        }
-      }
-    }
-
     if (builder) {
       const ComputedStyle* new_style = builder->TakeStyle();
       if (auto* inner_layout = inner_element.GetLayoutObject()) {
@@ -1289,6 +1333,8 @@ class ListBoxSelectType final : public SelectType {
   Member<HTMLOptionElement> active_selection_anchor_;
   Member<HTMLOptionElement> active_selection_end_;
   Member<HTMLSlotElement> option_slot_;
+  Member<HTMLSlotElement> input_slot_;
+  Member<HTMLDivElement> listbox_;
   bool is_in_non_contiguous_selection_ = false;
   bool active_selection_state_ = false;
   AppearanceState appearance_state_ = AppearanceState::kNoStyle;
@@ -1304,6 +1350,8 @@ void ListBoxSelectType::Trace(Visitor* visitor) const {
   visitor->Trace(active_selection_anchor_);
   visitor->Trace(active_selection_end_);
   visitor->Trace(option_slot_);
+  visitor->Trace(input_slot_);
+  visitor->Trace(listbox_);
   SelectType::Trace(visitor);
 }
 
@@ -1700,21 +1748,29 @@ void ListBoxSelectType::ScrollToOption(HTMLOptionElement* option) {
 
 void ListBoxSelectType::ScrollToOptionTask() {
   HTMLOptionElement* option = option_to_scroll_to_.Release();
-  if (!option || !select_->isConnected() || will_be_destroyed_)
+  if (!option || !select_->isConnected() || will_be_destroyed_) {
     return;
+  }
   // OptionRemoved() makes sure option_to_scroll_to_ doesn't have an option
   // with another owner.
   DCHECK_EQ(option->OwnerSelectElement(), select_);
   select_->GetDocument().UpdateStyleAndLayoutForNode(
       select_, DocumentUpdateReason::kScroll);
-  if (!select_->GetLayoutObject())
+  if (!select_->GetLayoutObject()) {
     return;
+  }
   PhysicalRect bounds = option->BoundingBoxForScrollIntoView();
 
   // The following code will not scroll parent boxes unlike ScrollRectToVisible.
-  auto* box = select_->GetLayoutBox();
-  if (!box->IsScrollContainer())
+  LayoutBox* box = nullptr;
+  if (listbox_) {
+    box = listbox_->GetLayoutBox();
+  } else {
+    box = select_->GetLayoutBox();
+  }
+  if (!box || !box->IsScrollContainer()) {
     return;
+  }
   DCHECK(box->Layer());
   DCHECK(box->Layer()->GetScrollableArea());
   box->Layer()->GetScrollableArea()->ScrollIntoView(
@@ -1921,13 +1977,48 @@ void ListBoxSelectType::SetListBoxActiveSelection(HTMLOptionElement* option) {
 void ListBoxSelectType::CreateShadowSubtree(ShadowRoot& root) {
   Document& doc = select_->GetDocument();
   option_slot_ = MakeGarbageCollected<HTMLSlotElement>(doc);
-  option_slot_->SetIdAttribute(shadow_element_names::kSelectOptions);
-  root.appendChild(option_slot_);
+  option_slot_->SetIdAttribute(shadow_element_names::kPseudoSelectOptionsSlot);
+
+  if (RuntimeEnabledFeatures::FilterableSelectEnabled() &&
+      select_->NumDescendantInputs()) {
+    input_slot_ = MakeGarbageCollected<HTMLSlotElement>(doc);
+    input_slot_->SetIdAttribute(shadow_element_names::kSelectInput);
+    root.appendChild(input_slot_);
+
+    HTMLDivElement* listbox = MakeGarbageCollected<HTMLDivElement>(doc);
+    listbox->SetShadowPseudoId(shadow_element_names::kSelectListbox);
+    listbox->setAttribute(html_names::kRoleAttr, AtomicString("listbox"));
+    root.appendChild(listbox);
+    listbox->AppendChild(option_slot_);
+    listbox_ = listbox;
+  } else {
+    CHECK(!select_->NumDescendantInputs());
+    input_slot_ = nullptr;
+    root.appendChild(option_slot_);
+    listbox_ = nullptr;
+  }
 }
 
 void ListBoxSelectType::ManuallyAssignSlots() {
   VectorOf<Node> option_nodes;
+  VectorOf<Node> children_with_descendant_input;
   for (Node& child : NodeTraversal::ChildrenOf(*select_)) {
+    if (RuntimeEnabledFeatures::FilterableSelectEnabled() &&
+        select_->NumDescendantInputs()) {
+      if (IsA<HTMLInputElement>(child)) {
+        CHECK(input_slot_);
+        children_with_descendant_input.push_back(child);
+        continue;
+      }
+      auto it = select_->ChildrenDescendantCounts().find(&child);
+      if (it != select_->ChildrenDescendantCounts().end()) {
+        if (it->value.num_inputs && !it->value.num_options) {
+          CHECK(input_slot_);
+          children_with_descendant_input.push_back(child);
+          continue;
+        }
+      }
+    }
     if (child.IsSlotable() && (CanAssignToSelectSlot(child) ||
                                CanAssignToCustomizableSelectSlot(child))) {
       option_nodes.push_back(child);
@@ -1935,6 +2026,10 @@ void ListBoxSelectType::ManuallyAssignSlots() {
   }
   CHECK(option_slot_);
   option_slot_->Assign(option_nodes);
+  if (input_slot_) {
+    CHECK(RuntimeEnabledFeatures::FilterableSelectEnabled());
+    input_slot_->Assign(children_with_descendant_input);
+  }
 }
 
 HTMLButtonElement* ListBoxSelectType::SlottedButton() const {

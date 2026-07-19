@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import type {ItemData, Range, SearchOptions} from 'chrome://tab-search.top-chrome/tab_search.js';
 import {getHostname, getTitle, search, TabData, TabItemType} from 'chrome://tab-search.top-chrome/tab_search.js';
 import {assertDeepEquals, assertEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
@@ -11,10 +12,10 @@ import {createTab} from './tab_search_test_data.js';
 /**
  * Assert search results return in specific order.
  */
-function assertSearchOrders(
+async function assertSearchOrders(
     input: string, items: TabData[], options: SearchOptions,
     expectedIndices: number[]) {
-  const results = search(input, items, options);
+  const results = await search(input, items, options);
   assertEquals(results.length, expectedIndices.length);
   for (let i = 0; i < results.length; ++i) {
     const expectedItem = items[expectedIndices[i]!]!;
@@ -41,7 +42,13 @@ function assertResults(expectedRecords: ItemData[], actualRecords: ItemData[]) {
 }
 
 suite('FuzzySearchTest', () => {
-  test('Test the exact match ranking order.', () => {
+  setup(() => {
+    loadTimeData.overrideValues({
+      cjkWordBoundaryEnabled: true,
+    });
+  });
+
+  test('Test the exact match ranking order.', async () => {
     const options = {
       keys: [
         {
@@ -174,16 +181,16 @@ suite('FuzzySearchTest', () => {
     ];
 
     // Empty search should return the full list.
-    assertResults(records, search('', records, options));
-    assertResults(archMatchedRecords, search('arch', records, options));
+    assertResults(records, await search('', records, options));
+    assertResults(archMatchedRecords, await search('arch', records, options));
     assertResults(
-        searchMatchedRecords, search('search', records, options));
+        searchMatchedRecords, await search('search', records, options));
 
     // No matches should return an empty list.
-    assertResults([], search('archh', records, options));
+    assertResults([], await search('archh', records, options));
   });
 
-  test('Test exact search with escaped characters.', () => {
+  test('Test exact search with escaped characters.', async () => {
     const options = {
       keys: [
         {
@@ -236,11 +243,11 @@ suite('FuzzySearchTest', () => {
     ];
 
     assertResults(
-        backslashMatchedRecords, search('\\test', records, options));
-    assertResults(quoteMatchedRecords, search('\"end', records, options));
+        backslashMatchedRecords, await search('\\test', records, options));
+    assertResults(quoteMatchedRecords, await search('\"end', records, options));
   });
 
-  test('Test exact search with special quotation characters.', () => {
+  test('Test exact search with special quotation characters.', async () => {
     const options = {
       keys: [
         {
@@ -276,7 +283,7 @@ suite('FuzzySearchTest', () => {
     }];
     assertResults(
         singleQuoteMatchedRecords,
-        search('‘Chrome’', recordsWithSpecialChar, options));
+        await search('‘Chrome’', recordsWithSpecialChar, options));
 
     const doubleQuoteMatchedRecords = [{
       inActiveWindow: false,
@@ -290,7 +297,7 @@ suite('FuzzySearchTest', () => {
     }];
     assertResults(
         doubleQuoteMatchedRecords,
-        search('“google.com”', recordsWithSpecialChar, options));
+        await search('“google.com”', recordsWithSpecialChar, options));
 
     // Search for text with regular characters in a record with special
     // characters.
@@ -306,7 +313,7 @@ suite('FuzzySearchTest', () => {
     }];
     assertResults(
         singleQuoteMatchedRecordsRegular,
-        search('\'Chrome\'', recordsWithSpecialChar, options));
+        await search('\'Chrome\'', recordsWithSpecialChar, options));
 
     const doubleQuoteMatchedRecordsRegular = [{
       inActiveWindow: false,
@@ -320,7 +327,7 @@ suite('FuzzySearchTest', () => {
     }];
     assertResults(
         doubleQuoteMatchedRecordsRegular,
-        search('"google.com"', recordsWithSpecialChar, options));
+        await search('"google.com"', recordsWithSpecialChar, options));
 
     // // Search for text with special characters in a record with regular
     // // characters.
@@ -342,7 +349,7 @@ suite('FuzzySearchTest', () => {
     }];
     assertResults(
         singleQuoteMatchedRecordsSpecial,
-        search('‘Chrome’', recordsWithRegularChar, options));
+        await search('‘Chrome’', recordsWithRegularChar, options));
 
     const doubleQuoteMatchedRecordsSpecial = [{
       inActiveWindow: false,
@@ -356,44 +363,12 @@ suite('FuzzySearchTest', () => {
     }];
     assertResults(
         doubleQuoteMatchedRecordsSpecial,
-        search('“google.com”', recordsWithRegularChar, options));
-  });
-
-  test('Test exact match result scoring accounts for match position.', () => {
-    const options = {
-      keys: [
-        {
-          name: 'tab.title',
-          getter: getTitle,
-          weight: 1,
-        },
-        {
-          name: 'hostname',
-          getter: getHostname,
-          weight: 1,
-        },
-      ],
-    };
-
-    assertSearchOrders(
-        'two',
-        [
-          new TabData(
-              createTab({title: 'three one two'}), TabItemType.OPEN_TAB,
-              'three one two'),
-          new TabData(
-              createTab({title: 'three two one'}), TabItemType.OPEN_TAB,
-              'three two one'),
-          new TabData(
-              createTab({title: 'one two three'}), TabItemType.OPEN_TAB,
-              'one two three'),
-        ],
-        options, [2, 1, 0]);
+        await search('“google.com”', recordsWithRegularChar, options));
   });
 
   test(
-      'Test exact match result scoring takes into account the number of matches per item.',
-      () => {
+      'Test exact match result scoring accounts for match position.',
+      async () => {
         const options = {
           keys: [
             {
@@ -409,7 +384,41 @@ suite('FuzzySearchTest', () => {
           ],
         };
 
-        assertSearchOrders(
+        await assertSearchOrders(
+            'two',
+            [
+              new TabData(
+                  createTab({title: 'three one two'}), TabItemType.OPEN_TAB,
+                  'three one two'),
+              new TabData(
+                  createTab({title: 'three two one'}), TabItemType.OPEN_TAB,
+                  'three two one'),
+              new TabData(
+                  createTab({title: 'one two three'}), TabItemType.OPEN_TAB,
+                  'one two three'),
+            ],
+            options, [2, 1, 0]);
+      });
+
+  test(
+      'Test exact match result scoring takes into account the number of matches per item.',
+      async () => {
+        const options = {
+          keys: [
+            {
+              name: 'tab.title',
+              getter: getTitle,
+              weight: 1,
+            },
+            {
+              name: 'hostname',
+              getter: getHostname,
+              weight: 1,
+            },
+          ],
+        };
+
+        await assertSearchOrders(
             'one',
             [
               new TabData(
@@ -425,35 +434,120 @@ suite('FuzzySearchTest', () => {
             options, [2, 1, 0]);
       });
 
-  test('Test exact match result scoring abides by the key weights.', () => {
+  test(
+      'Test exact match result scoring abides by the key weights.',
+      async () => {
+        const options = {
+          keys: [
+            {
+              name: 'tab.title',
+              getter: getTitle,
+              weight: 2,
+            },
+            {
+              name: 'hostname',
+              getter: getHostname,
+              weight: 1,
+            },
+          ],
+        };
+
+        await assertSearchOrders(
+            'search',
+            [
+              new TabData(
+                  createTab({title: 'New tab'}), TabItemType.OPEN_TAB,
+                  'chrome://tab-search'),
+              new TabData(
+                  createTab({title: 'chrome://tab-search'}),
+                  TabItemType.OPEN_TAB, 'chrome://tab-search'),
+              new TabData(
+                  createTab({title: 'chrome://tab-search'}),
+                  TabItemType.OPEN_TAB, 'chrome://tab-search'),
+            ],
+            options, [2, 1, 0]);
+      });
+
+  test('Test exact search with diacritics (accent-insensitive).', async () => {
     const options = {
       keys: [
         {
           name: 'tab.title',
           getter: getTitle,
-          weight: 2,
-        },
-        {
-          name: 'hostname',
-          getter: getHostname,
           weight: 1,
         },
       ],
     };
 
-    assertSearchOrders(
-        'search',
-        [
-          new TabData(
-              createTab({title: 'New tab'}), TabItemType.OPEN_TAB,
-              'chrome://tab-search'),
-          new TabData(
-              createTab({title: 'chrome://tab-search'}), TabItemType.OPEN_TAB,
-              'chrome://tab-search'),
-          new TabData(
-              createTab({title: 'chrome://tab-search'}), TabItemType.OPEN_TAB,
-              'chrome://tab-search'),
-        ],
-        options, [2, 1, 0]);
+    const records = [
+      new TabData(
+          createTab({title: 'Café Français'}), TabItemType.OPEN_TAB,
+          'youtube.com'),
+      new TabData(
+          createTab({title: 'Google Search'}), TabItemType.OPEN_TAB,
+          'google.com'),
+    ];
+
+    // Searching for base ASCII 'cafe' should match 'Café'
+    const cafeMatchedRecords = [{
+      inActiveWindow: false,
+      type: TabItemType.OPEN_TAB,
+      a11yTypeText: '',
+      tab: {title: 'Café Français'},
+      hostname: 'youtube.com',
+      highlightRanges: {
+        'tab.title': [{start: 0, length: 4}],
+      },
+    }];
+    assertResults(cafeMatchedRecords, await search('cafe', records, options));
+
+    // Searching for base ASCII 'francais' should match 'Français' (ignoring
+    // case and cedilla 'ç')
+    const francaisMatchedRecords = [{
+      inActiveWindow: false,
+      type: TabItemType.OPEN_TAB,
+      a11yTypeText: '',
+      tab: {title: 'Café Français'},
+      hostname: 'youtube.com',
+      highlightRanges: {
+        'tab.title': [{start: 5, length: 8}],
+      },
+    }];
+    assertResults(
+        francaisMatchedRecords, await search('francais', records, options));
+
+    // Searching with accents ('café') should also match
+    assertResults(cafeMatchedRecords, await search('café', records, options));
+  });
+
+  test('Test exact search ranking with CJK word boundaries.', async () => {
+    const options = {
+      keys: [
+        {
+          name: 'tab.title',
+          getter: getTitle,
+          weight: 1,
+        },
+      ],
+    };
+
+    // Tab list ordered in reverse priority (lowest first) to verify sorting:
+    // 1. "夜桜" -> Match inside a single CJK word segment (others)
+    // 2. "美しい 桜" -> Match at a CJK word start after space (Word Start)
+    // 3. "桜の季節" -> Match at the start of string (String Start)
+    const records = [
+      new TabData(
+          createTab({title: '夜桜'}), TabItemType.OPEN_TAB, 'youtube.com'),
+      new TabData(
+          createTab({title: '美しい 桜'}), TabItemType.OPEN_TAB, 'youtube.com'),
+      new TabData(
+          createTab({title: '桜の季節'}), TabItemType.OPEN_TAB, 'youtube.com'),
+    ];
+
+    // Searching for "桜" should rank:
+    // 1st: "桜の季節" (String Start)
+    // 2nd: "美しい 桜" (Word Start)
+    // 3rd: "美しい桜" (others)
+    await assertSearchOrders('桜', records, options, [2, 1, 0]);
   });
 });

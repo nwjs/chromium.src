@@ -504,6 +504,33 @@ TEST_F(LayerContextImplAnimationTest, AnimationWithNoKeyframesFails) {
   EXPECT_EQ(result.error(), "Unexpected animation with no keyframes");
 }
 
+TEST_F(LayerContextImplAnimationTest, AnimationWithInvalidGroupFails) {
+  constexpr int kTimelineId = 7;
+  constexpr int kAnimationId = 70;
+  // Use an ElementId distinct from kDefaultElementId.
+  const cc::ElementId kDistinctElementId(777);
+  constexpr int kKeyframeModelId = 700;
+  constexpr int kGroupId = cc::KeyframeModel::kInvalidGroup;
+
+  auto update = CreateDefaultUpdate();
+  update->animation_timelines = std::vector<mojom::AnimationTimelinePtr>();
+
+  auto timeline_mojom = CreateDefaultMojomTimeline(kTimelineId);
+  auto animation_mojom = mojom::Animation::New();
+  animation_mojom->id = kAnimationId;
+  animation_mojom->element_id = kDistinctElementId;
+  auto keyframe_model_mojom = CreateDefaultMojomKeyframeModel(
+      kKeyframeModelId, kGroupId, cc::TargetProperty::OPACITY);
+  animation_mojom->keyframe_models.push_back(std::move(keyframe_model_mojom));
+
+  timeline_mojom->new_animations.push_back(std::move(animation_mojom));
+  update->animation_timelines->push_back(std::move(timeline_mojom));
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), "Invalid group_id");
+}
+
 TEST_F(LayerContextImplAnimationTest, DeserializeColorAnimationCurve) {
   constexpr int kTimelineId = 8;
   constexpr int kAnimationId = 80;
@@ -571,26 +598,9 @@ TEST_F(LayerContextImplAnimationTest, DeserializeSizeAnimationCurve) {
   timeline_mojom->new_animations.push_back(std::move(animation_mojom));
   update->animation_timelines->push_back(std::move(timeline_mojom));
 
-  EXPECT_TRUE(
-      layer_context_impl_->DoUpdateDisplayTree(std::move(update)).has_value());
-
-  cc::AnimationHost* host = GetAnimationHost();
-  cc::AnimationTimeline* timeline_impl = host->GetTimelineById(kTimelineId);
-  ASSERT_NE(nullptr, timeline_impl);
-  cc::Animation* animation_impl = timeline_impl->GetAnimationById(kAnimationId);
-  ASSERT_NE(nullptr, animation_impl);
-  cc::KeyframeEffect* effect_impl = animation_impl->keyframe_effect();
-  ASSERT_NE(nullptr, effect_impl);
-  ASSERT_EQ(effect_impl->keyframe_models().size(), 1u);
-  gfx::KeyframeModel* gfx_model_impl = effect_impl->keyframe_models()[0].get();
-  ASSERT_NE(nullptr, gfx_model_impl);
-  EXPECT_EQ(gfx_model_impl->curve()->Type(), gfx::AnimationCurve::SIZE);
-  const auto* size_curve = static_cast<const gfx::KeyframedSizeAnimationCurve*>(
-      gfx_model_impl->curve());
-  ASSERT_NE(nullptr, size_curve);
-  ASSERT_EQ(size_curve->keyframes().size(), 2u);
-  EXPECT_EQ(size_curve->keyframes()[0]->Value(), kStartSize);
-  EXPECT_EQ(size_curve->keyframes()[1]->Value(), kEndSize);
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), "Unsupported keyframe value type");
 }
 
 TEST_F(LayerContextImplAnimationTest, DeserializeRectAnimationCurve) {
@@ -615,26 +625,9 @@ TEST_F(LayerContextImplAnimationTest, DeserializeRectAnimationCurve) {
   timeline_mojom->new_animations.push_back(std::move(animation_mojom));
   update->animation_timelines->push_back(std::move(timeline_mojom));
 
-  EXPECT_TRUE(
-      layer_context_impl_->DoUpdateDisplayTree(std::move(update)).has_value());
-
-  cc::AnimationHost* host = GetAnimationHost();
-  cc::AnimationTimeline* timeline_impl = host->GetTimelineById(kTimelineId);
-  ASSERT_NE(nullptr, timeline_impl);
-  cc::Animation* animation_impl = timeline_impl->GetAnimationById(kAnimationId);
-  ASSERT_NE(nullptr, animation_impl);
-  cc::KeyframeEffect* effect_impl = animation_impl->keyframe_effect();
-  ASSERT_NE(nullptr, effect_impl);
-  ASSERT_EQ(effect_impl->keyframe_models().size(), 1u);
-  gfx::KeyframeModel* gfx_model_impl = effect_impl->keyframe_models()[0].get();
-  ASSERT_NE(nullptr, gfx_model_impl);
-  EXPECT_EQ(gfx_model_impl->curve()->Type(), gfx::AnimationCurve::RECT);
-  const auto* rect_curve = static_cast<const gfx::KeyframedRectAnimationCurve*>(
-      gfx_model_impl->curve());
-  ASSERT_NE(nullptr, rect_curve);
-  ASSERT_EQ(rect_curve->keyframes().size(), 2u);
-  EXPECT_EQ(rect_curve->keyframes()[0]->Value(), kStartRect);
-  EXPECT_EQ(rect_curve->keyframes()[1]->Value(), kEndRect);
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), "Unsupported keyframe value type");
 }
 
 TEST_F(LayerContextImplAnimationTest, DeserializeTransformAnimationCurve) {

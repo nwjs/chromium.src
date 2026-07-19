@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "base/check.h"
+#include "base/feature_list.h"
 #include "base/logging.h"
 #include "components/contextual_search/contextual_search_session_handle.h"
 #include "components/contextual_search/contextual_search_types.h"
@@ -180,6 +181,15 @@ bool AreItemsAllowed(const T& items, const U& allowed_items) {
                      });
 }
 
+std::optional<std::string> GetThreadId(const GURL& url) {
+  std::string value;
+  if (url.is_valid() && url.has_query() &&
+      net::GetValueForKeyInQuery(url, "mtid", &value)) {
+    return value;
+  }
+  return std::nullopt;
+}
+
 }  // namespace
 
 InputStateModel::InputStateModel(
@@ -191,7 +201,8 @@ InputStateModel::InputStateModel(
     : session_handle_(session_handle.AsWeakPtr()),
       is_off_the_record_(is_off_the_record),
       browser_identity_matches_aim_identity_(
-          browser_identity_matches_aim_identity) {
+          browser_identity_matches_aim_identity),
+      current_url_(active_url) {
   SearchboxConfig mutable_config = config;
   MaybePopulateBrowserTabInputTypeRule(&mutable_config);
 
@@ -235,10 +246,6 @@ InputStateModel::InputStateModel(
     }
     state_.input_type_configs.reserve(mutable_config.input_type_configs_size());
     for (const auto& input_type_config : mutable_config.input_type_configs()) {
-      if (input_type_config.input_type() == omnibox::INPUT_TYPE_DRIVE &&
-          !IsDriveSupported()) {
-        continue;
-      }
       state_.input_type_configs.push_back(input_type_config);
     }
     if (mutable_config.has_tools_section_config()) {
@@ -307,7 +314,9 @@ InputStateModel::InputStateModel(
     : session_handle_(new_session_handle.AsWeakPtr()),
       is_off_the_record_(new_input_state_model.is_off_the_record_),
       browser_identity_matches_aim_identity_(
-          new_input_state_model.browser_identity_matches_aim_identity_) {
+          new_input_state_model.browser_identity_matches_aim_identity_),
+      current_url_(new_input_state_model.current_url_),
+      drive_consent_state_(new_input_state_model.drive_consent_state_) {
   state_ = new_input_state_model.state_;
   rule_set_ = new_input_state_model.rule_set_;
   pref_service_ = new_input_state_model.pref_service_;
@@ -357,6 +366,28 @@ void InputStateModel::SetPrefService(const PrefService* pref_service) {
   updateDisabledState();
 }
 
+void InputStateModel::SetDriveConsentState(DriveConsentState state) {
+  if (drive_consent_state_ == state) {
+    return;
+  }
+  drive_consent_state_ = state;
+
+  auto& allowed_types = state_.allowed_input_types;
+  auto it = std::find(allowed_types.begin(), allowed_types.end(),
+                      omnibox::INPUT_TYPE_DRIVE);
+  if (IsDriveSupported()) {
+    if (it == allowed_types.end()) {
+      state_.allowed_input_types.push_back(omnibox::INPUT_TYPE_DRIVE);
+    }
+  } else {
+    if (it != allowed_types.end()) {
+      state_.allowed_input_types.erase(it);
+    }
+  }
+  updateDisabledState();
+  notifySubscribers();
+}
+
 base::CallbackListSubscription InputStateModel::subscribe(Subscriber callback) {
   return subscribers_.Add(std::move(callback));
 }
@@ -376,9 +407,15 @@ void InputStateModel::setActiveModel(ModelMode model) {
 void InputStateModel::UpdateStateFromUrl(const GURL& url) {
   auto matched_tool =
       GetActiveToolFromUrl(url, state_.tool_configs, state_.allowed_tools);
-  ToolMode new_tool = matched_tool.value_or(state_.active_tool);
 
-  bool new_canvas_submitted = state_.is_canvas_query_submitted;
+  bool thread_changed = GetThreadId(url) != GetThreadId(current_url_);
+  current_url_ = url;
+
+  ToolMode new_tool = matched_tool.value_or(
+      thread_changed ? ToolMode::TOOL_MODE_UNSPECIFIED : state_.active_tool);
+
+  bool new_canvas_submitted =
+      thread_changed ? false : state_.is_canvas_query_submitted;
   if (matched_tool.has_value()) {
     new_canvas_submitted = (*matched_tool == ToolMode::TOOL_MODE_CANVAS);
   }
@@ -452,12 +489,21 @@ void InputStateModel::updateSelectedState(ToolMode tool, ModelMode model) {
 }
 
 bool InputStateModel::IsDriveSupported() const {
-  // Drive is only supported when the browser identity matches the aim identity,
-  // not in an off-the-record (incognito) session, and the feature flag is
-  // enabled.
-  return browser_identity_matches_aim_identity_ && !is_off_the_record_ &&
-         base::FeatureList::IsEnabled(
-             omnibox::kComposeboxDriveContextMenuOption);
+  bool identity_matches = browser_identity_matches_aim_identity_;
+  bool incognito = is_off_the_record_;
+  bool feature_enabled =
+      base::FeatureList::IsEnabled(omnibox::kComposeboxDriveContextMenuOption);
+
+  // If the disclaimer flag is enabled, then the user can see Drive in the menu
+  // even if they have not consented, since selecting it will trigger the
+  // disclaimer flow. Otherwise, the user must have consented to see Drive in
+  // the menu. In either case, we do not show Drive if the user is restricted.
+  bool consented = drive_consent_state_ == DriveConsentState::kConsent ||
+                   (base::FeatureList::IsEnabled(
+                        omnibox::kComposeboxDriveContextMenuOptionDisclaimer) &&
+                    drive_consent_state_ == DriveConsentState::kNotConsent);
+
+  return identity_matches && !incognito && feature_enabled && consented;
 }
 
 // Helper to check if search content sharing is enabled based on the
@@ -633,7 +679,9 @@ void InputStateModel::UpdateDisabledInputTypes() {
         !std::ranges::contains(active_tool_rule->allowed_input_types(),
                                input_type);
 
-    if (input_limit_reached || incompatible_with_model ||
+    const bool should_disable_due_to_limit = input_limit_reached;
+
+    if (should_disable_due_to_limit || incompatible_with_model ||
         incompatible_with_tool ||
         std::ranges::contains(permanently_disabled_input_types_, input_type)) {
       state_.disabled_input_types.push_back(input_type);

@@ -8,6 +8,7 @@
 #include <Foundation/Foundation.h>
 
 #include <optional>
+#include <string>
 #include <string_view>
 #include <variant>
 #include <vector>
@@ -15,6 +16,7 @@
 #include "base/notreached.h"
 #include "base/values.h"
 #include "ios/web/public/js_messaging/script_message_dict_value.h"
+#include "ios/web/public/js_messaging/script_message_list_value.h"
 
 namespace web {
 
@@ -29,12 +31,16 @@ class ScriptMessageValue {
   // Deleted to prevent accidental copying.
   ScriptMessageValue(const ScriptMessageValue&) = delete;
   ScriptMessageValue& operator=(const ScriptMessageValue&) = delete;
-  explicit ScriptMessageValue(base::Value value);
+  explicit ScriptMessageValue(std::string&& value);
+  explicit ScriptMessageValue(std::string_view value);
   explicit ScriptMessageValue(std::u16string_view value);
+  explicit ScriptMessageValue(int value);
   explicit ScriptMessageValue(double value);
   explicit ScriptMessageValue(bool value);
   explicit ScriptMessageValue(ScriptMessageDictValue value);
   explicit ScriptMessageValue(NSDictionary* value);
+  explicit ScriptMessageValue(ScriptMessageListValue value);
+  explicit ScriptMessageValue(NSArray* value);
 
   ~ScriptMessageValue();
   // Type checker functions.
@@ -42,12 +48,17 @@ class ScriptMessageValue {
 
   // Accesses the underlying data structures, but fails with a `CHECK()` on a
   // type mismatch.
-  const base::Value& GetValue();
+  const base::Value& GetValue() const;
   const ScriptMessageDictValue& GetDict() const;
+  const ScriptMessageListValue& GetList() const;
 
  private:
   // The object ScriptMessageValue encapsulates.
-  std::variant<std::monostate, base::Value, ScriptMessageDictValue> data_;
+  std::variant<std::monostate,
+               base::Value,
+               ScriptMessageDictValue,
+               ScriptMessageListValue>
+      data_;
 };
 
 }  // namespace web

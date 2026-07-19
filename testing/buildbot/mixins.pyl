@@ -221,11 +221,6 @@
       '--extra-browser-args=--use-angle=d3d11',
     ],
   },
-  'gpu_force_angle_d3d9': {
-    'args': [
-      '--extra-browser-args=--use-angle=d3d9',
-    ],
-  },
   'gpu_force_angle_gl': {
     'args': [
       '--extra-browser-args=--use-angle=gl',
@@ -765,7 +760,7 @@
       'dimensions': {
         'cpu': 'x86-64',
         'gpu': '8086:3e9b',
-        'os': 'Mac-14.5',
+        'os': 'Mac-15.5',
         'display_attached': '1',
       },
     },
@@ -830,6 +825,11 @@
           'revision': 'git_revision:07e67ff89ff11ed0e3071867ed6bb49319a91b05',
         },
       ],
+    },
+  },
+  'mac_x64_ai_wpt_shards': {
+    'swarming': {
+      'shards': 8,
     },
   },
   'no_gpu': {
@@ -920,8 +920,15 @@
   'tfc-cq-tast': {
     'skylab': {
       'timeout_sec': 5400,
+      'cros_test_tags': [
+        'dep:chrome',
+      ],
       'cros_test_names_from_file': [
         'chromeos/tast_control_cq_tests.txt',
+      ],
+      'cros_test_names_exclude_from_file': [
+        'chromeos/tast_control_disabled_tests.txt',
+        'chromeos/tast_control_flaky_tests.txt',
       ],
       'cros_test_max_in_shard': 20
     },
@@ -1151,12 +1158,12 @@
   'xcode_26_main': {
     'args': [
       '--xcode-build-version',
-      '17a400',
+      '17f42',
     ],
     'swarming': {
       'named_caches': [
         {
-          'name': 'xcode_ios_17a400',
+          'name': 'xcode_ios_17f42',
           'path': 'Xcode.app',
         },
       ],

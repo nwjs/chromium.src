@@ -14,9 +14,13 @@
 #include "base/timer/timer.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_types.h"
 #include "components/tabs/public/tab_interface.h"
+#include "content/public/browser/frame_tree_node_id.h"
+#include "content/public/browser/global_routing_id.h"
+#include "third_party/blink/public/mojom/window_features/window_features.mojom.h"
 #include "url/gurl.h"
 
 namespace content {
+class RenderFrameHost;
 class WebContents;
 struct OpenURLParams;
 }
@@ -30,7 +34,8 @@ class ContextualTasksWindowTracker {
   ContextualTasksWindowTracker(
       const ContextualTaskId& task_id,
       const GURL& expected_url,
-      base::WeakPtr<content::WebContents> initiator_contents,
+      content::GlobalRenderFrameHostToken initiator_rfh_token,
+      base::WeakPtr<content::WebContents> webui_contents,
       base::OnceCallback<void(base::WeakPtr<ContextualTasksWindowTracker>)>
           on_closed_callback);
   ~ContextualTasksWindowTracker();
@@ -60,18 +65,38 @@ class ContextualTasksWindowTracker {
     }
     return nullptr;
   }
+  content::WebContents* message_proxy_web_contents() const {
+    return message_proxy_web_contents_.get();
+  }
   const std::optional<ContextualWindowId>& window_id() const {
     return window_id_;
   }
-  base::WeakPtr<content::WebContents> initiator_contents() const {
-    return initiator_contents_;
+
+  base::WeakPtr<content::WebContents> webui_contents() const {
+    return webui_contents_;
   }
+  base::WeakPtr<content::WebContents> initiator_contents() const;
+  content::RenderFrameHost* GetInitiatorFrame() const;
   base::WeakPtr<ContextualTasksWindowTracker> GetWeakPtr() {
     return weak_ptr_factory_.GetWeakPtr();
   }
 
   void SetWindowId(ContextualWindowId window_id) { window_id_ = window_id; }
+  void SetWebViewFrameTreeNodeId(content::FrameTreeNodeId id) {
+    webview_frame_tree_node_id_ = id;
+  }
+  content::FrameTreeNodeId GetWebViewFrameTreeNodeId() const {
+    return webview_frame_tree_node_id_;
+  }
   void SetOpenURLParams(const content::OpenURLParams& params);
+  void SetWindowFeatures(const blink::mojom::WindowFeatures& features) {
+    window_features_ = features;
+  }
+  const blink::mojom::WindowFeatures& window_features() const {
+    return window_features_;
+  }
+  void SetMessageProxyWebContents(
+      std::unique_ptr<content::WebContents> contents);
 
  private:
   void OnTabWillDetach(tabs::TabInterface* tab,
@@ -83,16 +108,25 @@ class ContextualTasksWindowTracker {
   GURL expected_url_;
   // The unique ID assigned to the tracked window.
   std::optional<ContextualWindowId> window_id_;
-  // The WebContents that initiated the window opening.
-  base::WeakPtr<content::WebContents> initiator_contents_;
+  // The FrameTreeNodeId of the mock webview guest created in response to a
+  // window.open() (which represents this window in WebUI), and not the guest
+  // that actually called window.open().
+  content::FrameTreeNodeId webview_frame_tree_node_id_;
+  // The token of the RenderFrameHost that initiated the window opening.
+  content::GlobalRenderFrameHostToken initiator_rfh_token_;
   // The tab being tracked.
   raw_ptr<tabs::TabInterface> tab_ = nullptr;
   // The WebContents being tracked (might not be in a tab yet).
   base::WeakPtr<content::WebContents> web_contents_;
-
+  // The WebUI contents that is tracking this window.
+  base::WeakPtr<content::WebContents> webui_contents_;
   // The params stored from CanCreateWindow call.
   std::unique_ptr<content::OpenURLParams> open_url_params_;
-
+  // The window features stored from CanCreateWindow call.
+  blink::mojom::WindowFeatures window_features_;
+  // The dummy WebContents used as opener for message routing. For more
+  // context in how WebContents routing works, see http://shortn/_eyIJvb0jIx.
+  std::unique_ptr<content::WebContents> message_proxy_web_contents_;
   // Subscriptions for tab events.
   base::CallbackListSubscription tab_subscription_;
 

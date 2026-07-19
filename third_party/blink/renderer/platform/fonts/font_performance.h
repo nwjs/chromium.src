@@ -5,6 +5,12 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_FONTS_FONT_PERFORMANCE_H_
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_FONTS_FONT_PERFORMANCE_H_
 
+#include <unicode/uscript.h>
+
+#include <compare>
+#include <map>
+#include <tuple>
+
 #include "base/check.h"
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
@@ -17,10 +23,21 @@ namespace blink {
 // thread.
 class PLATFORM_EXPORT FontPerformance {
  public:
+  struct ScriptKey {
+    UScriptCode script;
+    bool is_emoji;
+    friend auto operator<=>(const ScriptKey&, const ScriptKey&) = default;
+  };
+
   static void Reset() {
     primary_font_ = base::TimeDelta();
     primary_font_in_style_ = base::TimeDelta();
     system_fallback_ = base::TimeDelta();
+    system_fallback_count_ = 0;
+    system_fallback_initial_duration_ = base::TimeDelta();
+    shape_cache_hit_count_ = 0;
+    shape_cache_miss_count_ = 0;
+    GetScriptFallbackCountsMap().clear();
   }
 
   // The aggregated time spent in |DeterminePrimarySimpleFontData|.
@@ -42,12 +59,30 @@ class PLATFORM_EXPORT FontPerformance {
 
   // The aggregated time spent in |FallbackFontForCharacter|.
   static base::TimeDelta SystemFallbackFontTime() { return system_fallback_; }
-  static void AddSystemFallbackFontTime(base::TimeDelta time) {
+  static size_t SystemFallbackFontCount() { return system_fallback_count_; }
+  static base::TimeDelta SystemFallbackFontInitialDuration() {
+    return system_fallback_initial_duration_;
+  }
+
+  static void AddSystemFallbackFontTime(UScriptCode script_code,
+                                        bool is_emoji,
+                                        base::TimeDelta time);
+  static const std::map<ScriptKey, size_t>& GetScriptFallbackCounts();
+
+  static void AddShapeCacheHit() {
     if (!IsMainThread()) [[unlikely]] {
       return;
     }
-    system_fallback_ += time;
+    shape_cache_hit_count_++;
   }
+  static void AddShapeCacheMiss() {
+    if (!IsMainThread()) [[unlikely]] {
+      return;
+    }
+    shape_cache_miss_count_++;
+  }
+  static uint32_t ShapeCacheHitCount() { return shape_cache_hit_count_; }
+  static uint32_t ShapeCacheMissCount() { return shape_cache_miss_count_; }
 
   static void MarkFirstContentfulPaint();
   static void MarkDomContentLoaded();
@@ -62,9 +97,15 @@ class PLATFORM_EXPORT FontPerformance {
   };
 
  private:
+  static std::map<ScriptKey, size_t>& GetScriptFallbackCountsMap();
+
   static base::TimeDelta primary_font_;
   static base::TimeDelta primary_font_in_style_;
   static base::TimeDelta system_fallback_;
+  static size_t system_fallback_count_;
+  static base::TimeDelta system_fallback_initial_duration_;
+  static uint32_t shape_cache_hit_count_;
+  static uint32_t shape_cache_miss_count_;
   static unsigned in_style_;
 };
 

@@ -46,7 +46,6 @@
 #include "components/grit/components_resources.h"
 #include "components/services/app_service/public/cpp/app_capability_access_cache_wrapper.h"
 #include "components/services/app_service/public/cpp/app_registry_cache_wrapper.h"
-#include "components/services/app_service/public/cpp/features.h"
 #include "components/services/app_service/public/cpp/icon_effects.h"
 #include "components/services/app_service/public/cpp/intent_filter.h"
 #include "components/services/app_service/public/cpp/intent_filter_util.h"
@@ -370,10 +369,6 @@ void AppServiceProxyAsh::LaunchAppWithIntent(const std::string& app_id,
   } else {
     std::move(launch_callback).Run(/*is_allowed=*/true);
   }
-}
-
-base::WeakPtr<AppServiceProxyAsh> AppServiceProxyAsh::GetWeakPtr() {
-  return weak_ptr_factory_.GetWeakPtr();
 }
 
 void AppServiceProxyAsh::ReInitializeCrostiniForTesting() {

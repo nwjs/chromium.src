@@ -42,7 +42,7 @@ TEST_F(PreloadActivationReportManagerTest, ReportActivation) {
   GURL endpoint("https://example.com/beacon");
 
   EXPECT_EQ(manager->GetLoaderCountForTesting(), 0u);
-  manager->ReportActivation(endpoint, web_contents());
+  manager->ReportActivation(endpoint, main_rfh());
   EXPECT_EQ(manager->GetLoaderCountForTesting(), 1u);
 
   // Verify that a pending request was created in the factory.
@@ -51,6 +51,7 @@ TEST_F(PreloadActivationReportManagerTest, ReportActivation) {
       test_url_loader_factory_.GetPendingRequest(0)->request;
   EXPECT_EQ(request.url, endpoint);
   EXPECT_EQ(request.method, "HEAD");
+  EXPECT_TRUE(request.devtools_request_id.has_value());
 
   // Simulate successful response.
   EXPECT_TRUE(test_url_loader_factory_.SimulateResponseForPendingRequest(
@@ -73,7 +74,7 @@ TEST_F(PreloadActivationReportManagerTest,
   GURL redirect_endpoint("https://example.com/beacon2");
 
   EXPECT_EQ(manager->GetLoaderCountForTesting(), 0u);
-  manager->ReportActivation(endpoint, web_contents());
+  manager->ReportActivation(endpoint, main_rfh());
   EXPECT_EQ(manager->GetLoaderCountForTesting(), 1u);
 
   // Verify that a pending request was created in the factory.
@@ -159,7 +160,7 @@ TEST_F(PreloadActivationReportManagerTest,
       network::URLLoaderCompletionStatus(net::OK), std::move(redirects));
 
   EXPECT_EQ(manager->GetLoaderCountForTesting(), 0u);
-  manager->ReportActivation(endpoint, web_contents());
+  manager->ReportActivation(endpoint, main_rfh());
 
   // The loader should be destroyed immediately on redirect due to cross-origin
   // block.
@@ -203,7 +204,7 @@ TEST_F(PreloadActivationReportManagerTest,
       network::URLLoaderCompletionStatus(net::OK), std::move(redirects));
 
   EXPECT_EQ(manager->GetLoaderCountForTesting(), 0u);
-  manager->ReportActivation(endpoint, web_contents());
+  manager->ReportActivation(endpoint, main_rfh());
 
   // The loader should be destroyed immediately on redirect due to method change
   // block.

@@ -269,6 +269,8 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) WebNNContextImpl
       const base::flat_map<std::string, blink::WebNNTensorToken>& named_outputs)
       override;
   void DestroyGraph(const blink::WebNNGraphToken& graph_handle) override;
+  void RequestCompilerContext(mojo::PendingReceiver<mojom::WebNNCompilerContext>
+                                  compiler_context_receiver) override;
 
   // This method will be called by `CreateTensor()` after the tensor info is
   // validated. A backend subclass should implement this method to create and
@@ -290,6 +292,9 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) WebNNContextImpl
   // Kill the GPU process to destroy all contexts.
   void DestroyAllContextsAndKillGpuProcess();
 #endif  // BUILDFLAG(IS_WIN)
+
+  // Adds a graph to this context.
+  void AddGraphImpl(scoped_refptr<WebNNGraphImpl> graph_impl);
 
   void CreateWeightsFile(base::OnceCallback<void(base::File)> callback);
 
@@ -348,7 +353,7 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) WebNNContextImpl
   void ReportBadMessageAndDisconnect(std::string_view message);
 
   // Callback for BuildGraph. Takes ownership of the graph and
-  // extracts the devices for the builder.
+  // extracts the token/devices for the builder.
   void OnGraphBuilt(
       BuildGraphCallback callback,
       base::expected<scoped_refptr<WebNNGraphImpl>, mojom::ErrorPtr> result);

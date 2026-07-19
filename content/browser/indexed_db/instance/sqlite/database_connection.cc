@@ -29,6 +29,7 @@
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/system/sys_info.h"
+#include "base/trace_event/process_memory_dump.h"
 #include "base/types/expected.h"
 #include "base/types/expected_macros.h"
 #include "build/build_config.h"
@@ -997,17 +998,27 @@ StatusOr<std::unique_ptr<DatabaseConnection>> DatabaseConnection::Open(
       base::WrapUnique(new DatabaseConnection(path, backing_store));
   Status s = connection->Init(name);
   if (!path.empty() && !s.ok()) {
+    bool should_retry_opening = true;
     IndexedDBDataLossInfo loss;
     if (connection->marked_for_permanent_deletion_) {
-      loss.status = blink::mojom::IDBDataLoss::Total;
-      loss.message = s.ToString();
+      if (!name) {
+        // Don't bother retrying since the caller doesn't want to create the DB.
+        should_retry_opening = false;
+      } else {
+        // Capture and surface data loss info.
+        loss.status = blink::mojom::IDBDataLoss::Total;
+        loss.message = s.ToString();
+      }
     }
-    // If opening fails, recover or destroy the DB and try once more.
-    std::move(*connection).GetCleanupTask().Run(/*force_closing=*/false);
-    connection = base::WrapUnique(new DatabaseConnection(path, backing_store));
-    s = connection->Init(name);
-    connection->data_loss_info_ = std::move(loss);
-    s.Log("IndexedDB.SQLite.OpenRetryResult");
+    if (should_retry_opening) {
+      // Recover or destroy the DB and try once more.
+      std::move(*connection).GetCleanupTask().Run(/*force_closing=*/false);
+      connection =
+          base::WrapUnique(new DatabaseConnection(path, backing_store));
+      s = connection->Init(name);
+      connection->data_loss_info_ = std::move(loss);
+      s.Log("IndexedDB.SQLite.OpenRetryResult");
+    }
   }
   if (s.ok() && erase_if_zygotic && connection->IsZygotic()) {
     s = Status::Corruption(
@@ -1031,8 +1042,7 @@ void DatabaseConnection::Release(base::WeakPtr<DatabaseConnection> db) {
   // Just destruct immediately if:
   // 1. the database isn't finished initializing, or
   // 2. the database had an error
-  if (db->IsZygotic() || !sql::IsSqliteSuccessCode(sql::ToSqliteResultCode(
-                             db->db_->GetErrorCode()))) {
+  if (db->IsZygotic() || db->sql_error_) {
     MaybeSelfDestruct(std::move(db));
     return;
   }
@@ -1134,6 +1144,15 @@ DatabaseConnection::~DatabaseConnection() {
   CHECK(!db_) << "GetCleanupTask() must be called before destruction";
 }
 
+void DatabaseConnection::OnSqlError(int error, sql::Statement*) {
+  // Record the first error, but let a catastrophic code displace a
+  // non-catastrophic one since recovery is attempted for catastrophic errors.
+  if (!sql_error_ || (sql::IsErrorCatastrophic(error) &&
+                      !sql::IsErrorCatastrophic(*sql_error_))) {
+    sql_error_ = error;
+  }
+}
+
 base::OnceCallback<void(bool)> DatabaseConnection::GetCleanupTask() && {
   CHECK(db_);
 
@@ -1141,8 +1160,7 @@ base::OnceCallback<void(bool)> DatabaseConnection::GetCleanupTask() && {
   // store is being force-closed, blobs may still be active.
   active_blobs_.clear();
 
-  bool had_sql_error =
-      !sql::IsSqliteSuccessCode(sql::ToSqliteResultCode(db_->GetErrorCode()));
+  bool had_sql_error = sql_error_.has_value();
   if (had_sql_error) {
     LogEvent(SpecificEvent::kDatabaseHadSqlError);
   }
@@ -1159,21 +1177,21 @@ base::OnceCallback<void(bool)> DatabaseConnection::GetCleanupTask() && {
     should_delete_db =
         marked_for_permanent_deletion_ || (IsZygotic() && !had_sql_error);
 
-    // Note that `DatabaseConnection` does not set an error callback on
-    // sql::Database. Instead, errors are returned for individual operations,
-    // which will trickle up through backing store agnostic code and close all
+    // `DatabaseConnection`'s error callback only records `sql_error_`; it does
+    // not recover from within the callback. Errors are otherwise returned per
+    // operation and trickle up through backing-store-agnostic code, closing all
     // `Transaction`s, `Connection`s and `Database`s. When the last
-    // `BackingStore::Database` is deleted, `this` will be deleted, at which
-    // point recovery will be attempted if appropriate.
+    // `BackingStore::Database` is deleted, `this` is deleted, at which point
+    // recovery is attempted if `sql_error_` warrants it.
 #if BUILDFLAG(IS_FUCHSIA)
     // Recovery is not supported with WAL mode DBs in Fuchsia.
-    if (had_sql_error && sql::IsErrorCatastrophic(db_->GetErrorCode())) {
+    if (had_sql_error && sql::IsErrorCatastrophic(*sql_error_)) {
       should_delete_db = true;
     }
 #else
     should_attempt_recovery =
         had_sql_error &&
-        sql::Recovery::ShouldAttemptRecovery(db_.get(), db_->GetErrorCode());
+        sql::Recovery::ShouldAttemptRecovery(db_.get(), *sql_error_);
 #endif
 
     // Determine whether to vacuum.
@@ -1197,6 +1215,8 @@ base::OnceCallback<void(bool)> DatabaseConnection::GetCleanupTask() && {
   cursor_weak_factory_.InvalidateWeakPtrs();
   cursor_statements_.clear();
 
+  // The error callback is no longer needed since `this` will be deleted soon.
+  db_->reset_error_callback();
   db_->DetachFromSequence();
   return base::BindOnce(&DatabaseConnection::CloseDatabase, std::move(db_),
                         path_, GetLegacyBlobDirectory(), should_delete_db,
@@ -1231,6 +1251,11 @@ Status DatabaseConnection::Init(std::optional<std::u16string_view> name) {
   db_ = std::make_unique<sql::Database>(
       std::move(options), in_memory() ? kSqlTagInMemory : kSqlTag);
 
+  // `Unretained` is safe here because the error callback is reset before `db_`
+  // is moved out of `this` in `GetCleanupTask()`.
+  db_->set_error_callback(base::BindRepeating(&DatabaseConnection::OnSqlError,
+                                              base::Unretained(this)));
+
   if (in_memory()) {
     RETURN_STATUS_ON_ERROR(db_->OpenInMemory());
   } else {
@@ -1246,6 +1271,10 @@ Status DatabaseConnection::Init(std::optional<std::u16string_view> name) {
 
   const bool is_new_db = !sql::MetaTable::DoesTableExist(db_.get());
   if (is_new_db) {
+    if (!name) {
+      return Fatal(Status::Corruption("Missing meta table"),
+                   SpecificEvent::kMissingMetaTable);
+    }
     IDB_RETURN_IF_ERROR(CreateSchema(db_.get(), *name));
   }
 
@@ -1413,6 +1442,12 @@ uint64_t DatabaseConnection::GetSize() const {
     LogEvent(SpecificEvent::kPragmaPageCountFailed);
   }
   return used_size.InBytes();
+}
+
+void DatabaseConnection::ReportMemoryUsage(
+    base::trace_event::ProcessMemoryDump* pmd,
+    const std::string& dump_name) const {
+  db_->ReportMemoryUsage(pmd, dump_name);
 }
 
 std::unique_ptr<BackingStoreDatabaseImpl>

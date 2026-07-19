@@ -829,6 +829,7 @@ chromium-metrics-reviews@google.com.
   <int value="10" label="AI Hub Sign-in Sheet"/>
   <int value="11" label="External App Store Event"/>
   <int value="12" label="Toolbar"/>
+  <int value="100" label="Unknown"/>
 </enum>
 
 <!-- LINT.ThenChange(/ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h:EntryPoint) -->
@@ -883,6 +884,27 @@ chromium-metrics-reviews@google.com.
     /ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h:InputType
 ) -->
 
+<!-- LINT.IfChange(IOSGeminiFirstRunAction) -->
+
+<enum name="IOSGeminiFirstRunAction">
+  <int value="0" label="Accept"/>
+  <int value="1" label="Dismiss"/>
+  <int value="2" label="Link Click"/>
+</enum>
+
+<!-- LINT.ThenChange(/ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h:IOSGeminiFirstRunAction) -->
+
+<!-- LINT.IfChange(IOSGeminiFirstRunState) -->
+
+<enum name="IOSGeminiFirstRunState">
+  <summary>Current user state for the Gemini First Run.</summary>
+  <int value="0" label="Pending"/>
+  <int value="1" label="Started"/>
+  <int value="2" label="Completed"/>
+</enum>
+
+<!-- LINT.ThenChange(/ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h:FirstRunState) -->
+
 <!-- LINT.IfChange(IOSGeminiFloatyUpdateSource) -->
 
 <enum name="IOSGeminiFloatyUpdateSource">
@@ -905,27 +927,6 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(/ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h:FloatyUpdateSource) -->
-
-<!-- LINT.IfChange(IOSGeminiFREAction) -->
-
-<enum name="IOSGeminiFREAction">
-  <int value="0" label="Accept"/>
-  <int value="1" label="Dismiss"/>
-  <int value="2" label="Link Click"/>
-</enum>
-
-<!-- LINT.ThenChange(/ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h:IOSGeminiFREAction) -->
-
-<!-- LINT.IfChange(IOSGeminiFREState) -->
-
-<enum name="IOSGeminiFREState">
-  <summary>Current user state for the Gemini FRE.</summary>
-  <int value="0" label="Pending"/>
-  <int value="1" label="Started"/>
-  <int value="2" label="Completed"/>
-</enum>
-
-<!-- LINT.ThenChange(/ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h:FREState) -->
 
 <!-- LINT.IfChange(IOSGeminiGoToOSSettingsAlertResult) -->
 
@@ -1085,6 +1086,12 @@ chromium-metrics-reviews@google.com.
   <int value="10" label="Price Tracking Promo tile"/>
   <int value="11" label="Tips tile"/>
   <int value="12" label="ShopCard tile"/>
+  <int value="13" label="Lens"/>
+  <int value="14" label="Voice Search"/>
+  <int value="15" label="Incognito Quick Action"/>
+  <int value="16" label="AIM Quick Action"/>
+  <int value="17" label="Tab Switcher"/>
+  <int value="18" label="Plus Button"/>
 </enum>
 
 <!-- LINT.IfChange(IOSHomeCustomizationBackgroundStyle) -->
@@ -1394,6 +1401,9 @@ chromium-metrics-reviews@google.com.
   <int value="21" label="HideToolbars"/>
   <int value="22" label="Obsolete in M150 - TabGroup"/>
   <int value="23" label="ShareThisPage"/>
+  <int value="24" label="Signin"/>
+  <int value="25" label="Identity"/>
+  <int value="26" label="CustomizeHomePage"/>
 </enum>
 
 <!-- LINT.ThenChange(
@@ -1756,6 +1766,26 @@ chromium-metrics-reviews@google.com.
       label="User has set a default Save to Photos account but it is not on
              device anymore; the user did opt-in to skip the account picker"/>
 </enum>
+
+<!-- LINT.IfChange(IOSSaveToPhotosSignInResultType) -->
+
+<enum name="IOSSaveToPhotosSignInResultType">
+  <int value="0" label="Success"/>
+  <int value="1" label="Cancelled"/>
+  <int value="2" label="Failed"/>
+</enum>
+
+<!-- LINT.ThenChange(/ios/chrome/browser/photos/model/photos_metrics.h:SaveToPhotosSignInResult) -->
+
+<!-- LINT.IfChange(IOSSaveToPhotosSignInStatusType) -->
+
+<enum name="IOSSaveToPhotosSignInStatusType">
+  <int value="0" label="Signed In"/>
+  <int value="1" label="Signed Out Without Account On Device"/>
+  <int value="2" label="Signed Out With Account On Device"/>
+</enum>
+
+<!-- LINT.ThenChange(/ios/chrome/browser/photos/model/photos_metrics.h:SaveToPhotosSignInStatus) -->
 
 <enum name="IOSSaveToPhotosType">
   <int value="0" label="Failure - WebState destroyed"/>
@@ -2795,6 +2825,9 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Failure_TimeSinceActiveLimitNotMet"/>
   <int value="2" label="Failure_MinEligibleFeaturesNotMet"/>
   <int value="3" label="Failure_SessionEndTimeNil"/>
+  <int value="4" label="Failure_FirstRun"/>
+  <int value="5" label="Failure_TrackerInitialization"/>
+  <int value="6" label="Failure_NotResurrectedUser"/>
 </enum>
 
 <!-- LINT.ThenChange(/ios/chrome/browser/welcome_back/metrics/welcome_back_metrics.h:WelcomeBackPromoRegistrationResult) -->

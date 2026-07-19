@@ -27,6 +27,7 @@
 #include "content/public/common/content_switches.h"
 #include "content/public/test/browser_test_utils.h"
 #include "device/vr/buildflags/buildflags.h"
+#include "third_party/blink/public/common/features_generated.h"
 #include "url/gurl.h"
 
 #if BUILDFLAG(IS_ANDROID)
@@ -74,6 +75,7 @@ XrBrowserTestBase::XrBrowserTestBase() : env_(base::Environment::Create()) {
   enable_features_.push_back(device::features::kWebXrVisibleBlurred);
 #if BUILDFLAG(IS_ANDROID)
   enable_features_.push_back(device::features::kWebXRLayers);
+  enable_features_.push_back(blink::features::kWebXRMediaBinding);
 #endif
 #endif
 }
@@ -271,6 +273,22 @@ void XrBrowserTestBase::OpenNewTab(const std::string& url, bool incognito) {
     // -1 is a special index value used to append to the end of the tab list.
     chrome::AddTabAt(browser(), GURL(url), /*index=*/-1, /*foreground=*/true);
   }
+#endif
+}
+
+void XrBrowserTestBase::CloseTab(content::WebContents* web_contents) {
+#if BUILDFLAG(IS_ANDROID)
+  TabModel* tab_model = TabModelList::GetTabModelForWebContents(web_contents);
+  ASSERT_TRUE(tab_model);
+  for (int i = 0; i < tab_model->GetTabCount(); ++i) {
+    if (tab_model->GetWebContentsAt(i) == web_contents) {
+      tab_model->CloseTabAt(i);
+      return;
+    }
+  }
+  ADD_FAILURE() << "Failed to find tab to close";
+#else
+  chrome::CloseWebContents(browser(), web_contents, /*add_to_history=*/false);
 #endif
 }
 

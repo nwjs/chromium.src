@@ -40,6 +40,7 @@
 #include "media/base/picture_in_picture_events_info.h"
 #include "media/base/video_frame.h"
 #include "media/base/video_frame_metadata.h"
+#include "media/base/video_spatial_format.h"
 #include "third_party/blink/public/platform/web_audio_source_provider_impl.h"
 #include "third_party/blink/public/platform/web_content_decryption_module.h"
 #include "third_party/blink/public/platform/web_media_source.h"
@@ -269,6 +270,9 @@ class WebMediaPlayer {
 
   virtual gfx::Size VisibleSize() const = 0;
 
+  // Spatial format of the video.
+  virtual media::VideoSpatialFormat GetSpatialFormat() const { return {}; }
+
   // Getters of playback state.
   virtual bool Paused() const = 0;
   virtual bool Seeking() const = 0;
@@ -481,6 +485,15 @@ class WebMediaPlayer {
   virtual void RecordAutoPictureInPictureInfo(
       const media::PictureInPictureEventsInfo::AutoPipInfo&
           auto_picture_in_picture_info) = 0;
+
+  // Called when the media element's frame becomes hidden. This happens when:
+  // - The frame visibility property is set to "hidden";
+  // - The frame display property is set to "none";
+  // - The frame rendered area is 0 (width or height is 0).
+  virtual void OnFrameHidden() {}
+  // Called when the media element's frame becomes visible. See the comment for
+  // `OnFrameHidden()` for details.
+  virtual void OnFrameShown() {}
 };
 
 }  // namespace blink

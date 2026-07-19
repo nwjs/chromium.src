@@ -15,6 +15,7 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search/search.h"
+#include "chrome/browser/search_engines/ai_mode_button_service_factory.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser_actions.h"
@@ -82,6 +83,43 @@ LensOverlayEntryPointController* LensOverlayEntryPointController::From(
     BrowserWindowInterface* browser_window_interface) {
   return LensOverlayEntryPointController::Get(
       browser_window_interface->GetUnownedUserDataHost());
+}
+
+// static
+bool LensOverlayEntryPointController::IsEnabledOnInit(Profile* profile) {
+  // Feature is disabled via finch.
+  if (!lens::features::IsLensOverlayEnabled()) {
+    return false;
+  }
+
+  // If Lens in contextual is enabled, the enterprise policy check is done
+  // in the contextual search service for the `SearchContentSharing` policy.
+  const PrefService* pref_service = profile->GetPrefs();
+  if (contextual_tasks::GetEnableLensInContextualTasks()) {
+    if (!contextual_search::ContextualSearchService::IsContextSharingEnabled(
+            pref_service)) {
+      return false;
+    }
+  } else {
+    // Lens Overlay is disabled via the enterprise policy.
+    lens::prefs::LensOverlaySettingsPolicyValue policy_value =
+        static_cast<lens::prefs::LensOverlaySettingsPolicyValue>(
+            pref_service->GetInteger(lens::prefs::kLensOverlaySettings));
+    if (policy_value ==
+        lens::prefs::LensOverlaySettingsPolicyValue::kDisabled) {
+      return false;
+    }
+  }
+
+  // Lens Overlay is only enabled if the user's default search engine is Google.
+  if (lens::features::IsLensOverlayGoogleDseRequired() &&
+      !search::DefaultSearchProviderIsGoogle(profile)) {
+    return false;
+  }
+
+  // Finally, only enable the overlay if user meets our minimum RAM requirement.
+  static int phys_mem_mb = base::SysInfo::AmountOfTotalPhysicalMemory().InMiB();
+  return phys_mem_mb > lens::features::GetLensOverlayMinRamMb();
 }
 
 LensOverlayEntryPointController::LensOverlayEntryPointController(
@@ -163,8 +201,7 @@ bool LensOverlayEntryPointController::IsEnabled() const {
     return false;
   }
 
-  // Feature is disabled via finch.
-  if (!lens::features::IsLensOverlayEnabled()) {
+  if (!IsEnabledOnInit(browser_window_interface_->GetProfile())) {
     return false;
   }
 
@@ -177,36 +214,7 @@ bool LensOverlayEntryPointController::IsEnabled() const {
     return false;
   }
 
-  // If Lens in contextual is enabled, the enterprise policy check is done
-  // in the contextual search service for the `SearchContentSharing` policy.
-  const PrefService* pref_service =
-      browser_window_interface_->GetProfile()->GetPrefs();
-  if (contextual_tasks::GetEnableLensInContextualTasks()) {
-    if (!contextual_search::ContextualSearchService::IsContextSharingEnabled(
-            pref_service)) {
-      return false;
-    }
-  } else {
-    // Lens Overlay is disabled via the enterprise policy.
-    lens::prefs::LensOverlaySettingsPolicyValue policy_value =
-        static_cast<lens::prefs::LensOverlaySettingsPolicyValue>(
-            pref_service->GetInteger(lens::prefs::kLensOverlaySettings));
-    if (policy_value ==
-        lens::prefs::LensOverlaySettingsPolicyValue::kDisabled) {
-      return false;
-    }
-  }
-
-  // Lens Overlay is only enabled if the user's default search engine is Google.
-  if (lens::features::IsLensOverlayGoogleDseRequired() &&
-      !search::DefaultSearchProviderIsGoogle(
-          browser_window_interface_->GetProfile())) {
-    return false;
-  }
-
-  // Finally, only enable the overlay if user meets our minimum RAM requirement.
-  static int phys_mem_mb = base::SysInfo::AmountOfTotalPhysicalMemory().InMiB();
-  return phys_mem_mb > lens::features::GetLensOverlayMinRamMb();
+  return true;
 }
 
 bool LensOverlayEntryPointController::AreVisible() const {
@@ -243,10 +251,7 @@ void LensOverlayEntryPointController::UpdateEntryPointsState(
     }
   } else {
     // Update the homework action chip.
-    // TODO(crbug.com/433813408): Remove GetBrowserForMigrationOnly after Page
-    // Actions migration.
-    browser_window_interface_->GetBrowserForMigrationOnly()
-        ->window()
+    BrowserWindow::FromBrowser(browser_window_interface_)
         ->UpdatePageActionIcon(PageActionIconType::kLensOverlayHomework);
   }
 }
@@ -464,8 +469,14 @@ bool LensOverlayEntryPointController::ShouldShowPageAction(
   const auto* aim_eligibility_service =
       AimEligibilityServiceFactory::GetForProfile(
           browser_window_interface_->GetProfile());
-  if (OmniboxFieldTrial::IsAimOmniboxEntrypointEnabled(
-          aim_eligibility_service)) {
+  const auto* ai_mode_button_service =
+      AiModeButtonServiceFactory::GetForProfile(
+          browser_window_interface_->GetProfile());
+  const auto* template_url_service = TemplateURLServiceFactory::GetForProfile(
+      browser_window_interface_->GetProfile());
+  if (OmniboxFieldTrial::IsAimOmniboxEntrypointEnabled(aim_eligibility_service,
+                                                       ai_mode_button_service,
+                                                       template_url_service)) {
     return false;
   }
 

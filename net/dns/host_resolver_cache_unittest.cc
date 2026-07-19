@@ -9,6 +9,8 @@
 #include <string>
 #include <vector>
 
+#include "base/logging.h"
+#include "base/test/fuzztest_support.h"
 #include "base/test/simple_test_clock.h"
 #include "base/test/simple_test_tick_clock.h"
 #include "base/time/time.h"
@@ -25,6 +27,7 @@
 #include "net/dns/public/host_resolver_source.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/fuzztest/src/fuzztest/fuzztest.h"
 #include "url/gurl.h"
 
 namespace net {
@@ -101,63 +104,131 @@ TEST_F(HostResolverCacheTest, CacheAResult) {
       /*hosts=*/std::vector<HostPortPair>{});
 
   const NetworkAnonymizationKey anonymization_key;
-  cache.Set(std::move(result), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   auto matcher = Pointee(ExpectHostResolverInternalDataResult(
       kName, DnsQueryType::A, HostResolverInternalResult::Source::kDns,
       Optional(tick_clock_.NowTicks() + kTtl), Optional(clock_.Now() + kTtl),
       kEndpoints));
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::A,
-                           HostResolverSource::DNS, /*secure=*/false),
-              matcher);
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::UNSPECIFIED,
-                           HostResolverSource::DNS, /*secure=*/false),
-              matcher);
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::A,
-                           HostResolverSource::ANY, /*secure=*/false),
-              matcher);
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::A,
+  EXPECT_THAT(
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle,
+                   DnsQueryType::A, HostResolverSource::DNS, /*secure=*/false),
+      matcher);
+  EXPECT_THAT(
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle,
+                   DnsQueryType::UNSPECIFIED, HostResolverSource::DNS,
+                   /*secure=*/false),
+      matcher);
+  EXPECT_THAT(
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle,
+                   DnsQueryType::A, HostResolverSource::ANY, /*secure=*/false),
+      matcher);
+  EXPECT_THAT(cache.Lookup(kName, anonymization_key,
+                           handles::kInvalidNetworkHandle, DnsQueryType::A,
                            HostResolverSource::DNS, /*secure=*/std::nullopt),
               matcher);
-  EXPECT_EQ(cache.Lookup(kName, anonymization_key, DnsQueryType::AAAA,
+  EXPECT_EQ(cache.Lookup(kName, anonymization_key,
+                         handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
                          HostResolverSource::DNS, /*secure=*/false),
             nullptr);
-  EXPECT_EQ(cache.Lookup(kName, anonymization_key, DnsQueryType::A,
+  EXPECT_EQ(cache.Lookup(kName, anonymization_key,
+                         handles::kInvalidNetworkHandle, DnsQueryType::A,
                          HostResolverSource::SYSTEM, /*secure=*/false),
             nullptr);
-  EXPECT_EQ(cache.Lookup(kName, anonymization_key, DnsQueryType::A,
-                         HostResolverSource::DNS, /*secure=*/true),
-            nullptr);
+  EXPECT_EQ(
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle,
+                   DnsQueryType::A, HostResolverSource::DNS, /*secure=*/true),
+      nullptr);
 
   auto stale_result_matcher =
       Optional(IsNotStale(ExpectHostResolverInternalDataResult(
           kName, DnsQueryType::A, HostResolverInternalResult::Source::kDns,
           Optional(tick_clock_.NowTicks() + kTtl),
           Optional(clock_.Now() + kTtl), kEndpoints)));
-  EXPECT_THAT(cache.LookupStale(kName, anonymization_key, DnsQueryType::A,
+  EXPECT_THAT(cache.LookupStale(kName, anonymization_key,
+                                handles::kInvalidNetworkHandle, DnsQueryType::A,
                                 HostResolverSource::DNS, /*secure=*/false),
               stale_result_matcher);
-  EXPECT_THAT(
-      cache.LookupStale(kName, anonymization_key, DnsQueryType::UNSPECIFIED,
-                        HostResolverSource::DNS, /*secure=*/false),
-      stale_result_matcher);
-  EXPECT_THAT(cache.LookupStale(kName, anonymization_key, DnsQueryType::A,
+  EXPECT_THAT(cache.LookupStale(kName, anonymization_key,
+                                handles::kInvalidNetworkHandle,
+                                DnsQueryType::UNSPECIFIED,
+                                HostResolverSource::DNS, /*secure=*/false),
+              stale_result_matcher);
+  EXPECT_THAT(cache.LookupStale(kName, anonymization_key,
+                                handles::kInvalidNetworkHandle, DnsQueryType::A,
                                 HostResolverSource::ANY, /*secure=*/false),
               stale_result_matcher);
   EXPECT_THAT(
-      cache.LookupStale(kName, anonymization_key, DnsQueryType::A,
+      cache.LookupStale(kName, anonymization_key,
+                        handles::kInvalidNetworkHandle, DnsQueryType::A,
                         HostResolverSource::DNS, /*secure=*/std::nullopt),
       stale_result_matcher);
-  EXPECT_EQ(cache.LookupStale(kName, anonymization_key, DnsQueryType::AAAA,
-                              HostResolverSource::DNS, /*secure=*/false),
+  EXPECT_EQ(cache.LookupStale(
+                kName, anonymization_key, handles::kInvalidNetworkHandle,
+                DnsQueryType::AAAA, HostResolverSource::DNS, /*secure=*/false),
             std::nullopt);
-  EXPECT_EQ(cache.LookupStale(kName, anonymization_key, DnsQueryType::A,
+  EXPECT_EQ(cache.LookupStale(kName, anonymization_key,
+                              handles::kInvalidNetworkHandle, DnsQueryType::A,
                               HostResolverSource::SYSTEM, /*secure=*/false),
             std::nullopt);
-  EXPECT_EQ(cache.LookupStale(kName, anonymization_key, DnsQueryType::A,
+  EXPECT_EQ(cache.LookupStale(kName, anonymization_key,
+                              handles::kInvalidNetworkHandle, DnsQueryType::A,
                               HostResolverSource::DNS, /*secure=*/true),
             std::nullopt);
+}
+
+TEST_F(HostResolverCacheTest, CachePartitionsByTargetNetwork) {
+  HostResolverCache cache(kMaxResults, clock_, tick_clock_);
+
+  const std::string kName = "foo.test";
+  const base::TimeDelta kTtl = base::Minutes(2);
+
+  const std::vector<IPEndPoint> kEndpoints = {
+      IPEndPoint(IPAddress(1, 2, 3, 4), /*port=*/0)};
+  auto result1 = std::make_unique<HostResolverInternalDataResult>(
+      kName, DnsQueryType::A, tick_clock_.NowTicks() + kTtl,
+      clock_.Now() + kTtl, HostResolverInternalResult::Source::kDns, kEndpoints,
+      /*strings=*/std::vector<std::string>{},
+      /*hosts=*/std::vector<HostPortPair>{});
+  auto result2 = result1->Clone();
+  auto matcher = Pointee(ExpectHostResolverInternalDataResult(
+      kName, DnsQueryType::A, HostResolverInternalResult::Source::kDns,
+      Optional(tick_clock_.NowTicks() + kTtl), Optional(clock_.Now() + kTtl),
+      kEndpoints));
+  EXPECT_THAT(result1, matcher);
+  EXPECT_THAT(result2, matcher);
+
+  const NetworkAnonymizationKey anonymization_key;
+  const handles::NetworkHandle kNetwork1 = 100;
+  const handles::NetworkHandle kNetwork2 = 200;
+
+  // After caching for kNetwork1, only lookups for kNetwork1 should succeed.
+  cache.Set(std::move(result1), anonymization_key, kNetwork1,
+            HostResolverSource::DNS, /*secure=*/false);
+  EXPECT_THAT(cache.Lookup(kName, anonymization_key, kNetwork1, DnsQueryType::A,
+                           HostResolverSource::DNS, /*secure=*/false),
+              matcher);
+  EXPECT_THAT(cache.Lookup(kName, anonymization_key, kNetwork2, DnsQueryType::A,
+                           HostResolverSource::DNS, /*secure=*/false),
+              nullptr);
+  EXPECT_EQ(
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle,
+                   DnsQueryType::A, HostResolverSource::DNS, /*secure=*/false),
+      nullptr);
+
+  // Then if we also cache for kNetwork2, only lookups for kNetwork{1, 2} should
+  // succeed.
+  cache.Set(std::move(result2), anonymization_key, kNetwork2,
+            HostResolverSource::DNS, /*secure=*/false);
+  EXPECT_THAT(cache.Lookup(kName, anonymization_key, kNetwork2, DnsQueryType::A,
+                           HostResolverSource::DNS, /*secure=*/false),
+              matcher);
+  EXPECT_EQ(
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle,
+                   DnsQueryType::A, HostResolverSource::DNS, /*secure=*/false),
+      nullptr);
 }
 
 TEST_F(HostResolverCacheTest, CacheAaaaResult) {
@@ -176,33 +247,42 @@ TEST_F(HostResolverCacheTest, CacheAaaaResult) {
       /*hosts=*/std::vector<HostPortPair>{});
 
   const NetworkAnonymizationKey anonymization_key;
-  cache.Set(std::move(result), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   auto matcher = Pointee(ExpectHostResolverInternalDataResult(
       kName, DnsQueryType::AAAA, HostResolverInternalResult::Source::kDns,
       Optional(tick_clock_.NowTicks() + kTtl), Optional(clock_.Now() + kTtl),
       kEndpoints));
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::AAAA,
+  EXPECT_THAT(cache.Lookup(kName, anonymization_key,
+                           handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
                            HostResolverSource::DNS, /*secure=*/false),
               matcher);
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::UNSPECIFIED,
-                           HostResolverSource::DNS, /*secure=*/false),
-              matcher);
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::AAAA,
+  EXPECT_THAT(
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle,
+                   DnsQueryType::UNSPECIFIED, HostResolverSource::DNS,
+                   /*secure=*/false),
+      matcher);
+  EXPECT_THAT(cache.Lookup(kName, anonymization_key,
+                           handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
                            HostResolverSource::ANY, /*secure=*/false),
               matcher);
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::AAAA,
+  EXPECT_THAT(cache.Lookup(kName, anonymization_key,
+                           handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
                            HostResolverSource::DNS, /*secure=*/std::nullopt),
               matcher);
 
-  EXPECT_EQ(cache.Lookup(kName, anonymization_key, DnsQueryType::A,
-                         HostResolverSource::DNS, /*secure=*/false),
-            nullptr);
-  EXPECT_EQ(cache.Lookup(kName, anonymization_key, DnsQueryType::AAAA,
+  EXPECT_EQ(
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle,
+                   DnsQueryType::A, HostResolverSource::DNS, /*secure=*/false),
+      nullptr);
+  EXPECT_EQ(cache.Lookup(kName, anonymization_key,
+                         handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
                          HostResolverSource::SYSTEM, /*secure=*/false),
             nullptr);
-  EXPECT_EQ(cache.Lookup(kName, anonymization_key, DnsQueryType::AAAA,
+  EXPECT_EQ(cache.Lookup(kName, anonymization_key,
+                         handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
                          HostResolverSource::DNS, /*secure=*/true),
             nullptr);
 
@@ -211,29 +291,39 @@ TEST_F(HostResolverCacheTest, CacheAaaaResult) {
           kName, DnsQueryType::AAAA, HostResolverInternalResult::Source::kDns,
           Optional(tick_clock_.NowTicks() + kTtl),
           Optional(clock_.Now() + kTtl), kEndpoints)));
-  EXPECT_THAT(cache.LookupStale(kName, anonymization_key, DnsQueryType::AAAA,
+  EXPECT_THAT(
+      cache.LookupStale(kName, anonymization_key,
+                        handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
+                        HostResolverSource::DNS, /*secure=*/false),
+      stale_result_matcher);
+  EXPECT_THAT(cache.LookupStale(kName, anonymization_key,
+                                handles::kInvalidNetworkHandle,
+                                DnsQueryType::UNSPECIFIED,
                                 HostResolverSource::DNS, /*secure=*/false),
               stale_result_matcher);
   EXPECT_THAT(
-      cache.LookupStale(kName, anonymization_key, DnsQueryType::UNSPECIFIED,
-                        HostResolverSource::DNS, /*secure=*/false),
+      cache.LookupStale(kName, anonymization_key,
+                        handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
+                        HostResolverSource::ANY, /*secure=*/false),
       stale_result_matcher);
-  EXPECT_THAT(cache.LookupStale(kName, anonymization_key, DnsQueryType::AAAA,
-                                HostResolverSource::ANY, /*secure=*/false),
-              stale_result_matcher);
   EXPECT_THAT(
-      cache.LookupStale(kName, anonymization_key, DnsQueryType::AAAA,
+      cache.LookupStale(kName, anonymization_key,
+                        handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
                         HostResolverSource::DNS, /*secure=*/std::nullopt),
       stale_result_matcher);
 
-  EXPECT_EQ(cache.LookupStale(kName, anonymization_key, DnsQueryType::A,
+  EXPECT_EQ(cache.LookupStale(kName, anonymization_key,
+                              handles::kInvalidNetworkHandle, DnsQueryType::A,
                               HostResolverSource::DNS, /*secure=*/false),
             std::nullopt);
-  EXPECT_EQ(cache.LookupStale(kName, anonymization_key, DnsQueryType::AAAA,
-                              HostResolverSource::SYSTEM, /*secure=*/false),
-            std::nullopt);
-  EXPECT_EQ(cache.LookupStale(kName, anonymization_key, DnsQueryType::AAAA,
-                              HostResolverSource::DNS, /*secure=*/true),
+  EXPECT_EQ(
+      cache.LookupStale(kName, anonymization_key,
+                        handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
+                        HostResolverSource::SYSTEM, /*secure=*/false),
+      std::nullopt);
+  EXPECT_EQ(cache.LookupStale(
+                kName, anonymization_key, handles::kInvalidNetworkHandle,
+                DnsQueryType::AAAA, HostResolverSource::DNS, /*secure=*/true),
             std::nullopt);
 }
 
@@ -254,32 +344,41 @@ TEST_F(HostResolverCacheTest, CacheHttpsResult) {
       kMetadatas);
 
   const NetworkAnonymizationKey anonymization_key;
-  cache.Set(std::move(result), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   auto matcher = Pointee(ExpectHostResolverInternalMetadataResult(
       kName, DnsQueryType::HTTPS, HostResolverInternalResult::Source::kDns,
       Optional(tick_clock_.NowTicks() + kTtl), Optional(clock_.Now() + kTtl),
       kMetadatas));
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::HTTPS,
+  EXPECT_THAT(cache.Lookup(kName, anonymization_key,
+                           handles::kInvalidNetworkHandle, DnsQueryType::HTTPS,
                            HostResolverSource::DNS, /*secure=*/false),
               matcher);
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::UNSPECIFIED,
-                           HostResolverSource::DNS, /*secure=*/false),
-              matcher);
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::HTTPS,
+  EXPECT_THAT(
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle,
+                   DnsQueryType::UNSPECIFIED, HostResolverSource::DNS,
+                   /*secure=*/false),
+      matcher);
+  EXPECT_THAT(cache.Lookup(kName, anonymization_key,
+                           handles::kInvalidNetworkHandle, DnsQueryType::HTTPS,
                            HostResolverSource::ANY, /*secure=*/false),
               matcher);
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::HTTPS,
+  EXPECT_THAT(cache.Lookup(kName, anonymization_key,
+                           handles::kInvalidNetworkHandle, DnsQueryType::HTTPS,
                            HostResolverSource::DNS, /*secure=*/std::nullopt),
               matcher);
-  EXPECT_EQ(cache.Lookup(kName, anonymization_key, DnsQueryType::A,
-                         HostResolverSource::DNS, /*secure=*/false),
-            nullptr);
-  EXPECT_EQ(cache.Lookup(kName, anonymization_key, DnsQueryType::HTTPS,
+  EXPECT_EQ(
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle,
+                   DnsQueryType::A, HostResolverSource::DNS, /*secure=*/false),
+      nullptr);
+  EXPECT_EQ(cache.Lookup(kName, anonymization_key,
+                         handles::kInvalidNetworkHandle, DnsQueryType::HTTPS,
                          HostResolverSource::SYSTEM, /*secure=*/false),
             nullptr);
-  EXPECT_EQ(cache.Lookup(kName, anonymization_key, DnsQueryType::HTTPS,
+  EXPECT_EQ(cache.Lookup(kName, anonymization_key,
+                         handles::kInvalidNetworkHandle, DnsQueryType::HTTPS,
                          HostResolverSource::DNS, /*secure=*/true),
             nullptr);
 
@@ -288,28 +387,38 @@ TEST_F(HostResolverCacheTest, CacheHttpsResult) {
           kName, DnsQueryType::HTTPS, HostResolverInternalResult::Source::kDns,
           Optional(tick_clock_.NowTicks() + kTtl),
           Optional(clock_.Now() + kTtl), kMetadatas)));
-  EXPECT_THAT(cache.LookupStale(kName, anonymization_key, DnsQueryType::HTTPS,
+  EXPECT_THAT(
+      cache.LookupStale(kName, anonymization_key,
+                        handles::kInvalidNetworkHandle, DnsQueryType::HTTPS,
+                        HostResolverSource::DNS, /*secure=*/false),
+      stale_result_matcher);
+  EXPECT_THAT(cache.LookupStale(kName, anonymization_key,
+                                handles::kInvalidNetworkHandle,
+                                DnsQueryType::UNSPECIFIED,
                                 HostResolverSource::DNS, /*secure=*/false),
               stale_result_matcher);
   EXPECT_THAT(
-      cache.LookupStale(kName, anonymization_key, DnsQueryType::UNSPECIFIED,
-                        HostResolverSource::DNS, /*secure=*/false),
+      cache.LookupStale(kName, anonymization_key,
+                        handles::kInvalidNetworkHandle, DnsQueryType::HTTPS,
+                        HostResolverSource::ANY, /*secure=*/false),
       stale_result_matcher);
-  EXPECT_THAT(cache.LookupStale(kName, anonymization_key, DnsQueryType::HTTPS,
-                                HostResolverSource::ANY, /*secure=*/false),
-              stale_result_matcher);
   EXPECT_THAT(
-      cache.LookupStale(kName, anonymization_key, DnsQueryType::HTTPS,
+      cache.LookupStale(kName, anonymization_key,
+                        handles::kInvalidNetworkHandle, DnsQueryType::HTTPS,
                         HostResolverSource::DNS, /*secure=*/std::nullopt),
       stale_result_matcher);
-  EXPECT_EQ(cache.LookupStale(kName, anonymization_key, DnsQueryType::A,
+  EXPECT_EQ(cache.LookupStale(kName, anonymization_key,
+                              handles::kInvalidNetworkHandle, DnsQueryType::A,
                               HostResolverSource::DNS, /*secure=*/false),
             std::nullopt);
-  EXPECT_EQ(cache.LookupStale(kName, anonymization_key, DnsQueryType::HTTPS,
-                              HostResolverSource::SYSTEM, /*secure=*/false),
-            std::nullopt);
-  EXPECT_EQ(cache.LookupStale(kName, anonymization_key, DnsQueryType::HTTPS,
-                              HostResolverSource::DNS, /*secure=*/true),
+  EXPECT_EQ(
+      cache.LookupStale(kName, anonymization_key,
+                        handles::kInvalidNetworkHandle, DnsQueryType::HTTPS,
+                        HostResolverSource::SYSTEM, /*secure=*/false),
+      std::nullopt);
+  EXPECT_EQ(cache.LookupStale(
+                kName, anonymization_key, handles::kInvalidNetworkHandle,
+                DnsQueryType::HTTPS, HostResolverSource::DNS, /*secure=*/true),
             std::nullopt);
 }
 
@@ -342,12 +451,15 @@ TEST_F(HostResolverCacheTest, RespectsSchemeAndPortInName) {
                                          kNameWithoutScheme, {})}});
 
   const NetworkAnonymizationKey anonymization_key;
-  cache.Set(std::move(result1), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result1), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
-  cache.Set(std::move(result2), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result2), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
-  EXPECT_THAT(cache.Lookup(kNameWithScheme, anonymization_key),
+  EXPECT_THAT(cache.Lookup(kNameWithScheme, anonymization_key,
+                           handles::kInvalidNetworkHandle),
               Pointee(ExpectHostResolverInternalMetadataResult(
                   kNameWithScheme, DnsQueryType::HTTPS,
                   HostResolverInternalResult::Source::kDns,
@@ -356,7 +468,8 @@ TEST_F(HostResolverCacheTest, RespectsSchemeAndPortInName) {
                   ElementsAre(Pair(4, ExpectConnectionEndpointMetadata(
                                           ElementsAre(kAlpn1), IsEmpty(),
                                           kNameWithScheme))))));
-  EXPECT_THAT(cache.Lookup(kNameWithoutScheme, anonymization_key),
+  EXPECT_THAT(cache.Lookup(kNameWithoutScheme, anonymization_key,
+                           handles::kInvalidNetworkHandle),
               Pointee(ExpectHostResolverInternalMetadataResult(
                   kNameWithoutScheme, DnsQueryType::HTTPS,
                   HostResolverInternalResult::Source::kDns,
@@ -378,33 +491,42 @@ TEST_F(HostResolverCacheTest, CacheHttpsAliasResult) {
       clock_.Now() + kTtl, HostResolverInternalResult::Source::kDns, kTarget);
 
   const NetworkAnonymizationKey anonymization_key;
-  cache.Set(std::move(result), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   auto matcher = Pointee(ExpectHostResolverInternalAliasResult(
       kName, DnsQueryType::HTTPS, HostResolverInternalResult::Source::kDns,
       Optional(tick_clock_.NowTicks() + kTtl), Optional(clock_.Now() + kTtl),
       kTarget));
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::HTTPS,
+  EXPECT_THAT(cache.Lookup(kName, anonymization_key,
+                           handles::kInvalidNetworkHandle, DnsQueryType::HTTPS,
                            HostResolverSource::DNS, /*secure=*/false),
               matcher);
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::UNSPECIFIED,
-                           HostResolverSource::DNS, /*secure=*/false),
-              matcher);
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::HTTPS,
+  EXPECT_THAT(
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle,
+                   DnsQueryType::UNSPECIFIED, HostResolverSource::DNS,
+                   /*secure=*/false),
+      matcher);
+  EXPECT_THAT(cache.Lookup(kName, anonymization_key,
+                           handles::kInvalidNetworkHandle, DnsQueryType::HTTPS,
                            HostResolverSource::ANY, /*secure=*/false),
               matcher);
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::HTTPS,
+  EXPECT_THAT(cache.Lookup(kName, anonymization_key,
+                           handles::kInvalidNetworkHandle, DnsQueryType::HTTPS,
                            HostResolverSource::DNS, /*secure=*/std::nullopt),
               matcher);
 
-  EXPECT_EQ(cache.Lookup(kName, anonymization_key, DnsQueryType::A,
-                         HostResolverSource::DNS, /*secure=*/false),
-            nullptr);
-  EXPECT_EQ(cache.Lookup(kName, anonymization_key, DnsQueryType::HTTPS,
+  EXPECT_EQ(
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle,
+                   DnsQueryType::A, HostResolverSource::DNS, /*secure=*/false),
+      nullptr);
+  EXPECT_EQ(cache.Lookup(kName, anonymization_key,
+                         handles::kInvalidNetworkHandle, DnsQueryType::HTTPS,
                          HostResolverSource::SYSTEM, /*secure=*/false),
             nullptr);
-  EXPECT_EQ(cache.Lookup(kName, anonymization_key, DnsQueryType::HTTPS,
+  EXPECT_EQ(cache.Lookup(kName, anonymization_key,
+                         handles::kInvalidNetworkHandle, DnsQueryType::HTTPS,
                          HostResolverSource::DNS, /*secure=*/true),
             nullptr);
 }
@@ -426,33 +548,42 @@ TEST_F(HostResolverCacheTest, CacheCnameAliasResult) {
       clock_.Now() + kTtl, HostResolverInternalResult::Source::kDns, kTarget);
 
   const NetworkAnonymizationKey anonymization_key;
-  cache.Set(std::move(result), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   auto matcher = Pointee(ExpectHostResolverInternalAliasResult(
       kName, DnsQueryType::AAAA, HostResolverInternalResult::Source::kDns,
       Optional(tick_clock_.NowTicks() + kTtl), Optional(clock_.Now() + kTtl),
       kTarget));
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::AAAA,
+  EXPECT_THAT(cache.Lookup(kName, anonymization_key,
+                           handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
                            HostResolverSource::DNS, /*secure=*/false),
               matcher);
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::UNSPECIFIED,
-                           HostResolverSource::DNS, /*secure=*/false),
-              matcher);
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::AAAA,
+  EXPECT_THAT(
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle,
+                   DnsQueryType::UNSPECIFIED, HostResolverSource::DNS,
+                   /*secure=*/false),
+      matcher);
+  EXPECT_THAT(cache.Lookup(kName, anonymization_key,
+                           handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
                            HostResolverSource::ANY, /*secure=*/false),
               matcher);
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::AAAA,
+  EXPECT_THAT(cache.Lookup(kName, anonymization_key,
+                           handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
                            HostResolverSource::DNS, /*secure=*/std::nullopt),
               matcher);
 
-  EXPECT_EQ(cache.Lookup(kName, anonymization_key, DnsQueryType::A,
-                         HostResolverSource::DNS, /*secure=*/false),
-            nullptr);
-  EXPECT_EQ(cache.Lookup(kName, anonymization_key, DnsQueryType::AAAA,
+  EXPECT_EQ(
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle,
+                   DnsQueryType::A, HostResolverSource::DNS, /*secure=*/false),
+      nullptr);
+  EXPECT_EQ(cache.Lookup(kName, anonymization_key,
+                         handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
                          HostResolverSource::SYSTEM, /*secure=*/false),
             nullptr);
-  EXPECT_EQ(cache.Lookup(kName, anonymization_key, DnsQueryType::AAAA,
+  EXPECT_EQ(cache.Lookup(kName, anonymization_key,
+                         handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
                          HostResolverSource::DNS, /*secure=*/true),
             nullptr);
 }
@@ -469,7 +600,8 @@ TEST_F(HostResolverCacheTest, CacheWildcardAlias) {
       kAliasTarget);
 
   const NetworkAnonymizationKey anonymization_key;
-  cache.Set(std::move(result), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   auto matcher = Pointee(ExpectHostResolverInternalAliasResult(
@@ -477,14 +609,21 @@ TEST_F(HostResolverCacheTest, CacheWildcardAlias) {
       HostResolverInternalResult::Source::kDns,
       Optional(tick_clock_.NowTicks() + kTtl), Optional(clock_.Now() + kTtl),
       kAliasTarget));
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::UNSPECIFIED),
+  EXPECT_THAT(
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle,
+                   DnsQueryType::UNSPECIFIED),
+      matcher);
+  EXPECT_THAT(cache.Lookup(kName, anonymization_key,
+                           handles::kInvalidNetworkHandle, DnsQueryType::A),
               matcher);
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::A), matcher);
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::AAAA),
+  EXPECT_THAT(cache.Lookup(kName, anonymization_key,
+                           handles::kInvalidNetworkHandle, DnsQueryType::AAAA),
               matcher);
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::HTTPS),
+  EXPECT_THAT(cache.Lookup(kName, anonymization_key,
+                           handles::kInvalidNetworkHandle, DnsQueryType::HTTPS),
               matcher);
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::TXT),
+  EXPECT_THAT(cache.Lookup(kName, anonymization_key,
+                           handles::kInvalidNetworkHandle, DnsQueryType::TXT),
               matcher);
 }
 
@@ -499,33 +638,42 @@ TEST_F(HostResolverCacheTest, CacheErrorResult) {
       ERR_NAME_NOT_RESOLVED);
 
   const NetworkAnonymizationKey anonymization_key;
-  cache.Set(std::move(result), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   auto matcher = Pointee(ExpectHostResolverInternalErrorResult(
       kName, DnsQueryType::AAAA, HostResolverInternalResult::Source::kDns,
       Optional(tick_clock_.NowTicks() + kTtl), Optional(clock_.Now() + kTtl),
       ERR_NAME_NOT_RESOLVED));
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::AAAA,
+  EXPECT_THAT(cache.Lookup(kName, anonymization_key,
+                           handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
                            HostResolverSource::DNS, /*secure=*/false),
               matcher);
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::UNSPECIFIED,
-                           HostResolverSource::DNS, /*secure=*/false),
-              matcher);
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::AAAA,
+  EXPECT_THAT(
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle,
+                   DnsQueryType::UNSPECIFIED, HostResolverSource::DNS,
+                   /*secure=*/false),
+      matcher);
+  EXPECT_THAT(cache.Lookup(kName, anonymization_key,
+                           handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
                            HostResolverSource::ANY, /*secure=*/false),
               matcher);
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::AAAA,
+  EXPECT_THAT(cache.Lookup(kName, anonymization_key,
+                           handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
                            HostResolverSource::DNS, /*secure=*/std::nullopt),
               matcher);
 
-  EXPECT_EQ(cache.Lookup(kName, anonymization_key, DnsQueryType::A,
-                         HostResolverSource::DNS, /*secure=*/false),
-            nullptr);
-  EXPECT_EQ(cache.Lookup(kName, anonymization_key, DnsQueryType::AAAA,
+  EXPECT_EQ(
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle,
+                   DnsQueryType::A, HostResolverSource::DNS, /*secure=*/false),
+      nullptr);
+  EXPECT_EQ(cache.Lookup(kName, anonymization_key,
+                         handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
                          HostResolverSource::SYSTEM, /*secure=*/false),
             nullptr);
-  EXPECT_EQ(cache.Lookup(kName, anonymization_key, DnsQueryType::AAAA,
+  EXPECT_EQ(cache.Lookup(kName, anonymization_key,
+                         handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
                          HostResolverSource::DNS, /*secure=*/true),
             nullptr);
 }
@@ -552,19 +700,21 @@ TEST_F(HostResolverCacheTest, ResultsCanBeUpdated) {
       /*hosts=*/std::vector<HostPortPair>{});
 
   const NetworkAnonymizationKey anonymization_key;
-  cache.Set(std::move(result1), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result1), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
-  cache.Set(std::move(result2), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result2), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   EXPECT_THAT(
-      cache.Lookup(kName, anonymization_key),
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle),
       Pointee(ExpectHostResolverInternalDataResult(
           kName, DnsQueryType::AAAA, HostResolverInternalResult::Source::kDns,
           Optional(tick_clock_.NowTicks() + kTtl),
           Optional(clock_.Now() + kTtl), kEndpoints1)));
   EXPECT_THAT(
-      cache.Lookup(kName2, anonymization_key),
+      cache.Lookup(kName2, anonymization_key, handles::kInvalidNetworkHandle),
       Pointee(ExpectHostResolverInternalDataResult(
           kName2, DnsQueryType::AAAA, HostResolverInternalResult::Source::kDns,
           Optional(tick_clock_.NowTicks() + kTtl),
@@ -580,17 +730,18 @@ TEST_F(HostResolverCacheTest, ResultsCanBeUpdated) {
       /*strings=*/std::vector<std::string>{},
       /*hosts=*/std::vector<HostPortPair>{});
 
-  cache.Set(std::move(result3), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result3), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   EXPECT_THAT(
-      cache.Lookup(kName, anonymization_key),
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle),
       Pointee(ExpectHostResolverInternalDataResult(
           kName, DnsQueryType::AAAA, HostResolverInternalResult::Source::kDns,
           Optional(tick_clock_.NowTicks() + kTtl),
           Optional(clock_.Now() + kTtl), kEndpoints2)));
   EXPECT_THAT(
-      cache.Lookup(kName2, anonymization_key),
+      cache.Lookup(kName2, anonymization_key, handles::kInvalidNetworkHandle),
       Pointee(ExpectHostResolverInternalDataResult(
           kName2, DnsQueryType::AAAA, HostResolverInternalResult::Source::kDns,
           Optional(tick_clock_.NowTicks() + kTtl),
@@ -609,11 +760,15 @@ TEST_F(HostResolverCacheTest, UpdateCanReplaceWildcard) {
       kAliasTarget1);
 
   const NetworkAnonymizationKey anonymization_key;
-  cache.Set(std::move(result1), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result1), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
-  EXPECT_NE(cache.Lookup(kName, anonymization_key, DnsQueryType::A), nullptr);
-  EXPECT_NE(cache.Lookup(kName, anonymization_key, DnsQueryType::AAAA),
+  EXPECT_NE(cache.Lookup(kName, anonymization_key,
+                         handles::kInvalidNetworkHandle, DnsQueryType::A),
+            nullptr);
+  EXPECT_NE(cache.Lookup(kName, anonymization_key,
+                         handles::kInvalidNetworkHandle, DnsQueryType::AAAA),
             nullptr);
 
   const std::string kAliasTarget2 = "target2.test";
@@ -622,18 +777,21 @@ TEST_F(HostResolverCacheTest, UpdateCanReplaceWildcard) {
       clock_.Now() + kTtl, HostResolverInternalResult::Source::kDns,
       kAliasTarget2);
 
-  cache.Set(std::move(result2), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result2), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   // After update, because most recent entry is not wildcard, expect lookup to
   // only succeed for the specific type.
   EXPECT_THAT(
-      cache.Lookup(kName, anonymization_key, DnsQueryType::A),
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle,
+                   DnsQueryType::A),
       Pointee(ExpectHostResolverInternalAliasResult(
           kName, DnsQueryType::A, HostResolverInternalResult::Source::kDns,
           Optional(tick_clock_.NowTicks() + kTtl),
           Optional(clock_.Now() + kTtl), kAliasTarget2)));
-  EXPECT_EQ(cache.Lookup(kName, anonymization_key, DnsQueryType::AAAA),
+  EXPECT_EQ(cache.Lookup(kName, anonymization_key,
+                         handles::kInvalidNetworkHandle, DnsQueryType::AAAA),
             nullptr);
 }
 
@@ -654,24 +812,29 @@ TEST_F(HostResolverCacheTest, WildcardUpdateCanReplaceSpecifics) {
       kAliasTarget2);
 
   const NetworkAnonymizationKey anonymization_key;
-  cache.Set(std::move(result1), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result1), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
-  cache.Set(std::move(result2), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result2), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   EXPECT_THAT(
-      cache.Lookup(kName, anonymization_key, DnsQueryType::A),
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle,
+                   DnsQueryType::A),
       Pointee(ExpectHostResolverInternalAliasResult(
           kName, DnsQueryType::A, HostResolverInternalResult::Source::kDns,
           Optional(tick_clock_.NowTicks() + kTtl),
           Optional(clock_.Now() + kTtl), kAliasTarget1)));
   EXPECT_THAT(
-      cache.Lookup(kName, anonymization_key, DnsQueryType::AAAA),
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle,
+                   DnsQueryType::AAAA),
       Pointee(ExpectHostResolverInternalAliasResult(
           kName, DnsQueryType::AAAA, HostResolverInternalResult::Source::kDns,
           Optional(tick_clock_.NowTicks() + kTtl),
           Optional(clock_.Now() + kTtl), kAliasTarget2)));
-  EXPECT_EQ(cache.Lookup(kName, anonymization_key, DnsQueryType::HTTPS),
+  EXPECT_EQ(cache.Lookup(kName, anonymization_key,
+                         handles::kInvalidNetworkHandle, DnsQueryType::HTTPS),
             nullptr);
 
   const std::string kAliasTarget3 = "target3.test";
@@ -680,22 +843,26 @@ TEST_F(HostResolverCacheTest, WildcardUpdateCanReplaceSpecifics) {
       clock_.Now() + kTtl, HostResolverInternalResult::Source::kDns,
       kAliasTarget3);
 
-  cache.Set(std::move(result3), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result3), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::A),
+  EXPECT_THAT(cache.Lookup(kName, anonymization_key,
+                           handles::kInvalidNetworkHandle, DnsQueryType::A),
               Pointee(ExpectHostResolverInternalAliasResult(
                   kName, DnsQueryType::UNSPECIFIED,
                   HostResolverInternalResult::Source::kDns,
                   Optional(tick_clock_.NowTicks() + kTtl),
                   Optional(clock_.Now() + kTtl), kAliasTarget3)));
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::AAAA),
+  EXPECT_THAT(cache.Lookup(kName, anonymization_key,
+                           handles::kInvalidNetworkHandle, DnsQueryType::AAAA),
               Pointee(ExpectHostResolverInternalAliasResult(
                   kName, DnsQueryType::UNSPECIFIED,
                   HostResolverInternalResult::Source::kDns,
                   Optional(tick_clock_.NowTicks() + kTtl),
                   Optional(clock_.Now() + kTtl), kAliasTarget3)));
-  EXPECT_THAT(cache.Lookup(kName, anonymization_key, DnsQueryType::HTTPS),
+  EXPECT_THAT(cache.Lookup(kName, anonymization_key,
+                           handles::kInvalidNetworkHandle, DnsQueryType::HTTPS),
               Pointee(ExpectHostResolverInternalAliasResult(
                   kName, DnsQueryType::UNSPECIFIED,
                   HostResolverInternalResult::Source::kDns,
@@ -718,10 +885,13 @@ TEST_F(HostResolverCacheTest, LookupNameIsCanonicalized) {
       /*hosts=*/std::vector<HostPortPair>{});
 
   const NetworkAnonymizationKey anonymization_key;
-  cache.Set(std::move(result), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
-  EXPECT_NE(cache.Lookup("FOO.TEST", anonymization_key), nullptr);
+  EXPECT_NE(cache.Lookup("FOO.TEST", anonymization_key,
+                         handles::kInvalidNetworkHandle),
+            nullptr);
 }
 
 TEST_F(HostResolverCacheTest, LookupIgnoresExpiredResults) {
@@ -751,80 +921,108 @@ TEST_F(HostResolverCacheTest, LookupIgnoresExpiredResults) {
       /*hosts=*/std::vector<HostPortPair>{});
 
   const NetworkAnonymizationKey anonymization_key;
-  cache.Set(std::move(result1), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result1), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
-  cache.Set(std::move(result2), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result2), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   EXPECT_THAT(
-      cache.Lookup(kName1, anonymization_key),
+      cache.Lookup(kName1, anonymization_key, handles::kInvalidNetworkHandle),
       Pointee(ExpectHostResolverInternalDataResult(
           kName1, DnsQueryType::AAAA, HostResolverInternalResult::Source::kDns,
           Optional(tick_clock_.NowTicks() + kTtl1),
           Optional(clock_.Now() + kTtl1), kEndpoints1)));
-  EXPECT_THAT(cache.LookupStale(kName1, anonymization_key),
+  EXPECT_THAT(cache.LookupStale(kName1, anonymization_key,
+                                handles::kInvalidNetworkHandle),
               Optional(IsNotStale()));
   EXPECT_THAT(
-      cache.Lookup(kName2, anonymization_key),
+      cache.Lookup(kName2, anonymization_key, handles::kInvalidNetworkHandle),
       Pointee(ExpectHostResolverInternalDataResult(
           kName2, DnsQueryType::AAAA, HostResolverInternalResult::Source::kDns,
           Optional(tick_clock_.NowTicks() + kTtl2),
           Optional(clock_.Now() + kTtl2), kEndpoints2)));
-  EXPECT_THAT(cache.LookupStale(kName2, anonymization_key),
+  EXPECT_THAT(cache.LookupStale(kName2, anonymization_key,
+                                handles::kInvalidNetworkHandle),
               Optional(IsNotStale()));
 
   // Advance time until just before first expiration. Expect both results still
   // active.
   clock_.Advance(kTtl1 - base::Milliseconds(1));
   tick_clock_.Advance(kTtl1 - base::Milliseconds(1));
-  EXPECT_NE(cache.Lookup(kName1, anonymization_key), nullptr);
-  EXPECT_THAT(cache.LookupStale(kName1, anonymization_key),
+  EXPECT_NE(
+      cache.Lookup(kName1, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
+  EXPECT_THAT(cache.LookupStale(kName1, anonymization_key,
+                                handles::kInvalidNetworkHandle),
               Optional(IsNotStale()));
-  EXPECT_NE(cache.Lookup(kName2, anonymization_key), nullptr);
-  EXPECT_THAT(cache.LookupStale(kName2, anonymization_key),
+  EXPECT_NE(
+      cache.Lookup(kName2, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
+  EXPECT_THAT(cache.LookupStale(kName2, anonymization_key,
+                                handles::kInvalidNetworkHandle),
               Optional(IsNotStale()));
 
   // Advance time until just after first expiration. Expect first result now
   // stale, but second result still valid.
   clock_.Advance(base::Milliseconds(2));
   tick_clock_.Advance(base::Milliseconds(2));
-  EXPECT_EQ(cache.Lookup(kName1, anonymization_key), nullptr);
+  EXPECT_EQ(
+      cache.Lookup(kName1, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
   EXPECT_THAT(
-      cache.LookupStale(kName1, anonymization_key),
+      cache.LookupStale(kName1, anonymization_key,
+                        handles::kInvalidNetworkHandle),
       Optional(IsStale(
           ExpectHostResolverInternalDataResult(
               kName1, DnsQueryType::AAAA,
               HostResolverInternalResult::Source::kDns, Ne(std::nullopt),
               Ne(std::nullopt), kEndpoints1),
           Optional(TimeDeltaIsApproximately(base::Milliseconds(1))), false)));
-  EXPECT_NE(cache.Lookup(kName2, anonymization_key), nullptr);
-  EXPECT_THAT(cache.LookupStale(kName2, anonymization_key),
+  EXPECT_NE(
+      cache.Lookup(kName2, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
+  EXPECT_THAT(cache.LookupStale(kName2, anonymization_key,
+                                handles::kInvalidNetworkHandle),
               Optional(IsNotStale()));
 
   // Advance time util just before second expiration. Expect first still stale
   // and second still valid.
   clock_.Advance(kTtl2 - kTtl1 - base::Milliseconds(2));
   tick_clock_.Advance(kTtl2 - kTtl1 - base::Milliseconds(2));
-  EXPECT_EQ(cache.Lookup(kName1, anonymization_key), nullptr);
-  EXPECT_THAT(cache.LookupStale(kName1, anonymization_key),
+  EXPECT_EQ(
+      cache.Lookup(kName1, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
+  EXPECT_THAT(cache.LookupStale(kName1, anonymization_key,
+                                handles::kInvalidNetworkHandle),
               Optional(IsStale(Optional(TimeDeltaIsApproximately(
                                    base::Minutes(2) - base::Milliseconds(1))),
                                false)));
-  EXPECT_NE(cache.Lookup(kName2, anonymization_key), nullptr);
-  EXPECT_THAT(cache.LookupStale(kName2, anonymization_key),
+  EXPECT_NE(
+      cache.Lookup(kName2, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
+  EXPECT_THAT(cache.LookupStale(kName2, anonymization_key,
+                                handles::kInvalidNetworkHandle),
               Optional(IsNotStale()));
 
   // Advance time to after second expiration. Expect both results now stale.
   clock_.Advance(base::Milliseconds(2));
   tick_clock_.Advance(base::Milliseconds(2));
-  EXPECT_EQ(cache.Lookup(kName1, anonymization_key), nullptr);
-  EXPECT_THAT(cache.LookupStale(kName1, anonymization_key),
+  EXPECT_EQ(
+      cache.Lookup(kName1, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
+  EXPECT_THAT(cache.LookupStale(kName1, anonymization_key,
+                                handles::kInvalidNetworkHandle),
               Optional(IsStale(Optional(TimeDeltaIsApproximately(
                                    base::Minutes(2) + base::Milliseconds(1))),
                                false)));
-  EXPECT_EQ(cache.Lookup(kName2, anonymization_key), nullptr);
+  EXPECT_EQ(
+      cache.Lookup(kName2, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
   EXPECT_THAT(
-      cache.LookupStale(kName2, anonymization_key),
+      cache.LookupStale(kName2, anonymization_key,
+                        handles::kInvalidNetworkHandle),
       Optional(IsStale(
           ExpectHostResolverInternalDataResult(
               kName2, DnsQueryType::AAAA,
@@ -847,13 +1045,17 @@ TEST_F(HostResolverCacheTest, ExpiredResultsCanBeUpdated) {
       /*hosts=*/std::vector<HostPortPair>{});
 
   const NetworkAnonymizationKey anonymization_key;
-  cache.Set(std::move(result), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   // Expiration before Now, so expect entry to start expired.
-  EXPECT_EQ(cache.Lookup(kName, anonymization_key), nullptr);
+  EXPECT_EQ(
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
   EXPECT_THAT(
-      cache.LookupStale(kName, anonymization_key),
+      cache.LookupStale(kName, anonymization_key,
+                        handles::kInvalidNetworkHandle),
       Optional(IsStale(
           Optional(TimeDeltaIsApproximately(base::Milliseconds(1))), false)));
 
@@ -864,19 +1066,25 @@ TEST_F(HostResolverCacheTest, ExpiredResultsCanBeUpdated) {
       /*strings=*/std::vector<std::string>{},
       /*hosts=*/std::vector<HostPortPair>{});
   cache.Set(std::move(update_result), anonymization_key,
-            HostResolverSource::DNS,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
-  EXPECT_NE(cache.Lookup(kName, anonymization_key), nullptr);
-  EXPECT_THAT(cache.LookupStale(kName, anonymization_key),
+  EXPECT_NE(
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
+  EXPECT_THAT(cache.LookupStale(kName, anonymization_key,
+                                handles::kInvalidNetworkHandle),
               Optional(IsNotStale()));
 
   // Expect entry to still be expirable for new TTL.
   clock_.Advance(kTtl + base::Milliseconds(1));
   tick_clock_.Advance(kTtl + base::Milliseconds(1));
-  EXPECT_EQ(cache.Lookup(kName, anonymization_key), nullptr);
+  EXPECT_EQ(
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
   EXPECT_THAT(
-      cache.LookupStale(kName, anonymization_key),
+      cache.LookupStale(kName, anonymization_key,
+                        handles::kInvalidNetworkHandle),
       Optional(IsStale(
           Optional(TimeDeltaIsApproximately(base::Milliseconds(1))), false)));
 }
@@ -907,26 +1115,40 @@ TEST_F(HostResolverCacheTest, LookupIgnoresResultsMarkedStale) {
       /*hosts=*/std::vector<HostPortPair>{});
 
   const NetworkAnonymizationKey anonymization_key;
-  cache.Set(std::move(result1), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result1), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
-  cache.Set(std::move(result2), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result2), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
-  EXPECT_NE(cache.Lookup(kName1, anonymization_key), nullptr);
-  EXPECT_THAT(cache.LookupStale(kName1, anonymization_key),
+  EXPECT_NE(
+      cache.Lookup(kName1, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
+  EXPECT_THAT(cache.LookupStale(kName1, anonymization_key,
+                                handles::kInvalidNetworkHandle),
               Optional(IsNotStale()));
-  EXPECT_NE(cache.Lookup(kName2, anonymization_key), nullptr);
-  EXPECT_THAT(cache.LookupStale(kName2, anonymization_key),
+  EXPECT_NE(
+      cache.Lookup(kName2, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
+  EXPECT_THAT(cache.LookupStale(kName2, anonymization_key,
+                                handles::kInvalidNetworkHandle),
               Optional(IsNotStale()));
 
   cache.MakeAllResultsStale();
 
   // Expect both entries to now be stale.
-  EXPECT_EQ(cache.Lookup(kName1, anonymization_key), nullptr);
-  EXPECT_THAT(cache.LookupStale(kName1, anonymization_key),
+  EXPECT_EQ(
+      cache.Lookup(kName1, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
+  EXPECT_THAT(cache.LookupStale(kName1, anonymization_key,
+                                handles::kInvalidNetworkHandle),
               Optional(IsStale(std::nullopt, true)));
-  EXPECT_EQ(cache.Lookup(kName2, anonymization_key), nullptr);
-  EXPECT_THAT(cache.LookupStale(kName2, anonymization_key),
+  EXPECT_EQ(
+      cache.Lookup(kName2, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
+  EXPECT_THAT(cache.LookupStale(kName2, anonymization_key,
+                                handles::kInvalidNetworkHandle),
               Optional(IsStale(std::nullopt, true)));
 
   const std::string kName3 = "foo3.test";
@@ -939,22 +1161,30 @@ TEST_F(HostResolverCacheTest, LookupIgnoresResultsMarkedStale) {
       kEndpoints3,
       /*strings=*/std::vector<std::string>{},
       /*hosts=*/std::vector<HostPortPair>{});
-  cache.Set(std::move(result3), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result3), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
-  EXPECT_EQ(cache.Lookup(kName1, anonymization_key), nullptr);
-  EXPECT_THAT(cache.LookupStale(kName1, anonymization_key),
+  EXPECT_EQ(
+      cache.Lookup(kName1, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
+  EXPECT_THAT(cache.LookupStale(kName1, anonymization_key,
+                                handles::kInvalidNetworkHandle),
               Optional(IsStale(std::nullopt, true)));
-  EXPECT_EQ(cache.Lookup(kName2, anonymization_key), nullptr);
-  EXPECT_THAT(cache.LookupStale(kName2, anonymization_key),
+  EXPECT_EQ(
+      cache.Lookup(kName2, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
+  EXPECT_THAT(cache.LookupStale(kName2, anonymization_key,
+                                handles::kInvalidNetworkHandle),
               Optional(IsStale(std::nullopt, true)));
   EXPECT_THAT(
-      cache.Lookup(kName3, anonymization_key),
+      cache.Lookup(kName3, anonymization_key, handles::kInvalidNetworkHandle),
       Pointee(ExpectHostResolverInternalDataResult(
           kName3, DnsQueryType::AAAA, HostResolverInternalResult::Source::kDns,
           Optional(tick_clock_.NowTicks() + kTtl),
           Optional(clock_.Now() + kTtl), kEndpoints3)));
-  EXPECT_THAT(cache.LookupStale(kName3, anonymization_key),
+  EXPECT_THAT(cache.LookupStale(kName3, anonymization_key,
+                                handles::kInvalidNetworkHandle),
               Optional(IsNotStale()));
 }
 
@@ -972,13 +1202,17 @@ TEST_F(HostResolverCacheTest, MarkedStaleResultsCanBeUpdated) {
       /*hosts=*/std::vector<HostPortPair>{});
 
   const NetworkAnonymizationKey anonymization_key;
-  cache.Set(std::move(result), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   cache.MakeAllResultsStale();
 
-  EXPECT_EQ(cache.Lookup(kName, anonymization_key), nullptr);
-  EXPECT_THAT(cache.LookupStale(kName, anonymization_key),
+  EXPECT_EQ(
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
+  EXPECT_THAT(cache.LookupStale(kName, anonymization_key,
+                                handles::kInvalidNetworkHandle),
               Optional(IsStale(std::nullopt, true)));
 
   auto update_result = std::make_unique<HostResolverInternalDataResult>(
@@ -987,11 +1221,14 @@ TEST_F(HostResolverCacheTest, MarkedStaleResultsCanBeUpdated) {
       /*strings=*/std::vector<std::string>{},
       /*hosts=*/std::vector<HostPortPair>{});
   cache.Set(std::move(update_result), anonymization_key,
-            HostResolverSource::DNS,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
-  EXPECT_NE(cache.Lookup(kName, anonymization_key), nullptr);
-  EXPECT_THAT(cache.LookupStale(kName, anonymization_key),
+  EXPECT_NE(
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
+  EXPECT_THAT(cache.LookupStale(kName, anonymization_key,
+                                handles::kInvalidNetworkHandle),
               Optional(IsNotStale()));
 }
 
@@ -1025,38 +1262,50 @@ TEST_F(HostResolverCacheTest, RespectsNetworkAnonymizationKey) {
       NetworkAnonymizationKey::CreateSameSite(std::move(site2));
 
   cache.Set(std::move(result1), kNetworkAnonymizationKey1,
-            HostResolverSource::DNS,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
-  EXPECT_NE(cache.Lookup(kName, kNetworkAnonymizationKey1), nullptr);
-  EXPECT_NE(cache.LookupStale(kName, kNetworkAnonymizationKey1), std::nullopt);
-  EXPECT_EQ(cache.Lookup(kName, kNetworkAnonymizationKey2), nullptr);
-  EXPECT_EQ(cache.LookupStale(kName, kNetworkAnonymizationKey2), std::nullopt);
+  EXPECT_NE(cache.Lookup(kName, kNetworkAnonymizationKey1,
+                         handles::kInvalidNetworkHandle),
+            nullptr);
+  EXPECT_NE(cache.LookupStale(kName, kNetworkAnonymizationKey1,
+                              handles::kInvalidNetworkHandle),
+            std::nullopt);
+  EXPECT_EQ(cache.Lookup(kName, kNetworkAnonymizationKey2,
+                         handles::kInvalidNetworkHandle),
+            nullptr);
+  EXPECT_EQ(cache.LookupStale(kName, kNetworkAnonymizationKey2,
+                              handles::kInvalidNetworkHandle),
+            std::nullopt);
 
   cache.Set(std::move(result2), kNetworkAnonymizationKey2,
-            HostResolverSource::DNS,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   EXPECT_THAT(
-      cache.Lookup(kName, kNetworkAnonymizationKey1),
+      cache.Lookup(kName, kNetworkAnonymizationKey1,
+                   handles::kInvalidNetworkHandle),
       Pointee(ExpectHostResolverInternalDataResult(
           kName, DnsQueryType::AAAA, HostResolverInternalResult::Source::kDns,
           Optional(tick_clock_.NowTicks() + kTtl),
           Optional(clock_.Now() + kTtl), kEndpoints1)));
   EXPECT_THAT(
-      cache.LookupStale(kName, kNetworkAnonymizationKey1),
+      cache.LookupStale(kName, kNetworkAnonymizationKey1,
+                        handles::kInvalidNetworkHandle),
       Optional(IsNotStale(ExpectHostResolverInternalDataResult(
           kName, DnsQueryType::AAAA, HostResolverInternalResult::Source::kDns,
           Optional(tick_clock_.NowTicks() + kTtl),
           Optional(clock_.Now() + kTtl), kEndpoints1))));
   EXPECT_THAT(
-      cache.Lookup(kName, kNetworkAnonymizationKey2),
+      cache.Lookup(kName, kNetworkAnonymizationKey2,
+                   handles::kInvalidNetworkHandle),
       Pointee(ExpectHostResolverInternalDataResult(
           kName, DnsQueryType::AAAA, HostResolverInternalResult::Source::kDns,
           Optional(tick_clock_.NowTicks() + kTtl),
           Optional(clock_.Now() + kTtl), kEndpoints2)));
   EXPECT_THAT(
-      cache.LookupStale(kName, kNetworkAnonymizationKey2),
+      cache.LookupStale(kName, kNetworkAnonymizationKey2,
+                        handles::kInvalidNetworkHandle),
       Optional(IsNotStale(ExpectHostResolverInternalDataResult(
           kName, DnsQueryType::AAAA, HostResolverInternalResult::Source::kDns,
           Optional(tick_clock_.NowTicks() + kTtl),
@@ -1080,12 +1329,16 @@ TEST_F(HostResolverCacheTest, UpdateToStale) {
       /*hosts=*/std::vector<HostPortPair>{});
 
   const NetworkAnonymizationKey anonymization_key;
-  cache.Set(std::move(result), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   // Expect initial entry to be unexpired.
-  EXPECT_NE(cache.Lookup(kName, anonymization_key), nullptr);
-  EXPECT_THAT(cache.LookupStale(kName, anonymization_key),
+  EXPECT_NE(
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
+  EXPECT_THAT(cache.LookupStale(kName, anonymization_key,
+                                handles::kInvalidNetworkHandle),
               Optional(IsNotStale()));
 
   auto update_result = std::make_unique<HostResolverInternalDataResult>(
@@ -1095,13 +1348,16 @@ TEST_F(HostResolverCacheTest, UpdateToStale) {
       /*strings=*/std::vector<std::string>{},
       /*hosts=*/std::vector<HostPortPair>{});
   cache.Set(std::move(update_result), anonymization_key,
-            HostResolverSource::DNS,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   // Expect entry to be expired.
-  EXPECT_EQ(cache.Lookup(kName, anonymization_key), nullptr);
+  EXPECT_EQ(
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
   EXPECT_THAT(
-      cache.LookupStale(kName, anonymization_key),
+      cache.LookupStale(kName, anonymization_key,
+                        handles::kInvalidNetworkHandle),
       Optional(IsStale(Optional(TimeDeltaIsApproximately(base::Seconds(1))),
                        false)));
 }
@@ -1135,14 +1391,16 @@ TEST_F(HostResolverCacheTest, PreferMoreRecentInsecureResult) {
   const NetworkAnonymizationKey anonymization_key;
 
   cache.Set(std::move(old_result), anonymization_key,
-            HostResolverSource::SYSTEM,
+            handles::kInvalidNetworkHandle, HostResolverSource::SYSTEM,
             /*secure=*/false);
-  cache.Set(std::move(new_result), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(new_result), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   EXPECT_THAT(
-      cache.Lookup(kName, anonymization_key, DnsQueryType::AAAA,
-                   HostResolverSource::ANY, /*secure=*/false),
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle,
+                   DnsQueryType::AAAA, HostResolverSource::ANY,
+                   /*secure=*/false),
       Pointee(ExpectHostResolverInternalDataResult(
           kName, DnsQueryType::AAAA, HostResolverInternalResult::Source::kDns,
           Optional(tick_clock_.NowTicks() + kTtl),
@@ -1150,8 +1408,9 @@ TEST_F(HostResolverCacheTest, PreferMoreRecentInsecureResult) {
 
   // Other result still available for more specific lookups.
   EXPECT_THAT(
-      cache.Lookup(kName, anonymization_key, DnsQueryType::AAAA,
-                   HostResolverSource::SYSTEM, /*secure=*/false),
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle,
+                   DnsQueryType::AAAA, HostResolverSource::SYSTEM,
+                   /*secure=*/false),
       Pointee(ExpectHostResolverInternalDataResult(
           kName, DnsQueryType::AAAA, HostResolverInternalResult::Source::kDns,
           Optional(tick_clock_.NowTicks() + kTtl),
@@ -1187,14 +1446,16 @@ TEST_F(HostResolverCacheTest, PreferMoreRecentSecureResult) {
   const NetworkAnonymizationKey anonymization_key;
 
   cache.Set(std::move(old_result), anonymization_key,
-            HostResolverSource::SYSTEM,
+            handles::kInvalidNetworkHandle, HostResolverSource::SYSTEM,
             /*secure=*/true);
-  cache.Set(std::move(new_result), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(new_result), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/true);
 
   EXPECT_THAT(
-      cache.Lookup(kName, anonymization_key, DnsQueryType::AAAA,
-                   HostResolverSource::ANY, /*secure=*/true),
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle,
+                   DnsQueryType::AAAA, HostResolverSource::ANY,
+                   /*secure=*/true),
       Pointee(ExpectHostResolverInternalDataResult(
           kName, DnsQueryType::AAAA, HostResolverInternalResult::Source::kDns,
           Optional(tick_clock_.NowTicks() + kTtl),
@@ -1202,8 +1463,9 @@ TEST_F(HostResolverCacheTest, PreferMoreRecentSecureResult) {
 
   // Other result still available for more specific lookups.
   EXPECT_THAT(
-      cache.Lookup(kName, anonymization_key, DnsQueryType::AAAA,
-                   HostResolverSource::SYSTEM, /*secure=*/true),
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle,
+                   DnsQueryType::AAAA, HostResolverSource::SYSTEM,
+                   /*secure=*/true),
       Pointee(ExpectHostResolverInternalDataResult(
           kName, DnsQueryType::AAAA, HostResolverInternalResult::Source::kDns,
           Optional(tick_clock_.NowTicks() + kTtl),
@@ -1250,18 +1512,19 @@ TEST_F(HostResolverCacheTest, PreferMoreSecureResult) {
   // Add in the secure results first to ensure they're not being selected by
   // being the most recently added result.
   cache.Set(std::move(old_secure_result), anonymization_key,
-            HostResolverSource::SYSTEM,
+            handles::kInvalidNetworkHandle, HostResolverSource::SYSTEM,
             /*secure=*/true);
   cache.Set(std::move(secure_result), anonymization_key,
-            HostResolverSource::DNS,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/true);
   cache.Set(std::move(insecure_result), anonymization_key,
-            HostResolverSource::DNS,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   EXPECT_THAT(
-      cache.Lookup(kName, anonymization_key, DnsQueryType::AAAA,
-                   HostResolverSource::ANY, /*secure=*/std::nullopt),
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle,
+                   DnsQueryType::AAAA, HostResolverSource::ANY,
+                   /*secure=*/std::nullopt),
       Pointee(ExpectHostResolverInternalDataResult(
           kName, DnsQueryType::AAAA, HostResolverInternalResult::Source::kDns,
           Optional(tick_clock_.NowTicks() + kTtl),
@@ -1269,15 +1532,17 @@ TEST_F(HostResolverCacheTest, PreferMoreSecureResult) {
 
   // Other results still available for more specific lookups.
   EXPECT_THAT(
-      cache.Lookup(kName, anonymization_key, DnsQueryType::AAAA,
-                   HostResolverSource::ANY, /*secure=*/false),
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle,
+                   DnsQueryType::AAAA, HostResolverSource::ANY,
+                   /*secure=*/false),
       Pointee(ExpectHostResolverInternalDataResult(
           kName, DnsQueryType::AAAA, HostResolverInternalResult::Source::kDns,
           Optional(tick_clock_.NowTicks() + kTtl),
           Optional(clock_.Now() + kTtl), kInsecureEndpoints)));
   EXPECT_THAT(
-      cache.Lookup(kName, anonymization_key, DnsQueryType::AAAA,
-                   HostResolverSource::SYSTEM, /*secure=*/std::nullopt),
+      cache.Lookup(kName, anonymization_key, handles::kInvalidNetworkHandle,
+                   DnsQueryType::AAAA, HostResolverSource::SYSTEM,
+                   /*secure=*/std::nullopt),
       Pointee(ExpectHostResolverInternalDataResult(
           kName, DnsQueryType::AAAA, HostResolverInternalResult::Source::kDns,
           Optional(tick_clock_.NowTicks() + kTtl),
@@ -1313,14 +1578,15 @@ TEST_F(HostResolverCacheTest, LookupStalePrefersNonStaleResult) {
   const NetworkAnonymizationKey anonymization_key;
 
   cache.Set(std::move(active_result), anonymization_key,
-            HostResolverSource::DNS,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
   cache.Set(std::move(stale_result), anonymization_key,
-            HostResolverSource::SYSTEM,
+            handles::kInvalidNetworkHandle, HostResolverSource::SYSTEM,
             /*secure=*/true);
 
   EXPECT_THAT(
-      cache.LookupStale(kName, anonymization_key, DnsQueryType::AAAA,
+      cache.LookupStale(kName, anonymization_key,
+                        handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
                         HostResolverSource::ANY, /*secure=*/std::nullopt),
       Optional(IsNotStale(ExpectHostResolverInternalDataResult(
           kName, DnsQueryType::AAAA, HostResolverInternalResult::Source::kDns,
@@ -1329,7 +1595,8 @@ TEST_F(HostResolverCacheTest, LookupStalePrefersNonStaleResult) {
 
   // Other result still available for more specific lookups.
   EXPECT_THAT(
-      cache.LookupStale(kName, anonymization_key, DnsQueryType::AAAA,
+      cache.LookupStale(kName, anonymization_key,
+                        handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
                         HostResolverSource::SYSTEM, /*secure=*/std::nullopt),
       Optional(IsStale(
           ExpectHostResolverInternalDataResult(
@@ -1369,14 +1636,16 @@ TEST_F(HostResolverCacheTest, InsecureLookupStalePrefersNonStaleResult) {
 
   const NetworkAnonymizationKey anonymization_key;
 
-  cache.Set(std::move(stale_result), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(stale_result), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
   cache.Set(std::move(active_result), anonymization_key,
-            HostResolverSource::SYSTEM,
+            handles::kInvalidNetworkHandle, HostResolverSource::SYSTEM,
             /*secure=*/false);
 
   EXPECT_THAT(
-      cache.LookupStale(kName, anonymization_key, DnsQueryType::AAAA,
+      cache.LookupStale(kName, anonymization_key,
+                        handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
                         HostResolverSource::ANY, /*secure=*/false),
       Optional(IsNotStale(ExpectHostResolverInternalDataResult(
           kName, DnsQueryType::AAAA, HostResolverInternalResult::Source::kDns,
@@ -1410,15 +1679,16 @@ TEST_F(HostResolverCacheTest, LookupStalePrefersLeastStaleByGeneration) {
   const NetworkAnonymizationKey anonymization_key;
 
   cache.Set(std::move(more_stale_result), anonymization_key,
-            HostResolverSource::DNS,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/true);
   cache.MakeAllResultsStale();
   cache.Set(std::move(less_stale_result), anonymization_key,
-            HostResolverSource::SYSTEM,
+            handles::kInvalidNetworkHandle, HostResolverSource::SYSTEM,
             /*secure=*/false);
 
   EXPECT_THAT(
-      cache.LookupStale(kName, anonymization_key, DnsQueryType::AAAA,
+      cache.LookupStale(kName, anonymization_key,
+                        handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
                         HostResolverSource::ANY, /*secure=*/std::nullopt),
       Optional(IsStale(
           ExpectHostResolverInternalDataResult(
@@ -1430,7 +1700,8 @@ TEST_F(HostResolverCacheTest, LookupStalePrefersLeastStaleByGeneration) {
 
   // Other result still available for more specific lookups.
   EXPECT_THAT(
-      cache.LookupStale(kName, anonymization_key, DnsQueryType::AAAA,
+      cache.LookupStale(kName, anonymization_key,
+                        handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
                         HostResolverSource::DNS, /*secure=*/std::nullopt),
       Optional(IsStale(
           ExpectHostResolverInternalDataResult(
@@ -1467,14 +1738,15 @@ TEST_F(HostResolverCacheTest, LookupStalePrefersLeastStaleByExpiration) {
   const NetworkAnonymizationKey anonymization_key;
 
   cache.Set(std::move(less_stale_result), anonymization_key,
-            HostResolverSource::SYSTEM,
+            handles::kInvalidNetworkHandle, HostResolverSource::SYSTEM,
             /*secure=*/false);
   cache.Set(std::move(more_stale_result), anonymization_key,
-            HostResolverSource::DNS,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/true);
 
   EXPECT_THAT(
-      cache.LookupStale(kName, anonymization_key, DnsQueryType::AAAA,
+      cache.LookupStale(kName, anonymization_key,
+                        handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
                         HostResolverSource::ANY, /*secure=*/std::nullopt),
       Optional(IsStale(
           ExpectHostResolverInternalDataResult(
@@ -1485,7 +1757,8 @@ TEST_F(HostResolverCacheTest, LookupStalePrefersLeastStaleByExpiration) {
 
   // Other result still available for more specific lookups.
   EXPECT_THAT(
-      cache.LookupStale(kName, anonymization_key, DnsQueryType::AAAA,
+      cache.LookupStale(kName, anonymization_key,
+                        handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
                         HostResolverSource::DNS, /*secure=*/std::nullopt),
       Optional(
           IsStale(ExpectHostResolverInternalDataResult(
@@ -1521,14 +1794,15 @@ TEST_F(HostResolverCacheTest, LookupStalePrefersMostSecure) {
   const NetworkAnonymizationKey anonymization_key;
 
   cache.Set(std::move(secure_result), anonymization_key,
-            HostResolverSource::SYSTEM,
+            handles::kInvalidNetworkHandle, HostResolverSource::SYSTEM,
             /*secure=*/true);
   cache.Set(std::move(insecure_result), anonymization_key,
-            HostResolverSource::DNS,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   EXPECT_THAT(
-      cache.LookupStale(kName, anonymization_key, DnsQueryType::AAAA,
+      cache.LookupStale(kName, anonymization_key,
+                        handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
                         HostResolverSource::ANY, /*secure=*/std::nullopt),
       Optional(
           IsStale(ExpectHostResolverInternalDataResult(
@@ -1539,7 +1813,8 @@ TEST_F(HostResolverCacheTest, LookupStalePrefersMostSecure) {
 
   // Other result still available for more specific lookups.
   EXPECT_THAT(
-      cache.LookupStale(kName, anonymization_key, DnsQueryType::AAAA,
+      cache.LookupStale(kName, anonymization_key,
+                        handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
                         HostResolverSource::DNS, /*secure=*/std::nullopt),
       Optional(
           IsStale(ExpectHostResolverInternalDataResult(
@@ -1579,14 +1854,15 @@ TEST_F(HostResolverCacheTest, LookupStalePrefersMostSecureNonStale) {
   const NetworkAnonymizationKey anonymization_key;
 
   cache.Set(std::move(insecure_result), anonymization_key,
-            HostResolverSource::DNS,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
   cache.Set(std::move(secure_result), anonymization_key,
-            HostResolverSource::SYSTEM,
+            handles::kInvalidNetworkHandle, HostResolverSource::SYSTEM,
             /*secure=*/true);
 
   EXPECT_THAT(
-      cache.LookupStale(kName, anonymization_key, DnsQueryType::AAAA,
+      cache.LookupStale(kName, anonymization_key,
+                        handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
                         HostResolverSource::ANY, /*secure=*/std::nullopt),
       Optional(IsNotStale(ExpectHostResolverInternalDataResult(
           kName, DnsQueryType::AAAA, HostResolverInternalResult::Source::kDns,
@@ -1619,13 +1895,15 @@ TEST_F(HostResolverCacheTest, LookupStalePrefersMoreRecent) {
   const NetworkAnonymizationKey anonymization_key;
 
   cache.Set(std::move(old_result), anonymization_key,
-            HostResolverSource::SYSTEM,
+            handles::kInvalidNetworkHandle, HostResolverSource::SYSTEM,
             /*secure=*/false);
-  cache.Set(std::move(new_result), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(new_result), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   EXPECT_THAT(
-      cache.LookupStale(kName, anonymization_key, DnsQueryType::AAAA,
+      cache.LookupStale(kName, anonymization_key,
+                        handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
                         HostResolverSource::ANY, /*secure=*/std::nullopt),
       Optional(IsStale(ExpectHostResolverInternalDataResult(
                            kName, DnsQueryType::AAAA,
@@ -1635,7 +1913,8 @@ TEST_F(HostResolverCacheTest, LookupStalePrefersMoreRecent) {
 
   // Other result still available for more specific lookups.
   EXPECT_THAT(
-      cache.LookupStale(kName, anonymization_key, DnsQueryType::AAAA,
+      cache.LookupStale(kName, anonymization_key,
+                        handles::kInvalidNetworkHandle, DnsQueryType::AAAA,
                         HostResolverSource::SYSTEM, /*secure=*/std::nullopt),
       Optional(IsStale(ExpectHostResolverInternalDataResult(
                            kName, DnsQueryType::AAAA,
@@ -1658,7 +1937,8 @@ TEST_F(HostResolverCacheTest, EvictStaleResults) {
       /*hosts=*/std::vector<HostPortPair>{});
 
   const NetworkAnonymizationKey anonymization_key;
-  cache.Set(std::move(result1), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result1), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
   cache.MakeAllResultsStale();
 
@@ -1672,14 +1952,17 @@ TEST_F(HostResolverCacheTest, EvictStaleResults) {
       kEndpoints2,
       /*strings=*/std::vector<std::string>{},
       /*hosts=*/std::vector<HostPortPair>{});
-  cache.Set(std::move(result2), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result2), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   // Expect `result1` to be stale via generation and `result2` to be stale via
   // expiration.
-  EXPECT_THAT(cache.LookupStale(kName1, anonymization_key),
+  EXPECT_THAT(cache.LookupStale(kName1, anonymization_key,
+                                handles::kInvalidNetworkHandle),
               Optional(IsStale(std::nullopt, true)));
-  EXPECT_THAT(cache.LookupStale(kName2, anonymization_key),
+  EXPECT_THAT(cache.LookupStale(kName2, anonymization_key,
+                                handles::kInvalidNetworkHandle),
               Optional(IsStale(Ne(std::nullopt), false)));
 
   const std::string kName3 = "foo3.test";
@@ -1692,14 +1975,21 @@ TEST_F(HostResolverCacheTest, EvictStaleResults) {
       kEndpoints3,
       /*strings=*/std::vector<std::string>{},
       /*hosts=*/std::vector<HostPortPair>{});
-  cache.Set(std::move(result3), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result3), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   // Expect `result1` and `result2` to be evicted and `result3` to still be
   // active.
-  EXPECT_EQ(cache.LookupStale(kName1, anonymization_key), std::nullopt);
-  EXPECT_EQ(cache.LookupStale(kName2, anonymization_key), std::nullopt);
-  EXPECT_NE(cache.Lookup(kName3, anonymization_key), nullptr);
+  EXPECT_EQ(cache.LookupStale(kName1, anonymization_key,
+                              handles::kInvalidNetworkHandle),
+            std::nullopt);
+  EXPECT_EQ(cache.LookupStale(kName2, anonymization_key,
+                              handles::kInvalidNetworkHandle),
+            std::nullopt);
+  EXPECT_NE(
+      cache.Lookup(kName3, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
 }
 
 TEST_F(HostResolverCacheTest, EvictSoonestToExpireResult) {
@@ -1716,7 +2006,8 @@ TEST_F(HostResolverCacheTest, EvictSoonestToExpireResult) {
       /*hosts=*/std::vector<HostPortPair>{});
 
   const NetworkAnonymizationKey anonymization_key;
-  cache.Set(std::move(result1), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result1), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   const std::string kName2 = "foo2.test";
@@ -1729,12 +2020,17 @@ TEST_F(HostResolverCacheTest, EvictSoonestToExpireResult) {
       kEndpoints2,
       /*strings=*/std::vector<std::string>{},
       /*hosts=*/std::vector<HostPortPair>{});
-  cache.Set(std::move(result2), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result2), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   // Expect both results to be active.
-  EXPECT_NE(cache.Lookup(kName1, anonymization_key), nullptr);
-  EXPECT_NE(cache.Lookup(kName2, anonymization_key), nullptr);
+  EXPECT_NE(
+      cache.Lookup(kName1, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
+  EXPECT_NE(
+      cache.Lookup(kName2, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
 
   const std::string kName3 = "foo3.test";
   const std::vector<IPEndPoint> kEndpoints3 = {
@@ -1746,13 +2042,20 @@ TEST_F(HostResolverCacheTest, EvictSoonestToExpireResult) {
       kEndpoints3,
       /*strings=*/std::vector<std::string>{},
       /*hosts=*/std::vector<HostPortPair>{});
-  cache.Set(std::move(result3), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result3), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   // Expect `result2` to be evicted because it expires soonest.
-  EXPECT_NE(cache.Lookup(kName1, anonymization_key), nullptr);
-  EXPECT_EQ(cache.LookupStale(kName2, anonymization_key), std::nullopt);
-  EXPECT_NE(cache.Lookup(kName3, anonymization_key), nullptr);
+  EXPECT_NE(
+      cache.Lookup(kName1, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
+  EXPECT_EQ(cache.LookupStale(kName2, anonymization_key,
+                              handles::kInvalidNetworkHandle),
+            std::nullopt);
+  EXPECT_NE(
+      cache.Lookup(kName3, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
 }
 
 // If multiple results are equally soon-to-expire, expect least secure option to
@@ -1772,7 +2075,8 @@ TEST_F(HostResolverCacheTest, EvictLeastSecureResult) {
       /*hosts=*/std::vector<HostPortPair>{});
 
   const NetworkAnonymizationKey anonymization_key;
-  cache.Set(std::move(result1), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result1), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/true);
 
   const std::string kName2 = "foo2.test";
@@ -1785,12 +2089,17 @@ TEST_F(HostResolverCacheTest, EvictLeastSecureResult) {
       kEndpoints2,
       /*strings=*/std::vector<std::string>{},
       /*hosts=*/std::vector<HostPortPair>{});
-  cache.Set(std::move(result2), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result2), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   // Expect both results to be active.
-  EXPECT_NE(cache.Lookup(kName1, anonymization_key), nullptr);
-  EXPECT_NE(cache.Lookup(kName2, anonymization_key), nullptr);
+  EXPECT_NE(
+      cache.Lookup(kName1, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
+  EXPECT_NE(
+      cache.Lookup(kName2, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
 
   const std::string kName3 = "foo3.test";
   const std::vector<IPEndPoint> kEndpoints3 = {
@@ -1802,14 +2111,21 @@ TEST_F(HostResolverCacheTest, EvictLeastSecureResult) {
       kEndpoints3,
       /*strings=*/std::vector<std::string>{},
       /*hosts=*/std::vector<HostPortPair>{});
-  cache.Set(std::move(result3), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result3), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   // Expect `result2` to be evicted because, while it will expire at the same
   // time as `result1`, it is less secure.
-  EXPECT_NE(cache.Lookup(kName1, anonymization_key), nullptr);
-  EXPECT_EQ(cache.LookupStale(kName2, anonymization_key), std::nullopt);
-  EXPECT_NE(cache.Lookup(kName3, anonymization_key), nullptr);
+  EXPECT_NE(
+      cache.Lookup(kName1, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
+  EXPECT_EQ(cache.LookupStale(kName2, anonymization_key,
+                              handles::kInvalidNetworkHandle),
+            std::nullopt);
+  EXPECT_NE(
+      cache.Lookup(kName3, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
 }
 
 // If multiple results are equally soon-to-expire and equally (in)secure, expect
@@ -1829,7 +2145,8 @@ TEST_F(HostResolverCacheTest, EvictOldestResult) {
       /*hosts=*/std::vector<HostPortPair>{});
 
   const NetworkAnonymizationKey anonymization_key;
-  cache.Set(std::move(result1), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result1), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   const std::string kName2 = "foo2.test";
@@ -1842,12 +2159,17 @@ TEST_F(HostResolverCacheTest, EvictOldestResult) {
       kEndpoints2,
       /*strings=*/std::vector<std::string>{},
       /*hosts=*/std::vector<HostPortPair>{});
-  cache.Set(std::move(result2), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result2), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   // Expect both results to be active.
-  EXPECT_NE(cache.Lookup(kName1, anonymization_key), nullptr);
-  EXPECT_NE(cache.Lookup(kName2, anonymization_key), nullptr);
+  EXPECT_NE(
+      cache.Lookup(kName1, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
+  EXPECT_NE(
+      cache.Lookup(kName2, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
 
   const std::string kName3 = "foo3.test";
   const std::vector<IPEndPoint> kEndpoints3 = {
@@ -1859,14 +2181,21 @@ TEST_F(HostResolverCacheTest, EvictOldestResult) {
       kEndpoints3,
       /*strings=*/std::vector<std::string>{},
       /*hosts=*/std::vector<HostPortPair>{});
-  cache.Set(std::move(result3), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result3), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   // Expect `result1` to be evicted because, while it will expire at the same
   // time as `result2` and both are insecure, it is older.
-  EXPECT_EQ(cache.LookupStale(kName1, anonymization_key), std::nullopt);
-  EXPECT_NE(cache.Lookup(kName2, anonymization_key), nullptr);
-  EXPECT_NE(cache.Lookup(kName3, anonymization_key), nullptr);
+  EXPECT_EQ(cache.LookupStale(kName1, anonymization_key,
+                              handles::kInvalidNetworkHandle),
+            std::nullopt);
+  EXPECT_NE(
+      cache.Lookup(kName2, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
+  EXPECT_NE(
+      cache.Lookup(kName3, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
 }
 
 // Even newly-added results that trigger eviction are themselves eligible for
@@ -1886,7 +2215,8 @@ TEST_F(HostResolverCacheTest, EvictLatestResult) {
       /*hosts=*/std::vector<HostPortPair>{});
 
   const NetworkAnonymizationKey anonymization_key;
-  cache.Set(std::move(result1), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result1), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   const std::string kName2 = "foo2.test";
@@ -1899,12 +2229,17 @@ TEST_F(HostResolverCacheTest, EvictLatestResult) {
       kEndpoints2,
       /*strings=*/std::vector<std::string>{},
       /*hosts=*/std::vector<HostPortPair>{});
-  cache.Set(std::move(result2), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result2), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   // Expect both results to be active.
-  EXPECT_NE(cache.Lookup(kName1, anonymization_key), nullptr);
-  EXPECT_NE(cache.Lookup(kName2, anonymization_key), nullptr);
+  EXPECT_NE(
+      cache.Lookup(kName1, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
+  EXPECT_NE(
+      cache.Lookup(kName2, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
 
   const std::string kName3 = "foo3.test";
   const std::vector<IPEndPoint> kEndpoints3 = {
@@ -1916,13 +2251,20 @@ TEST_F(HostResolverCacheTest, EvictLatestResult) {
       kEndpoints3,
       /*strings=*/std::vector<std::string>{},
       /*hosts=*/std::vector<HostPortPair>{});
-  cache.Set(std::move(result3), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result3), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   // Expect `result3` to be evicted because it is soonest to expire.
-  EXPECT_NE(cache.Lookup(kName1, anonymization_key), nullptr);
-  EXPECT_NE(cache.Lookup(kName2, anonymization_key), nullptr);
-  EXPECT_EQ(cache.LookupStale(kName3, anonymization_key), std::nullopt);
+  EXPECT_NE(
+      cache.Lookup(kName1, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
+  EXPECT_NE(
+      cache.Lookup(kName2, anonymization_key, handles::kInvalidNetworkHandle),
+      nullptr);
+  EXPECT_EQ(cache.LookupStale(kName3, anonymization_key,
+                              handles::kInvalidNetworkHandle),
+            std::nullopt);
 }
 
 TEST_F(HostResolverCacheTest, SerializeAndDeserialize) {
@@ -1937,7 +2279,8 @@ TEST_F(HostResolverCacheTest, SerializeAndDeserialize) {
       /*strings=*/std::vector<std::string>{},
       /*hosts=*/std::vector<HostPortPair>{});
   const NetworkAnonymizationKey anonymization_key;
-  cache.Set(std::move(result), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   base::Value value = cache.Serialize();
@@ -1948,7 +2291,8 @@ TEST_F(HostResolverCacheTest, SerializeAndDeserialize) {
 
   // Expect restored result to be stale by generation.
   EXPECT_THAT(
-      restored_cache.LookupStale(kName, anonymization_key),
+      restored_cache.LookupStale(kName, anonymization_key,
+                                 handles::kInvalidNetworkHandle),
       Optional(IsStale(ExpectHostResolverInternalDataResult(
                            kName, DnsQueryType::AAAA,
                            HostResolverInternalResult::Source::kDns,
@@ -1968,11 +2312,53 @@ TEST_F(HostResolverCacheTest, TransientAnonymizationKeyNotSerialized) {
       /*strings=*/std::vector<std::string>{},
       /*hosts=*/std::vector<HostPortPair>{});
   const auto anonymization_key = NetworkAnonymizationKey::CreateTransient();
-  cache.Set(std::move(result), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   base::Value value = cache.Serialize();
   EXPECT_TRUE(value.GetList().empty());
+}
+
+TEST_F(HostResolverCacheTest,
+       SerializationPreservesTargetNetworkOnlyForLogging) {
+  HostResolverCache cache(kMaxResults, clock_, tick_clock_);
+  const std::string kName = "foo.test";
+  const std::vector<IPEndPoint> kEndpoints = {
+      IPEndPoint(IPAddress::FromIPLiteral("::1").value(), /*port=*/0)};
+  const base::Time kExpiration = clock_.Now() + base::Hours(2);
+
+  auto result = std::make_unique<HostResolverInternalDataResult>(
+      kName, DnsQueryType::AAAA, tick_clock_.NowTicks() + base::Hours(2),
+      kExpiration, HostResolverInternalResult::Source::kDns, kEndpoints,
+      /*strings=*/std::vector<std::string>{},
+      /*hosts=*/std::vector<HostPortPair>{});
+
+  const NetworkAnonymizationKey anonymization_key;
+  const handles::NetworkHandle kNetwork = 100;
+
+  cache.Set(std::move(result), anonymization_key, kNetwork,
+            HostResolverSource::DNS,
+            /*secure=*/false);
+
+  // Serialize for logging
+  base::Value value = cache.SerializeForLogging();
+  // The serialized list should contain the network-specific entry
+  ASSERT_TRUE(value.is_dict());
+  const base::ListValue* entries = value.GetDict().FindList("entries");
+  ASSERT_TRUE(entries);
+  EXPECT_EQ(entries->size(), 1u);
+  const base::Value& serialized_entry = (*entries)[0];
+  ASSERT_TRUE(serialized_entry.is_dict());
+  const std::string* target_network_str =
+      serialized_entry.GetDict().FindString("target_network");
+  ASSERT_TRUE(target_network_str);
+  EXPECT_EQ(base::NumberToString(kNetwork), *target_network_str);
+
+  // Serialize for persistence
+  value = cache.Serialize();
+  // The serialized list should not contain the network-specific entry
+  EXPECT_EQ(value.GetList().size(), 0u);
 }
 
 TEST_F(HostResolverCacheTest, DeserializePrefersExistingResults) {
@@ -1987,7 +2373,8 @@ TEST_F(HostResolverCacheTest, DeserializePrefersExistingResults) {
       /*strings=*/std::vector<std::string>{},
       /*hosts=*/std::vector<HostPortPair>{});
   const NetworkAnonymizationKey anonymization_key;
-  cache.Set(std::move(result), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   base::Value value = cache.Serialize();
@@ -2003,14 +2390,15 @@ TEST_F(HostResolverCacheTest, DeserializePrefersExistingResults) {
       /*strings=*/std::vector<std::string>{},
       /*hosts=*/std::vector<HostPortPair>{});
   restored_cache.Set(std::move(result), anonymization_key,
-                     HostResolverSource::DNS,
+                     handles::kInvalidNetworkHandle, HostResolverSource::DNS,
                      /*secure=*/false);
 
   EXPECT_TRUE(restored_cache.RestoreFromValue(value));
 
   // Expect pre-restoration result.
   EXPECT_THAT(
-      restored_cache.LookupStale(kName, anonymization_key),
+      restored_cache.LookupStale(kName, anonymization_key,
+                                 handles::kInvalidNetworkHandle),
       Optional(IsNotStale(ExpectHostResolverInternalDataResult(
           kName, DnsQueryType::AAAA, HostResolverInternalResult::Source::kDns,
           Ne(std::nullopt), Optional(kExpiration), kEndpoints))));
@@ -2028,7 +2416,8 @@ TEST_F(HostResolverCacheTest, DeserializeStopsBeforeEviction) {
       /*strings=*/std::vector<std::string>{},
       /*hosts=*/std::vector<HostPortPair>{});
   const NetworkAnonymizationKey anonymization_key;
-  cache.Set(std::move(result), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   base::Value value = cache.Serialize();
@@ -2045,16 +2434,18 @@ TEST_F(HostResolverCacheTest, DeserializeStopsBeforeEviction) {
       /*strings=*/std::vector<std::string>{},
       /*hosts=*/std::vector<HostPortPair>{});
   restored_cache.Set(std::move(result), anonymization_key,
-                     HostResolverSource::DNS,
+                     handles::kInvalidNetworkHandle, HostResolverSource::DNS,
                      /*secure=*/false);
 
   EXPECT_TRUE(restored_cache.RestoreFromValue(value));
 
   // Expect only pre-restoration result.
-  EXPECT_EQ(restored_cache.LookupStale(kName1, anonymization_key),
+  EXPECT_EQ(restored_cache.LookupStale(kName1, anonymization_key,
+                                       handles::kInvalidNetworkHandle),
             std::nullopt);
   EXPECT_THAT(
-      restored_cache.LookupStale(kName2, anonymization_key),
+      restored_cache.LookupStale(kName2, anonymization_key,
+                                 handles::kInvalidNetworkHandle),
       Optional(IsNotStale(ExpectHostResolverInternalDataResult(
           kName2, DnsQueryType::AAAA, HostResolverInternalResult::Source::kDns,
           Ne(std::nullopt), Optional(kExpiration), kEndpoints))));
@@ -2072,7 +2463,8 @@ TEST_F(HostResolverCacheTest, SerializeForLogging) {
       /*strings=*/std::vector<std::string>{},
       /*hosts=*/std::vector<HostPortPair>{});
   const NetworkAnonymizationKey anonymization_key;
-  cache.Set(std::move(result), anonymization_key, HostResolverSource::DNS,
+  cache.Set(std::move(result), anonymization_key,
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
             /*secure=*/false);
 
   base::Value value = cache.SerializeForLogging();
@@ -2082,4 +2474,72 @@ TEST_F(HostResolverCacheTest, SerializeForLogging) {
 }
 
 }  // namespace
+
+// Generates a seed corpus containing a single valid serialized
+// HostResolverCache. The cache serialization format is highly structured
+// (containing query types, IP endpoints, TTLs, etc.), so the seed corpus is
+// created from the HostResolverInternalDataResult implementation.
+std::vector<std::tuple<size_t, base::Value>> GetHostResolverCacheSeeds() {
+  std::vector<std::tuple<size_t, base::Value>> seeds;
+
+  HostResolverCache cache(10);
+
+  const std::string kName = "foo.test";
+  const base::TimeDelta kTtl = base::Minutes(2);
+  const std::vector<IPEndPoint> kEndpoints = {
+      IPEndPoint(IPAddress(1, 2, 3, 4), /*port=*/0),
+      IPEndPoint(IPAddress(2, 3, 4, 5), /*port=*/0)};
+
+  auto result = std::make_unique<HostResolverInternalDataResult>(
+      kName, DnsQueryType::A, base::TimeTicks::Now() + kTtl,
+      base::Time::Now() + kTtl, HostResolverInternalResult::Source::kDns,
+      kEndpoints,
+      /*strings=*/std::vector<std::string>{},
+      /*hosts=*/std::vector<HostPortPair>{});
+
+  cache.Set(std::move(result), NetworkAnonymizationKey(),
+            handles::kInvalidNetworkHandle, HostResolverSource::DNS,
+            /*secure=*/false);
+
+  seeds.emplace_back(10, cache.Serialize());
+  return seeds;
+}
+
+void SerializationDoesNotCrash(size_t cache_size, const base::Value& value) {
+  HostResolverCache cache(cache_size);
+  if (!cache.RestoreFromValue(value)) {
+    return;
+  }
+
+  base::Value reserialized = cache.Serialize();
+
+  if (cache.AtMaxSizeForTesting()) {
+    return;
+  }
+
+  if (value == reserialized) {
+    return;
+  }
+
+  // The mutator may have added unrecognized keys to the input `value`.
+  // `RestoreFromValue` silently ignores these unrecognized keys, but
+  // `Serialize()` does not write them back out.
+  //
+  // To verify serialization correctness without failing on these ignored keys,
+  // we perform a second round-trip using the `reserialized` value. Restoring
+  // and re-serializing this cleaned value will verify the cleaned values.
+  HostResolverCache canonical_cache(cache_size);
+  CHECK(canonical_cache.RestoreFromValue(reserialized));
+
+  base::Value double_reserialized = canonical_cache.Serialize();
+  CHECK_EQ(reserialized, double_reserialized);
+}
+
+FUZZ_TEST(HostResolverCacheFuzzTest, SerializationDoesNotCrash)
+    // A bit above the kDefaultCacheSize limit of 1000 in
+    // net/dns/resolve_context.cc
+    .WithDomains(fuzztest::InRange<size_t>(1, 1100),
+                 fuzztest::Arbitrary<base::Value>())
+    .WithSeeds(GetHostResolverCacheSeeds);
+
 }  // namespace net

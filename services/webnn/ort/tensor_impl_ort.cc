@@ -8,6 +8,7 @@
 #include "base/containers/span.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
 #include "services/webnn/ort/context_impl_ort.h"
+#include "services/webnn/ort/ort_data_type.h"
 #include "services/webnn/ort/ort_status.h"
 #include "services/webnn/ort/platform_functions_ort.h"
 #include "services/webnn/public/mojom/webnn_tensor.mojom.h"
@@ -21,20 +22,16 @@ TensorImplOrt::TensorImplOrt(
     mojom::TensorInfoPtr tensor_info,
     size_t size,
     ScopedOrtValue tensor,
-    bool can_access_on_cpu,
     scoped_refptr<DeviceAllocator> device_allocator)
     : WebNNTensorImpl(std::move(receiver), context, std::move(tensor_info)),
       device_allocator_((std::move(device_allocator))),
       tensor_(std::move(tensor)),
-      size_(size),
-      can_access_on_cpu_(can_access_on_cpu) {
+      size_(size) {
   // Initialize the tensor with zeros, otherwise, reading uninitialized memory
   // will get random values.
   // TODO(crbug.com/461303833): check whether fast HW clears can be used
   // instead.
-  if (can_access_on_cpu) {
-    std::ranges::fill(AsSpan(), 0);
-  }
+  std::ranges::fill(AsSpan(), 0);
 }
 
 TensorImplOrt::TensorImplOrt(
@@ -43,11 +40,14 @@ TensorImplOrt::TensorImplOrt(
     mojom::TensorInfoPtr tensor_info,
     RepresentationPtr representation,
     size_t size,
+    ScopedOrtExternalMemoryHandle d3d_heap_external_memory_handle,
     ScopedOrtValue tensor)
     : WebNNTensorImpl(std::move(receiver),
                       context,
                       std::move(tensor_info),
                       std::move(representation)),
+      d3d_heap_external_memory_handle_(
+          std::move(d3d_heap_external_memory_handle)),
       tensor_(std::move(tensor)),
       size_(size) {}
 
@@ -55,10 +55,6 @@ TensorImplOrt::~TensorImplOrt() = default;
 
 base::span<uint8_t> TensorImplOrt::AsSpan() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  // For non-CPU device tensors (e.g. WebGPU EP), `GetTensorMutableData()`
-  // returns an opaque device handle, not a CPU-dereferenceable address.
-  // Any read or write through it is undefined behavior.
-  CHECK(can_access_on_cpu_);
 
   void* ort_tensor_raw_data = nullptr;
   CHECK_STATUS(

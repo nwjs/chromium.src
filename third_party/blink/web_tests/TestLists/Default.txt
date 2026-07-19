@@ -52,12 +52,9 @@ css3/masking/clip-path-reference-of-fake-clipPath.html
 css3/masking/mask-serializing.html
 css3/motion-path/use-count-offset.html
 css3/motion-path/use-count-offset-position.html
-css3/selectors3/html/css3-modsel-18.html
 css3/selectors3/html/css3-modsel-61.html
 css3/selectors3/xhtml/css3-modsel-17.xml
-css3/selectors3/xhtml/css3-modsel-18.xml
 css3/selectors3/xml/css3-modsel-17.xml
-css3/selectors3/xml/css3-modsel-18.xml
 css3/selectors3/xml/css3-modsel-61.xml
 css3/style-zoomed-image.html
 css3/supports-crash.html
@@ -150,6 +147,7 @@ external/wpt/css/css-timing/cubic-bezier-timing-functions-output.html
 external/wpt/css/css-timing/frames-timing-functions-output.html
 external/wpt/css/css-timing/frames-timing-functions-syntax.html
 external/wpt/css/css-timing/step-timing-functions-output.html
+external/wpt/css/css-transitions/crashtests/transition-transform-translate-calculated-length-crash.html
 external/wpt/css/css-typed-om/CSSMatrixComponent-DOMMatrix-mutable.html
 external/wpt/css/css-typed-om/declared-styleMap-accepts-inherit.html
 external/wpt/css/css-typed-om/stylevalue-subclasses/cssKeywordValue.html
@@ -355,6 +353,7 @@ external/wpt/workers/semantics/run-a-worker/001.html
 external/wpt/workers/semantics/xhr/002.html
 external/wpt/workers/Worker_dispatchEvent_ErrorEvent.htm
 external/wpt/workers/Worker-terminate-forever.html
+external/wpt/xhr/responsexml-invalid-type.html
 external/wpt/XMLHttpRequest/event-load.htm
 external/wpt/XMLHttpRequest/open-after-abort.htm
 fast/alignment/new-alignment-values.html
@@ -738,7 +737,6 @@ fast/workers/worker-sharedarraybuffer-transfer.html
 fast/writing-mode/english-lr-text.html
 fast/writing-mode/flipped-blocks-outline-crash.html
 fast/writing-mode/percentage-padding.html
-fast/xmlhttprequest/xmlhttprequest-responseXML-invalid-xml.html
 fast/xmlhttprequest/xmlhttprequest-responseXML-xml-text-responsetype.html
 fast/xpath/nodeset-duplicates.html
 fast/xpath/py-dom-xpath/predicates.html
@@ -835,7 +833,7 @@ scrollbars/scrollbar-scrollbarparts-repaint-crash.html
 scrollbars/scrollbar-visibility-hidden.html
 security/lazy-event-listener.html
 security/set-form-autocomplete-attribute.html
-shadow-dom/crashes/slots-nested-in-document-tree-crash.html
+external/wpt/shadow-dom/crashtests/slots-nested-in-document-tree-crash.html
 shadow-dom/css-cascade-outer-scope2.html
 storage/domstorage/localstorage/delete-removal.html
 storage/domstorage/localstorage/simple-usage.html
@@ -909,7 +907,6 @@ transforms/topmost-becomes-bottomost-for-scrolling.html
 transforms/transformed-caret.html
 transforms/transform-origin-crash.html
 transitions/background-webkit-mask-crash.html
-transitions/transition-transform-translate-calculated-length-crash.html
 traversal/hixie-node-iterator/001.xml
 traversal/hixie-node-iterator/006.xml
 traversal/tree-walker-004.html

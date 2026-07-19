@@ -677,7 +677,7 @@ public class ReadAloudController
 
                     @Override
                     public void onStartedShowing(@LayoutType int layoutType) {
-                        if (layoutType == LayoutType.TAB_SWITCHER) {
+                        if (layoutType == LayoutType.HUB) {
                             mIsInTabSwitcher = true;
                             maybeHidePlayer();
                         }
@@ -685,7 +685,7 @@ public class ReadAloudController
 
                     @Override
                     public void onFinishedHiding(@LayoutType int layoutType) {
-                        if (layoutType == LayoutType.TAB_SWITCHER) {
+                        if (layoutType == LayoutType.HUB) {
                             mIsInTabSwitcher = false;
                             maybeShowPlayer();
                         }
@@ -1079,15 +1079,20 @@ public class ReadAloudController
      * @param tab Tab to play.
      */
     public void playTab(Tab tab, @Entrypoint int entrypoint) {
-        Runnable playTabImplRunnable = () -> playTabImpl(tab, entrypoint);
+        Callback<Boolean> playTabImplCallback =
+                (confirmed) -> {
+                    if (confirmed) {
+                        playTabImpl(tab, entrypoint);
+                    }
+                };
         if (mCallbackController != null) {
-            playTabImplRunnable = mCallbackController.makeCancelable(playTabImplRunnable);
+            playTabImplCallback = mCallbackController.makeCancelable(playTabImplCallback);
         }
 
         ActorUiTabController controller = ActorUiTabController.from(tab);
         if (controller == null
-                || !controller.showTaskAbortConfirmationDialog(playTabImplRunnable)) {
-            playTabImplRunnable.run();
+                || !controller.showTaskAbortConfirmationDialog(playTabImplCallback)) {
+            playTabImplCallback.onResult(true);
         }
     }
 

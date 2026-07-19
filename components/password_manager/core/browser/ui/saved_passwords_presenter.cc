@@ -173,8 +173,7 @@ bool SavedPasswordsPresenter::RemoveCredential(
       // 'OnGetPasswordStoreResultsFrom'. So it can be present only in one
       // store at a time.
       GetStoreFor(current_form)
-          .RemoveLogin(FROM_HERE,
-                       password_manager::FromPasswordForm(current_form));
+          .RemoveLogin(FROM_HERE, FromPasswordForm(current_form));
       undo_helper_->PasswordRemoved(current_form);
     }
   }
@@ -192,8 +191,7 @@ bool SavedPasswordsPresenter::RemoveBackupPassword(
     // |current_form| is unchanged result obtained from
     // 'OnGetPasswordStoreResultsFrom'. So it can be present only in one
     // store at a time.
-    GetStoreFor(current_form)
-        .UpdateLogin(password_manager::FromPasswordForm(without_backup));
+    GetStoreFor(current_form).UpdateLogin(FromPasswordForm(without_backup));
     undo_helper_->BackupPasswordRemoved(current_form);
   }
   undo_helper_->EndGroupingActions();
@@ -202,15 +200,22 @@ bool SavedPasswordsPresenter::RemoveBackupPassword(
 
 void SavedPasswordsPresenter::DeleteAllData(
     base::OnceCallback<void(bool)> success_callback) {
-  // Synchronosly remove all passkeys if they are available.
-  if (passkey_store_) {
-    passkey_store_->DeleteAllPasskeys();
-  }
+  const int stores_count =
+      3 - !profile_store_ - !account_store_ - !passkey_store_;
 
   const auto completion_barrier = base::BarrierCallback<bool>(
-      2 - !profile_store_ - !account_store_,
-      base::BindOnce(&MergeDeleteAllResultsFromPasswordStores)
-          .Then(std::move(success_callback)));
+      stores_count, base::BindOnce(&MergeDeleteAllResultsFromPasswordStores)
+                        .Then(std::move(success_callback)));
+
+  // Synchronously remove all passkeys if they are available and ready.
+  if (passkey_store_) {
+    if (passkey_store_->IsReady()) {
+      passkey_store_->DeleteAllPasskeys();
+      completion_barrier.Run(true);
+    } else {
+      completion_barrier.Run(false);
+    }
+  }
 
   if (account_store_) {
     account_store_->RemoveLoginsCreatedBetween(
@@ -285,10 +290,9 @@ SavedPasswordsPresenter::GetExpectedAddResult(
   return AddResult::kConflictInProfileAndAccountStore;
 }
 
-bool SavedPasswordsPresenter::AddCredential(
-    const CredentialUIEntry& credential,
-    password_manager::PasswordForm::Type type,
-    base::OnceClosure completion) {
+bool SavedPasswordsPresenter::AddCredential(const CredentialUIEntry& credential,
+                                            PasswordForm::Type type,
+                                            base::OnceClosure completion) {
   if (GetExpectedAddResult(credential) != AddResult::kSuccess) {
     std::move(completion).Run();
     return false;
@@ -297,8 +301,7 @@ bool SavedPasswordsPresenter::AddCredential(
   UnblocklistBothStores(credential);
   PasswordForm form = GenerateFormFromCredential(credential, type);
 
-  GetStoreFor(form).AddLogin(password_manager::FromPasswordForm(form),
-                             std::move(completion));
+  GetStoreFor(form).AddLogin(FromPasswordForm(form), std::move(completion));
   return true;
 }
 
@@ -317,7 +320,7 @@ void SavedPasswordsPresenter::UnblocklistBothStores(
 
 void SavedPasswordsPresenter::AddCredentials(
     const std::vector<CredentialUIEntry>& credentials,
-    password_manager::PasswordForm::Type type,
+    PasswordForm::Type type,
     AddCredentialsCallback completion) {
   if (credentials.empty()) {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -336,9 +339,8 @@ void SavedPasswordsPresenter::AddCredentials(
   }));
 
   PasswordStoreInterface& store = GetStoreFor(password_forms[0]);
-  store.AddLogins(
-      password_manager::FromPasswordForms(std::move(password_forms)),
-      std::move(completion));
+  store.AddLogins(FromPasswordForms(std::move(password_forms)),
+                  std::move(completion));
 }
 
 void SavedPasswordsPresenter::UpdatePasswordForms(
@@ -355,8 +357,7 @@ void SavedPasswordsPresenter::UpdatePasswordForms(
   }));
 
   GetStoreFor(password_forms[0])
-      .UpdateLogins(password_manager::FromPasswordForms(password_forms),
-                    std::move(completion));
+      .UpdateLogins(FromPasswordForms(password_forms), std::move(completion));
 }
 
 SavedPasswordsPresenter::EditResult
@@ -391,10 +392,9 @@ void SavedPasswordsPresenter::MoveCredentialsToAccount(
       // store, 1) to avoid unnecessary sync cycles, 2) to avoid potential
       // last_used_date update.
       if (!account_credentials_signon_realms.contains(form.signon_realm)) {
-        account_store_->AddLogin(password_manager::FromPasswordForm(form));
+        account_store_->AddLogin(FromPasswordForm(form));
       }
-      profile_store_->RemoveLogin(FROM_HERE,
-                                  password_manager::FromPasswordForm(form));
+      profile_store_->RemoveLogin(FROM_HERE, FromPasswordForm(form));
     }
   }
 }
@@ -524,8 +524,7 @@ void SavedPasswordsPresenter::RevokeActorLoginPermission(
         PasswordForm updated_form = form;
         updated_form.actor_login_approved = false;
         GetStoreFor(updated_form)
-            .UpdateLogin(
-                password_manager::FromPasswordForm(std::move(updated_form)));
+            .UpdateLogin(FromPasswordForm(std::move(updated_form)));
       }
     }
   }
@@ -848,12 +847,11 @@ SavedPasswordsPresenter::EditResult SavedPasswordsPresenter::EditPassword(
       new_form.username_value = updated_credential.username;
       new_form.password_issues.erase(InsecureType::kPhished);
       new_form.password_issues.erase(InsecureType::kLeaked);
-      store.UpdateLoginWithPrimaryKey(
-          password_manager::FromPasswordForm(std::move(new_form)),
-          password_manager::FromPasswordForm(old_form),
-          completion_barrier_closure);
+      store.UpdateLoginWithPrimaryKey(FromPasswordForm(std::move(new_form)),
+                                      FromPasswordForm(old_form),
+                                      completion_barrier_closure);
     } else {
-      store.UpdateLogin(password_manager::FromPasswordForm(std::move(new_form)),
+      store.UpdateLogin(FromPasswordForm(std::move(new_form)),
                         completion_barrier_closure);
     }
   }

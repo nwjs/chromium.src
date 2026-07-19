@@ -18,6 +18,7 @@ source_set("coordinator") {
     "//ios/chrome/browser/composebox/coordinator:mode_holder",
     "//ios/chrome/browser/composebox/menu/ui",
     "//ios/chrome/browser/composebox/model",
+    "//ios/chrome/browser/composebox/public:features",
     "//ios/chrome/browser/composebox/public:focus_params",
     "//ios/chrome/browser/composebox/shared/coordinator",
     "//ios/chrome/browser/composebox/shared/metrics",
@@ -33,6 +34,7 @@ source_set("coordinator") {
     "//ios/chrome/browser/signin/model",
     "//ios/chrome/browser/tab_switcher/ui_bundled:utils",
     "//ios/web/public",
+    "//ui/base",
   ]
   public_deps = [ "//ios/chrome/browser/composebox/public:entrypoint" ]
 }

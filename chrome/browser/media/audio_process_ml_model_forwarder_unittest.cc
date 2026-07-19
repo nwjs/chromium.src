@@ -9,7 +9,9 @@
 #include <vector>
 
 #include "base/files/scoped_temp_file.h"
+#include "base/memory/raw_ptr.h"
 #include "base/test/run_until.h"
+#include "base/test/scoped_feature_list.h"
 #include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
 #include "chrome/common/pref_names.h"
 #include "components/optimization_guide/core/delivery/model_provider_registry.h"
@@ -20,6 +22,7 @@
 #include "components/prefs/testing_pref_service.h"
 #include "content/public/browser/media_stream_request.h"
 #include "content/public/test/browser_task_environment.h"
+#include "media/base/media_switches.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
@@ -35,10 +38,13 @@ class MockMlModelManager : public audio::mojom::MlModelManager {
   MockMlModelManager() = default;
   ~MockMlModelManager() override = default;
   MOCK_METHOD(void,
-              SetResidualEchoEstimationModel,
-              (base::File model_file),
+              SetModel,
+              (audio::mojom::MlModelType model_type, base::File model_file),
               (override));
-  MOCK_METHOD(void, StopServingResidualEchoEstimationModel, (), (override));
+  MOCK_METHOD(void,
+              StopServingModel,
+              (audio::mojom::MlModelType model_type),
+              (override));
 
   void BindReceiver(
       mojo::PendingReceiver<audio::mojom::MlModelManager> pending_receiver) {
@@ -52,6 +58,9 @@ class MockMlModelManager : public audio::mojom::MlModelManager {
 };
 
 class AudioProcessMlModelForwarderTest : public testing::Test {
+ public:
+  AudioProcessMlModelForwarderTest() = default;
+
  protected:
   void SetUp() override {
     local_state_.registry()->RegisterTimePref(
@@ -92,52 +101,77 @@ class AudioProcessMlModelForwarderTest : public testing::Test {
   std::vector<std::unique_ptr<base::ScopedTempFile>> model_files_;
 };
 
-TEST_F(AudioProcessMlModelForwarderTest,
+struct ModelForwarderTestParams {
+  raw_ptr<const base::Feature> feature;
+  bool feature_enabled;
+  audio::mojom::MlModelType model_type;
+  optimization_guide::proto::OptimizationTarget optimization_target;
+  bool other_features_enabled;
+};
+
+std::string ModelForwarderTestParamsToString(
+    const ::testing::TestParamInfo<ModelForwarderTestParams>& info) {
+  std::string result;
+  if (info.param.feature == &media::kWebRtcAudioNeuralResidualEchoEstimation) {
+    result += "ResidualEchoEstimation";
+  } else if (info.param.feature == &media::kWebRtcVoiceIsolationDenoiser) {
+    result += "VoiceIsolationDenoiser";
+  } else {
+    result += "UnknownFeature";
+  }
+
+  result += info.param.feature_enabled ? "_Enabled" : "_Disabled";
+  result += info.param.other_features_enabled ? "_WithOtherFeatures" : "_Alone";
+  return result;
+}
+
+class AudioProcessMlModelForwarderParameterizedTest
+    : public AudioProcessMlModelForwarderTest,
+      public ::testing::WithParamInterface<ModelForwarderTestParams> {
+ public:
+  AudioProcessMlModelForwarderParameterizedTest() {
+    std::vector<base::test::FeatureRef> enabled_features;
+    std::vector<base::test::FeatureRef> disabled_features;
+
+    if (GetParam().feature_enabled) {
+      enabled_features.push_back(*GetParam().feature);
+    } else {
+      disabled_features.push_back(*GetParam().feature);
+    }
+
+    const base::Feature* other_feature =
+        (GetParam().feature == &media::kWebRtcAudioNeuralResidualEchoEstimation)
+            ? &media::kWebRtcVoiceIsolationDenoiser
+            : &media::kWebRtcAudioNeuralResidualEchoEstimation;
+
+    if (GetParam().other_features_enabled) {
+      enabled_features.push_back(*other_feature);
+    } else {
+      disabled_features.push_back(*other_feature);
+    }
+
+    feature_list_.InitWithFeatures(enabled_features, disabled_features);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+TEST_P(AudioProcessMlModelForwarderParameterizedTest,
        DoNotRegisterForModelUpdatesBeforeAudioProcessLaunch) {
   forwarder_->Initialize(model_provider_);
 
-  EXPECT_FALSE(model_provider_.IsRegistered(
-      optimization_guide::proto::
-          OPTIMIZATION_TARGET_WEBRTC_NEURAL_RESIDUAL_ECHO_ESTIMATOR));
+  EXPECT_FALSE(model_provider_.IsRegistered(GetParam().optimization_target));
 }
 
-TEST_F(AudioProcessMlModelForwarderTest,
+TEST_P(AudioProcessMlModelForwarderParameterizedTest,
        DoNotRegisterForModelUpdatesBeforeInitialization) {
   forwarder_->OnAudioProcessLaunched(std::move(remote_ml_model_manager_));
 
-  EXPECT_FALSE(model_provider_.IsRegistered(
-      optimization_guide::proto::
-          OPTIMIZATION_TARGET_WEBRTC_NEURAL_RESIDUAL_ECHO_ESTIMATOR));
+  EXPECT_FALSE(model_provider_.IsRegistered(GetParam().optimization_target));
 }
 
-TEST_F(AudioProcessMlModelForwarderTest,
-       RegisterForModelUpdatesAfterInitializationAndAudioProcessLaunch) {
-  forwarder_->Initialize(model_provider_);
-  forwarder_->OnAudioProcessLaunched(std::move(remote_ml_model_manager_));
-  forwarder_->OnAudioCaptureStarted();
-
-  EXPECT_TRUE(model_provider_.IsRegistered(
-      optimization_guide::proto::
-          OPTIMIZATION_TARGET_WEBRTC_NEURAL_RESIDUAL_ECHO_ESTIMATOR));
-}
-
-TEST_F(AudioProcessMlModelForwarderTest,
-       ObserverRegisteredImmediatelyIfTriggerEventWasRecentlyObserved) {
-  // Set the pref to a time within the last 30 days.
-  local_state_.SetTime(prefs::kAudioInputStreamLastTimeCreated,
-                       base::Time::Now() - base::Days(15));
-
-  // The model observer should be registered immediately on initialization
-  // since the trigger event was already observed recently.
-  forwarder_->Initialize(model_provider_);
-  forwarder_->OnAudioProcessLaunched(std::move(remote_ml_model_manager_));
-
-  EXPECT_TRUE(model_provider_.IsRegistered(
-      optimization_guide::proto::
-          OPTIMIZATION_TARGET_WEBRTC_NEURAL_RESIDUAL_ECHO_ESTIMATOR));
-}
-
-TEST_F(AudioProcessMlModelForwarderTest,
+TEST_P(AudioProcessMlModelForwarderParameterizedTest,
        ObserverNotRegisteredImmediatelyIfTriggerEventIsTooOld) {
   // Set the pref to a time larger than 30 days ago.
   local_state_.SetTime(prefs::kAudioInputStreamLastTimeCreated,
@@ -146,12 +180,11 @@ TEST_F(AudioProcessMlModelForwarderTest,
   forwarder_->Initialize(model_provider_);
   forwarder_->OnAudioProcessLaunched(std::move(remote_ml_model_manager_));
 
-  EXPECT_FALSE(model_provider_.IsRegistered(
-      optimization_guide::proto::
-          OPTIMIZATION_TARGET_WEBRTC_NEURAL_RESIDUAL_ECHO_ESTIMATOR));
+  EXPECT_FALSE(model_provider_.IsRegistered(GetParam().optimization_target));
 }
 
-TEST_F(AudioProcessMlModelForwarderTest, OnAudioCaptureStartedSavesEventTime) {
+TEST_P(AudioProcessMlModelForwarderParameterizedTest,
+       OnAudioCaptureStartedSavesEventTime) {
   forwarder_->Initialize(model_provider_);
   forwarder_->OnAudioProcessLaunched(std::move(remote_ml_model_manager_));
 
@@ -165,15 +198,38 @@ TEST_F(AudioProcessMlModelForwarderTest, OnAudioCaptureStartedSavesEventTime) {
             expected_time);
 }
 
-TEST_F(AudioProcessMlModelForwarderTest,
+TEST_P(AudioProcessMlModelForwarderParameterizedTest,
+       RegisterForModelUpdatesAfterInitializationAndAudioProcessLaunch) {
+  forwarder_->Initialize(model_provider_);
+  forwarder_->OnAudioProcessLaunched(std::move(remote_ml_model_manager_));
+  forwarder_->OnAudioCaptureStarted();
+
+  EXPECT_EQ(model_provider_.IsRegistered(GetParam().optimization_target),
+            GetParam().feature_enabled);
+}
+
+TEST_P(AudioProcessMlModelForwarderParameterizedTest,
+       ObserverRegisteredImmediatelyIfTriggerEventWasRecentlyObserved) {
+  // Set the pref to a time within the last 30 days.
+  local_state_.SetTime(prefs::kAudioInputStreamLastTimeCreated,
+                       base::Time::Now() - base::Days(15));
+
+  // The model observer should be registered immediately on initialization
+  // since the trigger event was already observed recently.
+  forwarder_->Initialize(model_provider_);
+  forwarder_->OnAudioProcessLaunched(std::move(remote_ml_model_manager_));
+
+  EXPECT_EQ(model_provider_.IsRegistered(GetParam().optimization_target),
+            GetParam().feature_enabled);
+}
+
+TEST_P(AudioProcessMlModelForwarderParameterizedTest,
        OnAudioCaptureStartedUpdatesSavesEventTimeAgain) {
   forwarder_->Initialize(model_provider_);
   forwarder_->OnAudioProcessLaunched(std::move(remote_ml_model_manager_));
 
   // The model observer should NOT be registered yet.
-  EXPECT_FALSE(model_provider_.IsRegistered(
-      optimization_guide::proto::
-          OPTIMIZATION_TARGET_WEBRTC_NEURAL_RESIDUAL_ECHO_ESTIMATOR));
+  EXPECT_FALSE(model_provider_.IsRegistered(GetParam().optimization_target));
 
   // Advance time.
   task_environment_.AdvanceClock(base::Days(1));
@@ -190,10 +246,9 @@ TEST_F(AudioProcessMlModelForwarderTest,
            first_capture_time;
   }));
 
-  // The model observer should now be registered.
-  EXPECT_TRUE(model_provider_.IsRegistered(
-      optimization_guide::proto::
-          OPTIMIZATION_TARGET_WEBRTC_NEURAL_RESIDUAL_ECHO_ESTIMATOR));
+  // The model observer should match parameterized expectations.
+  EXPECT_EQ(model_provider_.IsRegistered(GetParam().optimization_target),
+            GetParam().feature_enabled);
 
   // Advance time again.
   task_environment_.AdvanceClock(base::Days(1));
@@ -210,19 +265,64 @@ TEST_F(AudioProcessMlModelForwarderTest,
   }));
 }
 
-TEST_F(AudioProcessMlModelForwarderTest,
+TEST_P(AudioProcessMlModelForwarderParameterizedTest,
+       ForwardModelUpdatesWhenEnabled) {
+  if (!GetParam().feature_enabled) {
+    GTEST_SKIP();
+  }
+  forwarder_->Initialize(model_provider_);
+  forwarder_->OnAudioProcessLaunched(std::move(remote_ml_model_manager_));
+  forwarder_->OnAudioCaptureStarted();
+
+  EXPECT_CALL(ml_model_manager_, SetModel(GetParam().model_type, testing::_))
+      .Times(1)
+      .WillOnce([](audio::mojom::MlModelType, base::File file) {
+        ASSERT_TRUE(file.IsValid());
+      });
+
+  // Send updates for the model.
+  model_provider_.UpdateModelImmediatelyForTesting(
+      GetParam().optimization_target, CreateModelInfo());
+
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() { return !forwarder_->HasPendingTasksForTesting(); }));
+  forwarder_->FlushForTesting();
+}
+
+TEST_P(AudioProcessMlModelForwarderParameterizedTest,
+       DoNotForwardModelUpdatesWhenDisabled) {
+  if (GetParam().feature_enabled) {
+    GTEST_SKIP();
+  }
+  forwarder_->Initialize(model_provider_);
+  forwarder_->OnAudioProcessLaunched(std::move(remote_ml_model_manager_));
+  forwarder_->OnAudioCaptureStarted();
+
+  EXPECT_CALL(ml_model_manager_, SetModel(GetParam().model_type, testing::_))
+      .Times(0);
+
+  // Send updates for the model.
+  model_provider_.UpdateModelImmediatelyForTesting(
+      GetParam().optimization_target, CreateModelInfo());
+
+  EXPECT_FALSE(forwarder_->HasPendingTasksForTesting());
+}
+
+TEST_P(AudioProcessMlModelForwarderParameterizedTest,
        DeregisterFromModelUpdatesOnDestruction) {
   forwarder_->Initialize(model_provider_);
   forwarder_->OnAudioProcessLaunched(std::move(remote_ml_model_manager_));
   forwarder_->OnAudioCaptureStarted();
   forwarder_.reset();
 
-  EXPECT_FALSE(model_provider_.IsRegistered(
-      optimization_guide::proto::
-          OPTIMIZATION_TARGET_WEBRTC_NEURAL_RESIDUAL_ECHO_ESTIMATOR));
+  EXPECT_FALSE(model_provider_.IsRegistered(GetParam().optimization_target));
 }
 
-TEST_F(AudioProcessMlModelForwarderTest, ForwardUpdates) {
+TEST_P(AudioProcessMlModelForwarderParameterizedTest,
+       ForwardUpdatesWhenEnabled) {
+  if (!GetParam().feature_enabled) {
+    GTEST_SKIP();
+  }
   forwarder_->Initialize(model_provider_);
   forwarder_->OnAudioProcessLaunched(std::move(remote_ml_model_manager_));
   forwarder_->OnAudioCaptureStarted();
@@ -230,70 +330,110 @@ TEST_F(AudioProcessMlModelForwarderTest, ForwardUpdates) {
   testing::InSequence s;
 
   // Forward a model file.
-  EXPECT_CALL(ml_model_manager_, SetResidualEchoEstimationModel(testing::_))
+  EXPECT_CALL(ml_model_manager_, SetModel(GetParam().model_type, testing::_))
       .Times(1)
-      .WillOnce([](base::File file) { ASSERT_TRUE(file.IsValid()); });
+      .WillOnce([](audio::mojom::MlModelType, base::File file) {
+        ASSERT_TRUE(file.IsValid());
+      });
+
   model_provider_.UpdateModelImmediatelyForTesting(
-      optimization_guide::proto::
-          OPTIMIZATION_TARGET_WEBRTC_NEURAL_RESIDUAL_ECHO_ESTIMATOR,
-      CreateModelInfo());
+      GetParam().optimization_target, CreateModelInfo());
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return !forwarder_->HasPendingTasksForTesting(); }));
+  forwarder_->FlushForTesting();
 
   // Forward "stop serving" signal.
-  EXPECT_CALL(ml_model_manager_, StopServingResidualEchoEstimationModel())
+  EXPECT_CALL(ml_model_manager_, StopServingModel(GetParam().model_type))
       .Times(1);
-  model_provider_.RemoveModel(
-      optimization_guide::proto::
-          OPTIMIZATION_TARGET_WEBRTC_NEURAL_RESIDUAL_ECHO_ESTIMATOR);
+
+  model_provider_.RemoveModel(GetParam().optimization_target);
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return !forwarder_->HasModelForTesting(); }));
+  forwarder_->FlushForTesting();
 
   // Forward another model file.
-  EXPECT_CALL(ml_model_manager_, SetResidualEchoEstimationModel(testing::_))
+  EXPECT_CALL(ml_model_manager_, SetModel(GetParam().model_type, testing::_))
       .Times(1)
-      .WillOnce([](base::File file) { ASSERT_TRUE(file.IsValid()); });
+      .WillOnce([](audio::mojom::MlModelType, base::File file) {
+        ASSERT_TRUE(file.IsValid());
+      });
+
   model_provider_.UpdateModelImmediatelyForTesting(
-      optimization_guide::proto::
-          OPTIMIZATION_TARGET_WEBRTC_NEURAL_RESIDUAL_ECHO_ESTIMATOR,
-      CreateModelInfo());
+      GetParam().optimization_target, CreateModelInfo());
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return !forwarder_->HasPendingTasksForTesting(); }));
+  forwarder_->FlushForTesting();
 }
 
-TEST_F(AudioProcessMlModelForwarderTest,
+TEST_P(AudioProcessMlModelForwarderParameterizedTest,
+       DoNotForwardUpdatesWhenDisabled) {
+  if (GetParam().feature_enabled) {
+    GTEST_SKIP();
+  }
+  forwarder_->Initialize(model_provider_);
+  forwarder_->OnAudioProcessLaunched(std::move(remote_ml_model_manager_));
+  forwarder_->OnAudioCaptureStarted();
+
+  EXPECT_CALL(ml_model_manager_, SetModel(GetParam().model_type, testing::_))
+      .Times(0);
+  EXPECT_CALL(ml_model_manager_, StopServingModel(GetParam().model_type))
+      .Times(0);
+
+  model_provider_.UpdateModelImmediatelyForTesting(
+      GetParam().optimization_target, CreateModelInfo());
+  EXPECT_FALSE(forwarder_->HasPendingTasksForTesting());
+
+  model_provider_.RemoveModel(GetParam().optimization_target);
+  EXPECT_FALSE(forwarder_->HasModelForTesting());
+
+  model_provider_.UpdateModelImmediatelyForTesting(
+      GetParam().optimization_target, CreateModelInfo());
+  EXPECT_FALSE(forwarder_->HasPendingTasksForTesting());
+}
+
+TEST_P(AudioProcessMlModelForwarderParameterizedTest,
        ForwardModelFileOnAudioProcessRestart) {
+  if (!GetParam().feature_enabled) {
+    GTEST_SKIP();
+  }
   forwarder_->Initialize(model_provider_);
   forwarder_->OnAudioProcessLaunched(std::move(remote_ml_model_manager_));
   forwarder_->OnAudioCaptureStarted();
 
   // Forward the model to the first audio process instance.
-  EXPECT_CALL(ml_model_manager_, SetResidualEchoEstimationModel(testing::_))
+  EXPECT_CALL(ml_model_manager_, SetModel(GetParam().model_type, testing::_))
       .Times(1)
-      .WillOnce([](base::File file) { ASSERT_TRUE(file.IsValid()); });
+      .WillOnce([](audio::mojom::MlModelType, base::File file) {
+        ASSERT_TRUE(file.IsValid());
+      });
+
   model_provider_.UpdateModelImmediatelyForTesting(
-      optimization_guide::proto::
-          OPTIMIZATION_TARGET_WEBRTC_NEURAL_RESIDUAL_ECHO_ESTIMATOR,
-      CreateModelInfo());
+      GetParam().optimization_target, CreateModelInfo());
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return !forwarder_->HasPendingTasksForTesting(); }));
+  forwarder_->FlushForTesting();
   testing::Mock::VerifyAndClearExpectations(&ml_model_manager_);
 
   // Forward the model to the second audio process instance.
   MockMlModelManager ml_model_manager_2;
   mojo::Remote<audio::mojom::MlModelManager> remote_ml_model_manager_2 =
       CreateNewMlModelManager(&ml_model_manager_2);
-  EXPECT_CALL(ml_model_manager_2, SetResidualEchoEstimationModel(testing::_))
+  EXPECT_CALL(ml_model_manager_2, SetModel(GetParam().model_type, testing::_))
       .Times(1)
-      .WillOnce([](base::File file) { ASSERT_TRUE(file.IsValid()); });
+      .WillOnce([](audio::mojom::MlModelType, base::File file) {
+        ASSERT_TRUE(file.IsValid());
+      });
 
   forwarder_->OnAudioProcessLaunched(std::move(remote_ml_model_manager_2));
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return !forwarder_->HasPendingTasksForTesting(); }));
 }
 
-TEST_F(AudioProcessMlModelForwarderTest,
+TEST_P(AudioProcessMlModelForwarderParameterizedTest,
        HandleModelUpdateAfterAudioProcessCrash) {
+  if (!GetParam().feature_enabled) {
+    GTEST_SKIP();
+  }
   forwarder_->Initialize(model_provider_);
   forwarder_->OnAudioProcessLaunched(std::move(remote_ml_model_manager_));
   forwarder_->OnAudioCaptureStarted();
@@ -304,32 +444,32 @@ TEST_F(AudioProcessMlModelForwarderTest,
       [&]() { return !forwarder_->HasBoundAudioProcessRemoteForTesting(); }));
 
   // Nothing should happen when the receiver has been disconnected.
-  EXPECT_CALL(ml_model_manager_, SetResidualEchoEstimationModel(testing::_))
-      .Times(0);
-  EXPECT_CALL(ml_model_manager_, StopServingResidualEchoEstimationModel())
-      .Times(0);
+  EXPECT_CALL(ml_model_manager_, SetModel(testing::_, testing::_)).Times(0);
+  EXPECT_CALL(ml_model_manager_, StopServingModel(testing::_)).Times(0);
 
   // Send a model update with a new model.
   model_provider_.UpdateModelImmediatelyForTesting(
-      optimization_guide::proto::
-          OPTIMIZATION_TARGET_WEBRTC_NEURAL_RESIDUAL_ECHO_ESTIMATOR,
-      CreateModelInfo());
+      GetParam().optimization_target, CreateModelInfo());
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return !forwarder_->HasPendingTasksForTesting(); }));
 }
 
-TEST_F(AudioProcessMlModelForwarderTest,
+TEST_P(AudioProcessMlModelForwarderParameterizedTest,
        HandleStopServingSignalAfterAudioProcessCrash) {
+  if (!GetParam().feature_enabled) {
+    GTEST_SKIP();
+  }
   // Set up the forwarder with a model file.
   forwarder_->Initialize(model_provider_);
   forwarder_->OnAudioProcessLaunched(std::move(remote_ml_model_manager_));
   forwarder_->OnAudioCaptureStarted();
   model_provider_.UpdateModelImmediatelyForTesting(
-      optimization_guide::proto::
-          OPTIMIZATION_TARGET_WEBRTC_NEURAL_RESIDUAL_ECHO_ESTIMATOR,
-      CreateModelInfo());
-  EXPECT_TRUE(
-      base::test::RunUntil([&]() { return forwarder_->HasModelForTesting(); }));
+      GetParam().optimization_target, CreateModelInfo());
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return forwarder_->HasModelForTesting() &&
+           !forwarder_->HasPendingTasksForTesting();
+  }));
+  forwarder_->FlushForTesting();
   testing::Mock::VerifyAndClearExpectations(&ml_model_manager_);
 
   // Simulate a crash by invalidating the receiver.
@@ -338,17 +478,79 @@ TEST_F(AudioProcessMlModelForwarderTest,
       [&]() { return !forwarder_->HasBoundAudioProcessRemoteForTesting(); }));
 
   // Nothing should happen when the receiver has been disconnected.
-  EXPECT_CALL(ml_model_manager_, SetResidualEchoEstimationModel(testing::_))
-      .Times(0);
-  EXPECT_CALL(ml_model_manager_, StopServingResidualEchoEstimationModel())
-      .Times(0);
+  EXPECT_CALL(ml_model_manager_, SetModel(testing::_, testing::_)).Times(0);
+  EXPECT_CALL(ml_model_manager_, StopServingModel(testing::_)).Times(0);
 
   // Send a model update to stop serving models.
-  model_provider_.RemoveModel(
-      optimization_guide::proto::
-          OPTIMIZATION_TARGET_WEBRTC_NEURAL_RESIDUAL_ECHO_ESTIMATOR);
-  EXPECT_TRUE(base::test::RunUntil(
-      [&]() { return !forwarder_->HasModelForTesting(); }));
+  model_provider_.RemoveModel(GetParam().optimization_target);
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return !forwarder_->HasModelForTesting() &&
+           !forwarder_->HasPendingTasksForTesting();
+  }));
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    AudioProcessMlModelForwarderParameterizedTest,
+    testing::Values(
+        // ResidualEchoEstimation
+        ModelForwarderTestParams{
+            &media::kWebRtcAudioNeuralResidualEchoEstimation,
+            /*feature_enabled=*/true,
+            audio::mojom::MlModelType::kResidualEchoEstimation,
+            optimization_guide::proto::
+                OPTIMIZATION_TARGET_WEBRTC_NEURAL_RESIDUAL_ECHO_ESTIMATOR,
+            /*other_features_enabled=*/true},
+        ModelForwarderTestParams{
+            &media::kWebRtcAudioNeuralResidualEchoEstimation,
+            /*feature_enabled=*/true,
+            audio::mojom::MlModelType::kResidualEchoEstimation,
+            optimization_guide::proto::
+                OPTIMIZATION_TARGET_WEBRTC_NEURAL_RESIDUAL_ECHO_ESTIMATOR,
+            /*other_features_enabled=*/false},
+        ModelForwarderTestParams{
+            &media::kWebRtcAudioNeuralResidualEchoEstimation,
+            /*feature_enabled=*/false,
+            audio::mojom::MlModelType::kResidualEchoEstimation,
+            optimization_guide::proto::
+                OPTIMIZATION_TARGET_WEBRTC_NEURAL_RESIDUAL_ECHO_ESTIMATOR,
+            /*other_features_enabled=*/true},
+        ModelForwarderTestParams{
+            &media::kWebRtcAudioNeuralResidualEchoEstimation,
+            /*feature_enabled=*/false,
+            audio::mojom::MlModelType::kResidualEchoEstimation,
+            optimization_guide::proto::
+                OPTIMIZATION_TARGET_WEBRTC_NEURAL_RESIDUAL_ECHO_ESTIMATOR,
+            /*other_features_enabled=*/false},
+        // VoiceIsolationDenoiser
+        ModelForwarderTestParams{
+            &media::kWebRtcVoiceIsolationDenoiser,
+            /*feature_enabled=*/true,
+            audio::mojom::MlModelType::kVoiceIsolationDenoiser,
+            optimization_guide::proto::
+                OPTIMIZATION_TARGET_WEBRTC_VOICE_ISOLATION_DENOISER,
+            /*other_features_enabled=*/true},
+        ModelForwarderTestParams{
+            &media::kWebRtcVoiceIsolationDenoiser,
+            /*feature_enabled=*/true,
+            audio::mojom::MlModelType::kVoiceIsolationDenoiser,
+            optimization_guide::proto::
+                OPTIMIZATION_TARGET_WEBRTC_VOICE_ISOLATION_DENOISER,
+            /*other_features_enabled=*/false},
+        ModelForwarderTestParams{
+            &media::kWebRtcVoiceIsolationDenoiser,
+            /*feature_enabled=*/false,
+            audio::mojom::MlModelType::kVoiceIsolationDenoiser,
+            optimization_guide::proto::
+                OPTIMIZATION_TARGET_WEBRTC_VOICE_ISOLATION_DENOISER,
+            /*other_features_enabled=*/true},
+        ModelForwarderTestParams{
+            &media::kWebRtcVoiceIsolationDenoiser,
+            /*feature_enabled=*/false,
+            audio::mojom::MlModelType::kVoiceIsolationDenoiser,
+            optimization_guide::proto::
+                OPTIMIZATION_TARGET_WEBRTC_VOICE_ISOLATION_DENOISER,
+            /*other_features_enabled=*/false}),
+    ModelForwarderTestParamsToString);
 
 }  // namespace

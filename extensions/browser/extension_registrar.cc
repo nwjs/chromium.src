@@ -6,6 +6,7 @@
 
 #include "base/check_is_test.h"
 #include "base/check_op.h"
+#include "base/command_line.h"
 #include "base/debug/alias.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
@@ -17,6 +18,7 @@
 
 #include "base/notreached.h"
 #include "base/stl_util.h"
+#include "base/version_info/version_info.h"
 #include "build/chromeos_buildflags.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
@@ -35,6 +37,7 @@
 #include "extensions/browser/lazy_context_id.h"
 #include "extensions/browser/lazy_context_task_queue.h"
 #include "extensions/browser/management_policy.h"
+#include "extensions/browser/pref_types.h"
 #include "extensions/browser/process_manager.h"
 #include "extensions/browser/renderer_startup_helper.h"
 #include "extensions/browser/service_worker/service_worker_task_queue.h"
@@ -43,6 +46,7 @@
 #include "extensions/common/manifest_handlers/background_info.h"
 #include "extensions/common/manifest_handlers/shared_module_info.h"
 #include "extensions/common/permissions/permissions_data.h"
+#include "extensions/common/switches.h"
 #include "third_party/blink/public/common/service_worker/service_worker_status_code.h"
 
 using content::DevToolsAgentHost;
@@ -56,6 +60,18 @@ BASE_FEATURE(kExtensionUpdatesImmediatelyUnregisterWorker,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool g_disable_lazy_context_spinup_for_test = false;
+
+// The browser version at the time a component extension was last added.
+// Component extensions are packaged with the browser, so their code can
+// change whenever the browser updates, even if the version in their manifest
+// does not.
+constexpr PrefMap kLastLoadedBrowserVersion = {"last_loaded_browser_version",
+                                               PrefType::kString,
+                                               PrefScope::kExtensionSpecific};
+
+// Overrides the browser version in CheckAndUpdateLastLoadedBrowserVersion() for
+// tests.
+const char* g_browser_version_for_testing = nullptr;
 
 }  // namespace
 
@@ -548,6 +564,8 @@ void ExtensionRegistrar::AddComponentExtension(const Extension* extension) {
   const std::string old_version_string(
       extension_prefs_->GetVersionString(extension->id()));
   const base::Version old_version(old_version_string);
+  const bool browser_updated =
+      CheckAndUpdateLastLoadedBrowserVersion(extension->id());
 
   VLOG(1) << "AddComponentExtension " << extension->name();
   if (!old_version.IsValid() || old_version != extension->version()) {
@@ -570,7 +588,47 @@ void ExtensionRegistrar::AddComponentExtension(const Extension* extension) {
     return;
   }
 
+  // A browser update may have changed the extension's code even though the
+  // extension version did not change. The service worker runs the script
+  // persisted by the //content layer at registration time, not the
+  // extension's files on disk, so a registered worker must be unregistered
+  // for the activation below to register it afresh from the updated files.
+  // See crbug.com/521490632.
+  bool sw_registered =
+      ServiceWorkerTaskQueue::Get(browser_context_)
+          ->RetrieveRegisteredServiceWorkerVersion(extension->id())
+          .IsValid();
+  bool force_refresh = base::CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kRefreshComponentExtensionServiceWorkers);
+  if ((browser_updated || force_refresh) && sw_registered) {
+    UnregisterServiceWorkerWithRootScope(extension);
+  }
+
   AddExtension(extension);
+}
+
+// static
+base::AutoReset<const char*>
+ExtensionRegistrar::OverrideBrowserVersionForTesting(const char* version) {
+  return base::AutoReset<const char*>(&g_browser_version_for_testing, version);
+}
+
+bool ExtensionRegistrar::CheckAndUpdateLastLoadedBrowserVersion(
+    const ExtensionId& extension_id) {
+  std::string current_version(version_info::GetVersionNumber());
+  if (g_browser_version_for_testing) {
+    current_version = g_browser_version_for_testing;
+  }
+
+  std::string last_version;
+  if (extension_prefs_->ReadPrefAsString(
+          extension_id, kLastLoadedBrowserVersion, &last_version) &&
+      last_version == current_version) {
+    return false;
+  }
+  extension_prefs_->SetStringPref(extension_id, kLastLoadedBrowserVersion,
+                                  current_version);
+  return true;
 }
 
 void ExtensionRegistrar::RemoveComponentExtension(
@@ -1185,9 +1243,17 @@ void ExtensionRegistrar::UnregisterServiceWorkerWithRootScope(
   content::ServiceWorkerContext* context =
       util::GetServiceWorkerContextForExtensionId(new_extension->id(),
                                                   browser_context_);
+  ServiceWorkerTaskQueue* task_queue =
+      ServiceWorkerTaskQueue::Get(browser_context_);
   bool worker_previously_registered =
-      ServiceWorkerTaskQueue::Get(browser_context_)
-          ->IsWorkerRegistered(new_extension->id());
+      task_queue->IsWorkerRegistered(new_extension->id());
+  // We clear the worker registration record immediately, rather than waiting
+  // for the async unregistration to finish. This ensures that if the extension
+  // is activated again quickly, it knows to register a new worker instead of
+  // relying on the one being removed. This is safe because the content layer
+  // queues registration jobs behind unregistration jobs for the same scope,
+  // guaranteeing the old worker is fully gone before the new one is registered.
+  task_queue->RemoveRegisteredServiceWorkerInfo(new_extension->id());
   // Even though the unregistration process for a service worker is
   // asynchronous, we begin the process before the new extension is added, so
   // the old worker will be unregistered before the new one is registered.

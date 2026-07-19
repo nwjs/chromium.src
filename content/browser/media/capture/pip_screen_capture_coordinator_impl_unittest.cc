@@ -55,7 +55,8 @@ class MockProxyObserver : public PipScreenCaptureCoordinatorProxy::Observer {
       (override));
 };
 
-class MockPipExcludedObserver : public PipScreenCaptureExclusionObserver {
+class MockPipExcludedObserver
+    : public desktop_capture::PipScreenCaptureExclusionObserver {
  public:
   MOCK_METHOD(void, OnExcludeFromScreenCaptureChanged, (bool), (override));
 };
@@ -607,6 +608,18 @@ TEST_F(PipScreenCaptureCoordinatorImplTest, ExcludeFromScreenCaptureObserver) {
   coordinator_->OnPipClosed();
 
   coordinator_->RemoveExclusionObserver(&observer);
+}
+
+TEST_F(PipScreenCaptureCoordinatorImplTest, RegisterMediaPickerAsCapture) {
+  coordinator_->OnPipShown(kPipWindowId, kPipOwnerId);
+  EXPECT_FALSE(coordinator_->IsExcludedFromScreenCapture());
+
+  base::UnguessableToken session_id =
+      coordinator_->RegisterMediaPickerAsCapture(kPipOwnerId);
+  EXPECT_TRUE(coordinator_->IsExcludedFromScreenCapture());
+
+  coordinator_->UnregisterMediaPickerAsCapture(session_id);
+  EXPECT_FALSE(coordinator_->IsExcludedFromScreenCapture());
 }
 
 }  // namespace content

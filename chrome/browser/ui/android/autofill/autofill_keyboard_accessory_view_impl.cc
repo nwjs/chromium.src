@@ -96,7 +96,7 @@ void AutofillKeyboardAccessoryViewImpl::Show() {
     std::u16string sublabel = base::JoinString(
         base::ToVector(suggestion.minor_texts, &Suggestion::Text::value), u" ");
 
-    if (std::vector<std::vector<autofill::Suggestion::Text>> suggestion_labels =
+    if (std::vector<std::vector<Suggestion::Text>> suggestion_labels =
             controller_->GetSuggestionLabelsAt(i);
         !suggestion_labels.empty()) {
       // Verify that there is a single line of label, and it contains a single
@@ -119,15 +119,14 @@ void AutofillKeyboardAccessoryViewImpl::Show() {
             std::get_if<Suggestion::AutofillProfilePayload>(
                 &suggestion.payload)) {
       payload = profile_payload->CreateJavaObject();
+    } else if (const auto* ai_payload =
+                   std::get_if<Suggestion::AutofillAiPayload>(
+                       &suggestion.payload)) {
+      payload = ai_payload->CreateJavaObject();
     }
 
     auto* custom_icon_url =
         std::get_if<Suggestion::CustomIconUrl>(&suggestion.custom_icon);
-    bool show_loading_on_acceptance = false;
-    if (const auto* ai_payload =
-            std::get_if<Suggestion::AutofillAiPayload>(&suggestion.payload)) {
-      show_loading_on_acceptance = ai_payload->requires_server_fetch;
-    }
 
     java_suggestions.push_back(
         Java_AutofillKeyboardAccessoryViewBridge_createAutofillSuggestion(
@@ -141,8 +140,7 @@ void AutofillKeyboardAccessoryViewImpl::Show() {
             custom_icon_url
                 ? url::GURLAndroid::FromNativeGURL(env, **custom_icon_url)
                 : url::GURLAndroid::EmptyGURL(env),
-            suggestion.HasDeactivatedStyle(), show_loading_on_acceptance,
-            payload));
+            suggestion.HasDeactivatedStyle(), *suggestion.is_loading, payload));
   }
   gfx::RectF bounds = controller_->element_bounds();
   Java_AutofillKeyboardAccessoryViewBridge_show(
@@ -168,7 +166,7 @@ void AutofillKeyboardAccessoryViewImpl::SuggestionSelected(JNIEnv* env,
                                                            int32_t list_index) {
   if (controller_) {
     controller_->AcceptSuggestion(
-        list_index, autofill::AutofillMetrics::SuggestionAcceptedMethod::kTap);
+        list_index, AutofillMetrics::SuggestionAcceptedMethod::kTap);
   }
 }
 
@@ -193,6 +191,14 @@ void AutofillKeyboardAccessoryViewImpl::OnDeletionDialogClosed(JNIEnv* env,
 void AutofillKeyboardAccessoryViewImpl::ViewDismissed(JNIEnv* env) {
   if (controller_) {
     controller_->ViewDestroyed();
+  }
+}
+
+void AutofillKeyboardAccessoryViewImpl::OpenSettingsForEntityType(
+    JNIEnv* env,
+    int32_t entity_type) {
+  if (controller_) {
+    controller_->OpenSettingsForEntityType(entity_type);
   }
 }
 

@@ -58,6 +58,7 @@
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/controllable_http_response.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
+#include "net/test/embedded_test_server/expectation_handler.h"
 #include "net/test/embedded_test_server/request_handler_util.h"
 #include "pdf/buildflags.h"
 #include "services/metrics/public/cpp/metrics_utils.h"
@@ -2000,14 +2001,25 @@ IN_PROC_BROWSER_TEST_F(AdsPageLoadMetricsObserverResourceBrowserTest,
   base::HistogramTester histogram_tester;
   ukm::TestAutoSetUkmRecorder ukm_recorder;
 
-  auto main_html_response =
-      std::make_unique<net::test_server::ControllableHttpResponse>(
-          embedded_test_server(), "/mock_page.html",
-          true /*relative_url_is_prefix*/);
-  auto ad_script_response =
-      std::make_unique<net::test_server::ControllableHttpResponse>(
-          embedded_test_server(), "/ad_script.js",
-          true /*relative_url_is_prefix*/);
+  const std::string main_html_body =
+      std::string(
+          "<html><body></body><script src=\"ad_script.js\"></script></html>") +
+      std::string(1024, ' ');
+  const std::string ad_script_body = std::string(R"(
+        navigator.bluetooth.requestDevice().catch(e => {});
+        navigator.geolocation.getCurrentPosition(() => {});
+        navigator.mediaDevices.getUserMedia({video: true});
+        navigator.mediaDevices.getDisplayMedia().catch(() => {});
+        navigator.mediaDevices.getUserMedia({audio: true});
+        navigator.serial.requestPort().catch(() => {});
+        navigator.usb.requestDevice({ filters: [] }).catch(() => {});
+  )") + std::string(5000, ' ');
+
+  net::test_server::ExpectationHandler handler(embedded_test_server());
+  handler.OnRequest("/mock_page.html", /*is_prefix=*/true)
+      .RespondWith("text/html; charset=utf-8", main_html_body);
+  handler.OnRequest("/ad_script.js", /*is_prefix=*/true)
+      .RespondWith("text/html; charset=utf-8", ad_script_body);
 
   ASSERT_TRUE(embedded_test_server()->Start());
 
@@ -2019,28 +2031,6 @@ IN_PROC_BROWSER_TEST_F(AdsPageLoadMetricsObserverResourceBrowserTest,
                              WindowOpenDisposition::CURRENT_TAB,
                              ui::PAGE_TRANSITION_TYPED, false),
       /*navigation_handle_callback=*/{});
-
-  main_html_response->WaitForRequest();
-  main_html_response->Send(page_load_metrics::kHttpOkResponseHeader);
-  main_html_response->Send(
-      "<html><body></body><script src=\"ad_script.js\"></script></html>");
-  main_html_response->Send(std::string(1024, ' '));
-  main_html_response->Done();
-
-  ad_script_response->WaitForRequest();
-  ad_script_response->Send(page_load_metrics::kHttpOkResponseHeader);
-  // Get ad script to use a bunch of privacy sensitive features.
-  ad_script_response->Send(R"(
-        navigator.bluetooth.requestDevice().catch(e => {});
-        navigator.geolocation.getCurrentPosition(() => {});
-        navigator.mediaDevices.getUserMedia({video: true});
-        navigator.mediaDevices.getDisplayMedia().catch(() => {});
-        navigator.mediaDevices.getUserMedia({audio: true});
-        navigator.serial.requestPort().catch(() => {});
-        navigator.usb.requestDevice({ filters: [] }).catch(() => {});
-  )");
-  ad_script_response->Send(std::string(5000, ' '));
-  ad_script_response->Done();
 
   waiter->AddMinimumNetworkBytesExpectation(base::ByteCount(5000));
 
@@ -3361,7 +3351,7 @@ class DevToolsAdsTest : public AdsPageLoadMetricsObserverBrowserTest,
 // Tests that when ad frames are added to a page, the ad metrics are properly
 // calculated and returned via the Ads.getAdMetrics command.
 IN_PROC_BROWSER_TEST_F(DevToolsAdsTest, GetAdMetrics) {
-  browser()->window()->SetBounds(gfx::Rect(0, 0, 800, 600));
+  browser()->GetWindow()->SetBounds(gfx::Rect(0, 0, 800, 600));
 
   SetRulesetWithRules(
       {subresource_filter::testing::CreateSuffixRule(
@@ -3440,7 +3430,7 @@ IN_PROC_BROWSER_TEST_F(DevToolsAdsTest, GetAdMetrics) {
 // navigating away from an existing page. Validates that we are checking the new
 // APLMO.
 IN_PROC_BROWSER_TEST_F(DevToolsAdsTest, GetAdMetrics_PageNavigated) {
-  browser()->window()->SetBounds(gfx::Rect(0, 0, 800, 600));
+  browser()->GetWindow()->SetBounds(gfx::Rect(0, 0, 800, 600));
 
   SetRulesetWithRules(
       {subresource_filter::testing::CreateSuffixRule(
@@ -3523,4 +3513,192 @@ IN_PROC_BROWSER_TEST_F(DevToolsAdsTest, GetAdMetrics_PageNavigated) {
       /*expected_min_network_bytes=*/kExpectedMinNetworkBytes_2,
       /*expected_viewport_ad_count=*/1,
       /*expected_density=*/expected_density_2);
+}
+
+// Tests that per-frame ad metrics (updateAdFrames and removeAdFrames) are
+// correctly reported, and that only deltas are sent in subsequent requests.
+IN_PROC_BROWSER_TEST_F(DevToolsAdsTest, GetAdMetrics_AdFrames) {
+  browser()->GetWindow()->SetBounds(gfx::Rect(0, 0, 800, 600));
+
+  SetRulesetWithRules(
+      {subresource_filter::testing::CreateSuffixRule(
+           "expensive_animation_frame.html*"),
+       subresource_filter::testing::CreateSuffixRule("pixel.png"),
+       subresource_filter::testing::CreateSuffixRule("iframe_blank.html*")});
+
+  auto waiter = CreatePageLoadMetricsTestWaiter();
+
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), embedded_test_server()->GetURL(
+                     "/ads_observer/blank_with_adiframe_writer.html")));
+
+  page_load_metrics::AddTextAndWaitForFirstContentfulPaint(web_contents(),
+                                                           waiter.get());
+
+  AttachToWebContents(web_contents());
+
+  std::string expected_origin_a =
+      url::Origin::Create(embedded_test_server()->GetURL("a.com", "/"))
+          .Serialize();
+
+  // 1. Add an ad frame.
+  content::DOMMessageQueue message_queue(web_contents());
+  EXPECT_TRUE(ExecJs(
+      web_contents(),
+      content::JsReplace(
+          "let frame1 = createAdIframeAtRect(0, 0, 100, 100); "
+          "frame1.id = 'test1'; "
+          "frame1.name = 'test1'; "
+          "frame1.src = $1;",
+          embedded_test_server()->GetURL(
+              "a.com",
+              "/ads_observer/expensive_animation_frame.html?delay=200&id=1"))));
+  WaitForRAF(&message_queue);
+
+  std::string frame_id;
+  std::string initial_origin;
+  double cpu_time = 0.0;
+  double network_bytes = 0.0;
+
+  // Assert against a lower bound to account for variable HTTP header sizes.
+  // The base payload (`expensive_animation_frame.html`) is 579 bytes.
+  const double kExpectedMinNetworkBytes = 579.0;
+
+  // Wait until we receive the update containing the new frame.
+  while (frame_id.empty() || initial_origin.empty() || cpu_time == 0.0 ||
+         network_bytes < kExpectedMinNetworkBytes) {
+    const base::DictValue* result = SendCommandSync("Ads.getAdMetrics");
+    ASSERT_TRUE(result);
+    const base::ListValue* update_ad_frames =
+        result->FindListByDottedPath("metrics.updateAdFrames");
+    if (update_ad_frames) {
+      for (const auto& frame_val : *update_ad_frames) {
+        if (const base::DictValue* frame = frame_val.GetIfDict()) {
+          const std::string* id_ptr = frame->FindString("frameId");
+          if (id_ptr) {
+            frame_id = *id_ptr;
+            const std::string* origin_ptr = frame->FindString("initialOrigin");
+            if (origin_ptr) {
+              initial_origin = *origin_ptr;
+            }
+            double cpu = frame->FindDouble("cpuTime").value_or(0.0);
+            if (cpu > 0.0) {
+              cpu_time = cpu;
+            }
+            double network = frame->FindDouble("networkBytes").value_or(0.0);
+            if (network > 0.0) {
+              network_bytes = network;
+            }
+          }
+        }
+      }
+    }
+    if (!frame_id.empty() && !initial_origin.empty() && cpu_time > 0.0 &&
+        network_bytes >= kExpectedMinNetworkBytes) {
+      break;
+    }
+    base::RunLoop run_loop;
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+        FROM_HERE, run_loop.QuitClosure(), base::Milliseconds(50));
+    run_loop.Run();
+  }
+
+  EXPECT_FALSE(frame_id.empty());
+  EXPECT_EQ(expected_origin_a, initial_origin);
+  EXPECT_GT(cpu_time, 0.0);
+  EXPECT_GE(network_bytes, kExpectedMinNetworkBytes);
+
+  // 2. Verify that subsequent requests return only deltas. Since the frame is
+  // stable and not consuming new resources in this basic test, we expect to
+  // eventually see a response with no updates.
+  bool has_empty_update = false;
+  while (!has_empty_update) {
+    const base::DictValue* result = SendCommandSync("Ads.getAdMetrics");
+    ASSERT_TRUE(result);
+    const base::ListValue* update_ad_frames =
+        result->FindListByDottedPath("metrics.updateAdFrames");
+    const base::ListValue* remove_ad_frames =
+        result->FindListByDottedPath("metrics.removeAdFrames");
+    if (update_ad_frames && update_ad_frames->empty() && remove_ad_frames &&
+        remove_ad_frames->empty()) {
+      has_empty_update = true;
+      break;
+    }
+    base::RunLoop run_loop;
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+        FROM_HERE, run_loop.QuitClosure(), base::Milliseconds(50));
+    run_loop.Run();
+  }
+  EXPECT_TRUE(has_empty_update);
+
+  // 3. Navigate the iframe cross-origin.
+  EXPECT_TRUE(ExecJs(
+      web_contents(),
+      content::JsReplace(
+          "document.getElementById('test1').src = $1;",
+          embedded_test_server()->GetURL("b.com", "/iframe_blank.html?id=2"))));
+
+  // Wait for a few iterations and verify that we do not receive any
+  // updateAdFrames with an 'initialOrigin' field, as the initial origin should
+  // remain a.com.
+  bool origin_updated = false;
+  int iter = 0;
+  while (!origin_updated) {
+    // We only poll 5 times to ensure we don't indefinitely wait for an event
+    // that shouldn't happen.
+    if (++iter > 5) {
+      break;
+    }
+    const base::DictValue* result = SendCommandSync("Ads.getAdMetrics");
+    ASSERT_TRUE(result);
+    const base::ListValue* update_ad_frames =
+        result->FindListByDottedPath("metrics.updateAdFrames");
+    if (update_ad_frames) {
+      for (const auto& frame_val : *update_ad_frames) {
+        if (const base::DictValue* frame = frame_val.GetIfDict()) {
+          const std::string* id_ptr = frame->FindString("frameId");
+          if (id_ptr && *id_ptr == frame_id) {
+            if (frame->FindString("initialOrigin")) {
+              origin_updated = true;
+            }
+          }
+        }
+      }
+    }
+    base::RunLoop run_loop;
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+        FROM_HERE, run_loop.QuitClosure(), base::Milliseconds(50));
+    run_loop.Run();
+  }
+  EXPECT_FALSE(origin_updated);
+
+  // 4. Remove the iframe.
+  EXPECT_TRUE(
+      ExecJs(web_contents(), "document.getElementById('test1').remove();"));
+
+  // Wait for the removeAdFrames list to contain the frame_id.
+  bool removed = false;
+  while (!removed) {
+    const base::DictValue* result = SendCommandSync("Ads.getAdMetrics");
+    ASSERT_TRUE(result);
+    const base::ListValue* remove_ad_frames =
+        result->FindListByDottedPath("metrics.removeAdFrames");
+    if (remove_ad_frames) {
+      for (const auto& val : *remove_ad_frames) {
+        if (val.is_string() && val.GetString() == frame_id) {
+          removed = true;
+          break;
+        }
+      }
+    }
+    if (removed) {
+      break;
+    }
+    base::RunLoop run_loop;
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+        FROM_HERE, run_loop.QuitClosure(), base::Milliseconds(50));
+    run_loop.Run();
+  }
+
+  EXPECT_TRUE(removed);
 }

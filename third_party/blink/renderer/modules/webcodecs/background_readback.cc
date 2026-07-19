@@ -186,7 +186,8 @@ void BackgroundReadback::ReadbackRGBTextureBackedFrameToMemory(
 
   base::span<uint8_t> dst_pixels =
       result->GetWritableVisiblePlaneData(media::VideoFrame::Plane::kARGB);
-  int rgba_stride = result->stride(media::VideoFrame::Plane::kARGB);
+  int rgba_stride =
+      static_cast<int>(result->stride(media::VideoFrame::Plane::kARGB));
   DCHECK_GT(rgba_stride, 0);
 
   gfx::Point src_point = txt_frame->visible_rect().origin();
@@ -299,10 +300,7 @@ void BackgroundReadback::OnARGBPixelsBufferReadCompleted(
     return;
   }
 
-  if (auto* ri = GetSharedGpuRasterInterface()) {
-    media::WaitAndReplaceSyncTokenClient client(ri);
-    txt_frame->UpdateReleaseSyncToken(&client);
-  } else {
+  if (!GetSharedGpuRasterInterface()) {
     success = false;
   }
 

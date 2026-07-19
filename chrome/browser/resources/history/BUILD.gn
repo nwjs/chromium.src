@@ -26,7 +26,7 @@ build_webui("build") {
   ts_files = [
     "app.html.ts",
     "app.ts",
-    "browser_service.ts",
+    "browser_proxy.ts",
     "constants.ts",
     "externs.ts",
     "history_filter_chips.html.ts",

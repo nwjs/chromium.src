@@ -333,6 +333,12 @@ class IdentityManager : public KeyedService,
   // refresh token is bound to a device, it returns `false` otherwise.
   bool HasAccountWithBoundRefreshToken(const CoreAccountId& account_id) const;
 
+  // Returns `true` if (a) a refresh token exists for `account_id`, and (b) the
+  // refresh token is bound to an mTLS certificate. It returns `false`
+  // otherwise.
+  bool HasAccountWithRefreshTokenBoundToMtls(
+      const CoreAccountId& account_id) const;
+
   // Returns whether all bound refresh tokens share the same binding key.
   //
   // Unbound tokens are ignored in this check. Returns `true` if there are zero
@@ -374,9 +380,9 @@ class IdentityManager : public KeyedService,
 
   // Provides the information of all accounts that are present in the Gaia
   // cookie in the cookie jar, ordered by their order in the cookie.
-  // If the returned accounts are not fresh, an internal update will be
-  // triggered and there will be a subsequent invocation of
-  // IdentityManager::Observer::OnAccountsInCookieJarChanged().
+  //
+  // When `switches::kAvoidAutoTriggerListAccountsOnStale` is enabled, this
+  // method will not trigger an update even if the accounts are stale.
   AccountsInCookieJarInfo GetAccountsInCookieJar() const;
 
   // Returns the accounts in the cookie jar without triggering an internal
@@ -415,6 +421,12 @@ class IdentityManager : public KeyedService,
   // were added).
   [[nodiscard]] std::vector<AccountInfo> GetAccountsOnDevice();
 #endif
+
+  // Overrides the value of the given account capability for the account.
+  // Passing `std::nullopt` clears the override.
+  void SetCapabilityOverride(const CoreAccountId& account_id,
+                             std::string_view capability_name,
+                             std::optional<Tribool> override_value);
 
   // Observer interface for classes that want to monitor status of various
   // requests. Mostly useful in tests and debugging contexts (e.g., WebUI).

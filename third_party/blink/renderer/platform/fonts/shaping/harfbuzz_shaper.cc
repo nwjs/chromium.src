@@ -71,6 +71,14 @@ namespace blink {
 
 namespace {
 
+const char* const harfrust_shaper_list[] = {"harfrust"};
+const char* const ot_shaper_list[] = {"ot"};
+
+inline const char* const* ShapingBackend() {
+  return RuntimeEnabledFeatures::HarfRustShapingEnabled() ? harfrust_shaper_list
+                                                          : ot_shaper_list;
+}
+
 //
 // This class holds an `hb_buffer_t`.
 //
@@ -104,7 +112,7 @@ class PooledHarfBuzzBuffer {
     DCHECK_LE(pool.size(), kInlineCapacity);
     DCHECK(!buffer_);
 #endif  // EXPENSIVE_DCHECKS_ARE_ON()
-    }
+  }
 
   hb_buffer_t* Get() const { return buffer_; }
   const hb_buffer_t* operator->() const { return Get(); }
@@ -304,7 +312,8 @@ inline bool ShapeRange(hb_buffer_t* buffer,
                        UScriptCode current_run_script,
                        hb_direction_t direction,
                        hb_language_t language,
-                       float specified_size) {
+                       float specified_size,
+                       VariationSelectorMode variation_selector_mode) {
   const FontPlatformData& platform_data = current_font->PlatformData();
   HarfBuzzFace* face = platform_data.GetHarfBuzzFace();
   if (!face) {
@@ -337,9 +346,10 @@ inline bool ShapeRange(hb_buffer_t* buffer,
                               ? HarfBuzzFace::kPrepareForVerticalLayout
                               : HarfBuzzFace::kNoVerticalLayout,
                           specified_size);
-  hb_shape(hb_font, buffer,
-           FontFeatureRange::ToHarfBuzzData(argument_features.data()),
-           argument_features.size());
+  face->SetVariationSelectorMode(variation_selector_mode);
+  hb_shape_full(hb_font, buffer,
+                FontFeatureRange::ToHarfBuzzData(argument_features.data()),
+                argument_features.size(), ShapingBackend());
   if (!face->ShouldSubpixelPosition()) {
     RoundHarfBuzzBufferPositions(buffer);
   }
@@ -545,6 +555,75 @@ void HarfBuzzShaper::CommitGlyphs(RangeContext* range_data,
   }
 }
 
+static inline bool CodepointIsNotDef(hb_codepoint_t codepoint) {
+  return codepoint == 0 || codepoint == kUnmatchedVSGlyphId;
+}
+
+template <class CharType>
+static inline bool ContainsNotDefOrIdeographicSpace(
+    const hb_glyph_info_t* glyph_info,
+    unsigned num_glyphs,
+    base::span<const CharType> text) {
+  const size_t unroll_limit = std::min<size_t>(num_glyphs, text.size());
+  const CharType* textptr = text.data();
+
+  // We unroll the loop manually because Clang steadfastly refuses to,
+  // even with #pragma unroll, and we use pointer arithmetic because Clang
+  // again refuses to do that conversion. (This is also why the loop has not
+  // been spanified; we should revisit this when the optimizer is able to
+  // generate the expected code. Similarly, do not blindly spanify without
+  // actually running e.g. Speedometer and checking that there is
+  // no regression.)
+  //
+  // SAFETY: At any point, 0 <= 3 <= i + 3 < unroll_limit, and
+  // unroll_limit <= num_glyphs as well as unroll_limit <= text.size().
+  // This means that glyph_info[0..3] and textptr[0..3] all within
+  // the allowed range.
+  size_t i;
+  for (i = 0; i + 3 < unroll_limit; i += 4) {
+    const hb_codepoint_t glyph0 = UNSAFE_BUFFERS(glyph_info++)->codepoint;
+    const hb_codepoint_t glyph1 = UNSAFE_BUFFERS(glyph_info++)->codepoint;
+    const hb_codepoint_t glyph2 = UNSAFE_BUFFERS(glyph_info++)->codepoint;
+    const hb_codepoint_t glyph3 = UNSAFE_BUFFERS(glyph_info++)->codepoint;
+    const CharType ch0 = UNSAFE_BUFFERS(*textptr++);
+    const CharType ch1 = UNSAFE_BUFFERS(*textptr++);
+    const CharType ch2 = UNSAFE_BUFFERS(*textptr++);
+    const CharType ch3 = UNSAFE_BUFFERS(*textptr++);
+    if (CodepointIsNotDef(glyph0) || CodepointIsNotDef(glyph1) ||
+        CodepointIsNotDef(glyph2) || CodepointIsNotDef(glyph3) ||
+        ch0 == uchar::kIdeographicSpace || ch1 == uchar::kIdeographicSpace ||
+        ch2 == uchar::kIdeographicSpace || ch3 == uchar::kIdeographicSpace) {
+      return true;
+    }
+  }
+  for (size_t glyph_index = i; glyph_index < num_glyphs; ++glyph_index) {
+    // SAFETY: At any point, 0 <= glyph_index < num_glyphs.
+    if (CodepointIsNotDef(UNSAFE_BUFFERS(glyph_info++)->codepoint)) {
+      return true;
+    }
+  }
+  for (size_t pos = i; pos < text.size(); ++pos) {
+    // SAFETY: At any point, 0 <= pos < text.size().
+    if (UNSAFE_BUFFERS(*textptr++) == uchar::kIdeographicSpace) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static inline bool ContainsNotDefOrIdeographicSpace(
+    const hb_glyph_info_t* glyph_info,
+    unsigned num_glyphs,
+    const String& text) {
+  if (text.Is8Bit()) {
+    return ContainsNotDefOrIdeographicSpace(glyph_info, num_glyphs,
+                                            text.Span8());
+  } else {
+    return ContainsNotDefOrIdeographicSpace(glyph_info, num_glyphs,
+                                            text.Span16());
+  }
+}
+
 void HarfBuzzShaper::ExtractShapeResults(
     RangeContext* range_data,
     bool& font_cycle_queued,
@@ -554,23 +633,40 @@ void HarfBuzzShaper::ExtractShapeResults(
     CanvasRotationInVertical canvas_rotation,
     FallbackFontStage& fallback_stage,
     ShapeResult* shape_result) const {
+  unsigned num_glyphs = hb_buffer_get_length(range_data->buffer.Get());
+  hb_glyph_info_t* glyph_info =
+      hb_buffer_get_glyph_infos(range_data->buffer.Get(), nullptr);
+
+  if (!num_glyphs) {
+    return;
+  }
+
+  // Find first notdef glyph in buffer.
+
+  // Fast path: If all glyphs are known to be shaped (none have ID zero,
+  // none are kUnmatchedVSGlyphId, and the text does not contain any
+  // ideographic spaces), we know that we have a single segment and can
+  // commit that straight away without further glyph run analysis.
+  if (num_glyphs >= 64 &&
+      !ContainsNotDefOrIdeographicSpace(glyph_info, num_glyphs, text_)) {
+    BufferSlice slice =
+        ComputeSlice(range_data, current_queue_item, glyph_info, num_glyphs,
+                     /*old_glyph_index=*/0, num_glyphs);
+    CommitGlyphs(range_data, current_font, current_run_script, canvas_rotation,
+                 fallback_stage, slice, shape_result);
+    return;
+  }
+
+  // Regular path below.
+
   enum ClusterResult { kShaped, kNotDef, kUnknown };
   ClusterResult current_cluster_result = kUnknown;
   ClusterResult previous_cluster_result = kUnknown;
   unsigned previous_cluster = 0;
   unsigned current_cluster = 0;
 
-  // Find first notdef glyph in buffer.
-  unsigned num_glyphs = hb_buffer_get_length(range_data->buffer.Get());
-  hb_glyph_info_t* glyph_info =
-      hb_buffer_get_glyph_infos(range_data->buffer.Get(), nullptr);
-
   unsigned last_change_glyph_index = 0;
   unsigned previous_cluster_start_glyph_index = 0;
-
-  if (!num_glyphs) {
-    return;
-  }
 
   const Glyph space_glyph = current_font->SpaceGlyph();
   for (unsigned glyph_index = 0; glyph_index < num_glyphs; ++glyph_index) {
@@ -904,13 +1000,9 @@ void HarfBuzzShaper::ShapeSegment(
   FallbackFontStage fallback_stage = kIntermediate;
   // Variation selector mode should be always set to default at the
   // beginning of the segment shaping run.
-  DCHECK(HarfBuzzFace::GetVariationSelectorMode() ==
-         kUseSpecifiedVariationSelector);
-  if (font_description.VariantEmoji() != kNormalVariantEmoji) {
-    HarfBuzzFace::SetVariationSelectorMode(
-        GetVariationSelectorModeFromFontVariantEmoji(
-            font_description.VariantEmoji()));
-  }
+  VariationSelectorMode variation_selector_mode =
+      GetVariationSelectorModeFromFontVariantEmoji(
+          font_description.VariantEmoji());
   while (!range_data->reshape_queue.empty()) {
     ReshapeQueueItem current_queue_item = range_data->reshape_queue.TakeFirst();
 
@@ -924,7 +1016,7 @@ void HarfBuzzShaper::ShapeSegment(
         DCHECK_EQ(fallback_stage, kLastWithVS);
         fallback_iterator.Reset();
         fallback_stage = kIntermediateIgnoreVS;
-        HarfBuzzFace::SetVariationSelectorMode(kIgnoreVariationSelector);
+        variation_selector_mode = kIgnoreVariationSelector;
       }
 
       if (!CollectFallbackHintChars(range_data->reshape_queue,
@@ -1025,7 +1117,8 @@ void HarfBuzzShaper::ShapeSegment(
     if (!ShapeRange(range_data->buffer.Get(), range_data->font_features,
                     adjusted_font, current_font_data_for_range_set->Ranges(),
                     segment.script, direction, language,
-                    font_description.SpecifiedSize())) {
+                    font_description.SpecifiedSize(),
+                    variation_selector_mode)) {
       DLOG(ERROR) << "Shaping range failed.";
     }
 
@@ -1048,9 +1141,6 @@ void HarfBuzzShaper::ShapeSegment(
   }
 
   han_kerning.DidShapeSegment(*result);
-
-  // Set variation selector mode to the default state.
-  HarfBuzzFace::SetVariationSelectorMode(kUseSpecifiedVariationSelector);
 }
 
 ShapeResult* HarfBuzzShaper::Shape(const Font* font,
@@ -1195,7 +1285,7 @@ void HarfBuzzShaper::GetGlyphData(const SimpleFontData& font_data,
                     : HarfBuzzFace::kPrepareForVerticalLayout,
       platform_data.size());
   DCHECK(hb_font);
-  hb_shape(hb_font, hb_buffer, nullptr, 0);
+  hb_shape_full(hb_font, hb_buffer, nullptr, 0, ShapingBackend());
 
   // Create `GlyphDataList` from `hb_buffer`.
   unsigned num_glyphs;

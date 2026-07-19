@@ -4,6 +4,7 @@
 
 #include "net/socket/tcp_connect_job.h"
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <set>
@@ -55,6 +56,28 @@ HostPortPair ToLegacyDestinationEndpoint(
   return std::get<HostPortPair>(endpoint);
 }
 
+bool IsDualRaceOptimisticDnsEnabled() {
+  return base::FeatureList::IsEnabled(features::kOptimisticDnsForTcp) &&
+         features::kUseStaleConnectorsForOptimisticDns.Get();
+}
+
+// Returns true if the given `endpoint` is present in the provided `results`
+// list. This is used to check if an actively connecting stale endpoint is
+// still valid when fresh DNS results arrive, allowing the stale connector to
+// be promoted to a fresh connector.
+bool IsEndpointInFreshList(const IPEndPoint& endpoint,
+                           base::span<const ServiceEndpoint> results) {
+  for (const auto& result : results) {
+    if (std::ranges::find(result.ipv4_endpoints, endpoint) !=
+            result.ipv4_endpoints.end() ||
+        std::ranges::find(result.ipv6_endpoints, endpoint) !=
+            result.ipv6_endpoints.end()) {
+      return true;
+    }
+  }
+  return false;
+}
+
 }  // namespace
 
 TcpConnectJob::ServiceEndpointOverride::ServiceEndpointOverride(
@@ -84,8 +107,8 @@ TcpConnectJob::TcpConnectJob(
                  NetLogSourceType::TCP_CONNECT_JOB,
                  NetLogEventType::TCP_CONNECT_JOB_CONNECT),
       params_(params),
-      endpoint_override_(std::move(endpoint_result_override)),
-      primary_connector_(std::make_unique<Connector>(this, "first")) {
+      endpoint_override_(std::move(endpoint_result_override)) {
+  fresh_state_.primary_connector = std::make_unique<Connector>(this, "first");
   DCHECK(base::FeatureList::IsEnabled(features::kHappyEyeballsV2));
   if (endpoint_override_) {
     UpdateSvcbOptional();
@@ -98,12 +121,24 @@ TcpConnectJob::TcpConnectJob(
 TcpConnectJob::~TcpConnectJob() = default;
 
 LoadState TcpConnectJob::GetLoadState() const {
-  LoadState load_state = primary_connector_->GetLoadState();
+  if (!fresh_state_.primary_connector) {
+    return LOAD_STATE_IDLE;
+  }
+  LoadState load_state = fresh_state_.primary_connector->GetLoadState();
   // This method should return LOAD_STATE_CONNECTING in preference to
   // LOAD_STATE_WAITING_FOR_AVAILABLE_SOCKET when possible because "waiting
   // for available socket" implies that nothing is happening.
-  if (ipv4_connector_ && load_state != LOAD_STATE_CONNECTING) {
-    load_state = ipv4_connector_->GetLoadState();
+  if (fresh_state_.ipv4_connector && load_state != LOAD_STATE_CONNECTING) {
+    load_state = fresh_state_.ipv4_connector->GetLoadState();
+  }
+  // If stale state is doing something and fresh state is just waiting for DNS,
+  // we could report that.
+  if (stale_state_.primary_connector &&
+      load_state == LOAD_STATE_RESOLVING_HOST) {
+    LoadState stale_load_state = stale_state_.primary_connector->GetLoadState();
+    if (stale_load_state == LOAD_STATE_CONNECTING) {
+      load_state = stale_load_state;
+    }
   }
   return load_state;
 }
@@ -146,11 +181,28 @@ base::TimeDelta TcpConnectJob::ConnectionTimeout() {
   return base::Minutes(4);
 }
 
-bool TcpConnectJob::has_two_connectors_for_testing() const {
+size_t TcpConnectJob::GetFreshConnectorCountForTesting() const {
   CHECK(!is_done_);
-  // `primary_connector_` should never be nullptr.
-  CHECK(primary_connector_);
-  return ipv4_connector_.get() != nullptr;
+  size_t count = 0;
+  if (fresh_state_.primary_connector) {
+    count++;
+  }
+  if (fresh_state_.ipv4_connector) {
+    count++;
+  }
+  return count;
+}
+
+size_t TcpConnectJob::GetStaleConnectorCountForTesting() const {
+  CHECK(!is_done_);
+  size_t count = 0;
+  if (stale_state_.primary_connector) {
+    count++;
+  }
+  if (stale_state_.ipv4_connector) {
+    count++;
+  }
+  return count;
 }
 
 int TcpConnectJob::ConnectInternal() {
@@ -161,9 +213,14 @@ int TcpConnectJob::ConnectInternal() {
     HostResolver::ResolveHostParameters parameters;
     parameters.initial_priority = priority();
     parameters.secure_dns_policy = params_->secure_dns_policy();
+    if (base::FeatureList::IsEnabled(features::kOptimisticDnsForTcp)) {
+      parameters.cache_usage = HostResolver::ResolveHostParameters::CacheUsage::
+          STALE_ALLOWED_WHILE_REFRESHING;
+    }
     dns_request_ = host_resolver()->CreateServiceEndpointRequest(
         HostResolver::Host(params_->destination()),
-        params_->network_anonymization_key(), net_log(), parameters);
+        params_->network_anonymization_key(), params_->target_network(),
+        net_log(), parameters);
 
     rv = dns_request_->Start(this);
     if (rv == ERR_IO_PENDING) {
@@ -189,9 +246,20 @@ int TcpConnectJob::DoServiceEndpointsUpdated(
   CHECK(!is_done_);
   DCHECK(!dns_request_complete_);
 
+  // If we have fresh endpoints, try to promote any active stale connectors to
+  // the fresh state, and clear unstarted stale attempts.
+  MaybePromoteStaleConnectors();
+
   // Reset progress through endpoint results, as new ones may have been inserted
   // before the one that was currently under consideration.
-  current_service_endpoint_index_ = 0;
+  fresh_state_.current_endpoint_index = 0;
+  stale_state_.current_endpoint_index = 0;
+  if (IsDualRaceOptimisticDnsEnabled() &&
+      !dns_request_->IsStaleWhileRefreshing()) {
+    // If fresh endpoints are now available, the stale state should no longer
+    // start any new connection attempts. Point its index to the end.
+    stale_state_.current_endpoint_index = GetEndpointResults().size();
+  }
 
   bool did_fail = false;
   if (dns_request_final_result) {
@@ -206,9 +274,9 @@ int TcpConnectJob::DoServiceEndpointsUpdated(
   // the request was blocked on DNS. This can hide fetch time, but for now, do
   // not return overlapping connect and DNS lookup times. See class not in
   // header for more details.
-  if (did_fail ||
-      (primary_connector_->is_waiting_on_dns() &&
-       (!ipv4_connector_ || ipv4_connector_->is_waiting_on_dns()))) {
+  if (did_fail || (fresh_state_.primary_connector->is_waiting_on_dns() &&
+                   (!fresh_state_.ipv4_connector ||
+                    fresh_state_.ipv4_connector->is_waiting_on_dns()))) {
     connect_timing_.domain_lookup_end = base::TimeTicks::Now();
     // Even on failure, or when there are no IPs, update `connect_start`. This
     // matches legacy behavior. Unclear if it matters.
@@ -292,45 +360,25 @@ int TcpConnectJob::DoTryAdvanceWaitingConnectors() {
   // SetDone() should cancel all pending activity on completion, so this should
   // not be reachable after completion.
   CHECK(!is_done_);
-  DCHECK(!primary_connector_->is_done() ||
-         (ipv4_connector_ && !ipv4_connector_->is_done()));
 
-  // Note that `primary_connector_` and `ipv4_connector_` are only deleted when
-  // DoConnectorComplete() returns a value other than ERR_IO_PENDING, and
-  // `ipv4_connector_` is only created from the slower timer callback, so this
-  // is safe.
-  for (Connector* connector :
-       {primary_connector_.get(), ipv4_connector_.get()}) {
-    if (connector && !connector->is_done()) {
-      int rv = connector->TryAdvanceState();
+  if (IsDualRaceOptimisticDnsEnabled()) {
+    if (dns_request_ && dns_request_->IsStaleWhileRefreshing()) {
+      if (!stale_state_.primary_connector) {
+        stale_state_.primary_connector =
+            std::make_unique<Connector>(this, "stale_primary");
+      }
+    }
+
+    if (!IsStateDone(stale_state_)) {
+      int rv = AdvanceConnectionState(stale_state_, /*is_stale=*/true);
       if (rv != ERR_IO_PENDING) {
-        // The connection attempt completed synchronously. Call
-        // DoConnectorComplete() to handle the result, and learn if the entire
-        // ConnectJob is complete.
-        rv = DoConnectorComplete(rv, *connector);
-        if (rv != ERR_IO_PENDING) {
-          return rv;
-        }
+        return rv;
       }
     }
   }
 
-  // If we reach this point, There should still be work to do.
-  CHECK(!is_done_);
-  DCHECK(!primary_connector_->is_done() ||
-         (ipv4_connector_ && !ipv4_connector_->is_done()));
-
-  // If there is only a single connector, and we've started trying to connect,
-  // and the slow timer isn't running, start the slow timer.
-  //
-  // This could result in starting the slow timer if we, e.g., we're already
-  // trying to final IP and no more IPs are coming, but this keeps things
-  // simple.
-  if (!ipv4_connector_ && !slow_timer_.IsRunning() &&
-      !attempted_addresses_.empty()) {
-    slow_timer_.Start(
-        FROM_HERE, kIPv6FallbackTime,
-        base::BindOnce(&TcpConnectJob::OnSlow, base::Unretained(this)));
+  if (!IsStateDone(fresh_state_)) {
+    return AdvanceConnectionState(fresh_state_, /*is_stale=*/false);
   }
 
   return ERR_IO_PENDING;
@@ -344,9 +392,19 @@ int TcpConnectJob::DoConnectorComplete(int result, Connector& connector) {
     return SetDone(result, &connector);
   }
 
-  // If both connectors have failed, we're also done.
-  if (primary_connector_->is_done() &&
-      (!ipv4_connector_ || ipv4_connector_->is_done())) {
+  // If all connectors have failed, we're also done.
+  // Note: `fresh_state_` is only considered "done" due to a null primary
+  // connector if the DNS request is complete. Before DNS completes, the
+  // connector is null because we are still waiting for endpoints.
+  // `stale_state_` does not wait for DNS. If its primary connector is null,
+  // it means stale endpoints were disabled, unavailable, or promoted, so it is
+  // genuinely done.
+  const bool fresh_done =
+      IsStateDone(fresh_state_) &&
+      (fresh_state_.primary_connector || dns_request_complete_);
+  const bool stale_done = IsStateDone(stale_state_);
+
+  if (fresh_done && stale_done) {
     return SetDone(result, &connector);
   }
 
@@ -370,30 +428,163 @@ void TcpConnectJob::OnConnectorComplete(int result, Connector& connector) {
   }
 }
 
-void TcpConnectJob::OnSlow() {
+void TcpConnectJob::OnSlow(bool is_stale) {
   CHECK(!is_done_);
-  DCHECK(!ipv4_connector_);
+  ConnectionState& state = is_stale ? stale_state_ : fresh_state_;
+  DCHECK(!state.ipv4_connector);
 
   net_log().AddEvent(NetLogEventType::TCP_CONNECT_JOB_CREATE_SECOND_CONNECTOR);
 
   // Make a second connector, so have separate IPv4 and IPv6 connectors. The
-  // `primary_connector_` may be waiting for an IP, or doing either a v4 or v6
-  // lookup. If it's doing a v4 lookup, move it into `ipv4_connector_`.
+  // `state.primary_connector` may be waiting for an IP, or doing either
+  // a v4 or v6 lookup. If it's doing a v4 lookup, move it into
+  // `state.ipv4_connector`.
   //
   // Since the connectors may be flipped here, the static names of the
   // connectors for logging purposes are "first" and "second", rather than
   // "primary" and "ipv4".
-  ipv4_connector_ = std::make_unique<Connector>(this, "second");
-  if (!primary_connector_->is_connecting_to_ipv6()) {
-    std::swap(primary_connector_, ipv4_connector_);
+  state.ipv4_connector = std::make_unique<Connector>(this, "second");
+  if (!state.primary_connector->is_connecting_to_ipv6()) {
+    std::swap(state.primary_connector, state.ipv4_connector);
   }
 
   TryAdvanceWaitingConnectorsAsync(
       /*decrement_waiting_on_possible_async_deletion_count=*/false);
 }
 
+int TcpConnectJob::AdvanceConnectionState(ConnectionState& state,
+                                          bool is_stale) {
+  CHECK(!IsStateDone(state));
+
+  if (state.primary_connector && !state.primary_connector->is_done()) {
+    int rv = state.primary_connector->TryAdvanceState();
+    if (rv != ERR_IO_PENDING) {
+      // The connection attempt completed synchronously. Call
+      // DoConnectorComplete() to handle the result, and learn if the entire
+      // ConnectJob is complete.
+      rv = DoConnectorComplete(rv, *state.primary_connector);
+      if (rv != ERR_IO_PENDING) {
+        return rv;
+      }
+    }
+  }
+
+  // The primary connector's TryAdvanceState() may have synchronously completed
+  // the entire job, triggering cleanup that resets both connectors. Evaluate
+  // `state.ipv4_connector` here after the primary connector runs to avoid a
+  // potential use-after-free.
+  if (state.ipv4_connector && !state.ipv4_connector->is_done()) {
+    int rv = state.ipv4_connector->TryAdvanceState();
+    if (rv != ERR_IO_PENDING) {
+      // The connection attempt completed synchronously. Call
+      // DoConnectorComplete() to handle the result, and learn if the entire
+      // ConnectJob is complete.
+      rv = DoConnectorComplete(rv, *state.ipv4_connector);
+      if (rv != ERR_IO_PENDING) {
+        return rv;
+      }
+    }
+  }
+
+  // If we reach this point, there should still be work to do.
+  CHECK(!is_done_);
+  // If both connectors within this state are already done, there is no work to
+  // advance. Return ERR_IO_PENDING to wait for other states or DNS completion.
+  if (IsStateDone(state)) {
+    return ERR_IO_PENDING;
+  }
+
+  // Start the slow timer to try an IPv4 fallback if the primary connector is
+  // taking too long.
+  //
+  // This could result in starting the slow timer if, for example, we're
+  // already trying the final IP and no more IPs are coming, but this keeps
+  // things simple.
+  //
+  // We only start the timer if all of the following conditions are met:
+  // 1. We are using fresh results (not stale), or if we are using stale
+  // results,
+  //    the DNS request must still be refreshing. (If we are using stale results
+  //    and the DNS request is complete, we don't start the fallback timer for
+  //    stale IPs).
+  // 2. We haven't already started the secondary (IPv4) connector.
+  // 3. The timer isn't already running.
+  // 4. The primary connector has actually started trying to connect to an IP
+  //    address.
+  if ((!is_stale || !dns_request_ || dns_request_->IsStaleWhileRefreshing()) &&
+      !state.ipv4_connector && !state.slow_timer.IsRunning() &&
+      state.primary_connector &&
+      state.primary_connector->current_address().has_value()) {
+    base::TimeDelta fallback_time = kIPv6FallbackTime;
+    if (base::FeatureList::IsEnabled(features::kAdjustIPv6FallbackTime)) {
+      fallback_time = features::kIPv6FallbackTime.Get();
+    }
+
+    // If the connector was promoted from stale_state_, it may have already
+    // been running for some time. We reduce the fallback timer by the time
+    // already elapsed since the connector started its attempt.
+    base::TimeTicks start_time = state.primary_connector->start_time();
+    if (!start_time.is_null()) {
+      base::TimeDelta elapsed = base::TimeTicks::Now() - start_time;
+      fallback_time = std::max(base::TimeDelta(), fallback_time - elapsed);
+    }
+
+    state.slow_timer.Start(FROM_HERE, fallback_time,
+                           base::BindOnce(&TcpConnectJob::OnSlow,
+                                          base::Unretained(this), is_stale));
+  }
+
+  return ERR_IO_PENDING;
+}
+
+void TcpConnectJob::MaybePromoteStaleConnectors() {
+  if (!IsDualRaceOptimisticDnsEnabled() || !dns_request_ ||
+      dns_request_->IsStaleWhileRefreshing()) {
+    return;
+  }
+
+  stale_state_.slow_timer.Stop();
+
+  const auto& results = GetEndpointResults();
+
+  auto try_promote = [&](std::unique_ptr<Connector>& stale_connector,
+                         std::unique_ptr<Connector>& fresh_connector) {
+    if (stale_connector && !stale_connector->is_done()) {
+      if (!fresh_connector || fresh_connector->is_waiting_for_endpoint() ||
+          fresh_connector->is_waiting_on_dns() || fresh_connector->is_done() ||
+          !fresh_connector->current_address()) {
+        if (stale_connector->current_address() &&
+            IsEndpointInFreshList(*stale_connector->current_address(),
+                                  results)) {
+          fresh_connector = std::move(stale_connector);
+        }
+      }
+    }
+  };
+
+  try_promote(stale_state_.primary_connector, fresh_state_.primary_connector);
+  try_promote(stale_state_.ipv4_connector, fresh_state_.ipv4_connector);
+}
+
 TcpConnectJob::IPEndPointInfo TcpConnectJob::GetNextIPEndPoint(
     const Connector& connector) {
+  const bool is_stale = IsStaleConnector(connector);
+
+  // Stale connectors must be using stale endpoints, which are only available
+  // when the DNS request is stale while refreshing.
+  if (is_stale && (!dns_request_ || !dns_request_->IsStaleWhileRefreshing())) {
+    return base::unexpected(ERR_NAME_NOT_RESOLVED);
+  }
+
+  // If we are using dedicated stale connectors, fresh connectors must wait
+  // for fresh endpoints to arrive if the current endpoints are stale.
+  if (IsDualRaceOptimisticDnsEnabled()) {
+    if (!is_stale && dns_request_ && dns_request_->IsStaleWhileRefreshing()) {
+      return base::unexpected(ERR_IO_PENDING);
+    }
+  }
+
+  ConnectionState& state = is_stale ? stale_state_ : fresh_state_;
   if (waiting_on_possible_async_deletion_count_) {
     // We're currently waiting on either `this` to be deleted, or a callback to
     // be invoked indicating that we're not going to be deleted. That callback
@@ -407,30 +598,30 @@ TcpConnectJob::IPEndPointInfo TcpConnectJob::GetNextIPEndPoint(
   DCHECK(!connector.is_done());
 
   // Other job, if any, for checking its state, and advancing it if necessary.
-  const Connector* other_job =
-      (&connector == primary_connector_.get() ? ipv4_connector_.get()
-                                              : primary_connector_.get());
+  const Connector* other_job = (&connector == state.primary_connector.get()
+                                    ? state.ipv4_connector.get()
+                                    : state.primary_connector.get());
 
   // Note that this will make both jobs use IPv4/IPv6, once there are no more
   // IPs of the other type. Not clear if that's a concern. Not too difficult to
   // change behavior - only checking IPv4 or IPv6 when there are two jobs should
-  // be sufficient. `current_service_endpoint_index_` logic will still work
+  // be sufficient. `state.current_endpoint_index` logic will still work
   // correctly.
-  bool prefer_ipv6 = prefer_ipv6_;
-  if (ipv4_connector_) {
-    prefer_ipv6 = (primary_connector_.get() == &connector);
+  bool prefer_ipv6 = state.prefer_ipv6;
+  if (state.ipv4_connector) {
+    prefer_ipv6 = (state.primary_connector.get() == &connector);
   }
 
   // If there are two jobs and DNS has not completed yet, only try to connect to
   // IPv4 destinations with `ipv4_connector_` and IPv6 destinations with
   // `primary_connector_`. Otherwise, only prefer preferred IP types.
-  bool only_preferred = other_job && !dns_request_complete_;
+  const bool only_preferred = other_job && !dns_request_complete_;
 
   bool posted_resume_task = false;
 
-  while (current_service_endpoint_index_ < service_endpoints.size()) {
+  while (state.current_endpoint_index < service_endpoints.size()) {
     const auto& service_endpoint =
-        service_endpoints[current_service_endpoint_index_];
+        service_endpoints[state.current_endpoint_index];
     if (IsEndpointResultUsable(service_endpoint)) {
       base::span<const IPEndPoint> preferred_endpoints(
           prefer_ipv6 ? service_endpoint.ipv6_endpoints
@@ -508,7 +699,7 @@ TcpConnectJob::IPEndPointInfo TcpConnectJob::GetNextIPEndPoint(
       }
     }
 
-    ++current_service_endpoint_index_;
+    ++state.current_endpoint_index;
     // May need to resume the other job after advancing to the next result.
     if (other_job && !posted_resume_task) {
       // Small optimization to avoid posting multiple tasks at once - probably
@@ -566,7 +757,7 @@ bool TcpConnectJob::IsEndpointResultUsable(
 
 const ServiceEndpoint* TcpConnectJob::FindServiceEndpoint(
     const IPEndPoint& ip_endpoint) const {
-  bool is_v6 = (ip_endpoint.GetFamily() == ADDRESS_FAMILY_IPV6);
+  const bool is_v6 = (ip_endpoint.GetFamily() == ADDRESS_FAMILY_IPV6);
 
   for (const auto& service_endpoint : GetEndpointResults()) {
     // Skip unusable endpoints.
@@ -606,6 +797,23 @@ void TcpConnectJob::UpdateSvcbOptional() {
   }
 }
 
+void TcpConnectJob::ResetConnectionState(ConnectionState& state) {
+  state.slow_timer.Stop();
+  state.primary_connector.reset();
+  state.ipv4_connector.reset();
+  state.current_endpoint_index = 0;
+  state.prefer_ipv6 = true;
+}
+
+// static
+bool TcpConnectJob::IsStateDone(const ConnectionState& state) {
+  const bool primary_done =
+      !state.primary_connector || state.primary_connector->is_done();
+  const bool ipv4_done =
+      !state.ipv4_connector || state.ipv4_connector->is_done();
+  return primary_done && ipv4_done;
+}
+
 int TcpConnectJob::SetDone(int result, Connector* connector) {
   CHECK(!is_done_);
   DCHECK(!final_service_endpoint_);
@@ -641,9 +849,8 @@ int TcpConnectJob::SetDone(int result, Connector* connector) {
   // Cancel all work, and any pending callbacks. Main methods all have
   // `CHECK(!is_done_)` to catch if they are incorrectly run after completion,
   // to help ensure this is comprehensive.
-  slow_timer_.Stop();
-  primary_connector_.reset();
-  ipv4_connector_.reset();
+  ResetConnectionState(fresh_state_);
+  ResetConnectionState(stale_state_);
   dns_request_.reset();
   // This will prevent any pending posted TryAdvanceWaitingConnectorsAsync tasks
   // from running.

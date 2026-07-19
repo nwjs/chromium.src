@@ -31,6 +31,7 @@
 <translation id="1828808367831369073"><ph name="TABS_COUNT_ONE" /> onglet regroupé</translation>
 <translation id="1844381456014878100">Après 7 jours d'inactivité</translation>
 <translation id="1869137256605757565">{TABS_COUNT,plural, =1{<ph name="TABS_COUNT_ONE" /> onglet}one{<ph name="TABS_COUNT_MANY" /> onglet}other{<ph name="TABS_COUNT_MANY" /> onglets}}</translation>
+<translation id="1894429470045525403">{TAB_COUNT,plural, =1{Ajouter l'onglet à la liste de lecture}one{Ajouter l'onglet à la liste de lecture}other{Ajouter les onglets à la liste de lecture}}</translation>
 <translation id="1909810060368225529">Remarque : Les modifications apportées à ce groupe d'onglets partagé sont visibles par tous. Tout le monde peut modifier vos groupes d'onglets partagés</translation>
 <translation id="1925363809167540686">{TAB_COUNT,plural, =1{Épingler l'onglet}one{Épingler l'onglet}other{Épingler les onglets}}</translation>
 <translation id="1982637982196732906">Déplacer vers la section des éléments inactifs</translation>
@@ -76,6 +77,8 @@
 <translation id="3052964831964880138"><ph name="PRODUCT_NAME" /> : prix en baisse (-<ph name="PRICE_DROP" />)</translation>
 <translation id="3078350928901129212">Icône <ph name="COLOR_NAME" /> du groupe d'onglets</translation>
 <translation id="311432875115153175">Liste de groupes d'onglets fermée</translation>
+<translation id="3152596030350326139">Afficher les onglets horizontalement</translation>
+<translation id="31806439105337256">Afficher les onglets verticalement</translation>
 <translation id="3194464645767632461">note</translation>
 <translation id="3269930881809501915">{TABS_COUNT,plural, =1{Ajouter <ph name="TABS_COUNT_ONE" /> onglet à un groupe}one{Ajouter <ph name="TABS_COUNT_MANY" /> onglet à un groupe}other{Ajouter <ph name="TABS_COUNT_MANY" /> onglets à un groupe}}</translation>
 <translation id="3328308545011660196">Suggestion : <ph name="NUMBER_OF_TABS" /> onglets semblent liés. Voulez-vous les regrouper ?</translation>
@@ -180,7 +183,6 @@
 <translation id="7129458170538955174">Fiche d'infos sur ce magasin ouverte à mi-hauteur</translation>
 <translation id="7204204600596740190">Mode multi-sélection</translation>
 <translation id="7211038039686180558">Vos groupes d'onglets sont enregistrés et mis à jour automatiquement sur tous les appareils connectés à votre compte</translation>
-<translation id="731648547091221002"><ph name="COLOR_NAME" /> sélectionné</translation>
 <translation id="7326879924029668159">Voir les conditions de retour et plus</translation>
 <translation id="7352298686197644113">Affichez l'article le moins cher parmi ceux présentés dans les onglets ouverts</translation>
 <translation id="7369451074646620503">Le groupe d'onglets "<ph name="TAB_GROUP_NAME" />" n'est plus dispo</translation>
@@ -206,7 +208,6 @@
 <translation id="7854360405711302755">{REVIEWS,plural, =1{ Note de <ph name="CURRENT_RATING" />/<ph name="RATING_BASELINE" />, <ph name="REVIEWS_COUNT_ONE" /> avis}one{Note de <ph name="CURRENT_RATING" />/<ph name="RATING_BASELINE" />, <ph name="REVIEWS_COUNT_MANY" /> avis}other{Note de <ph name="CURRENT_RATING" />/<ph name="RATING_BASELINE" />, <ph name="REVIEWS_COUNT_MANY" /> avis}}</translation>
 <translation id="7885132941432959125">Déplacer l'onglet vers la droite</translation>
 <translation id="7887334752153342268">Dupliquer</translation>
-<translation id="7939917283308035850"><ph name="COLOR_NAME" /> non sélectionné</translation>
 <translation id="7961015016161918242">Jamais</translation>
 <translation id="7966321538264951561">Fermer les suggestions.</translation>
 <translation id="796696298310625748">{WINDOW_COUNT,plural, =1{Déplacer l'onglet vers une autre fenêtre}one{Déplacer l'onglet vers une autre fenêtre}other{Déplacer l'onglet vers une autre fenêtre}}</translation>

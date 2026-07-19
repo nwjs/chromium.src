@@ -60,6 +60,8 @@
 #import "third_party/ocmock/ocmock_extensions.h"
 #include "ui/base/cocoa/secure_password_input.h"
 #include "ui/base/ime/mojom/text_input_state.mojom.h"
+#include "ui/base/ime/text_input_flags.h"
+#include "ui/base/ime/text_input_type.h"
 #import "ui/base/test/cocoa_helper.h"
 #import "ui/base/test/scoped_fake_nswindow_focus.h"
 #include "ui/base/ui_base_features.h"
@@ -1444,6 +1446,29 @@ TEST_F(RenderWidgetHostViewMacTest, TimerBasedPhaseInfo) {
                   .data.scroll_end.synthetic);
 }
 
+TEST_F(RenderWidgetHostViewMacTest,
+       GestureScrollUpdateAckUpdatesLatchingState) {
+  // Initially it should be kNotArrived.
+  EXPECT_EQ(FirstScrollUpdateAckState::kNotArrived,
+            rwhv_mac_->mouse_wheel_phase_handler_
+                .first_scroll_update_ack_state_for_testing());
+
+  // Send a GSU event that was not consumed.
+  blink::WebGestureEvent gesture_event(
+      blink::WebInputEvent::Type::kGestureScrollUpdate,
+      blink::WebInputEvent::kNoModifiers, ui::EventTimeForNow(),
+      blink::WebGestureDevice::kTouchpad);
+
+  rwhv_mac_->GestureEventAck(
+      gesture_event, blink::mojom::InputEventResultSource::kCompositorThread,
+      blink::mojom::InputEventResultState::kNotConsumed);
+
+  // The state should now be updated to kNotConsumed.
+  EXPECT_EQ(FirstScrollUpdateAckState::kNotConsumed,
+            rwhv_mac_->mouse_wheel_phase_handler_
+                .first_scroll_update_ack_state_for_testing());
+}
+
 // With wheel scroll latching wheel end events are not sent immediately, instead
 // we start a timer to see if momentum phase of the scroll starts or not.
 TEST_F(RenderWidgetHostViewMacTest,
@@ -1824,9 +1849,11 @@ class InputMethodMacTest : public RenderWidgetHostViewMacTest {
   }
 
   void SetTextInputType(RenderWidgetHostViewBase* view,
-                        ui::TextInputType type) {
+                        ui::TextInputType type,
+                        ui::TextInputFlags flags = ui::TEXT_INPUT_FLAG_NONE) {
     ui::mojom::TextInputState state;
     state.type = type;
+    state.flags = flags;
     view->TextInputStateChanged(state);
   }
 
@@ -2080,6 +2107,66 @@ TEST_F(InputMethodMacTest, SecurePasswordInput) {
   ASSERT_EQ(child_widget_.get(), text_input_manager()->GetActiveWidget());
   ASSERT_EQ(text_input_manager(), tab_view()->GetTextInputManager());
   ASSERT_EQ(ui::TEXT_INPUT_TYPE_PASSWORD, tab_view()->GetTextInputType());
+
+  // Single matched calls immediately update IsPasswordInputEnabled().
+  tab_view()->SetActive(true);
+  EXPECT_TRUE(ui::ScopedPasswordInputEnabler::IsPasswordInputEnabled());
+
+  tab_view()->SetActive(false);
+  EXPECT_FALSE(ui::ScopedPasswordInputEnabler::IsPasswordInputEnabled());
+}
+
+TEST_F(InputMethodMacTest, SecureHasBeenAPasswordInput) {
+  ASSERT_FALSE(ui::ScopedPasswordInputEnabler::IsPasswordInputEnabled());
+  ASSERT_EQ(text_input_manager(), tab_view()->GetTextInputManager());
+
+  // RenderWidgetHostViewMacTest.LostFocusAndGotFocusOnSetActive checks the
+  // GotFocus()/LostFocus() rules, just silence the warnings here.
+  EXPECT_CALL(*host_, Focus()).Times(::testing::AnyNumber());
+  EXPECT_CALL(*host_, Blur()).Times(::testing::AnyNumber());
+
+  [window_ makeFirstResponder:tab_view()->GetInProcessNSView()];
+
+  // Shouldn't enable secure input if it's not a "has been a password"
+  // textfield.
+  tab_view()->SetActive(true);
+  EXPECT_FALSE(ui::ScopedPasswordInputEnabler::IsPasswordInputEnabled());
+
+  SetTextInputType(child_view_, ui::TEXT_INPUT_TYPE_TEXT,
+                   ui::TEXT_INPUT_FLAG_HAS_BEEN_PASSWORD);
+  ASSERT_EQ(child_widget_.get(), text_input_manager()->GetActiveWidget());
+  ASSERT_EQ(text_input_manager(), tab_view()->GetTextInputManager());
+  ASSERT_EQ(ui::TEXT_INPUT_TYPE_TEXT, tab_view()->GetTextInputType());
+
+  // Single matched calls immediately update IsPasswordInputEnabled().
+  tab_view()->SetActive(true);
+  EXPECT_TRUE(ui::ScopedPasswordInputEnabler::IsPasswordInputEnabled());
+
+  tab_view()->SetActive(false);
+  EXPECT_FALSE(ui::ScopedPasswordInputEnabler::IsPasswordInputEnabled());
+}
+
+TEST_F(InputMethodMacTest, SecureHasBeenACustomPasswordInput) {
+  ASSERT_FALSE(ui::ScopedPasswordInputEnabler::IsPasswordInputEnabled());
+  ASSERT_EQ(text_input_manager(), tab_view()->GetTextInputManager());
+
+  // RenderWidgetHostViewMacTest.LostFocusAndGotFocusOnSetActive checks the
+  // GotFocus()/LostFocus() rules, just silence the warnings here.
+  EXPECT_CALL(*host_, Focus()).Times(::testing::AnyNumber());
+  EXPECT_CALL(*host_, Blur()).Times(::testing::AnyNumber());
+
+  [window_ makeFirstResponder:tab_view()->GetInProcessNSView()];
+
+  // Shouldn't enable secure input if it's not a "has been a custom password"
+  // textfield.
+  tab_view()->SetActive(true);
+  EXPECT_FALSE(ui::ScopedPasswordInputEnabler::IsPasswordInputEnabled());
+
+  SetTextInputType(child_view_, ui::TEXT_INPUT_TYPE_TEXT,
+                   ui::TEXT_INPUT_FLAG_HAS_BEEN_CUSTOM_PASSWORD);
+  ASSERT_EQ(child_widget_.get(), text_input_manager()->GetActiveWidget());
+  ASSERT_EQ(text_input_manager(), tab_view()->GetTextInputManager());
+  ASSERT_EQ(ui::TEXT_INPUT_TYPE_TEXT, tab_view()->GetTextInputType());
 
   // Single matched calls immediately update IsPasswordInputEnabled().
   tab_view()->SetActive(true);

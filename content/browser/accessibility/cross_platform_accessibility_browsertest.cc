@@ -40,6 +40,7 @@
 #include "ui/accessibility/ax_node.h"
 #include "ui/accessibility/ax_tree.h"
 #include "ui/accessibility/ax_tree_id.h"
+#include "ui/accessibility/platform/ax_platform_node_base.h"
 #include "ui/accessibility/platform/browser_accessibility.h"
 #include "ui/accessibility/platform/browser_accessibility_manager.h"
 #include "ui/base/buildflags.h"
@@ -52,6 +53,10 @@
 
 #if BUILDFLAG(IS_MAC)
 #include "base/mac/mac_util.h"
+#endif
+
+#if BUILDFLAG(IS_ANDROID)
+#include "content/browser/accessibility/browser_accessibility_android.h"
 #endif
 
 using ::testing::ElementsAre;
@@ -3692,5 +3697,73 @@ IN_PROC_BROWSER_TEST_F(AriaNotifyV2CrossPlatformAccessibilityBrowserTest,
             ax::mojom::IntListAttribute::kAriaNotificationPriorityProperties));
   }
 }
+
+#if BUILDFLAG(HAS_NATIVE_ACCESSIBILITY) || BUILDFLAG(IS_ANDROID)
+class CanvasAccessibilityBrowserTest
+    : public CrossPlatformAccessibilityBrowserTest {
+ public:
+  CanvasAccessibilityBrowserTest() = default;
+  ~CanvasAccessibilityBrowserTest() override = default;
+
+ protected:
+  void ChooseFeatures(
+      std::vector<base::test::FeatureRef>* enabled_features,
+      std::vector<base::test::FeatureRef>* disabled_features) override {
+    enabled_features->push_back(features::kAccessibilityCanvas);
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(CanvasAccessibilityBrowserTest,
+                       CanvasAnnotationExposed) {
+  LoadInitialAccessibilityTreeFromHtml(R"HTML(
+      <!DOCTYPE html>
+      <html>
+      <body>
+        <canvas id="canvas" width="200" height="200"></canvas>
+      </body>
+      </html>
+  )HTML");
+
+  // Verify canvas exists and is ready.
+  ui::BrowserAccessibility* canvas_node =
+      FindFirstNodeWithRole(ax::mojom::Role::kCanvas);
+  ASSERT_NE(canvas_node, nullptr);
+
+  // Draw text now that layout should be ready. Use ExecJs to catch errors.
+  ASSERT_TRUE(ExecJs(shell(),
+                     "const canvas = document.getElementById('canvas');"
+                     "const ctx = canvas.getContext('2d');"
+                     "ctx.fillText('Hello World', 10, 50);"
+                     "ctx.getImageData(0, 0, 1, 1);"));
+
+  // Wait for the AX tree to update with the new canvas annotation.
+  WaitForAccessibilityTreeToContainNodeWithName(shell()->web_contents(),
+                                                "Hello World");
+
+  // Verify that the platform node indeed has the name.
+  canvas_node = FindFirstNodeWithRole(ax::mojom::Role::kCanvas);
+  ASSERT_NE(canvas_node, nullptr);
+  EXPECT_EQ(canvas_node->GetStringAttribute(
+                ax::mojom::StringAttribute::kCanvasAnnotation),
+            "Hello World");
+
+#if BUILDFLAG(HAS_NATIVE_ACCESSIBILITY)
+  gfx::NativeViewAccessible native_canvas =
+      canvas_node->GetNativeViewAccessible();
+  ui::AXPlatformNode* platform_node =
+      ui::AXPlatformNode::FromNativeViewAccessible(native_canvas);
+  ASSERT_NE(platform_node, nullptr);
+
+  ui::AXPlatformNodeBase* platform_node_base =
+      static_cast<ui::AXPlatformNodeBase*>(platform_node);
+  EXPECT_EQ(platform_node_base->GetName(), "Hello World");
+#elif BUILDFLAG(IS_ANDROID)
+  BrowserAccessibilityAndroid* android_canvas =
+      static_cast<BrowserAccessibilityAndroid*>(canvas_node);
+  EXPECT_EQ(android_canvas->GetAndroidContentDescription(), u"Hello World");
+  EXPECT_EQ(android_canvas->GetAndroidSupplementalDescription(), u"");
+#endif
+}
+#endif  // BUILDFLAG(HAS_NATIVE_ACCESSIBILITY) || BUILDFLAG(IS_ANDROID)
 
 }  // namespace content

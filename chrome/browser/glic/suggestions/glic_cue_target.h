@@ -27,7 +27,14 @@ class GlicCueTarget : public contextual_cueing::CueTarget {
   ~GlicCueTarget() override;
 
   // contextual_cueing::CueTarget:
+  contextual_cueing::CueTargetType GetType() const override;
   bool IsEligible() const override;
+  void CheckEligibility(base::WeakPtr<content::WebContents> web_contents,
+                        contextual_cueing::CueIntrusiveness intrusiveness,
+                        EligibilityCallback callback) override;
+  bool IsPageEligible(
+      const page_content_annotations::PageContentAnnotationsResult& result,
+      content::WebContents* active_web_contents) const override;
   void OnClick(contextual_cueing::CueActionData data) override;
   void OnEditPrompt(contextual_cueing::CueActionData data) override;
   ui::ImageModel GetAnchoredMessageIcon() const override;
@@ -41,8 +48,6 @@ class GlicCueTarget : public contextual_cueing::CueTarget {
  private:
   void InvokeGlic(contextual_cueing::CueActionData data,
                   bool should_autosubmit);
-
-  tabs::TabHandle GetActiveTabHandle();
 
   // Unowned and guaranteed to outlive this.
   raw_ref<GlicKeyedService> glic_keyed_service_;

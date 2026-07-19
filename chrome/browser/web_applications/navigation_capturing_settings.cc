@@ -4,7 +4,8 @@
 
 #include "chrome/browser/web_applications/navigation_capturing_settings.h"
 
-#include "chrome/browser/web_applications/link_capturing_features.h"
+#include "chrome/browser/web_applications/web_app_provider.h"
+#include "chrome/browser/web_applications/web_app_registrar.h"
 #include "content/public/common/content_features.h"
 #include "ui/base/ui_base_features.h"
 
@@ -19,9 +20,12 @@ namespace {
 // If this is off, then all auxiliary contexts will be created as browser tabs.
 const base::FeatureParam<bool> kEnableAuxContextKeepSameContainer{
     &features::kPwaNavigationCapturing, "aux_context_keep_same_container",
-    /*default_value=*/false};
+    /*default_value=*/true};
 
 }  // namespace
+
+NavigationCapturingSettings::NavigationCapturingSettings(Profile& profile)
+    : profile_(profile) {}
 
 // Keeping auxiliary contexts in an 'app' container was causing problems on
 // initial Canary testing, see https://crbug.com/379181271 for more information.
@@ -29,8 +33,20 @@ const base::FeatureParam<bool> kEnableAuxContextKeepSameContainer{
 bool NavigationCapturingSettings::ShouldAuxiliaryContextsKeepSameContainer(
     const std::optional<webapps::AppId>& source_browser_app_id,
     const GURL& url) {
-  return apps::features::IsNavigationCapturingReimplEnabled() &&
-         kEnableAuxContextKeepSameContainer.Get();
+  if (!base::FeatureList::IsEnabled(features::kPwaNavigationCapturing) ||
+      !kEnableAuxContextKeepSameContainer.Get()) {
+    return false;
+  }
+
+  // Only capture auxiliary context creation within the initiating app.
+  if (!source_browser_app_id.has_value()) {
+    return false;
+  }
+
+  WebAppRegistrar& registrar =
+      web_app::WebAppProvider::GetForWebApps(&profile_.get())
+          ->registrar_unsafe();
+  return registrar.IsUrlInAppScope(url, *source_browser_app_id);
 }
 
 }  // namespace web_app

@@ -8,6 +8,7 @@
 #include "ash/public/cpp/shelf_types.h"
 #include "ash/public/cpp/window_properties.h"
 #include "ash/strings/grit/ash_strings.h"
+#include "base/check_deref.h"
 #include "base/functional/callback_helpers.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/ash/crostini/crostini_features.h"
@@ -48,9 +49,9 @@ void CrostiniInstallerDialog::Show(Profile* profile,
 
   // TODO(lxj): Move installer status tracking into the CrostiniInstaller.
   DCHECK(!crostini::CrostiniManager::GetForProfile(profile)
-              ->GetCrostiniDialogStatus(crostini::DialogType::INSTALLER));
-  crostini::CrostiniManager::GetForProfile(profile)->SetCrostiniDialogStatus(
-      crostini::DialogType::INSTALLER, true);
+              ->IsCrostiniInstallerOpen());
+  crostini::CrostiniManager::GetForProfile(profile)->SetCrostiniInstallerOpen(
+      true);
 
   instance =
       new CrostiniInstallerDialog(profile, std::move(on_loaded_callback));
@@ -65,8 +66,8 @@ CrostiniInstallerDialog::CrostiniInstallerDialog(
       on_loaded_callback_(std::move(on_loaded_callback)) {}
 
 CrostiniInstallerDialog::~CrostiniInstallerDialog() {
-  crostini::CrostiniManager::GetForProfile(profile_)->SetCrostiniDialogStatus(
-      crostini::DialogType::INSTALLER, false);
+  crostini::CrostiniManager::GetForProfile(profile_)->SetCrostiniInstallerOpen(
+      false);
 }
 
 void CrostiniInstallerDialog::GetDialogSize(gfx::Size* size) const {
@@ -109,8 +110,9 @@ bool CrostiniInstallerDialog::OnDialogCloseRequested() {
 }
 
 void CrostiniInstallerDialog::OnDialogShown(content::WebUI* webui) {
-  installer_ui_ =
-      static_cast<CrostiniInstallerUI*>(webui->GetController())->GetWeakPtr();
+  auto* controller =
+      &CHECK_DEREF(webui->GetController()->GetAs<CrostiniInstallerUI>());
+  installer_ui_ = controller->GetWeakPtr();
   return SystemWebDialogDelegate::OnDialogShown(webui);
 }
 

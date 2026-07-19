@@ -9,27 +9,21 @@
 #include <string_view>
 
 #include "base/containers/adapters.h"
-#include "base/feature_list.h"
-#include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/notreached.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/profiles/profile_window.h"
 #include "chrome/browser/task_manager/common/task_manager_features.h"
 #include "chrome/browser/task_manager/task_manager_interface.h"
-#include "chrome/browser/task_manager/task_manager_observer.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
-#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/task_manager/task_manager_columns.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/common/pref_names.h"
-#include "chrome/common/url_constants.h"
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/prefs/pref_service.h"
@@ -37,7 +31,6 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
-#include "ui/base/models/table_model_observer.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/base/mojom/menu_source_type.mojom-forward.h"
 #include "ui/base/ui_base_features.h"
@@ -47,8 +40,9 @@
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
 #include "ui/views/border.h"
-#include "ui/views/controls/label.h"
+#include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/controls/scroll_view.h"
+#include "ui/views/controls/tabbed_pane/tabbed_pane.h"
 #include "ui/views/controls/table/table_view.h"
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/fill_layout.h"
@@ -121,7 +115,8 @@ base::span<const TaskManagerView::FilterTab> GetTabDefinitions() {
 
 TaskManagerView::~TaskManagerView() {
   // Delete child views now, while our table model still exists.
-  tabs_ = nullptr;  // Destroyed by `container` below.
+  tabs_ = nullptr;
+  tab_table_ = nullptr;
   RemoveAllChildViews();
 
   // When the view is destroyed, the lifecycle of the Task Manager is complete.
@@ -144,7 +139,7 @@ task_manager::TaskManagerTableModel* TaskManagerView::Show(
   // On Chrome OS, pressing Search-Esc when there are no open browser windows
   // will open the task manager on the root window for new windows.
   gfx::NativeWindow context =
-      browser ? browser->window()->GetNativeWindow() : gfx::NativeWindow();
+      browser ? browser->GetWindow()->GetNativeWindow() : gfx::NativeWindow();
   CreateDialogWidget(g_task_manager_view, context, gfx::NativeView());
   g_task_manager_view->GetDialogClientView()->SetBackgroundColor(
       kColorTaskManagerBackground);
@@ -165,11 +160,9 @@ task_manager::TaskManagerTableModel* TaskManagerView::Show(
   g_task_manager_view->SelectTaskOfActiveTab(browser);
   g_task_manager_view->GetWidget()->Show();
 
-  if (g_task_manager_view->table_config_.layout_refresh &&
-      ui::AXPlatform::GetInstance().IsScreenReaderActive()) {
-    // For a11y: with the refreshed layout, the top-left most item should be
-    // focused by default so screen readers read out the layout ltr (or flipped
-    // for rtl).
+  if (ui::AXPlatform::GetInstance().IsScreenReaderActive()) {
+    // For a11y: the top-left most item should be focused by default so screen
+    // readers read out the layout ltr (or flipped for rtl).
     g_task_manager_view->tabs_->GetSelectedTab()->RequestFocus();
   }
 #if BUILDFLAG(IS_CHROMEOS)
@@ -264,7 +257,7 @@ bool TaskManagerView::AcceleratorPressed(const ui::Accelerator& accelerator) {
 }
 
 views::View* TaskManagerView::GetInitiallyFocusedView() {
-  // Set initial focus to |table_view_| so that screen readers can navigate the
+  // Set initial focus to |tab_table_| so that screen readers can navigate the
   // UI when the dialog is opened without having to manually assign focus first.
   return tab_table_;
 }
@@ -380,10 +373,7 @@ void TaskManagerView::SearchBarOnInputChanged(std::u16string_view query) {
 }
 
 TaskManagerView::TaskManagerView(StartAction start_action)
-    : tab_table_(nullptr),
-      tab_table_parent_(nullptr),
-      table_config_(GetTableConfigs()),
-      is_always_on_top_(false) {
+    : is_always_on_top_(false) {
   task_manager::RecordNewOpenEvent(start_action);
   set_use_custom_frame(false);
   SetHasWindowSizeControls(true);
@@ -404,19 +394,6 @@ TaskManagerView::TaskManagerView(StartAction start_action)
 // static
 TaskManagerView* TaskManagerView::GetInstanceForTests() {
   return g_task_manager_view;
-}
-
-// static
-TaskManagerView::TableConfigs TaskManagerView::GetTableConfigs() {
-  return TableConfigs{
-      .table_has_border = false,
-      .header_style = true,
-      .table_refresh = true,
-      .scroll_view_rounded = true,
-      .layout_refresh = true,
-      .dialog_button_disabled = true,
-      .sort_on_cpu_by_default = true,
-  };
 }
 
 void TaskManagerView::TabSelectedAt(int index) {
@@ -583,19 +560,15 @@ std::unique_ptr<views::View> TaskManagerView::CreateSearchBar(
 }
 
 std::unique_ptr<views::ScrollView> TaskManagerView::CreateProcessView(
-    std::unique_ptr<views::TableView> tab_table,
-    bool table_has_border,
-    bool layout_refresh) {
+    std::unique_ptr<views::TableView> tab_table) {
   auto scroll_view = views::TableView::CreateScrollViewWithTable(
-      std::move(tab_table), table_has_border);
+      std::move(tab_table), /*has_border=*/false);
 
-  if (layout_refresh) {
-    scroll_view->SetLayoutManager(std::make_unique<views::FillLayout>());
-    scroll_view->SetProperty(
-        views::kFlexBehaviorKey,
-        views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToZero,
-                                 views::MaximumFlexSizeRule::kUnbounded));
-  }
+  scroll_view->SetLayoutManager(std::make_unique<views::FillLayout>());
+  scroll_view->SetProperty(
+      views::kFlexBehaviorKey,
+      views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToZero,
+                               views::MaximumFlexSizeRule::kUnbounded));
 
   return scroll_view;
 }
@@ -616,69 +589,59 @@ void TaskManagerView::Init() {
       nullptr, columns_, views::TableType::kIconAndText, false);
   tab_table_ = tab_table.get();
   table_model_ = std::make_unique<TaskManagerTableModel>(
-      this, table_config_.layout_refresh ? DisplayCategory::kTabsAndExtensions
-                                         : DisplayCategory::kAll);
+      this, DisplayCategory::kTabsAndExtensions);
   tab_table->SetModel(table_model_.get());
   tab_table->SetGrouper(this);
-  tab_table->SetGrouperVisibility(!table_config_.layout_refresh);
+  tab_table->SetGrouperVisibility(false);
   tab_table->SetSortOnPaint(true);
-  if (table_config_.layout_refresh) {
-    // Disables alternating row colors on all platforms, including macOS.
-    tab_table->SetAlternatingRowColorsEnabled(base::PassKey<TaskManagerView>(),
-                                              false);
-    tab_table->SetMouseHoveringEnabled(true);
-
-    tab_table->SetRowPadding(views::DISTANCE_TABLE_VERTICAL_TEXT_PADDING);
-  }
+  // Disables alternating row colors on all platforms, including macOS.
+  tab_table->SetAlternatingRowColorsEnabled(base::PassKey<TaskManagerView>(),
+                                            false);
+  tab_table->SetMouseHoveringEnabled(true);
+  tab_table->SetRowPadding(views::DISTANCE_TABLE_VERTICAL_TEXT_PADDING);
   tab_table->set_observer(this);
+  tab_table->SetSelectOnFocus(true);
   tab_table->set_context_menu_controller(this);
   set_context_menu_controller(this);
 
   SetButtons(static_cast<int>(ui::mojom::DialogButton::kOk));
   SetButtonLabel(ui::mojom::DialogButton::kOk,
-                 l10n_util::GetStringUTF16(table_config_.layout_refresh
-                                               ? IDS_TASK_MANAGER_KILL_V2
-                                               : IDS_TASK_MANAGER_KILL));
+                 l10n_util::GetStringUTF16(IDS_TASK_MANAGER_KILL_V2));
 
   const auto* provider = ChromeLayoutProvider::Get();
   const float corner_radius =
       provider->GetCornerRadiusMetric(views::Emphasis::kHigh);
 
-  if (table_config_.header_style) {
-    views::TableHeaderStyle header_style(
-        /*cell_vertical_padding=*/14, /*cell_horizontal_padding=*/12,
-        /*resize_bar_vertical_padding=*/16,
-        /*separator_horizontal_padding=*/0,
-        /*font_weight=*/gfx::Font::Weight::MEDIUM,
-        /*separator_horizontal_color_id=*/ui::kColorSysDivider,
-        /*separator_vertical_color_id=*/ui::kColorSysDivider,
-        /*background_color_id=*/kColorTaskManagerTableHeaderBackground,
-        /*focus_ring_upper_corner_radius=*/corner_radius,
-        /*header_sort_state=*/true);
-    tab_table->SetHeaderStyle(header_style);
-  }
+  views::TableHeaderStyle header_style(
+      /*cell_vertical_padding=*/14, /*cell_horizontal_padding=*/12,
+      /*resize_bar_vertical_padding=*/16,
+      /*separator_horizontal_padding=*/0,
+      /*font_weight=*/gfx::Font::Weight::MEDIUM,
+      /*separator_horizontal_color_id=*/ui::kColorSysDivider,
+      /*separator_vertical_color_id=*/ui::kColorSysDivider,
+      /*background_color_id=*/kColorTaskManagerTableHeaderBackground,
+      /*focus_ring_upper_corner_radius=*/corner_radius,
+      /*header_sort_state=*/true);
+  tab_table->SetHeaderStyle(header_style);
 
-  if (table_config_.table_refresh) {
-    views::TableStyle table_style = {
-        .background_tokens =
-            views::TableBackgroundStyle{
-                .background = kColorTaskManagerTableBackground,
-                .alternate = kColorTaskManagerTableBackgroundAlternate,
-                .selected_focused =
-                    kColorTaskManagerTableBackgroundSelectedFocused,
-                .selected_unfocused =
-                    kColorTaskManagerTableBackgroundSelectedUnfocused,
-            },
-        .icons_have_background = true,
-        .inset_focus_ring = true,
-    };
-    tab_table->SetTableStyle(table_style);
-  }
+  views::TableStyle table_style = {
+      .background_tokens =
+          views::TableBackgroundStyle{
+              .background = kColorTaskManagerTableBackground,
+              .alternate = kColorTaskManagerTableBackgroundAlternate,
+              .selected_focused =
+                  kColorTaskManagerTableBackgroundSelectedFocused,
+              .selected_unfocused =
+                  kColorTaskManagerTableBackgroundSelectedUnfocused,
+          },
+      .icons_have_background = true,
+      .inset_focus_ring = true,
+  };
+  tab_table->SetTableStyle(table_style);
 
   // Margins around all contents
-  const gfx::Insets dialog_insets = provider->GetInsetsMetric(
-      table_config_.layout_refresh ? static_cast<int>(INSETS_TASK_MANAGER)
-                                   : views::INSETS_DIALOG);
+  const gfx::Insets dialog_insets =
+      provider->GetInsetsMetric(static_cast<int>(INSETS_TASK_MANAGER));
   // We don't use ChromeLayoutProvider::GetDialogInsetsForContentType because we
   // don't have a title.
   const auto content_insets = gfx::Insets::TLBR(
@@ -689,36 +652,27 @@ void TaskManagerView::Init() {
   SetBorder(views::CreateEmptyBorder(content_insets));
 
   // Setup Layout Manager for Dialog
-  if (table_config_.layout_refresh) {
-    views::FlexLayout* content_layout =
-        SetLayoutManager(std::make_unique<views::FlexLayout>());
-    content_layout->SetOrientation(views::LayoutOrientation::kVertical);
+  views::FlexLayout* content_layout =
+      SetLayoutManager(std::make_unique<views::FlexLayout>());
+  content_layout->SetOrientation(views::LayoutOrientation::kVertical);
 
-    CreateHeader(provider);
-  } else {
-    SetUseDefaultFillLayout(true);
-  }
+  // Create a TableHeader for the Task Manager
+  CreateHeader(provider);
 
   // Add Process List (a.k.a Scroll View)
-  tab_table_parent_ = AddChildView(
-      CreateProcessView(std::move(tab_table), table_config_.table_has_border,
-                        table_config_.layout_refresh));
+  auto* tab_table_parent =
+      AddChildView(CreateProcessView(std::move(tab_table)));
 
-  if (table_config_.scroll_view_rounded) {
-    tab_table_parent_->SetPaintToLayer(ui::LAYER_TEXTURED);
+  tab_table_parent->SetPaintToLayer(ui::LAYER_TEXTURED);
 
-    ui::Layer* scroll_view_layer = tab_table_parent_->layer();
-    scroll_view_layer->SetRoundedCornerRadius(
-        gfx::RoundedCornersF(corner_radius));
-    scroll_view_layer->SetIsFastRoundedCorner(true);
-  }
+  ui::Layer* scroll_view_layer = tab_table_parent->layer();
+  scroll_view_layer->SetRoundedCornerRadius(
+      gfx::RoundedCornersF(corner_radius));
+  scroll_view_layer->SetIsFastRoundedCorner(true);
 
-  table_model_->RetrieveSavedColumnsSettingsAndUpdateTable(
-      table_config_.sort_on_cpu_by_default);
+  table_model_->RetrieveSavedColumnsSettingsAndUpdateTable(true);
 
-  if (table_config_.layout_refresh) {
-    RestoreSavedCategory();
-  }
+  RestoreSavedCategory();
 
   AddAccelerator(ui::Accelerator(ui::VKEY_W, ui::EF_CONTROL_DOWN));
   AddAccelerator(
@@ -816,9 +770,7 @@ void TaskManagerView::EndSelectedProcess() {
   }
 
   // AX: Announce the result of ending a task group.
-  if (table_config_.layout_refresh) {
-    AnnounceTaskEnded(any_task_ended);
-  }
+  AnnounceTaskEnded(any_task_ended);
 
   base::TimeTicks current_time = base::TimeTicks::Now();
   if (end_process_count_ < 5) {

@@ -80,6 +80,7 @@
 #include "third_party/blink/renderer/core/html/html_collection.h"
 #include "third_party/blink/renderer/core/html/html_image_loader.h"
 #include "third_party/blink/renderer/core/html/parser/html_parser_idioms.h"
+#include "third_party/blink/renderer/core/html/shadow/shadow_element_names.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/input_type_names.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
@@ -1001,7 +1002,14 @@ void HTMLInputElement::ParseAttribute(
     UseCounter::Count(GetDocument(), WebFeature::kPatternAttribute);
   } else if (name == html_names::kReadonlyAttr) {
     TextControlElement::ParseAttribute(params);
+    // A readonly input matches neither :in-range nor :out-of-range.
+    if (params.old_value.IsNull() != params.new_value.IsNull()) {
+      input_type_->InRangeChanged();
+    }
     input_type_view_->ReadonlyAttributeChanged();
+  } else if (name == html_names::kColorspaceAttr ||
+             name == html_names::kAlphaAttr) {
+    input_type_->ColorSpaceOrAlphaAttributeChanged();
   } else if (name == html_names::kListAttr) {
     has_non_empty_list_ = !value.empty();
     ResetListAttributeTargetObserver();
@@ -1057,6 +1065,9 @@ void HTMLInputElement::AttachLayoutTree(AttachContext& context) {
 }
 
 void HTMLInputElement::DetachLayoutTree(bool performing_reattach) {
+  if (GetLayoutObject()) {
+    input_type_->OnDetachWithLayoutObject();
+  }
   TextControlElement::DetachLayoutTree(performing_reattach);
   needs_to_update_view_value_ = true;
   input_type_view_->ClosePopupView();
@@ -1330,11 +1341,15 @@ void HTMLInputElement::SetSuggestedValue(const String& value) {
 }
 
 void HTMLInputElement::DidChangeIsCanvasOrInCanvasSubtree() {
+  TextControlElement::DidChangeIsCanvasOrInCanvasSubtree();
   if (RuntimeEnabledFeatures::CanvasDrawElementEnabled(GetExecutionContext()) &&
       IsInCanvasSubtree()) {
     // Hide suggested values when under canvas, to prevent leaking this
     // information to javascript.
     SetSuggestedValue(String());
+  }
+  if (auto* email_input = DynamicTo<EmailInputType>(input_type_.Get())) {
+    email_input->UpdateEmailVerificationIndicator();
   }
 }
 
@@ -1950,9 +1965,9 @@ void HTMLInputElement::RequiredAttributeChanged() {
   input_type_view_->RequiredAttributeChanged();
 }
 
-void HTMLInputElement::DisabledAttributeChanged() {
-  TextControlElement::DisabledAttributeChanged();
-  input_type_view_->DisabledAttributeChanged();
+void HTMLInputElement::DisabledAttributeChanged(DisabledChangedReason reason) {
+  TextControlElement::DisabledAttributeChanged(reason);
+  input_type_view_->DisabledAttributeChanged(reason);
 }
 
 void HTMLInputElement::SelectColorInColorChooser(const Color& color) {
@@ -2438,6 +2453,19 @@ void HTMLInputElement::SetShouldRevealPassword(bool value) {
   }
 }
 
+void HTMLInputElement::SetEmailVerificationState(EmailVerificationState state) {
+  if (auto* email_input = DynamicTo<EmailInputType>(input_type_.Get())) {
+    email_input->SetEmailVerificationState(state);
+  }
+}
+
+EmailVerificationState HTMLInputElement::GetEmailVerificationState() const {
+  if (auto* email_input = DynamicTo<EmailInputType>(input_type_.Get())) {
+    return email_input->GetEmailVerificationState();
+  }
+  return EmailVerificationState::kNone;
+}
+
 void HTMLInputElement::DispatchSimulatedEnter() {
   DCHECK(GetDocument().GetPage());
   GetDocument().GetPage()->GetFocusController().SetFocusedElement(
@@ -2639,6 +2667,9 @@ bool HTMLInputElement::HandleCommandInternal(HTMLElement& invoker,
 void HTMLInputElement::SetFocused(bool is_focused,
                                   mojom::blink::FocusType focus_type) {
   TextControlElement::SetFocused(is_focused, focus_type);
+  if (input_type_) {
+    input_type_->UpdateWheelEventRegistration(/*is_detaching=*/false);
+  }
   // Multifield inputs will call SetFocused when switching between the
   // individual parts, but we don't want to start matching
   // :user-valid/:user-invalid at that time. However, for other inputs, we want
@@ -2673,6 +2704,9 @@ bool HTMLInputElement::IsBaseAppearanceCombobox() const {
 HTMLSelectElement* HTMLInputElement::FilterTarget() const {
   if (!RuntimeEnabledFeatures::FilterableSelectEnabled()) {
     return nullptr;
+  }
+  if (nearest_ancestor_select_) {
+    return nearest_ancestor_select_;
   }
   if (auto* select = DynamicTo<HTMLSelectElement>(
           GetElementAttributeResolvingReferenceTarget(

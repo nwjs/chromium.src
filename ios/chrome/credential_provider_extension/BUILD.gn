@@ -202,6 +202,7 @@ source_set("passkey_request_details") {
     "//base",
     "//components/webauthn/core/browser:passkey_model",
     "//components/webauthn/ios:passkey_types",
+    "//ios/chrome/common/credential_provider:net_util",
     "//ios/chrome/common/credential_provider:ui",
     "//ios/chrome/credential_provider_extension/ui:feature_flags",
   ]

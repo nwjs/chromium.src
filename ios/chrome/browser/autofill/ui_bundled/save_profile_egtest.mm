@@ -232,11 +232,6 @@ void TypeTextInXframeField(NSString* fieldID, NSString* text) {
     config.features_enabled.push_back(kAutofillFixXhrForXframe);
   }
 
-  if ([self isRunningTest:@selector(testUserData_LocalUpdate)]) {
-    config.features_enabled.push_back(
-        autofill::features::kAutofillEnableSupportForHomeAndWork);
-  }
-
   // TODO(crbug.com/428189566): Re-enable after the test is fixed for
   // ios-fieldtrial-rel.
   if ([self isRunningTest:@selector
@@ -530,8 +525,9 @@ void TypeTextInXframeField(NSString* fieldID, NSString* text) {
       assertWithMatcher:grey_sufficientlyVisible()];
 
   // Save the profile.
-  [[EarlGrey selectElementWithMatcher:ModalButtonMatcher()]
-      performAction:grey_tap()];
+  [[[EarlGrey selectElementWithMatcher:ModalButtonMatcher()]
+         usingSearchAction:grey_scrollInDirection(kGREYDirectionDown, 200)
+      onElementWithMatcher:EditProfileBottomSheet()] performAction:grey_tap()];
 
   // Ensure profile is saved locally.
   GREYAssertEqual(1U, [AutofillAppInterface profilesCount],
@@ -542,7 +538,8 @@ void TypeTextInXframeField(NSString* fieldID, NSString* text) {
 
 // Ensures that if a local profile is filled in a form and submitted, the user
 // is asked for a migration prompt and the profile is moved to the Account.
-- (void)testUserData_MigrationToAccount {
+// TODO(crbug.com/520302619): Flaky on waterfall.
+- (void)FLAKY_testUserData_MigrationToAccount {
   [AutofillAppInterface clearProfilesStore];
 
   // Store one local address.

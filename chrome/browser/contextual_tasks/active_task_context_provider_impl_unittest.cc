@@ -57,6 +57,7 @@ class MockObserver : public ActiveTaskContextProvider::Observer {
               OnContextTabsChanged,
               (const std::set<tabs::TabHandle>&),
               (override));
+  MOCK_METHOD(void, OnActiveTaskContextProviderDestroyed, (), (override));
 };
 
 class ActiveTaskContextProviderImplTest : public testing::Test {
@@ -390,6 +391,56 @@ TEST_F(ActiveTaskContextProviderImplTest,
   EXPECT_CALL(observer_, OnContextTabsChanged(std::set<tabs::TabHandle>()))
       .Times(1);
   provider_->PrimaryPageChanged(tab->GetContents()->GetPrimaryPage());
+}
+
+TEST_F(ActiveTaskContextProviderImplTest,
+       ActiveTabSwitchingHidesAndRestoresLocalUnderlines) {
+  tabs::TabInterface* tab1 = CreateMockTab();
+  tabs::TabInterface* tab2 = CreateMockTab();
+
+  EXPECT_CALL(*contextual_tasks_panel_controller_,
+              GetSessionHandleForActiveTabOrPanel())
+      .WillRepeatedly(Return(std::make_pair(std::nullopt, nullptr)));
+
+  // `tab1` is the active tab initially.
+  EXPECT_CALL(*tab_list_, GetActiveTab()).WillRepeatedly(Return(tab1));
+
+  // Add local tab underline while `tab1` is active.
+  std::set<tabs::TabHandle> expected_tabs = {tab2->GetHandle()};
+  EXPECT_CALL(observer_, OnContextTabsChanged(expected_tabs)).Times(1);
+  provider_->AddLocalTabUnderline(tab2->GetHandle());
+
+  // Simulate active tab switch to `tab2`.
+  EXPECT_CALL(*tab_list_, GetActiveTab()).WillRepeatedly(Return(tab2));
+  EXPECT_CALL(observer_, OnContextTabsChanged(std::set<tabs::TabHandle>()))
+      .Times(1);
+  for (auto& observer : tab_list_observers_) {
+    observer.OnActiveTabChanged(*tab_list_, tab2);
+  }
+
+  // Simulate switching active tab back to `tab1`. Underline reappears.
+  EXPECT_CALL(*tab_list_, GetActiveTab()).WillRepeatedly(Return(tab1));
+  EXPECT_CALL(observer_, OnContextTabsChanged(expected_tabs)).Times(1);
+  for (auto& observer : tab_list_observers_) {
+    observer.OnActiveTabChanged(*tab_list_, tab1);
+  }
+}
+
+TEST_F(ActiveTaskContextProviderImplTest, ObserverNotifiedOnDestruction) {
+  NiceMock<MockBrowserWindowInterface> local_window;
+  ui::UnownedUserDataHost local_user_data_host;
+  ON_CALL(local_window, GetUnownedUserDataHost())
+      .WillByDefault(ReturnRef(local_user_data_host));
+
+  auto local_provider = std::make_unique<ActiveTaskContextProviderImpl>(
+      &local_window, contextual_tasks_service_);
+
+  NiceMock<MockObserver> local_observer;
+  local_provider->AddObserver(&local_observer);
+
+  EXPECT_CALL(local_observer, OnActiveTaskContextProviderDestroyed()).Times(1);
+
+  local_provider.reset();
 }
 
 }  // namespace contextual_tasks
