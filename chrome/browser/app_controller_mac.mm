@@ -1021,7 +1021,7 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
   }
 
   if (!AppWindowRegistryUtil::CloseAllAppWindows(true))
-    return NSTerminateCancel;
+    return ConfirmQuitResultAborted;
 
   // Check if the preference is turned on.
   const PrefService* prefs = g_browser_process->local_state();
