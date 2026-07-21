@@ -1455,11 +1455,26 @@ if (is_win || (is_linux && !is_component_build)) {
         ":chrome_framework",
         ":chrome_dump_syms",
         "//components/crash/core/app:chrome_crashpad_handler",
-        "//third_party/angle:libEGL",
-        "//third_party/angle:libGLESv2",
         "//third_party/crashpad/crashpad/handler:crashpad_handler",
         "//third_party/swiftshader/src/Vulkan:swiftshader_libvulkan",
+        "//third_party/vulkan-loader/src:libvulkan",
       ]
+
+      # Because nw_sym_archive explicitly lists the ANGLE .dylibs in sources
+      # (via _chrome_symbols_sources), it must depend directly on the targets
+      # generating them to satisfy GN/analyze. With use_static_angle the
+      # dylibs come from the dummy targets in //ui/gl instead of //third_party/angle.
+      if (use_static_angle) {
+        deps += [
+          "//ui/gl:dummy_libEGL",
+          "//ui/gl:dummy_libGLESv2",
+        ]
+      } else {
+        deps += [
+          "//third_party/angle:libEGL",
+          "//third_party/angle:libGLESv2",
+        ]
+      }
       foreach(helper_params, chrome_mac_helpers) {
         deps += [ ":chrome_helper_app_${helper_params[0]}" ]
       }
