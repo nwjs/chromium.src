@@ -121,6 +121,12 @@ class ImeCrosPlatform {
   // required to run in the thread creating its remote.
   virtual void RunInMainSequence(ImeSequencedTask task, int task_id) = 0;
 
+  // Returns whether a CrOS experimental feature is enabled. Only a subset of
+  // CrOS features are considered (features not considered appear as disabled).
+  // |feature_name| corresponds to base::Feature::name of the CrOS feature as
+  // defined in ash/constants/ash_features.cc in the Chromium repo.
+  virtual bool IsFeatureEnabled(const char* feature_name) = 0;
+
   // Start a download using |SimpleURLLoader|. Each SimpleDownloadToFileV2 can
   // only be used for a single request. Make a call after the previous task
   // completes or cancels. There's download URL included in the callback.

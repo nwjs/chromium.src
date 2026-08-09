@@ -1071,4 +1071,22 @@ extern const base::FeatureParam<base::TimeDelta>
 extern const base::FeatureParam<base::TimeDelta>
     kDiscoverFeedBackgroundRefreshMinBuffer;
 
+// Feature to completely hide the App Bar when in fullscreen.
+BASE_DECLARE_FEATURE(kAppBarHideInFullscreen);
+
+// Returns true if the App Bar should be completely hidden when in fullscreen.
+bool IsAppBarHiddenInFullscreen();
+
+// Enables the FixOmniboxInitialPositionStartup feature.
+BASE_DECLARE_FEATURE(kFixOmniboxInitialPositionStartup);
+
+// Returns true if the FixOmniboxInitialPositionStartup feature is enabled.
+bool IsFixOmniboxInitialPositionStartupEnabled();
+
+// Enables the DefaultBottomOmniboxOnIOS feature.
+BASE_DECLARE_FEATURE(kDefaultBottomOmniboxOnIOS);
+
+// Returns true if the DefaultBottomOmniboxOnIOS feature is enabled.
+bool IsDefaultBottomOmniboxOnIOSEnabled();
+
 #endif  // IOS_CHROME_BROWSER_SHARED_PUBLIC_FEATURES_FEATURES_H_

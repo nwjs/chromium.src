@@ -1001,7 +1001,8 @@ void ChromeBrowserMainExtraPartsProfiles::
     enterprise_custom_headers::HttpHeaderInjectionServiceFactory::GetInstance();
   }
 #endif
-#if BUILDFLAG(ENTERPRISE_WATERMARK)
+#if BUILDFLAG(ENTERPRISE_WATERMARK) || \
+    BUILDFLAG(ENTERPRISE_SCREENSHOT_PROTECTION)
   enterprise_data_protection::DataProtectionUrlLookupServiceFactory::
       GetInstance();
 #endif

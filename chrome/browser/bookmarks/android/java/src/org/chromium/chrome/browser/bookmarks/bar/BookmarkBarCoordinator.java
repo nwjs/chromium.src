@@ -846,4 +846,8 @@ public class BookmarkBarCoordinator
     PropertyModel getBookmarkBarSceneLayerModelForTesting() {
         return mBookmarkBarSceneLayerModel;
     }
+
+    BookmarkBarMediator getMediatorForTesting() {
+        return mMediator;
+    }
 }

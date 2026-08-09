@@ -67,10 +67,6 @@ std::string_view GetExtensionString(std::string_view tag, char ext_id) {
 
 }  // namespace
 
-LanguageTag::~LanguageTag() = default;
-LanguageTag::LanguageTag(const LanguageTag&) = default;
-LanguageTag& LanguageTag::operator=(const LanguageTag&) = default;
-
 std::string LanguageTag::ToLegacyICUFormat() const {
   size_t first_extension_pos = FindNextSingleton(tag_.AsString());
   CHECK_GT(first_extension_pos, 0u);
@@ -95,12 +91,8 @@ std::string LanguageTag::ToLegacyICUFormat() const {
   return legacy_code;
 }
 
-std::string_view LanguageTag::tag_string() const {
-  return tag_.AsString();
-}
-
 LanguageTag::LanguageTag(ImmutableStringType tag) : tag_(std::move(tag)) {
-  CHECK(tag_.AsString().size() >= 2);
+  CHECK(tag_string().size() >= 2);
 }
 
 std::optional<RegionSubtag> LanguageTag::region_subtag() const {

@@ -115,13 +115,15 @@ class CONTENT_EXPORT RequestService
   void SetNetworkManagerForTests(
       std::unique_ptr<IdpNetworkRequestManager> manager);
   std::unique_ptr<IdpNetworkRequestManager> CreateNetworkManager();
-  void CloseModalDialogView();
-  std::unique_ptr<IdentityRequestDialogController> CreateDialogController();
+  void CloseModalDialogView() override;
+  IdentityRequestDialogController* GetOrCreateDialogController();
+  IdentityRequestDialogController* GetDialogController() const;
   void SetDialogControllerForTests(
       std::unique_ptr<IdentityRequestDialogController> controller);
 
   // Returns the active Request if one exists, or instantiates a new one if not.
   Request* GetOrCreateActiveRequest();
+  Request* GetActiveRequestForTesting() const;
 
   void SetDelegatesForTesting(
       FederatedIdentityApiPermissionContextDelegate* api_permission_delegate,
@@ -130,17 +132,12 @@ class CONTENT_EXPORT RequestService
       FederatedIdentityPermissionContextDelegate* permission_delegate,
       IdentityRegistry* identity_registry);
 
-  // Creates a Request for testing.
-  Request& CreateRequestForTesting(
-      mojo::PendingReceiver<blink::mojom::FederatedAuthRequest> receiver,
-      FederatedIdentityApiPermissionContextDelegate* api_permission_delegate,
-      FederatedIdentityAutoReauthnPermissionContextDelegate*
-          auto_reauthn_permission_delegate,
-      FederatedIdentityPermissionContextDelegate* permission_delegate,
-      IdentityRegistry* identity_registry);
-
   // Destroys the active request. Strictly for use in tests.
   void DestroyActiveRequestForTesting();
+
+  bool HasDialogControllerForTesting() const {
+    return dialog_controller_ != nullptr;
+  }
 
   void IncrementNumRequests() { ++num_requests_; }
 
@@ -157,11 +154,9 @@ class CONTENT_EXPORT RequestService
       RegisterIdPCallback callback,
       const GURL& idp,
       std::vector<ConfigFetcher::FetchResult> fetch_results);
-  void CompleteUserInfoRequest(
-      UserInfoRequest* request,
-      RequestUserInfoCallback callback,
-      blink::mojom::RequestUserInfoStatus status,
-      std::optional<std::vector<blink::mojom::IdentityUserInfoPtr>> user_info);
+  void CompleteUserInfoRequest(UserInfoRequest* request,
+                               RequestUserInfoCallback callback,
+                               blink::mojom::RequestUserInfoResultPtr result);
   void CompleteDisconnectRequest(DisconnectCallback callback,
                                  blink::mojom::DisconnectStatus status);
   void OnTokenRequestComplete(
@@ -174,6 +169,8 @@ class CONTENT_EXPORT RequestService
       bool is_auto_selected);
   void CleanUpCompletedRequest(Request* request);
   std::unique_ptr<Metrics> CreateFedCmMetrics();
+  std::unique_ptr<IdentityRequestDialogController> CreateDialogController();
+  void MaybeDestroyDialogController();
 
   std::unique_ptr<Request> active_request_;
   // Temporary storage for completed requests pending destruction.
@@ -204,6 +201,8 @@ class CONTENT_EXPORT RequestService
   raw_ptr<FederatedIdentityPermissionContextDelegate> permission_delegate_ =
       nullptr;
   std::unique_ptr<DisconnectRequest> disconnect_request_;
+
+  std::unique_ptr<IdentityRequestDialogController> dialog_controller_;
   std::unique_ptr<IdentityRequestDialogController> mock_dialog_controller_;
 
   base::WeakPtrFactory<RequestService> weak_ptr_factory_{this};

@@ -7,8 +7,8 @@ if (chrome.dictationPrivate === undefined) {
   chrome.test.sendMessage('failed');
 } else {
   chrome.dictationPrivate.onStartStream.addListener(async (details) => {
-    const {streamId, annotatedPageContent, innerText, editableContent} =
-        details;
+    const {streamId, context} = details;
+    const {annotatedPageContent, innerText, editableContent} = context;
     chrome.test.assertEq(123, streamId);
     chrome.test.assertTrue(annotatedPageContent instanceof ArrayBuffer);
     const view = new Uint8Array(annotatedPageContent);

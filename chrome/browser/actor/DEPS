@@ -16,6 +16,12 @@ specific_include_rules = {
     # Required to create the ActorTask.
     "+chrome/browser/actor/ui/event_dispatcher.h",
   ],
+  'actor_tab_strip_tracker_desktop\\.cc': [
+    "+chrome/browser/actor/ui/actor_task_unload_handler.h",
+  ],
+  'tool_agnostic_browsertest\\.cc': [
+    "+chrome/browser/actor/ui/actor_task_unload_handler.h",
+  ],
   'actor_tab_data\\.cc': [
     # Possible work-around to dependency: introduce an ActorUiTabData class,
     # but this comes with extra coordination overhead.

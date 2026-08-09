@@ -24,8 +24,10 @@ class GoogleLensHandler
 
   // feature_showcase::mojom::GoogleLensPageHandler:
   void EnableGoogleLens() override;
+  void SkipGoogleLens() override;
 
  private:
+  bool metrics_recorded_ = false;
   mojo::Receiver<feature_showcase::mojom::GoogleLensPageHandler> receiver_;
   raw_ptr<Profile> profile_;
 };

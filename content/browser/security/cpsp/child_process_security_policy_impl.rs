@@ -9,7 +9,12 @@
 // enough to have one.
 #![deny(unsafe_code)]
 
+chromium::import! {
+    "//base:feature";
+}
+
 use cxx::UniquePtr;
+use std::collections::hash_map::Entry;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::{LazyLock, Mutex, MutexGuard};
 use storage_common::FileSystemType;
@@ -54,6 +59,16 @@ mod ffi {
     }
 
     extern "Rust" {
+        // Per-child security state methods
+        fn add_process(child_id: i32);
+        fn remove_process(child_id: i32);
+
+        fn grant_send_midi_message(child_id: i32);
+        fn grant_send_midi_sysex_message(child_id: i32);
+        fn can_send_midi_message(child_id: i32) -> bool;
+        fn can_send_midi_sysex_message(child_id: i32) -> bool;
+
+        // Global state APIs
         fn register_web_safe_scheme(scheme: &str);
         fn register_web_safe_request_only_scheme(scheme: &str);
         fn register_pseudo_scheme(scheme: &str);
@@ -168,6 +183,96 @@ impl ffi::OriginAgentClusterIsolationState {
                 | ffi::OriginAgentClusterIsolationState::OriginKeyedProcessIsolatedByHeader
         )
     }
+}
+
+#[allow(unsafe_code)]
+// On Windows component builds, `blink_common` is a separate DLL. Accessing its
+// global variables requires specifying the library name and dylib link kind
+// for the linker to resolve the import symbol correctly.
+#[cfg_attr(
+    all(target_os = "windows", component_build),
+    link(name = "blink_common", kind = "dylib")
+)]
+unsafe extern "C" {
+    pub static kBlockMidiByDefault: feature::Feature;
+}
+
+fn add_process(child_id: i32) {
+    let process_id = ProcessId(child_id);
+    let mut cpsp = ChildProcessSecurityPolicyImpl::get_locked_instance();
+    match cpsp.process_states.entry(process_id) {
+        Entry::Occupied(_) => {
+            panic!("Child process {:?} has already been registered.", process_id);
+        }
+        Entry::Vacant(entry) => {
+            entry.insert(ProcessState::new());
+        }
+    }
+}
+
+fn remove_process(child_id: i32) {
+    // TODO(crbug.com/482216433): Rust currently does not have a concept of a
+    // "pending removal state", which would allow this to be queried but not
+    // modified. This will need to be added, as right now this can be modified
+    // in the pending removal state.
+    let mut cpsp = ChildProcessSecurityPolicyImpl::get_locked_instance();
+    let process_id = ProcessId(child_id);
+    match cpsp.process_states.entry(process_id) {
+        Entry::Occupied(entry) => {
+            entry.remove();
+        }
+        Entry::Vacant(_) => {
+            panic!("Removing a process {:?} that was not previously registered.", process_id);
+        }
+    }
+}
+
+#[allow(unsafe_code)]
+fn grant_send_midi_message(child_id: i32) {
+    // SAFETY: `kBlockMidiByDefault` is defined in C++ via `BASE_FEATURE`
+    // and is thread-safe to query.
+    let block_midi_by_default = unsafe { kBlockMidiByDefault.is_enabled() };
+    if !block_midi_by_default {
+        return;
+    }
+
+    let process_id = ProcessId(child_id);
+    let mut cpsp = ChildProcessSecurityPolicyImpl::get_locked_instance();
+    if let Some(state) = cpsp.process_states.get_mut(&process_id) {
+        state.grant_send_midi_message();
+    }
+}
+
+fn grant_send_midi_sysex_message(child_id: i32) {
+    let process_id = ProcessId(child_id);
+    let mut cpsp = ChildProcessSecurityPolicyImpl::get_locked_instance();
+    if let Some(state) = cpsp.process_states.get_mut(&process_id) {
+        state.grant_send_midi_sysex_message();
+    }
+}
+
+#[allow(unsafe_code)]
+fn can_send_midi_message(child_id: i32) -> bool {
+    // SAFETY: `kBlockMidiByDefault` is defined in C++ via `BASE_FEATURE`
+    // and is thread-safe to query.
+    let block_midi_by_default = unsafe { kBlockMidiByDefault.is_enabled() };
+    if !block_midi_by_default {
+        return true;
+    }
+
+    let process_id = ProcessId(child_id);
+    let cpsp = ChildProcessSecurityPolicyImpl::get_locked_instance();
+    cpsp.process_states.get(&process_id).is_some_and(|state| state.can_send_midi_message())
+}
+
+fn can_send_midi_sysex_message(child_id: i32) -> bool {
+    // Note: The C++ version asserts that a process cannot have SysEx permission
+    // without also having normal MIDI permission. In Rust, this invariant is
+    // guaranteed by construction through the `MidiPermission` tri-state enum on
+    // `ProcessState`, making a runtime check unnecessary here.
+    let process_id = ProcessId(child_id);
+    let cpsp = ChildProcessSecurityPolicyImpl::get_locked_instance();
+    cpsp.process_states.get(&process_id).is_some_and(|state| state.can_send_midi_sysex_message())
 }
 
 // Note that there is an implicit string copy happening here: the C++ side
@@ -326,6 +431,42 @@ fn has_origin_ever_requested_origin_agent_cluster_value(
         .is_some_and(|origins| origins.contains(&origin))
 }
 
+/// Holds security state specific to each child process.
+// TODO(crbug.com/482216433): Move ProcessState into its own file.
+#[derive(Debug)]
+struct ProcessState {
+    /// Determines if a child process can send MIDI messages.
+    midi_permission: MidiPermission,
+}
+
+impl ProcessState {
+    fn new() -> Self {
+        ProcessState { midi_permission: MidiPermission::CannotSendMidi }
+    }
+
+    fn grant_send_midi_message(&mut self) {
+        // MidiPermission::CanSendMidiSysEx is a superset of
+        // MidiPermission::CanSendMidi, so no need to update the permission for
+        // that case.
+        if self.midi_permission == MidiPermission::CannotSendMidi {
+            self.midi_permission = MidiPermission::CanSendMidi;
+        }
+    }
+
+    fn grant_send_midi_sysex_message(&mut self) {
+        self.midi_permission = MidiPermission::CanSendMidiSysEx;
+    }
+
+    fn can_send_midi_message(&self) -> bool {
+        self.midi_permission == MidiPermission::CanSendMidi
+            || self.midi_permission == MidiPermission::CanSendMidiSysEx
+    }
+
+    fn can_send_midi_sysex_message(&self) -> bool {
+        self.midi_permission == MidiPermission::CanSendMidiSysEx
+    }
+}
+
 fn remove_origin_agent_cluster_requests_for_browser_context(browser_context_id: &str) {
     let browser_context_id = BrowserContextId(browser_context_id.to_string());
     let mut cpsp = ChildProcessSecurityPolicyImpl::get_locked_instance();
@@ -462,6 +603,13 @@ fn erase_origin_agent_cluster_state(browsing_instance_id: u32) {
 /// This object supports being accessed from different threads and guards access
 /// to its internal data with a Mutex.
 pub struct ChildProcessSecurityPolicyImpl {
+    // Tracks all per-process security states.
+    //
+    // TODO(crbug.com/522872468): Separately track states for RenderProcessHosts
+    // that have been deleted, while Handles still exist for them. Such states
+    // can be queried but not modified.
+    process_states: HashMap<ProcessId, ProcessState>,
+
     /// Tracks the schemes that are ok to request or commit, or are pseudo
     /// schemes that are generally not allowed to commit.
     known_schemes: HashMap<String, SchemePolicy>,
@@ -523,8 +671,6 @@ pub struct ChildProcessSecurityPolicyImpl {
         BrowsingInstanceId,
         BTreeMap<cxx::UniquePtr<ffi::Origin>, ffi::OriginAgentClusterIsolationState>,
     >,
-    // TODO(crbug.com/482216433): this will also eventually track per-process
-    // state.
 }
 
 impl ChildProcessSecurityPolicyImpl {
@@ -533,6 +679,7 @@ impl ChildProcessSecurityPolicyImpl {
     /// `get_locked_instance()`.
     fn new() -> Self {
         Self {
+            process_states: HashMap::new(),
             known_schemes: HashMap::new(),
             v8_optimization_verdict_map: BTreeMap::new(),
             file_system_policy_map: BTreeMap::new(),
@@ -592,11 +739,31 @@ pub struct BrowsingInstanceId(u32);
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct BrowserContextId(String);
 
+/// Defines a unique ID for each Process. This matches ChildProcessId on the
+/// Chromium C++ side, and the i32 matches the underlying type of
+/// ChildProcessId.
+// TODO(crbug.com/522844976): Add FFI for ProcessId so one definition can be
+// used by both Rust and C++.
+#[derive(Debug, Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct ProcessId(i32);
+
 /// An enum tracking whether v8 optimizations are enabled or disabled.
 #[derive(PartialEq, Eq)]
 enum V8OptimizationVerdict {
     Enabled,
     Disabled,
+}
+
+/// Determines if a child process can send MIDI messages.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MidiPermission {
+    /// Does not permit a child process to send messages to MIDI devices.
+    CannotSendMidi,
+    /// Permits a child process to send messages to any MIDI device.
+    CanSendMidi,
+    /// Permits a child process to send system exclusive (SysEx) messages to any
+    /// MIDI device. Granting this also grants `MidiPermission::CanSendMidi`.
+    CanSendMidiSysEx,
 }
 
 /// Represents what behavior is allowed for a given known scheme.

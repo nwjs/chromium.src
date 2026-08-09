@@ -444,6 +444,14 @@ struct SliceParams {
   bool is_input_constant;
 };
 
+struct SoftmaxParams {
+  OperandDataType data_type;
+  uint32_t rank;
+  std::array<uint32_t, 8> input_dims;
+  uint32_t axis;
+  bool is_input_constant;
+};
+
 struct SplitParams {
   OperandDataType data_type;
   uint32_t rank;
@@ -1200,6 +1208,17 @@ auto AnySliceParams() {
       fuzztest::ArrayOf<8>(AnyDimSize()),        // sizes
       fuzztest::ArrayOf<8>(AnyDimSize()),        // strides
       fuzztest::Arbitrary<bool>()                // is_input_constant
+  );
+}
+
+auto AnySoftmaxParams() {
+  const auto& limits = GetContextPropertiesForTesting().data_type_limits;
+  return fuzztest::StructOf<SoftmaxParams>(
+      AnyOperandDataTypeFor(limits.softmax_input.data_types),
+      AnyTensorRank(),                     // rank
+      fuzztest::ArrayOf<8>(AnyDimSize()),  // input_dims
+      fuzztest::InRange<uint32_t>(0, 7),   // axis
+      fuzztest::Arbitrary<bool>()          // is_input_constant
   );
 }
 
@@ -2137,6 +2156,32 @@ std::optional<SliceDescriptors> SetUpSliceDescriptors(
   };
 }
 
+struct SoftmaxDescriptors {
+  // The output of softmax has the same shape and data type as the input.
+  OperandDescriptor input_desc;
+  uint32_t axis;
+};
+
+// Helper to set up SoftmaxDescriptors. Returns nullopt if any validation fails.
+std::optional<SoftmaxDescriptors> SetUpSoftmaxDescriptors(
+    const ContextProperties& context_properties,
+    SoftmaxParams& params) {
+  std::vector<uint32_t> input_dims(params.input_dims.begin(),
+                                   params.input_dims.begin() + params.rank);
+
+  params.axis %= params.rank;
+
+  ASSIGN_OR_RETURN_NULLOPT(
+      auto input_desc,
+      OperandDescriptor::Create(context_properties, params.data_type,
+                                input_dims, ""));
+
+  return SoftmaxDescriptors{
+      .input_desc = std::move(input_desc),
+      .axis = params.axis,
+  };
+}
+
 struct SplitDescriptors {
   OperandDescriptor input_desc;
   std::vector<OperandDescriptor> output_descs;
@@ -2396,6 +2441,7 @@ void BuildAndCompute(
   if (!create_graph_result.has_value()) {
     return;
   }
+  graph_builder_remote.reset();
 
   mojo::Remote<mojom::WebNNGraph> graph_remote;
   graph_remote.Bind(std::move(create_graph_result.value()->graph_remote));
@@ -2429,8 +2475,8 @@ void BuildAndCompute(
     EXPECT_TRUE(read_tensor_future.Wait());
   }
 
+  context_remote->DestroyGraph(graph_token);
   graph_remote.reset();
-  graph_builder_remote.reset();
 }
 
 }  // namespace
@@ -2544,6 +2590,7 @@ class WebNNGraphImplFuzzerImpl
   void Resample2d(Resample2dParams params, uint8_t seed_for_data);
   void ScatterElements(ScatterElementsParams params, uint8_t seed_for_data);
   void Slice(SliceParams params, uint8_t seed_for_data);
+  void Softmax(SoftmaxParams params, uint8_t seed_for_data);
   void Split(SplitParams params, uint8_t seed_for_data);
   void Transpose(TransposeParams params, uint8_t seed_for_data);
   void Triangular(TriangularParams params, uint8_t seed_for_data);
@@ -2599,6 +2646,11 @@ class WebNNGraphImplFuzzerImpl
                 uint8_t seed_for_input,
                 float seed_for_scale,
                 uint8_t seed_for_zero_point);
+  void DQSoftmaxQ(SoftmaxParams softmax_params,
+                  OperandDataType quantized_type,
+                  uint8_t seed_for_input,
+                  float seed_for_scale,
+                  uint8_t seed_for_zero_point);
   void DQSplitQ(SplitParams split_params,
                 OperandDataType quantized_type,
                 uint8_t seed_for_input,
@@ -4073,6 +4125,39 @@ void WebNNGraphImplFuzzerImpl<BaseFixture>::Slice(SliceParams params,
 }
 
 template <typename BaseFixture>
+void WebNNGraphImplFuzzerImpl<BaseFixture>::Softmax(SoftmaxParams params,
+                                                    uint8_t seed_for_data) {
+  ASSIGN_OR_RETURN_VOID(
+      auto softmax_descs,
+      SetUpSoftmaxDescriptors(this->context_properties(), params));
+
+  mojo::Remote<mojom::WebNNGraphBuilder> remote =
+      this->BindNewGraphBuilderRemote();
+  GraphInfoBuilder builder(remote);
+
+  base::flat_map<std::string, base::span<const uint8_t>> named_inputs;
+  std::vector<std::vector<uint8_t>> data_buffers;
+  OperandId input_id = BuildInputOrConstant(
+      builder, params.is_input_constant, "input", softmax_descs.input_desc,
+      seed_for_data, data_buffers, named_inputs);
+
+  // The output of softmax has the same shape and data type as the input.
+  OperandId output_id =
+      builder.BuildOutput("output", softmax_descs.input_desc.shape(),
+                          softmax_descs.input_desc.data_type());
+
+  builder.BuildSoftmax(input_id, output_id, softmax_descs.axis);
+
+  if (!builder.IsValidGraphForTesting(this->context_properties())) {
+    return;
+  }
+  BuildAndCompute(this->context_, std::move(remote), builder.TakeGraphInfo(),
+                  std::move(named_inputs));
+
+  GetGlobalFuzzEnvironment().GetWebNNTestEnvironment().RunUntilIdle();
+}
+
+template <typename BaseFixture>
 void WebNNGraphImplFuzzerImpl<BaseFixture>::Split(SplitParams params,
                                                   uint8_t seed_for_data) {
   ASSIGN_OR_RETURN_VOID(
@@ -5032,6 +5117,71 @@ void WebNNGraphImplFuzzerImpl<BaseFixture>::DQSliceQ(
 }
 
 template <typename BaseFixture>
+void WebNNGraphImplFuzzerImpl<BaseFixture>::DQSoftmaxQ(
+    SoftmaxParams softmax_params,
+    OperandDataType quantized_type,
+    uint8_t seed_for_input,
+    float seed_for_scale,
+    uint8_t seed_for_zero_point) {
+  ASSIGN_OR_RETURN_VOID(
+      auto softmax_descs,
+      SetUpSoftmaxDescriptors(this->context_properties(), softmax_params));
+  const OperandDescriptor& softmax_desc = softmax_descs.input_desc;
+
+  // kPerTensor quantization and the scale and zero-point values
+  // (scale=1.0f/256.0f, zero_point=-128) are used to exercise the fusiable path
+  // for TFLite backend:
+  // https://source.chromium.org/chromium/chromium/src/+/main:services/webnn/tflite/graph_builder_tflite.cc;l=2468;drc=ec4ff4bae24916aaad3186ce4bc1339313b6fb5a
+  // TODO(crbug.com/498987226): Remove this restriction to increase test
+  // coverage.
+  QuantizationParams per_tensor_quantization_params{
+      .quantized_type = quantized_type,
+      .quantization_kind = QuantizationKind::kPerTensor,
+      .channel_block_size = 1};
+  if (quantized_type == OperandDataType::kInt8) {
+    seed_for_scale = 1.0f / 256.0f;
+    seed_for_zero_point = static_cast<uint8_t>(-128);
+  }
+
+  mojo::Remote<mojom::WebNNGraphBuilder> remote =
+      this->BindNewGraphBuilderRemote();
+  GraphInfoBuilder builder(remote);
+
+  base::flat_map<std::string, base::span<const uint8_t>> named_inputs;
+  std::vector<std::vector<uint8_t>> data_buffers;
+  ASSIGN_OPTIONAL_OR_RETURN_VOID(
+      auto softmax_input_id,
+      BuildDequantizeInput(
+          builder, this->context_properties(), softmax_params.is_input_constant,
+          "input", softmax_desc, quantized_type, per_tensor_quantization_params,
+          /*channel_axis=*/std::nullopt, seed_for_input, seed_for_scale,
+          seed_for_zero_point, data_buffers, named_inputs));
+
+  // The output of softmax has the same shape and data type as the input.
+  OperandId softmax_output_id = builder.BuildIntermediateOperand(
+      softmax_desc.shape(), softmax_desc.data_type());
+
+  builder.BuildSoftmax(softmax_input_id, softmax_output_id, softmax_descs.axis);
+
+  if (!BuildQuantizeOutput(builder, this->context_properties(), "output",
+                           softmax_desc, quantized_type,
+                           per_tensor_quantization_params,
+                           /*channel_axis=*/std::nullopt, softmax_output_id,
+                           seed_for_scale, seed_for_zero_point)) {
+    return;
+  }
+
+  if (!builder.IsValidGraphForTesting(this->context_properties())) {
+    return;
+  }
+
+  BuildAndCompute(this->context_, std::move(remote), builder.TakeGraphInfo(),
+                  std::move(named_inputs));
+
+  GetGlobalFuzzEnvironment().GetWebNNTestEnvironment().RunUntilIdle();
+}
+
+template <typename BaseFixture>
 void WebNNGraphImplFuzzerImpl<BaseFixture>::DQSplitQ(
     SplitParams split_params,
     OperandDataType quantized_type,
@@ -5571,6 +5721,18 @@ WEBNN_FUZZ_TEST_F(Slice,
                                    },
                                    /*seed_for_data=*/3}}));
 
+WEBNN_FUZZ_TEST_F(Softmax,
+                  .WithDomains(AnySoftmaxParams(),
+                               fuzztest::Arbitrary<uint8_t>())
+                      .WithSeeds({{SoftmaxParams{
+                                       /*data_type=*/OperandDataType::kFloat32,
+                                       /*rank=*/4,
+                                       /*input_dims=*/{4, 5, 5, 6, 1, 1, 1, 1},
+                                       /*axis=*/2,
+                                       /*is_input_constant=*/false,
+                                   },
+                                   /*seed_for_data=*/4}}));
+
 WEBNN_FUZZ_TEST_F(Split,
                   .WithDomains(AnySplitParams(), fuzztest::Arbitrary<uint8_t>())
                       .WithSeeds({{SplitParams{
@@ -5892,6 +6054,26 @@ WEBNN_FUZZ_TEST_F(
                      },
                      /*quantized_type=*/OperandDataType::kUint8,
                      /*seed_for_input=*/2,
+                     /*seed_for_scale=*/0.25f,
+                     /*seed_for_zero_point=*/0}}));
+
+WEBNN_FUZZ_TEST_F(
+    DQSoftmaxQ,
+    .WithDomains(AnySoftmaxParams(),
+                 AnyQuantizedDataType(),
+                 /*seed_for_input=*/fuzztest::Arbitrary<uint8_t>(),
+                 /*seed_for_scale=*/
+                 fuzztest::ElementOf({0.125f, 0.25f, 0.5f, 1.0f, 2.0f}),
+                 /*seed_for_zero_point=*/fuzztest::Arbitrary<uint8_t>())
+        .WithSeeds({{SoftmaxParams{
+                         /*data_type=*/OperandDataType::kFloat32,
+                         /*rank=*/4,
+                         /*input_dims=*/{4, 5, 5, 6, 1, 1, 1, 1},
+                         /*axis=*/2,
+                         /*is_input_constant=*/false,
+                     },
+                     /*quantized_type=*/OperandDataType::kInt8,
+                     /*seed_for_input=*/4,
                      /*seed_for_scale=*/0.25f,
                      /*seed_for_zero_point=*/0}}));
 

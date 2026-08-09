@@ -10,7 +10,7 @@ import '//resources/cr_components/search/animated_glow.js';
 import '//resources/cr_components/searchbox/searchbox_input.js';
 
 import type {ComposeboxState, ContextualUpload, DriveUpload, TabUpload, TabUploadOrigin} from '//resources/cr_components/composebox/common.js';
-import {ContextType, GlifAnimationState, recordContextAdditionMethod, recordContextualElementClickedMetric, recordInputTypeShown, recordModelModeSelection, recordModelModeShown, recordToolModeSelection, recordToolModeShown} from '//resources/cr_components/composebox/common.js';
+import {ContextType, getLoadTimeBoolean, GlifAnimationState, recordContextAdditionMethod, recordContextualElementClickedMetric, recordInputTypeShown, recordModelModeSelection, recordModelModeShown, recordToolModeSelection, recordToolModeShown, TabSuggestionsState} from '//resources/cr_components/composebox/common.js';
 import type {ContextualEntrypointAndMenuElement} from '//resources/cr_components/composebox/contextual_entrypoint_and_menu.js';
 import {ComposeboxContextAddedMethod, GlowAnimationState} from '//resources/cr_components/search/constants.js';
 import {DragAndDropHandler} from '//resources/cr_components/search/drag_drop_handler.js';
@@ -177,6 +177,7 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
       tabSuggestions_: {type: Array},
       inputState_: {type: Object},
       recentTabId_: {type: Number},
+      tabSuggestionsState_: {type: Number},
 
       /** Searchbox default icon (i.e., Google G icon or the search loupe). */
       searchboxIcon_: {type: String},
@@ -200,10 +201,17 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
       energyEffectAnimationEnabled: {type: Boolean},
       hasUserInput_: {type: Boolean},
       ntpRealboxDynamicAiModeButtonEnabled_: {type: Boolean},
+      contextManagementInComposeboxEnabled: {type: Boolean},
+      keepMenuOpenOnTabSelectForRealbox: {type: Boolean},
+      smartTabSharingVisible: {type: Boolean},
+      smartTabSharingActive: {type: Boolean},
     };
   }
 
   accessor ntpRealboxNextEnabled: boolean = false;
+  accessor smartTabSharingVisible: boolean =
+      getLoadTimeBoolean('composeboxSmartTabSharingVisible', false);
+  accessor smartTabSharingActive: boolean = false;
   accessor energyEffectAnimationEnabled: boolean = false;
   accessor composeboxEnabled: boolean = false;
   accessor composeButtonEnabled: boolean = false;
@@ -223,6 +231,12 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
       loadTimeData.getBoolean('searchboxCr23Theming');
   accessor searchboxSteadyStateShadow: boolean =
       loadTimeData.getBoolean('searchboxCr23SteadyStateShadow');
+  // `contextManagementInComposeboxEnabled` is also passed in from parent, but
+  // adding as a backup for tests.
+  accessor contextManagementInComposeboxEnabled: boolean =
+      getLoadTimeBoolean('contextManagementInComposeboxEnabled', false);
+  accessor keepMenuOpenOnTabSelectForRealbox: boolean =
+      getLoadTimeBoolean('keepMenuOpenOnTabSelectForRealbox', false);
   accessor placeholderText: string = '';
   accessor recentTabId_: number|null = null;
 
@@ -234,6 +248,8 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
   accessor isListening: boolean = false;
   protected accessor tabSuggestions_: TabInfo[] = [];
   protected accessor inputState_: InputState|null = null;
+  protected accessor tabSuggestionsState_: TabSuggestionsState =
+      TabSuggestionsState.NOT_STARTED;
   protected accessor searchboxIcon_: string =
       loadTimeData.getString('searchboxDefaultIcon');
   protected accessor searchboxVoiceSearchEnabled_: boolean =
@@ -275,8 +291,13 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
           new DragAndDropHandler(this, this.dragAndDropEnabled_);
     }
     this.onTabStripChangedListenerId_ =
-        this.callbackRouter_.onTabStripChanged.addListener(
-            this.refreshTabSuggestions_.bind(this));
+        this.callbackRouter_.onTabStripChanged.addListener(() => {
+          if (this.contextMenuOpened_) {
+            this.refreshTabSuggestions_(/*forceRefresh=*/ true);
+          } else {
+            this.tabSuggestionsState_ = TabSuggestionsState.NOT_STARTED;
+          }
+        });
     this.inputStateListenerId_ =
         this.callbackRouter_.onInputStateChanged.addListener(
             (inputState: InputState) => {
@@ -288,6 +309,11 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
     if (this.inputState_) {
       this.inputState_.activeModel = ModelMode.kUnspecified;
     }
+
+    // <if expr="not is_android">
+    this.smartTabSharingActive =
+        (await this.pageHandler().getSmartTabSharingActive()).active;
+    // </if>
   }
 
   override disconnectedCallback() {
@@ -521,6 +547,17 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
         e.detail.files, ComposeboxContextAddedMethod.CONTEXT_MENU);
   }
 
+  protected onSmartTabSharingActiveChanged_(
+      _e: CustomEvent<{active: boolean}>) {
+    // <if expr="not is_android">
+    this.smartTabSharingActive = _e.detail.active;
+    this.pageHandler().setSmartTabSharingActive(_e.detail.active);
+    if (_e.detail.active) {
+      this.openComposebox_();
+    }
+    // </if>
+  }
+
   protected onAddTabContext_(e: CustomEvent<{
     id: number,
     title: string,
@@ -543,20 +580,31 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
   protected async refreshTabSuggestions_(forceRefresh: boolean = false) {
     // Only refresh tab suggestions if the context menu is opened.
     const requiresRefresh = forceRefresh || this.contextMenuOpened_;
-    if (!requiresRefresh) {
+    if (!requiresRefresh ||
+        this.tabSuggestionsState_ === TabSuggestionsState.LOADING ||
+        (this.tabSuggestionsState_ === TabSuggestionsState.LOADED &&
+         !forceRefresh)) {
       return;
     }
-    const {tabs} = await this.pageHandler().getRecentTabs();
-    this.recentTabId_ = tabs[0]?.tabId ?? null;
-    this.tabSuggestions_ = [...tabs];
+    this.tabSuggestionsState_ = TabSuggestionsState.LOADING;
+    try {
+      const {tabs} = await this.pageHandler().getRecentTabs();
+      this.recentTabId_ = tabs[0]?.tabId ?? null;
+      this.tabSuggestions_ = [...tabs];
+      this.tabSuggestionsState_ = TabSuggestionsState.LOADED;
 
-    if (this.contextMenuOpened_ && this.inputState_) {
-      const {allowedInputTypes, disabledInputTypes} = this.inputState_;
-      if (allowedInputTypes.includes(InputType.kBrowserTab) &&
-          !disabledInputTypes.includes(InputType.kBrowserTab) &&
-          this.tabSuggestions_.length > 0) {
-        recordInputTypeShown(
-            InputType.kBrowserTab, this.composeboxSource, 'ClassicPopup');
+      if (this.contextMenuOpened_ && this.inputState_) {
+        const {allowedInputTypes, disabledInputTypes} = this.inputState_;
+        if (allowedInputTypes.includes(InputType.kBrowserTab) &&
+            !disabledInputTypes.includes(InputType.kBrowserTab) &&
+            this.tabSuggestions_.length > 0) {
+          recordInputTypeShown(
+              InputType.kBrowserTab, this.composeboxSource, 'ClassicPopup');
+        }
+      }
+    } finally {
+      if (this.tabSuggestionsState_ === TabSuggestionsState.LOADING) {
+        this.tabSuggestionsState_ = TabSuggestionsState.NOT_STARTED;
       }
     }
   }
@@ -572,7 +620,12 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
 
   protected onContextMenuClosed_() {
     this.contextMenuOpened_ = false;
+    this.tabSuggestionsState_ = TabSuggestionsState.NOT_STARTED;
     this.blur();
+  }
+
+  protected onRequestTabSuggestionsLoad() {
+    this.refreshTabSuggestions_(/*forceRefresh=*/ true);
   }
 
   protected onContextMenuOpened_() {
@@ -612,7 +665,7 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
     // the edge case where a user sees the drive option in the menu, but
     // then revokes Drive permissions.
     const {status} = await this.pageHandler().getDriveDisclaimerStatus();
-    if (status !== DriveDisclaimerStatus.kAccepted) {
+    if (status === DriveDisclaimerStatus.kRestricted) {
       return;
     }
 
@@ -639,6 +692,11 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
 
   protected onContextMenuEntrypointClick_() {
     this.pageHandler().activateMetricsFunnel('PlusButton');
+    this.dispatchEvent(new Event('context-menu-entrypoint-click'));
+  }
+
+  protected onContextMenuEntrypointHover_() {
+    this.refreshTabSuggestions_(/*forceRefresh=*/ true);
   }
 
   protected onToolClick_(e: CustomEvent<{toolMode: ToolMode}>) {
@@ -714,7 +772,10 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
           this.shadowRoot.querySelector<ContextualEntrypointAndMenuElement>(
               '#context');
       assert(context);
-      context.closeMenu();
+      if (!this.keepMenuOpenOnTabSelectForRealbox ||
+          !this.contextManagementInComposeboxEnabled) {
+        context.closeMenu();
+      }
     }
 
     if (mode !== ToolMode.kUnspecified) {
@@ -730,6 +791,9 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
       mode: mode,
       model: model,
       error: error,
+      // <if expr="not is_android">
+      smartTabSharingActive: this.smartTabSharingActive,
+      // </if>
     });
     this.setInputText('');
   }
@@ -799,8 +863,9 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
       return false;
     }
     if (this.ntpRealboxDynamicAiModeButtonEnabled_) {
-      const defaultMatch = this.result?.matches?.[0];
-      if (defaultMatch && !defaultMatch.isSearchType) {
+      const firstMatch = this.result?.matches?.[0];
+      if (firstMatch && firstMatch.allowedToBeDefaultMatch
+          && !firstMatch.isSearchType) {
         return false;
       }
     }

@@ -59,19 +59,18 @@ using chrome_test_util::LongPressCellAndDragToEdge;
 using chrome_test_util::LongPressCellAndDragToOffsetOf;
 using chrome_test_util::RegularTabGrid;
 using chrome_test_util::TabGridCellAtIndex;
+using chrome_test_util::TabGridEditMenuCloseAllButton;
 using chrome_test_util::TabGridInactiveTabsButton;
 using chrome_test_util::TabGridIncognitoTabsPanelButton;
 using chrome_test_util::TabGridNewIncognitoTabButton;
 using chrome_test_util::TabGridNormalModePageControl;
 using chrome_test_util::TabGridOpenTabsPanelButton;
 using chrome_test_util::TabGridOtherDevicesPanelButton;
-using chrome_test_util::TabGridOverflowMenuButton;
-using chrome_test_util::TabGridOverflowMenuCloseAllButton;
-using chrome_test_util::TabGridOverflowMenuSelectTabsButton;
 using chrome_test_util::TabGridSearchBar;
 using chrome_test_util::TabGridSearchCancelButton;
 using chrome_test_util::TabGridSearchModeToolbar;
 using chrome_test_util::TabGridSearchTabsButton;
+using chrome_test_util::TabGridSelectTabsMenuButton;
 using chrome_test_util::TabGridTabGroupsPanelButton;
 using chrome_test_util::TapAtOffsetOf;
 using chrome_test_util::WindowWithNumber;
@@ -118,6 +117,10 @@ id<GREYMatcher> SelectAllButton() {
                     grey_userInteractionEnabled(), nullptr);
 }
 
+id<GREYMatcher> VisibleTabGridEditButton() {
+  return grey_allOf(chrome_test_util::TabGridEditButton(),
+                    grey_sufficientlyVisible(), nil);
+}
 
 // Returns a matcher for the scrim view on the tab search.
 id<GREYMatcher> VisibleSearchScrim() {
@@ -225,6 +228,29 @@ void PerformTabGridSearch(NSString* text) {
   // TODO(crbug.com/40916974): Use simulatePhysicalKeyboardEvent until
   // replaceText can properly handle \n.
   [ChromeEarlGrey simulatePhysicalKeyboardEvent:@"\n" flags:0];
+}
+
+// Taps the overflow menu button on the tab grid.
+void TapTabGridOverflowMenuButton() {
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::TabGridOverflowMenuButton()]
+      performAction:grey_tap()];
+}
+
+// Opens the edit menu on the tab grid, using either the overflow menu button or
+// the edit button depending on which is visible.
+void OpenTabGridEditMenu() {
+  NSError* error = nil;
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::TabGridOverflowMenuButton()]
+      assertWithMatcher:grey_sufficientlyVisible()
+                  error:&error];
+  if (error == nil) {
+    TapTabGridOverflowMenuButton();
+  } else {
+    [[EarlGrey selectElementWithMatcher:VisibleTabGridEditButton()]
+        performAction:grey_tap()];
+  }
 }
 
 // Handles requests to `/searchengine` by echoing the URL in the response body.
@@ -526,9 +552,9 @@ std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
       performAction:grey_tap()];
 
   // Close all tabs.
-  OpenTabGridOverflowMenu();
+  OpenTabGridEditMenu();
   [[EarlGrey selectElementWithMatcher:chrome_test_util::
-                                          TabGridOverflowMenuCloseAllButton()]
+                                          TabGridEditMenuCloseAllButton()]
       performAction:grey_tap()];
 
   // Confirm in action sheet.
@@ -568,9 +594,9 @@ std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
       assertWithMatcher:grey_notNil()];
 
   // Close all tabs.
-  OpenTabGridOverflowMenu();
+  OpenTabGridEditMenu();
   [[EarlGrey selectElementWithMatcher:chrome_test_util::
-                                          TabGridOverflowMenuCloseAllButton()]
+                                          TabGridEditMenuCloseAllButton()]
       performAction:grey_tap()];
 
   // Confirm in action sheet.
@@ -672,9 +698,9 @@ std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
       performAction:grey_scrollToContentEdge(kGREYContentEdgeLeft)];
 
   // Close all incognito tabs
-  OpenTabGridOverflowMenu();
+  OpenTabGridEditMenu();
   [[EarlGrey selectElementWithMatcher:chrome_test_util::
-                                          TabGridOverflowMenuCloseAllButton()]
+                                          TabGridEditMenuCloseAllButton()]
       performAction:grey_tap()];
 
   // Confirm in action sheet.
@@ -712,8 +738,8 @@ std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
   [ChromeEarlGrey waitForIncognitoTabCount:1];
 }
 
-// Tests "Close Other Tabs" functionality from the Overflow menu.
-- (void)testCloseOtherTabsUsingOverflowMenu {
+// Tests "Close Other Tabs" functionality from the Edit/Overflow menu.
+- (void)testCloseOtherTabsUsingEditMenu {
   // Load 3 tabs with distinct content.
   [ChromeEarlGrey loadURL:_URL1];
   [ChromeEarlGrey waitForWebStateContainingText:kResponse1];
@@ -726,10 +752,10 @@ std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
   [ChromeEarlGrey waitForMainTabCount:3];
   [ChromeEarlGreyUI openTabGrid];
 
-  // Open Overflow Menu.
-  OpenTabGridOverflowMenu();
+  // Open Edit/Overflow Menu.
+  OpenTabGridEditMenu();
 
-  // Tap "Close Other Tabs" in the Overflow menu.
+  // Tap "Close Other Tabs" in the Edit menu.
   [[EarlGrey selectElementWithMatcher:CloseOtherTabsButton()]
       performAction:grey_tap()];
   GREYWaitForAppToIdle(@"App failed to idle");
@@ -774,17 +800,17 @@ std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
   [ChromeEarlGrey waitForUIElementToAppearWithMatcher:TabWithTitle(kTitle2)];
 }
 
-// Tests that "Close Other Tabs" is not available in the Overflow Menu when
+// Tests that "Close Other Tabs" is not available in the Edit/Overflow Menu when
 // there is only one tab.
-- (void)testCloseOtherTabsUnavailableInOverflowMenu {
+- (void)testCloseOtherTabsUnavailableInEditMenu {
   [ChromeEarlGrey waitForMainTabCount:1];
   [ChromeEarlGreyUI openTabGrid];
 
-  // Open Overflow Menu.
-  OpenTabGridOverflowMenu();
+  // Open Edit/Overflow Menu.
+  OpenTabGridEditMenu();
 
   // Verify the menu is open by checking for "Close All Tabs".
-  [[EarlGrey selectElementWithMatcher:TabGridOverflowMenuCloseAllButton()]
+  [[EarlGrey selectElementWithMatcher:TabGridEditMenuCloseAllButton()]
       assertWithMatcher:grey_sufficientlyVisible()];
 
   // Verify "Close Other Tabs" is NOT present.
@@ -867,7 +893,8 @@ std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
 - (void)testIncognitoButtons {
   [ChromeEarlGrey openNewIncognitoTab];
   [ChromeEarlGreyUI openTabGrid];
-  [[EarlGrey selectElementWithMatcher:TabGridOverflowMenuButton()]
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::TabGridOverflowMenuButton()]
       assertWithMatcher:grey_interactable()];
   [[EarlGrey selectElementWithMatcher:chrome_test_util::TabGridDoneButton()]
       performAction:grey_tap()];
@@ -903,8 +930,8 @@ std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
       assertWithMatcher:grey_sufficientlyVisible()];
 
   // Close the only regular tab.
-  OpenTabGridOverflowMenu();
-  [[EarlGrey selectElementWithMatcher:TabGridOverflowMenuCloseAllButton()]
+  OpenTabGridEditMenu();
+  [[EarlGrey selectElementWithMatcher:TabGridEditMenuCloseAllButton()]
       performAction:grey_tap()];
   [[EarlGrey selectElementWithMatcher:
                  chrome_test_util::ActionSheetItemWithAccessibilityLabelId(
@@ -1232,8 +1259,9 @@ std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
   GREYWaitForAppToIdle(@"App failed to idle");
 
   [EarlGrey setRootMatcherForSubsequentInteractions:WindowWithNumber(0)];
-  OpenTabGridOverflowMenu();
-  [[EarlGrey selectElementWithMatcher:TabGridOverflowMenuSelectTabsButton()]
+  TapTabGridOverflowMenuButton();
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::TabGridSelectTabsMenuButton()]
       performAction:grey_tap()];
   [[EarlGrey
       selectElementWithMatcher:chrome_test_util::TabGridEditSelectAllButton()]
@@ -1469,8 +1497,9 @@ std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
 
   [ChromeEarlGreyUI openTabGrid];
 
-  OpenTabGridOverflowMenu();
-  [[EarlGrey selectElementWithMatcher:TabGridOverflowMenuSelectTabsButton()]
+  TapTabGridOverflowMenuButton();
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::TabGridSelectTabsMenuButton()]
       performAction:grey_tap()];
 
   // Tap tab to select.
@@ -1499,7 +1528,8 @@ std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
       assertWithMatcher:grey_notNil()];
 
   // Verify edit mode is exited.
-  [[EarlGrey selectElementWithMatcher:TabGridOverflowMenuButton()]
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::TabGridOverflowMenuButton()]
       assertWithMatcher:grey_notNil()];
 }
 
@@ -1519,8 +1549,9 @@ std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
 
   [ChromeEarlGreyUI openTabGrid];
 
-  OpenTabGridOverflowMenu();
-  [[EarlGrey selectElementWithMatcher:TabGridOverflowMenuSelectTabsButton()]
+  TapTabGridOverflowMenuButton();
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::TabGridSelectTabsMenuButton()]
       performAction:grey_tap()];
 
   // Tap "Select all" and close selected tabs.
@@ -1542,7 +1573,8 @@ std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
   [ChromeEarlGrey waitForMainTabCount:0 inWindowWithNumber:0];
 
   // Verify edit mode is exited.
-  [[EarlGrey selectElementWithMatcher:TabGridOverflowMenuButton()]
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::TabGridOverflowMenuButton()]
       assertWithMatcher:grey_notNil()];
 }
 
@@ -1562,8 +1594,9 @@ std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
 
   [ChromeEarlGreyUI openTabGrid];
 
-  OpenTabGridOverflowMenu();
-  [[EarlGrey selectElementWithMatcher:TabGridOverflowMenuSelectTabsButton()]
+  TapTabGridOverflowMenuButton();
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::TabGridSelectTabsMenuButton()]
       performAction:grey_tap()];
 
   // Ensure button label is "Select All" and select all items.
@@ -1617,9 +1650,10 @@ std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
   [BookmarkEarlGrey waitForBookmarkModelLoaded];
   [ChromeEarlGreyUI openTabGrid];
 
-  OpenTabGridOverflowMenu();
+  TapTabGridOverflowMenuButton();
 
-  [[EarlGrey selectElementWithMatcher:TabGridOverflowMenuSelectTabsButton()]
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::TabGridSelectTabsMenuButton()]
       performAction:grey_tap()];
 
   // Select the first and last items.
@@ -1685,9 +1719,10 @@ std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
 
   [ChromeEarlGreyUI openTabGrid];
 
-  OpenTabGridOverflowMenu();
+  OpenTabGridEditMenu();
 
-  [[EarlGrey selectElementWithMatcher:TabGridOverflowMenuSelectTabsButton()]
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::TabGridSelectTabsMenuButton()]
       performAction:grey_tap()];
 
   // Select the first and last items.
@@ -1727,9 +1762,10 @@ std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
 
   [ChromeEarlGreyUI openTabGrid];
 
-  OpenTabGridOverflowMenu();
+  TapTabGridOverflowMenuButton();
 
-  [[EarlGrey selectElementWithMatcher:TabGridOverflowMenuSelectTabsButton()]
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::TabGridSelectTabsMenuButton()]
       performAction:grey_tap()];
 
   // Select the first and last items.

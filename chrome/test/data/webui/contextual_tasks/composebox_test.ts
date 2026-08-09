@@ -119,6 +119,7 @@ suite('ContextualTasksComposeboxTest', () => {
       useContextualTasksComposeboxFork: false,
       contextualMenuUsePecApi: false,
       composeboxSmartTabSharingVisible: false,
+      contextManagementInComposeboxEnabled: false,
       enableComposeboxJumpFix: false,
       composeboxShowTypedSuggest: true,
       composeboxShowZps: true,
@@ -634,8 +635,8 @@ suite('ContextualTasksComposeboxTest', () => {
     const calls = mockSearchboxPageHandler.getArgs(
         'queryAutocompleteWithSuggestInventory');
     const lastCall = calls[calls.length - 1];
-    assertEquals('new query', lastCall[0]);
-    assertEquals(SuggestInventory.kDefault, lastCall[3]);
+    assertEquals('new query', lastCall[1]);
+    assertEquals(SuggestInventory.kDefault, lastCall[4]);
   });
 
   test('inputEnabled attribute reflected on composebox', async () => {
@@ -725,6 +726,30 @@ suite('ContextualTasksComposeboxTest', () => {
     assertEquals(
         null, innerComposebox.getDropdownElement().result,
         'Matches should be cleared after submit');
+  });
+
+  test('OnInputStateUpdateSetsStateAndCallsMojo', async () => {
+    const contextualComposebox = contextualTasksApp.$.composebox;
+
+    mockSearchboxPageHandler.reset();
+
+    // Call onInputStateUpdate with ToolMode = 1 and ModelMode = 2.
+    contextualComposebox.onInputStateUpdate(1, 2);
+
+    const toolMode =
+        await mockSearchboxPageHandler.whenCalled('setActiveToolMode');
+    assertEquals(1, toolMode);
+
+    const modelMode =
+        await mockSearchboxPageHandler.whenCalled('setActiveModelMode');
+    assertEquals(2, modelMode);
+    // Verify that it is in tool mode.
+    assertTrue(contextualComposebox.inToolModeForTesting);
+
+    // Reset tool mode with `ToolMode.kUnspecified` (0),
+    // and verify that it is reset.
+    contextualComposebox.onInputStateUpdate(0, 0);
+    assertFalse(contextualComposebox.inToolModeForTesting);
   });
 
   test('OfflineStatusReconsideredOnReload', async () => {
@@ -1536,8 +1561,9 @@ suite('ContextualTasksComposeboxTest', () => {
 // Fork DUAL-PATH SMOKE SUITE
 // Infrastructure-only coverage: verifies the wrapper's
 // `useContextualTasksComposeboxFork` ternary picks the right inner element
-// on both paths. The fork is a smoke skeleton, so nothing here may depend on
-// inner composebox behavior.
+// and that wrapper-teplate bindings reach the inner element at mount, on both
+// paths. The fork is a smoke skeleton, so nothing here may depend on
+// fork-specific inner composebox behavior.
 // =============================================================================
 [true, false].forEach(useFork => {
   suite(
@@ -1618,6 +1644,17 @@ suite('ContextualTasksComposeboxTest', () => {
           assertEquals(
             innerComposebox,
             wrapper.shadowRoot.querySelector('#composebox'));
+        });
+
+        test('inner composebox does not query zps on initial mount', () => {
+          const {innerComposebox} = parts;
+          // The wrapper template binds `.queryZpsOnLoad="${false}"`, so the
+          // mount in setup() must not blindly query zps in connectedCallback.
+          assertFalse(innerComposebox.queryZpsOnLoad);
+          assertEquals(
+              0,
+              mockSearchboxPageHandler.getCallCount(
+                  'queryAutocompleteWithSuggestInventory'));
         });
 
         test('wrapper tracks focus state from inner composebox events',
@@ -2037,6 +2074,7 @@ suite('ContextualTasksComposeboxTest', () => {
                       'result-changed', innerComposebox);
               searchboxCallbackRouterRemote.autocompleteResultChanged(
                   createAutocompleteResultForTesting({
+                    queryId: parts.innerComposebox.activeQueryId,
                     input: testQuery,
                     matches: [createAutocompleteMatch({fillIntoEdit: 'm1'})],
                   }));
@@ -2066,6 +2104,7 @@ suite('ContextualTasksComposeboxTest', () => {
               // The response input does not match the last queried input.
               searchboxCallbackRouterRemote.autocompleteResultChanged(
                   createAutocompleteResultForTesting({
+                    queryId: parts.innerComposebox.activeQueryId + 1,
                     input: 'stale',
                     matches: [createAutocompleteMatch()],
                   }));
@@ -2090,6 +2129,7 @@ suite('ContextualTasksComposeboxTest', () => {
               // shown; one match is a noncanned AIM suggestion.
               searchboxCallbackRouterRemote.autocompleteResultChanged(
                   createAutocompleteResultForTesting({
+                    queryId: parts.innerComposebox.activeQueryId,
                     input: '',
                     matches: [
                       createAutocompleteMatch({isNoncannedAimSuggestion: true}),
@@ -2115,6 +2155,7 @@ suite('ContextualTasksComposeboxTest', () => {
               // A noncanned AIM suggestion first surfaces the link.
               searchboxCallbackRouterRemote.autocompleteResultChanged(
                   createAutocompleteResultForTesting({
+                    queryId: parts.innerComposebox.activeQueryId,
                     input: '',
                     matches: [
                       createAutocompleteMatch({isNoncannedAimSuggestion: true}),
@@ -2128,6 +2169,7 @@ suite('ContextualTasksComposeboxTest', () => {
               // Ordinary results clear it; the wrapper keeps no residual link.
               searchboxCallbackRouterRemote.autocompleteResultChanged(
                   createAutocompleteResultForTesting({
+                    queryId: parts.innerComposebox.activeQueryId,
                     input: '',
                     matches: [
                       createAutocompleteMatch(),
@@ -2156,6 +2198,7 @@ suite('ContextualTasksComposeboxTest', () => {
           simulateUserInput(inputElement, testQuery);
           searchboxCallbackRouterRemote.autocompleteResultChanged(
               createAutocompleteResultForTesting({
+                queryId: parts.innerComposebox.activeQueryId,
                 input: testQuery,
                 matches: [
                   createAutocompleteMatch({fillIntoEdit: 'match 1'}),
@@ -2195,7 +2238,8 @@ suite('ContextualTasksComposeboxTest', () => {
                   'queryAutocompleteWithSuggestInventory');
 
               await setupAutocompleteResults(
-                  searchboxCallbackRouterRemote, TEST_QUERY, mockTimer);
+                  searchboxCallbackRouterRemote, innerComposebox.activeQueryId,
+                  TEST_QUERY, mockTimer);
               while (!innerComposebox.getDropdownElement().result) {
                 mockTimer.tick(10);
                 await Promise.resolve();
@@ -2231,4 +2275,156 @@ suite('ContextualTasksComposeboxTest', () => {
                       'openAutocompleteMatch'));
             });
       });
+});
+
+// =============================================================================
+// Fork RESIZE/HEIGHT SUITE (fork path)
+// The fork sets up the composebox-resize observers (the shared cr-composebox
+// keeps them only for the Contextual Tasks Embedder) and renders the file
+// carousel that fires carousel-resize. These checks target the fork; the legacy
+// path's wrapper-side height flow is covered by the flag-off suite above.
+// =============================================================================
+suite(`ContextualTasksComposeboxResizeTest`, () => {
+  // Minimal ResizeObserver stub whose instances can be triggered on demand;
+  // the components debounce their resize callbacks, so tests advance the mock
+  // timer after triggering.
+  class MockResizeObserver {
+    static instances: MockResizeObserver[] = [];
+
+    constructor(private callback: ResizeObserverCallback) {
+      MockResizeObserver.instances.push(this);
+    }
+
+    observe(_target: Element) {}
+    unobserve(_target: Element) {}
+    disconnect() {}
+
+    trigger() {
+      this.callback([], this);
+    }
+  }
+
+  let mockComposeboxPageHandler: TestMock<ComposeboxPageHandlerRemote>&
+      ComposeboxPageHandlerRemote;
+  let mockSearchboxPageHandler: TestMock<SearchboxPageHandlerRemote>&
+      SearchboxPageHandlerRemote;
+  let searchboxCallbackRouterRemote: SearchboxPageRemote;
+  let mockTimer: MockTimer;
+  let parts: CtComposeboxAppParts;
+
+  setup(async () => {
+    if (!window.chrome) {
+      Object.assign(window, {chrome: {}});
+    }
+    if (!window.chrome.histograms) {
+      Object.assign(window.chrome, {
+        histograms: {
+          recordEnumerationValue: () => {},
+          recordUserAction: () => {},
+          recordBoolean: () => {},
+        },
+      });
+    }
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+
+    window.ResizeObserver = MockResizeObserver;
+    MockResizeObserver.instances = [];
+
+    mockTimer = new MockTimer();
+
+    loadTimeData.overrideValues({
+      contextualMenuUsePecApi: false,
+      composeboxSmartTabSharingVisible: false,
+      enableComposeboxJumpFix: false,
+      composeboxShowTypedSuggest: true,
+      composeboxShowZps: true,
+      enableBasicModeZOrder: true,
+      composeboxShowContextMenu: true,
+      composeboxHintTextLensOverlay: 'Test Lens Hint',
+      forcedEmbeddedPageHost: '',
+      tabFaviconChipsToCoinsEnabled: false,
+    });
+
+    const testProxy = new TestContextualTasksBrowserProxy(fixtureUrl);
+    BrowserProxyImpl.setInstance(testProxy);
+
+    mockComposeboxPageHandler = TestMock.fromClass(ComposeboxPageHandlerRemote);
+    mockComposeboxPageHandler.setResultFor(
+        'getSmartTabSharingActive', Promise.resolve({active: false}));
+    mockComposeboxPageHandler.setResultFor(
+        'canShowNextboxAnimation', Promise.resolve({canShow: true}));
+    mockSearchboxPageHandler = TestMock.fromClass(SearchboxPageHandlerRemote);
+    mockSearchboxPageHandler.setResultFor(
+        'getRecentTabs', Promise.resolve({tabs: []}));
+    mockSearchboxPageHandler.setResultFor(
+        'getPageClassification',
+        Promise.resolve({metricSource: 'CO_BROWSING_COMPOSEBOX'}));
+    mockSearchboxPageHandler.setResultFor(
+        'addTabContext', Promise.resolve({high: BigInt(1), low: BigInt(2)}));
+    mockSearchboxPageHandler.setResultFor(
+        'getInputState', Promise.resolve({state: new MockInputState()}));
+    const searchboxCallbackRouter = new SearchboxPageCallbackRouter();
+    searchboxCallbackRouterRemote =
+        searchboxCallbackRouter.$.bindNewPipeAndPassRemote();
+    ComposeboxProxyImpl.setInstance(new ComposeboxProxyImpl(
+        mockComposeboxPageHandler, new ComposeboxPageCallbackRouter(),
+        mockSearchboxPageHandler, searchboxCallbackRouter));
+
+    parts = await createCtComposeboxApp(/* useFork= */ true);
+    searchboxCallbackRouterRemote.onInputStateChanged(new MockInputState());
+    await microtasksFinished();
+
+    assertTrue(
+        MockResizeObserver.instances.length >= 1,
+        'At least one ResizeObserver should be created');
+  });
+
+  teardown(() => {
+    mockTimer.uninstall();
+  });
+
+  test('inner composebox fires composebox-resize with its height', () => {
+    mockTimer.install();
+    const {innerComposebox} = parts;
+
+    let firedHeight: number|undefined;
+    innerComposebox.addEventListener('composebox-resize', (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail.height !== undefined) {
+        firedHeight = detail.height;
+      }
+    });
+
+    Object.defineProperty(innerComposebox, 'offsetHeight', {
+      writable: true,
+      configurable: true,
+      value: 123,
+    });
+
+    MockResizeObserver.instances.forEach(obs => obs.trigger());
+    mockTimer.tick(100);
+
+    assertEquals(123, firedHeight);
+  });
+
+  test('carousel-resize from the fork carousel sets --carousel-height', () => {
+    mockTimer.install();
+    const {innerComposebox} = parts;
+    const carousel = innerComposebox.shadowRoot.querySelector('#carousel');
+    assertTrue(!!carousel, 'Fork should render the file carousel.');
+
+    Object.defineProperty(carousel, 'clientHeight', {
+      writable: true,
+      configurable: true,
+      value: 50,
+    });
+
+    MockResizeObserver.instances.forEach(obs => obs.trigger());
+    mockTimer.tick(100);
+
+    // The file carousel adds CAROUSEL_HEIGHT_PADDING (18) to clientHeight, and
+    // the wrapper writes the result to --carousel-height on the inner element.
+    assertEquals(
+        '68px', innerComposebox.style.getPropertyValue('--carousel-height'));
+  });
 });

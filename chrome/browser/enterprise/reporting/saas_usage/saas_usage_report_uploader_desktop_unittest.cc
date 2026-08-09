@@ -11,7 +11,6 @@
 #include "base/functional/callback_helpers.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/enterprise/reporting/test/realtime_event_uploader_test_base.h"
-#include "components/policy/core/common/cloud/realtime_reporting_job_configuration.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -27,7 +26,6 @@ struct SaasUsageReportUploaderDesktopTestParam {
   bool is_profile_managed;
   bool is_affiliated;
   bool is_profile_report_uploader;
-  bool feature_enabled;
   bool create_reporting_client;
   std::string expected_dm_token;
   bool expected_per_profile;
@@ -53,18 +51,8 @@ class SaasUsageReportUploaderDesktopParamTest
           SaasUsageReportUploaderDesktopTestParam> {
  public:
   void SetUp() override {
-    if (GetParam().feature_enabled) {
-      scoped_feature_list_.InitAndEnableFeature(
-          policy::kUploadRealtimeReportingEventsUsingProto);
-    } else {
-      scoped_feature_list_.InitAndDisableFeature(
-          policy::kUploadRealtimeReportingEventsUsingProto);
-    }
     RealtimeEventUploaderTestBase::SetUp();
   }
-
- protected:
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 TEST_P(SaasUsageReportUploaderDesktopParamTest, UploadReport) {
@@ -102,7 +90,6 @@ INSTANTIATE_TEST_SUITE_P(
             .is_profile_managed = false,
             .is_affiliated = false,
             .is_profile_report_uploader = false,
-            .feature_enabled = true,
             .create_reporting_client = true,
             .expected_dm_token = "browser_dm_token",
             .expected_per_profile = false,
@@ -113,7 +100,6 @@ INSTANTIATE_TEST_SUITE_P(
             .is_profile_managed = true,
             .is_affiliated = false,
             .is_profile_report_uploader = false,
-            .feature_enabled = true,
             .create_reporting_client = true,
             .expected_dm_token = "browser_dm_token",
             .expected_per_profile = false,
@@ -124,7 +110,6 @@ INSTANTIATE_TEST_SUITE_P(
             .is_profile_managed = true,
             .is_affiliated = false,
             .is_profile_report_uploader = true,
-            .feature_enabled = true,
             .create_reporting_client = true,
             .expected_dm_token = "user_dm_token_test_profile",
             .expected_per_profile = true,
@@ -135,29 +120,16 @@ INSTANTIATE_TEST_SUITE_P(
             .is_profile_managed = true,
             .is_affiliated = true,
             .is_profile_report_uploader = true,
-            .feature_enabled = true,
             .create_reporting_client = true,
             .expected_dm_token = "browser_dm_token",
             .expected_per_profile = false,
             .expect_report_upload = true},
-        SaasUsageReportUploaderDesktopTestParam{
-            .test_name = "UploadBrowserReport_FeatureDisabled",
-            .is_browser_managed = true,
-            .is_profile_managed = false,
-            .is_affiliated = false,
-            .is_profile_report_uploader = false,
-            .feature_enabled = false,
-            .create_reporting_client = true,
-            .expected_dm_token = "",
-            .expected_per_profile = false,
-            .expect_report_upload = false},
         SaasUsageReportUploaderDesktopTestParam{
             .test_name = "UploadBrowserReport_NoReportingClient",
             .is_browser_managed = true,
             .is_profile_managed = false,
             .is_affiliated = false,
             .is_profile_report_uploader = false,
-            .feature_enabled = true,
             .create_reporting_client = false,
             .expected_dm_token = "",
             .expected_per_profile = false,
@@ -168,7 +140,6 @@ INSTANTIATE_TEST_SUITE_P(
             .is_profile_managed = false,
             .is_affiliated = false,
             .is_profile_report_uploader = false,
-            .feature_enabled = true,
             .create_reporting_client = true,
             .expected_dm_token = "",
             .expected_per_profile = false,
@@ -179,14 +150,9 @@ INSTANTIATE_TEST_SUITE_P(
     });
 
 class SaasUsageReportUploaderDesktopTest
-    : public RealtimeEventUploaderTestBase {
- protected:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
+    : public RealtimeEventUploaderTestBase {};
 
 TEST_F(SaasUsageReportUploaderDesktopTest, UploadBrowserReport_MultiProfile) {
-  scoped_feature_list_.InitAndEnableFeature(
-      policy::kUploadRealtimeReportingEventsUsingProto);
   SetBrowserManaged(true);
 
   CreateProfile("profile1", /*is_managed=*/true,
@@ -220,8 +186,6 @@ TEST_F(SaasUsageReportUploaderDesktopTest, UploadBrowserReport_MultiProfile) {
 }
 
 TEST_F(SaasUsageReportUploaderDesktopTest, UploadProfileReport_MultiProfile) {
-  scoped_feature_list_.InitAndEnableFeature(
-      policy::kUploadRealtimeReportingEventsUsingProto);
   TestingProfile* profile1 = CreateProfile("profile1", /*is_managed=*/true,
                                            /*is_affiliated=*/false,
                                            /*create_reporting_client=*/true);

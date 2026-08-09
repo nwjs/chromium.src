@@ -24,6 +24,10 @@ struct OmniboxInputState {
   string full_url;
   // Whether the Omnibox input should have active focus.
   bool is_focused;
+  // The steady-state permanent display text (usually the unelided URL).
+  string permanent_display_text;
+  // Whether the full url should be showing.
+  bool show_full_url;
 };
 
 // Browser-side handler for the Omnibox Popup.
@@ -33,7 +37,15 @@ interface PageHandlerFactory {
       pending_remote<Page> page, pending_receiver<PageHandler> handler);
 };
 
-// Browser-side handler for the Omnibox Popup.
+enum OmniboxEscapeAction {
+  kRevertTemporaryText = 1,
+  kClosePopup = 2,
+  kClearUserInput = 3,
+  kClosePopupAndClearUserInput = 4,
+  kBlur = 5,
+};
+
+// Browser-side handler for requests from WebUI page.
 interface PageHandler {
   // Opens context menu.
   ShowContextMenu(gfx.mojom.Point point);
@@ -41,15 +53,23 @@ interface PageHandler {
   // Closes the Omnibox Popup.
   CloseUI();
 
-  // Called when the WebUI input is manually blurred (e.g. webpage click).
-  OnManualBlur(uint32 sequence_number);
-
   // Called when the selection changes in the WebUI.
-  OnSelectionChanged(gfx.mojom.Range selection, uint32 sequence_number);
+  OnSelectionChanged(
+    gfx.mojom.Range selection, uint32 sequence_number, bool show_full_url);
 
   // Reverts the omnibox edit model.
   // Discards the call if `sequence_number` is stale.
   Revert(uint32 sequence_number);
+
+  // Logs the Escape key press action to UMA.
+  LogEscapeAction(OmniboxEscapeAction action);
+
+  // Notifies the browser that the user has cleared the Omnibox.
+  // Discards the call if `sequence_number` is stale.
+  OnInputCleared(uint32 sequence_number);
+
+  // Requests the current native input state (text, selection, focus) from C++.
+  RequestInputState();
 };
 
 // The WebUI page for the Omnibox Popup.
@@ -63,4 +83,7 @@ interface Page {
   // Called by the browser to update the input state (e.g. input text
   // and selection range) of the WebUI Omnibox.
   SetInputState(OmniboxInputState state);
+
+  // Called by the browser when focus changes within the active tab.
+  SetFocus(bool is_focused);
 };

@@ -201,8 +201,6 @@ class TaskManagerView : public TableViewDelegate,
 
   // True when the Task Manager window should be shown on top of other windows.
   bool is_always_on_top_;
-
-  base::WeakPtrFactory<TaskManagerView> weak_factory_{this};
 };
 
 }  // namespace task_manager

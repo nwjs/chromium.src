@@ -667,6 +667,9 @@ should be able to be added at any place in this file.
   <variant name="_MostVisitedTilesCustomizationPin"
       summary="In product help for MVT Customization feature to pin a
                shortcut."/>
+  <variant name="_MultistepFilterPromo"
+      summary="In product help for a first time user about Multistep Filter
+               suggestions."/>
   <variant name="_NewTab" summary="For NewTab feature."/>
   <variant name="_NewTabPageButton" summary="Deprecated in M79-."/>
   <variant name="_NewTabPageHomeButton"
@@ -11028,36 +11031,6 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
-<action name="ContextualSearch.AddTabsButton.Clicked.{ContextualSearchSource}">
-  <owner>samiraarabgol@google.com</owner>
-  <owner>chrome-desktop-search@google.com</owner>
-  <description>
-    Recorded when the user clicks the Add tabs (AI Mode) entrypoint button in a
-    WebUI searchbox on {ContextualSearchSource}.
-  </description>
-  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
-</action>
-
-<action name="ContextualSearch.AddTabsButton.Hovered.{ContextualSearchSource}">
-  <owner>samiraarabgol@google.com</owner>
-  <owner>chrome-desktop-search@google.com</owner>
-  <description>
-    Recorded when the user hovers over the Add tabs (AI Mode) entrypoint button
-    in a WebUI searchbox on {ContextualSearchSource}.
-  </description>
-  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
-</action>
-
-<action name="ContextualSearch.AddTabsButton.Shown.{ContextualSearchSource}">
-  <owner>samiraarabgol@google.com</owner>
-  <owner>chrome-desktop-search@google.com</owner>
-  <description>
-    Recorded when the Add tabs (AI Mode) entrypoint button is shown to the user
-    in a WebUI searchbox on {ContextualSearchSource}.
-  </description>
-  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
-</action>
-
 <action
     name="ContextualSearch.AiModeButtonClick.{ContextualSearchAiModeButtonSurface}">
   <owner>niharm@google.com</owner>
@@ -11437,6 +11410,14 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="ContextualTasks.AimFullTab.Shown">
+  <owner>niharm@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <description>
+    Recorded when a navigation leads to a full tab AIM page.
+  </description>
+</action>
+
 <action name="ContextualTasks.AiResponse.UserAction.LinkClicked{SurfaceType}">
   <owner>sophiechang@chromium.org</owner>
   <owner>chrome-contextual-tasks-eng@google.com</owner>
@@ -11551,6 +11532,7 @@ should be able to be added at any place in this file.
     <variant name=".ChangedThreads"
         summary="The user changed the active thread."/>
     <variant name=".CloseSidePanel" summary="The user closed the side panel."/>
+    <variant name=".OpenFullTab" summary="The user opened the full tab."/>
     <variant name=".OpenSidePanel" summary="The user opened the side panel."/>
     <variant name=".StayedOnThread"
         summary="The user stayed on the same thread."/>
@@ -11587,6 +11569,7 @@ should be able to be added at any place in this file.
   </description>
   <token key="ActionType">
     <variant name=".CloseSidePanel" summary="The user closed the side panel."/>
+    <variant name=".OpenFeedback" summary="The user opened the feedback page."/>
     <variant name=".OpenHelp" summary="The user opened the help page."/>
     <variant name=".OpenInNewTab"
         summary="The user opened the task in a new tab."/>
@@ -15967,6 +15950,17 @@ should be able to be added at any place in this file.
   <description>The Glic instance WebUI is warmed.</description>
 </action>
 
+<action name="Glic.Onboarding.Invoked">
+  <owner>perrier@google.com</owner>
+  <owner>glic+metrics@google.com</owner>
+  <description>
+    Logged when Glic is invoked during onboarding. Invoked is defined as a new
+    embedder being shown for a tab or Floaty. Tab switching or focus events are
+    not considered invoking, but daisy chaining, conversation switching, or
+    re-opening on an already bound tab are considered invoking.
+  </description>
+</action>
+
 <action name="Glic.Onboarding.OptInAccept">
   <owner>basiaz@google.com</owner>
   <owner>dewittj@google.com</owner>
@@ -15983,6 +15977,14 @@ should be able to be added at any place in this file.
   <description>
     The Glic web client has signalled that an onboarding flow has been shown,
     and the instance is ready and visible.
+  </description>
+</action>
+
+<action name="Glic.Onboarding.PromptSubmitted">
+  <owner>perrier@google.com</owner>
+  <owner>glic+metrics@google.com</owner>
+  <description>
+    Logged when a prompt is submitted by the user during onboarding.
   </description>
 </action>
 
@@ -28360,6 +28362,22 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="MobileGeminiTabPickerDismissed">
+  <owner>joepeplowski@google.com</owner>
+  <owner>bling-alchemy@google.com</owner>
+  <description>
+    Reported when the Tab Picker UI is dismissed in a Gemini session. iOS only.
+  </description>
+</action>
+
+<action name="MobileGeminiTabPickerOpened">
+  <owner>joepeplowski@google.com</owner>
+  <owner>bling-alchemy@google.com</owner>
+  <description>
+    Reported when the Tab Picker UI is opened in a Gemini session. iOS only.
+  </description>
+</action>
+
 <action name="MobileGeminiURLOpened">
   <owner>kanouche@google.com</owner>
   <owner>bling-alchemy@google.com</owner>
@@ -33225,6 +33243,14 @@ should be able to be added at any place in this file.
   <description>
     User pressed 'New Tab' on the toolbar from a NTP page. Logged in addition to
     the general metric.
+  </description>
+</action>
+
+<action name="MobileToolbarNTPEntrypointShowMenu">
+  <owner>gambard@chromium.org</owner>
+  <description>
+    User pressed the overflow tools menu button directly from the New Tab Page
+    header entrypoint. iOS only.
   </description>
 </action>
 
@@ -42097,6 +42123,16 @@ should be able to be added at any place in this file.
   <description>
     Logged when the user clicks on the 'Learn more' link associated with the Web
     Actuation setting in chrome://settings/ai/gemini.
+  </description>
+</action>
+
+<action name="Settings.AiPage.GoogleSearchAiModeWorkspaceEntryPointClick">
+  <owner>adamyao@google.com</owner>
+  <owner>rainhard@chromium.org</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
+  <description>
+    Reported when user clicks on the Google Search AI Mode Workspace row in the
+    chrome://settings/ai page.
   </description>
 </action>
 
@@ -54785,6 +54821,24 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="VerticalTabs_TabStrip_KeyboardShortcutToggleCollapsed">
+  <owner>kunaldaftari@google.com</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when the user collapses the vertical tab strip using the keyboard
+    shortcut.
+  </description>
+</action>
+
+<action name="VerticalTabs_TabStrip_KeyboardShortcutToggleUncollapsed">
+  <owner>kunaldaftari@google.com</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when the user uncollapses the vertical tab strip using the keyboard
+    shortcut.
+  </description>
+</action>
+
 <action name="VerticalTabs_TabStrip_ResizeToCollapsed">
   <owner>charlesmeng@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
@@ -54800,6 +54854,24 @@ should be able to be added at any place in this file.
   <description>
     Recorded when the user ends dragging the vertical tab strip with it in the
     uncollapsed state.
+  </description>
+</action>
+
+<action name="VerticalTabs_TabStrip_ViewMenuToggleCollapsed">
+  <owner>kunaldaftari@google.com</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when the user collapses the vertical tab strip using the view menu
+    on mac.
+  </description>
+</action>
+
+<action name="VerticalTabs_TabStrip_ViewMenuToggleUncollapsed">
+  <owner>kunaldaftari@google.com</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when the user uncollapses the vertical tab strip using the view
+    menu on mac.
   </description>
 </action>
 

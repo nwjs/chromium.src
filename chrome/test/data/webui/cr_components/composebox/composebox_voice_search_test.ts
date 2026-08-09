@@ -72,12 +72,14 @@ suite('ComposeboxVoiceSearch', () => {
         mock => ComposeboxProxyImpl.setInstance(new ComposeboxProxyImpl(
             mock, new PageCallbackRouter(), new SearchboxPageHandlerRemote(),
             new SearchboxPageCallbackRouter())));
-    handler.setResultMapperFor(
-        'getSmartTabSharingActive', () => Promise.resolve({active: false}));
     assertTrue(!!handler);
     searchboxHandler = installMock(
         SearchboxPageHandlerRemote,
         mock => ComposeboxProxyImpl.getInstance().searchboxHandler = mock);
+    // <if expr="not is_android">
+    searchboxHandler.setResultMapperFor(
+        'getSmartTabSharingActive', () => Promise.resolve({active: false}));
+    // </if>
     searchboxHandler.setResultFor(
         'getPageClassification',
         Promise.resolve({metricSource: 'NTP_REALBOX'}));
@@ -515,6 +517,54 @@ suite('ComposeboxVoiceSearch', () => {
             metrics.count(
                 'VoiceSearch.Action.NTP_REALBOX',
                 VoiceSearchAction.ERROR_CANCELING));
+      });
+
+  test(
+      'NO_MATCH error renders Try Again link and hides Details link',
+      async () => {
+        const voiceSearchElement = await openVoiceSearchUI();
+        voiceSearchElement.hasErrorTimer = true;
+
+        // Verify initially both links are not visible.
+        assertFalse(isVisible(voiceSearchElement.shadowRoot.querySelector('#tryAgainLink')));
+        assertFalse(isVisible(voiceSearchElement.shadowRoot.querySelector('#details')));
+
+        // Trigger NO_MATCH error.
+        mockSpeechRecognition.onnomatch!(new Event('nomatch'));
+        await microtasksFinished();
+
+        // Verify `tryAgainLink` is visible and `details` link is hidden.
+        const tryAgainLink =
+            voiceSearchElement.shadowRoot.querySelector<HTMLElement>(
+                '#tryAgainLink');
+        const detailsLink =
+            voiceSearchElement.shadowRoot.querySelector<HTMLElement>(
+                '#details');
+
+        assertTrue(isVisible(tryAgainLink));
+        assertFalse(isVisible(detailsLink));
+
+        assertTrue(!!tryAgainLink);
+        tryAgainLink.click();
+        await microtasksFinished();
+        assertEquals(2, mockSpeechRecognition.startCount);
+        assertEquals(null, voiceSearchElement['error_']);
+        assertEquals('', voiceSearchElement['errorMessage_']);
+
+        // Trigger other error (like `audio-capture`).
+        mockSpeechRecognition.onerror!
+            ({error: 'audio-capture'} as any);
+        await microtasksFinished();
+
+        // Verify `tryAgainLink` is hidden and `details` link is visible.
+        const tryAgainLink2 =
+            voiceSearchElement.shadowRoot.querySelector<HTMLElement>(
+                '#tryAgainLink');
+        const detailsLink2 =
+            voiceSearchElement.shadowRoot.querySelector<HTMLElement>(
+                '#details');
+        assertFalse(isVisible(tryAgainLink2));
+        assertTrue(isVisible(detailsLink2));
       });
 
   test('voice search button does not show when disabled', async () => {
@@ -1071,14 +1121,14 @@ suite('ComposeboxVoiceSearch', () => {
   test(
       'Queries autocomplete to update suggestions after stop click',
       async () => {
-        // Reset handler calls to ensure a clean slate.
-        searchboxHandler.resetResolver('queryAutocompleteWithSuggestInventory');
-
         loadTimeData.overrideValues({
           voiceSearchCoherenceComposeboxesEnabled: true,
         });
         document.body.innerHTML = window.trustedTypes!.emptyHTML;
         await createComposeboxElement();
+
+        // Reset so the zps query fired on mount does not count.
+        searchboxHandler.resetResolver('queryAutocompleteWithSuggestInventory');
 
         // Open voice search.
         const voiceSearchButton = getVoiceSearchButton(composeboxElement);
@@ -1113,8 +1163,9 @@ suite('ComposeboxVoiceSearch', () => {
 
         const queryArgs = await searchboxHandler.whenCalled(
             'queryAutocompleteWithSuggestInventory');
-        assertEquals('refresh suggestions', queryArgs[0]);
-        assertFalse(queryArgs[1]);  // verify preventInlineAutocomplete is false
+        assertEquals(composeboxElement.activeQueryId, queryArgs[0]);
+        assertEquals('refresh suggestions', queryArgs[1]);
+        assertFalse(queryArgs[2]);  // verify preventInlineAutocomplete is false
       });
 
   test(
@@ -1376,4 +1427,15 @@ suite('ComposeboxVoiceSearch', () => {
         voiceSearchElement['voiceModeEndCleanup_']();
         await microtasksFinished();
       });
+
+  test('transcript input font size uses 16px default', async () => {
+    await createComposeboxElement();
+    const voiceSearchElement = getVoiceSearchElement(composeboxElement);
+    voiceSearchElement.liveTranscriptEnabled = true;
+    await voiceSearchElement.updateComplete;
+
+    const input =
+        voiceSearchElement.shadowRoot.querySelector<HTMLElement>('#input')!;
+    assertEquals('16px', window.getComputedStyle(input).fontSize);
+  });
 });

@@ -5,17 +5,22 @@
 #include "content/browser/declarative_performance_observer/declarative_performance_observer.h"
 
 #include "base/check.h"
+#include "base/metrics/histogram_functions.h"
 #include "content/browser/declarative_performance_observer/declarative_performance_observer_store.h"
 #include "content/browser/storage_partition_impl.h"
+#include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/navigation_handle_timing.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/content_client.h"
 #include "mojo/public/cpp/bindings/message.h"
 #include "net/base/load_timing_info.h"
 #include "net/base/net_errors.h"
 #include "services/network/public/mojom/network_context.mojom.h"
+#include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom.h"
 
 namespace content {
 
@@ -28,6 +33,9 @@ DeclarativePerformanceObserver::DeclarativePerformanceObserver(
     RenderFrameHost* rfh,
     NavigationHandle* navigation_handle)
     : DocumentUserData<DeclarativePerformanceObserver>(rfh) {
+  GetContentClient()->browser()->LogWebFeatureForCurrentPage(
+      rfh, blink::mojom::WebFeature::kDeclarativePerformanceObserver);
+
   const network::mojom::DeclarativePerformanceObserverPolicy* policy =
       navigation_handle->GetDeclarativePerformanceObserverPolicy();
   CHECK(policy);
@@ -53,16 +61,6 @@ DeclarativePerformanceObserver::DeclarativePerformanceObserver(
   started_in_foreground_ =
       rfh->GetLifecycleState() == RenderFrameHost::LifecycleState::kActive &&
       web_contents && web_contents->GetVisibility() == Visibility::VISIBLE;
-
-  if (enabled_types_.contains(
-          network::mojom::PerformanceEntryType::kVisibilityState)) {
-    base::DictValue entry;
-    entry.Set("name", started_in_foreground_ ? "visible" : "hidden");
-    entry.Set("entryType", "visibility-state");
-    entry.Set("startTime", 0.0);
-    entry.Set("duration", 0.0);
-    AddEntryToBuffer(std::move(entry));
-  }
 
   if (enabled_types_.contains(
           network::mojom::PerformanceEntryType::kNavigation)) {
@@ -104,6 +102,16 @@ DeclarativePerformanceObserver::DeclarativePerformanceObserver(
     AddEntryToBuffer(std::move(entry));
   }
 
+  if (enabled_types_.contains(
+          network::mojom::PerformanceEntryType::kVisibilityState)) {
+    base::DictValue entry;
+    entry.Set("name", started_in_foreground_ ? "visible" : "hidden");
+    entry.Set("entryType", "visibility-state");
+    entry.Set("startTime", 0.0);
+    entry.Set("duration", 0.0);
+    AddEntryToBuffer(std::move(entry));
+  }
+
   // The storage partition associated with the RenderFrameHost is guaranteed to
   // be a `StoragePartitionImpl` in production and in all standard test
   // harnesses. We can safely downcast it here to retrieve the DPO store.
@@ -126,10 +134,15 @@ DeclarativePerformanceObserver::DeclarativePerformanceObserver(
 }
 
 DeclarativePerformanceObserver::~DeclarativePerformanceObserver() {
-  if (render_frame_host().IsActive()) {
-    AppendSessionEndEntry();
-    FlushMetrics();
+  if (render_frame_host().GetLifecycleState() !=
+      RenderFrameHost::LifecycleState::kPrerendering) {
+    EndSessionAndFlush();
   }
+  base::UmaHistogramMemoryKB("DeclarativePerformanceObserver.PeakBufferSize",
+                             peak_buffer_bytes_ / 1024);
+  base::UmaHistogramBoolean(
+      "DeclarativePerformanceObserver.BufferLimitExceeded",
+      buffer_limit_exceeded_);
 }
 
 void DeclarativePerformanceObserver::OnDidFinishNavigation(
@@ -139,6 +152,7 @@ void DeclarativePerformanceObserver::OnDidFinishNavigation(
 
   navigation_start_ = navigation_handle->NavigationStart();
   buffered_entries_.clear();
+  current_buffer_bytes_ = 0;
 
   // Reset `is_session_ended_` so that a new session-end entry can be appended
   // when this restored document eventually enters BFCache or is closed.
@@ -207,20 +221,14 @@ void DeclarativePerformanceObserver::OnVisibilityChanged(
     entry.Set("duration", 0.0);
     AddEntryToBuffer(std::move(entry));
   }
-
-  if (visibility == Visibility::HIDDEN) {
-    FlushMetrics();
-  }
 }
 
 void DeclarativePerformanceObserver::OnFrameDeleted() {
-  AppendSessionEndEntry();
-  FlushMetrics();
+  EndSessionAndFlush();
 }
 
 void DeclarativePerformanceObserver::OnEnterBFCache() {
-  AppendSessionEndEntry();
-  FlushMetrics();
+  EndSessionAndFlush();
 }
 
 void DeclarativePerformanceObserver::SetStoragePartitionForTesting(  // IN-TEST
@@ -236,6 +244,7 @@ void DeclarativePerformanceObserver::FlushMetrics() {
   base::DictValue body;
   body.Set("entries", std::move(buffered_entries_));
   buffered_entries_.clear();
+  current_buffer_bytes_ = 0;
 
   StoragePartition* storage_partition =
       storage_partition_for_testing_
@@ -270,7 +279,28 @@ void DeclarativePerformanceObserver::AppendSessionEndEntry() {
   }
 }
 
+void DeclarativePerformanceObserver::EndSessionAndFlush() {
+  if (is_session_ended_) {
+    return;
+  }
+  AppendSessionEndEntry();
+  FlushMetrics();
+}
+
 void DeclarativePerformanceObserver::AddEntryToBuffer(base::DictValue entry) {
+  size_t max_entries = max_buffered_entries_for_testing_
+                           ? max_buffered_entries_for_testing_
+                           : kMaxBufferedEntries;
+  if (buffered_entries_.size() >= max_entries) {
+    return;
+  }
+  size_t entry_size = entry.EstimateMemoryUsage();
+  if (current_buffer_bytes_ + entry_size > kMaxDocumentBufferBytes) {
+    buffer_limit_exceeded_ = true;
+    return;
+  }
+  current_buffer_bytes_ += entry_size;
+  peak_buffer_bytes_ = std::max(peak_buffer_bytes_, current_buffer_bytes_);
   buffered_entries_.Append(std::move(entry));
 }
 
@@ -323,6 +353,13 @@ void DeclarativePerformanceObserver::RecordEarlyNavigationFailure(
     NavigationHandle* handle,
     StoragePartition* partition,
     int net_error) {
+  if (!base::FeatureList::IsEnabled(
+          blink::features::kDeclarativePerformanceObserver) ||
+      !blink::features::
+           kDeclarativePerformanceObserverSupportCaptureEarlyFailures.Get()) {
+    return;
+  }
+
   if (!handle || !partition) {
     return;
   }
@@ -408,8 +445,30 @@ void DeclarativePerformanceObserver::RecordEarlyNavigationFailure(
 
 void DeclarativePerformanceObserver::OnEarlyFailureReportsTaken(
     base::ListValue reports) {
+  StoragePartition* storage_partition =
+      storage_partition_for_testing_
+          ? storage_partition_for_testing_.get()
+          : render_frame_host().GetStoragePartition();
+  if (!storage_partition) {
+    return;
+  }
   for (auto& val : reports) {
-    buffered_entries_.Append(std::move(val));
+    if (val.is_dict()) {
+      base::DictValue entry = std::move(val).TakeDict();
+
+      std::string* name_url = entry.FindString("name");
+      GURL failed_url = name_url ? GURL(*name_url) : committed_url_;
+
+      base::DictValue report_body;
+      base::ListValue entries_list;
+      entries_list.Append(base::Value(std::move(entry)));
+      report_body.Set("entries", std::move(entries_list));
+
+      storage_partition->GetNetworkContext()->QueueReport(
+          kDeclarativePerformanceObserverReportType, reporting_endpoint_,
+          failed_url, reporting_source_, network_anonymization_key_,
+          std::move(report_body));
+    }
   }
 }
 

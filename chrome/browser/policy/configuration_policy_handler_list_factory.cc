@@ -291,6 +291,10 @@
 #include "components/safe_browsing/content/common/file_type_policies_prefs.h"
 #endif
 
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/indigo/indigo_prefs.h"
+#endif
+
 namespace policy {
 namespace {
 
@@ -476,6 +480,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
 #if !BUILDFLAG(IS_ANDROID)
   { key::kVoiceTypingSettings,
     prefs::kVoiceTypingSettings,
+    base::Value::Type::INTEGER },
+  { key::kIndigo,
+    indigo::prefs::kIndigoPolicy,
     base::Value::Type::INTEGER },
 #endif
   { key::kAllowDeletingBrowserHistory,
@@ -1162,9 +1169,6 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kMetricsReportingEnabled,
     metrics::prefs::kMetricsReportingEnabled,
     base::Value::Type::BOOLEAN },
-  { key::kMetricsReportingLevel,
-    metrics::prefs::kMetricsReportingLevel,
-    base::Value::Type::INTEGER },
   { key::kVariationsRestrictParameter,
     variations::prefs::kVariationsRestrictParameter,
     base::Value::Type::STRING },
@@ -1665,9 +1669,6 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kDeviceMetricsReportingEnabled,
     metrics::prefs::kMetricsReportingEnabled,
     base::Value::Type::BOOLEAN },
-  { key::kDeviceMetricsReportingLevel,
-    metrics::prefs::kMetricsReportingLevel,
-    base::Value::Type::INTEGER },
   { key::kDeviceWeeklyScheduledResuspendDelayMs,
     ash::prefs::kDeviceWeeklyScheduledResuspendDelayMs,
     base::Value::Type::INTEGER },
@@ -3670,6 +3671,8 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
 #if !BUILDFLAG(IS_ANDROID)
   gen_ai_default_policies.emplace_back(key::kVoiceTypingSettings,
                                        prefs::kVoiceTypingSettings);
+  gen_ai_default_policies.emplace_back(key::kIndigo,
+                                       indigo::prefs::kIndigoPolicy);
 #endif
   // Default value for SearchContentSharingSettings is 0 if
   // GenAiDefaultSettings value is 0 or 1, or 1 if the latter is 2.

@@ -62,6 +62,19 @@ class MockPageActionModel : public PageActionModelInterface {
   MOCK_METHOD(bool, GetActionActive, (), (const, override));
   MOCK_METHOD(PageActionColorSource, GetColorSource, (), (const, override));
   MOCK_METHOD(bool, GetActionItemIsShowingBubble, (), (const, override));
+  MOCK_METHOD(PageActionAnimationStyle,
+              GetAnimationStyle,
+              (),
+              (const, override));
+  MOCK_METHOD(std::optional<ui::ImageModel>,
+              GetTrailingImage,
+              (),
+              (const, override));
+  MOCK_METHOD(bool, GetShowTrailingIcon, (), (const, override));
+  MOCK_METHOD(std::optional<ui::ColorId>,
+              GetOverrideBackgroundColorId,
+              (),
+              (const, override));
   MOCK_METHOD(void,
               AddObserver,
               (PageActionModelObserver * observer),
@@ -148,6 +161,11 @@ class MockPageActionModel : public PageActionModelInterface {
                const std::optional<std::u16string>& override_tooltip),
               (override));
   MOCK_METHOD(void,
+              SetOverrideBackgroundColorId,
+              (PageActionPassKey,
+               std::optional<ui::ColorId> override_background_color_id),
+              (override));
+  MOCK_METHOD(void,
               SetActionActive,
               (PageActionPassKey, bool is_active),
               (override));
@@ -158,6 +176,18 @@ class MockPageActionModel : public PageActionModelInterface {
   MOCK_METHOD(void,
               SetExemptFromOmniboxSuppression,
               (PageActionPassKey, bool is_exempt),
+              (override));
+  MOCK_METHOD(void,
+              SetAnimationStyle,
+              (PageActionPassKey, PageActionAnimationStyle style),
+              (override));
+  MOCK_METHOD(void,
+              SetTrailingImage,
+              (PageActionPassKey, const std::optional<ui::ImageModel>& image),
+              (override));
+  MOCK_METHOD(void,
+              SetShowTrailingIcon,
+              (PageActionPassKey, bool show),
               (override));
   MOCK_METHOD(bool, IsEphemeral, (), (const, override));
 };

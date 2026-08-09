@@ -5,6 +5,8 @@
 package org.chromium.base;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
 
@@ -43,20 +45,42 @@ public class PathUtilsTest {
     }
 
     @Test
-    public void testIsPathUnderAppDirFalse() {
-        Context context = ApplicationProvider.getApplicationContext();
-        String dataPath = "/data_path/a/b/c";
+    public void testIsPathCanonical() {
+        assertTrue(PathUtils.isPathCanonical("/"));
+        assertTrue(PathUtils.isPathCanonical("/foo"));
+        assertTrue(PathUtils.isPathCanonical("/foo/bar"));
+        assertTrue(PathUtils.isPathCanonical("/foo/.../bar"));
 
-        assertEquals(false, PathUtils.isPathUnderAppDir(dataPath, context));
+        assertFalse(PathUtils.isPathCanonical(null));
+        assertFalse(PathUtils.isPathCanonical(""));
+        assertFalse(PathUtils.isPathCanonical("foo"));
+        assertFalse(PathUtils.isPathCanonical("foo/bar"));
+        assertFalse(PathUtils.isPathCanonical("./foo"));
+        assertFalse(PathUtils.isPathCanonical("../foo"));
+        assertFalse(PathUtils.isPathCanonical("//"));
+        assertFalse(PathUtils.isPathCanonical("/."));
+        assertFalse(PathUtils.isPathCanonical("/.."));
+        assertFalse(PathUtils.isPathCanonical("/foo//bar"));
+        assertFalse(PathUtils.isPathCanonical("/foo/./bar"));
+        assertFalse(PathUtils.isPathCanonical("/foo/../bar"));
+        assertFalse(PathUtils.isPathCanonical("/foo/bar/"));
+        assertFalse(PathUtils.isPathCanonical("/foo/bar/."));
+        assertFalse(PathUtils.isPathCanonical("/foo/bar/.."));
+        assertFalse(PathUtils.isPathCanonical("/foo/b\0r"));
+        assertFalse(PathUtils.isPathCanonical("/foo/bar\0"));
     }
 
     @Test
-    public void testIsPathUnderAppDirTrue() {
+    public void testIsPathUnderAppDir() {
         Context context = ApplicationProvider.getApplicationContext();
-        String dataSuffix = "data_suffix";
-        String expectedDataDir = context.getDir(dataSuffix, Context.MODE_PRIVATE).getPath();
+        File dataDir = context.getDataDir();
+        File externalDir = ContextUtils.getApplicationContext().getExternalFilesDir(null);
 
-        assertEquals(true, PathUtils.isPathUnderAppDir(expectedDataDir, context));
+        assertFalse(PathUtils.isPathUnderAppDir("/data_path/a/b/c", context));
+        assertTrue(PathUtils.isPathUnderAppDir(dataDir.toString(), context));
+        assertTrue(PathUtils.isPathUnderAppDir(externalDir.toString(), context));
+        assertTrue(PathUtils.isPathUnderAppDir(new File(dataDir, "child").toString(), context));
+        assertTrue(PathUtils.isPathUnderAppDir(new File(dataDir, "bad\u0000").toString(), context));
     }
 
     @Test

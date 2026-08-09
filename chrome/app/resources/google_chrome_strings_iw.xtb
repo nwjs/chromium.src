@@ -125,6 +125,7 @@
 <translation id="2120620239521071941">‏פעולה זו תמחק <ph name="ITEMS_COUNT" /> פריטים מהמכשיר. כדי לשחזר את הנתונים מאוחר יותר, יש להיכנס אל Chrome עם <ph name="USER_EMAIL" />.</translation>
 <translation id="2121284319307530122">‏הפעלה מחדש לצורך עדכון &amp;Chrome</translation>
 <translation id="2123055963409958220">‏דיווח על <ph name="BEGIN_LINK" />ההגדרות הנוכחיות<ph name="END_LINK" /> יעזור לשפר את Chrome</translation>
+<translation id="2125838419757773031">בחירת אזור במסך לחיפוש</translation>
 <translation id="2126108037660393668">נכשל האימות של הקובץ שהורד.</translation>
 <translation id="2128411189117340671">‏ניהול הפרופילים ב-Chrome</translation>
 <translation id="2137162749895930932">סגירת המסך לתרגום</translation>
@@ -261,9 +262,9 @@
 <translation id="3453763134178591239">‏התנאים של ChromeOS</translation>
 <translation id="3475778264501649775">‏כשאפליקציית Chrome מותקנת אצלך בטלפון, הסיסמאות, הכרטיסיות ופריטים נוספים שלך מלווים אותך לכל מקום</translation>
 <translation id="3503306920980160878">‏Chrome זקוק לגישה למיקום שלך כדי לשתף אותו עם האתר הזה</translation>
-<translation id="3512495006767217696">‏מנהל הסיסמאות מובנה ב-Chrome ומאפשר לך ליצור ולשמור סיסמאות חזקות ולמלא אותן אוטומטית. כדי להגיע אליו בקלות, אפשר להוסיף את קיצור הדרך</translation>
 <translation id="3539955434060988644">‏פתיחת הקישור בחלון לגלישה &amp;פרטית של Chrome</translation>
 <translation id="354621070532799440">‏תזכורת: תכונות הבטיחות הכי טובות של Google – אצלך בכיס</translation>
+<translation id="3547866758548131919">‏כדי לקבל סקירה כללית מהירה ולשאול שאלות המשך, אפשר ללחוץ על כפתור הסיכום ולשתף את המסמך הזה עם Gemini ב-Chrome.</translation>
 <translation id="3576528680708590453">‏לפי הגדרת מנהל המערכת, Google Chrome יפתח דפדפן חלופי כדי לגשת אל <ph name="TARGET_URL_HOSTNAME" />.</translation>
 <translation id="3582972582564653026">‏סינכרון והתאמה אישית של Chrome בכל המכשירים שלך</translation>
 <translation id="3583751698304738917">‏כבר נכנסת לחשבון בתור <ph name="USER_EMAIL_ADDRESS" /> בפרופיל Chrome אחר</translation>
@@ -313,6 +314,7 @@
 <translation id="4012899077942246412">‏כשמחוברים לחשבון, אפשר להשתמש בסיסמאות ובפרטים נוספים מחשבון Google ב-Chrome. כדי לשנות את האפשרות הזאת, כדאי לעבור אל "החשבון שלך ב-Chrome".</translation>
 <translation id="4022972681110646219">תרגום המסך</translation>
 <translation id="4023601594785368013">שפה מקורית: <ph name="LANGUAGE" /></translation>
+<translation id="4034249157893816477">‏מנהל הסיסמאות מובנה ב-Chrome ומאפשר לך ליצור סיסמאות חזקות, לשמור אותן ולמלא אותן אוטומטית. כדי להגיע אליו בקלות, אפשר להוסיף את קיצור הדרך.</translation>
 <translation id="4035053306113201399">‏יש להפעיל מחדש את ChromeOS כדי להחיל את העדכון.</translation>
 <translation id="4050175100176540509">הגרסה החדשה כוללת שיפורי בטיחות חשובים ותכונות חדשות.</translation>
 <translation id="4053720452172726777">‏פעולות נוספות ב-Google Chrome</translation>
@@ -354,6 +356,7 @@
 <translation id="4400772909124543403">אין עדכונים כרגע.</translation>
 <translation id="4427306783828095590">עם ההגנה המשופרת, החסימה של פישינג ותוכנות זדוניות מקיפה יותר</translation>
 <translation id="4434353761996769206">שגיאת מנהל התקנה: <ph name="INSTALLER_ERROR" /></translation>
+<translation id="4437295824090654417">‏כדי לקבל סקירה כללית זריזה ולשאול שאלות המשך, אפשר לשתף את המסמך הזה עם Gemini ב-Chrome</translation>
 <translation id="4450664632294415862">‏Chrome – כניסה לרשת – <ph name="PAGE_TITLE" /></translation>
 <translation id="4458462641685292929">‏מתבצעת כרגע פעולה אחרת ב-Google Chrome. יש לנסות שוב מאוחר יותר.</translation>
 <translation id="4459234553906210702">‏מדידת המודעות מאפשרת לאתרים שביקרת בהם לבקש מ-Chrome מידע שיעזור לבעלי האתרים למדוד את הביצועים של המודעות שלהם. מדידת המודעות מגבילה את המעקב באתרים שונים על ידי העברת כמות קטנה ככל האפשר של מידע בין אתרים.</translation>
@@ -551,7 +554,6 @@
 <translation id="6438015621983209660">‏רוצה להרחיב את הגרסה המשופרת של גלישה בטוחה ב-Chrome בטלפון?</translation>
 <translation id="6442774133615368941">‏אפשר לקנות, לתרגם ולזהות דברים שרואים במצלמה באפליקציית Chrome ל-iOS</translation>
 <translation id="6448835208126432197">‏שימוש במקש קיצור כדי לבחור חלק מהמסך ב-Gemini ב-Chrome.</translation>
-<translation id="6473659734176498825">‏תמונה פשוטה שמראה את נקודת הכניסה למנהל הסיסמאות של Google ב-Chrome</translation>
 <translation id="6473905796280459355">‏מעבר לדף 'מידע על Chrome'</translation>
 <translation id="6481963882741794338">‏אפשר לקשר את Chrome לשירותי Google אחרים לצורך התאמה אישית ולמטרות אחרות</translation>
 <translation id="648319183876919572">הגרסה המשופרת של הגלישה הבטוחה מגנה עליך טוב יותר מפני הורדות ואתרים מסוכנים</translation>
@@ -696,7 +698,6 @@
 <translation id="7804364787702057554">‏החשבון שלך ב-Chrome</translation>
 <translation id="7804947029129221742">‏בוצע שינוי מחוץ ל-Chrome במנוע החיפוש שמוגדר כברירת המחדל. כדי להגן עליך, Chrome איפס את ההגדרה לערך ברירת המחדל המקורי. <ph name="LEARN_MORE_LINK" /></translation>
 <translation id="7808348361785373670">‏הסרה מ-Chrome...</translation>
-<translation id="7812800388699096556">‏איור שמראה איך משתמשים ב-Google Lens כדי לחפש מוצר</translation>
 <translation id="7827099906024714326">‏‫Chrome צריך לאמת את הזהות שלך לפני שאפשר יהיה לשמור חלק מהנתונים בחשבון Google ולהשתמש בהם בכל המכשירים שלך. אם תתבצע יציאה מהחשבון, הנתונים האלה יימחקו.</translation>
 <translation id="7832314606810669113">‏כדי לקבל גישה לסימניות ולנתונים נוספים בכל המכשירים, צריך להיכנס ל-Chrome. לאחר הכניסה, הסימנייה הזו תישמר בחשבון Google.</translation>
 <translation id="7845233973568007926">תודה שהתקנת. עליך להפעיל מחדש את המחשב לפני השימוש ב-<ph name="BUNDLE_NAME" />.</translation>
@@ -784,6 +785,7 @@
 <translation id="8601359445272098721">חדש! אפשר לתרגם טקסט ותמונות במסך באמצעות לחיצה על הכפתור "תרגום המסך"</translation>
 <translation id="8614913330719544658">‏Google Chrome אינו מגיב. להפעיל מחדש עכשיו?</translation>
 <translation id="861702415419836452">‏Chrome זקוק להרשאת גישה למצלמה כדי ליצור מפה תלת-ממדית של הסביבה שלך</translation>
+<translation id="8623450603356630491">‏כניסה ל-Chrome בטלפון</translation>
 <translation id="8624541899164515475">הגדרות, ייפתחו בכרטיסייה חדשה.</translation>
 <translation id="8625237574518804553">{0,plural, =1{‏Chrome יופעל מחדש בעוד דקה}one{‏Chrome יופעל מחדש בעוד # דקות}two{‏Chrome יופעל מחדש בעוד # דקות}other{‏Chrome יופעל מחדש בעוד # דקות}}</translation>
 <translation id="8637932705841171563">‏כדי לשתף את החלון, צריך לאפשר הקלטת מסך ב-Chrome בקטע "הגדרות המערכת"</translation>

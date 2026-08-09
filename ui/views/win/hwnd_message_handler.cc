@@ -310,6 +310,30 @@ bool g_is_in_native_menu_loop = false;
 
 }  // namespace
 
+class HWNDMessageHandler::ScopedWndProcDepth {
+ public:
+  explicit ScopedWndProcDepth(base::WeakPtr<HWNDMessageHandler> handler)
+      : handler_(std::move(handler)) {
+    if (handler_) {
+      ++handler_->in_wnd_proc_depth_;
+    }
+  }
+
+  ~ScopedWndProcDepth() {
+    if (!handler_) {
+      return;
+    }
+    if (--handler_->in_wnd_proc_depth_ == 0 && handler_->delete_pending_) {
+      base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+          FROM_HERE,
+          base::BindOnce(&HWNDMessageHandler::DeleteIfStackUnwound, handler_));
+    }
+  }
+
+ private:
+  base::WeakPtr<HWNDMessageHandler> handler_;
+};
+
 // A scoping class that prevents a window from being able to redraw in response
 // to invalidations that may occur within it for the lifetime of the object.
 //
@@ -540,11 +564,19 @@ void HWNDMessageHandler::DestroyHandler() {
   if (base::FeatureList::IsEnabled(
           views::features::kDeferHWNDMessageHandlerDestruction)) {
     delete_pending_ = true;
-    base::SingleThreadTaskRunner::GetCurrentDefault()->DeleteSoon(FROM_HERE,
-                                                                  this);
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(&HWNDMessageHandler::DeleteIfStackUnwound,
+                                  msg_handler_weak_factory_.GetWeakPtr()));
   } else {
     delete this;
   }
+}
+
+void HWNDMessageHandler::DeleteIfStackUnwound() {
+  if (in_wnd_proc_depth_ > 0) {
+    return;
+  }
+  delete this;
 }
 
 gfx::Rect HWNDMessageHandler::GetWindowBoundsInScreen() const {
@@ -1199,6 +1231,7 @@ HICON HWNDMessageHandler::GetSmallWindowIcon() const {
 LRESULT HWNDMessageHandler::OnWndProc(UINT message,
                                       WPARAM w_param,
                                       LPARAM l_param) {
+  ScopedWndProcDepth scoped_depth(msg_handler_weak_factory_.GetWeakPtr());
   if (delete_pending_) {
     return ::DefWindowProc(hwnd(), message, w_param, l_param);
   }
@@ -1294,6 +1327,10 @@ LRESULT HWNDMessageHandler::HandleMouseMessage(unsigned int message,
                                                WPARAM w_param,
                                                LPARAM l_param,
                                                bool* handled) {
+  if (!delegate_) {
+    *handled = false;
+    return 0;
+  }
   // Don't track forwarded mouse messages. We expect the caller to track the
   // mouse.
   base::WeakPtr<HWNDMessageHandler> ref(msg_handler_weak_factory_.GetWeakPtr());
@@ -1306,6 +1343,10 @@ LRESULT HWNDMessageHandler::HandleKeyboardMessage(unsigned int message,
                                                   WPARAM w_param,
                                                   LPARAM l_param,
                                                   bool* handled) {
+  if (!delegate_) {
+    *handled = false;
+    return 0;
+  }
   base::WeakPtr<HWNDMessageHandler> ref(msg_handler_weak_factory_.GetWeakPtr());
   LRESULT ret = 0;
   if ((message == WM_CHAR) || (message == WM_SYSCHAR)) {
@@ -1321,6 +1362,10 @@ LRESULT HWNDMessageHandler::HandleTouchMessage(unsigned int message,
                                                WPARAM w_param,
                                                LPARAM l_param,
                                                bool* handled) {
+  if (!delegate_) {
+    *handled = false;
+    return 0;
+  }
   base::WeakPtr<HWNDMessageHandler> ref(msg_handler_weak_factory_.GetWeakPtr());
   LRESULT ret = OnTouchEvent(message, w_param, l_param);
   *handled = IsDestroyed(ref) || msg_handled_;
@@ -1331,6 +1376,10 @@ LRESULT HWNDMessageHandler::HandlePointerMessage(unsigned int message,
                                                  WPARAM w_param,
                                                  LPARAM l_param,
                                                  bool* handled) {
+  if (!delegate_) {
+    *handled = false;
+    return 0;
+  }
   base::WeakPtr<HWNDMessageHandler> ref(msg_handler_weak_factory_.GetWeakPtr());
   LRESULT ret = OnPointerEvent(message, w_param, l_param);
   *handled = IsDestroyed(ref) || msg_handled_;
@@ -1341,6 +1390,10 @@ LRESULT HWNDMessageHandler::HandleInputMessage(unsigned int message,
                                                WPARAM w_param,
                                                LPARAM l_param,
                                                bool* handled) {
+  if (!delegate_) {
+    *handled = false;
+    return 0;
+  }
   base::WeakPtr<HWNDMessageHandler> ref(msg_handler_weak_factory_.GetWeakPtr());
   LRESULT ret = OnInputEvent(message, w_param, l_param);
   *handled = IsDestroyed(ref) || msg_handled_;
@@ -1351,6 +1404,10 @@ LRESULT HWNDMessageHandler::HandleScrollMessage(unsigned int message,
                                                 WPARAM w_param,
                                                 LPARAM l_param,
                                                 bool* handled) {
+  if (!delegate_) {
+    *handled = false;
+    return 0;
+  }
   base::WeakPtr<HWNDMessageHandler> ref(msg_handler_weak_factory_.GetWeakPtr());
   LRESULT ret = OnScrollMessage(message, w_param, l_param);
   *handled = IsDestroyed(ref) || msg_handled_;
@@ -1361,6 +1418,10 @@ LRESULT HWNDMessageHandler::HandleNcHitTestMessage(unsigned int message,
                                                    WPARAM w_param,
                                                    LPARAM l_param,
                                                    bool* handled) {
+  if (!delegate_) {
+    *handled = false;
+    return 0;
+  }
   base::WeakPtr<HWNDMessageHandler> ref(msg_handler_weak_factory_.GetWeakPtr());
   LRESULT ret = OnNCHitTest(
       gfx::Point(CR_GET_X_LPARAM(l_param), CR_GET_Y_LPARAM(l_param)));
@@ -1369,6 +1430,9 @@ LRESULT HWNDMessageHandler::HandleNcHitTestMessage(unsigned int message,
 }
 
 void HWNDMessageHandler::ApplyPinchZoomScale(float scale) {
+  if (!delegate_) {
+    return;
+  }
   POINT cursor_pos = GetCursorPos();
   ::ScreenToClient(hwnd(), &cursor_pos);
 
@@ -1382,6 +1446,9 @@ void HWNDMessageHandler::ApplyPinchZoomScale(float scale) {
 }
 
 void HWNDMessageHandler::ApplyPinchZoomBegin() {
+  if (!delegate_) {
+    return;
+  }
   POINT cursor_pos = GetCursorPos();
   ::ScreenToClient(hwnd(), &cursor_pos);
 
@@ -1394,6 +1461,9 @@ void HWNDMessageHandler::ApplyPinchZoomBegin() {
 }
 
 void HWNDMessageHandler::ApplyPinchZoomEnd() {
+  if (!delegate_) {
+    return;
+  }
   POINT cursor_pos = GetCursorPos();
   ::ScreenToClient(hwnd(), &cursor_pos);
 
@@ -1410,6 +1480,9 @@ void HWNDMessageHandler::ApplyPanGestureEvent(
     int scroll_y,
     ui::EventMomentumPhase momentum_phase,
     ui::ScrollEventPhase phase) {
+  if (!delegate_) {
+    return;
+  }
   gfx::Vector2d offset{scroll_x, scroll_y};
 
   POINT root_location = GetCursorPos();

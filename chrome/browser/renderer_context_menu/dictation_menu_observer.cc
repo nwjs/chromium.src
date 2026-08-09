@@ -8,26 +8,31 @@
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/dictation/dictation_keyed_service.h"
 #include "chrome/browser/dictation/features.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/renderer_context_menu/render_view_context_menu_proxy.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/context_menu_params.h"
+#include "content/public/browser/global_dom_node_id.h"
+#include "content/public/browser/render_frame_host.h"
+#include "third_party/blink/public/common/dom/dom_node_id.h"
 #include "ui/base/l10n/l10n_util.h"
 
 namespace dictation {
 
-DictationMenuObserver::DictationMenuObserver(RenderViewContextMenuProxy* proxy,
-                                             BrowserWindowInterface* bwi)
-    : window_(bwi), proxy_(proxy) {
-  CHECK(proxy_);
-}
+DictationMenuObserver::DictationMenuObserver(RenderViewContextMenuProxy* proxy)
+    : proxy_(*proxy) {}
 
 DictationMenuObserver::~DictationMenuObserver() = default;
 
 void DictationMenuObserver::InitMenu(const content::ContextMenuParams& params) {
-  selection_text_ = params.selection_text;
+  // Note that `field_renderer_id` is `DOMNodeIdType` within blink. Its value
+  // is only meaningful within the renderer that generated it.
+  content::RenderFrameHost* rfh = proxy_->GetRenderFrameHost();
+  target_element_dom_id_ = content::GlobalDOMNodeId{
+      rfh ? rfh->GetWeakDocumentPtr() : content::WeakDocumentPtr(),
+      blink::DOMNodeIdType(static_cast<int>(params.field_renderer_id))};
+
   DictationKeyedService* service = GetDictationService();
   if (service && service->ShouldShowContextMenuItem()) {
     CHECK(base::FeatureList::IsEnabled(kDictation));
@@ -55,7 +60,7 @@ void DictationMenuObserver::ExecuteCommand(int command_id) {
 
   DictationKeyedService* service = GetDictationService();
   if (service) {
-    service->ContextMenuHandler(*window_, *rfh, selection_text_);
+    service->ContextMenuHandler(target_element_dom_id_);
   }
 }
 

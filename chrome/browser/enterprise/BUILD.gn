@@ -107,12 +107,7 @@ source_set("enterprise") {
       "//ui/views",
     ]
     public += [
-      "data_protection/data_protection_features.h",
-      "data_protection/data_protection_navigation_controller.h",
-      "data_protection/data_protection_navigation_observer.h",
-      "data_protection/data_protection_page_user_data.h",
       "data_protection/data_protection_ui_controller.h",
-      "data_protection/data_protection_url_lookup_service_factory.h",
       "reporting/browser_report_generator_desktop.h",
       "reporting/extension_request/extension_request_notification.h",
       "reporting/extension_request/extension_request_observer.h",
@@ -221,6 +216,11 @@ source_set("enterprise") {
     public += [
       "data_controls/chrome_clipboard_context.h",
       "data_protection/data_protection_clipboard_utils.h",
+      "data_protection/data_protection_features.h",
+      "data_protection/data_protection_navigation_controller.h",
+      "data_protection/data_protection_navigation_observer.h",
+      "data_protection/data_protection_page_user_data.h",
+      "data_protection/data_protection_url_lookup_service_factory.h",
     ]
 
     # TODO(b/352728209): Update the logic for which file compiles on Android
@@ -433,6 +433,11 @@ source_set("impl") {
     "connectors/interstitials/enterprise_warn_page.cc",
     "connectors/referrer_cache_utils.cc",
     "core/dependency_factory_impl.cc",
+    "data_protection/data_protection_features.cc",
+    "data_protection/data_protection_navigation_controller.cc",
+    "data_protection/data_protection_navigation_observer.cc",
+    "data_protection/data_protection_page_user_data.cc",
+    "data_protection/data_protection_url_lookup_service_factory.cc",
     "data_protection/view_source_navigation_throttle.cc",
     "encryption/cache_encryption_provider_impl.cc",
     "identifiers/profile_id_delegate_impl.cc",
@@ -526,12 +531,7 @@ source_set("impl") {
 
   if (!is_android) {
     sources += [
-      "data_protection/data_protection_features.cc",
-      "data_protection/data_protection_navigation_controller.cc",
-      "data_protection/data_protection_navigation_observer.cc",
-      "data_protection/data_protection_page_user_data.cc",
       "data_protection/data_protection_ui_controller.cc",
-      "data_protection/data_protection_url_lookup_service_factory.cc",
       "reporting/browser_report_generator_desktop.cc",
       "reporting/extension_request/extension_request_notification.cc",
       "reporting/extension_request/extension_request_observer.cc",
@@ -575,6 +575,7 @@ source_set("impl") {
     ]
     deps += [
       "//chrome/android:chrome_jni_headers",
+      "//chrome/browser/android:tabs_public",
       "//chrome/browser/enterprise/util:jni_headers",
       "//chrome/browser/ui/android/tab_model",
       "//components/enterprise/browser/reporting/android:jni_headers",

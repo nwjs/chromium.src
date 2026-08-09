@@ -320,6 +320,28 @@ bool IsZeroStateSuggestionsEnabled() {
   return base::FeatureList::IsEnabled(kZeroStateSuggestions);
 }
 
+BASE_FEATURE(kZeroStateSuggestionsWCGD, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsZeroStateSuggestionsWCGDEnabled() {
+  variations::VariationsService* variations_service =
+      GetApplicationContext()->GetVariationsService();
+  bool is_launched_country =
+      variations_service &&
+      base::ToLowerASCII(variations_service->GetStoredPermanentCountry()) ==
+          "us";
+
+  ApplicationLocaleStorage* locale_storage =
+      GetApplicationContext()->GetApplicationLocaleStorage();
+  bool is_launched_locale =
+      locale_storage && base::ToLowerASCII(locale_storage->Get()) == "en-us";
+
+  if (is_launched_country && is_launched_locale) {
+    return true;
+  }
+
+  return base::FeatureList::IsEnabled(kZeroStateSuggestionsWCGD);
+}
+
 BASE_FEATURE(kZeroStateSuggestionsCentralization,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -828,4 +850,10 @@ BASE_FEATURE(kIOSGeminiBottomSheetMigration, base::FEATURE_DISABLED_BY_DEFAULT);
 bool IsIOSGeminiBottomSheetMigrationEnabled() {
   return IsAssistantContainerEnabled() &&
          base::FeatureList::IsEnabled(kIOSGeminiBottomSheetMigration);
+}
+
+BASE_FEATURE(kGeminiCoordinatorTeardownFix, base::FEATURE_ENABLED_BY_DEFAULT);
+
+bool IsGeminiCoordinatorTeardownFixEnabled() {
+  return base::FeatureList::IsEnabled(kGeminiCoordinatorTeardownFix);
 }

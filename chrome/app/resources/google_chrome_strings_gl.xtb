@@ -129,6 +129,7 @@
 <translation id="2120620239521071941">Esta acción eliminará <ph name="ITEMS_COUNT" /> elementos deste dispositivo. Para recuperar os teus datos máis tarde, inicia sesión en Chrome como <ph name="USER_EMAIL" />.</translation>
 <translation id="2121284319307530122">Reiniciar para actualizar &amp;Chrome</translation>
 <translation id="2123055963409958220">Informa da <ph name="BEGIN_LINK" />configuración actual<ph name="END_LINK" /> para axudar a mellorar Chrome</translation>
+<translation id="2125838419757773031">Seleccionar unha rexión da pantalla para facer unha busca</translation>
 <translation id="2126108037660393668">Produciuse un erro ao verificar o ficheiro descargado.</translation>
 <translation id="2128411189117340671">Xestionar perfís de Chrome</translation>
 <translation id="2137162749895930932">Pechar a pantalla de tradución</translation>
@@ -265,9 +266,9 @@ Proba a permitila se esta páxina non funciona como debería.</translation>
 <translation id="3453763134178591239">Condicións de Chrome OS</translation>
 <translation id="3475778264501649775">Leva os teus contrasinais, pestanas e moito máis onde queiras coa aplicación de Chrome no teléfono</translation>
 <translation id="3503306920980160878">Chrome necesita acceder á túa localización para compartila con este sitio</translation>
-<translation id="3512495006767217696">Integrado en Chrome para axudarche a crear, gardar e autocompletar contrasinais seguros. Engade o atallo para acceder facilmente</translation>
 <translation id="3539955434060988644">Abrir ligazón nunha ventá do modo de incó&amp;gnito de Chrome</translation>
 <translation id="354621070532799440">Recordatorio: As mellores funcións de seguranza de Google no teu peto</translation>
+<translation id="3547866758548131919">Facer clic no botón Resumir para compartir este documento con Gemini en Chrome e obter un resumo rápido, así como para facer consultas adicionais</translation>
 <translation id="3576528680708590453">A persoa que administra o teu sistema configurou Google Chrome para abrir outro navegador co obxectivo de acceder a <ph name="TARGET_URL_HOSTNAME" />.</translation>
 <translation id="3582972582564653026">Sincroniza e personaliza Chrome nos teus dispositivos</translation>
 <translation id="3583751698304738917">Xa tes a sesión iniciada como <ph name="USER_EMAIL_ADDRESS" /> noutro perfil de Chrome</translation>
@@ -317,6 +318,7 @@ Proba a permitila se esta páxina non funciona como debería.</translation>
 <translation id="4012899077942246412">Mentres teñas a sesión iniciada, poderás usar os teus contrasinais, ademais doutros datos da túa Conta de Google, en Chrome. Para cambiar esta opción, vai a A túa conta en Chrome.</translation>
 <translation id="4022972681110646219">Traducir pantalla</translation>
 <translation id="4023601594785368013">Idioma orixinal: <ph name="LANGUAGE" /></translation>
+<translation id="4034249157893816477">Integrado en Chrome para axudarche a crear, gardar e autocompletar contrasinais seguros. Engade o atallo para acceder facilmente.</translation>
 <translation id="4035053306113201399">É necesario reiniciar Chrome OS para aplicar a actualización.</translation>
 <translation id="4050175100176540509">A última versión conta con melloras de seguranza importantes e novas funcións.</translation>
 <translation id="4053720452172726777">Personaliza e controla Google Chrome</translation>
@@ -358,6 +360,7 @@ Proba a permitila se esta páxina non funciona como debería.</translation>
 <translation id="4400772909124543403">Non hai ningunha actualización dispoñible</translation>
 <translation id="4427306783828095590">A protección mellorada é máis eficaz á hora de bloquear o phishing e o software malicioso</translation>
 <translation id="4434353761996769206">Produciuse un erro co instalador: <ph name="INSTALLER_ERROR" /></translation>
+<translation id="4437295824090654417">Comparte este documento con Gemini en Chrome para obter un resumo rápido e facer preguntas de seguimento</translation>
 <translation id="4450664632294415862">Chrome (inicio de sesión, <ph name="PAGE_TITLE" />)</translation>
 <translation id="4458462641685292929">Hai outra operación en Google Chrome que está en curso. Téntao de novo máis tarde.</translation>
 <translation id="4459234553906210702">A medición dos anuncios permite que os sitios que visites lle soliciten a Chrome información que lles axude a medir o rendemento dos seus anuncios. Ademais, restrinxe o seguimento en varios sitios, dado que se transfire a menor cantidade posible de información entre eles.</translation>
@@ -559,7 +562,6 @@ Google Chrome non pode recuperar a túa configuración.</translation>
 <translation id="6438015621983209660">Amplía a función Navegación segura mellorada con Chrome no teléfono</translation>
 <translation id="6442774133615368941">Fai compras, traduce contido e identifica o que vexas coa cámara na aplicación Chrome para iOS</translation>
 <translation id="6448835208126432197">Para seleccionar unha parte da pantalla en Gemini en Chrome, usa o atallo de teclado.</translation>
-<translation id="6473659734176498825">Imaxe simplificada que mostra o punto de entrada ao xestor de contrasinais de Google en Chrome</translation>
 <translation id="6473905796280459355">Ir á páxina Acerca de Chrome</translation>
 <translation id="6481963882741794338">Vincula Chrome e outros servizos de Google para beneficiarte da personalización, entre outras cousas</translation>
 <translation id="648319183876919572">Navegación segura mellorada é máis eficaz á hora de protexerte de descargas e sitios web perigosos</translation>
@@ -704,7 +706,6 @@ Google Chrome non pode recuperar a túa configuración.</translation>
 <translation id="7804364787702057554">A túa conta en Chrome</translation>
 <translation id="7804947029129221742">O teu buscador cambiouse desde fóra de Chrome. Para protexerte, Chrome restableceu a configuración predeterminada orixinal. <ph name="LEARN_MORE_LINK" /></translation>
 <translation id="7808348361785373670">Eliminar de Chrome...</translation>
-<translation id="7812800388699096556">Unha ilustración que mostra como usar Google Lens para buscar un produto</translation>
 <translation id="7827099906024714326">Chrome necesita verificar a túa identidade antes de que algúns datos se garden na túa Conta de Google e se poidan usar en todos os teus dispositivos. Se pechas a sesión agora, estes datos eliminaranse.</translation>
 <translation id="7832314606810669113">Para poder acceder aos teus marcadores e outros datos en todos os teus dispositivos, inicia sesión en Chrome Despois de facelo, este marcador gardarase na túa Conta de Google.</translation>
 <translation id="7845233973568007926">Grazas por levar a cabo a instalación. Para utilizar <ph name="BUNDLE_NAME" />, debes reiniciar o ordenador.</translation>
@@ -792,6 +793,7 @@ Non poderás gardar máis ata que elimines uns cantos. Se pechas a sesión agora
 <translation id="8601359445272098721">Novidade! Podes traducir texto e imaxes na túa pantalla co botón Traducir pantalla</translation>
 <translation id="8614913330719544658">Google Chrome non responde. Queres volver inicialo agora?</translation>
 <translation id="861702415419836452">Chrome necesita permiso de acceso á cámara co fin de crear un mapa 3D do que te rodea</translation>
+<translation id="8623450603356630491">Iniciar sesión en Chrome no teléfono</translation>
 <translation id="8624541899164515475">Configuración (ábrese nunha pestana nova).</translation>
 <translation id="8625237574518804553">{0,plural, =1{Chrome reiniciarase en 1 minuto}other{Chrome reiniciarase en # minutos}}</translation>
 <translation id="8637932705841171563">Para compartir a ventá, vai á configuración do sistema e activa a función de gravación de pantalla para Chrome</translation>

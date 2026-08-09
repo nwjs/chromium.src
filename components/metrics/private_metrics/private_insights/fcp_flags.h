@@ -29,6 +29,7 @@ class FcpFlags : public fcp::client::Flags {
   bool enable_relative_uri_prefix() const override;
   bool enable_private_logger() const override;
   bool drop_out_based_data_availability() const override;
+  bool enable_attestation_transparency_verifier() const override;
 
   // Configurable flags.
   int64_t condition_polling_period_millis() const override;
@@ -41,6 +42,7 @@ class FcpFlags : public fcp::client::Flags {
   int32_t waiting_period_sec_for_cancellation() const override;
   int64_t federated_training_transient_errors_retry_delay_secs() const override;
   int64_t federated_training_permanent_errors_retry_delay_secs() const override;
+  bool enable_privacy_id_generation() const override;
 };
 
 }  // namespace private_insights

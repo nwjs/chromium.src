@@ -5,34 +5,65 @@
 import 'chrome://webui-toolbar.top-chrome/app.js';
 
 import {MenuSourceType} from 'chrome://resources/mojo/ui/base/mojom/menu_source_type.mojom-webui.js';
-import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {assertArrayEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {TestBrowserProxy} from 'chrome://webui-test/test_browser_proxy.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
-import {AppMenuIconType, AppMenuSeverity, BrowserProxyImpl, ContextMenuType} from 'chrome://webui-toolbar.top-chrome/app.js';
+import {AppMenuIconType, AppMenuSeverity, BrowserProxyImpl, ContextMenuType, FocusRequestTarget} from 'chrome://webui-toolbar.top-chrome/app.js';
 import type {AppMenuButtonElement} from 'chrome://webui-toolbar.top-chrome/app.js';
-import type {BrowserProxy} from 'chrome://webui-toolbar.top-chrome/browser_proxy.js';
+import type {BrowserProxy, FocusRequestListener} from 'chrome://webui-toolbar.top-chrome/browser_proxy.js';
 
 class TestToolbarUiHandler extends TestBrowserProxy {
   constructor() {
-    super(['showContextMenu']);
+    super(['showContextMenu', 'onAppMenuFocusChanged']);
   }
 
   showContextMenu(
       type: ContextMenuType, rect: DOMRect, source: MenuSourceType) {
     this.methodCalled('showContextMenu', [type, rect, source]);
   }
+
+  onAppMenuFocusChanged(focused: boolean) {
+    this.methodCalled('onAppMenuFocusChanged', focused);
+  }
+}
+
+class MockBrowserProxy extends TestBrowserProxy {
+  toolbarUIHandler: TestToolbarUiHandler;
+  private focusRequestListener_: FocusRequestListener|null = null;
+
+  constructor(toolbarUiHandler: TestToolbarUiHandler) {
+    super(['addFocusRequestListener', 'removeFocusRequestListener']);
+    this.toolbarUIHandler = toolbarUiHandler;
+  }
+
+  addFocusRequestListener(listener: FocusRequestListener) {
+    this.methodCalled('addFocusRequestListener', listener);
+    this.focusRequestListener_ = listener;
+    return 1;
+  }
+
+  removeFocusRequestListener(handle: number) {
+    this.methodCalled('removeFocusRequestListener', handle);
+    this.focusRequestListener_ = null;
+  }
+
+  triggerFocusRequest(target: FocusRequestTarget) {
+    if (this.focusRequestListener_) {
+      this.focusRequestListener_(target);
+    }
+  }
 }
 
 suite('AppMenuButtonTest', function() {
   let appMenuButton: AppMenuButtonElement;
   let toolbarUiHandler: TestToolbarUiHandler;
+  let browserProxy: MockBrowserProxy;
 
   setup(async function() {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     toolbarUiHandler = new TestToolbarUiHandler();
-    BrowserProxyImpl.setInstance({
-      toolbarUIHandler: toolbarUiHandler,
-    } as unknown as BrowserProxy);
+    browserProxy = new MockBrowserProxy(toolbarUiHandler);
+    BrowserProxyImpl.setInstance(browserProxy as unknown as BrowserProxy);
 
     appMenuButton = document.createElement('app-menu-button');
     document.body.appendChild(appMenuButton);
@@ -215,6 +246,36 @@ suite('AppMenuButtonTest', function() {
     };
     await microtasksFinished();
     assertTrue(button.classList.contains('has-severity'));
+  });
+
+  test('Focus Request', function() {
+    browserProxy.triggerFocusRequest(FocusRequestTarget.kAppMenu);
+
+    let activeEl = document.activeElement;
+    assertEquals('APP-MENU-BUTTON', activeEl?.tagName);
+
+    activeEl = activeEl?.shadowRoot?.activeElement ?? null;
+    assertEquals('TOOLBAR-CHIP-BUTTON', activeEl?.tagName);
+
+    activeEl = activeEl?.shadowRoot?.activeElement ?? null;
+    assertEquals('BUTTON', activeEl?.tagName);
+  });
+
+  test('Focusin/Focusout Reporting', function() {
+    const button = appMenuButton.shadowRoot?.querySelector('#button');
+    assertTrue(!!button);
+
+    // Focus the button
+    button?.dispatchEvent(new FocusEvent('focusin'));
+    assertEquals(1, toolbarUiHandler.getCallCount('onAppMenuFocusChanged'));
+    assertArrayEquals(
+        [true], toolbarUiHandler.getArgs('onAppMenuFocusChanged'));
+
+    // Blur the button
+    button?.dispatchEvent(new FocusEvent('focusout'));
+    assertEquals(2, toolbarUiHandler.getCallCount('onAppMenuFocusChanged'));
+    assertArrayEquals(
+        [true, false], toolbarUiHandler.getArgs('onAppMenuFocusChanged'));
   });
 
   test('Trailing Margin', async function() {

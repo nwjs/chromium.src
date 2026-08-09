@@ -12,6 +12,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/dictation/dictation_context.h"
+#include "chrome/browser/dictation/dictation_keyed_service.h"
 #include "chrome/browser/dictation/dictation_multiplexer.h"
 #include "chrome/browser/dictation/session_controller_delegate.h"
 #include "chrome/browser/dictation/session_ui.h"
@@ -23,7 +24,7 @@
 class Profile;
 
 namespace content {
-class RenderFrameHost;
+class WebContents;
 }
 
 namespace extensions {
@@ -34,6 +35,17 @@ namespace dictation {
 
 inline constexpr std::string_view kDictationTestExtensionId =
     "dfihfgggpgemecjdjahibncmmjlfjggp";
+
+// A target ID that doesn't point to anything. Used only in unit tests where the
+// target isn't actually used.
+// TODO(b/531049588): Do not use in new tests.
+content::GlobalDOMNodeId EmptyTargetId();
+
+// Returns a target that points to the default element in the page. Currently
+// this will be the focused element in the primary main frame.
+// TODO(b/531049588): Do not use in new tests.
+content::GlobalDOMNodeId DefaultInPageTargetId(
+    content::WebContents* web_contents);
 
 // Returns a ScopedFeatureList that enables Dictation with common params for
 // testing.
@@ -68,8 +80,15 @@ void ExtensionWaitForStreamStart(Profile* profile,
 
 // Blocks until the extension has received the OnStartStream event for the given
 // stream ID, and returns the DictationContext containing the page context
+// passed to the extension, or nullopt if no context was passed.
+std::optional<DictationContext> ExtensionGetStartStreamDetails(
+    Profile* profile,
+    DictationMultiplexer::StreamId stream_id);
+
+// Blocks until the extension has received the OnContextUpdate event for the
+// given stream ID, and returns the DictationContext containing the page context
 // passed to the extension.
-DictationContext ExtensionGetDictationContext(
+DictationContext ExtensionGetUpdatedContext(
     Profile* profile,
     DictationMultiplexer::StreamId stream_id);
 
@@ -89,6 +108,7 @@ class MockStreamProvider : public StreamProvider {
               (override));
   MOCK_METHOD(void, OnStreamStateChanged, (StreamState state), (override));
   MOCK_METHOD(StreamState, GetState, (), (const, override));
+  MOCK_METHOD(Target*, GetTarget, (), (override));
   MOCK_METHOD(const Target*, GetTarget, (), (const, override));
 };
 
@@ -96,6 +116,9 @@ class MockSessionUi : public SessionUi {
  public:
   MockSessionUi();
   ~MockSessionUi() override;
+
+  MOCK_METHOD(void, OnError, (StreamType stream_type), (override));
+  MOCK_METHOD(void, OnStopped, (), (override));
 };
 
 class MockSessionControllerDelegate : public SessionControllerDelegate {
@@ -114,11 +137,16 @@ class MockSessionControllerDelegate : public SessionControllerDelegate {
   MOCK_METHOD(void, EndSession, (), (override));
 };
 
-class MockTarget : public Target {
+class MockDictationKeyedService : public DictationKeyedService {
  public:
-  explicit MockTarget(content::RenderFrameHost* rfh = nullptr,
-                      const std::string& selected_text = "");
-  ~MockTarget() override;
+  explicit MockDictationKeyedService(Profile* profile);
+  ~MockDictationKeyedService() override;
+
+  // DictationKeyedService:
+  std::unique_ptr<StreamProvider> CreateStreamProvider(
+      SessionController& controller) const override;
+  std::unique_ptr<SessionUi> CreateUi(
+      SessionController& controller) const override;
 };
 
 }  // namespace dictation

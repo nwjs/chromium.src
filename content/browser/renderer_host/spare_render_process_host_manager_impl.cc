@@ -332,8 +332,7 @@ SpareRenderProcessHostManagerImpl::SpareRenderProcessHostManagerImpl()
           "SpareRenderProcessHostManagerImpl",
           std::nullopt,  // TODO(crbug.com/489671163): Add traits.
           this,
-          base::MemoryConsumerRegistration::CheckUnregister::kDisabled,
-          base::MemoryConsumerRegistration::CheckRegistryExists::kDisabled),
+          base::MemoryConsumerRegistration::CheckUnregister::kDisabled),
       metrics_heartbeat_timer_(
           FROM_HERE,
           base::Minutes(2),

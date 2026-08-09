@@ -79,9 +79,3 @@ void WaitForSnackbarTriggeredByTappingItem(NSString* snackbarLabel,
   [[EarlGrey selectElementWithMatcher:snackbar_matcher]
       performAction:grey_tap()];
 }
-
-void OpenTabGridOverflowMenu() {
-  [[EarlGrey
-      selectElementWithMatcher:chrome_test_util::TabGridOverflowMenuButton()]
-      performAction:grey_tap()];
-}

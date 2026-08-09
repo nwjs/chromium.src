@@ -691,4 +691,7 @@ enum FocusRequestTarget {
 
   // Focus the location bar and activate the default search provider keyword.
   kSearch,
+
+  // Focus the app menu button.
+  kAppMenu,
 };

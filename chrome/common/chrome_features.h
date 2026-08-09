@@ -191,6 +191,7 @@ extern const base::FeatureParam<base::TimeDelta> kGlicActorPageToolTimeout;
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<base::TimeDelta> kGlicActorClickDelay;
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kGlicActorUi);
+COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kGlicConfirmTabClose);
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kGlicActorUiTabIndicatorSpinnerIgnoreReducedMotion);
 COMPONENT_EXPORT(CHROME_FEATURES)
@@ -287,6 +288,10 @@ COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<bool> kGlicActorPolicyControlExemption;
 
 COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE(
+    kGlicActorWorkspaceExemptFromTierCheckRegressionFixKillswitch);
+
+COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kGlicActorIncrementalTyping);
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<base::TimeDelta> kGlicActorKeyDownDuration;
@@ -316,6 +321,9 @@ BASE_DECLARE_FEATURE(kGlicActorPermissionsBypass);
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kGlicActorToctouValidation);
+
+COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE(kGlicActorOccludedDirectActivation);
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kGlicActorInternalPopups);
@@ -495,7 +503,6 @@ BASE_DECLARE_FEATURE(kGlicKeyboardShortcutNewBadge);
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kGlicAppMenuNewBadge);
 
-COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kGlicDetached);
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kGlicMultiInstance);
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kGlicWebContentsWarming);
@@ -699,6 +706,9 @@ BASE_DECLARE_FEATURE(kActorFormFillingServiceEnableCreditCard);
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kGoogleChromeScheme);
 
 COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE(kGoogleSearchAiModeWorkspace);
+
+COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kGlicWebActuationSetting);
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<std::string> kGlicWebActuationAllowedTiers;
@@ -869,6 +879,10 @@ BASE_DECLARE_FEATURE(kIndigo);
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<bool> kIndigoRequireGlicEnabling;
 COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<bool> kIndigoAllowForEnterprise;
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<bool> kIndigoSkipEnterpriseCheck;
+COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<base::TimeDelta>
     kIndigoAnchoredMessageResetDuration;
 COMPONENT_EXPORT(CHROME_FEATURES)
@@ -883,6 +897,12 @@ COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<std::string> kIndigoSavedUrl;
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<std::string> kIndigoScopes;
+
+COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE(kIndigoMetadataKeywordHeuristic);
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<base::TimeDelta>
+    kIndigoMetadataKeywordHeuristicSameDocumentNavigationDelay;
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kIndigoOpenGlic);

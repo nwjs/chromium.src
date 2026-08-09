@@ -29,7 +29,7 @@ declare_args() {
   enterprise_watermark =
       (is_win || is_mac || is_linux || is_chromeos) && !is_castos
 
-  enterprise_screenshot_protection = is_win || is_mac || is_ios
+  enterprise_screenshot_protection = is_win || is_mac || is_ios || is_android
 
   enterprise_telomere_reporting = is_win || is_mac || is_linux
 

@@ -214,6 +214,8 @@ class ComponentLoader : public KeyedService {
 
   void AddNetworkSpeechSynthesisExtension();
 
+  void AddAimEligibilityExtension();
+
   void AddGlicExtension();
 
   void AddContextualTasksExtension();

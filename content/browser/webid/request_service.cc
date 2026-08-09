@@ -6,6 +6,7 @@
 
 #include "base/command_line.h"
 #include "base/functional/bind.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/types/expected.h"
 #include "content/browser/devtools/devtools_instrumentation.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
@@ -54,6 +55,11 @@ RequestService::RequestService(RenderFrameHost* rfh)
 }
 
 RequestService::~RequestService() {
+  // Destroy the active request first, while weak pointers are still valid,
+  // so that its destructor can successfully run the pending token request
+  // callback via OnTokenRequestComplete.
+  active_request_.reset();
+
   // Invalidate weak pointers before clearing `user_info_requests_` to prevent
   // the destroying UserInfoRequests from calling back re-entrantly into
   // CompleteUserInfoRequest (which would cause container corruption during
@@ -89,24 +95,6 @@ void RequestService::SetDelegatesForTesting(
   identity_registry_ = identity_registry;
 }
 
-Request& RequestService::CreateRequestForTesting(
-    mojo::PendingReceiver<blink::mojom::FederatedAuthRequest> receiver,
-    FederatedIdentityApiPermissionContextDelegate* api_permission_delegate,
-    FederatedIdentityAutoReauthnPermissionContextDelegate*
-        auto_reauthn_permission_delegate,
-    FederatedIdentityPermissionContextDelegate* permission_delegate,
-    IdentityRegistry* identity_registry) {
-  api_permission_delegate_ = api_permission_delegate;
-  auto_reauthn_permission_delegate_ = auto_reauthn_permission_delegate;
-  permission_delegate_ = permission_delegate;
-  identity_registry_ = identity_registry;
-  active_request_ = std::make_unique<Request>(
-      &render_frame_host(), *this, api_permission_delegate,
-      auto_reauthn_permission_delegate, permission_delegate);
-  active_request_->BindReceiver(std::move(receiver));
-  return *active_request_;
-}
-
 Request* RequestService::GetOrCreateActiveRequest() {
   if (!active_request_) {
     RenderFrameHost& rfh = render_frame_host();
@@ -117,7 +105,14 @@ Request* RequestService::GetOrCreateActiveRequest() {
   return active_request_.get();
 }
 
+Request* RequestService::GetActiveRequestForTesting() const {
+  return active_request_.get();
+}
+
 void RequestService::DestroyActiveRequestForTesting() {
+  if (dialog_controller_) {
+    dialog_controller_.reset();
+  }
   active_request_.reset();
 }
 
@@ -161,6 +156,7 @@ void RequestService::StartTokenRequest(
     // 6. If it failed immediately, discard the new request and restore the old
     // one!
     active_request_ = std::move(old_request);
+    MaybeDestroyDialogController();
   }
 }
 
@@ -185,6 +181,15 @@ void RequestService::OnTokenRequestComplete(
     std::move(callback).Run(base::unexpected(std::move(failure)));
   }
   if (active_request_.get() == request) {
+    if (dialog_controller_) {
+      // Reset the dialog controller synchronously. While this carries a
+      // potential Use-After-Free risk if the completion callback was triggered
+      // synchronously from the dialog controller itself, doing it synchronously
+      // is necessary to avoid asynchronous overlap where a subsequent request
+      // could instantiate and display a new dialog before the old one is
+      // destroyed.
+      dialog_controller_.reset();
+    }
     // Release ownership synchronously to prevent race conditions with
     // subsequent requests, but keep it in completed_requests_ to ensure it does
     // not outlive RequestService.
@@ -201,6 +206,7 @@ void RequestService::OnTokenRequestComplete(
 void RequestService::CleanUpCompletedRequest(Request* request) {
   std::erase_if(completed_requests_,
                 [&](const auto& r) { return r.get() == request; });
+  MaybeDestroyDialogController();
 }
 
 void RequestService::SetNetworkManagerForTests(
@@ -320,8 +326,7 @@ bool RequestService::SetupIdentityRegistryFromPopup() {
   if (identity_registry_) {
     return true;
   }
-  std::unique_ptr<IdentityRequestDialogController> controller =
-      CreateDialogController();
+  IdentityRequestDialogController* controller = GetOrCreateDialogController();
   CHECK(controller);
   // Because ShowModalDialog does not return the web contents on Android, we
   // need to set up the IdentityRegistry now.
@@ -389,15 +394,13 @@ void RequestService::RequestUserInfo(
 void RequestService::CompleteUserInfoRequest(
     UserInfoRequest* request,
     RequestUserInfoCallback callback,
-    blink::mojom::RequestUserInfoStatus status,
-    std::optional<std::vector<blink::mojom::IdentityUserInfoPtr>> user_info) {
+    blink::mojom::RequestUserInfoResultPtr result) {
   auto it = user_info_requests_.find(request);
   // The request may not be found if the completion is invoked from the
   // RequestService destructor. The destructor clears `user_info_requests_`,
   // which destroys the UserInfoRequests it contains. The
   // UserInfoRequest destructor invokes this callback.
-  if (it == user_info_requests_.end() &&
-      status == blink::mojom::RequestUserInfoStatus::kSuccess) {
+  if (it == user_info_requests_.end() && result->is_user_info()) {
     NOTREACHED() << "The successful user info request is nowhere to be found";
   }
   // Extract the request from the set first to prevent UAF if the callback
@@ -408,14 +411,7 @@ void RequestService::CompleteUserInfoRequest(
     user_info_requests_.erase(it);
   }
 
-  if (status == blink::mojom::RequestUserInfoStatus::kSuccess) {
-    DCHECK(user_info.has_value());
-    std::move(callback).Run(blink::mojom::RequestUserInfoResult::NewUserInfo(
-        std::move(user_info.value())));
-  } else {
-    std::move(callback).Run(
-        blink::mojom::RequestUserInfoResult::NewStatus(status));
-  }
+  std::move(callback).Run(std::move(result));
 }
 
 void RequestService::Disconnect(
@@ -525,12 +521,25 @@ void RequestService::ResolveTokenRequest(
   std::move(callback).Run(accepted);
 }
 
+IdentityRequestDialogController* RequestService::GetOrCreateDialogController() {
+  if (mock_dialog_controller_) {
+    return mock_dialog_controller_.get();
+  }
+  if (!dialog_controller_) {
+    dialog_controller_ = CreateDialogController();
+  }
+  return dialog_controller_.get();
+}
+
+IdentityRequestDialogController* RequestService::GetDialogController() const {
+  if (mock_dialog_controller_) {
+    return mock_dialog_controller_.get();
+  }
+  return dialog_controller_.get();
+}
+
 std::unique_ptr<IdentityRequestDialogController>
 RequestService::CreateDialogController() {
-  if (mock_dialog_controller_) {
-    return std::move(mock_dialog_controller_);
-  }
-
   WebContents* web_contents =
       WebContents::FromRenderFrameHost(&render_frame_host());
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
@@ -546,6 +555,12 @@ RequestService::CreateDialogController() {
 
   return GetContentClient()->browser()->CreateIdentityRequestDialogController(
       web_contents);
+}
+
+void RequestService::MaybeDestroyDialogController() {
+  if (!active_request_ && completed_requests_.empty()) {
+    dialog_controller_.reset();
+  }
 }
 
 void RequestService::SetDialogControllerForTests(

@@ -679,6 +679,31 @@ bool CorsURLLoaderFactory::IsValidRequest(
     return false;
   }
 
+  // A request whose destination is a frame type must be a navigation. A
+  // renderer-initiated subresource fetch must never claim to be a document /
+  // frame load, otherwise downstream consumers (e.g. Android WebView's
+  // shouldInterceptRequest) may misclassify it as a main-frame navigation.
+  // See 2.2.5 Requests: https://fetch.spec.whatwg.org/#requests
+  // See Navigation Request: https://fetch.spec.whatwg.org/#navigation-request
+  // See fenced frames: https://github.com/WICG/fenced-frame/issues/239
+  //
+  // This intentionally excludes destination types (see
+  // https://chromium-review.git.corp.google.com/c/chromium/src/+/7952612?tab=checks
+  // for details):
+  // * kEmbed: used by PDF pages to embed subresources.
+  // * kObject: used by wpt tests.
+  if (base::FeatureList::IsEnabled(
+          features::kRestrictFrameDestinationsToNavigate) &&
+      (request.destination == mojom::RequestDestination::kDocument ||
+       request.destination == mojom::RequestDestination::kFrame ||
+       request.destination == mojom::RequestDestination::kIframe ||
+       request.destination == mojom::RequestDestination::kFencedframe) &&
+      request.mode != mojom::RequestMode::kNavigate) {
+    mojo::ReportBadMessage(
+        "CorsURLLoaderFactory: frame destination requires kNavigate mode");
+    return false;
+  }
+
   // Validate that a navigation redirect chain is not sent for a non-navigation
   // request.
   if (!request.navigation_redirect_chain.empty() &&

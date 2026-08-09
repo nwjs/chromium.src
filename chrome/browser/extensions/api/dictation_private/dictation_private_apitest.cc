@@ -22,6 +22,7 @@
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/extensions/api/dictation_private.h"
 #include "components/crx_file/id_util.h"
+#include "content/public/browser/weak_document_ptr.h"
 #include "content/public/test/browser_test.h"
 #include "extensions/browser/event_router.h"
 #include "extensions/common/extension_id.h"
@@ -52,9 +53,11 @@ class ExtensionApiTestStreamProvider : public dictation::StreamProvider {
     target_ = std::move(target);
     api::dictation_private::StartStreamDetails details;
     details.stream_id = stream_id_.value();
-    details.annotated_page_content = std::vector<uint8_t>{1, 2, 3};
-    details.inner_text = "Foo Bar";
-    details.editable_content = "Existing content";
+    api::dictation_private::DictationContext context;
+    context.annotated_page_content = std::vector<uint8_t>{1, 2, 3};
+    context.inner_text = "Foo Bar";
+    context.editable_content = "Existing content";
+    details.context = std::move(context);
 
     base::ListValue event_args =
         api::dictation_private::OnStartStream::Create(details);
@@ -99,6 +102,7 @@ class ExtensionApiTestStreamProvider : public dictation::StreamProvider {
                : state_changes_.back();
   }
 
+  dictation::Target* GetTarget() override { return target_.get(); }
   const dictation::Target* GetTarget() const override { return target_.get(); }
 
   struct TranscriptionUpdate {
@@ -168,8 +172,9 @@ IN_PROC_BROWSER_TEST_F(DictationPrivateApiTest, Basic) {
       profile(), extension->id(), test_stream_id);
   multiplexer.RegisterStreamProvider(test_stream_id, &test_stream_provider);
 
-  auto mock_target = std::make_unique<dictation::MockTarget>();
-  test_stream_provider.BindToTargetAndConnect(std::move(mock_target));
+  auto target = std::make_unique<dictation::Target>(
+      content::GlobalDOMNodeId{content::WeakDocumentPtr()});
+  test_stream_provider.BindToTargetAndConnect(std::move(target));
 
   ASSERT_TRUE(catcher.GetNextResult()) << catcher.message();
 

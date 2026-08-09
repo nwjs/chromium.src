@@ -8706,6 +8706,10 @@ Keep your key file in a safe place. You will need it to create new versions of y
        <message name="IDS_COMPOSE_CURRENT_TAB" desc="Label for the row in the Composebox context menu flyout that shows the current tab the user has open.">
         Current tab
       </message>
+      <message name="IDS_COMPOSE_MAX_FILE_UPLOAD_ERROR" desc="Error message shown in toast when file limit maximum is reached.">
+        You can only add up to <ph name="COUNT">$1<ex>10</ex></ph> files
+      </message>
+
       <message name="IDS_NTP_ACTION_CHIP_TAB_HEADING_1" desc="Heading of the tab action chip on the NTP." >
         Ask about previous tab
       </message>
@@ -8738,6 +8742,12 @@ Keep your key file in a safe place. You will need it to create new versions of y
       </message>
       <message name="IDS_NTP_ACTION_CHIP_CANVAS_BODY" desc="Body text in the canvas action chip describing the use of the chip.">
         Write, plan, code, and more
+      </message>
+      <message name="IDS_NTP_ACTION_CHIP_STARTER_HEADING" desc="Heading of the conversation starter action chip on the NTP." translateable="false">
+        Do more with AI Mode
+      </message>
+      <message name="IDS_NTP_ACTION_CHIP_STARTER_BODY" desc="Body text in the conversation starter action chip describing the use of the chip." translateable="false">
+        Create, plan, summarize
       </message>
       <message name="IDS_NTP_ACTION_CHIP_DISABLE_TEXT" desc="Text for menu option to disable action chip feature.">
         Disable suggestions
@@ -10408,6 +10418,9 @@ Keep your key file in a safe place. You will need it to create new versions of y
       </message>
       <message name="IDS_VERTICAL_TAB_GROUP_MORE_OPTIONS" is_accessibility_with_no_ui="true" desc="The accessibility label for the button in the tab group header that opens the editor bubble.">
             More Options
+      </message>
+      <message name="IDS_VERTICAL_TABS_VIEW_MENU_TOGGLE_COLLAPSE" desc="In Title Case: The mac view menu item that toggles the collapse state.">
+            Collapse Vertical Tabs
       </message>
       <!-- /Vertical Tab Strings -->
 
@@ -19087,6 +19100,12 @@ Please help our engineers fix this problem. Tell us what happened right before y
       <message name="IDS_MULTISTEP_FILTER_CUE_EXPANDABLE_CONTENT_HEADING" desc="Text for the expandable content heading on the contextual cue for multistep filters." translateable="false">
         From your recent search
       </message>
+      <message name="IDS_MULTISTEP_FILTER_IPH_BODY" desc="Text shown in the IPH bubble for educating users about Multistep Filter." translateable="false">
+        Chrome can now suggest your recent filters and search details, helping you pick up where you left off or compare options across sites
+      </message>
+      <message name="IDS_MULTISTEP_FILTER_IPH_BODY_SCREENREADER" is_accessibility_with_no_ui="true" desc="Screenreader text shown in the IPH bubble for educating users about Multistep Filter." translateable="false">
+        Chrome can now suggest your recent filters and search details, helping you pick up where you left off or compare options across sites
+      </message>
       <message name="IDS_LINK_COPIED_TOAST_BODY" desc="Text on a toast notification that is shown when a link is successfully copied.">
         Link copied
       </message>
@@ -19098,6 +19117,12 @@ Please help our engineers fix this problem. Tell us what happened right before y
       </message>
       <message name="IDS_LINK_COPIED_TO_HIGHLIGHT_TOAST_BODY" desc="Text on a toast notification that is shown when a link to highlight is successfully copied.">
         Link copied to highlight
+      </message>
+      <message name="IDS_DICTATION_ERROR_TOAST" desc="Text shown in a toast notification when a voice typing/dictation session fails due to an error." translateable="false">
+        Something went wrong. Try again later
+      </message>
+      <message name="IDS_DICTATION_STOPPED_TOAST" desc="Text shown in a toast notification when a voice typing/dictation session is stopped." translateable="false">
+        Voice typing stopped
       </message>
       <message name="IDS_READING_LIST_TOAST_BODY" desc="Text on a toast notification that is shown when one or more items are added to the reading list [ICU Syntax]">
         {PAGES, plural, =1 {Page added to reading list} other {Pages added to reading list}}
@@ -19143,6 +19168,16 @@ Please help our engineers fix this problem. Tell us what happened right before y
       </message>
       <message name="IDS_TAB_STRIP_SWITCH_DELAYED_EXIT_FULLSCREEN_ACTION" desc="Action button on a toast notification that exits immersive fullscreen mode.">
         Exit full screen
+      </message>
+      <!-- Dictation strings -->
+      <message name="IDS_DICTATION_ONBOARDING_BULLET_DATA_SHARING" desc="The second paragraph in the onboarding dialog describing data sharing with Google servers." translateable="false">
+        Your spoken audio, the transcribed text, and the content and URL of the page you're interacting with will be sent to Google.
+      </message>
+      <message name="IDS_DICTATION_ONBOARDING_BUTTON_ACCEPT" desc="Button label on the onboarding dialog to confirm the provided information and use the feature." translateable="false">
+        Ok, got it
+      </message>
+      <message name="IDS_DICTATION_BUTTON_START" desc="Button label on the dictation UI that turns on the microphone to start dictating text." translateable="false">
+        Start
       </message>
     </if>
 

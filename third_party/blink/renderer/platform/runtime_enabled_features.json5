@@ -2197,7 +2197,13 @@
       name: "DeclarativePerformanceObserver",
       origin_trial_feature_name: "DeclarativePerformanceObserver",
       status: "experimental",
-      base_feature: "none",
+      // base_feature is meant as kill-switch. This runtime-enabled feature
+      // should follow the Origin Trial unless explicitly overriden by Finch or
+      // commandline flags.
+      base_feature_status: "enabled",
+      // Enables the Blink feature only when the base::Feature is overridden by
+      // field trial or command line.
+      copied_from_base_feature_if: "overridden",
     },
     {
       name: "DeclarativeSkeletons",
@@ -3186,10 +3192,10 @@
       status: {"Android": "", "default": "stable"},
     },
     {
-      name: "FontDataService",
+      name: "FontDataServiceForCSSLocalFonts",
       base_feature: "none",
       // No status, as the web platform runtime enabled feature is controlled by
-      // a Chromium level feature (kFontDataServiceAllWebContents).
+      // a Chromium level feature (kFontDataServiceForCSSLocalFonts).
     },
     {
       name: "FontFallbackForTabSize",
@@ -4652,9 +4658,17 @@
       status: "stable",
     },
     {
+      // Makes showPopover() throw an exception instead of just logging a console
+      // message when calling showPopover() within another popover hide/show
+      // operation. https://crbug.com/527495812
+      name: "PopoverHintNestedShowException",
+      status: "stable",
+    },
+    {
       // Simplifies the behavior and stacking interactions of popover=hint and
       // popover=auto. See https://crbug.com/499019927.
-      // This shipped in M150 and can be removed in M152.
+      // This shipped in M150, was disabled via Finch, and was re-enabled in
+      // M151. It can be removed in M153.
       name: "PopoverHintNewBehavior",
       status: "stable",
     },
@@ -5079,8 +5093,9 @@
     {
       // Kill switch for painting non-SVG replaced normal-flow stacking
       // contexts inline with their siblings.
+      // This was set to experimental due to crbug.com/532229489.
       name: "ReplacedNormalFlowStackingInlinePaint",
-      status: "stable",
+      status: "experimental",
     },
     {
       name: "ReportFirstFrameTimeAsRenderTime",
@@ -5413,9 +5428,9 @@
       // overlapping browser UI.
       // TODO(https://issues.chromium.org/issues/511869411): Remove this flag
       // after it has been shipped for long enough.
-      // Shipped in M150, changed slightly in M151, safe to remove in M153.
+      // Shipped in M150, changed slightly in M151, disabled in M151-M152.
       name: "SelectAnchorInViewport",
-      status: "stable",
+      status: "experimental",
     },
     {
       // SelectAudioOutput API
@@ -5750,6 +5765,11 @@
     {
       // See crbug.com/446113738.
       name: "SkipUnselectableElementsInParagraphBoundary",
+      status: "stable",
+    },
+    {
+      // See crbug.com/502616235.
+      name: "SkipViewTransitionSnapshotResumeRendering",
       status: "stable",
     },
     {
@@ -7050,7 +7070,8 @@
       // Experimental implementation of
       // https://www.ietf.org/archive/id/draft-hancke-tsvwg-snap-00.html
       name: "WebRtcSctpSnap",
-      status: "test",
+      origin_trial_feature_name: "WebRtcSctpSnap",
+      status: "experimental",
     },
     {
       // Restricts the sharing of SerialPort instances across different V8
@@ -7309,7 +7330,7 @@
       // with its responseXML document.
       // https://crbug.com/466303347
       name: "XMLRustForNonXslt",
-      status: "stable",
+      status: "experimental",
     },
     {
       name: "XMLSerializerConsistentDefaultNsDeclMatching",

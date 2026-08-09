@@ -37,8 +37,10 @@ source_set("theme") {
   deps = [
     "//base",
     "//components/sync/protocol",
+    "//ios/chrome/browser/popup_menu/overflow_menu/public:features",
     "//ios/chrome/browser/shared/ui/util",
     "//ios/chrome/browser/shared/ui/util/color_palette",
+    "//ios/chrome/common/ui/colors",
     "//skia",
     "//skia:skia_core_public_headers",
     "//third_party/material_color_utilities",
@@ -232,6 +234,8 @@ source_set("ntp_internal") {
     "feed_header_view_controller.mm",
     "feed_wrapper_view_controller.h",
     "feed_wrapper_view_controller.mm",
+    "new_tab_page_bottom_sheet_view_controller.h",
+    "new_tab_page_bottom_sheet_view_controller.mm",
     "new_tab_page_consumer.h",
     "new_tab_page_header_commands.h",
     "new_tab_page_header_consumer.h",
@@ -367,6 +371,7 @@ source_set("ntp_internal") {
 source_set("unit_tests") {
   testonly = true
   sources = [
+    "new_tab_page_bottom_sheet_view_controller_unittest.mm",
     "new_tab_page_coordinator_unittest.mm",
     "new_tab_page_mediator_unittest.mm",
     "new_tab_page_trait_unittest.mm",

@@ -51,7 +51,7 @@ bool ShouldShowPersonalContextAutofillSetting(
       prefs, edm, identity_manager, sync_service,
       is_wallet_public_pass_storage_enabled, is_off_the_record, country_code,
       subscription_service, enablement_service->GetEnablementState(),
-      AutofillAiAction::kAmbientAutofill);
+      AutofillAiAction::kShowAmbientAutofillInSettings);
 
   const bool at_memory_enabled =
       MayPerformAtMemoryAction(AtMemoryAction::kShowAtMemoryInSettings,
@@ -63,24 +63,7 @@ bool ShouldShowPersonalContextAutofillSetting(
 #endif
       );
 
-  if (!ambient_autofill_enabled && !at_memory_enabled) {
-    return false;
-  }
-
-  using enum personal_context::PersonalContextEnablementState;
-  switch (enablement_service->GetEnablementState()) {
-    case kDisabledNotEligible:
-    case kDisabledNeedsOptIn:
-      return false;
-    case kEnabledShouldShowNotice:
-    // TODO(crbug.com/516721244): Currently, `IsPersonalContextEligible`
-    // evaluates to false for the
-    // `kDisabledViaPersonalIntelligenceInAutofillToggle` enum. This discrepancy
-    // needs to be fixed.
-    case kDisabledViaPersonalIntelligenceInAutofillToggle:
-    case kEnabled:
-      return true;
-  }
+  return ambient_autofill_enabled || at_memory_enabled;
 }
 
 }  // namespace autofill

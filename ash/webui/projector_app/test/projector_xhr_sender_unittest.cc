@@ -8,6 +8,7 @@
 #include "ash/webui/projector_app/public/mojom/projector_types.mojom-shared.h"
 #include "ash/webui/projector_app/test/mock_app_client.h"
 #include "base/functional/callback.h"
+#include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
@@ -15,6 +16,7 @@
 #include "google_apis/google_api_keys.h"
 #include "net/base/net_errors.h"
 #include "net/base/url_util.h"
+#include "net/url_request/redirect_info.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
@@ -329,6 +331,106 @@ TEST_F(ProjectorXhrSenderTest, UseDVSEndpoint) {
       kTestUserEmail,
       /* expiry_time = */ base::Time::Now() + kExpiryTimeFromNow);
   VerifySendRequestFuture(future, test_response_body,
+                          projector::mojom::XhrResponseCode::kSuccess);
+}
+
+TEST_F(ProjectorXhrSenderTest, SendRequestRejectsRedirects) {
+  mock_app_client().test_url_loader_factory().SetInterceptor(
+      base::BindLambdaForTesting([&](const network::ResourceRequest& request) {
+        EXPECT_EQ(request.redirect_mode, network::mojom::RedirectMode::kError);
+      }));
+
+  SendRequestFuture future;
+  sender()->Send(
+      GURL(kTestDriveRequestUrl),
+      /*method=*/projector::mojom::RequestType::kGet, /*request_body=*/"",
+      /*use_credentials=*/false, /*use_api_key=*/false, future.GetCallback());
+
+  network::TestURLLoaderFactory::Redirects redirects;
+  net::RedirectInfo redirect_info;
+  redirect_info.status_code = 302;
+  redirect_info.new_url =
+      GURL("https://www.googleapis.com/drive/v3/files/fileID_redirect");
+  redirects.emplace_back(redirect_info, network::mojom::URLResponseHead::New());
+
+  mock_app_client().test_url_loader_factory().AddResponse(
+      GURL(kTestDriveRequestUrl), network::mojom::URLResponseHead::New(),
+      /*content=*/std::string(),
+      network::URLLoaderCompletionStatus(net::ERR_FAILED),
+      std::move(redirects));
+
+  mock_app_client().GrantOAuthTokenFor(
+      kTestUserEmail,
+      /* expiry_time = */ base::Time::Now() + kExpiryTimeFromNow);
+
+  VerifySendRequestFutureWithNetworkErrorCode(
+      future, "", projector::mojom::XhrResponseCode::kXhrFetchFailure,
+      projector::mojom::JsNetErrorCode::kHttpError);
+}
+
+TEST_F(ProjectorXhrSenderTest, SendRequestOmitsCredentialsByDefault) {
+  mock_app_client().test_url_loader_factory().SetInterceptor(
+      base::BindLambdaForTesting([&](const network::ResourceRequest& request) {
+        EXPECT_EQ(request.credentials_mode,
+                  network::mojom::CredentialsMode::kOmit);
+      }));
+
+  SendRequestFuture future;
+  sender()->Send(
+      GURL(kTestDriveRequestUrl),
+      /*method=*/projector::mojom::RequestType::kGet, /*request_body=*/"",
+      /*use_credentials=*/false, /*use_api_key=*/false, future.GetCallback());
+
+  mock_app_client().test_url_loader_factory().AddResponse(kTestDriveRequestUrl,
+                                                          "{}");
+  mock_app_client().GrantOAuthTokenFor(
+      kTestUserEmail,
+      /* expiry_time = */ base::Time::Now() + kExpiryTimeFromNow);
+  VerifySendRequestFuture(future, "{}",
+                          projector::mojom::XhrResponseCode::kSuccess);
+}
+
+TEST_F(ProjectorXhrSenderTest, SendRequestIncludesCredentialsWhenRequested) {
+  mock_app_client().test_url_loader_factory().SetInterceptor(
+      base::BindLambdaForTesting([&](const network::ResourceRequest& request) {
+        EXPECT_EQ(request.credentials_mode,
+                  network::mojom::CredentialsMode::kInclude);
+      }));
+
+  SendRequestFuture future;
+  sender()->Send(
+      GURL(kTestDriveRequestUrl),
+      /*method=*/projector::mojom::RequestType::kGet, /*request_body=*/"",
+      /*use_credentials=*/true, /*use_api_key=*/false, future.GetCallback());
+
+  mock_app_client().test_url_loader_factory().AddResponse(kTestDriveRequestUrl,
+                                                          "{}");
+  mock_app_client().GrantOAuthTokenFor(
+      kTestUserEmail,
+      /* expiry_time = */ base::Time::Now() + kExpiryTimeFromNow);
+  VerifySendRequestFuture(future, "{}",
+                          projector::mojom::XhrResponseCode::kSuccess);
+}
+
+TEST_F(ProjectorXhrSenderTest, ApiKeyRequestOmitsCredentials) {
+  mock_app_client().test_url_loader_factory().SetInterceptor(
+      base::BindLambdaForTesting([&](const network::ResourceRequest& request) {
+        EXPECT_EQ(request.redirect_mode, network::mojom::RedirectMode::kError);
+        EXPECT_EQ(request.credentials_mode,
+                  network::mojom::CredentialsMode::kOmit);
+      }));
+
+  SendRequestFuture future;
+  auto url = GURL(kTestTranslationRequestUrl);
+  sender()->Send(url,
+                 /*method=*/projector::mojom::RequestType::kGet,
+                 /*request_body=*/"",
+                 /*use_credentials=*/false, /*use_api_key=*/true,
+                 future.GetCallback());
+
+  mock_app_client().test_url_loader_factory().AddResponse(
+      GetUrlWithApiKey(url).spec(), "{}");
+  VerifySendRequestFuture(future, "{}",
                           projector::mojom::XhrResponseCode::kSuccess);
 }
 

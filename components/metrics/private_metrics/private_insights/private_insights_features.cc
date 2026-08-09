@@ -16,6 +16,10 @@ const base::FeatureParam<base::TimeDelta> kPrivateInsightsUploadInterval{
 BASE_FEATURE(kPrivateInsightsPaicErrorReporting,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+const base::FeatureParam<bool> kFcpUseAttestationTransparencyVerifier{
+    &kPrivateInsightsFeature, "fcp_use_attestation_transparency_verifier",
+    false};
+
 const base::FeatureParam<std::string> kFcpServerUri{&kPrivateInsightsFeature,
                                                     "fcp_server_uri", ""};
 
@@ -59,6 +63,9 @@ const base::FeatureParam<base::TimeDelta> kFcpTransientErrorsRetryDelay{
 const base::FeatureParam<base::TimeDelta> kFcpPermanentErrorsRetryDelay{
     &kPrivateInsightsFeature, "fcp_permanent_errors_retry_delay",
     base::Hours(4)};
+
+const base::FeatureParam<bool> kFcpEnablePrivacyIdGeneration{
+    &kPrivateInsightsFeature, "fcp_enable_privacy_id_generation", false};
 
 const base::FeatureParam<int> kMaxContextualCueEvents{
     &kPrivateInsightsFeature, "max_contextual_cue_events", 20};

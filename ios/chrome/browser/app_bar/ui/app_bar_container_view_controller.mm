@@ -101,10 +101,13 @@
 - (void)fullscreenWillUpdateObscuredInsetRange:(FullscreenBrowserAgent*)agent {
   AppBarPosition position = self.layoutState.appBarPosition;
   switch (position) {
-    case AppBarPosition::kBottom:
-      agent->AddObscuredInsetRange(UIRectEdgeBottom, kAppBarHeightFullscreen,
-                                   AppBarHeightPortrait());
+    case AppBarPosition::kBottom: {
+      CGFloat minHeight =
+          IsAppBarHiddenInFullscreen() ? 0 : kAppBarHeightFullscreen;
+      agent->AddObscuredInsetRange(UIRectEdgeBottom, minHeight,
+                                   [self appBarHeightPortrait]);
       break;
+    }
     case AppBarPosition::kLeft:
       agent->AddObscuredInsetRange(UIRectEdgeLeft, AppBarHeightLandscape(),
                                    AppBarHeightLandscape());
@@ -123,10 +126,11 @@
   switch (position) {
     case AppBarPosition::kBottom: {
       _fullscreenProgress = agent->bottom_progress();
+      CGFloat minHeight =
+          IsAppBarHiddenInFullscreen() ? 0 : kAppBarHeightFullscreen;
       CGFloat currentHeight =
-          kAppBarHeightFullscreen +
-          (AppBarHeightPortrait() - kAppBarHeightFullscreen) *
-              agent->bottom_progress();
+          minHeight +
+          ([self appBarHeightPortrait] - minHeight) * agent->bottom_progress();
       agent->AddObscuredInset(UIRectEdgeBottom, currentHeight);
       [self updateLayout];
       // If this is inside an animation, layout immediately.
@@ -192,6 +196,10 @@
         std::clamp(cutoutRadius, kAppBarCornerRadius, kAppBarCornerRadiusMax);
   }
   [_appBar updateCornerRadius:clampedRadius];
+}
+
+- (CGFloat)appBarHeightPortrait {
+  return [_appBar currentAppBarHeightPortrait];
 }
 
 @end

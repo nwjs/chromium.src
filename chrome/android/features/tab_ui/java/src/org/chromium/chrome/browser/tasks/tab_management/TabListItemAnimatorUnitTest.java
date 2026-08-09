@@ -494,6 +494,7 @@ public class TabListItemAnimatorUnitTest {
                 TabListItemAnimator.DEFAULT_REMOVE_DURATION, mItemAnimator.getChangeDuration());
 
         var holder = buildViewHolder(TAB, /* useShrinkCloseAnimation= */ false);
+        when(holder.itemView.getClipToOutline()).thenReturn(true);
 
         assertTrue(mItemAnimator.animateAdd(holder));
         verify(holder.itemView).setAlpha(0f);
@@ -519,6 +520,7 @@ public class TabListItemAnimatorUnitTest {
                                 mIsAnimatorRunningSupplier, /* useClipAnimations= */ true));
 
         var holder = buildViewHolder(TAB, /* useShrinkCloseAnimation= */ false);
+        when(holder.itemView.getClipToOutline()).thenReturn(true);
 
         assertTrue(mItemAnimator.animateRemove(holder));
         verify(holder.itemView).setClipToOutline(true);
@@ -544,6 +546,7 @@ public class TabListItemAnimatorUnitTest {
 
         var holder = buildViewHolder(TAB, /* useShrinkCloseAnimation= */ false);
         when(holder.itemView.getTag(R.id.tab_clip_from_top)).thenReturn(true);
+        when(holder.itemView.getClipToOutline()).thenReturn(true);
 
         assertTrue(mItemAnimator.animateRemove(holder));
         verify(holder.itemView).setClipToOutline(true);

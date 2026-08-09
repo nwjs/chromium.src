@@ -37,7 +37,7 @@ class ActorTaskListBubbleRowButton : public views::Button {
 
  private:
   // Update row to reflect an unclickable state.
-  void MaybeSetDisabledRowUi();
+  void MaybeSetDisabledRowUi(actor::ActorTask::State state);
 
   // Forwards clicks on the redirect icon to the row button.
   void OnRedirectIconPressed(const ui::Event& event);

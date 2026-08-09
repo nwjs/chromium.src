@@ -20,6 +20,13 @@ CGFloat AppBarHeightPortrait() {
   return kAppBarHeightDefault;
 }
 
+CGFloat CurrentAppBarHeightPortrait(BOOL gemini_floaty_invoked) {
+  if (gemini_floaty_invoked && IsAppBarHiddenInFullscreen()) {
+    return kAppBarHeightFullscreen;
+  }
+  return AppBarHeightPortrait();
+}
+
 CGFloat AppBarHeightLandscape() {
   return kAppBarHeightLandscapeDefault;
 }
@@ -29,3 +36,9 @@ NSString* const kAppBarTabGridButtonIdentifier =
     @"kAppBarTabGridButtonIdentifier";
 NSString* const kAppBarNewTabButtonIdentifier =
     @"kAppBarNewTabButtonIdentifier";
+
+const char kAppBarAssistantButtonTappedHistogram[] =
+    "IOS.AppBar.AssistantButtonTapped";
+
+const char kAppBarAssistantButtonStateOnLoadHistogram[] =
+    "IOS.AppBar.AssistantButtonStateOnLoad";

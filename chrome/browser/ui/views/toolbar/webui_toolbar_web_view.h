@@ -202,6 +202,7 @@ class WebUIToolbarWebView
   void SetAvatarButtonHovered(bool hovered) override;
   void SetAvatarButtonFocused(bool focused) override;
   void SetAvatarButtonIPHPromoShowing(bool showing) override;
+  void OnAppMenuFocusChanged(bool focused) override;
 
   // BrowserControlsService::BrowserControlsServiceDelegate:
   void PermitLaunchUrl() override;

@@ -36,6 +36,11 @@
 #include "components/sync/base/features.h"
 #include "components/sync/service/sync_user_settings.h"
 #include "components/sync/test/test_sync_service.h"
+#include "components/sync_device_info/device_info.h"
+#include "components/sync_device_info/fake_device_info_sync_service.h"
+#include "components/sync_device_info/fake_device_info_tracker.h"
+#include "components/sync_device_info/test_device_info_builder.h"
+#include "components/user_education/common/user_education_features.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "ui/events/event_utils.h"
@@ -92,6 +97,8 @@ struct ProfileMenuViewPixelTestParam {
   bool sync_disabled = false;
   bool with_ai_avatar_ring = false;
   WithLocalData with_local_data = WithLocalData::kNoLocalData;
+  bool with_cross_device_signin_promo = false;
+  bool with_cross_device_signin_new_badge = false;
 
   // Features and parameters that are enabled in addition to the features
   // enabled by default.
@@ -331,13 +338,29 @@ const ProfileMenuViewPixelTestParam kPixelTestParams[] = {
         .management_status = ManagementStatus::kAccountManaged,
         .sync_disabled = true,
     },
-    {.pixel_test_param = {.test_suffix = "AiSubscriptionAvatarRing_Light"},
-     .signin_status = SigninStatusPixelTestParam::kSignedInNoSync,
-     .with_ai_avatar_ring = true},
-    {.pixel_test_param = {.test_suffix = "AiSubscriptionAvatarRing_Dark",
-                          .use_dark_theme = true},
-     .signin_status = SigninStatusPixelTestParam::kSignedInNoSync,
-     .with_ai_avatar_ring = true},
+    {
+        .pixel_test_param = {.test_suffix = "AiSubscriptionAvatarRing_Light"},
+        .signin_status = SigninStatusPixelTestParam::kSignedInNoSync,
+        .use_multiple_profiles = true,
+        .with_ai_avatar_ring = true,
+    },
+    {
+        .pixel_test_param = {.test_suffix = "AiSubscriptionAvatarRing_Dark",
+                             .use_dark_theme = true},
+        .signin_status = SigninStatusPixelTestParam::kSignedInNoSync,
+        .use_multiple_profiles = true,
+        .with_ai_avatar_ring = true,
+    },
+    {
+        .pixel_test_param = {.test_suffix = "CrossDeviceSigninPromo"},
+        .signin_status = SigninStatusPixelTestParam::kSignedInNoSync,
+        .with_cross_device_signin_promo = true,
+    },
+    {
+        .pixel_test_param = {.test_suffix = "CrossDeviceSigninPromoNewBadge"},
+        .signin_status = SigninStatusPixelTestParam::kSignedInNoSync,
+        .with_cross_device_signin_promo = true,
+    },
 };
 
 }  // namespace
@@ -426,6 +449,7 @@ class ProfileMenuViewPixelTest
                                          -> std::unique_ptr<KeyedService> {
           return std::make_unique<syncer::TestSyncService>();
         }));
+
   }
 
   void TearDownOnMainThread() override {
@@ -437,6 +461,10 @@ class ProfileMenuViewPixelTest
     ProfilesPixelTestBaseT<DialogBrowserTest>::SetUpCommandLine(command_line);
     if (GetSigninStatus() == SigninStatusPixelTestParam::kSigninDisallowed) {
       command_line->AppendSwitchASCII("allow-browser-signin", "false");
+    }
+    if (GetParam().with_cross_device_signin_new_badge) {
+      command_line->AppendSwitch(
+          user_education::features::kDisableRateLimitingCommandLine);
     }
   }
 
@@ -612,23 +640,49 @@ class ProfileMenuViewPixelTest
       ProfileManager* profile_manager = g_browser_process->profile_manager();
 
       // Default theme, light mode.
-      profiles::testing::CreateProfileSync(
+      Profile& default_profile = profiles::testing::CreateProfileSync(
           profile_manager, profile_manager->GenerateNextProfileDirectoryPath());
 
       // Default theme, dark mode.
-      Profile& dark_profile = profiles::testing::CreateProfileSync(
-          profile_manager, profile_manager->GenerateNextProfileDirectoryPath());
-      SetColorTheme(dark_profile, SK_ColorTRANSPARENT, /*dark_mode=*/true);
+      base::FilePath dark_profile_path;
+      {
+        Profile& dark_profile = profiles::testing::CreateProfileSync(
+            profile_manager,
+            profile_manager->GenerateNextProfileDirectoryPath());
+        dark_profile_path = dark_profile.GetPath();
+        SetColorTheme(dark_profile, SK_ColorTRANSPARENT, /*dark_mode=*/true);
+        // Note: SetColorTheme() may have destroyed the profile.
+      }
 
       // Set theme, light mode.
-      Profile& theme_profile = profiles::testing::CreateProfileSync(
-          profile_manager, profile_manager->GenerateNextProfileDirectoryPath());
-      SetColorTheme(theme_profile, SK_ColorMAGENTA);
+      base::FilePath theme_profile_path;
+      {
+        Profile& theme_profile = profiles::testing::CreateProfileSync(
+            profile_manager,
+            profile_manager->GenerateNextProfileDirectoryPath());
+        theme_profile_path = theme_profile.GetPath();
+        SetColorTheme(theme_profile, SK_ColorMAGENTA);
+        // Note: SetColorTheme() may have destroyed the profile.
+      }
 
       // Set theme, dark mode.
-      Profile& theme_dark_profile = profiles::testing::CreateProfileSync(
-          profile_manager, profile_manager->GenerateNextProfileDirectoryPath());
-      SetColorTheme(theme_dark_profile, SK_ColorGREEN, /*dark_mode=*/true);
+      {
+        Profile& theme_dark_profile = profiles::testing::CreateProfileSync(
+            profile_manager,
+            profile_manager->GenerateNextProfileDirectoryPath());
+        SetColorTheme(theme_dark_profile, SK_ColorGREEN, /*dark_mode=*/true);
+        // Note: SetColorTheme() may have destroyed the profile.
+      }
+
+      if (GetParam().with_ai_avatar_ring) {
+        ProfileAttributesStorage& storage =
+            profile_manager->GetProfileAttributesStorage();
+        // Enable the AI ring for a subset of the profiles.
+        for (const auto& path : {default_profile.GetPath(), dark_profile_path,
+                                 theme_profile_path}) {
+          storage.GetProfileAttributesWithPath(path)->SetAiSubscriptionTier(1);
+        }
+      }
     }
 
     if (!GetParam().account_image_available) {

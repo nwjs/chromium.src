@@ -137,6 +137,8 @@ BASE_FEATURE(kGlicGetTabFaviconById, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicSkipCookieSyncOnOpen, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kGlicCookieSyncOnTokenChange, base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<base::TimeDelta> kGlicCookieSyncOnTokenChangeDelay{
+    &kGlicCookieSyncOnTokenChange, "delay", base::Seconds(10)};
 BASE_FEATURE(kGlicCookieSyncOnError, base::FEATURE_DISABLED_BY_DEFAULT);
 const base::FeatureParam<base::TimeDelta> kGlicCookieSyncOnErrorMinInterval{
     &kGlicCookieSyncOnError, "min_interval", base::Minutes(5)};
@@ -156,7 +158,7 @@ const base::FeatureParam<int> kGlicReloadMaxLoadingTimeMs{
 BASE_FEATURE(kGlicContextualCueingV2AutoSubmit,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kGlicWebDragAndDropFileUpload, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicWebDragAndDropFileUpload, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicOptInImpressionMetrics, base::FEATURE_ENABLED_BY_DEFAULT);
 

@@ -582,9 +582,9 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
     _feedVisualEffectBackgroundView = nil;
   }
 
-  [self removeObjectFromViewHierarchy:self.feedWrapperViewController];
-  [self removeObjectFromViewHierarchy:self.magicStackCollectionView];
-  [self removeObjectFromViewHierarchy:self.contentSuggestionsViewController];
+  if (self.feedWrapperViewController) {
+    [self removeObjectFromViewHierarchy:self.feedWrapperViewController];
+  }
   for (id obj in self.objectsAboveFeed) {
     [self removeObjectFromViewHierarchy:obj];
   }

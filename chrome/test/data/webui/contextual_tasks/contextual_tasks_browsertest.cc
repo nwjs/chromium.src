@@ -79,14 +79,9 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksBrowserTest, App_Composebox_BasicMode) {
   RunTest("contextual_tasks/app_composebox_basic_mode_test.js", "mocha.run();");
 }
 
-// TODO(crbug.com/487147580): Re-enable the test
+// TODO(crbug.com/480689282): Re-enable the test.
 // TODO(crbug.com/527559266): Flaky on ChromeOS.
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-#define MAYBE_Composebox DISABLED_Composebox
-#else
-#define MAYBE_Composebox Composebox
-#endif
-IN_PROC_BROWSER_TEST_F(ContextualTasksBrowserTest, MAYBE_Composebox) {
+IN_PROC_BROWSER_TEST_F(ContextualTasksBrowserTest, DISABLED_Composebox) {
   RunTest("contextual_tasks/composebox_test.js", "mocha.run();");
 }
 
@@ -140,7 +135,17 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksBrowserTest, OnboardingTooltip) {
   RunTest("contextual_tasks/onboarding_tooltip_test.js", "mocha.run();");
 }
 
-IN_PROC_BROWSER_TEST_F(ContextualTasksBrowserTest, WebView) {
+IN_PROC_BROWSER_TEST_F(ContextualTasksBrowserTest, LensSearchTooltip) {
+  RunTest("contextual_tasks/lens_search_tooltip_test.js", "mocha.run();");
+}
+
+// TODO(crbug.com/529817776): Re-enable when the timeouts get fixed.
+#if BUILDFLAG(IS_LINUX) && !defined(NDEBUG)
+#define MAYBE_WebView DISABLED_WebView
+#else
+#define MAYBE_WebView WebView
+#endif
+IN_PROC_BROWSER_TEST_F(ContextualTasksBrowserTest, MAYBE_WebView) {
   RunTest("contextual_tasks/contextual_tasks_webview_browsertest.js",
           "mocha.run();");
 }

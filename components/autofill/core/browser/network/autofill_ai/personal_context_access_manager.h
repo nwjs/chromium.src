@@ -75,7 +75,8 @@ class PersonalContextAccessManager : public KeyedService {
   // and the validity of the result has not expired.
   virtual bool IsTypePrefetched(EntityType type) const = 0;
 
-  // Returns true if the server has data available for the given `type`.
+  // Returns true if a presence signal for `type` is currently available.
+  // TODO(crbug.com/516721244): Rename to ServerHasSpiiPresenceSignal.
   virtual bool ServerHasDataAvailable(EntityType type) const = 0;
 };
 

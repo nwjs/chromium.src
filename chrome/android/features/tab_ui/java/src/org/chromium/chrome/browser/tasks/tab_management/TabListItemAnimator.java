@@ -253,7 +253,15 @@ public class TabListItemAnimator extends SimpleItemAnimator {
                     () -> dispatchAddFinished(holder),
                     /* holderMap= */ mAdds);
         } else {
-            return buildGenericAddAnimator(holder);
+            return buildAlphaAnimator(
+                    holder,
+                    /* startAlpha= */ 0f,
+                    /* endAlpha= */ 1f,
+                    getAddDuration(),
+                    Interpolators.LINEAR_INTERPOLATOR,
+                    () -> dispatchAddStarting(holder),
+                    () -> dispatchAddFinished(holder),
+                    mAdds);
         }
     }
 
@@ -454,7 +462,16 @@ public class TabListItemAnimator extends SimpleItemAnimator {
                             () -> dispatchRemoveFinished(holder),
                             /* holderMap= */ mRemovals);
         } else if (!shouldUseShrinkCloseAnimation(holder)) {
-            animator = buildGenericRemoveAnimator(holder);
+            animator =
+                    buildAlphaAnimator(
+                            holder,
+                            holder.itemView.getAlpha(),
+                            /* endAlpha= */ 0f,
+                            getRemoveDuration(),
+                            getGenericRemoveInterpolator(),
+                            () -> dispatchRemoveStarting(holder),
+                            () -> dispatchRemoveFinished(holder),
+                            mRemovals);
         } else {
             animator = buildTabRemoveAnimator(holder);
         }
@@ -472,35 +489,22 @@ public class TabListItemAnimator extends SimpleItemAnimator {
         return false;
     }
 
-    private Animator buildGenericAddAnimator(ViewHolder holder) {
+    private Animator buildAlphaAnimator(
+            ViewHolder holder,
+            float startAlpha,
+            float endAlpha,
+            long duration,
+            Interpolator interpolator,
+            Runnable onStarting,
+            Runnable onFinished,
+            AnimatorHolder holderMap) {
         View view = holder.itemView;
-        view.setAlpha(0f);
-        ObjectAnimator alphaAnimator = ObjectAnimator.ofFloat(view, View.ALPHA, 1f);
-        alphaAnimator.setDuration(getAddDuration());
-        alphaAnimator.setInterpolator(Interpolators.LINEAR_INTERPOLATOR);
+        view.setAlpha(startAlpha);
+        ObjectAnimator alphaAnimator = ObjectAnimator.ofFloat(view, View.ALPHA, endAlpha);
+        alphaAnimator.setDuration(duration);
+        alphaAnimator.setInterpolator(interpolator);
         alphaAnimator.addListener(
-                buildAnimatorListener(
-                        holder,
-                        view,
-                        () -> dispatchAddStarting(holder),
-                        () -> dispatchAddFinished(holder),
-                        /* holderMap= */ mAdds));
-        return alphaAnimator;
-    }
-
-    private Animator buildGenericRemoveAnimator(ViewHolder holder) {
-        // This is adapted from DefaultItemAnimator.
-        View view = holder.itemView;
-        ObjectAnimator alphaAnimator = ObjectAnimator.ofFloat(view, View.ALPHA, 0f);
-        alphaAnimator.setDuration(getRemoveDuration());
-        alphaAnimator.setInterpolator(getGenericRemoveInterpolator());
-        alphaAnimator.addListener(
-                buildAnimatorListener(
-                        holder,
-                        view,
-                        () -> dispatchRemoveStarting(holder),
-                        () -> dispatchRemoveFinished(holder),
-                        /* holderMap= */ mRemovals));
+                buildAnimatorListener(holder, view, onStarting, onFinished, holderMap));
         return alphaAnimator;
     }
 
@@ -632,7 +636,7 @@ public class TabListItemAnimator extends SimpleItemAnimator {
             @Override
             public void onAnimationEnd(Animator animator) {
                 view.setAlpha(1f);
-                if (mUseClipAnimations) {
+                if (view.getClipToOutline()) {
                     view.setOutlineProvider(ViewOutlineProvider.BACKGROUND);
                     view.setClipToOutline(false);
                 }

@@ -4,6 +4,7 @@
 <translation id="1004825134262590729">{count,plural, =1{{count} kunci laluan}other{{count} kunci laluan}}</translation>
 <translation id="1005023885865154304">Buka tetapan Kata Laluan Autolengkap</translation>
 <translation id="1005230401424685968">YYYY</translation>
+<translation id="1013852467930342108">Live ialah ciri baharu pada Gemini dalam Chrome</translation>
 <translation id="1013952917065545813">Anda boleh kembali ke sini untuk membuka semula tab yang baru anda tutup</translation>
 <translation id="1016495303386450659">Item dikemas kini</translation>
 <translation id="1018804590490383958">Imbas dan autolengkap</translation>
@@ -57,6 +58,7 @@
 <translation id="1179890706672152411">Storan anda penuh</translation>
 <translation id="1181037720776840403">Alih keluar</translation>
 <translation id="1190609913194133056">Pusat Pemberitahuan</translation>
+<translation id="1196534270480620381">Beri saya ringkasan pendek untuk halaman ini</translation>
 <translation id="1199631150313925648">Masukkan butiran secara manual</translation>
 <translation id="1199963004393929848">Tema hijau</translation>
 <translation id="1201402288615127009">Seterusnya</translation>
@@ -170,6 +172,7 @@
 <translation id="1539535193627863227">Tiada kata laluan atau kunci laluan ditemukan untuk laman ini</translation>
 <translation id="1540800554400757039">Alamat 1</translation>
 <translation id="154312949627292154">Buka tab yang diterima daripada peranti anda yang lain daripada skrin kunci.</translation>
+<translation id="1544653821167545205">Ringkaskan halaman</translation>
 <translation id="1545749641540134597">Imbas Kod QR</translation>
 <translation id="1545757265410828525">Sejarah harga</translation>
 <translation id="1547610699249301703">Kongsi kata laluan</translation>
@@ -242,6 +245,7 @@
 <translation id="1752547299766512813">Simpan K/Laluan</translation>
 <translation id="1764070164487214210">Arah</translation>
 <translation id="1764511703783285459">Pengurus kata laluan yang lain tidak berkongsi sebarang kata laluan atau kunci laluan</translation>
+<translation id="1765555082983153259">“Chrome” mahu mengakses mikrofon anda</translation>
 <translation id="1767766085187034454">Google Translate</translation>
 <translation id="1771016937398045251">Menu alatan</translation>
 <translation id="1772468122139624049">Tidak dapat memuatkan semula tab</translation>
@@ -277,6 +281,7 @@
 <translation id="1869050523388525800">Skrin carian hanya tersedia apabila Google ditetapkan sebagai enjin carian lalai anda. Anda boleh menukar enjin carian lalai anda dalam <ph name="BEGIN_LINK" />Tetapan<ph name="END_LINK" />.</translation>
 <translation id="1872096359983322073">Lampu suluh</translation>
 <translation id="1875733418125333939"><ph name="FILENAME" />.</translation>
+<translation id="1876230899304059090">Apakah yang boleh dilakukan oleh Gemini dalam Chrome?</translation>
 <translation id="1881621406744213161">Undang ahli keluarga</translation>
 <translation id="188177382966899059">Deep Search</translation>
 <translation id="188237709236611317">Bar menu isih pintar</translation>
@@ -451,6 +456,7 @@
 <translation id="2466518891828668184">Simpan kata laluan anda supaya anda boleh log masuk ke laman dan apl dengan mudah.</translation>
 <translation id="2468132863574325555">Drive</translation>
 <translation id="2468444275314013497">Penyemak imbas anda dalam keadaan yang baik</translation>
+<translation id="2470654816840674524">Apakah yang boleh saya lakukan dengan Gemini dalam Chrome?</translation>
 <translation id="2473876017985765807">Anda telah pun menyimpan kata laluan untuk <ph name="WEBSITE" /></translation>
 <translation id="247430852844518481">Anda boleh menetapkan peringatan untuk melawati semula halaman ini kemudian</translation>
 <translation id="2479148705183875116">Pergi ke Tetapan</translation>
@@ -483,6 +489,7 @@
 <translation id="2579713773888829241">Drive Dikongsi</translation>
 <translation id="2580306219079937316">Buka tetapan Translate</translation>
 <translation id="2583688836549072561">Kumpulan tab, <ph name="GROUP_TITLE" />, <ph name="TABS_NUMBER" /> tab, aktiviti baharu.</translation>
+<translation id="2584994295315085351">Buka tab baharu apabila anda kembali kepada Chrome selepas 4 jam</translation>
 <translation id="2593272815202181319">Monospace</translation>
 <translation id="2601778637777010194">Jejaki penurunan harga produk</translation>
 <translation id="2602372807870028932">Tindakan ini memadamkan maklumat yang dipilih yang disimpan pada peranti ini</translation>
@@ -495,6 +502,7 @@
 <translation id="2623536180761008356">Sembunyikan “Semakan Keselamatan”</translation>
 <translation id="2625189173221582860">Kata laluan disalin</translation>
 <translation id="2626236249646841566">Semak sambungan anda dan cuba log masuk sekali lagi.</translation>
+<translation id="2629543259235506452">Buat Soalan Lazim ringkas untuk topik ini menggunakan maklumat daripada halaman ini dan laman web yang serupa</translation>
 <translation id="2635918910848538771">Autolengkap CVC</translation>
 <translation id="2640733327287333451">Tiada Nama Pengguna ••••••</translation>
 <translation id="264215785133931186">Disemak sebentar tadi</translation>
@@ -803,6 +811,7 @@
 <translation id="3753618528540214374">Tema viridian</translation>
 <translation id="3759491607478608474">Kongsi kandungan tab semasa dengan Gemini untuk mendapatkan jawapan yang lebih berkaitan</translation>
 <translation id="3762232513783804601">Dibina untuk iPad Anda</translation>
+<translation id="3767529805486761639">Menu Edit</translation>
 <translation id="3768725474733206671">Buka Semula Tab Terakhir Ditutup</translation>
 <translation id="3779810277399252432">Tiada sambungan Internet.</translation>
 <translation id="3782614601387961027">Ketepikan amaran</translation>
@@ -887,7 +896,6 @@
 <translation id="4021447724486050609">Kemas kinikan Penyemak Imbas anda</translation>
 <translation id="4021931095789478915">Tambahkan ${url} pada senarai bacaan</translation>
 <translation id="4028871427853484857">Simpan dalam akaun…</translation>
-<translation id="4036529942385659684">Tunjukkan halaman mula selepas tempoh tidak aktif</translation>
 <translation id="4038354071007134711">Tiada aplikasi pada peranti ini yang dapat membuka fail itu.</translation>
 <translation id="4042870976416480368">Cari dalam Halaman</translation>
 <translation id="4045441967987592849">Buka semula</translation>
@@ -1144,6 +1152,7 @@
 <translation id="4881695831933465202">Buka</translation>
 <translation id="4883766694719903356">Grid Tab Inkognito</translation>
 <translation id="4884937942297374058">Perlindungan dipertingkat dimatikan</translation>
+<translation id="4887391901725877182">Sari Kata</translation>
 <translation id="488785315393301722">Tunjukkan Butiran</translation>
 <translation id="4889521386764567563">Profil semasa</translation>
 <translation id="4893713555726946316">Sembunyikan Cari dalam Halaman</translation>
@@ -1237,6 +1246,7 @@
 <translation id="518997337573684769">Menghantar laporan ranap…</translation>
 <translation id="519528950056409240">Benarkan Wallet berkongsi data</translation>
 <translation id="519530786644929958">Muat turun gagal dan tidak boleh dicuba semula.</translation>
+<translation id="519620255540220054">Sesuaikan halaman utama</translation>
 <translation id="5197255632782567636">Internet</translation>
 <translation id="5200894869889836319">Pilihan untuk menetapkan kebenaran</translation>
 <translation id="5203051773066903947">Enter</translation>
@@ -1418,6 +1428,7 @@ Serah mestilah turut didayakan dalam bahagian Umum pada Tetapan dan peranti anda
 <translation id="5779117921996157216">{count,plural, =1{Anda mempunyai {count} kata laluan yang terjejas yang boleh mendedahkan keselamatan anda kepada risiko. Betulkan masalah ini sekarang untuk kekal selamat.}other{Anda mempunyai {count} kata laluan yang terjejas yang boleh mendedahkan keselamatan anda kepada risiko. Betulkan masalah ini sekarang untuk kekal selamat.}}</translation>
 <translation id="5791632441210678828">Butang isih untuk Mengikuti suapan.</translation>
 <translation id="5799263916847593256">Buka untuk melihat sejarah harga</translation>
+<translation id="5801568494490449797">Keutamaan</translation>
 <translation id="5803566855766646066">Adakah anda pasti anda mahu membuang kad baharu ini?</translation>
 <translation id="5804241973901381774">Kebenaran</translation>
 <translation id="58081802114142635">Aktiviti anda meningkatkan Google AI</translation>
@@ -1568,6 +1579,7 @@ Serah mestilah turut didayakan dalam bahagian Umum pada Tetapan dan peranti anda
 <translation id="628251768213143684">Anda boleh mengurus data yang disimpan dalam Google Account anda pada bila-bila masa</translation>
 <translation id="6284652193729350524">Tawarkan untuk menterjemah <ph name="LANGUAGE" /></translation>
 <translation id="6293101329759844770">Untuk menghidupkan Penyemakan Imbas Selamat, buka <ph name="BEGIN_LINK" />Perkhidmatan Google<ph name="END_LINK" /> dan ketik Penyemakan Imbas Selamat.</translation>
+<translation id="6295140892595702619">Gunakan mikrofon anda untuk bersembang dengan Gemini. Apabila anda bercakap dengan Gemini, audio akan disimpan dalam Aktiviti Apl Gemini (jika dihidupkan). Data anda tidak digunakan untuk meningkatkan model AI generatif</translation>
 <translation id="6295751040240588413">Nama panggilan kad tidak sah</translation>
 <translation id="629730747756840877">Akaun</translation>
 <translation id="6301104306974789820">Dapatkan pemberitahuan penjejakan harga</translation>
@@ -1650,6 +1662,7 @@ Serah mestilah turut didayakan dalam bahagian Umum pada Tetapan dan peranti anda
 <translation id="6523575793810663688">Tunjukkan caranya</translation>
 <translation id="6524082013156754186">Simpan dalam akaun</translation>
 <translation id="6524918542306337007">Mod Inkognito Tidak Tersedia</translation>
+<translation id="6525550806864373485">Menu Edit</translation>
 <translation id="6527208859483186860">latar {position} daripada {total}</translation>
 <translation id="6527303717912515753">Kongsi</translation>
 <translation id="6532106788206463496">Simpan perubahan</translation>
@@ -1735,6 +1748,7 @@ Serah mestilah turut didayakan dalam bahagian Umum pada Tetapan dan peranti anda
 <translation id="6761393919622941301">Audio</translation>
 <translation id="6765551480308401897">Jangan Tetapkan sebagai Lalai</translation>
 <translation id="6770452996697898492">[TELAH DITEMPAH]</translation>
+<translation id="6775952316617222141">Gunakan Live dengan Gemini dalam Chrome</translation>
 <translation id="6779455296366983087">Data semakan imbas anda akan dipadamkan</translation>
 <translation id="6782531425936234573">Eksport data</translation>
 <translation id="6791425686608802741">Ketik "Tambahkan Tab pada Kumpulan Baharu"</translation>
@@ -2100,6 +2114,7 @@ Untuk meneruskan proses daripada komputer anda, beralih kepada <ph name="OTHER_E
 <translation id="8023878949384262191">Mengembangkan bahagian.</translation>
 <translation id="8027581147000338959">Buka dalam Tetingkap Baharu</translation>
 <translation id="8029092694585014252">Buat peringatan</translation>
+<translation id="8029349782735515147">Tunjukkan sari kata apabila menggunakan Gemini Live</translation>
 <translation id="8032569120109842252">Mengikut</translation>
 <translation id="8035133914807600019">Folder baharu...</translation>
 <translation id="8035412398498507358">Photos</translation>
@@ -2340,6 +2355,7 @@ Untuk meneruskan proses daripada komputer anda, beralih kepada <ph name="OTHER_E
 <translation id="8766790350274092814">Kata laluan untuk <ph name="WEBSITE" /> dan <ph name="SECOND_WEBSITE" /> akan dipadamkan. Akaun anda tidak akan dipadamkan.</translation>
 <translation id="8775144690796719618">URL tidak sah</translation>
 <translation id="8781834595282316166">Tab Baharu dalam Kumpulan</translation>
+<translation id="8783445328207519872">Buat Soalan Lazim tentang topik ini</translation>
 <translation id="8784653774976848206">Pilih Fail</translation>
 <translation id="8786100550345425552">Edit kebenaran</translation>
 <translation id="878871978861915380">Sembunyikan "Penjejakan harga"</translation>
@@ -2452,6 +2468,7 @@ Untuk meneruskan proses daripada komputer anda, beralih kepada <ph name="OTHER_E
 <translation id="9149866541089851383">Edit...</translation>
 <translation id="9152637745605628097">Pilih daripada tema, warna atau muat naik imej</translation>
 <translation id="9159628751968616911">Hantar halaman web</translation>
+<translation id="9162412286847966593">Data dan rakaman organisasi anda tidak akan digunakan untuk meningkatkan model AI generatif. <ph name="BEGIN_LINK" />Privasi Anda &amp; Gemini<ph name="END_LINK" /></translation>
 <translation id="9162432979321511934">Hidupkan Autolengkap Kata Laluan</translation>
 <translation id="9165320910061267720">Untuk mendapatkan pemberitahuan tentang makluman penurunan harga, anda perlu menghidupkan pemberitahuan dalam tetapan iOS anda.</translation>
 <translation id="9179151630575358778">Sembunyikan item ini</translation>

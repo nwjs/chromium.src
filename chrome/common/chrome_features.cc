@@ -249,6 +249,7 @@ const base::FeatureParam<base::TimeDelta> kGlicActorClickDelay{
 
 // Controls whether the Actor UI components are enabled.
 BASE_FEATURE(kGlicActorUi, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicConfirmTabClose, base::FEATURE_ENABLED_BY_DEFAULT);
 // Controls whether we ignore users preference of reduced motion enabled and
 // still show the tab indicator spinner. No-op if kGlicActorUiTabIndicator is
 // disabled.
@@ -439,9 +440,17 @@ BASE_FEATURE_ENUM_PARAM(GlicActorEnterprisePrefDefault,
 const base::FeatureParam<bool> kGlicActorPolicyControlExemption{
     &kGlicActor, "glic_actor_policy_control_exemption", false};
 
+BASE_FEATURE(kGlicActorWorkspaceExemptFromTierCheckRegressionFixKillswitch,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kGlicActorPermissionsBypass, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicActorToctouValidation, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables the explicit actor path that directly activates an observed DOM node
+// when its interaction point is covered by an eligible modeless panel.
+BASE_FEATURE(kGlicActorOccludedDirectActivation,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicActorInternalPopups, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -505,9 +514,6 @@ const base::FeatureParam<int> kGlicMinRequiredRamMb{
 
 const base::FeatureParam<bool> kGlicAdaptiveToolbarAutoPin{
     &kGlic, "adaptive-toolbar-auto-pin", true};
-
-// Controls whether the Glic feature is always detached.
-BASE_FEATURE(kGlicDetached, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether the Glic feature uses multiple instances or not.
 BASE_FEATURE(kGlicMultiInstance, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -1032,6 +1038,10 @@ BASE_FEATURE(kActorFormFillingServiceEnableCreditCard,
 // Enables the `google-chrome://` URI scheme.
 BASE_FEATURE(kGoogleChromeScheme, base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Controls whether the Google Search AI Mode Workspace link (Connected Apps) is
+// shown in AI Settings. Acts as a killswitch.
+BASE_FEATURE(kGoogleSearchAiModeWorkspace, base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Force Privacy Guide to be available even if it would be unavailable
 // otherwise. This is meant for development and test purposes only.
 BASE_FEATURE(kPrivacyGuideForceAvailable, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1246,6 +1256,10 @@ BASE_FEATURE(kIndigo, base::FEATURE_DISABLED_BY_DEFAULT);
 
 const base::FeatureParam<bool> kIndigoRequireGlicEnabling{
     &kIndigo, "indigo_require_glic_enabling", false};
+const base::FeatureParam<bool> kIndigoAllowForEnterprise{
+    &kIndigo, "allow_indigo_for_enterprise", false};
+const base::FeatureParam<bool> kIndigoSkipEnterpriseCheck{
+    &kIndigo, "indigo_skip_enterprise_check", false};
 
 const base::FeatureParam<base::TimeDelta> kIndigoAnchoredMessageResetDuration{
     &kIndigo, "indigo_anchored_message_reset_duration", base::Hours(24)};
@@ -1262,6 +1276,13 @@ const base::FeatureParam<std::string> kIndigoSavedUrl{
 const base::FeatureParam<std::string> kIndigoScopes{
     &kIndigo, "indigo_scopes",
     "https://www.googleapis.com/auth/userinfo.email"};
+
+BASE_FEATURE(kIndigoMetadataKeywordHeuristic,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<base::TimeDelta>
+    kIndigoMetadataKeywordHeuristicSameDocumentNavigationDelay{
+        &kIndigoMetadataKeywordHeuristic,
+        "same_document_navigation_metadata_delay", base::Seconds(4)};
 
 // Experimental image replacement feature opens glic.
 BASE_FEATURE(kIndigoOpenGlic, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1950,10 +1971,10 @@ BASE_FEATURE(kClassManagementEnabledMetricsProvider,
 // feature.
 BASE_FEATURE(kSmartRestartMetrics, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kSmartRestart, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kSmartRestart, base::FEATURE_ENABLED_BY_DEFAULT);
 
 const base::FeatureParam<base::TimeDelta> kSmartRestartDelay{
-    &kSmartRestart, "restart_delay", base::Minutes(5)};
+    &kSmartRestart, "restart_delay", base::Minutes(1)};
 
 BASE_FEATURE(kSmartRestartLockScreen, base::FEATURE_DISABLED_BY_DEFAULT);
 

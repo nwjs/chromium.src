@@ -1903,14 +1903,18 @@ UIWindow* WindowWithAccessibilityIdentifier(NSString* accessibility_id) {
 
 #pragma mark - Tab Grid Selection Mode
 
-+ (id<GREYMatcher>)tabGridOverflowMenuCloseAllButton {
++ (id<GREYMatcher>)tabGridEditButton {
+  return grey_allOf(grey_accessibilityID(kTabGridEditButtonIdentifier), nil);
+}
+
++ (id<GREYMatcher>)tabGridEditMenuCloseAllButton {
   int ID = IDS_IOS_CONTENT_CONTEXT_CLOSEALLTABSANDGROUPS;
   return grey_allOf(
       [ChromeMatchersAppInterface contextMenuItemWithAccessibilityLabelID:ID],
       grey_sufficientlyVisible(), nil);
 }
 
-+ (id<GREYMatcher>)tabGridOverflowMenuSelectTabsButton {
++ (id<GREYMatcher>)tabGridSelectTabsMenuButton {
   return grey_allOf(
       [ChromeMatchersAppInterface contextMenuItemWithAccessibilityLabelID:
                                       (IDS_IOS_CONTENT_CONTEXT_SELECTTABS)],

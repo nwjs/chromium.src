@@ -60,6 +60,24 @@ bool IsPersonalContextEnabled(
   }
 }
 
+personal_context::proto::ContextMemoryAmbientAutofillRequest
+CreateAmbientAutofillRequest(base::span<EntityType> types,
+                             bool return_spii_presence) {
+  personal_context::proto::ContextMemoryAmbientAutofillRequest request;
+  for (const EntityType& type : types) {
+    request.add_requested_types(
+        AutofillEntityTypeToPersonalContextEntityType(type));
+  }
+  request.set_return_spii_presence(return_spii_presence);
+  return request;
+}
+
+bool IsPersonalContextSpiiType(EntityType type) {
+  return GetPersonalContextSpiiType(
+             type, EntityInstance::RecordType::kPersonalContext) ==
+         EntityInstance::PersonalContextSpiiType::kSpii;
+}
+
 }  // namespace
 
 PersonalContextAccessManagerImpl::PersonalContextAccessManagerImpl(
@@ -87,41 +105,69 @@ PersonalContextAccessManagerImpl::~PersonalContextAccessManagerImpl() = default;
 
 void PersonalContextAccessManagerImpl::PrefetchContext(
     base::span<const EntityType> requested_types) {
-  std::vector<EntityType> types_to_request;
+  // Types to request in Request 1 (which includes all non-SPII types and any
+  // SPII types for which we want to check presence signals).
+  std::vector<EntityType> non_spii_and_presence_to_request;
+  // SPII types for which we want to fetch the actual masked entity data in
+  // Request 2.
+  std::vector<EntityType> spii_to_request;
+
   for (const EntityType& type : requested_types) {
     if (ShouldRequestType(type)) {
-      types_to_request.push_back(type);
+      non_spii_and_presence_to_request.push_back(type);
       SetTypeStatus(type, RequestStatus::kPending);
+
+      if (IsPersonalContextSpiiType(type)) {
+        spii_to_request.push_back(type);
+      }
     }
   }
 
-  if (types_to_request.empty()) {
+  if (non_spii_and_presence_to_request.empty()) {
     NotifyPrefetchStatusObservers(base::span<const EntityInstance>());
     return;
   }
 
-  personal_context::proto::ContextMemoryAmbientAutofillRequest request;
-  for (const EntityType& type : types_to_request) {
-    request.add_requested_types(
-        AutofillEntityTypeToPersonalContextEntityType(type));
+  const bool has_spii_types = !spii_to_request.empty();
+
+  // Request 1: collects non-spii entities and asks for spii presence if any of
+  // the requested_types contains SPII types.
+  {
+    auto request =
+        CreateAmbientAutofillRequest(non_spii_and_presence_to_request,
+                                     /*return_spii_presence=*/has_spii_types);
+    personal_context_service_->FetchContext(
+        personal_context::proto::CONTEXT_MEMORY_FEATURE_AMBIENT_AUTOFILL,
+        request,
+        /*options=*/{},
+        base::BindOnce(
+            &PersonalContextAccessManagerImpl::OnPrefetchContextRequestComplete,
+            weak_factory_.GetWeakPtr(),
+            std::move(non_spii_and_presence_to_request),
+            /*requested_spii_presence=*/has_spii_types));
   }
 
-  personal_context_service_->FetchContext(
-      personal_context::proto::CONTEXT_MEMORY_FEATURE_AMBIENT_AUTOFILL, request,
-      /*options=*/{},
-      base::BindOnce(
-          &PersonalContextAccessManagerImpl::OnPrefetchContextRequestComplete,
-          weak_factory_.GetWeakPtr(), std::move(types_to_request)));
+  // Request 2: collects spii entities without asking for spii presence.
+  if (has_spii_types) {
+    auto request = CreateAmbientAutofillRequest(spii_to_request,
+                                                /*return_spii_presence=*/false);
+    personal_context_service_->FetchContext(
+        personal_context::proto::CONTEXT_MEMORY_FEATURE_AMBIENT_AUTOFILL,
+        request,
+        /*options=*/{},
+        base::BindOnce(
+            &PersonalContextAccessManagerImpl::OnPrefetchContextRequestComplete,
+            weak_factory_.GetWeakPtr(), std::move(spii_to_request),
+            /*requested_spii_presence=*/false));
+  }
 }
 
 void PersonalContextAccessManagerImpl::OnPrefetchContextRequestComplete(
     std::vector<EntityType> requested_types,
+    bool requested_spii_presence,
     personal_context::FetchContextResult result) {
   if (!result.response.has_value()) {
-    for (const EntityType& type : requested_types) {
-      SetTypeStatus(type, RequestStatus::kFailure);
-    }
-    NotifyPrefetchStatusObservers(std::nullopt);
+    HandleFailedResponse(requested_types, requested_spii_presence);
     return;
   }
 
@@ -131,14 +177,28 @@ void PersonalContextAccessManagerImpl::OnPrefetchContextRequestComplete(
           ExtractEntitiesFromResponse(result.response.value().value());
 
   if (!parsed_entities.has_value()) {
-    for (const EntityType& type : requested_types) {
-      SetTypeStatus(type, RequestStatus::kFailure);
-    }
-    NotifyPrefetchStatusObservers(std::nullopt);
+    HandleFailedResponse(requested_types, requested_spii_presence);
     return;
   }
 
-  ProcessPrefetchedEntities(std::move(*parsed_entities), requested_types);
+  std::vector<EntityType> prefetched_types;
+  std::vector<SpiiEntityPresenceSignal> presence_signals;
+
+  for (const EntityType& type : requested_types) {
+    if (!requested_spii_presence || !IsPersonalContextSpiiType(type)) {
+      prefetched_types.push_back(type);
+    }
+  }
+
+  for (const ParsedEntity& parsed_entity : *parsed_entities) {
+    if (const SpiiEntityPresenceSignal* signal =
+            std::get_if<SpiiEntityPresenceSignal>(&parsed_entity.instance)) {
+      presence_signals.push_back(*signal);
+    }
+  }
+
+  ProcessPrefetchedEntities(std::move(prefetched_types),
+                            std::move(*parsed_entities));
 }
 
 base::expected<std::vector<PersonalContextAccessManagerImpl::ParsedEntity>,
@@ -156,9 +216,17 @@ PersonalContextAccessManagerImpl::ExtractEntitiesFromResponse(
   std::vector<ParsedEntity> entities;
   entities.reserve(response.entities_size());
   for (const personal_context::proto::Entity& entity : response.entities()) {
-    if (std::optional<EntityInstance> converted =
-            PersonalContextEntityToEntityInstance(entity)) {
-      entities.push_back({std::move(*converted), std::move(entity)});
+    if (entity.entity_case() ==
+        personal_context::proto::Entity::kSensitivePiiPresence) {
+      if (std::optional<EntityType> type =
+              ToEntityType(entity.sensitive_pii_presence().type())) {
+        entities.push_back({*type, entity});
+      }
+    } else {
+      if (std::optional<EntityInstance> converted =
+              PersonalContextEntityToEntityInstance(entity)) {
+        entities.push_back({std::move(*converted), entity});
+      }
     }
   }
   return entities;
@@ -247,8 +315,7 @@ PersonalContextAccessManagerImpl::GetPrefetchStatusByEntityType(
 
 bool PersonalContextAccessManagerImpl::ServerHasDataAvailable(
     EntityType type) const {
-  // TODO(crbug.com/503303085): Implement this properly.
-  return false;
+  return spii_presence_signal_cache_.contains(type);
 }
 
 void PersonalContextAccessManagerImpl::ResetStateForType(EntityType type) {
@@ -260,6 +327,7 @@ void PersonalContextAccessManagerImpl::ResetStateForType(EntityType type) {
   base::EraseIf(unmasked_spii_cache_, [type](EntityInstance& entity) {
     return entity.type() == type;
   });
+
   prefetch_state_.erase(type);
   observers_.Notify(
       &PersonalContextAccessManager::Observer::OnMaskedEntityTypeEvicted, *this,
@@ -267,8 +335,8 @@ void PersonalContextAccessManagerImpl::ResetStateForType(EntityType type) {
 }
 
 void PersonalContextAccessManagerImpl::ProcessPrefetchedEntities(
-    std::vector<ParsedEntity> parsed_entities,
-    base::span<const EntityType> requested_types) {
+    std::vector<EntityType> requested_types,
+    std::vector<ParsedEntity> parsed_entities) {
   // Evict existing entities for the `requested_types`.
   for (EntityType type : requested_types) {
     ResetStateForType(type);
@@ -277,16 +345,23 @@ void PersonalContextAccessManagerImpl::ProcessPrefetchedEntities(
         FROM_HERE,
         base::BindOnce(&PersonalContextAccessManagerImpl::ResetStateForType,
                        weak_factory_.GetWeakPtr(), type),
-        kPrefetchedEntitiesCacheTTL);
+        kPrefetchedEntitiesAndSignalsCacheTTL);
   }
-  // Populate the proto cache and notify observers about the fetched entities.
+  // Populates the proto cache and notify observers about the fetched entities.
+  // Also cache presence signals.
   std::vector<EntityInstance> entities;
   entities.reserve(parsed_entities.size());
   for (ParsedEntity& entity : parsed_entities) {
-    prefetched_proto_cache_.emplace(entity.instance.guid(),
-                                    std::move(entity.proto));
-    entities.push_back(std::move(entity.instance));
+    if (const EntityInstance* e_instance =
+            std::get_if<EntityInstance>(&entity.instance)) {
+      prefetched_proto_cache_.emplace(e_instance->guid(),
+                                      std::move(entity.proto));
+      entities.push_back(std::move(*e_instance));
+    } else {
+      CachePresenceSignal(std::get<SpiiEntityPresenceSignal>(entity.instance));
+    }
   }
+
   NotifyPrefetchStatusObservers(entities);
 }
 
@@ -313,6 +388,28 @@ void PersonalContextAccessManagerImpl::CacheUnmaskedSpiiEntity(
       kUnmaskedSpiiCacheTTL);
 }
 
+void PersonalContextAccessManagerImpl::CachePresenceSignal(
+    SpiiEntityPresenceSignal signal) {
+  auto [it, inserted] = spii_presence_signal_cache_.insert(signal);
+  if (!inserted) {
+    return;
+  }
+  // Clear the cache entry after `kPrefetchedEntitiesAndSignalsCacheTTL`.
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(
+          [](base::WeakPtr<PersonalContextAccessManagerImpl> access_manager,
+             const SpiiEntityPresenceSignal signal_to_remove) {
+            if (!access_manager) {
+              return;
+            }
+            // Remove if exists.
+            access_manager->spii_presence_signal_cache_.erase(signal_to_remove);
+          },
+          weak_factory_.GetWeakPtr(), signal),
+      kPrefetchedEntitiesAndSignalsCacheTTL);
+}
+
 void PersonalContextAccessManagerImpl::WipeCache() {
   // Invalidate weak pointers to cancel any pending fetches.
   weak_factory_.InvalidateWeakPtrs();
@@ -323,6 +420,7 @@ void PersonalContextAccessManagerImpl::WipeCache() {
   for (EntityType type : prefetched_types) {
     ResetStateForType(type);
   }
+  spii_presence_signal_cache_.clear();
 }
 
 void PersonalContextAccessManagerImpl::OnEnablementStateChanged(
@@ -353,9 +451,8 @@ void PersonalContextAccessManagerImpl::SetTestingEntities(
         .proto = personal_context::proto::Entity(),
     });
   }
-  ProcessPrefetchedEntities(
-      std::move(parsed_entities),
-      std::vector<EntityType>(types.begin(), types.end()));
+  ProcessPrefetchedEntities(std::vector<EntityType>(types.begin(), types.end()),
+                            std::move(parsed_entities));
 }
 
 bool PersonalContextAccessManagerImpl::ShouldRequestType(
@@ -370,7 +467,7 @@ bool PersonalContextAccessManagerImpl::ShouldRequestType(
       return false;
     case RequestStatus::kSuccess:
       if (base::TimeTicks::Now() - request_state->last_update_time >
-          kPrefetchedEntitiesCacheTTL) {
+          kPrefetchedEntitiesAndSignalsCacheTTL) {
         return true;
       }
       return false;
@@ -408,6 +505,18 @@ void PersonalContextAccessManagerImpl::SetTypeStatus(EntityType type,
     case RequestStatus::kNotStarted:
       break;
   }
+}
+
+void PersonalContextAccessManagerImpl::HandleFailedResponse(
+    base::span<const EntityType> requested_types,
+    bool requested_spii_presence) {
+  for (const EntityType& type : requested_types) {
+    if (requested_spii_presence && IsPersonalContextSpiiType(type)) {
+      continue;
+    }
+    SetTypeStatus(type, RequestStatus::kFailure);
+  }
+  NotifyPrefetchStatusObservers({});
 }
 
 void PersonalContextAccessManagerImpl::NotifyPrefetchStatusObservers(

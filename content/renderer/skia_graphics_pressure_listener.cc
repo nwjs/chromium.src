@@ -35,9 +35,7 @@ SkiaGraphicsPressureListener::SkiaGraphicsPressureListener()
           "SkiaGraphics",
           kSkiaGraphicsTraits,
           this,
-          base::AsyncMemoryConsumerRegistration::CheckUnregister::kDisabled,
-          base::AsyncMemoryConsumerRegistration::CheckRegistryExists::
-              kDisabled) {}
+          base::AsyncMemoryConsumerRegistration::CheckUnregister::kDisabled) {}
 
 SkiaGraphicsPressureListener::~SkiaGraphicsPressureListener() = default;
 

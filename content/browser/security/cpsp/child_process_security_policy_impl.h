@@ -23,6 +23,7 @@
 #include "base/synchronization/lock.h"
 #include "base/thread_annotations.h"
 #include "base/time/time.h"
+#include "base/unguessable_token.h"
 #include "content/browser/can_commit_status.h"
 #include "content/browser/isolated_origin_util.h"
 #include "content/browser/isolation_context.h"
@@ -32,6 +33,7 @@
 #include "content/public/common/bindings_policy.h"
 #include "content/public/common/child_process_id.h"
 #include "storage/common/file_system/file_system_types.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 #include "url/origin.h"
 
 class GURL;
@@ -233,7 +235,9 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
                                const std::string& filesystem_id) override;
   bool HasWebUIBindings(int child_id) override;
   void GrantSendMidiMessage(int child_id) override;
+  void GrantSendMidiMessage_Cpp(int child_id);
   void GrantSendMidiSysExMessage(int child_id) override;
+  void GrantSendMidiSysExMessage_Cpp(int child_id);
   bool CanAccessDataForOrigin(int child_id, const url::Origin& origin) override;
   bool HostsOrigin(int child_id, const url::Origin& origin) override;
   void AddFutureIsolatedOrigins(
@@ -457,6 +461,20 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
       RenderProcessHost* process,
       const scoped_refptr<network::ResourceRequestBody>& body);
 
+  // Grants the network service the capability to upload a specific file on
+  // the browser's behalf. The owner_token ties the lifetime of the grant to
+  // an object (e.g. SimpleURLLoader) so it can be revoked when the object is
+  // destroyed.
+  void GrantFileForBrowserUpload(const base::UnguessableToken& owner_token,
+                                 const base::FilePath& file);
+
+  // Revokes all file accesses previously granted to the specific owner_token.
+  void RevokeFileForBrowserUpload(const base::UnguessableToken& owner_token);
+
+  // Verifies whether the browser process has granted the network service
+  // permission to upload the given file.
+  bool CanReadFileForBrowserUpload(const base::FilePath& file);
+
   // Pseudo schemes are treated differently than other schemes because they
   // cannot be requested like normal URLs.  There is no mechanism for revoking
   // pseudo schemes.
@@ -593,9 +611,11 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
 
   // Returns true if sending MIDI messages is allowed.
   bool CanSendMidiMessage(ChildProcessId child_id);
+  bool CanSendMidiMessage_Cpp(ChildProcessId child_id);
 
   // Returns true if sending system exclusive (SysEx) MIDI messages is allowed.
   bool CanSendMidiSysExMessage(ChildProcessId child_id);
+  bool CanSendMidiSysExMessage_Cpp(ChildProcessId child_id);
 
   // Remove all isolated origins associated with |browser_context| and clear any
   // pointers that may reference |browser_context|.  This is
@@ -1307,6 +1327,17 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
   // improvement, and with it the BrowsingInstance cleanup here can also be
   // improved.
   base::TimeDelta browsing_instance_cleanup_delay_;
+
+  // Tracks files that the browser process has granted permission to the
+  // network service to upload on the user's behalf.
+  //
+  // Each file path maps to a list of tokens representing the active requests
+  // that have been granted access to this file. A token is added when a request
+  // is created, and it is removed from all associated file paths when the
+  // request is destroyed. Access is allowed as long as the file is present in
+  // this map.
+  absl::flat_hash_map<base::FilePath, std::vector<base::UnguessableToken>>
+      browser_granted_files_ GUARDED_BY(lock_);
 };
 
 }  // namespace content

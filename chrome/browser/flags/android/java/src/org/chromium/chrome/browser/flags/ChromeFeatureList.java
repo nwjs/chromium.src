@@ -1164,6 +1164,8 @@ public abstract class ChromeFeatureList {
                     SESSION_RESTORE_AFTER_CRASH,
                     /* defaultValue= */ false,
                     /* defaultValueInTests= */ true);
+    public static final CachedFlag sSettingsInTab =
+            newCachedFlag(SETTINGS_IN_TAB, /* defaultValue= */ false);
     public static final CachedFlag sSettingsMultiColumn =
             newCachedFlag(SETTINGS_MULTI_COLUMN, /* defaultValue= */ true);
     public static final CachedFlag sSettingsSingleActivity =
@@ -1402,6 +1404,7 @@ public abstract class ChromeFeatureList {
                     sSearchInCCTIfEnabledByEmbedder,
                     sSendTabToSelfExtraEntryPoints,
                     sSessionRestoreAfterCrash,
+                    sSettingsInTab,
                     sSettingsMultiColumn,
                     sSettingsSingleActivity,
                     sShutdownPreNativeThreadPoolAfterStartup,

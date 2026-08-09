@@ -41,6 +41,7 @@
 #include "ui/accessibility/platform/browser_accessibility_manager_mac.h"
 #import "ui/base/clipboard/clipboard_util_mac.h"
 #import "ui/base/cocoa/appkit_utils.h"
+#import "ui/base/cocoa/menu_utils.h"
 #import "ui/base/cocoa/nsmenu_additions.h"
 #import "ui/base/cocoa/nsmenuitem_additions.h"
 #include "ui/base/cocoa/remote_accessibility_api.h"
@@ -263,6 +264,9 @@ void ExtractUnderlines(NSAttributedString* string,
 
   // Controlled by setShowingContextMenu.
   BOOL _showingContextMenu;
+
+  // Controlled by setSupportsAutoFill.
+  BOOL _supportsAutoFill;
 
   // Set during -setFrame to avoid spamming host_ with origin and size
   // changes.
@@ -978,6 +982,10 @@ static NSWindow* __weak _deferredResignKeyWindow;
     webEvent.SetTimeStamp(ui::EventTimeForNow());
   }
   _hostHelper->ForwardMouseEvent(webEvent);
+}
+
+- (void)setSupportsAutoFill:(BOOL)supports {
+  _supportsAutoFill = supports;
 }
 
 - (BOOL)shouldIgnoreMouseEvent:(NSEvent*)theEvent {
@@ -2430,6 +2438,11 @@ extern NSString* NSTextInputReplacementRangeAttributeName;
 // There is also a privacy risk if the composition candidate window shows your
 // password when the user is "composing" inside a password field. See
 // https://crbug.com/40759416 for more info.
+//
+// If AutoFill support has been disabled and we're currently showing a native
+// context menu, then we return nil in order to ensure that macOS does NOT add
+// any "AutoFill" items (contact, passwords, etc.) to the menu. This logic
+// mirrors `ui/views/cocoa/text_input_host.mm`.
 - (NSTextInputContext*)inputContext {
   if (_textInputType == ui::TEXT_INPUT_TYPE_NONE ||
       _textInputType == ui::TEXT_INPUT_TYPE_PASSWORD) {
@@ -2438,6 +2451,11 @@ extern NSString* NSTextInputReplacementRangeAttributeName;
 
   if (_textInputFlags & ui::TEXT_INPUT_FLAG_HAS_BEEN_PASSWORD ||
       _textInputFlags & ui::TEXT_INPUT_FLAG_HAS_BEEN_CUSTOM_PASSWORD) {
+    return nil;
+  }
+
+  if (!_supportsAutoFill &&
+      ui::GetActiveCocoaMenuAnchorLocation().has_value()) {
     return nil;
   }
 

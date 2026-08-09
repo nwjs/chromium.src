@@ -7,6 +7,7 @@
 #include "base/command_line.h"
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/task/task_traits.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "chrome/browser/glic/glic_pref_names.h"
@@ -18,6 +19,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/base/signin_metrics.h"
+#include "content/public/browser/browser_thread.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 
@@ -55,6 +57,8 @@ AuthController::AuthController(Profile* profile,
           std::make_unique<GlicCookieSynchronizer>(profile, identity_manager)),
       observation_(this) {
   observation_.Observe(identity_manager_);
+  token_change_sync_timer_.SetTaskRunner(
+      content::GetUIThreadTaskRunner({base::TaskPriority::BEST_EFFORT}));
   auto primary_account =
       identity_manager_->GetPrimaryAccountId(signin::ConsentLevel::kSignin);
   if (identity_manager_->GetErrorStateOfRefreshTokenForAccount(
@@ -116,6 +120,7 @@ void AuthController::CheckAuthBeforeLoad(
     return;
   }
 
+  token_change_sync_timer_.Stop();
   RecordCheckAuthBeforeLoadOutcome(CheckAuthBeforeLoadOutcome::kSyncAttempted);
   cookie_synchronizer_->CopyCookiesToWebviewStoragePartition(base::BindOnce(
       &AuthController::CookieSyncBeforeLoadDone, GetWeakPtr(),
@@ -178,17 +183,34 @@ void AuthController::OnRefreshTokenUpdatedForAccount(
       account_info.account_id) {
     return;
   }
-
-  if (base::FeatureList::IsEnabled(features::kGlicCookieSyncOnTokenChange)) {
-    profile_->GetPrefs()->SetBoolean(prefs::kGlicPartitionNeedsCookieSync,
-                                     true);
-    ForceSyncCookies(GlicCookieSyncTrigger::kOnRefreshTokenUpdated,
-                     base::DoNothing());
+  if (!base::FeatureList::IsEnabled(features::kGlicCookieSyncOnTokenChange)) {
+    return;
+  }
+  if (!identity_manager_->AreRefreshTokensLoaded() &&
+      !profile_->GetPrefs()->GetBoolean(prefs::kGlicPartitionNeedsCookieSync)) {
+    // Don't trigger sync at startup when loading existing refresh tokens,
+    // unless a sync is explicitly required.
+    return;
+  }
+  profile_->GetPrefs()->SetBoolean(prefs::kGlicPartitionNeedsCookieSync, true);
+  if (GetTokenState() == TokenState::kOk) {
+    base::TimeDelta delay = features::kGlicCookieSyncOnTokenChangeDelay.Get();
+    if (delay.is_positive()) {
+      token_change_sync_timer_.Start(
+          FROM_HERE, delay,
+          base::BindOnce(&AuthController::ForceSyncCookies, GetWeakPtr(),
+                         GlicCookieSyncTrigger::kOnRefreshTokenUpdated,
+                         base::DoNothing()));
+    } else {
+      ForceSyncCookies(GlicCookieSyncTrigger::kOnRefreshTokenUpdated,
+                       base::DoNothing());
+    }
   }
 }
 
 void AuthController::ForceSyncCookies(GlicCookieSyncTrigger trigger,
                                       base::OnceCallback<void(bool)> callback) {
+  token_change_sync_timer_.Stop();
   cookie_synchronizer_->CopyCookiesToWebviewStoragePartition(
       base::BindOnce(&AuthController::CookieSyncDone, GetWeakPtr(), trigger,
                      std::move(callback)));

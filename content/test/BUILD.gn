@@ -1623,6 +1623,7 @@ test("content_browsertests") {
     "../browser/loader/keep_alive_url_browsertest.cc",
     "../browser/loader/loader_browsertest.cc",
     "../browser/loader/navigation_early_hints_browsertest.cc",
+    "../browser/loader/navigation_fast_fetch_manager_browsertest.cc",
     "../browser/loader/prefetch_browsertest.cc",
     "../browser/loader/prefetch_browsertest_base.cc",
     "../browser/loader/prefetch_browsertest_base.h",
@@ -2315,9 +2316,7 @@ test("content_browsertests") {
       "//ui/events:motionevent_jni_headers",
       "//ui/touch_selection",
     ]
-    if (enable_javaless_renderers) {
-      deps += [ "//content/app:javaless_renderer" ]
-    }
+
     android_manifest =
         "${target_gen_dir}/content_browsertests_manifest/AndroidManifest.xml"
     android_manifest_dep = ":content_browsertests_manifest"
@@ -2798,6 +2797,7 @@ test("content_unittests") {
     "../browser/loader/keep_alive_url_loader_service_unittest.cc",
     "../browser/loader/merkle_integrity_source_stream_unittest.cc",
     "../browser/loader/navigation_early_hints_manager_unittest.cc",
+    "../browser/loader/navigation_fast_fetch_manager_unittest.cc",
     "../browser/loader/navigation_url_loader_impl_unittest.cc",
     "../browser/loader/navigation_url_loader_unittest.cc",
     "../browser/loader/prefetch_url_loader_unittest.cc",

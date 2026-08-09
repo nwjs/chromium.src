@@ -45,6 +45,7 @@ using chrome_test_util::SettingsDoneButton;
 using chrome_test_util::SettingsMenuBackButton;
 using chrome_test_util::SettingsToolbarAddButton;
 using chrome_test_util::SettingsToolbarEditButton;
+using chrome_test_util::TabGridEditButton;
 using policy_test_utils::SetPolicy;
 
 namespace {
@@ -93,6 +94,7 @@ NSString* TravelSectionTitle() {
 id<GREYMatcher> NavigationBarEditButton() {
   return grey_allOf(
       ButtonWithAccessibilityLabelId(IDS_IOS_NAVIGATION_BAR_EDIT_BUTTON),
+      grey_not(TabGridEditButton()),
       grey_not(grey_accessibilityTrait(UIAccessibilityTraitNotEnabled)), nil);
 }
 

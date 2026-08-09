@@ -6,16 +6,16 @@ package org.chromium.ui.accessibility.testservice;
 
 import android.os.Bundle;
 import org.chromium.ui.accessibility.testservice.NodeMatcher;
-import org.chromium.ui.accessibility.testservice.WaitForEventParams;
+import org.chromium.ui.accessibility.testservice.WaitForParams;
 
 interface IAccessibilityTestHelperService {
     /**
-     * Waits for an accessibility event matching the given query parameters.
-     * Returns true if the event is received within the timeout, false otherwise.
+     * Waits for an accessibility event/node matching the given query parameters.
+     * Returns true if the condition is met within the timeout, false otherwise.
      *
-     * @param params The event query parameters.
+     * @param params The wait parameters.
      */
-    boolean waitForEvent(in WaitForEventParams params);
+    boolean waitFor(in WaitForParams params);
 
     /**
      * Finds a node matching the matcher and performs the given action on it.

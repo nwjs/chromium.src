@@ -2533,7 +2533,7 @@ public class ChromeContextMenuPopulatorTest {
                 R.id.contextmenu_save_page,
                 R.id.contextmenu_share_page,
                 R.id.contextmenu_print_page,
-                R.id.contextmenu_lens_overlay,
+                R.id.contextmenu_search_tab_with_google_lens,
                 R.id.contextmenu_open_in_reading_mode
             },
         };

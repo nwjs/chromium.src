@@ -125,6 +125,7 @@
 <translation id="2120620239521071941">登出後，系統會將 <ph name="ITEMS_COUNT" /> 個項目從這個裝置上刪除。日後如要重新取得你的資料，請以 <ph name="USER_EMAIL" /> 身分登入 Chrome。</translation>
 <translation id="2121284319307530122">重新啟動以更新 &amp;Chrome</translation>
 <translation id="2123055963409958220">只要回報<ph name="BEGIN_LINK" />目前的設定<ph name="END_LINK" />，就能助我們一臂之力，讓 Chrome 更臻完美</translation>
+<translation id="2125838419757773031">選取畫面上的區域即可搜尋</translation>
 <translation id="2126108037660393668">下載的檔案驗證失敗。</translation>
 <translation id="2128411189117340671">管理 Chrome 設定檔</translation>
 <translation id="2137162749895930932">關閉翻譯畫面</translation>
@@ -259,9 +260,9 @@
 <translation id="3453763134178591239">Chrome OS 條款</translation>
 <translation id="3475778264501649775">使用手機版 Chrome，密碼、分頁等資料隨身帶著走</translation>
 <translation id="3503306920980160878">Chrome 需要位置資訊存取權，才能與這個網站分享你的位置資訊</translation>
-<translation id="3512495006767217696">Chrome 內建這項功能，能幫你建立、儲存及自動填入高強度密碼。建議新增捷徑，方便隨時使用</translation>
 <translation id="3539955434060988644">在 Chrome 無痕視窗中開啟連結(&amp;G)</translation>
 <translation id="354621070532799440">提醒：將 Google 最頂尖的安全防護功能帶在身邊</translation>
+<translation id="3547866758548131919">點選「摘要」按鈕，即可與 Chrome 內建 Gemini 分享這份文件，快速取得內容總覽並提出後續問題</translation>
 <translation id="3576528680708590453">系統管理員已設定 Google Chrome 開啟替代瀏覽器來存取 <ph name="TARGET_URL_HOSTNAME" />。</translation>
 <translation id="3582972582564653026">讓所有裝置保持同步，享有個人化的 Chrome 體驗</translation>
 <translation id="3583751698304738917">你已經以另一個 Chrome 設定檔的 <ph name="USER_EMAIL_ADDRESS" /> 身分登入</translation>
@@ -310,6 +311,7 @@
 <translation id="4012899077942246412">登入帳戶就能在 Chrome 使用 Google 帳戶儲存的密碼和其他資訊。如要變更，請前往「你在 Chrome 中的帳戶」。</translation>
 <translation id="4022972681110646219">翻譯這個畫面</translation>
 <translation id="4023601594785368013">原文語言：<ph name="LANGUAGE" /></translation>
+<translation id="4034249157893816477">Chrome 內建，能幫你建立、儲存及自動填入高強度密碼。建議新增捷徑，方便隨時使用。</translation>
 <translation id="4035053306113201399">Chrome OS 必須重新啟動，才能套用更新。</translation>
 <translation id="4050175100176540509">最新版本包含重要的安全性改善與新功能。</translation>
 <translation id="4053720452172726777">自訂及管理 Google Chrome</translation>
@@ -351,6 +353,7 @@
 <translation id="4400772909124543403">沒有可用的更新</translation>
 <translation id="4427306783828095590">進階防護功能可進一步封鎖網路詐騙和惡意軟體</translation>
 <translation id="4434353761996769206">安裝程式錯誤：<ph name="INSTALLER_ERROR" /></translation>
+<translation id="4437295824090654417">與 Chrome 內建 Gemini 分享這份文件，就能快速取得摘要並提出後續問題</translation>
 <translation id="4450664632294415862">Chrome - 網路登入 - <ph name="PAGE_TITLE" /></translation>
 <translation id="4458462641685292929">Google Chrome 正在執行另一項作業，請稍後再試。</translation>
 <translation id="4459234553906210702">廣告評估功能會允許你造訪的網站向 Chrome 要求資訊，以便協助網站評估自家廣告的成效。廣告評估功能會盡可能減少網站之間分享資訊的情況，藉此限制跨網站追蹤行為。</translation>
@@ -550,7 +553,6 @@ Google Chrome 無法復原你的設定。</translation>
 <translation id="6438015621983209660">在手機上使用 Chrome，享有更全面的安全瀏覽強化防護功能</translation>
 <translation id="6442774133615368941">在 Chrome iOS 應用程式使用相機購物、翻譯及辨識所見事物</translation>
 <translation id="6448835208126432197">如要在 Chrome 內建 Gemini 中選取部分畫面，請使用鍵盤快速鍵。</translation>
-<translation id="6473659734176498825">這張簡化示意圖呈現 Chrome 的 Google 密碼管理工具進入點</translation>
 <translation id="6473905796280459355">前往「關於 Chrome」頁面</translation>
 <translation id="6481963882741794338">連結 Chrome 和其他 Google 服務，用於個人化等用途</translation>
 <translation id="648319183876919572">安全瀏覽強化防護功能可進一步協助你防範危險的網站和下載內容</translation>
@@ -695,7 +697,6 @@ Google Chrome 無法復原你的設定。</translation>
 <translation id="7804364787702057554">你在 Chrome 中的帳戶</translation>
 <translation id="7804947029129221742">搜尋引擎被 Chrome 以外的程式變更。Chrome 已將這項設定重設為原始預設值，保護你的安全。<ph name="LEARN_MORE_LINK" /></translation>
 <translation id="7808348361785373670">從 Chrome 中移除...</translation>
-<translation id="7812800388699096556">插圖顯示如何使用 Google 智慧鏡頭查詢產品</translation>
 <translation id="7827099906024714326">Chrome 必須先驗證身分，才能將這些資料儲存到 Google 帳戶，讓你在所有裝置上使用。如果現在登出，系統將刪除這類資料。</translation>
 <translation id="7832314606810669113">如要在所有裝置上存取書籤和其他資料，請登入 Chrome。登入後，這個書籤就會儲存到 Google 帳戶。</translation>
 <translation id="7845233973568007926">感謝你安裝本服務。你必須重新啟動電腦，才能使用 <ph name="BUNDLE_NAME" />。</translation>
@@ -783,6 +784,7 @@ Google Chrome 無法復原你的設定。</translation>
 <translation id="8601359445272098721">新功能！點選「翻譯畫面」按鈕即可翻譯畫面上的文字和圖片</translation>
 <translation id="8614913330719544658">Google Chrome 沒有回應，要立即重新啟動嗎？</translation>
 <translation id="861702415419836452">Chrome 需要取得攝影機權限，才能根據你的周遭環境建立 3D 地圖</translation>
+<translation id="8623450603356630491">在手機上登入 Chrome</translation>
 <translation id="8624541899164515475">設定，在新分頁中開啟。</translation>
 <translation id="8625237574518804553">{0,plural, =1{Chrome 將在 1 分鐘後重新啟動}other{Chrome 將在 # 分鐘後重新啟動}}</translation>
 <translation id="8637932705841171563">如要分享視窗內容，請前往「系統設定」允許 Chrome 螢幕錄影</translation>

@@ -310,6 +310,12 @@ class ContextualTasksInteractiveUiTest : public InteractiveBrowserTest {
     EXPECT_CALL(*mock_aim, GetSearchboxConfig())
         .WillRepeatedly(testing::Return(config));
 
+    ON_CALL(*mock_aim, IsAimUrl(_, _))
+        .WillByDefault(
+            [](const GURL& url, std::optional<std::string> host_override) {
+              return url.host().find(kMockAimPageHost) != std::string::npos;
+            });
+
     // Satisfy the native navigation interception checks.
     EXPECT_CALL(*mock_aim, HasAimUrlParams(_))
         .WillRepeatedly(testing::Return(true));
@@ -878,7 +884,7 @@ class ContextualTasksInteractiveUiTest : public InteractiveBrowserTest {
 
 // TODO(crbug.com/500717050): Parameterize this test suite on the feature flag.
 // TODO(crbug.com/524797987): Re-enable this test.
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN)
 #define MAYBE_AddAndRemovePdfChipFromComposebox \
   DISABLED_AddAndRemovePdfChipFromComposebox
 #else
@@ -934,7 +940,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksInteractiveUiTest,
 }
 
 // TODO(crbug.com/524797987): Re-enable this test.
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN)
 #define MAYBE_AddAndRemoveImageChipFromComposebox \
   DISABLED_AddAndRemoveImageChipFromComposebox
 #else
@@ -2286,10 +2292,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksInteractiveUiTest,
   ContextualTasksPanelController* coordinator =
       ContextualTasksPanelController::From(browser());
 
-  // Context Management will not show tabs as chips.
-  const int expected_turn2_viewport_image_count =
-      base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox) ? 1
-                                                                            : 0;
+  const int expected_turn2_viewport_image_count = 0;
 
   RunTestSequence(
       InstrumentTab(kPrimaryTab, 0), Do([&]() {

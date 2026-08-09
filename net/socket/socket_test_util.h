@@ -829,7 +829,7 @@ class SocketDataProviderArray {
   size_t next_index_ = 0;
 
   // SocketDataProviders to be returned.
-  std::vector<T*> data_providers_;
+  std::vector<raw_ptr<T, DanglingUntriaged>> data_providers_;
 };
 
 class MockUDPClientSocket;

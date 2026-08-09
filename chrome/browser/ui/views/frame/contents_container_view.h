@@ -139,7 +139,7 @@ class ContentsContainerView : public views::View,
   void SetTargetContentBounds(
       std::optional<gfx::Outsets> target_contents_bounds);
 
-  void SetDefaultRoundedCorners(const gfx::RoundedCornersF& corner_overrides);
+  void SetRoundedCorners(const gfx::RoundedCornersF& corner_radii);
 
   views::View* GetToastAnchorView() { return toast_anchor_view_; }
 
@@ -152,8 +152,7 @@ class ContentsContainerView : public views::View,
   void UpdateDevToolsDockedPlacement();
 
   void UpdateBorderRoundedCorners();
-  void ResetBorderRoundedCorners();
-  void SetBorderRoundedCornersFrom(const gfx::RoundedCornersF& default_corners);
+  void SetBorderRoundedCornersFrom(const gfx::RoundedCornersF& corner_radii);
 
   // views::View:
   void ChildVisibilityChanged(View* child) override;
@@ -238,9 +237,8 @@ class ContentsContainerView : public views::View,
   // browser animations (see `SetTargetContentWidth()`).
   mutable gfx::Rect contents_clip_rect_;
 
-  // This is used in Glass mode to cut out part of the UI to show the glass
-  // frame. These values will be used as a minimum.
-  gfx::RoundedCornersF rounded_corner_overrides_;
+  // This is rounded corner radii that will be used.
+  gfx::RoundedCornersF rounded_corner_radii_;
 
   DevToolsContentsResizingStrategy strategy_;
   base::ScopedObservation<View, ViewObserver> view_bounds_observer_{this};

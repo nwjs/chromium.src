@@ -106,13 +106,28 @@ const gfx::VectorIcon& GetSharingDeviceIcon(
 
 }  // namespace
 
+void MarkEntryMatchingGuidActivated(Profile* profile,
+                                    const std::string& guid,
+                                    ShareActivatedEntryPoint entry_point) {
+  auto* sync_service = SendTabToSelfSyncServiceFactory::GetForProfile(profile);
+  SendTabToSelfModel* model =
+      sync_service ? sync_service->GetSendTabToSelfModel() : nullptr;
+  if (model) {
+    model->MarkEntryActivated(guid, entry_point);
+  }
+}
+
 base::WeakPtr<content::WebContents> OpenEntryInNewForegroundTab(
     Profile* profile,
     const SendTabToSelfEntry& entry,
     ShareActivatedEntryPoint entry_point) {
-  RecordActivatedEntryPoint(entry_point);
-  return OpenEntryInNewTabWithDisposition(
-      profile, entry, WindowOpenDisposition::NEW_FOREGROUND_TAB);
+  base::WeakPtr<content::WebContents> web_contents =
+      OpenEntryInNewTabWithDisposition(
+          profile, entry, WindowOpenDisposition::NEW_FOREGROUND_TAB);
+  if (web_contents) {
+    MarkEntryMatchingGuidActivated(profile, entry.GetGUID(), entry_point);
+  }
+  return web_contents;
 }
 
 base::WeakPtr<content::WebContents> OpenEntryInNewBackgroundTab(
@@ -122,7 +137,8 @@ base::WeakPtr<content::WebContents> OpenEntryInNewBackgroundTab(
       OpenEntryInNewTabWithDisposition(
           profile, entry, WindowOpenDisposition::NEW_BACKGROUND_TAB);
   if (web_contents) {
-    SendTabToSelfActivationTracker::CreateForWebContents(web_contents.get());
+    SendTabToSelfActivationTracker::CreateForWebContents(web_contents.get(),
+                                                         entry.GetGUID());
   }
   return web_contents;
 }

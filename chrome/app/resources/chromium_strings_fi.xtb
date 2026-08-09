@@ -30,11 +30,11 @@
 <translation id="126567311906253476">Kun kirjaudut Googlen palveluihin (esim. Gmailiin tai YouTubeen) tilillä <ph name="USER_EMAIL" />, voit kirjautua Chromiumiin automaattisesti samalla tilillä</translation>
 <translation id="1287534462498555020">Lataa Chromium puhelimelle</translation>
 <translation id="1290883685122687410">Käyttöönottovirhe: <ph name="METAINSTALLER_EXIT_CODE" />. <ph name="WINDOWS_ERROR" /></translation>
-<translation id="1312200348844120300">Kuva, jossa näkyy, miten voit hakea tuotetta kuvahaulla</translation>
 <translation id="1315551408014407711">Luo uusi Chromium-profiili</translation>
 <translation id="132092532143527429">Kokeile Gemini in Chromiumilla</translation>
 <translation id="1324107359134968521">Chromium tarvitsee pääsyn Bluetoothiin etsiäkseen
  Bluetooth-laitteita. <ph name="IDS_SERIAL_DEVICE_CHOOSER_AUTHORIZE_BLUETOOTH_LINK" /></translation>
+<translation id="1329040302064168406">Kirjaudu Chromiumiin puhelimella</translation>
 <translation id="1330562121671411446">Tunnista kieli</translation>
 <translation id="1330742950061766891">Käytä Chromiumin suositeltuja selainasetuksia</translation>
 <translation id="1342274909142618978">Poista data myös Chromiumista (<ph name="URL" />)</translation>
@@ -100,12 +100,14 @@
 <translation id="2018879682492276940">Asennus epäonnistui. Yritä uudelleen.</translation>
 <translation id="2039417478970545937">Asetukset.</translation>
 <translation id="2049376729098081731">Valitse, käytetäänkö Chromium-historiaa personoituun kokemukseen Google-palveluissa</translation>
+<translation id="2050698962207788467">Sisäänrakennettu Chromiumiin, jotta voit luoda, tallentaa ja täyttää vahvoja salasanoja automaattisesti. Lisää pikakuvake, niin pääset siihen helposti.</translation>
 <translation id="2064856577282482477">Muokkaa Chromiumia klikkaamalla Uusi välilehti ‐sivun Yksilöi Chromiumia ‑painiketta</translation>
 <translation id="2066690553719545730">Näytä aina tekoälytila</translation>
 <translation id="2086476982681781442">Chromium on estänyt tämän latauksen, koska tiedosto on harhaanjohtava ja se voi tehdä odottamattomia muutoksia laitteellesi</translation>
 <translation id="208726765006323911">Näet kehotteen kokeilla ominaisuutta (<ph name="FEATURE_NAME" />) seuraavan kerran, kun avaat Chromiumin iOS:llä.</translation>
 <translation id="2099452623287920103">Salasanat ja muu Chromium-data tallennetaan Google-tilillesi ja poistetaan tältä laitteelta. Jos haluat käyttää niitä uudelleen Chromiumissa, kirjaudu takaisin sisään.</translation>
 <translation id="2120965832000301375">{COUNT,plural, =1{Organisaatiosi poistaa selausdatan automaattisesti, kun Chromiumia ei ole käytetty 1 minuuttiin. Tämä voi sisältää historian, automaattisen täytön ja lataukset. Välilehdet pysyvät auki.}other{Organisaatiosi poistaa selausdatan automaattisesti, kun Chromiumia ei ole käytetty # minuuttiin. Tämä voi sisältää historian, automaattisen täytön ja lataukset. Välilehdet pysyvät auki.}}</translation>
+<translation id="2125838419757773031">Valitse näytön alue, jota haluat hakea</translation>
 <translation id="2126108037660393668">Ladattua tiedostoa ei voitu vahvistaa.</translation>
 <translation id="2135919691573380097">Ilmoita sivustosta</translation>
 <translation id="2137162749895930932">Sulje käännösnäyttö</translation>
@@ -138,6 +140,7 @@
 <translation id="2401032172288869980">Chromium tarvitsee kameran ja mikrofonin luvan tällä sivustolla</translation>
 <translation id="2403703063067034158">Käynnistysvirhe: toinen käyttöönotto on käynnissä, yritä myöhemmin uudelleen.</translation>
 <translation id="2418322681019544463">Avaa linkkejä Chromiumissa mistä tahansa sovelluksesta ja pidä selain käytettävissä tehtäväpalkissa</translation>
+<translation id="2425157128016763890">Klikkaa Tee yhteenveto ‐painiketta, niin voit jakaa dokumentin Gemini in Chromiumille, saada nopean yleiskatsauksen ja esittää jatkokysymyksiä</translation>
 <translation id="2440750600860946460"><ph name="BEGIN_LINK" />Chromiumin työkalujen<ph name="END_LINK" /> avulla voit selata turvallisesti ja pitää ohjat omissa käsissäsi</translation>
 <translation id="2451727308784734061">Käytä Salasanoja nopeasti pikakuvakkeen avulla. Voit siirtää pikakuvakkeen tietokoneen aloitusnäytölle tai sovelluksien käynnistysohjelmaan.</translation>
 <translation id="2478295928299953161">Chromium suljetaan pian</translation>
@@ -236,7 +239,6 @@
 <translation id="3387527074123400161">Chromium-käyttöjärjestelmä</translation>
 <translation id="3406848076815591792">Vaihdetaanko nykyiseen Chromium-profiiliin?</translation>
 <translation id="3412460710772753638">Googlen Salasanojen ylläpidossa tällä laitteella</translation>
-<translation id="3423442168617177595">Sisäänrakennettu Chromiumiin, jotta voit luoda, tallentaa ja täyttää vahvoja salasanoja automaattisesti. Lisää pikakuvake, niin pääset siihen helposti</translation>
 <translation id="3455907671758333080">Laajenna parannettua selaussuojaa Chromiumin avulla puhelimella</translation>
 <translation id="3461644266919055473">Muokataan Chromiumia…</translation>
 <translation id="3474745554856756813">Tämä poistaa <ph name="ITEMS_COUNT" /> kohdetta pysyvästi laitteelta. Jos haluat palauttaa tiedot myöhemmin, kirjaudu Chromiumiin käyttäjänä <ph name="USER_EMAIL" />.</translation>
@@ -506,7 +508,6 @@ Jos tämä sivu ei toimi odotetulla tavalla, kokeile sallia optimointi.</transla
 <translation id="6400112897226594999">Chromium-logo tietokoneen näytöllä.</translation>
 <translation id="6403826409255603130">Chromium on selain, jolla verkkosivut ja sovellukset toimivat salamannopeasti. Se on nopea, vakaa ja helppokäyttöinen. Chromiumin sisäänrakennettu haittaohjelma- ja tietojenkalastelusuojaus tekevät verkkoselauksesta turvallisempaa.</translation>
 <translation id="6414624068245092115">Vahvista henkilöllisyytesi, jotta voit aina käyttää ja tallentaa Chromium-dataa Google-tililläsi</translation>
-<translation id="6417332166651156371">Yksinkertaistettu kuva, jossa näkyy Salasanojen aloituskohta Chromiumissa</translation>
 <translation id="642132557830635295">Chromium toimii nopeammin ja JavaScriptiä käyttävien ominaisuuksien pitäisi toimia suunnitellusti</translation>
 <translation id="6436260184216827876">Kuvahaku ei ole käytettävissä. Yritä myöhemmin uudelleen.</translation>
 <translation id="6442900851116057561">Käynnistä Chromium-käyttöjärjestelmä uudelleen</translation>
@@ -688,6 +689,7 @@ Chromium ei voi palauttaa asetuksiasi.</translation>
 <translation id="8107060931443639922">Seuraavan kerran kun avaat Chromiumin laitteella (<ph name="DEVICE_TYPE" />), näet kehotteen ottaa käyttöön hintaseurantailmoitukset.</translation>
 <translation id="8117908349476699973">Chromium-sovelluksella saat ilmoituksia sinua kiinnostavien tuotteiden hinnanlaskuista puhelimella</translation>
 <translation id="8118331347066725040">Lähetä palautetta Lensillä hakemisesta</translation>
+<translation id="8130609355518033382">Yksilöi Chromiumia</translation>
 <translation id="8133124826068723441">Chromium-käyttöjärjestelmä ei voi synkronoida dataa, koska synkronointi ei ole käytettävissä verkkotunnuksessasi.</translation>
 <translation id="813913629614996137">Alustetaan…</translation>
 <translation id="8161503455832158203">Avaa Gemini in Chromium pikanäppäimellä.</translation>
@@ -751,6 +753,7 @@ Chromium ei voi palauttaa asetuksiasi.</translation>
 <translation id="878572486461146056">Asennusvirhe: Verkon järjestelmänvalvojan käyttämä ryhmäkäytäntö estää asennuksen: <ph name="INSTALL_ERROR" /></translation>
 <translation id="8796602469536043152">Chromium tarvitsee oikeuden käyttää kameraasi ja mikrofoniasi tällä sivustolla.</translation>
 <translation id="8813277370772331957">Muistuta myöhemmin</translation>
+<translation id="8816416449795340678">Jaa tämä dokumentti Gemini in Chromiumille, niin saat nopean yleiskatsauksen ja voit esittää jatkokysymyksiä</translation>
 <translation id="8818550178040858407">Haluatko kirjautua Chromiumiin?</translation>
 <translation id="8823401858233292222">Tee Chromiumista oletusselain ja kiinnitä se tehtäväpalkkiin</translation>
 <translation id="8826492472752484139">Klikkaa Salasanat</translation>

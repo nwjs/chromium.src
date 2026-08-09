@@ -2156,6 +2156,10 @@ void ClientSideDetectionHost::OnIntelligentScanDone(
   if (response.execution_success) {
     intelligent_scan_info.set_brand(response.brand);
     intelligent_scan_info.set_intent(response.intent);
+    if (base::FeatureList::IsEnabled(kClientSideDetectionScamScore) &&
+        response.scam_score.has_value()) {
+      intelligent_scan_info.set_scam_score(response.scam_score.value());
+    }
   } else {
     intelligent_scan_info.set_no_info_reason(response.no_info_reason);
   }

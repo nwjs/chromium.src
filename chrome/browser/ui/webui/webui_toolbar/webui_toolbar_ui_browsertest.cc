@@ -172,6 +172,7 @@ class MockToolbarUIDelegate
   MOCK_METHOD(void, SetAvatarButtonHovered, (bool));
   MOCK_METHOD(void, SetAvatarButtonFocused, (bool));
   MOCK_METHOD(void, SetAvatarButtonIPHPromoShowing, (bool));
+  MOCK_METHOD(void, OnAppMenuFocusChanged, (bool), (override));
 };
 
 // Test fixture for WebUIToolbarUI. These tests test the connectivity between

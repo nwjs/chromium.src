@@ -344,6 +344,10 @@ BASE_FEATURE_ENUM_PARAM(FontDataServiceTypefaceType,
 #endif  // BUILDFLAG(IS_LINUX)
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 
+// When enabled, route CSS local() font lookups through FontDataService.
+BASE_FEATURE(kFontDataServiceForCSSLocalFonts,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 bool IsFontDataServiceEnabled() {
 #if BUILDFLAG(IS_WIN)
@@ -541,6 +545,12 @@ BASE_FEATURE_PARAM(size_t,
                    &kMultipleSpareRPHs,
                    "count",
                    1u);
+
+// When enabled, performs a dry run of the Navigation Fast Fetch feature.
+// It determines eligibility of navigations and records metrics to measure
+// the potential benefit of fetching document resources early, without
+// actually performing the fetching.
+BASE_FEATURE(kNavigationFastFetchDryRun, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, NavigationThrottleRunner2 is used instead of the original
 // NavigationThrottleRunner. See https://crbug.com/422003056.

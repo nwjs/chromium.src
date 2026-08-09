@@ -845,6 +845,9 @@ Chromium is unable to recover your settings.
         <message name="IDS_PDF_GLIC_SUMMARIZE_IPH_TEXT_NEW" desc="Text of the In Product Help message shown for the button to summarize PDF.">
           Share this document with Gemini in Chromium to get a quick overview and ask follow-up questions
         </message>
+        <message name="IDS_PDF_GLIC_SUMMARIZE_IPH_TEXT_NEW_SCREENREADER" desc="The screenreader text of the In Product Help message shown for the button to summarize PDF." is_accessibility_with_no_ui="true">
+          Click the Summarize button to share this document with Gemini in Chromium to get a quick overview and ask follow-up questions
+        </message>
       </if>
       <!-- Download Bubble Items -->
       <message name="IDS_DOWNLOAD_BUBBLE_SUBPAGE_SUMMARY_UNKNOWN_SOURCE"
@@ -2687,10 +2690,7 @@ Chromium is unable to recover your settings.
           Stay safe with Password Manager
         </message>
         <message name="IDS_FEATURE_SHOWCASE_PASSWORD_MANAGER_SUBTITLE" desc="Description for the Password Manager page in the Feature Showcase.">
-          Built into Chromium to help you create, save, and autofill strong passwords. Add the shortcut for easy access
-        </message>
-        <message name="IDS_FEATURE_SHOWCASE_PASSWORD_MANAGER_ILLUSTRATION_A11Y_LABEL" desc="Accessibility label for the illustration on the Password Manager page in the Feature Showcase.">
-          A simplified image showing the Password Manager entry point in Chromium
+          Built into Chromium to help you create, save, and autofill strong passwords. Add the shortcut for easy access.
         </message>
 
         <!-- Feature Showcase - Lens -->
@@ -2699,9 +2699,6 @@ Chromium is unable to recover your settings.
         </message>
         <message name="IDS_FEATURE_SHOWCASE_LENS_OVERLAY_DISCLOSURE" desc="This is a technical disclosure for the Lens Overlay. It specifies that PDFs are also part of the shared data. The tone should be informative.">
           When you use Image Search on desktop, the page title, URL, and content, including PDFs, are sent to the server
-        </message>
-        <message name="IDS_FEATURE_SHOWCASE_LENS_OVERLAY_ILLUSTRATION_A11Y_LABEL" desc="Accessibility label for the illustration on the Lens Overlay page in the Feature Showcase.">
-          An illustration showing how you can use Image Search to look up a product
         </message>
       </if>
 
@@ -3269,34 +3266,14 @@ Chromium is unable to recover your settings.
         </message>
 
         <message name="IDS_DICTATION_ONBOARDING_TITLE" desc="The title string in the onboarding dialog for the dictation feature." translateable="false">
-          Turn your spoken thoughts into polished text with Chromium.
+          Turn your spoken thoughts into polished text with Chromium
         </message>
         <message name="IDS_DICTATION_ONBOARDING_BULLET_MICROPHONE" desc="The first paragraph in the onboarding dialog describing how the microphone is used." translateable="false">
           Chromium will use your microphone to capture your voice and fill in text fields with cleaned up text.
         </message>
-        <message name="IDS_DICTATION_ONBOARDING_BULLET_DATA_SHARING" desc="The second paragraph in the onboarding dialog describing data sharing with Google servers." translateable="false">
-          Your spoken audio, the transcribed text, and the content and URL of the page you're interacting with will be sent to Google.
-        </message>
         <message name="IDS_DICTATION_ONBOARDING_BULLET_DISCLAIMER" desc="The disclaimer text in the onboarding dialog describing the use of AI and potential for mistakes and providing a link for more details." translateable="false">
-          Chromium uses AI can make mistakes. <ph name="LEARN_MORE_LINK">$1<ex>Learn more</ex></ph>
+          Dictation uses AI and can make mistakes. <ph name="LEARN_MORE_LINK">$1<ex>Learn more</ex></ph>
         </message>
-        <message name="IDS_DICTATION_ONBOARDING_BUTTON_ACCEPT" desc="Button label on the onboarding dialog to confirm the provided information and use the feature." translateable="false">
-          Ok, got it
-        </message>
-        <!--
-          <message uses IDS_NO_THANKS from components/component_strings.grd>
-            No thanks
-          </message>
-        -->
-
-        <message name="IDS_DICTATION_BUTTON_START" desc="Button label on the dictation UI that turns on the microphone to start dictating text." translateable="false">
-          Start
-        </message>
-        <!--
-          <message uses IDS_DONE from components/component_strings.grd>
-            DONE
-          </message>
-        -->
       </if>
 
       <!--Desktop to iOS promo strings-->

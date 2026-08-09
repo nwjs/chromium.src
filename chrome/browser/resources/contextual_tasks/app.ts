@@ -14,6 +14,7 @@ type ContextualTasksComposeboxElement = any;
 
 // <if expr="not is_android">
 // TODO(crbug.com/511383725): Support onboarding tooltip on Android.
+import './lens_search_tooltip.js';
 import './onboarding_tooltip.js';
 import './banner_promo.js';
 import '//resources/cr_components/composebox/contextual_entrypoint_and_menu.js';
@@ -23,6 +24,7 @@ import type {ContextualActionMenuElement} from '//resources/cr_components/compos
 import type {ContextualEntrypointAndMenuElement} from '//resources/cr_components/composebox/contextual_entrypoint_and_menu.js';
 import {HelpBubbleMixinLit} from 'chrome://resources/cr_components/help_bubble/help_bubble_mixin_lit.js';
 
+import type {ContextualTasksLensSearchTooltipElement} from './lens_search_tooltip.js';
 import type {ContextualTasksOnboardingTooltipElement} from './onboarding_tooltip.js';
 // </if>
 
@@ -110,6 +112,7 @@ export interface ContextualTasksAppElement {
     // <if expr="not is_android">
     // TODO(crbug.com/511383725): Support onboarding tooltip on Android.
     onboardingTooltip?: ContextualTasksOnboardingTooltipElement,
+    lensSearchTooltip?: ContextualTasksLensSearchTooltipElement,
     // </if>
   };
 }
@@ -261,6 +264,11 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
         type: Boolean,
         value: loadTimeData.getBoolean('showOnboardingTooltip'),
       },
+      showLensSearchTooltip_: {
+        type: Boolean,
+        value: loadTimeData.getBoolean('askGCoBrowseEnabled'),
+      },
+      lensSearchTooltipShowing_: {type: Boolean},
       energyEffectEnabled_: {
         type: Boolean,
         reflect: true,
@@ -291,6 +299,10 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
       loadTimeData.getBoolean('energyEffectEnabled');
   protected accessor showOnboardingTooltip_: boolean =
       loadTimeData.getBoolean('showOnboardingTooltip');
+  protected accessor showLensSearchTooltip_: boolean =
+      loadTimeData.getBoolean('askGCoBrowseEnabled');
+  protected accessor lensSearchTooltipShowing_: boolean = false;
+
   protected accessor showSmartTabSharingTryItIph_: boolean = false;
   protected accessor showSmartTabSharingDefaultOnIph_: boolean = false;
   protected accessor onboardingTooltipShowing_: boolean = false;
@@ -617,17 +629,23 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
     // Fetch the initial common search params.
     this.updateCommonSearchParams();
 
-    // Listeners for ghost loader
-    this.$.threadFrame.addEventListener(
-        'loadstart', this.onThreadFrameLoadStart.bind(this));
-    this.$.threadFrame.addEventListener(
-        'loadredirect', this.onThreadFrameLoadRedirect.bind(this));
-    this.$.threadFrame.addEventListener(
-        'loadabort', this.onThreadFrameLoadAbort.bind(this));
-    this.$.threadFrame.addEventListener(
-        'loadcommit', this.onThreadFrameLoadCommit.bind(this));
-    this.$.threadFrame.addEventListener(
-        'contentload', this.onThreadFrameContentLoad.bind(this));
+    // Listeners for ghost loader. Registered via eventTracker_ so that
+    // removeThreadFrameListenersForTesting() can detach them.
+    this.eventTracker_.add(
+        this.$.threadFrame, 'loadstart',
+        this.onThreadFrameLoadStart.bind(this));
+    this.eventTracker_.add(
+        this.$.threadFrame, 'loadredirect',
+        this.onThreadFrameLoadRedirect.bind(this));
+    this.eventTracker_.add(
+        this.$.threadFrame, 'loadabort',
+        this.onThreadFrameLoadAbort.bind(this));
+    this.eventTracker_.add(
+        this.$.threadFrame, 'loadcommit',
+        this.onThreadFrameLoadCommit.bind(this));
+    this.eventTracker_.add(
+        this.$.threadFrame, 'contentload',
+        this.onThreadFrameContentLoad.bind(this));
     this.eventTracker_.add(window, 'message', (event: MessageEvent) => {
       if (event.data === 'domContentLoaded') {
         this.isDomContentLoaded_ = true;
@@ -750,6 +768,12 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
     this.postMessageHandler_.setInputPlateBoundsUpdateCallback(
         this.onInputPlateBoundsUpdate_.bind(this));
 
+    this.postMessageHandler_.setInputStateUpdateCallback(
+        (toolMode?: number, modelMode?: number,
+         data?: Record<string, unknown>) => {
+          this.composebox_?.onInputStateUpdate(toolMode, modelMode, data);
+        });
+
     this.eventTracker_.add(
         composebox, 'context-menu-opened',
         () => this.onComposeboxContextMenuOpened_());
@@ -840,15 +864,31 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
     // Tooltip not supported on Android. Therefore, make calls to this method
     // a no-op.
     // <if expr="not is_android">
-    const tooltip = this.$.onboardingTooltip;
+    const onboardingTooltip =
+        this.shadowRoot?.querySelector<ContextualTasksOnboardingTooltipElement>(
+            '#onboardingTooltip') || null;
+    const lensSearchTooltip =
+        this.shadowRoot?.querySelector<ContextualTasksLensSearchTooltipElement>(
+            '#lensSearchTooltip') || null;
+
     const composeboxContainer = this.composebox_;
     if (!composeboxContainer) {
       return;
     }
     const crComposebox = this.composebox_.getComposebox();
-    if (tooltip && crComposebox) {
-      tooltip.updateTooltipVisibility(composeboxContainer, crComposebox);
-      this.onboardingTooltipShowing_ = tooltip.shouldShow;
+    if (!crComposebox) {
+      return;
+    }
+
+    if (onboardingTooltip) {
+      onboardingTooltip.updateTooltipVisibility(composeboxContainer, crComposebox);
+      this.onboardingTooltipShowing_ = onboardingTooltip.shouldShow;
+    }
+
+
+    if (lensSearchTooltip) {
+      lensSearchTooltip.updateTooltipVisibility(composeboxContainer, crComposebox);
+      this.lensSearchTooltipShowing_ = lensSearchTooltip.shouldShow;
     }
     // </if>
   }
@@ -856,6 +896,11 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
   protected onOnboardingTooltipDismissed_() {
     this.onboardingTooltipShowing_ = false;
   }
+
+  protected onLensSearchTooltipDismissed_() {
+    this.lensSearchTooltipShowing_ = false;
+  }
+
 
   private playZeroStateAnimations_() {
     this.clearZeroStateAnimations_();
@@ -1049,9 +1094,17 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
 
     if (isAiPage && isZeroState) {
       this.isZeroState_ = true;
-      if (!this.isInitialFrameLoad_ && this.isDomContentLoaded_ &&
-          this.isShownInTab_) {
-        this.playZeroStateAnimations_();
+      if (!this.isInitialFrameLoad_) {
+        // Tab instances synchronize animations with the web document lifecycle
+        // (waiting for DOM load), while side panel instances trigger them
+        // immediately to match the native UI transition.
+        if (this.isShownInTab_) {
+          if (this.isDomContentLoaded_) {
+            this.playZeroStateAnimations_();
+          }
+        } else {
+          this.playZeroStateAnimations_();
+        }
       }
     }
 
@@ -1624,6 +1677,16 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
   // The rest should be changed through testProxy routerRemote.
   setIsNavigatingFromAiPageForTesting(isNavigatingForTesting: boolean) {
     this.isNavigatingFromAiPage_ = isNavigatingForTesting;
+  }
+
+  // Detaches the threadFrame load listeners so real <webview> events cannot
+  // run the handlers while a test drives them manually.
+  removeThreadFrameListenersForTesting() {
+    this.eventTracker_.remove(this.$.threadFrame, 'loadstart');
+    this.eventTracker_.remove(this.$.threadFrame, 'loadredirect');
+    this.eventTracker_.remove(this.$.threadFrame, 'loadabort');
+    this.eventTracker_.remove(this.$.threadFrame, 'loadcommit');
+    this.eventTracker_.remove(this.$.threadFrame, 'contentload');
   }
 
   isNavigatingForTesting() {

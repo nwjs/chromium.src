@@ -52,9 +52,26 @@ enum class StoreReportResult {
 };
 // LINT.ThenChange(//tools/metrics/histograms/enums.xml)
 
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// LINT.IfChange(DeclarativePerformanceObserverStoreReadResult)
+enum class ReadReportResult {
+  kSuccess = 0,
+  kFailedDbInit = 1,
+  kFailedSqlRun = 2,
+  kFailedJsonParse = 3,
+  kMaxValue = kFailedJsonParse,
+};
+// LINT.ThenChange(//tools/metrics/histograms/enums.xml)
+
 void RecordStoreReportResult(StoreReportResult result) {
   base::UmaHistogramEnumeration(
       base::StrCat({kHistogramPrefix, "StoreReportResult"}), result);
+}
+
+void RecordReadReportResult(ReadReportResult result) {
+  base::UmaHistogramEnumeration(
+      base::StrCat({kHistogramPrefix, "ReadReportResult"}), result);
 }
 
 }  // namespace
@@ -164,45 +181,54 @@ class DeclarativePerformanceObserverStore::Backend
       scoped_refptr<base::SequencedTaskRunner> ui_task_runner,
       base::OnceCallback<void(base::ListValue)> callback) {
     DCHECK_CALLED_ON_VALID_SEQUENCE(db_sequence_checker_);
-    base::ListValue reports;
+
     if (!InitOnDbSequence()) {
+      RecordReadReportResult(ReadReportResult::kFailedDbInit);
       ui_task_runner->PostTask(
-          FROM_HERE, base::BindOnce(std::move(callback), std::move(reports)));
+          FROM_HERE, base::BindOnce(std::move(callback), base::ListValue()));
       return;
     }
 
     sql::Transaction transaction(db_.get());
     if (!transaction.Begin()) {
+      RecordReadReportResult(ReadReportResult::kFailedSqlRun);
       ui_task_runner->PostTask(
-          FROM_HERE, base::BindOnce(std::move(callback), std::move(reports)));
+          FROM_HERE, base::BindOnce(std::move(callback), base::ListValue()));
       return;
     }
 
+    base::ListValue reports;
+    ReadReportResult result = ReadReportResult::kSuccess;
+
     sql::Statement statement(db_->GetCachedStatement(
         SQL_FROM_HERE,
-        "SELECT payload FROM declarative_performance_observer_reports WHERE "
-        "origin = ? ORDER BY id ASC"));
+        "SELECT payload FROM declarative_performance_observer_reports "
+        "WHERE origin = ? ORDER BY id ASC"));
     statement.BindString(0, origin.Serialize());
     while (statement.Step()) {
       std::optional<base::Value> value = base::JSONReader::Read(
           statement.ColumnStringView(0), base::JSON_PARSE_RFC);
       if (value && value->is_dict()) {
         reports.Append(std::move(*value));
+      } else {
+        result = ReadReportResult::kFailedJsonParse;
       }
     }
 
-    sql::Statement delete_statement(db_->GetUniqueStatement(
+    sql::Statement delete_statement(db_->GetCachedStatement(
+        SQL_FROM_HERE,
         "DELETE FROM declarative_performance_observer_reports WHERE origin = "
         "?"));
     delete_statement.BindString(0, origin.Serialize());
 
-    if (delete_statement.Run() && transaction.Commit()) {
-      ui_task_runner->PostTask(
-          FROM_HERE, base::BindOnce(std::move(callback), std::move(reports)));
-    } else {
-      ui_task_runner->PostTask(
-          FROM_HERE, base::BindOnce(std::move(callback), base::ListValue()));
+    if (!delete_statement.Run() || !transaction.Commit()) {
+      result = ReadReportResult::kFailedSqlRun;
+      reports.clear();
     }
+
+    RecordReadReportResult(result);
+    ui_task_runner->PostTask(
+        FROM_HERE, base::BindOnce(std::move(callback), std::move(reports)));
   }
 
   void SetQuotaLimitForTestingOnDbSequence(  // IN-TEST
@@ -413,7 +439,43 @@ class DeclarativePerformanceObserverStore::Backend
                                .ToDeltaSinceWindowsEpoch()
                                .InMicroseconds();
     clean_statement.BindInt64(0, threshold_us);
-    clean_statement.Run();
+    if (clean_statement.Run()) {
+      int expired_rows = db_->GetLastChangeCount();
+      if (expired_rows > 0) {
+        base::UmaHistogramCounts1000(
+            base::StrCat({kHistogramPrefix, "ExpiredReportsCount"}),
+            expired_rows);
+      }
+    }
+
+    // Log storage stats:
+    if (!db_path_.empty()) {
+      std::optional<int64_t> file_size = base::GetFileSize(db_path_);
+      if (file_size.has_value()) {
+        base::UmaHistogramMemoryKB(
+            base::StrCat({kHistogramPrefix, "DatabaseSize"}),
+            *file_size / 1024);
+      }
+    }
+
+    static constexpr char kCountPoliciesSql[] =
+        "SELECT COUNT(*) FROM declarative_performance_observer_policies";
+    sql::Statement origin_count_stmt(
+        db_->GetUniqueStatement(kCountPoliciesSql));
+    if (origin_count_stmt.Step()) {
+      base::UmaHistogramCounts1000(
+          base::StrCat({kHistogramPrefix, "StoredOriginCount"}),
+          origin_count_stmt.ColumnInt(0));
+    }
+
+    static constexpr char kCountReportsSql[] =
+        "SELECT COUNT(*) FROM declarative_performance_observer_reports";
+    sql::Statement report_count_stmt(db_->GetUniqueStatement(kCountReportsSql));
+    if (report_count_stmt.Step()) {
+      base::UmaHistogramCounts10000(
+          base::StrCat({kHistogramPrefix, "StoredReportCount"}),
+          report_count_stmt.ColumnInt(0));
+    }
 
     return true;
   }
@@ -447,10 +509,12 @@ class DeclarativePerformanceObserverStore::Backend
 
     int64_t max_evicted_id = -1;
     size_t running_total = 0;
+    int evicted_count = 0;
     while (select_reports.Step()) {
       int64_t id = select_reports.ColumnInt64(0);
       size_t size = static_cast<size_t>(select_reports.ColumnInt(1));
       running_total += size;
+      evicted_count++;
       if (running_total >= target_evict_bytes) {
         max_evicted_id = id;
         break;
@@ -462,7 +526,10 @@ class DeclarativePerformanceObserverStore::Backend
           "DELETE FROM declarative_performance_observer_reports WHERE id <= "
           "?"));
       delete_batch.BindInt64(0, max_evicted_id);
-      delete_batch.Run();
+      if (delete_batch.Run()) {
+        base::UmaHistogramCounts100(
+            base::StrCat({kHistogramPrefix, "EvictionCount"}), evicted_count);
+      }
     }
   }
 

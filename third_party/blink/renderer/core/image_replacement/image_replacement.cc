@@ -197,7 +197,8 @@ void ImageReplacement::StartReplacement(
           tracking_feature,
           TrackedElementSubRect(
               TrackedElementId(*tracking_token),
-              /*should_add_to_compositor_frame_metadata=*/false));
+              /*should_add_to_compositor_frame_metadata=*/false,
+              /*should_exclude_fixed_and_sticky_occlusions=*/true));
     }
 
     mojom::blink::ObjectFit object_fit = mojom::blink::ObjectFit::kFill;
@@ -266,6 +267,12 @@ void ImageReplacement::CreateImageReplacementShadowTree(
   iframe->SetInlineStyleProperty(CSSPropertyID::kIsolation, "isolate");
 
   shadow_root->AppendChild(iframe);
+}
+
+void ImageReplacement::UpdateOriginalImageSource(
+    base::PassKey<HTMLImageElement>,
+    HTMLImageElement& image_element) {
+  original_image_source_url_ = image_element.ImageSourceURL();
 }
 
 void ImageReplacement::Reset(Document& document) {

@@ -63,6 +63,7 @@ suite('ContextualTasksAppTest', function() {
       composeboxSmartTabSharingVisible: false,
       isAimEligible: true,
       isZeroState: false,
+      contextManagementInComposeboxEnabled: false,
     });
     metrics = fakeMetricsPrivate();
     const proxy = new TestContextualTasksBrowserProxy('http://example.com');
@@ -1264,4 +1265,49 @@ suite('ContextualTasksAppTest', function() {
             appElement.shadowRoot.querySelector('#composeboxHeaderWrapper')!;
         assertFalse(wrapper.hasAttribute('hidden'));
       });
+
+  test('side panel navigation to zero state plays animations', async () => {
+    const {appElement, proxy} = await createContextualTasksAppElement(
+        /*url=*/ fixtureUrl, (testProxy) => {
+          testProxy.handler.isShownInTab = () =>
+              Promise.resolve({isInTab: false});
+          testProxy.handler.isZeroState = () =>
+              Promise.resolve({isZeroState: false});
+          testProxy.handler.isAiPage = () => Promise.resolve({isAiPage: true});
+        });
+
+    await appElement.updateComplete;
+    await microtasksFinished();
+
+    assertFalse(appElement.classList.contains('play-zero-state'));
+    assertFalse(appElement.$.composebox.classList.contains('play-zero-state'));
+
+    const url = 'chrome://contextual-tasks/zero-state';
+    proxy.handler.isZeroState = (testUrl) => {
+      return Promise.resolve({isZeroState: testUrl === url});
+    };
+    proxy.handler.isAiPage = (testUrl) => {
+      return Promise.resolve({isAiPage: testUrl === url});
+    };
+
+    const {promise, resolve} = Promise.withResolvers<void>();
+    appElement.setOnLoadStartFinishedCallbackForTesting(resolve);
+
+    const threadFrame = appElement.$.threadFrame;
+
+    const loadStartEvent = new Event('loadstart');
+    Object.assign(loadStartEvent, {isTopLevel: true, url: url});
+    threadFrame.dispatchEvent(loadStartEvent);
+
+    const loadCommitEvent = new Event('loadcommit');
+    Object.assign(loadCommitEvent, {isTopLevel: true, url: url});
+    threadFrame.dispatchEvent(loadCommitEvent);
+
+    await promise;
+    await appElement.updateComplete;
+    await microtasksFinished();
+
+    assertTrue(appElement.classList.contains('play-zero-state'));
+    assertTrue(appElement.$.composebox.classList.contains('play-zero-state'));
+  });
 });

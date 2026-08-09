@@ -5,8 +5,21 @@
 import("//build/config/android/rules.gni")
 
 template("_androidx_prebuilt") {
-  target(invoker.target_type, target_name) {
-    forward_variables_from(invoker, "*", [ "target_type" ])
+  _target_type = invoker.target_type
+
+  # This library was discontinued and deleted at the version chrome relied
+  # on. See: https://crbug.com/528459998
+  if (target_name == "androidx_interpolator_interpolator_java") {
+    _target_type = "java_group"
+  }
+
+  target(_target_type, target_name) {
+    if (target_name == "androidx_interpolator_interpolator_java") {
+      not_needed(invoker, "*")
+      public_deps = [ "//third_party/androidx/local_modifications/interpolator:interpolator_java" ]
+    } else {
+      forward_variables_from(invoker, "*", [ "target_type" ])
+    }
 
     if (target_name == "androidx_annotation_annotation_java") {
       # Ensure this dep is the suggested one when targets are missing it.

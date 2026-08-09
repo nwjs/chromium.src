@@ -13,6 +13,7 @@
 #include "components/contextual_search/contextual_search_metrics_recorder.h"
 #include "components/contextual_search/contextual_search_service.h"
 #include "components/contextual_search/mock_contextual_search_context_controller.h"
+#include "components/contextual_tasks/public/features.h"
 #include "components/contextual_tasks/public/query_contextualizer.h"
 #include "components/lens/contextual_input.h"
 #include "components/lens/lens_features.h"
@@ -29,6 +30,11 @@ namespace contextual_search {
 class MockTabValidator : public ContextualSearchSessionHandle::TabValidator {
  public:
   MOCK_METHOD(bool, IsTabValidAndPointingToUrl, (const FileInfo&), (override));
+  MOCK_METHOD(
+      bool,
+      AreUrlsEquivalent,
+      (const GURL&, const std::string&, const GURL&, const std::string&),
+      (override));
 };
 
 class ContextualSearchSessionHandleTest : public testing::Test {
@@ -91,7 +97,7 @@ TEST_F(ContextualSearchSessionHandleTest,
 
   base::UnguessableToken token = handle_->CreateContextToken();
 
-  // Expect StartFileUploadFlow to be called with kUnknown for SVG.
+  // Expect `StartFileUploadFlow` to be called with `kUnknown` for SVG.
   EXPECT_CALL(*mock_controller_ptr_, StartFileUploadFlow(token, _, _))
       .WillOnce([](const base::UnguessableToken& file_token,
                    std::unique_ptr<lens::ContextualInputData> input_data,
@@ -237,7 +243,7 @@ TEST_F(ContextualSearchSessionHandleTest,
 
 TEST_F(ContextualSearchSessionHandleTest,
        CreateClientToAimRequest_PopulatesRemovedContexts_InvalidInBrowser) {
-  // Enable the feature to keep tabs in uploaded_context_tokens_ across turns.
+  // Enable the feature to keep tabs in `uploaded_context_tokens_` across turns.
   base::test::ScopedFeatureList local_feature_list;
   local_feature_list.InitWithFeatures(
       {omnibox::kContextManagementInComposebox,
@@ -462,9 +468,10 @@ TEST_F(ContextualSearchSessionHandleTest,
   EXPECT_EQ(captured_info->removed_contexts[0].uuid(), 12345u);
 }
 
-TEST_F(ContextualSearchSessionHandleTest,
-       CreateClientToAimRequest_Recontextualization_DoesNotDeleteOld) {
-  // Enable the feature to keep tabs in uploaded_context_tokens_ across turns.
+TEST_F(
+    ContextualSearchSessionHandleTest,
+    CreateClientToAimRequest_Recontextualization_DoesNotDeleteOldInRemovedContexts) {
+  // Enable the feature to keep tabs in `uploaded_context_tokens_` across turns.
   base::test::ScopedFeatureList local_feature_list;
   local_feature_list.InitWithFeatures(
       {omnibox::kContextManagementInComposebox,
@@ -528,12 +535,12 @@ TEST_F(ContextualSearchSessionHandleTest,
   EXPECT_CALL(*local_mock_controller_ptr, GetFileInfo(tab_token2))
       .WillRepeatedly(testing::Return(&tab_file_info2));
 
-  // Validator should be called for the ACTIVE token (tab_token2).
+  // Validator should be called for the ACTIVE token (`tab_token2`).
   // Tab A is still valid in browser.
   EXPECT_CALL(*mock_validator_ptr,
               IsTabValidAndPointingToUrl(testing::Ref(tab_file_info2)))
       .WillOnce(testing::Return(true));
-  // Validator should NOT be called for tab_token1 because it is superceded.
+  // Validator should NOT be called for `tab_token1` because it is superceded.
   EXPECT_CALL(*mock_validator_ptr,
               IsTabValidAndPointingToUrl(testing::Ref(tab_file_info1)))
       .Times(0);
@@ -559,11 +566,21 @@ TEST_F(ContextualSearchSessionHandleTest,
   // Verify that NO deleted contexts are reported.
   ASSERT_TRUE(captured_info);
   EXPECT_TRUE(captured_info->removed_contexts.empty());
+
+  // Verify that the navigated `tab_token1` is removed, and only `tab_token2`
+  // remains in `submitted_tabs_` and `uploaded_context_tokens_`.
+  const auto& submitted_tabs = local_handle->submitted_tabs();
+  EXPECT_EQ(submitted_tabs.size(), 1u);
+  auto it = submitted_tabs.find(SessionID::FromSerializedValue(1));
+  ASSERT_NE(it, submitted_tabs.end());
+  EXPECT_EQ(it->second.first, tab_token2);
+  EXPECT_THAT(local_handle->GetSubmittedContextTokens(),
+              testing::UnorderedElementsAre(tab_token1, tab_token2));
 }
 
 TEST_F(ContextualSearchSessionHandleTest,
        CreateClientToAimRequest_Recontextualization_Invalid_DeletesOld) {
-  // Enable the feature to keep tabs in uploaded_context_tokens_ across turns.
+  // Enable the feature to keep tabs in `uploaded_context_tokens_` across turns.
   base::test::ScopedFeatureList local_feature_list;
   local_feature_list.InitWithFeatures(
       {omnibox::kContextManagementInComposebox,
@@ -626,7 +643,7 @@ TEST_F(ContextualSearchSessionHandleTest,
   EXPECT_CALL(*local_mock_controller_ptr, GetFileInfo(tab_token2))
       .WillRepeatedly(testing::Return(&tab_file_info2));
 
-  // Validator should be called for active token (tab_token2), and returns
+  // Validator should be called for active token (`tab_token2`), and returns
   // false.
   EXPECT_CALL(*mock_validator_ptr,
               IsTabValidAndPointingToUrl(testing::Ref(tab_file_info2)))
@@ -658,7 +675,7 @@ TEST_F(ContextualSearchSessionHandleTest,
 
 TEST_F(ContextualSearchSessionHandleTest,
        CreateClientToAimRequest_TabClosed_RemovesFromSubmittedAndUploaded) {
-  // Enable the feature to keep tabs in uploaded_context_tokens_ across turns.
+  // Enable the feature to keep tabs in `uploaded_context_tokens_` across turns.
   base::test::ScopedFeatureList local_feature_list;
   local_feature_list.InitWithFeatures(
       {omnibox::kContextManagementInComposebox,
@@ -705,9 +722,15 @@ TEST_F(ContextualSearchSessionHandleTest,
                  info) { return lens::ClientToAimMessage(); });
   local_handle->CreateClientToAimRequest(std::move(request_info1));
 
-  // Verify it is in both lists.
+  // Verify it is in `submitted_tabs` and submitted context tokens list, but
+  // cleared from uploaded list.
+  const auto& submitted_tabs = local_handle->submitted_tabs();
+  EXPECT_EQ(submitted_tabs.size(), 1u);
+  auto it = submitted_tabs.find(SessionID::FromSerializedValue(1));
+  ASSERT_NE(it, submitted_tabs.end());
+  EXPECT_EQ(it->second.first, tab_token);
   EXPECT_THAT(local_handle->GetUploadedContextTokens(),
-              testing::Contains(tab_token));
+              testing::Not(testing::Contains(tab_token)));
   EXPECT_THAT(local_handle->GetSubmittedContextTokens(),
               testing::Contains(tab_token));
 
@@ -726,7 +749,8 @@ TEST_F(ContextualSearchSessionHandleTest,
                  info) { return lens::ClientToAimMessage(); });
   local_handle->CreateClientToAimRequest(std::move(request_info2));
 
-  // Verify it is removed from both lists.
+  // Verify it is removed from all lists.
+  EXPECT_TRUE(local_handle->submitted_tabs().empty());
   EXPECT_THAT(local_handle->GetUploadedContextTokens(),
               testing::Not(testing::Contains(tab_token)));
   EXPECT_THAT(local_handle->GetSubmittedContextTokens(),
@@ -771,6 +795,716 @@ TEST_F(ContextualSearchSessionHandleTest,
   ASSERT_NE(it, submitted_tabs.end());
   EXPECT_EQ(it->second.first, token1);
   EXPECT_EQ(it->second.second.sequence_id(), 1);
+}
+
+TEST_F(ContextualSearchSessionHandleTest, IsTabToken_ValidatesTabSessionId) {
+  auto local_mock_controller =
+      std::make_unique<MockContextualSearchContextController>();
+  auto* local_mock_controller_ptr = local_mock_controller.get();
+
+  auto local_handle = service_->CreateSessionForTesting(
+      std::move(local_mock_controller), nullptr);
+  local_handle->CheckSearchContentSharingSettings(&prefs_);
+
+  // Token for a real browser tab (has valid `tab_session_id`).
+  base::UnguessableToken tab_token = local_handle->CreateContextToken();
+  FileInfo tab_file_info;
+  tab_file_info.file_token = tab_token;
+  tab_file_info.tab_session_id = SessionID::FromSerializedValue(1);
+
+  // Token for a manual file (`tab_title` = "document.pdf", but no
+  // `tab_session_id`).
+  base::UnguessableToken file_token = local_handle->CreateContextToken();
+  FileInfo file_info;
+  file_info.file_token = file_token;
+  file_info.tab_title = "document.pdf";
+
+  // Token with invalid `tab_session_id`.
+  base::UnguessableToken invalid_tab_token = local_handle->CreateContextToken();
+  FileInfo invalid_tab_info;
+  invalid_tab_info.file_token = invalid_tab_token;
+  invalid_tab_info.tab_session_id = SessionID::InvalidValue();
+
+  // Unknown token (not in controller).
+  base::UnguessableToken unknown_token = base::UnguessableToken::Create();
+
+  EXPECT_CALL(*local_mock_controller_ptr, GetFileInfo(tab_token))
+      .WillRepeatedly(testing::Return(&tab_file_info));
+  EXPECT_CALL(*local_mock_controller_ptr, GetFileInfo(file_token))
+      .WillRepeatedly(testing::Return(&file_info));
+  EXPECT_CALL(*local_mock_controller_ptr, GetFileInfo(invalid_tab_token))
+      .WillRepeatedly(testing::Return(&invalid_tab_info));
+  EXPECT_CALL(*local_mock_controller_ptr, GetFileInfo(unknown_token))
+      .WillRepeatedly(testing::Return(nullptr));
+
+  // Verify `IsTabToken` results.
+  EXPECT_TRUE(local_handle->IsTabTokenForTesting(tab_token));
+  EXPECT_FALSE(local_handle->IsTabTokenForTesting(file_token));
+  EXPECT_FALSE(local_handle->IsTabTokenForTesting(invalid_tab_token));
+  EXPECT_FALSE(local_handle->IsTabTokenForTesting(unknown_token));
+}
+
+TEST_F(ContextualSearchSessionHandleTest,
+       DeleteTabContext_RestoredTab_Succeeds) {
+  base::test::ScopedFeatureList local_feature_list;
+  local_feature_list.InitAndEnableFeatureWithParameters(
+      omnibox::kContextManagementInComposebox,
+      {{"enable_tab_deselection", "true"}});
+
+  auto local_mock_controller =
+      std::make_unique<MockContextualSearchContextController>();
+  auto* local_mock_controller_ptr = local_mock_controller.get();
+
+  auto local_handle = service_->CreateSessionForTesting(
+      std::move(local_mock_controller),
+      std::make_unique<ContextualSearchMetricsRecorder>(
+          ContextualSearchSource::kUnknown));
+  local_handle->CheckSearchContentSharingSettings(&prefs_);
+
+  // Populate submitted_tabs_ to mock a restored tab.
+  base::UnguessableToken token1 = base::UnguessableToken::Create();
+  SessionID session_id1 = SessionID::NewUnique();
+  lens::LensOverlayRequestId req_id1;
+  local_handle->set_submitted_tabs({{session_id1, {token1, req_id1}}});
+  local_handle->set_submitted_context_tokens({token1});
+
+  // Verify GetTokenForTab can find it.
+  EXPECT_EQ(local_handle->GetTokenForTab(session_id1), token1);
+
+  FileInfo file_info1;
+  file_info1.file_token = token1;
+  file_info1.tab_session_id = session_id1;
+  file_info1.tab_url = GURL("https://example.com");
+  EXPECT_CALL(*local_mock_controller_ptr, GetFileInfo(token1))
+      .WillRepeatedly(testing::Return(&file_info1));
+
+  // Perform deletion of the restored tab.
+  EXPECT_TRUE(local_handle->DeleteFile(token1));
+
+  // Verify it is deselected.
+  EXPECT_TRUE(local_handle->IsTabDeselected(session_id1,
+                                            GURL("https://example.com"), ""));
+}
+
+TEST_F(ContextualSearchSessionHandleTest,
+       GetSubmittedContextFileInfos_FiltersDeselectedTabs) {
+  base::test::ScopedFeatureList local_feature_list;
+  local_feature_list.InitAndEnableFeatureWithParameters(
+      omnibox::kContextManagementInComposebox,
+      {{"enable_tab_deselection", "true"}});
+
+  auto local_mock_controller =
+      std::make_unique<MockContextualSearchContextController>();
+  auto* local_mock_controller_ptr = local_mock_controller.get();
+
+  auto local_handle = service_->CreateSessionForTesting(
+      std::move(local_mock_controller),
+      std::make_unique<ContextualSearchMetricsRecorder>(
+          ContextualSearchSource::kUnknown));
+  local_handle->CheckSearchContentSharingSettings(&prefs_);
+
+  base::UnguessableToken token1 = base::UnguessableToken::Create();
+  SessionID session_id1 = SessionID::NewUnique();
+  lens::LensOverlayRequestId req_id1;
+  local_handle->set_submitted_tabs({{session_id1, {token1, req_id1}}});
+  local_handle->set_submitted_context_tokens({token1});
+
+  FileInfo file_info1;
+  file_info1.file_token = token1;
+  file_info1.tab_session_id = session_id1;
+  file_info1.tab_url = GURL("https://example.com");
+  EXPECT_CALL(*local_mock_controller_ptr, GetFileInfo(token1))
+      .WillRepeatedly(testing::Return(&file_info1));
+
+  // Initially it should be returned.
+  EXPECT_EQ(local_handle->GetSubmittedContextFileInfos().size(), 1u);
+
+  // Deselect it.
+  EXPECT_TRUE(local_handle->DeleteFile(token1));
+
+  // Now it should be filtered out.
+  EXPECT_EQ(local_handle->GetSubmittedContextFileInfos().size(), 0u);
+}
+
+TEST_F(ContextualSearchSessionHandleTest, IsTabDeselected_ClearsOnNavigation) {
+  base::test::ScopedFeatureList local_feature_list;
+  local_feature_list.InitAndEnableFeatureWithParameters(
+      omnibox::kContextManagementInComposebox,
+      {{"enable_tab_deselection", "true"}});
+
+  auto local_mock_controller =
+      std::make_unique<MockContextualSearchContextController>();
+  auto* local_mock_controller_ptr = local_mock_controller.get();
+
+  auto local_handle = service_->CreateSessionForTesting(
+      std::move(local_mock_controller),
+      std::make_unique<ContextualSearchMetricsRecorder>(
+          ContextualSearchSource::kUnknown));
+  local_handle->CheckSearchContentSharingSettings(&prefs_);
+
+  base::UnguessableToken token1 = local_handle->CreateContextToken();
+  SessionID session_id1 = SessionID::NewUnique();
+  FileInfo file_info1;
+  file_info1.file_token = token1;
+  file_info1.tab_session_id = session_id1;
+  file_info1.tab_url = GURL("https://google.com");
+  EXPECT_CALL(*local_mock_controller_ptr, GetFileInfo(token1))
+      .WillRepeatedly(testing::Return(&file_info1));
+  EXPECT_CALL(*local_mock_controller_ptr, DeleteFile(token1))
+      .WillOnce(testing::Return(true));
+
+  // Deselect the tab context.
+  EXPECT_TRUE(local_handle->DeleteFile(token1));
+
+  // Tab is deselected for the old URL.
+  EXPECT_TRUE(local_handle->IsTabDeselected(session_id1,
+                                            GURL("https://google.com"), ""));
+
+  // Tab is NOT deselected if it navigated to a new URL (should lazily clear
+  // deselection).
+  EXPECT_FALSE(local_handle->IsTabDeselected(
+      session_id1, GURL("https://wikipedia.org"), ""));
+
+  // Verify that querying with the old URL again also returns false (since it
+  // was cleared).
+  EXPECT_FALSE(local_handle->IsTabDeselected(session_id1,
+                                             GURL("https://google.com"), ""));
+}
+
+TEST_F(ContextualSearchSessionHandleTest,
+       CreateClientToAimRequest_RemovesPersistentTabOnNavigationOrClose) {
+  base::test::ScopedFeatureList local_feature_list;
+  local_feature_list.InitWithFeatures(
+      {omnibox::kContextManagementInComposebox,
+       lens::features::kLensDeleteContextOnPageNavigation},
+      {});
+
+  auto mock_validator = std::make_unique<MockTabValidator>();
+  MockTabValidator* mock_validator_ptr = mock_validator.get();
+
+  auto mock_controller =
+      std::make_unique<MockContextualSearchContextController>();
+  MockContextualSearchContextController* local_mock_controller_ptr =
+      mock_controller.get();
+
+  auto local_service = std::make_unique<ContextualSearchService>(
+      nullptr, nullptr, nullptr, nullptr, version_info::Channel::UNKNOWN, "",
+      std::move(mock_validator));
+
+  auto local_handle = local_service->CreateSessionForTesting(
+      std::move(mock_controller), nullptr);
+  local_handle->CheckSearchContentSharingSettings(&prefs_);
+
+  // Upload Tab A and Tab B.
+  base::UnguessableToken tab_token_a = local_handle->CreateContextToken();
+  FileInfo tab_file_info_a;
+  tab_file_info_a.file_token = tab_token_a;
+  tab_file_info_a.tab_session_id = SessionID::FromSerializedValue(1);
+  lens::LensOverlayRequestId req_id_a;
+  req_id_a.set_sequence_id(1);
+  tab_file_info_a.request_id = req_id_a;
+
+  base::UnguessableToken tab_token_b = local_handle->CreateContextToken();
+  FileInfo tab_file_info_b;
+  tab_file_info_b.file_token = tab_token_b;
+  tab_file_info_b.tab_session_id = SessionID::FromSerializedValue(2);
+  lens::LensOverlayRequestId req_id_b;
+  req_id_b.set_sequence_id(2);
+  tab_file_info_b.request_id = req_id_b;
+
+  EXPECT_CALL(*local_mock_controller_ptr, GetFileInfo(tab_token_a))
+      .WillRepeatedly(testing::Return(&tab_file_info_a));
+  EXPECT_CALL(*local_mock_controller_ptr, GetFileInfo(tab_token_b))
+      .WillRepeatedly(testing::Return(&tab_file_info_b));
+
+  // Submit Query 1.
+  auto request_info1 = std::make_unique<
+      ContextualSearchContextController::CreateClientToAimRequestInfo>();
+  EXPECT_CALL(*local_mock_controller_ptr, CreateClientToAimRequest(_))
+      .WillOnce(
+          [](std::unique_ptr<
+              ContextualSearchContextController::CreateClientToAimRequestInfo>
+                 info) { return lens::ClientToAimMessage(); });
+  local_handle->CreateClientToAimRequest(std::move(request_info1));
+
+  const auto& submitted_tabs = local_handle->submitted_tabs();
+  EXPECT_EQ(submitted_tabs.size(), 2u);
+
+  // Tab A navigated away or closed, Tab B remains open.
+  EXPECT_CALL(*mock_validator_ptr,
+              IsTabValidAndPointingToUrl(testing::Ref(tab_file_info_a)))
+      .WillRepeatedly(testing::Return(false));
+  EXPECT_CALL(*mock_validator_ptr,
+              IsTabValidAndPointingToUrl(testing::Ref(tab_file_info_b)))
+      .WillRepeatedly(testing::Return(true));
+
+  // Submit Query 2.
+  auto request_info2 = std::make_unique<
+      ContextualSearchContextController::CreateClientToAimRequestInfo>();
+  EXPECT_CALL(*local_mock_controller_ptr, CreateClientToAimRequest(_))
+      .WillOnce(
+          [](std::unique_ptr<
+              ContextualSearchContextController::CreateClientToAimRequestInfo>
+                 info) { return lens::ClientToAimMessage(); });
+  local_handle->CreateClientToAimRequest(std::move(request_info2));
+
+  // Tab A should be removed from `submitted_tabs_`, Tab B should remain.
+  const auto& submitted_tabs2 = local_handle->submitted_tabs();
+  EXPECT_EQ(submitted_tabs2.size(), 1u);
+  auto it = submitted_tabs2.find(SessionID::FromSerializedValue(2));
+  ASSERT_NE(it, submitted_tabs2.end());
+  EXPECT_EQ(it->second.first, tab_token_b);
+}
+
+TEST_F(ContextualSearchSessionHandleTest,
+       CreateClientToAimRequest_UserRemovedTab_SignalsDeletion) {
+  base::test::ScopedFeatureList local_feature_list;
+  local_feature_list.InitAndEnableFeatureWithParameters(
+      omnibox::kContextManagementInComposebox,
+      {{"enable_tab_deselection", "true"}});
+
+  auto mock_controller =
+      std::make_unique<MockContextualSearchContextController>();
+  MockContextualSearchContextController* local_mock_controller_ptr =
+      mock_controller.get();
+
+  auto mock_validator = std::make_unique<MockTabValidator>();
+  MockTabValidator* mock_validator_ptr = mock_validator.get();
+  auto local_service = std::make_unique<ContextualSearchService>(
+      nullptr, nullptr, nullptr, nullptr, version_info::Channel::UNKNOWN, "",
+      std::move(mock_validator));
+
+  auto local_handle = local_service->CreateSessionForTesting(
+      std::move(mock_controller), nullptr);
+  local_handle->CheckSearchContentSharingSettings(&prefs_);
+  EXPECT_CALL(*mock_validator_ptr, AreUrlsEquivalent(_, _, _, _))
+      .WillRepeatedly(testing::Return(true));
+
+  // 1. Create a tab context token.
+  base::UnguessableToken tab_token = local_handle->CreateContextToken();
+
+  FileInfo tab_file_info;
+  tab_file_info.file_token = tab_token;
+  tab_file_info.tab_session_id = SessionID::FromSerializedValue(1);
+  tab_file_info.tab_url = GURL("https://google.com");
+  lens::LensOverlayRequestId req_id;
+  req_id.set_uuid(12345);
+  tab_file_info.request_id = req_id;
+
+  EXPECT_CALL(*local_mock_controller_ptr, GetFileInfo(tab_token))
+      .WillRepeatedly(testing::Return(&tab_file_info));
+
+  // 2. Submit Turn 1.
+  auto request_info1 = std::make_unique<
+      ContextualSearchContextController::CreateClientToAimRequestInfo>();
+  EXPECT_CALL(*local_mock_controller_ptr, CreateClientToAimRequest(_))
+      .WillOnce(
+          [](std::unique_ptr<
+              ContextualSearchContextController::CreateClientToAimRequestInfo>
+                 info) { return lens::ClientToAimMessage(); });
+  local_handle->CreateClientToAimRequest(std::move(request_info1));
+
+  // 3. User explicitly deletes tab context.
+  EXPECT_TRUE(local_handle->DeleteFile(tab_token));
+  EXPECT_TRUE(local_handle->IsTabDeselected(SessionID::FromSerializedValue(1),
+                                            GURL("https://google.com"), ""));
+
+  // 4. Submit Turn 2.
+  auto request_info2 = std::make_unique<
+      ContextualSearchContextController::CreateClientToAimRequestInfo>();
+  std::unique_ptr<
+      ContextualSearchContextController::CreateClientToAimRequestInfo>
+      captured_info;
+  EXPECT_CALL(*local_mock_controller_ptr, CreateClientToAimRequest(_))
+      .WillOnce(
+          [&](std::unique_ptr<
+              ContextualSearchContextController::CreateClientToAimRequestInfo>
+                  info) {
+            captured_info = std::move(info);
+            return lens::ClientToAimMessage();
+          });
+
+  local_handle->CreateClientToAimRequest(std::move(request_info2));
+
+  ASSERT_TRUE(captured_info);
+  ASSERT_EQ(captured_info->removed_contexts.size(), 1u);
+  EXPECT_EQ(captured_info->removed_contexts[0].uuid(), 12345u);
+}
+
+TEST_F(ContextualSearchSessionHandleTest,
+       ClearFiles_PersistsTabsOnlyOnSubmission) {
+  base::test::ScopedFeatureList local_feature_list;
+  local_feature_list.InitAndEnableFeature(
+      omnibox::kContextManagementInComposebox);
+
+  auto mock_controller =
+      std::make_unique<MockContextualSearchContextController>();
+  MockContextualSearchContextController* mock_controller_ptr =
+      mock_controller.get();
+
+  auto local_handle =
+      service_->CreateSessionForTesting(std::move(mock_controller), nullptr);
+  local_handle->CheckSearchContentSharingSettings(&prefs_);
+
+  // Create tab token and file token.
+  base::UnguessableToken tab_token = local_handle->CreateContextToken();
+  base::UnguessableToken file_token = local_handle->CreateContextToken();
+
+  FileInfo tab_info;
+  tab_info.file_token = tab_token;
+  tab_info.tab_session_id = SessionID::FromSerializedValue(1);
+  tab_info.request_id = lens::LensOverlayRequestId();
+
+  FileInfo file_info;
+  file_info.file_token = file_token;
+
+  EXPECT_CALL(*mock_controller_ptr, GetFileInfo(tab_token))
+      .WillRepeatedly(testing::Return(&tab_info));
+  EXPECT_CALL(*mock_controller_ptr, GetFileInfo(file_token))
+      .WillRepeatedly(testing::Return(&file_info));
+
+  EXPECT_THAT(local_handle->GetUploadedContextTokens(),
+              testing::UnorderedElementsAre(tab_token, file_token));
+  EXPECT_TRUE(local_handle->submitted_tabs().empty());
+
+  auto request_info = std::make_unique<
+      ContextualSearchContextController::CreateClientToAimRequestInfo>();
+  EXPECT_CALL(*mock_controller_ptr, CreateClientToAimRequest(_))
+      .WillOnce(testing::Return(lens::ClientToAimMessage()));
+  local_handle->CreateClientToAimRequest(std::move(request_info));
+
+  // Uploaded tokens should be completely cleared.
+  EXPECT_TRUE(local_handle->GetUploadedContextTokens().empty());
+  // Tab token should be moved to `submitted_tabs_`, file token should NOT be.
+  const auto& submitted_tabs = local_handle->submitted_tabs();
+  EXPECT_EQ(submitted_tabs.size(), 1u);
+  auto it = submitted_tabs.find(SessionID::FromSerializedValue(1));
+  ASSERT_NE(it, submitted_tabs.end());
+  EXPECT_EQ(it->second.first, tab_token);
+
+  local_handle->ClearFiles(/*query_submitted=*/false);
+  EXPECT_TRUE(local_handle->GetUploadedContextTokens().empty());
+  // Verify that submitted tabs are NOT cleared when "query_submitted=false"
+  // (intended behavior).
+  const auto& submitted_tabs2 = local_handle->submitted_tabs();
+  EXPECT_EQ(submitted_tabs2.size(), 1u);
+  auto it2 = submitted_tabs2.find(SessionID::FromSerializedValue(1));
+  ASSERT_NE(it2, submitted_tabs2.end());
+  EXPECT_EQ(it2->second.first, tab_token);
+}
+
+TEST_F(ContextualSearchSessionHandleTest,
+       CreateClientToAimRequest_DoesNotReattachPersistedTabsOnFollowUpTurn) {
+  base::test::ScopedFeatureList local_feature_list;
+  local_feature_list.InitAndEnableFeature(
+      omnibox::kContextManagementInComposebox);
+
+  auto mock_controller =
+      std::make_unique<MockContextualSearchContextController>();
+  MockContextualSearchContextController* mock_controller_ptr =
+      mock_controller.get();
+
+  auto local_handle =
+      service_->CreateSessionForTesting(std::move(mock_controller), nullptr);
+  local_handle->CheckSearchContentSharingSettings(&prefs_);
+
+  // Turn 1: Submit Tab A (token 1). Token 1 is moved to `submitted_tabs_`.
+  base::UnguessableToken tab_token1 = local_handle->CreateContextToken();
+  FileInfo tab_info1;
+  tab_info1.file_token = tab_token1;
+  tab_info1.tab_session_id = SessionID::FromSerializedValue(1);
+  tab_info1.request_id = lens::LensOverlayRequestId();
+
+  EXPECT_CALL(*mock_controller_ptr, GetFileInfo(tab_token1))
+      .WillRepeatedly(testing::Return(&tab_info1));
+
+  auto request_info1 = std::make_unique<
+      ContextualSearchContextController::CreateClientToAimRequestInfo>();
+  std::vector<base::UnguessableToken> turn1_file_tokens;
+  EXPECT_CALL(*mock_controller_ptr, CreateClientToAimRequest(_))
+      .WillOnce([&turn1_file_tokens](
+                    std::unique_ptr<ContextualSearchContextController::
+                                        CreateClientToAimRequestInfo> info) {
+        turn1_file_tokens = info->file_tokens;
+        return lens::ClientToAimMessage();
+      });
+
+  local_handle->CreateClientToAimRequest(std::move(request_info1));
+  EXPECT_THAT(turn1_file_tokens, testing::ElementsAre(tab_token1));
+  const auto& submitted_tabs = local_handle->submitted_tabs();
+  EXPECT_EQ(submitted_tabs.size(), 1u);
+  auto it = submitted_tabs.find(SessionID::FromSerializedValue(1));
+  ASSERT_NE(it, submitted_tabs.end());
+  EXPECT_EQ(it->second.first, tab_token1);
+
+  // Turn 2: Follow-up query without uploading any new tabs or files.
+  auto request_info2 = std::make_unique<
+      ContextualSearchContextController::CreateClientToAimRequestInfo>();
+  std::vector<base::UnguessableToken> turn2_file_tokens;
+  EXPECT_CALL(*mock_controller_ptr, CreateClientToAimRequest(_))
+      .WillOnce([&turn2_file_tokens](
+                    std::unique_ptr<ContextualSearchContextController::
+                                        CreateClientToAimRequestInfo> info) {
+        turn2_file_tokens = info->file_tokens;
+        return lens::ClientToAimMessage();
+      });
+
+  local_handle->CreateClientToAimRequest(std::move(request_info2));
+
+  // Verify turn 2 `file_tokens` is empty (persisted tab is not re-attached).
+  EXPECT_TRUE(turn2_file_tokens.empty());
+  // Verify persisted tabs still retains Tab A for UI tracking.
+  const auto& submitted_tabs2 = local_handle->submitted_tabs();
+  EXPECT_EQ(submitted_tabs2.size(), 1u);
+  auto it2 = submitted_tabs2.find(SessionID::FromSerializedValue(1));
+  ASSERT_NE(it2, submitted_tabs2.end());
+  EXPECT_EQ(it2->second.first, tab_token1);
+}
+
+TEST_F(
+    ContextualSearchSessionHandleTest,
+    CreateClientToAimRequest_AddsAndDeduplicatesPersistentTabsInSubmittedTokens) {
+  base::test::ScopedFeatureList local_feature_list;
+  local_feature_list.InitAndEnableFeature(
+      omnibox::kContextManagementInComposebox);
+
+  auto mock_controller =
+      std::make_unique<MockContextualSearchContextController>();
+  MockContextualSearchContextController* mock_controller_ptr =
+      mock_controller.get();
+
+  auto local_handle =
+      service_->CreateSessionForTesting(std::move(mock_controller), nullptr);
+  local_handle->CheckSearchContentSharingSettings(&prefs_);
+
+  // Turn 1: Submit Tab A (token 1). Token 1 is moved to `submitted_tabs_`.
+  base::UnguessableToken tab_token1 = local_handle->CreateContextToken();
+  FileInfo tab_info1;
+  tab_info1.file_token = tab_token1;
+  tab_info1.tab_session_id = SessionID::FromSerializedValue(1);
+  tab_info1.request_id = lens::LensOverlayRequestId();
+
+  EXPECT_CALL(*mock_controller_ptr, GetFileInfo(tab_token1))
+      .WillRepeatedly(testing::Return(&tab_info1));
+
+  auto request_info1 = std::make_unique<
+      ContextualSearchContextController::CreateClientToAimRequestInfo>();
+  EXPECT_CALL(*mock_controller_ptr, CreateClientToAimRequest(_))
+      .WillOnce(
+          [](std::unique_ptr<
+              ContextualSearchContextController::CreateClientToAimRequestInfo>
+                 info) { return lens::ClientToAimMessage(); });
+  local_handle->CreateClientToAimRequest(std::move(request_info1));
+
+  const auto& submitted_tabs = local_handle->submitted_tabs();
+  EXPECT_EQ(submitted_tabs.size(), 1u);
+  auto it = submitted_tabs.find(SessionID::FromSerializedValue(1));
+  ASSERT_NE(it, submitted_tabs.end());
+  EXPECT_EQ(it->second.first, tab_token1);
+
+  // Turn 2: Re-contextualize Tab A (token 2) + attach new image file.
+  // Token 2 should replace token 1 in `submitted_tabs_`.
+  base::UnguessableToken tab_token2 = local_handle->CreateContextToken();
+  FileInfo tab_info2;
+  tab_info2.file_token = tab_token2;
+  tab_info2.tab_session_id = SessionID::FromSerializedValue(1);
+  tab_info2.request_id = lens::LensOverlayRequestId();
+
+  base::UnguessableToken image_token = local_handle->CreateContextToken();
+  FileInfo image_info;
+  image_info.file_token = image_token;
+
+  EXPECT_CALL(*mock_controller_ptr, GetFileInfo(tab_token2))
+      .WillRepeatedly(testing::Return(&tab_info2));
+  EXPECT_CALL(*mock_controller_ptr, GetFileInfo(image_token))
+      .WillRepeatedly(testing::Return(&image_info));
+
+  auto request_info2 = std::make_unique<
+      ContextualSearchContextController::CreateClientToAimRequestInfo>();
+  std::vector<base::UnguessableToken> submitted_file_tokens;
+  EXPECT_CALL(*mock_controller_ptr, CreateClientToAimRequest(_))
+      .WillOnce([&submitted_file_tokens](
+                    std::unique_ptr<ContextualSearchContextController::
+                                        CreateClientToAimRequestInfo> info) {
+        submitted_file_tokens = info->file_tokens;
+        return lens::ClientToAimMessage();
+      });
+
+  local_handle->CreateClientToAimRequest(std::move(request_info2));
+
+  // File tokens set must contain `tab_token2` and `image_token`, and NOT
+  // `tab_token1`, as that is superceded.
+  EXPECT_THAT(submitted_file_tokens,
+              testing::UnorderedElementsAre(tab_token2, image_token));
+
+  // Persisted tab tokens should now contain `tab_token2` (no `image_token`, no
+  // `tab_token1`).
+  const auto& submitted_tabs2 = local_handle->submitted_tabs();
+  EXPECT_EQ(submitted_tabs2.size(), 1u);
+  auto it2 = submitted_tabs2.find(SessionID::FromSerializedValue(1));
+  ASSERT_NE(it2, submitted_tabs2.end());
+  EXPECT_EQ(it2->second.first, tab_token2);
+}
+
+TEST_F(ContextualSearchSessionHandleTest,
+       GetSuggestInputs_DeduplicatesSubmittedTabTokensUponRecontextualization) {
+  base::test::ScopedFeatureList local_feature_list;
+  local_feature_list.InitAndEnableFeature(
+      omnibox::kContextManagementInComposebox);
+
+  auto mock_controller =
+      std::make_unique<MockContextualSearchContextController>();
+  MockContextualSearchContextController* mock_controller_ptr =
+      mock_controller.get();
+
+  auto local_handle =
+      service_->CreateSessionForTesting(std::move(mock_controller), nullptr);
+  local_handle->CheckSearchContentSharingSettings(&prefs_);
+
+  // Turn 1: Submit Tab A (token 1). Token 1 is moved to `submitted_tabs_`.
+  base::UnguessableToken tab_token1 = local_handle->CreateContextToken();
+  FileInfo tab_info1;
+  tab_info1.file_token = tab_token1;
+  tab_info1.tab_session_id = SessionID::FromSerializedValue(1);
+  tab_info1.request_id = lens::LensOverlayRequestId();
+
+  EXPECT_CALL(*mock_controller_ptr, GetFileInfo(tab_token1))
+      .WillRepeatedly(testing::Return(&tab_info1));
+
+  auto request_info1 = std::make_unique<
+      ContextualSearchContextController::CreateClientToAimRequestInfo>();
+  EXPECT_CALL(*mock_controller_ptr, CreateClientToAimRequest(_))
+      .WillOnce(testing::Return(lens::ClientToAimMessage()));
+  local_handle->CreateClientToAimRequest(std::move(request_info1));
+  const auto& submitted_tabs = local_handle->submitted_tabs();
+  EXPECT_EQ(submitted_tabs.size(), 1u);
+  auto it = submitted_tabs.find(SessionID::FromSerializedValue(1));
+  ASSERT_NE(it, submitted_tabs.end());
+  EXPECT_EQ(it->second.first, tab_token1);
+
+  // Turn 2: Re-contextualize Tab A (token 2) for same `tab_session_id`. Token
+  // 1 is removed in favor of token 2 due to token 1 being superceded.
+  base::UnguessableToken tab_token2 = local_handle->CreateContextToken();
+  FileInfo tab_info2;
+  tab_info2.file_token = tab_token2;
+  tab_info2.tab_session_id = SessionID::FromSerializedValue(1);
+
+  EXPECT_CALL(*mock_controller_ptr, GetFileInfo(tab_token2))
+      .WillRepeatedly(testing::Return(&tab_info2));
+
+  // `CreateSuggestInputs` should only receive `tab_token2`, not `tab_token1`.
+  EXPECT_CALL(*mock_controller_ptr,
+              CreateSuggestInputs(testing::ElementsAre(tab_token2)))
+      .WillOnce(testing::Return(
+          std::make_unique<lens::proto::LensOverlaySuggestInputs>()));
+
+  local_handle->GetSuggestInputs();
+}
+
+TEST_F(ContextualSearchSessionHandleTest,
+       GetActiveTokenForTab_IgnoresSupercededTokens) {
+  base::test::ScopedFeatureList local_feature_list;
+  local_feature_list.InitAndEnableFeature(
+      omnibox::kContextManagementInComposebox);
+
+  auto mock_controller =
+      std::make_unique<MockContextualSearchContextController>();
+  MockContextualSearchContextController* mock_controller_ptr =
+      mock_controller.get();
+
+  auto local_handle =
+      service_->CreateSessionForTesting(std::move(mock_controller), nullptr);
+  local_handle->CheckSearchContentSharingSettings(&prefs_);
+
+  SessionID tab_session_id = SessionID::FromSerializedValue(1);
+
+  // Scenario 1: A superceded token in `uploaded_context_tokens_`.
+  base::UnguessableToken uploaded_token1 = local_handle->CreateContextToken();
+  FileInfo uploaded_info1;
+  uploaded_info1.file_token = uploaded_token1;
+  uploaded_info1.tab_session_id = tab_session_id;
+  uploaded_info1.is_superceded = true;
+
+  EXPECT_CALL(*mock_controller_ptr, GetFileInfo(uploaded_token1))
+      .WillRepeatedly(testing::Return(&uploaded_info1));
+
+  // `GetActiveTokenForTab` should ignore the superceded token and return empty.
+  EXPECT_TRUE(
+      local_handle->GetActiveTokenForTabForTesting(tab_session_id).is_empty());
+
+  // Scenario 2: An active (non-superceded) token in `uploaded_context_tokens_`.
+  base::UnguessableToken uploaded_token2 = local_handle->CreateContextToken();
+  FileInfo uploaded_info2;
+  uploaded_info2.file_token = uploaded_token2;
+  uploaded_info2.tab_session_id = tab_session_id;
+  uploaded_info2.is_superceded = false;
+
+  EXPECT_CALL(*mock_controller_ptr, GetFileInfo(uploaded_token2))
+      .WillRepeatedly(testing::Return(&uploaded_info2));
+
+  // Should return `uploaded_token2` since it is not superceded.
+  EXPECT_EQ(local_handle->GetActiveTokenForTabForTesting(tab_session_id),
+            uploaded_token2);
+}
+
+TEST_F(ContextualSearchSessionHandleTest,
+       GetActiveTokenForTab_FlagDisabled_IgnoresSubmittedTabs) {
+  base::test::ScopedFeatureList local_feature_list;
+  local_feature_list.InitAndDisableFeature(
+      omnibox::kContextManagementInComposebox);
+
+  auto mock_controller =
+      std::make_unique<MockContextualSearchContextController>();
+  auto local_handle =
+      service_->CreateSessionForTesting(std::move(mock_controller), nullptr);
+  local_handle->CheckSearchContentSharingSettings(&prefs_);
+
+  SessionID tab_session_id = SessionID::FromSerializedValue(1);
+
+  // Manually add a token to `submitted_tabs_`.
+  ContextualSearchSessionHandle::SubmittedTabsMap submitted_map;
+  base::UnguessableToken persisted_token = base::UnguessableToken::Create();
+  submitted_map[tab_session_id] =
+      std::make_pair(persisted_token, lens::LensOverlayRequestId());
+  local_handle->set_submitted_tabs(submitted_map);
+
+  // Because the flag is disabled, `GetActiveTokenForTab` should ignore
+  // `submitted_tabs_` and return an empty token.
+  EXPECT_TRUE(
+      local_handle->GetActiveTokenForTabForTesting(tab_session_id).is_empty());
+}
+
+TEST_F(ContextualSearchSessionHandleTest,
+       MaybeAddTabToSubmittedTabs_IgnoresSupercededTokens) {
+  auto mock_controller =
+      std::make_unique<MockContextualSearchContextController>();
+  MockContextualSearchContextController* mock_controller_ptr =
+      mock_controller.get();
+
+  auto local_handle =
+      service_->CreateSessionForTesting(std::move(mock_controller), nullptr);
+  local_handle->CheckSearchContentSharingSettings(&prefs_);
+
+  base::UnguessableToken tab_token = local_handle->CreateContextToken();
+  FileInfo tab_info;
+  tab_info.file_token = tab_token;
+  tab_info.tab_session_id = SessionID::FromSerializedValue(1);
+  tab_info.request_id = lens::LensOverlayRequestId();
+  tab_info.is_superceded = true;
+
+  EXPECT_CALL(*mock_controller_ptr, GetFileInfo(tab_token))
+      .WillRepeatedly(testing::Return(&tab_info));
+
+  // Submit Query 1. Because token is superceded, `MaybeAddTabToSubmittedTabs`
+  // should skip it.
+  auto request_info = std::make_unique<
+      ContextualSearchContextController::CreateClientToAimRequestInfo>();
+  EXPECT_CALL(*mock_controller_ptr, CreateClientToAimRequest(_))
+      .WillOnce(testing::Return(lens::ClientToAimMessage()));
+  local_handle->CreateClientToAimRequest(std::move(request_info));
+
+  // Verify submitted tabs is empty.
+  EXPECT_TRUE(local_handle->submitted_tabs().empty());
 }
 
 }  // namespace contextual_search

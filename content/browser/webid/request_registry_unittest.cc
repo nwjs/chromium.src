@@ -123,24 +123,24 @@ class RequestRegistryTest : public RenderViewHostImplTestHarness {
     web_contents()->SetUserData(IdentityRegistry::UserDataKey(),
                                 std::move(mock_identity_registry));
 
-    request_ =
-        RequestService::GetOrCreateForCurrentDocument(main_test_rfh())
-            ->CreateRequestForTesting(
-                request_remote_.BindNewPipeAndPassReceiver(),
-                test_api_permission_delegate_.get(),
-                mock_auto_reauthn_permission_delegate_.get(),
-                mock_permission_delegate_.get(), mock_identity_registry_.get())
-            .GetWeakPtr();
+    auto* service =
+        RequestService::GetOrCreateForCurrentDocument(main_test_rfh());
+    service->SetDelegatesForTesting(
+        test_api_permission_delegate_.get(),
+        mock_auto_reauthn_permission_delegate_.get(),
+        mock_permission_delegate_.get(), mock_identity_registry_.get());
+    service->BindFederatedAuthRequest(
+        request_remote_.BindNewPipeAndPassReceiver());
+    service->BindFederatedRequestService(
+        request_service_remote_.BindNewPipeAndPassReceiver());
+    request_ = service->GetOrCreateActiveRequest()->GetWeakPtr();
+
     auto mock_dialog_controller =
         std::make_unique<NiceMock<MockIdentityRequestDialogController>>();
     request_->SetDialogControllerForTests(std::move(mock_dialog_controller));
     std::unique_ptr<TestIdpNetworkRequestManager> network_request_manager =
         std::make_unique<TestIdpNetworkRequestManager>();
     request_->SetNetworkManagerForTests(std::move(network_request_manager));
-
-    RequestService::GetOrCreateForCurrentDocument(main_test_rfh())
-        ->BindFederatedRequestService(
-            request_service_remote_.BindNewPipeAndPassReceiver());
   }
 
   void TearDown() override {
@@ -349,20 +349,18 @@ TEST_F(RequestRegistryTest, RequestServiceRequestUserInfoFailure) {
       static_cast<TestRenderFrameHost*>(simulator->GetFinalRenderFrameHost());
 
   // Set up child service and bind Mojo interfaces.
-  mojo::Remote<blink::mojom::FederatedAuthRequest> child_request_remote;
   mojo::Remote<blink::mojom::FederatedRequestService>
       child_request_service_remote;
 
-  RequestService::GetOrCreateForCurrentDocument(child_rfh)
-      ->CreateRequestForTesting(
-          child_request_remote.BindNewPipeAndPassReceiver(),
-          test_api_permission_delegate_.get(),
-          mock_auto_reauthn_permission_delegate_.get(),
-          mock_permission_delegate_.get(), mock_identity_registry_.get());
+  auto* child_service =
+      RequestService::GetOrCreateForCurrentDocument(child_rfh);
+  child_service->SetDelegatesForTesting(
+      test_api_permission_delegate_.get(),
+      mock_auto_reauthn_permission_delegate_.get(),
+      mock_permission_delegate_.get(), mock_identity_registry_.get());
 
-  RequestService::GetOrCreateForCurrentDocument(child_rfh)
-      ->BindFederatedRequestService(
-          child_request_service_remote.BindNewPipeAndPassReceiver());
+  child_service->BindFederatedRequestService(
+      child_request_service_remote.BindNewPipeAndPassReceiver());
 
   auto provider = blink::mojom::IdentityProviderConfig::New();
   provider->config_url = GURL(kIdpUrl);
@@ -406,20 +404,18 @@ TEST_F(RequestRegistryTest,
       static_cast<TestRenderFrameHost*>(simulator->GetFinalRenderFrameHost());
 
   // Set up child service and bind Mojo interfaces.
-  mojo::Remote<blink::mojom::FederatedAuthRequest> child_request_remote;
   mojo::Remote<blink::mojom::FederatedRequestService>
       child_request_service_remote;
 
-  RequestService::GetOrCreateForCurrentDocument(child_rfh)
-      ->CreateRequestForTesting(
-          child_request_remote.BindNewPipeAndPassReceiver(),
-          test_api_permission_delegate_.get(),
-          mock_auto_reauthn_permission_delegate_.get(),
-          mock_permission_delegate_.get(), mock_identity_registry_.get());
+  auto* child_service =
+      RequestService::GetOrCreateForCurrentDocument(child_rfh);
+  child_service->SetDelegatesForTesting(
+      test_api_permission_delegate_.get(),
+      mock_auto_reauthn_permission_delegate_.get(),
+      mock_permission_delegate_.get(), mock_identity_registry_.get());
 
-  RequestService::GetOrCreateForCurrentDocument(child_rfh)
-      ->BindFederatedRequestService(
-          child_request_service_remote.BindNewPipeAndPassReceiver());
+  child_service->BindFederatedRequestService(
+      child_request_service_remote.BindNewPipeAndPassReceiver());
 
   auto provider = blink::mojom::IdentityProviderConfig::New();
   provider->config_url = GURL(kIdpUrl);

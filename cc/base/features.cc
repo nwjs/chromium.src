@@ -75,7 +75,7 @@ BASE_FEATURE(kPreserveDiscardableImageMapQuality,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kScrollEndRepaintFollowsScrollUpdate,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kCCSlimming, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -254,8 +254,11 @@ BASE_FEATURE_PARAM(double,
                    "fling_continuity_threshold_pixels",
                    0.2);
 
-BASE_FEATURE(kUseScrollIdToCalculateScrollJankV4FrameStages,
+BASE_FEATURE(kScrollJankV4MetricFastScrollContinuityRequiresSameDirection,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kUseScrollIdToCalculateScrollJankV4FrameStages,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kManualBeginFrame, base::FEATURE_DISABLED_BY_DEFAULT);
 

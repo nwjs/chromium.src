@@ -339,4 +339,18 @@ std::optional<EntityType> ToEntityType(
   }
 }
 
+std::optional<EntityType> ToEntityType(
+    personal_context::proto::SensitivePiiPresence::Type presence_type) {
+  switch (presence_type) {
+    case personal_context::proto::SensitivePiiPresence::DRIVERS_LICENSE:
+      return EntityType(EntityTypeName::kDriversLicense);
+    case personal_context::proto::SensitivePiiPresence::PASSPORT:
+      return EntityType(EntityTypeName::kPassport);
+    case personal_context::proto::SensitivePiiPresence::NATIONAL_ID:
+      return EntityType(EntityTypeName::kNationalIdCard);
+    case personal_context::proto::SensitivePiiPresence::UNSPECIFIED:
+      return std::nullopt;
+  }
+}
+
 }  // namespace autofill

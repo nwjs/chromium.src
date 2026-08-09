@@ -145,27 +145,25 @@ const FeatureEntry::Choice kSendTabToSelfEnhancedHandoffChoices[] = {
     {flags_ui::kGenericExperimentChoiceDefault, "", ""},
     {flags_ui::kGenericExperimentChoiceEnabled, switches::kEnableFeatures,
      "SendTabToSelfAutoOpen,"
+     "SendTabToSelfExtraEntryPoints,"
      "SendTabToSelfImprovedLastActiveLabels,"
      "SendTabToSelfPropagateFormFields,"
-     "SendTabToSelfPropagateNavigationHistory,"
      "SendTabToSelfPropagateScrollPosition,"
      "SendTabToSelfPostSendToast,"
+     "SendTabToSelfEnhancedBottomsheet,"
      "SyncSimplifyDeviceNaming,"
      "SyncUseServerDeterminedDeviceName,"
-     "SendTabToSelfEnhancedBottomsheet,"
-     "SendTabToSelfIOSShareSheetDeviceList,"
      "SyncSessionsUsePreferredDisplayName"},
     {flags_ui::kGenericExperimentChoiceDisabled, switches::kDisableFeatures,
      "SendTabToSelfAutoOpen,"
+     "SendTabToSelfExtraEntryPoints,"
      "SendTabToSelfImprovedLastActiveLabels,"
      "SendTabToSelfPropagateFormFields,"
-     "SendTabToSelfPropagateNavigationHistory,"
      "SendTabToSelfPropagateScrollPosition,"
      "SendTabToSelfPostSendToast,"
+     "SendTabToSelfEnhancedBottomsheet,"
      "SyncSimplifyDeviceNaming,"
      "SyncUseServerDeterminedDeviceName,"
-     "SendTabToSelfEnhancedBottomsheet,"
-     "SendTabToSelfIOSShareSheetDeviceList,"
      "SyncSessionsUsePreferredDisplayName"},
 };
 
@@ -2300,6 +2298,10 @@ constexpr auto kFeatureEntries = std::to_array<flags_ui::FeatureEntry>({
     {"zero-state-suggestions", flag_descriptions::kZeroStateSuggestionsName,
      flag_descriptions::kZeroStateSuggestionsDescription, flags_ui::kOsIos,
      FEATURE_VALUE_TYPE(kZeroStateSuggestions)},
+    {"zero-state-suggestions-wcgd",
+     flag_descriptions::kZeroStateSuggestionsWCGDName,
+     flag_descriptions::kZeroStateSuggestionsWCGDDescription, flags_ui::kOsIos,
+     FEATURE_VALUE_TYPE(kZeroStateSuggestionsWCGD)},
     {"zero-state-suggestions-centralization",
      flag_descriptions::kZeroStateSuggestionsCentralizationName,
      flag_descriptions::kZeroStateSuggestionsCentralizationDescription,
@@ -2465,6 +2467,10 @@ constexpr auto kFeatureEntries = std::to_array<flags_ui::FeatureEntry>({
     {"gemini-updated-consent", flag_descriptions::kGeminiUpdatedConsentName,
      flag_descriptions::kGeminiUpdatedConsentDescription, flags_ui::kOsIos,
      FEATURE_VALUE_TYPE(kGeminiUpdatedConsent)},
+    {"gemini-coordinator-teardown-fix",
+     flag_descriptions::kGeminiCoordinatorTeardownFixName,
+     flag_descriptions::kGeminiCoordinatorTeardownFixDescription,
+     flags_ui::kOsIos, FEATURE_VALUE_TYPE(kGeminiCoordinatorTeardownFix)},
     {"enable-file-download-connector-ios",
      flag_descriptions::kEnableFileDownloadConnectorIOSName,
      flag_descriptions::kEnableFileDownloadConnectorIOSDescription,
@@ -2838,6 +2844,10 @@ constexpr auto kFeatureEntries = std::to_array<flags_ui::FeatureEntry>({
     {"ai-avatar-ring-ios", flag_descriptions::kAiAvatarRingIosName,
      flag_descriptions::kAiAvatarRingIosDescription, flags_ui::kOsIos,
      FEATURE_VALUE_TYPE(kAiAvatarRingIos)},
+    {"app-bar-hide-in-fullscreen",
+     flag_descriptions::kAppBarHideInFullscreenName,
+     flag_descriptions::kAppBarHideInFullscreenDescription, flags_ui::kOsIos,
+     FEATURE_VALUE_TYPE(kAppBarHideInFullscreen)},
     {"gemini-contextual-suggestions-cues",
      flag_descriptions::kGeminiContextualSuggestionsCuesName,
      flag_descriptions::kGeminiContextualSuggestionsCuesDescription,
@@ -2868,6 +2878,10 @@ constexpr auto kFeatureEntries = std::to_array<flags_ui::FeatureEntry>({
      flags_ui::kOsIos,
      FEATURE_VALUE_TYPE(
          enterprise_connectors::kEnableBulkDataEntryConnectorIOS)},
+    {"default-bottom-omnibox-on-ios",
+     flag_descriptions::kDefaultBottomOmniboxOnIOSName,
+     flag_descriptions::kDefaultBottomOmniboxOnIOSDescription, flags_ui::kOsIos,
+     FEATURE_VALUE_TYPE(kDefaultBottomOmniboxOnIOS)},
 });
 
 bool SkipConditionalFeatureEntry(const flags_ui::FeatureEntry& entry) {

@@ -2308,7 +2308,7 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
     }
 
     @CalledByNative
-    private void handleInitialLoadComplete(int rootId) {
+    protected void handleInitialLoadComplete(int rootId) {
         if (mDidSendAnyEvent || sSuppressLoadCompleteEventForTesting || rootId == View.NO_ID) {
             return;
         }

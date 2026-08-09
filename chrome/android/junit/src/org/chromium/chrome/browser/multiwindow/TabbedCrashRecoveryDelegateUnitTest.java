@@ -203,6 +203,31 @@ public class TabbedCrashRecoveryDelegateUnitTest {
     }
 
     @Test
+    public void testMaybeShowCrashRecoveryDialog_singleWindowHost_resetsState() {
+        // Setup: Host window is the only window.
+        setupOtherCrashedWindows(
+                /* numNonVisibleWindows= */ 0,
+                /* numDefaultDisplayWindows= */ 0,
+                /* numNonDefaultDisplayWindows= */ 0);
+        writeCrashExitReasonToPrefs();
+
+        // Act.
+        mDelegate.initializeCrashRecoveryMetadata();
+
+        boolean shown =
+                mDelegate.maybeShowCrashRecoveryDialog(mModalDialogManagerSupplier, mHostActivity);
+
+        // Verify.
+        assertFalse(shown);
+
+        // Now verify it's no longer eligible (resetState was called).
+        // A second call should return false because mIsCrashRecoveryEligible was reset to false.
+        assertFalse(
+                "Delegate should no longer be eligible after state reset.",
+                mDelegate.maybeShowCrashRecoveryDialog(mModalDialogManagerSupplier, mHostActivity));
+    }
+
+    @Test
     public void testDidLastSessionCrashWithRecoverableWindows_variousExitReasons() {
         // Setup: At least one crashed window exists on disk.
         setupOtherCrashedWindows(
@@ -880,5 +905,35 @@ public class TabbedCrashRecoveryDelegateUnitTest {
         boolean shown =
                 mDelegate.maybeShowCrashRecoveryDialog(mModalDialogManagerSupplier, mHostActivity);
         assertTrue(shown);
+    }
+
+    @Test
+    public void testMaybeShowCrashRecoveryDialog_incognitoHost_cancelsRecovery() {
+        // Setup: Multiple crashed windows exist.
+        setupOtherCrashedWindows(
+                /* numNonVisibleWindows= */ 2,
+                /* numDefaultDisplayWindows= */ 0,
+                /* numNonDefaultDisplayWindows= */ 0);
+        writeCrashExitReasonToPrefs();
+        when(mHostActivity.isIncognitoWindow()).thenReturn(true);
+
+        // Act.
+        mDelegate.initializeCrashRecoveryMetadata();
+
+        // Verify initial state has recoverable windows.
+        assertTrue(ChromeMultiInstancePersistentStore.readIsRecoverable(HOST_WINDOW_ID));
+        assertTrue(ChromeMultiInstancePersistentStore.readIsRecoverable(1));
+        assertTrue(ChromeMultiInstancePersistentStore.readIsRecoverable(2));
+
+        boolean shown =
+                mDelegate.maybeShowCrashRecoveryDialog(mModalDialogManagerSupplier, mHostActivity);
+
+        // Verify: Prompt is not shown, and recovery is cancelled (all crashed windows are marked
+        // non-recoverable).
+        assertFalse(shown);
+        verifyNoInteractions(mModalDialogManager);
+        assertTrue(ChromeMultiInstancePersistentStore.readIsRecoverable(HOST_WINDOW_ID));
+        assertFalse(ChromeMultiInstancePersistentStore.readIsRecoverable(1));
+        assertFalse(ChromeMultiInstancePersistentStore.readIsRecoverable(2));
     }
 }

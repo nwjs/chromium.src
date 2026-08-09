@@ -211,6 +211,7 @@ struct SmartComposeStats {
 };
 
 struct AutocompleteResult {
+  int32 query_id;
   uint32 sequence_id;
   mojo_base.mojom.String16 input;
   // Map of suggestion group IDs to their respective info.
@@ -279,6 +280,17 @@ enum SuggestInventory {
   kConversationStarters = 4,
 };
 
+// LINT.IfChange(InputMethod)
+enum InputMethod {
+  kKeyboard = 1,
+  kPaste = 2,
+  kSpeech = 6,
+  kTab = 8,
+  kLensCamera = 10,
+  kSmartCompose = 11,
+};
+// LINT.ThenChange(//third_party/omnibox_proto/chrome_searchbox_stats.proto:InputMethod)
+
 // Information about a successfully processed Drive file.
 struct DriveFile {
   // The UnguessableToken acts as a secure, cross-process identifier. The WebUI
@@ -319,12 +331,14 @@ interface PageHandler {
 
   // Queries autocomplete matches from the browser. `cursor_position` is cursor
   // position in `input`.
-  QueryAutocomplete(mojo_base.mojom.String16 input,
+  QueryAutocomplete(int32 query_id,
+                    mojo_base.mojom.String16 input,
                     bool prevent_inline_autocomplete,
                     uint32 cursor_position);
 
   // Queries autocomplete matches from the browser with preferred SuggestInventory.
-  QueryAutocompleteWithSuggestInventory(mojo_base.mojom.String16 input,
+  QueryAutocompleteWithSuggestInventory(int32 query_id,
+                                        mojo_base.mojom.String16 input,
                                         bool prevent_inline_autocomplete,
                                         uint32 cursor_position,
                                         SuggestInventory suggest_inventory);
@@ -345,10 +359,15 @@ interface PageHandler {
                         bool alt_key,
                         bool ctrl_key,
                         bool meta_key,
-                        bool shift_key);
+                        bool shift_key,
+                        bool via_keyboard);
 
   // Sets the Smart Compose stats to be passed during the next navigation.
   SetSmartComposeStats(SmartComposeStats smart_compose_stats);
+
+  // Sets the WebUI-specific input method. Used to for querying autocomplete
+  // and gets reset in the browser every time autocomplete is queried.
+  SetInputMethod(InputMethod input_method);
 
   // Sets the native OmniboxEditModel popup selection.
   // TODO(crbug.com/483117840): This drives some omnibox state affecting
@@ -447,6 +466,9 @@ interface PageHandler {
   DeleteContext(
       mojo_base.mojom.UnguessableToken token, bool from_automatic_chip);
 
+  // Notify handler of tab context deletion by tab ID.
+  DeleteTabContext(int32 tab_id);
+
   // Clears all files from cache.
   // `clear_auto_suggested_tabs` indicates whether the URLs of auto suggested
   // tabs should be blocked from being suggested again.
@@ -490,6 +512,16 @@ interface PageHandler {
 
   // Gets the page classification for the current context.
   GetPageClassification() => (string metricSource);
+
+  // Called to enable or disable Smart Tab Sharing for subsequent queries.
+  // This will trigger a callback to Page.UpdateSmartTabSharingActive()
+  // to notify all WebUI clients of the new active state.
+  [EnableIfNot=is_android]
+  SetSmartTabSharingActive(bool active);
+
+  // Called to retrieve the current Smart Tab Sharing state.
+  [EnableIfNot=is_android]
+  GetSmartTabSharingActive() => (bool active);
 };
 
 // WebUI-side handler for requests from the browser.
@@ -558,6 +590,10 @@ interface Page {
 
   // Notifies the UI to show or hide the AIM popup for omnibox.
   UpdateAimPopupEligibility(bool eligible);
+
+  // Notifies the UI that the Smart Tab Sharing active state has changed.
+  [EnableIfNot=is_android]
+  UpdateSmartTabSharingActive(bool active);
 
   // Notifies the size of the permission prompt and that it is
   // showing or being hidden.

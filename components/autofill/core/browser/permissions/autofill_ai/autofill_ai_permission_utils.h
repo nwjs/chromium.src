@@ -86,7 +86,9 @@ enum class AutofillAiAction {
   kAmbientAutofill,
   // Returns true if the entity type supports personal context data.
   kTypeSupportsAmbientAutofillData,
-  kMaxValue = kTypeSupportsAmbientAutofillData,
+  // Whether ambient autofill should be shown in settings.
+  kShowAmbientAutofillInSettings,
+  kMaxValue = kShowAmbientAutofillInSettings,
 };
 
 // Opt-in status for the AutofillAI feature.

@@ -67,8 +67,6 @@ void AddGoogleLensStepResources(content::WebUIDataSource* source) {
       {"lensDisclosure", IDS_FEATURE_SHOWCASE_LENS_OVERLAY_DISCLOSURE},
       {"lensYesImIn", IDS_FEATURE_SHOWCASE_LENS_OVERLAY_YES_IM_IN},
       {"lensNotNow", IDS_FEATURE_SHOWCASE_LENS_OVERLAY_NOT_NOW},
-      {"lensIllustrationA11yLabel",
-       IDS_FEATURE_SHOWCASE_LENS_OVERLAY_ILLUSTRATION_A11Y_LABEL},
   });
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
@@ -88,8 +86,6 @@ void AddPasswordManagerStepResources(content::WebUIDataSource* source) {
        IDS_FEATURE_SHOWCASE_PASSWORD_MANAGER_ADD_TO_TOOLBAR},
       {"passwordManagerNoThanks",
        IDS_FEATURE_SHOWCASE_PASSWORD_MANAGER_NO_THANKS},
-      {"passwordManagerIllustrationA11yLabel",
-       IDS_FEATURE_SHOWCASE_PASSWORD_MANAGER_ILLUSTRATION_A11Y_LABEL},
   });
 }
 
@@ -151,6 +147,9 @@ FeatureShowcaseUI::FeatureShowcaseUI(content::WebUI* web_ui)
       "worker-src blob: chrome://resources 'self';");
 
   source->AddResourcePath("images/product-logo.svg", IDR_PRODUCT_LOGO_SVG);
+
+  source->AddLocalizedString("stepperA11yLabel",
+                             IDS_FEATURE_SHOWCASE_STEPPER_A11Y_LABEL);
 
   AddDefaultBrowserStepResources(source);
   AddGoogleLensStepResources(source);

@@ -65,7 +65,6 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisableIf;
-import org.chromium.base.test.util.DisableLeakChecks;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.RequiresRestart;
@@ -119,7 +118,6 @@ import java.util.Map;
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add(ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE)
 @Batch(Batch.PER_CLASS)
-@DisableLeakChecks("crbug.com/527130525")
 public class SelectableTabListEditorTest {
     private static final String PAGE_WITH_HTTPS_CANONICAL_URL =
             "/chrome/test/data/android/share/link_share_https_canonical.html";

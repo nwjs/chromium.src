@@ -1043,6 +1043,10 @@
 
 - (void)toolsMenuWasTapped:(UIView*)toolsMenu {
   CHECK(IsChromeNextIaEnabled());
+  base::RecordAction(base::UserMetricsAction("MobileToolbarShowMenuOnNTP"));
+  base::RecordAction(
+      base::UserMetricsAction("MobileToolbarNTPEntrypointShowMenu"));
+
   id<PopupMenuCommands> popupMenuHandler = HandlerForProtocol(
       self.browser->GetCommandDispatcher(), PopupMenuCommands);
   [popupMenuHandler showToolsMenuPopup];
@@ -1166,6 +1170,7 @@
                                    title:title
                                 scenario:SharingScenario::MostVisitedEntry];
   UIViewController* baseVC = [self activeViewController];
+  [_sharingCoordinator stop];
   _sharingCoordinator =
       [[SharingCoordinator alloc] initWithBaseViewController:baseVC
                                                      browser:self.browser

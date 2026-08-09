@@ -288,8 +288,7 @@ WebUIContentsPreloadManager::WebUIContentsPreloadManager()
           /*consumer_name=*/"WebUIContentsPreloadManager",
           kWebUIContentsPreloadManagerTraits,
           this,
-          base::MemoryConsumerRegistration::CheckUnregister::kDisabled,
-          base::MemoryConsumerRegistration::CheckRegistryExists::kDisabled) {
+          base::MemoryConsumerRegistration::CheckUnregister::kDisabled) {
   preload_mode_ =
       static_cast<PreloadMode>(features::kPreloadTopChromeWebUIMode.Get());
   webui_controller_embedder_stub_ =

@@ -140,6 +140,8 @@ export class SearchboxMatchElement extends CrLitElement {
       showEllipsis: {type: Boolean},
       sideType: {type: Number},
 
+      virtualFocusEnabled: {type: Boolean},
+
       //========================================================================
       // Private properties
       //========================================================================
@@ -197,6 +199,7 @@ export class SearchboxMatchElement extends CrLitElement {
   accessor sideType: SideType = SideType.kDefaultPrimary;
   accessor showThumbnail: boolean = false;
   accessor showEllipsis: boolean = false;
+  accessor virtualFocusEnabled: boolean = false;
   private accessor isContextualSuggestion_: boolean = false;
   private accessor isTopChromeSearchbox_: boolean =
       loadTimeData.getBoolean('isTopChromeSearchbox');
@@ -259,6 +262,35 @@ export class SearchboxMatchElement extends CrLitElement {
     this.addEventListener('mousedown', () => this.onMatchMouseDown_());
   }
 
+  override updated(changedProperties: PropertyValues<this>) {
+    super.updated(changedProperties);
+    if (changedProperties.has('selection') || changedProperties.has('match')) {
+      this.updateAriaLabel_();
+    }
+  }
+
+  private updateAriaLabel_() {
+    if (!this.virtualFocusEnabled) {
+      return;
+    }
+
+    const state = this.selection.state;
+    if (this.selection.line === this.matchIndex) {
+      if (state === SelectionLineState.kNormal) {
+        this.ariaLabel = this.computeAriaLabel_();
+      } else if (state === SelectionLineState.kKeywordMode) {
+        this.ariaLabel = this.match.keywordChipA11y || '';
+      } else if (state === SelectionLineState.kFocusedButtonAction) {
+        const action = this.match.actions[this.selection.actionIndex];
+        this.ariaLabel = action ? action.a11yLabel : '';
+      } else if (state === SelectionLineState.kFocusedButtonRemoveSuggestion) {
+        this.ariaLabel = this.removeButtonAriaLabel_ || '';
+      }
+    } else {
+      this.ariaLabel = this.computeAriaLabel_();
+    }
+  }
+
   //============================================================================
   // Event handlers
   //============================================================================
@@ -297,7 +329,7 @@ export class SearchboxMatchElement extends CrLitElement {
     this.pageHandler_.openAutocompleteMatch(
         this.matchIndex, this.match.destinationUrl,
         /* are_matches_showing */ true, e.button || 0, e.altKey, e.ctrlKey,
-        e.metaKey, e.shiftKey);
+        e.metaKey, e.shiftKey, /*via_keyboard=*/ false);
 
     // Duplicates the logic in `ui::DispositionFromClick()`.
     const backgroundTab = (e.metaKey || e.ctrlKey) && e.shiftKey;

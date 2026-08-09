@@ -18,10 +18,23 @@ import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {AutocompleteResult, PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerInterface as SearchboxPageHandlerInterface} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 
-import {browserProxyFactory} from './omnibox_popup.mojom-webui.js';
+import {browserProxyFactory, OmniboxEscapeAction} from './omnibox_popup.mojom-webui.js';
 import type {OmniboxInputState, PageCallbackRouter as PopupPageCallbackRouter, PageHandlerInterface as PopupPageHandlerInterface} from './omnibox_popup.mojom-webui.js';
 import {getCss} from './omnibox_popup_searchbox.css.js';
 import {getHtml} from './omnibox_popup_searchbox.html.js';
+import {sanitizeTextForPaste} from './utils.js';
+
+/**
+ * Focus actions deferred when `document.visibilityState` is hidden.
+ * - FOCUS: Focus only (set by `onSetInputState_` where `selectRange()` handles
+ * selection separately).
+ * - FOCUS_AND_SELECT: Focus and select all text (set by `onSetFocus_` when
+ * refocusing).
+ */
+enum DeferredFocusAction {
+  FOCUS,
+  FOCUS_AND_SELECT,
+}
 
 export interface OmniboxPopupSearchboxElement {
   $: {
@@ -87,6 +100,10 @@ export class OmniboxPopupSearchboxElement extends
         type: Boolean,
         reflect: true,
       },
+      multiLineEnabled: {
+        type: Boolean,
+        reflect: true,
+      },
     };
   }
 
@@ -102,6 +119,8 @@ export class OmniboxPopupSearchboxElement extends
   protected accessor searchboxLensSearchEnabled_: boolean =
       loadTimeData.getBoolean('searchboxLensSearch');
   protected accessor useWebkitSearchIcons_: boolean = false;
+  override accessor multiLineEnabled: boolean =
+      loadTimeData.getBoolean('searchboxMultiline');
   // TODO(b/519185419): Remove `isTouchUi_` property and from `loadTimeData` and
   // get layout constants and font sizes from a C++ layout helper instead.
   protected accessor isTouchUi_: boolean = loadTimeData.getBoolean('isTouchUi');
@@ -125,6 +144,13 @@ export class OmniboxPopupSearchboxElement extends
   private isComposing_: boolean = false;
   private fullUrl_: string = '';
   private pendingFocusSelection_: {start: number, end: number}|null = null;
+  private permanentDisplayText_: string = '';
+  private fullUrlShown_: boolean = false;
+  // TODO(b/504669677): Replace `deferredFocusAction_` with
+  // an actual handshake, to give more control of when focusing happens, instead
+  // of relying on deferred focus/selectall.
+  // Stores pending focus action if focus arrives while document is hidden.
+  private deferredFocusAction_: DeferredFocusAction|null = null;
 
   constructor() {
     super();
@@ -147,9 +173,13 @@ export class OmniboxPopupSearchboxElement extends
     this.popupListenerIds_ = [
       this.popupCallbackRouter_.setInputState.addListener(
           this.onSetInputState_.bind(this)),
+      this.popupCallbackRouter_.setFocus.addListener(
+          this.onSetFocus_.bind(this)),
     ];
     this.eventTracker_.add(
         document, 'selectionchange', this.onSelectionChanged_.bind(this));
+    this.eventTracker_.add(
+        document, 'visibilitychange', this.onVisibilityChange_.bind(this));
     // TODO(b/522957982): Establish closer IME parity with the native Views
     // Omnibox (e.g., render inline autocompletion in a separate overlaid span
     // rather than modifying input value during active composition).
@@ -160,6 +190,10 @@ export class OmniboxPopupSearchboxElement extends
       this.isComposing_ = false;
       this.onSelectionChanged_();
     });
+
+    // Request initial native state in case C++ synced before WebUI connected
+    // (e.g., if WebUI preloading is disabled).
+    this.popupPageHandler_.requestInputState();
   }
 
   override disconnectedCallback() {
@@ -183,7 +217,7 @@ export class OmniboxPopupSearchboxElement extends
 
   override firstUpdated(changedProperties: PropertyValues<this>) {
     super.firstUpdated(changedProperties);
-    this.initialInputScrollHeight = this.$.input.scrollHeight;
+    this.initialInputScrollHeight = this.$.input.inputElement.scrollHeight;
   }
 
   focusInput() {
@@ -210,10 +244,29 @@ export class OmniboxPopupSearchboxElement extends
     return this.searchboxPageHandler_;
   }
 
-  override clearAutocompleteMatches() {
-    super.clearAutocompleteMatches();
-    // Revert the `OmniboxEditModel` to the permanent URL (with sequence guard).
+  /**
+   * Clears frontend autocomplete matches and reverts C++ `OmniboxEditModel`.
+   * Kept separate from `clearAutocompleteMatches()`, which is called internally
+   * by `SearchboxMixin` when selecting suggestions or blurring the input.
+   */
+  revert() {
+    this.clearAutocompleteMatches();
     this.popupPageHandler_.revert(this.currentSequenceNum_);
+  }
+
+  // TODO(crbug.com/528331161): Unify this with the NTP searchbox logic and move
+  // it to SearchboxMixin.
+  override updateDropdownVisibility() {
+    super.updateDropdownVisibility();
+
+    if (this.multiLineEnabled && this.dropdownIsVisible) {
+      const shouldSuppressDropdown = this.initialInputScrollHeight > 0 &&
+          this.$.input.inputElement.scrollHeight >
+              this.initialInputScrollHeight;
+      if (shouldSuppressDropdown) {
+        this.dropdownIsVisible = false;
+      }
+    }
   }
 
   isInputEmpty(): boolean {
@@ -238,9 +291,7 @@ export class OmniboxPopupSearchboxElement extends
   }
 
   override isAutocompleteResultStale(result: AutocompleteResult): boolean {
-    return (!!this.lastQueriedInput &&
-            this.lastQueriedInput.trimStart() !== result.input) ||
-        !result.matches.length;
+    return super.isAutocompleteResultStale(result) || !result.matches.length;
   }
 
   //========================================================================
@@ -253,6 +304,72 @@ export class OmniboxPopupSearchboxElement extends
       return;
     }
     super.onInputFocusChanged(e);
+  }
+
+  protected onInputMousedown_() {
+    this.showFullUrlOnDeselect_();
+  }
+
+  protected onInputKeydown_(e: CustomEvent<{key: string}>) {
+    if (e.detail.key === 'ArrowLeft' || e.detail.key === 'ArrowRight') {
+      const input = this.getInputElement().inputElement;
+      if (input.selectionStart === 0 &&
+          input.selectionEnd === input.value.length) {
+        this.showFullUrlOnDeselect_();
+        if (e.detail.key === 'ArrowLeft') {
+          input.setSelectionRange(0, 0);
+        } else {
+          input.setSelectionRange(input.value.length, input.value.length);
+        }
+      }
+    }
+  }
+
+  protected onInputPaste_(e: ClipboardEvent) {
+    let text = e.clipboardData?.getData('text/plain');
+    if (!text && e.clipboardData?.types.includes('text/x-moz-url')) {
+      // 'text/x-moz-url' is formatted as "URL\nTitle" when copying bookmarks.
+      // Extract the URL part, while dropping the Title part.
+      // This logic aligns with the native `GetClipboardText()` behavior in
+      // Views.
+      text = e.clipboardData.getData('text/x-moz-url').split(/\r?\n/)[0];
+    }
+    if (!text) {
+      return;
+    }
+
+    e.preventDefault();
+    const sanitizedText = sanitizeTextForPaste(text);
+
+    const input = this.getInputElement().inputElement;
+    const start = input.selectionStart || 0;
+    const end = input.selectionEnd || 0;
+    const newValue = input.value.substring(0, start) + sanitizedText +
+        input.value.substring(end);
+
+    this.getInputElement().setInput({text: newValue, inline: ''});
+    const cursorPos = start + sanitizedText.length;
+    this.getInputElement().setSelectionRange(cursorPos, cursorPos);
+    this.getInputElement().dispatchEvent(
+        new CustomEvent('searchbox-input-text-updated', {
+          detail: {
+            value: newValue,
+            isComposing: false,
+          },
+        }));
+  }
+
+  protected showFullUrlOnDeselect_() {
+    if (this.userInputInProgress_) {
+      return;
+    }
+    const input = this.getInputElement().inputElement;
+    if (input.selectionEnd === null || input.selectionStart === null) {
+      return;
+    }
+    if (input.selectionEnd - input.selectionStart === input.value.length) {
+      this.maybeShowFullUrl_();
+    }
   }
 
   private isChromeScheme_(): boolean {
@@ -278,7 +395,7 @@ export class OmniboxPopupSearchboxElement extends
 
     this.popupPageHandler_.onSelectionChanged(
         {start: input.selectionStart || 0, end: input.selectionEnd || 0},
-        this.currentSequenceNum_);
+        this.currentSequenceNum_, this.fullUrlShown_);
   }
 
   /**
@@ -291,43 +408,126 @@ export class OmniboxPopupSearchboxElement extends
     this.currentSequenceNum_ = state.sequenceNumber;
     this.fullUrl_ = state.fullUrl;
     this.lastQueriedInput = state.text;
+    this.permanentDisplayText_ = state.permanentDisplayText;
+
+    // Clear any stale results and close the dropdown on a hard state reset.
+    // Clear results here since focusout event may not fire.
+    if (this.result && this.isAutocompleteResultStale(this.result)) {
+      this.result = null;
+      this.dropdownIsVisible = false;
+    }
 
     if (state.isFocused) {
-      this.$.input.focus();
+      if (document.visibilityState === 'visible') {
+        this.deferredFocusAction_ = null;
+        this.$.input.focus();
+      } else {
+        this.deferredFocusAction_ = DeferredFocusAction.FOCUS;
+      }
     } else {
+      this.deferredFocusAction_ = null;
       this.$.input.blur();
+    }
+    if (state.showFullUrl) {
+      this.maybeShowFullUrl_();
+    } else {
+      this.fullUrlShown_ = false;
     }
 
     // Input gets focused on init which triggers Blink's
     // `UpdateSelectionOnFocus`. Set `pendingFocusSelection_` so that this
     // update does not trigger `onSelectionChanged()`. See line 348 of
     // third_party/blink/renderer/core/html/forms/html_input_element.cc.
-    this.pendingFocusSelection_ = state.selection;
+    const isAlreadyFocused = this.shadowRoot?.activeElement === this.$.input;
+    this.pendingFocusSelection_ =
+        (state.isFocused && !isAlreadyFocused) ? state.selection : null;
     this.selectRange(state.selection);
     this.getDropdownElement().unselect();
     this.pageHandler().stopAutocomplete(/*clearResult=*/ false);
   }
 
+  /**
+   * Called by C++ via `SetFocus` Mojo IPC when the browser refocuses the
+   * Omnibox while the popup is already open (or during tab restoration). If the
+   * document is visible, focuses and selects all input text immediately.
+   * If hidden, defers the action until `visibilitychange`.
+   */
+  private onSetFocus_(isFocused: boolean) {
+    if (isFocused) {
+      if (document.visibilityState === 'visible') {
+        this.deferredFocusAction_ = null;
+        this.$.input.focus();
+        this.getInputElement().select();
+      } else {
+        // Defer focusing and selecting text if the document is currently
+        // hidden, as DOM focus calls on hidden documents may be ignored.
+        this.deferredFocusAction_ = DeferredFocusAction.FOCUS_AND_SELECT;
+      }
+    } else {
+      this.deferredFocusAction_ = null;
+      this.$.input.blur();
+    }
+  }
+
+  /**
+   * Applies `selection` to `#input`. If a partial sub-range is requested while
+   * displaying an elided URL, unelides `fullUrl_` first before selecting.
+   */
   private selectRange(selection: {start: number, end: number}) {
     const {start, end} = selection;
-    const input = this.getInputElement().inputElement.value.trim();
-    // Selection can come from either direction.
-    if (!(start - end === input.length) && !(end - start === input.length)) {
-      if (this.fullUrl_) {
-        this.$.input.setInputText(this.fullUrl_);
-      }
+    const input = this.getInputElement().inputElement.value;
+    const isFullSelection =
+        Math.abs(start - end) === input.length && input.length > 0;
+
+    // If a partial sub-range (e.g. from double click or drag) is requested
+    // while displaying an elided URL, unelide to `fullUrl_` before applying
+    // the selection so the highlight matches full URL coordinates exactly.
+    if (start !== end && !isFullSelection && this.fullUrl_) {
+      this.maybeShowFullUrl_();
+    }
+
+    if (isFullSelection) {
+      this.getInputElement().select();
+    } else {
       this.$.input.setSelectionRange(
           Math.min(start, end), Math.max(start, end));
-    } else {
-      this.$.input.select();
     }
+  }
+
+  private maybeShowFullUrl_() {
+    if (this.userInputInProgress_) {
+      return;
+    }
+    this.$.input.setInputText(this.fullUrl_);
+    this.fullUrlShown_ = true;
   }
 
   protected onInputFocusin_() {
     this.searchboxPageHandler_.onFocusChanged(true);
     if (this.pendingFocusSelection_) {
       this.selectRange(this.pendingFocusSelection_);
-      this.pendingFocusSelection_ = null;
+      // Delay clearing pending focus as tab switch sets `pendingFocusSelection`
+      // after `focusin` is called.
+      requestAnimationFrame(() => {
+        this.pendingFocusSelection_ = null;
+      });
+    }
+  }
+
+  /**
+   * Executes deferred focus (`FOCUS` / `FOCUS_AND_SELECT`) when the tab
+   * transitions from hidden to visible (`document.visibilityState ===
+   * 'visible'`).
+   */
+  private onVisibilityChange_() {
+    if (document.visibilityState === 'visible' &&
+        this.deferredFocusAction_ !== null) {
+      const action = this.deferredFocusAction_;
+      this.deferredFocusAction_ = null;
+      this.$.input.focus();
+      if (action === DeferredFocusAction.FOCUS_AND_SELECT) {
+        this.getInputElement().select();
+      }
     }
   }
 
@@ -341,27 +541,24 @@ export class OmniboxPopupSearchboxElement extends
   protected onSearchboxInputTextUpdated_(
       e: CustomEvent<{value: string, isComposing: boolean}>) {
     this.userInputInProgress_ = true;
-    this.onSearchboxInputTextUpdated(e, /*forceAutocomplete=*/ false);
+    if (!e.detail.value.trim()) {
+      // Notify the backend when the user clears all input (`onInputCleared`) so
+      // it knows the draft was manually cleared and can revert empty drafts on
+      // tab switch (restoring the permanent URL instead of a blank string).
+      this.clearAutocompleteMatches();
+      this.popupPageHandler_.onInputCleared(this.currentSequenceNum_);
+    } else {
+      this.onSearchboxInputTextUpdated(e, /*forceAutocomplete=*/ false);
+    }
   }
 
   override onInputWrapperFocusout(e: FocusEvent) {
+    // Note: super.onInputWrapperFocusout calls
+    // this.pageHandler().onFocusChanged(false), which dispatches to
+    // searchboxPageHandler_.onFocusChanged(false) via our pageHandler()
+    // override.
     super.onInputWrapperFocusout(e);
-
-    const newlyFocusedEl = e.relatedTarget as Element;
-    // Check if the focus has completely left the searchbox wrapper, and not
-    // just moved to another internal child element (e.g., the clear button).
-    const isOutside = !this.getWrapperElement().contains(newlyFocusedEl);
-
-    // Only trigger a manual blur if the user clicked outside the searchbox
-    // within the active window. Avoid blurring if the entire browser window
-    // lost focus, which should preserve the Omnibox focus state.
-    if (isOutside && document.visibilityState === 'visible') {
-      // Pass `currentSequenceNum_` to the C++ handler to prevent stale
-      // blur events from previous tabs from incorrectly blurring
-      // a newly focused tab during rapid tab switching.
-      this.popupPageHandler_.onManualBlur(this.currentSequenceNum_);
-      this.$.input.blur();
-    }
+    this.$.input.blur();
   }
 
   protected onVoiceSearchClick_() {
@@ -374,16 +571,40 @@ export class OmniboxPopupSearchboxElement extends
   }
 
   override async handleKeyNavigation(e: KeyboardEvent) {
+    // TODO(b/514810983): Reconcile escape behavior with that of the Views
+    // Omnibox.
     if (e.key === 'Escape') {
-      if (!this.dropdownIsVisible) {
-        if (this.getInputElement().inputElement.value) {
-          this.getInputElement().setInput({text: '', inline: ''});
+      if (this.dropdownIsVisible) {
+        e.preventDefault();
+        if (this.selectedMatchIndex > 0) {
+          // If there is temporary text (i.e. a non default suggestion is
+          // selected), then revert it.
+          await this.getDropdownElement().selectFirst();
+          this.popupPageHandler_.logEscapeAction(
+              OmniboxEscapeAction.kRevertTemporaryText);
         } else {
-          this.popupPageHandler_.closeUI();
+          // Otherwise, close the popup if it's open.
+          this.revert();
+          this.popupPageHandler_.logEscapeAction(
+              OmniboxEscapeAction.kClosePopup);
         }
       } else {
-        this.clearAutocompleteMatches();
-        e.preventDefault();
+        if (this.getInputElement().inputElement.value !==
+            this.permanentDisplayText_) {
+          e.preventDefault();
+          // Clear the input by restoring the permanent display text.
+          this.getInputElement().setInput({
+            text: this.permanentDisplayText_,
+            inline: '',
+          });
+          this.getInputElement().select();
+          this.popupPageHandler_.logEscapeAction(
+              OmniboxEscapeAction.kClearUserInput);
+        } else {
+          // Blur the Omnibox popup by closing it.
+          this.popupPageHandler_.closeUI();
+          this.popupPageHandler_.logEscapeAction(OmniboxEscapeAction.kBlur);
+        }
       }
       return;
     }

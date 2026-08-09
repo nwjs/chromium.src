@@ -576,6 +576,54 @@ suite('ReadonlyOmnibox', function() {
     }
   });
 
+  test(
+      'Disregarding browser selection when ui-controlled properly',
+      async () => {
+        omnibox.browserOmniboxState = {
+          ...initialState,
+          textPieces: [
+            {
+              text: 'www.example.',
+              strikethrough: false,
+              color: OmniboxTextColor.kOmniboxText,
+            },
+          ],
+          selection: {start: 0, end: 3},
+          textIsUrl: true,
+        };
+        await microtasksFinished();
+
+        // Pretend we typed in ftp
+        const input = getTextInput();
+        input.value = 'ftp.example.';
+        input.dispatchEvent(new InputEvent('input'));
+        await microtasksFinished();
+        assertEquals(1, omnibox.omniboxViewState.uiVersion);
+
+        // and that we changed the caret on mouse down or arrow, etc., which
+        // didn't get synced yet.
+        input.setSelectionRange(4, 4);
+
+        // Browser sends out-of-dated selection for some reason.
+        omnibox.browserOmniboxState = {
+          ...initialState,
+          textPieces: [
+            {
+              text: 'ftp.example.',
+              strikethrough: false,
+              color: OmniboxTextColor.kOmniboxText,
+            },
+          ],
+          selection: {start: 3, end: 3},
+          textIsUrl: true,
+          uiVersion: 1,
+        };
+        await microtasksFinished();
+
+        // input's selection isn't restored to wrong value.
+        assertEquals(4, input.selectionStart);
+      });
+
   test('Unelision on home', async () => {
     omnibox.browserOmniboxState = {
       ...initialState,
@@ -726,7 +774,7 @@ suite('ReadonlyOmnibox', function() {
     assertEquals('example.com', input.value);
     assertEquals('example.com', omnibox.$.textContainer.textContent);
     assertEquals('example.com', getStringSelection());
-    assertEquals(0, omnibox.omniboxViewState.uiVersion);
+    assertEquals(1, omnibox.omniboxViewState.uiVersion);
 
     // Reset the omnibox in between subtests.
     omnibox.browserOmniboxState = {
@@ -749,7 +797,8 @@ suite('ReadonlyOmnibox', function() {
     await microtasksFinished();
     assertEquals('https://example.com', input.value);
     assertEquals('https://example.com', omnibox.$.textContainer.textContent);
-    assertEquals(1, omnibox.omniboxViewState.uiVersion);
+    // 2 due to user selection + unelide both changing it.
+    assertEquals(2, omnibox.omniboxViewState.uiVersion);
     // Selection value is preserved if it's in the middle.
     assertEquals('xamp', getStringSelection());
     assertEquals('forward', input.selectionDirection);
@@ -772,7 +821,8 @@ suite('ReadonlyOmnibox', function() {
     // Selection value is preserved if it's in the middle.
     assertEquals('https://examp', getStringSelection());
     assertEquals('backward', input.selectionDirection);
-    assertEquals(1, omnibox.omniboxViewState.uiVersion);
+    // 2 due to user selection + unelide both changing it.
+    assertEquals(2, omnibox.omniboxViewState.uiVersion);
   });
 
   test('Unelision of intranet domains', async () => {

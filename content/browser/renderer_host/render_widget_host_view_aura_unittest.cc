@@ -1387,9 +1387,9 @@ TEST_F(RenderWidgetHostViewAuraTest, SetCompositionText) {
   MockWidgetInputHandler::DispatchedIMEMessage* ime_message =
       events[0]->ToIME();
   EXPECT_TRUE(ime_message);
-  EXPECT_TRUE(ime_message->Matches(composition_text.text, ime_text_spans,
-                                   gfx::Range::InvalidRange(), 4, 4,
-                                   blink::mojom::ImeState::kNone));
+  EXPECT_TRUE(ime_message->Matches(
+      composition_text.text, ime_text_spans, gfx::Range::InvalidRange(), 4, 4,
+      blink::mojom::ImeState::kNone, blink::DOMNodeIdType()));
 
   view_->ImeCancelComposition();
   EXPECT_FALSE(view_->has_composition_text_);
@@ -3921,6 +3921,7 @@ TEST_F(RenderWidgetHostViewAuraOverscrollTest,
     base::TimeTicks progress_time =
         base::TimeTicks::Now() + base::Milliseconds(17);
     widget_host_->ProgressFlingIfNeeded(progress_time);
+    base::RunLoop().RunUntilIdle();
     EXPECT_EQ(OVERSCROLL_NONE, overscroll_delegate()->current_mode());
     ReleaseAndResetDispatchedMessages();
   }
@@ -6408,7 +6409,8 @@ TEST_F(InputMethodResultAuraTest, CommitTextBeforeCursor) {
         events[0]->ToIME();
     EXPECT_TRUE(ime_message);
     EXPECT_TRUE(ime_message->Matches(u"hello", {}, gfx::Range::InvalidRange(),
-                                     -5, -5, blink::mojom::ImeState::kNone));
+                                     -5, -5, blink::mojom::ImeState::kNone,
+                                     blink::DOMNodeIdType()));
   }
 }
 

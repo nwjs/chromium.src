@@ -70,6 +70,12 @@ export const SearchboxMixin = <T extends Constructor<CrLitElement>>(
         'Unknown';
     accessor searchboxAriaDescription: string = '';
     accessor dropdownIsVisible: boolean = false;
+    // Tracks the latest query sent for autocompletion. Used to filter out
+    // stale results. `activeQueryId` is reset to -1 when the last query needs
+    // to be abandoned. `nextQueryId_` is monotonically increasing to avoid
+    // reusing IDs.
+    activeQueryId: number = -1;
+    private nextQueryId_: number = 0;
     accessor lastQueriedInput: string|null = null;
     accessor multiLineEnabled: boolean = false;
     accessor result: AutocompleteResult|null = null;
@@ -136,12 +142,14 @@ export const SearchboxMixin = <T extends Constructor<CrLitElement>>(
       this.getDropdownElement().unselect();
       this.pageHandler().stopAutocomplete(/*clearResult=*/ true);
       // Autocomplete sends updates once it is stopped. Invalidate those results
-      // by setting the |this.lastQueriedInput| to its default value.
+      // by setting `activeQueryId` to -1.
+      this.activeQueryId = -1;
       this.lastQueriedInput = null;
     }
 
     queryAutocomplete(
         input: string, preventInlineAutocomplete: boolean = false) {
+      this.activeQueryId = this.nextQueryId_++;
       this.lastQueriedInput = input;
 
       preventInlineAutocomplete = preventInlineAutocomplete ||
@@ -156,7 +164,7 @@ export const SearchboxMixin = <T extends Constructor<CrLitElement>>(
           this.getInputElement().inputElement.selectionStart || 0 :
           input.length;
       this.pageHandler().queryAutocomplete(
-          input, preventInlineAutocomplete, cursorPosition);
+          this.activeQueryId, input, preventInlineAutocomplete, cursorPosition);
 
       this.dispatchEvent(new CustomEvent('query-autocomplete', {
         bubbles: true,
@@ -172,7 +180,7 @@ export const SearchboxMixin = <T extends Constructor<CrLitElement>>(
       this.pageHandler().openAutocompleteMatch(
           matchIndex, match.destinationUrl, this.dropdownIsVisible,
           (e as MouseEvent).button || 0, e.altKey, e.ctrlKey, e.metaKey,
-          e.shiftKey);
+          e.shiftKey, e instanceof KeyboardEvent);
       this.getInputElement().setInput({
         text: match.fillIntoEdit,
         inline: '',
@@ -183,8 +191,7 @@ export const SearchboxMixin = <T extends Constructor<CrLitElement>>(
     }
 
     isAutocompleteResultStale(result: AutocompleteResult): boolean {
-      return this.lastQueriedInput === null ||
-          this.lastQueriedInput.trimStart() !== result.input;
+      return result.queryId !== this.activeQueryId;
     }
 
     updateDropdownVisibility(): void {
@@ -373,10 +380,13 @@ export const SearchboxMixin = <T extends Constructor<CrLitElement>>(
         if (!array.includes(e.target as HTMLElement)) {
           return;
         }
-        const currentInput = this.result?.input;
-        const lastQueriedInput = this.lastQueriedInput?.trimStart();
-        if (currentInput !== undefined && lastQueriedInput !== undefined &&
-            lastQueriedInput === currentInput) {
+        // If no new query's `results` are pending (though new async results for
+        // the current query may be pending), navigate. Otherwise, the user
+        // pressed enter after sending a new query that hasn't returned any
+        // results yet. Wait for the 1st results of the new query before
+        // navigating.
+        if (this.activeQueryId === -1 ||
+            this.result?.queryId === this.activeQueryId) {
           if (this.selectedMatch) {
             this.navigateToMatch(this.selectedMatchIndex, e);
           }
@@ -484,6 +494,7 @@ export interface SearchboxMixinInterface {
   dropdownIsVisible: boolean;
   initialInputScrollHeight: number;
   inputAriaLive: string;
+  activeQueryId: number;
   lastQueriedInput: string|null;
   multiLineEnabled: boolean;
   result: AutocompleteResult|null;

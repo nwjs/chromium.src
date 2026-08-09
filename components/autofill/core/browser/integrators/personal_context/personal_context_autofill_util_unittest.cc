@@ -84,10 +84,7 @@ TEST_F(PersonalContextAutofillUtilTest,
 
   EXPECT_FALSE(check_state(kDisabledNotEligible));
   EXPECT_FALSE(check_state(kDisabledNeedsOptIn));
-  // TODO(crbug.com/516721244): `IsPersonalContextEligible` evaluates to false
-  // for `kDisabledViaPersonalIntelligenceInAutofillToggle`. Change to
-  // EXPECT_TRUE once fixed.
-  EXPECT_FALSE(check_state(kDisabledViaPersonalIntelligenceInAutofillToggle));
+  EXPECT_TRUE(check_state(kDisabledViaPersonalIntelligenceInAutofillToggle));
   EXPECT_TRUE(check_state(kEnabledShouldShowNotice));
   EXPECT_TRUE(check_state(kEnabled));
 

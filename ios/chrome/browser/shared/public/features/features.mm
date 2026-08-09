@@ -1289,3 +1289,22 @@ const base::FeatureParam<base::TimeDelta>
     kDiscoverFeedBackgroundRefreshMinBuffer{&kEnableDiscoverBackgroundRefresh,
                                             "discover_refresh_min_buffer",
                                             base::Minutes(15)};
+
+BASE_FEATURE(kAppBarHideInFullscreen, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsAppBarHiddenInFullscreen() {
+  return base::FeatureList::IsEnabled(kAppBarHideInFullscreen);
+}
+
+BASE_FEATURE(kFixOmniboxInitialPositionStartup,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+bool IsFixOmniboxInitialPositionStartupEnabled() {
+  return base::FeatureList::IsEnabled(kFixOmniboxInitialPositionStartup);
+}
+
+BASE_FEATURE(kDefaultBottomOmniboxOnIOS, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsDefaultBottomOmniboxOnIOSEnabled() {
+  return base::FeatureList::IsEnabled(kDefaultBottomOmniboxOnIOS);
+}

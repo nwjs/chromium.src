@@ -217,6 +217,9 @@ message IntelligentScanInfo {
 
   // The model type that the client uses to perform intelligent scan.
   optional IntelligentScanModelType model_type = 5;
+
+  // Scam score of the page, if it was detected.
+  optional float scam_score = 6;
 }
 
 message ClientPhishingRequest {

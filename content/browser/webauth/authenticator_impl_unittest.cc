@@ -1003,6 +1003,16 @@ TEST_F(AuthenticatorImplTest, ReportOriginAndRpIds) {
   }
 }
 
+TEST_F(AuthenticatorImplTest, PdfProcessBlocked) {
+  process()->SetIsPdf(true);
+
+  mojo::Remote<blink::mojom::Authenticator> authenticator;
+  static_cast<RenderFrameHostImpl*>(main_rfh())
+      ->GetWebAuthenticationService(authenticator.BindNewPipeAndPassReceiver());
+
+  EXPECT_EQ(1, process()->bad_msg_count());
+}
+
 constexpr auto kValidAppIdCases = std::to_array<OriginClaimedAuthorityPair>({
     {"https://example.com", "https://example.com",
      AuthenticatorStatus::SUCCESS},

@@ -109,9 +109,7 @@ SharedDictionaryStorageOnDisk::SharedDictionaryStorageOnDisk(
           "SharedDictionaryStorageOnDisk",
           kSharedDictionaryStorageTraits,
           this,
-          base::AsyncMemoryConsumerRegistration::CheckUnregister::kDisabled,
-          base::AsyncMemoryConsumerRegistration::CheckRegistryExists::
-              kDisabled),
+          base::AsyncMemoryConsumerRegistration::CheckUnregister::kDisabled),
       previous_eviction_reason_(previous_eviction_reason) {
   manager_->metadata_store().GetDictionaries(
       isolation_key_,

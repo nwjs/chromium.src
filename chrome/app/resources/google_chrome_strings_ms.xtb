@@ -125,6 +125,7 @@
 <translation id="2120620239521071941">Tindakan ini akan memadamkan <ph name="ITEMS_COUNT" /> item daripada peranti ini. Untuk mendapatkan kembali data anda kemudian, log masuk ke Chrome sebagai <ph name="USER_EMAIL" />.</translation>
 <translation id="2121284319307530122">Lancarkan Semula untuk Mengemas Kini &amp;Chrome</translation>
 <translation id="2123055963409958220">Bantu jadikan Chrome lebih baik dengan melaporkan <ph name="BEGIN_LINK" />tetapan semasa<ph name="END_LINK" /></translation>
+<translation id="2125838419757773031">Pilih kawasan skrin untuk membuat carian</translation>
 <translation id="2126108037660393668">Pengesahan fail yang dimuat turun gagal.</translation>
 <translation id="2128411189117340671">Urus profil Chrome</translation>
 <translation id="2137162749895930932">Tutup skrin terjemahan</translation>
@@ -261,9 +262,9 @@ Jika halaman ini tidak berfungsi seperti yang dijangkakan, cuba benarkan pengopt
 <translation id="3453763134178591239">Syarat Chrome OS</translation>
 <translation id="3475778264501649775">Bawa kata laluan, tab dan pelbagai lagi semasa dalam perjalanan dengan apl Chrome pada telefon anda</translation>
 <translation id="3503306920980160878">Chrome memerlukan akses kepada lokasi anda untuk berkongsi lokasi dengan tapak ini</translation>
-<translation id="3512495006767217696">Dibina dalam Chrome untuk membantu anda membuat, menyimpan dan menggunakan autolengkap kata laluan kukuh. Tambahkan pintasan untuk akses mudah</translation>
 <translation id="3539955434060988644">Buka pautan dalam tetingkap Inko&amp;gnito Chrome</translation>
 <translation id="354621070532799440">Peringatan: Ciri keselamatan terbaik Google dalam poket anda</translation>
+<translation id="3547866758548131919">Klik butang Ringkaskan untuk berkongsi dokumen ini dengan Gemini dalam Chrome untuk mendapatkan ikhtisar pantas dan mengemukakan pertanyaan susulan</translation>
 <translation id="3576528680708590453">Pentadbir sistem anda telah mengkonfigurasikan Google Chrome agar membuka penyemak imbas alternatif untuk mengakses <ph name="TARGET_URL_HOSTNAME" />.</translation>
 <translation id="3582972582564653026">Segerakkan dan peribadikan Chrome pada semua peranti anda</translation>
 <translation id="3583751698304738917">Anda telah log masuk sebagai <ph name="USER_EMAIL_ADDRESS" /> dalam profil Chrome yang lain</translation>
@@ -313,6 +314,7 @@ Jika halaman ini tidak berfungsi seperti yang dijangkakan, cuba benarkan pengopt
 <translation id="4012899077942246412">Semasa anda log masuk, anda boleh menggunakan kata laluan anda dan pelbagai lagi daripada Google Account anda dalam Chrome. Untuk menukar tetapan ini, akses “Akaun anda dalam Chrome”.</translation>
 <translation id="4022972681110646219">Terjemahkan skrin</translation>
 <translation id="4023601594785368013">Bahasa asal: <ph name="LANGUAGE" /></translation>
+<translation id="4034249157893816477">Dibina dalam Chrome untuk membantu anda membuat, menyimpan dan menggunakan autolengkap kata laluan kukuh. Tambahkan pintasan untuk akses mudah.</translation>
 <translation id="4035053306113201399">Chrome OS perlu dimulakan semula untuk melaksanakan kemaskinian.</translation>
 <translation id="4050175100176540509">Peningkatan keselamatan penting dan ciri baharu tersedia dalam versi terkini.</translation>
 <translation id="4053720452172726777">Sesuaikan dan kawal Google Chrome</translation>
@@ -354,6 +356,7 @@ Jika halaman ini tidak berfungsi seperti yang dijangkakan, cuba benarkan pengopt
 <translation id="4400772909124543403">Tiada kemaskinian tersedia</translation>
 <translation id="4427306783828095590">Perlindungan yang dipertingkatkan melakukan pelbagai lagi perkara untuk menyekat pancingan data dan perisian hasad</translation>
 <translation id="4434353761996769206">Ralat pemasang: <ph name="INSTALLER_ERROR" /></translation>
+<translation id="4437295824090654417">Kongsi dokumen ini dengan Gemini dalam Chrome untuk mendapatkan ikhtisar pantas dan mengemukakan pertanyaan susulan</translation>
 <translation id="4450664632294415862">Chrome - Log Masuk Rangkaian - <ph name="PAGE_TITLE" /></translation>
 <translation id="4458462641685292929">Terdapat operasi lain sedang dijalankan pada Google Chrome. Sila cuba sebentar lagi.</translation>
 <translation id="4459234553906210702">Pengukuran iklan membolehkan laman yang anda lawati meminta maklumat daripada Chrome yang membantu laman tersebut mengukur prestasi iklan mereka. Pengukuran iklan mengehadkan penjejakan rentas laman dengan memindahkan maklumat antara laman sedikit yang mungkin.</translation>
@@ -551,7 +554,6 @@ Jika halaman ini tidak berfungsi seperti yang dijangkakan, cuba benarkan pengopt
 <translation id="6438015621983209660">Lanjutkan Penyemakan Imbas Selamat Dipertingkat dengan Chrome pada telefon anda</translation>
 <translation id="6442774133615368941">Beli-belah, terjemahkan dan kenal pasti perkara yang anda lihat menggunakan kamera anda pada apl Chrome iOS</translation>
 <translation id="6448835208126432197">Untuk memilih sebahagian daripada skrin dalam Gemini dalam Chrome, gunakan pintasan papan kekunci.</translation>
-<translation id="6473659734176498825">Imej ringkas yang menunjukkan titik masuk Google Password Manager dalam Chrome</translation>
 <translation id="6473905796280459355">Akses halaman Perihal Chrome</translation>
 <translation id="6481963882741794338">Pautkan Chrome dan perkhidmatan Google lain untuk pemeribadian dan tujuan lain</translation>
 <translation id="648319183876919572">Penyemakan Imbas Selamat Dipertingkatkan melakukan lebih banyak lagi untuk melindungi anda daripada laman web dan muat turun berbahaya</translation>
@@ -696,7 +698,6 @@ Jika halaman ini tidak berfungsi seperti yang dijangkakan, cuba benarkan pengopt
 <translation id="7804364787702057554">Akaun anda dalam Chrome</translation>
 <translation id="7804947029129221742">Enjin carian anda telah ditukar dari luar Chrome. Untuk melindungi anda, Chrome telah menetapkan semula tetapan tersebut kepada enjin carian lalai asal. <ph name="LEARN_MORE_LINK" /></translation>
 <translation id="7808348361785373670">Alih keluar daripada Chrome...</translation>
-<translation id="7812800388699096556">Ilustrasi yang menunjukkan cara menggunakan Google Lens untuk mencari produk</translation>
 <translation id="7827099906024714326">Chrome perlu mengesahkan identiti anda sebelum sesetengah data boleh disimpan dalam Google Account anda dan digunakan pada semua peranti anda. Jika anda log keluar sekarang, data ini akan dipadamkan.</translation>
 <translation id="7832314606810669113">Untuk mendapatkan penanda halaman anda dan pelbagai lagi pada semua peranti anda, log masuk ke Chrome. Penanda halaman ini akan disimpan dalam Google Account anda selepas anda log masuk.</translation>
 <translation id="7845233973568007926">Terima kasih kerana memasang. Anda perlu memulakan semula komputer anda sebelum menggunakan <ph name="BUNDLE_NAME" />.</translation>
@@ -784,6 +785,7 @@ Penanda halaman baharu tidak boleh disimpan dalam akaun anda sehingga anda memad
 <translation id="8601359445272098721">Baharu! Anda boleh menterjemahkan teks dan imej pada skrin anda dengan memilih butang "terjemahkan skrin"</translation>
 <translation id="8614913330719544658">Google Chrome tidak responsif. Lancarkan semula sekarang?</translation>
 <translation id="861702415419836452">Chrome memerlukan kebenaran untuk mengakses kamera anda untuk membuat peta 3D persekitaran anda</translation>
+<translation id="8623450603356630491">Log masuk ke Chrome pada telefon anda</translation>
 <translation id="8624541899164515475">Tetapan, dibuka dalam tab baharu.</translation>
 <translation id="8625237574518804553">{0,plural, =1{Chrome akan dilancarkan semula dalam masa seminit}other{Chrome akan dilancarkan semula dalam masa # minit}}</translation>
 <translation id="8637932705841171563">Untuk berkongsi tetingkap anda, benarkan rakaman skrin untuk Chrome dalam Tetapan Sistem</translation>

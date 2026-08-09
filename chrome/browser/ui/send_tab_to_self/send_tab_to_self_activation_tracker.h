@@ -5,6 +5,9 @@
 #ifndef CHROME_BROWSER_UI_SEND_TAB_TO_SELF_SEND_TAB_TO_SELF_ACTIVATION_TRACKER_H_
 #define CHROME_BROWSER_UI_SEND_TAB_TO_SELF_SEND_TAB_TO_SELF_ACTIVATION_TRACKER_H_
 
+#include <map>
+#include <string>
+
 #include "content/public/browser/visibility.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
@@ -14,9 +17,7 @@ namespace send_tab_to_self {
 // Observes a WebContents that was opened in the background by Send Tab to Self.
 // When the tab is first shown (made visible/active), it records whether the
 // user navigated to it via the desktop toast notification or manually via the
-// tab strip.
-// TODO(crbug.com/503283050): Look into persisting the activation tracker state
-// across restarts to avoid losing metrics.
+// tab strip, and tells the model that the entry was activated.
 class SendTabToSelfActivationTracker
     : public content::WebContentsObserver,
       public content::WebContentsUserData<SendTabToSelfActivationTracker> {
@@ -33,12 +34,25 @@ class SendTabToSelfActivationTracker
   // Safe to call with null.
   static void SetEntryOpenedViaToast(content::WebContents* web_contents);
 
+  // Restores the tracker state from the session restore extra data.
+  static void RestoreFromExtraData(
+      content::WebContents* web_contents,
+      const std::map<std::string, std::string>& extra_data);
+
   // content::WebContentsObserver:
   void OnVisibilityChanged(content::Visibility visibility) override;
+  void WebContentsDestroyed() override;
 
  private:
   friend class content::WebContentsUserData<SendTabToSelfActivationTracker>;
-  explicit SendTabToSelfActivationTracker(content::WebContents* web_contents);
+  SendTabToSelfActivationTracker(content::WebContents* web_contents,
+                                 const std::string& guid);
+
+  // Persists the GUID to the SessionService.
+  void PersistGUID();
+
+  // The unique GUID of the Send Tab to Self entry.
+  std::string entry_guid_;
 
   // True if the tab was activated by clicking the desktop toast notification.
   bool opened_via_toast_ = false;

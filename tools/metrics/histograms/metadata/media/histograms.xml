@@ -4321,6 +4321,29 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram
+    name="Media.EME.MediaFoundationService.DolbyVisionSupport.WithHdrCheck"
+    enum="Boolean" expires_after="2026-12-09">
+  <owner>sangbaekpark@chromium.org</owner>
+  <owner>media-dev-uma@chromium.org</owner>
+  <summary>
+    Whether Dolby Vision codec with HDR check is supported or not. When multiple
+    displays are connected to the device, TRUE if the primary display (internal)
+    is HDR/HDR. Reported once per browser session lifetime.
+  </summary>
+</histogram>
+
+<histogram
+    name="Media.EME.MediaFoundationService.DolbyVisionSupport.WithoutHdrCheck"
+    enum="Boolean" expires_after="2026-12-09">
+  <owner>sangbaekpark@chromium.org</owner>
+  <owner>media-dev-uma@chromium.org</owner>
+  <summary>
+    Whether Dolby Vision codec without HDR check is supported or not. Reported
+    once per browser session lifetime.
+  </summary>
+</histogram>
+
+<histogram
     name="Media.EME.MediaFoundationService.ErrorAfterPowerOrDisplayChange2"
     enum="Hresult" expires_after="2026-12-09">
   <owner>xhwang@chromium.org</owner>

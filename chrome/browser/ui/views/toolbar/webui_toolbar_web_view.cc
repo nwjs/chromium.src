@@ -616,6 +616,10 @@ void WebUIToolbarWebView::SetAvatarButtonIPHPromoShowing(bool showing) {
   avatar_control_.NotifyIPHPromoChanged(showing);
 }
 
+void WebUIToolbarWebView::OnAppMenuFocusChanged(bool focused) {
+  app_menu_control_.SetFocused(focused);
+}
+
 ReloadControl* WebUIToolbarWebView::GetReloadControl() {
   return &reload_control_;
 }

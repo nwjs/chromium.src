@@ -223,32 +223,19 @@ class AutofillAgentTest : public test::AutofillRendererTest {
   }
 };
 
-class AutofillAgentTestWithFeatures : public AutofillAgentTest {
- public:
-  AutofillAgentTestWithFeatures() {
-    scoped_features_.InitWithFeatures(
-        /*enabled_features=*/
-        {features::kAutofillReplaceCachedWebElementsByRendererIds},
-        /*disabled_features=*/{});
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_features_;
-};
-
-TEST_F(AutofillAgentTestWithFeatures, FormsSeen_Empty) {
+TEST_F(AutofillAgentTest, FormsSeen_Empty) {
   EXPECT_CALL(autofill_driver(), FormsSeen).Times(0);
   LoadHTML(R"(<body> </body>)");
   WaitForFormsSeen();
 }
 
-TEST_F(AutofillAgentTestWithFeatures, FormsSeen_NoEmpty) {
+TEST_F(AutofillAgentTest, FormsSeen_NoEmpty) {
   EXPECT_CALL(autofill_driver(), FormsSeen).Times(0);
   LoadHTML(R"(<body> <form></form> </body>)");
   WaitForFormsSeen();
 }
 
-TEST_F(AutofillAgentTestWithFeatures, FormsSeen_NewFormUnowned) {
+TEST_F(AutofillAgentTest, FormsSeen_NewFormUnowned) {
   EXPECT_CALL(
       autofill_driver(),
       FormsSeen(HasSingleElementWhich(HasFormId(FormRendererId(0)),
@@ -258,7 +245,7 @@ TEST_F(AutofillAgentTestWithFeatures, FormsSeen_NewFormUnowned) {
   WaitForFormsSeen();
 }
 
-TEST_F(AutofillAgentTestWithFeatures, FormsSeen_NewForm) {
+TEST_F(AutofillAgentTest, FormsSeen_NewForm) {
   EXPECT_CALL(
       autofill_driver(),
       FormsSeen(HasSingleElementWhich(HasNumFields(1), HasNumChildFrames(0)),
@@ -267,7 +254,7 @@ TEST_F(AutofillAgentTestWithFeatures, FormsSeen_NewForm) {
   WaitForFormsSeen();
 }
 
-TEST_F(AutofillAgentTestWithFeatures, FormsSeen_NewIframe) {
+TEST_F(AutofillAgentTest, FormsSeen_NewIframe) {
   EXPECT_CALL(
       autofill_driver(),
       FormsSeen(HasSingleElementWhich(HasNumFields(0), HasNumChildFrames(1)),
@@ -276,7 +263,7 @@ TEST_F(AutofillAgentTestWithFeatures, FormsSeen_NewIframe) {
   WaitForFormsSeen();
 }
 
-TEST_F(AutofillAgentTestWithFeatures, FormsSeen_UpdatedForm) {
+TEST_F(AutofillAgentTest, FormsSeen_UpdatedForm) {
   {
     EXPECT_CALL(
         autofill_driver(),
@@ -296,7 +283,7 @@ TEST_F(AutofillAgentTestWithFeatures, FormsSeen_UpdatedForm) {
   }
 }
 
-TEST_F(AutofillAgentTestWithFeatures, TriggerFormExtractionWithResponse) {
+TEST_F(AutofillAgentTest, TriggerFormExtractionWithResponse) {
   EXPECT_CALL(autofill_driver(), FormsSeen);
   LoadHTML(R"(<body> <input> </body>)");
   WaitForFormsSeen();
@@ -309,7 +296,7 @@ TEST_F(AutofillAgentTestWithFeatures, TriggerFormExtractionWithResponse) {
 }
 
 // Tests that button titles are extracted and reported to the browser.
-TEST_F(AutofillAgentTestWithFeatures, ButtonTitlesExtractedForForm) {
+TEST_F(AutofillAgentTest, ButtonTitlesExtractedForForm) {
   ButtonTitleInfo expected_button = {
       u"Submit", mojom::ButtonTitleType::INPUT_ELEMENT_SUBMIT_TYPE};
   EXPECT_CALL(
@@ -331,8 +318,7 @@ TEST_F(AutofillAgentTestWithFeatures, ButtonTitlesExtractedForForm) {
 
 // Tests that button titles are not extracted for fields that are not under a
 // <form> tag.
-TEST_F(AutofillAgentTestWithFeatures,
-       ButtonTitlesNotExtractedForFormlessFields) {
+TEST_F(AutofillAgentTest, ButtonTitlesNotExtractedForFormlessFields) {
   EXPECT_CALL(
       autofill_driver(),
       FormsSeen(HasSingleElementWhich(HasFormIdAttribute(u""),
@@ -348,7 +334,7 @@ TEST_F(AutofillAgentTestWithFeatures,
   WaitForFormsSeen();
 }
 
-using AutofillAgentShadowDomTest = AutofillAgentTestWithFeatures;
+using AutofillAgentShadowDomTest = AutofillAgentTest;
 
 // Tests that unassociated form control elements in a Shadow DOM tree that do
 // not have a form ancestor are extracted correctly.
@@ -558,8 +544,7 @@ TEST_F(AutofillAgentShadowDomTest, DeepNestedForms) {
   WaitForFormsSeen();
 }
 
-class AutofillAgentTestExtractLabeledTextNodeValue
-    : public AutofillAgentTestWithFeatures {
+class AutofillAgentTestExtractLabeledTextNodeValue : public AutofillAgentTest {
  public:
   using Callback =
       base::MockCallback<base::OnceCallback<void(const std::string&)>>;
@@ -652,8 +637,7 @@ TEST_F(AutofillAgentTestExtractLabeledTextNodeValue,
       "Autofill.RendererLabeledAmountExtractionLatency.Failure", 0);
 }
 
-class AutofillAgentTestExtractFormWithField
-    : public AutofillAgentTestWithFeatures {
+class AutofillAgentTestExtractFormWithField : public AutofillAgentTest {
  public:
   using Callback = base::MockCallback<
       base::OnceCallback<void(const std::optional<FormData>&)>>;
@@ -662,7 +646,7 @@ class AutofillAgentTestExtractFormWithField
     if (wait_for_forms_seen) {
       EXPECT_CALL(autofill_driver(), FormsSeen);
     }
-    AutofillAgentTestWithFeatures::LoadHTML(html);
+    AutofillAgentTest::LoadHTML(html);
     WaitForFormsSeen();
   }
 };
@@ -713,8 +697,7 @@ TEST_F(AutofillAgentTestExtractFormWithField,
                                         callback.Get());
 }
 
-TEST_F(AutofillAgentTestWithFeatures,
-       TriggerFormExtractionWithResponse_CalledTwice) {
+TEST_F(AutofillAgentTest, TriggerFormExtractionWithResponse_CalledTwice) {
   EXPECT_CALL(autofill_driver(), FormsSeen);
   LoadHTML(R"(<body> <input> </body>)");
   WaitForFormsSeen();
@@ -727,7 +710,7 @@ TEST_F(AutofillAgentTestWithFeatures,
 // Tests that `AutofillDriver::TriggerSuggestions()` triggers
 // `AutofillAgent::AskForValuesToFill()` (which will ultimately trigger
 // suggestions).
-TEST_F(AutofillAgentTestWithFeatures, TriggerSuggestions) {
+TEST_F(AutofillAgentTest, TriggerSuggestions) {
   EXPECT_CALL(autofill_driver(), FormsSeen);
   LoadHTML("<body><input></body>");
   WaitForFormsSeen();
@@ -737,8 +720,7 @@ TEST_F(AutofillAgentTestWithFeatures, TriggerSuggestions) {
       AutofillSuggestionTriggerSource::kFormControlElementClicked);
 }
 
-TEST_F(AutofillAgentTestWithFeatures,
-       TriggerSuggestionsForElementWithDatalist) {
+TEST_F(AutofillAgentTest, TriggerSuggestionsForElementWithDatalist) {
   EXPECT_CALL(autofill_driver(), FormsSeen);
   LoadHTML(R"(<body><form>
     <input id="ff" list="fruits">
@@ -766,11 +748,10 @@ TEST_F(AutofillAgentTestWithFeatures,
 
 // A test fixture that sets the autofill agent's `focus_requires_scroll` config
 // option to false, which allows `DidChangeScrollOffset` to notify the driver.
-class AutofillAgentTestWithoutFocusRequiresScroll
-    : public AutofillAgentTestWithFeatures {
+class AutofillAgentTestWithoutFocusRequiresScroll : public AutofillAgentTest {
  public:
   void SetUp() override {
-    AutofillAgentTestWithFeatures::SetUp();
+    AutofillAgentTest::SetUp();
     test_api(autofill_agent()).set_focus_requires_scroll(false);
   }
 };
@@ -841,7 +822,7 @@ TEST_F(AutofillAgentTestWithoutFocusRequiresScroll,
 
 // Tests that suggestion availability updates the field identified by
 // `field_id`.
-TEST_F(AutofillAgentTestWithFeatures, SetSuggestionAvailabilityUsesFieldId) {
+TEST_F(AutofillAgentTest, SetSuggestionAvailabilityUsesFieldId) {
   LoadHTML("<body><input id=ff></body>");
 
   auto ax_context = std::make_unique<blink::WebAXContext>(
@@ -866,7 +847,7 @@ TEST_F(AutofillAgentTestWithFeatures, SetSuggestionAvailabilityUsesFieldId) {
 
 // Tests that accepting a datalist suggestion fills the field identified by
 // `field_id`.
-TEST_F(AutofillAgentTestWithFeatures, AcceptDataListSuggestionUsesFieldId) {
+TEST_F(AutofillAgentTest, AcceptDataListSuggestionUsesFieldId) {
   LoadHTML("<body><input id=ff><input id=other></body>");
 
   autofill_agent().AcceptDataListSuggestion(GetFieldRendererIdById("ff"),
@@ -881,8 +862,7 @@ TEST_F(AutofillAgentTestWithFeatures, AcceptDataListSuggestionUsesFieldId) {
 }
 
 // Tests that select option changes are ignored before Autofill fills a field.
-TEST_F(AutofillAgentTestWithFeatures,
-       SelectFieldOptionsChangedIgnoredWithoutFill) {
+TEST_F(AutofillAgentTest, SelectFieldOptionsChangedIgnoredWithoutFill) {
   LoadHTML("<form><select id=select_id><option>One</option></select></form>");
 
   EXPECT_CALL(autofill_driver(), SelectFieldOptionsDidChange).Times(0);
@@ -893,8 +873,7 @@ TEST_F(AutofillAgentTestWithFeatures,
 }
 
 // Tests that select option changes after filling use the changed select field.
-TEST_F(AutofillAgentTestWithFeatures,
-       SelectFieldOptionsChangedAfterFillUsesFieldId) {
+TEST_F(AutofillAgentTest, SelectFieldOptionsChangedAfterFillUsesFieldId) {
   LoadHTML(
       "<form><select id=select_id><option value=one>One</option><option "
       "value=two>Two</option></select></form>");
@@ -934,7 +913,7 @@ TEST_F(AutofillAgentTestWithFeatures,
 }
 
 // Tests that `AutofillDriver::TriggerSuggestions()` works for contenteditables.
-TEST_F(AutofillAgentTestWithFeatures, TriggerSuggestionsForContenteditable) {
+TEST_F(AutofillAgentTest, TriggerSuggestionsForContenteditable) {
   LoadHTML("<body><div id=ce contenteditable></div></body>");
   FormRendererId form_id = GetFormRendererIdById("ce");
   EXPECT_CALL(autofill_driver(), AskForValuesToFill);
@@ -1757,7 +1736,7 @@ TEST_F(AutofillAgentTest, DOMContentLoadedEmitsMetric) {
 
 // Tests that AutofillAgent::RequestRefill() registers a callback that is called
 // when the corresponding ApplyFieldsAction() message is received.
-TEST_F(AutofillAgentTestWithFeatures, RequestRefill) {
+TEST_F(AutofillAgentTest, RequestRefill) {
   const FillId fill_id = FillId::Create();
   std::vector<FormData> forms;
   base::MockOnceCallback<void(bool)> on_refill;
@@ -1785,7 +1764,7 @@ TEST_F(AutofillAgentTestWithFeatures, RequestRefill) {
 
 // Tests that AutofillAgent::RequestRefill() registers a callback that is called
 // after a timeout if no refill happens.
-TEST_F(AutofillAgentTestWithFeatures, RequestRefillTimesOut) {
+TEST_F(AutofillAgentTest, RequestRefillTimesOut) {
   const FillId fill_id = FillId::Create();
   std::vector<FormData> forms;
   base::MockOnceCallback<void(bool)> on_refill;

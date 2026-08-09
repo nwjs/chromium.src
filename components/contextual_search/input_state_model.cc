@@ -44,14 +44,16 @@ void MaybePopulateBrowserTabInputTypeRule(omnibox::SearchboxConfig* config) {
         return rule.input_type() == omnibox::INPUT_TYPE_BROWSER_TAB;
       });
 
-  // Populate `InputTypeRule` for `omnibox::INPUT_TYPE_BROWSER_TAB`.
-  if (!browser_tab_rule_exists) {
-    omnibox::InputTypeRule* new_rule = rule_set->add_input_type_rules();
-    new_rule->set_input_type(omnibox::INPUT_TYPE_BROWSER_TAB);
-    new_rule->add_allowed_input_types(omnibox::INPUT_TYPE_LENS_IMAGE);
-    new_rule->add_allowed_input_types(omnibox::INPUT_TYPE_LENS_FILE);
-    new_rule->add_allowed_input_types(omnibox::INPUT_TYPE_BROWSER_TAB);
+  if (browser_tab_rule_exists) {
+    return;
   }
+
+  // Populate `InputTypeRule` for `omnibox::INPUT_TYPE_BROWSER_TAB`.
+  omnibox::InputTypeRule* new_rule = rule_set->add_input_type_rules();
+  new_rule->set_input_type(omnibox::INPUT_TYPE_BROWSER_TAB);
+  new_rule->add_allowed_input_types(omnibox::INPUT_TYPE_LENS_IMAGE);
+  new_rule->add_allowed_input_types(omnibox::INPUT_TYPE_LENS_FILE);
+  new_rule->add_allowed_input_types(omnibox::INPUT_TYPE_BROWSER_TAB);
 
   // Add `omnibox::INPUT_TYPE_BROWSER_TAB` to the `allowed_input_types` in
   // `ToolRule` for all tools if the tool allows both images and files.
@@ -225,15 +227,10 @@ InputStateModel::InputStateModel(
     for (const auto& model_config : mutable_config.model_configs()) {
       state_.allowed_models.push_back(model_config.model());
     }
-    state_.allowed_input_types.reserve(
-        mutable_config.input_type_configs().size());
+    configured_input_types_.reserve(mutable_config.input_type_configs().size());
     for (const auto& input_type_config : mutable_config.input_type_configs()) {
       if (input_type_config.has_input_type()) {
-        if (input_type_config.input_type() == omnibox::INPUT_TYPE_DRIVE &&
-            !IsDriveSupported()) {
-          continue;
-        }
-        state_.allowed_input_types.push_back(input_type_config.input_type());
+        configured_input_types_.push_back(input_type_config.input_type());
       }
     }
     state_.tool_configs.reserve(mutable_config.tool_configs_size());
@@ -267,21 +264,7 @@ InputStateModel::InputStateModel(
     }
   }
 
-  // TODO(crbug.com/479254789): Once `INPUT_TYPE_BROWSER_TAB` is available from
-  // server, remove this check.
-  auto contains = [&](omnibox::InputType type) {
-    return std::find(state_.allowed_input_types.begin(),
-                     state_.allowed_input_types.end(),
-                     type) != state_.allowed_input_types.end();
-  };
 
-  // Only add browser tab if it does not already exist and both lens and image
-  // types are allowed.
-  if (!contains(omnibox::INPUT_TYPE_BROWSER_TAB) &&
-      contains(omnibox::INPUT_TYPE_LENS_IMAGE) &&
-      contains(omnibox::INPUT_TYPE_LENS_FILE)) {
-    state_.allowed_input_types.push_back(omnibox::INPUT_TYPE_BROWSER_TAB);
-  }
 
   state_.active_tool = omnibox::ToolMode::TOOL_MODE_UNSPECIFIED;
   state_.is_canvas_query_submitted = false;
@@ -319,7 +302,12 @@ InputStateModel::InputStateModel(
       drive_consent_state_(new_input_state_model.drive_consent_state_) {
   state_ = new_input_state_model.state_;
   rule_set_ = new_input_state_model.rule_set_;
-  pref_service_ = new_input_state_model.pref_service_;
+  configured_input_types_ = new_input_state_model.configured_input_types_;
+  is_smart_tab_sharing_active_ =
+      new_input_state_model.is_smart_tab_sharing_active_;
+  if (new_input_state_model.pref_service_) {
+    SetPrefService(new_input_state_model.pref_service_);
+  }
 }
 
 InputStateModel::~InputStateModel() = default;
@@ -361,29 +349,75 @@ void InputStateModel::Initialize() {
   notifySubscribers();
 }
 
-void InputStateModel::SetPrefService(const PrefService* pref_service) {
-  pref_service_ = pref_service;
-  updateDisabledState();
-}
-
-void InputStateModel::SetDriveConsentState(DriveConsentState state) {
-  if (drive_consent_state_ == state) {
+void InputStateModel::SetSmartTabSharingActive(bool active) {
+  if (is_smart_tab_sharing_active_ == active) {
     return;
   }
-  drive_consent_state_ = state;
+  is_smart_tab_sharing_active_ = active;
+  updateDisabledState();
+  notifySubscribers();
+}
 
-  auto& allowed_types = state_.allowed_input_types;
-  auto it = std::find(allowed_types.begin(), allowed_types.end(),
-                      omnibox::INPUT_TYPE_DRIVE);
-  if (IsDriveSupported()) {
-    if (it == allowed_types.end()) {
-      state_.allowed_input_types.push_back(omnibox::INPUT_TYPE_DRIVE);
+std::vector<omnibox::InputType> InputStateModel::GetEffectiveInputTypes()
+    const {
+  std::vector<omnibox::InputType> input_types =
+      GetCurrentInputTypes(session_handle_.get());
+  if (is_smart_tab_sharing_active_) {
+    bool is_browser_tab_allowed = true;
+    if (state_.active_tool != omnibox::ToolMode::TOOL_MODE_UNSPECIFIED) {
+      const omnibox::ToolRule* rule = GetToolRule(state_.active_tool);
+      if (!rule || (!rule->allow_all_input_types() &&
+                    !std::ranges::contains(
+                        rule->allowed_input_types(),
+                        omnibox::InputType::INPUT_TYPE_BROWSER_TAB))) {
+        is_browser_tab_allowed = false;
+      }
     }
-  } else {
-    if (it != allowed_types.end()) {
-      state_.allowed_input_types.erase(it);
+    if (state_.active_model != omnibox::ModelMode::MODEL_MODE_UNSPECIFIED) {
+      const omnibox::ModelRule* rule = GetModelRule(state_.active_model);
+      if (!rule || (!rule->allow_all_input_types() &&
+                    !std::ranges::contains(
+                        rule->allowed_input_types(),
+                        omnibox::InputType::INPUT_TYPE_BROWSER_TAB))) {
+        is_browser_tab_allowed = false;
+      }
+    }
+    if (is_browser_tab_allowed &&
+        !std::ranges::contains(input_types,
+                               omnibox::InputType::INPUT_TYPE_BROWSER_TAB)) {
+      input_types.push_back(omnibox::InputType::INPUT_TYPE_BROWSER_TAB);
     }
   }
+  return input_types;
+}
+
+void InputStateModel::SetPrefService(PrefService* pref_service) {
+  pref_service_ = pref_service;
+  pref_change_registrar_.Reset();
+  if (pref_service_) {
+    pref_change_registrar_.Init(pref_service_);
+    pref_change_registrar_.Add(
+        contextual_search::kDriveConsentState,
+        base::BindRepeating(&InputStateModel::OnPrefChanged,
+                            base::Unretained(this)));
+    pref_change_registrar_.Add(
+        contextual_search::kSearchContentSharingSettings,
+        base::BindRepeating(&InputStateModel::OnPrefChanged,
+                            base::Unretained(this)));
+    OnPrefChanged();
+  } else {
+    updateDisabledState();
+  }
+}
+
+void InputStateModel::OnPrefChanged() {
+  if (!pref_service_) {
+    return;
+  }
+  int pref_value =
+      pref_service_->GetInteger(contextual_search::kDriveConsentState);
+  drive_consent_state_ = static_cast<DriveConsentState>(pref_value);
+
   updateDisabledState();
   notifySubscribers();
 }
@@ -498,10 +532,12 @@ bool InputStateModel::IsDriveSupported() const {
   // even if they have not consented, since selecting it will trigger the
   // disclaimer flow. Otherwise, the user must have consented to see Drive in
   // the menu. In either case, we do not show Drive if the user is restricted.
-  bool consented = drive_consent_state_ == DriveConsentState::kConsent ||
-                   (base::FeatureList::IsEnabled(
-                        omnibox::kComposeboxDriveContextMenuOptionDisclaimer) &&
-                    drive_consent_state_ == DriveConsentState::kNotConsent);
+  bool consented =
+      drive_consent_state_ == DriveConsentState::kConsent ||
+      base::FeatureList::IsEnabled(omnibox::kForceDriveDisclaimerAccepted) ||
+      (base::FeatureList::IsEnabled(
+           omnibox::kComposeboxDriveContextMenuOptionDisclaimer) &&
+       drive_consent_state_ != DriveConsentState::kRestricted);
 
   return identity_matches && !incognito && feature_enabled && consented;
 }
@@ -557,6 +593,7 @@ void InputStateModel::UpdateDisabledTools() {
   state_.disabled_tools.reserve(state_.allowed_tools.size());
   const omnibox::ModelRule* active_model_rule =
       GetModelRule(state_.active_model);
+  const auto effective_inputs = GetEffectiveInputTypes();
   for (const auto& tool : state_.allowed_tools) {
     if (tool == state_.active_tool) {
       state_.disabled_tools.push_back(tool);
@@ -572,8 +609,7 @@ void InputStateModel::UpdateDisabledTools() {
     bool incompatible_with_inputs =
         !tool_rule ||
         (!tool_rule->allow_all_input_types() &&
-         !AreItemsAllowed(GetCurrentInputTypes(session_handle_.get()),
-                          tool_rule->allowed_input_types()));
+         !AreItemsAllowed(effective_inputs, tool_rule->allowed_input_types()));
 
     if (incompatible_with_model || incompatible_with_inputs ||
         std::ranges::contains(permanently_disabled_tools_, tool)) {
@@ -588,7 +624,7 @@ void InputStateModel::UpdateDisabledModels() {
   // - Incompatible with the current inputs.
   state_.disabled_models.clear();
   state_.disabled_models.reserve(state_.allowed_models.size());
-
+  const auto effective_inputs = GetEffectiveInputTypes();
   for (const auto& model : state_.allowed_models) {
     if (model == state_.active_model) {
       continue;
@@ -603,10 +639,9 @@ void InputStateModel::UpdateDisabledModels() {
                                                 state_.active_tool)));
 
     bool incompatible_with_inputs =
-        (!model_rule ||
-         (!model_rule->allow_all_input_types() &&
-          !AreItemsAllowed(GetCurrentInputTypes(session_handle_.get()),
-                           model_rule->allowed_input_types())));
+        (!model_rule || (!model_rule->allow_all_input_types() &&
+                         !AreItemsAllowed(effective_inputs,
+                                          model_rule->allowed_input_types())));
 
     if (incompatible_with_tool || incompatible_with_inputs) {
       state_.disabled_models.push_back(model);
@@ -616,7 +651,6 @@ void InputStateModel::UpdateDisabledModels() {
 
 void InputStateModel::UpdateDisabledInputTypes() {
   // Disable an input type if:
-  // - Enterprise policy disallows content sharing.
   // - Input type limit is reached.
   // - Total input limit is reached.
   // - Incompatible with the active model.
@@ -624,16 +658,7 @@ void InputStateModel::UpdateDisabledInputTypes() {
   state_.disabled_input_types.clear();
   state_.disabled_input_types.reserve(state_.allowed_input_types.size());
 
-  if (!IsSearchContentSharingEnabled()) {
-    std::erase_if(state_.allowed_input_types, [](auto input_type) {
-      return input_type == omnibox::InputType::INPUT_TYPE_LENS_IMAGE ||
-             input_type == omnibox::InputType::INPUT_TYPE_LENS_FILE ||
-             input_type == omnibox::InputType::INPUT_TYPE_BROWSER_TAB ||
-             input_type == omnibox::InputType::INPUT_TYPE_DRIVE;
-    });
-  }
-
-  const auto current_inputs = GetCurrentInputTypes(session_handle_.get());
+  const auto current_inputs = GetEffectiveInputTypes();
 
   // Check max inputs reached.
   bool global_limit_reached =
@@ -690,9 +715,42 @@ void InputStateModel::UpdateDisabledInputTypes() {
 }
 
 void InputStateModel::updateDisabledState() {
+  RebuildAllowedInputTypes();
   UpdateDisabledTools();
   UpdateDisabledModels();
   UpdateDisabledInputTypes();
+}
+
+void InputStateModel::RebuildAllowedInputTypes() {
+  state_.allowed_input_types.clear();
+  bool sharing_enabled = IsSearchContentSharingEnabled();
+  for (auto type : configured_input_types_) {
+    if (!sharing_enabled) {
+      if (type == omnibox::InputType::INPUT_TYPE_LENS_IMAGE ||
+          type == omnibox::InputType::INPUT_TYPE_LENS_FILE ||
+          type == omnibox::InputType::INPUT_TYPE_BROWSER_TAB ||
+          type == omnibox::InputType::INPUT_TYPE_DRIVE) {
+        continue;
+      }
+    }
+    if (type == omnibox::InputType::INPUT_TYPE_DRIVE && !IsDriveSupported()) {
+      continue;
+    }
+    state_.allowed_input_types.push_back(type);
+  }
+
+  auto contains = [&](omnibox::InputType type) {
+    return std::find(state_.allowed_input_types.begin(),
+                     state_.allowed_input_types.end(),
+                     type) != state_.allowed_input_types.end();
+  };
+
+  // Fallback for browser tab if not already present and lens is allowed.
+  if (!contains(omnibox::INPUT_TYPE_BROWSER_TAB) &&
+      contains(omnibox::INPUT_TYPE_LENS_IMAGE) &&
+      contains(omnibox::INPUT_TYPE_LENS_FILE) && sharing_enabled) {
+    state_.allowed_input_types.push_back(omnibox::INPUT_TYPE_BROWSER_TAB);
+  }
 }
 
 std::map<std::string, std::string> InputStateModel::GetAdditionalQueryParams() {

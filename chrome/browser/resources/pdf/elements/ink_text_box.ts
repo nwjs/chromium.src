@@ -11,10 +11,10 @@ import type {PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 
 import type {TextAnnotation, TextAttributes, TextBoxRect} from '../constants.js';
 import {TextTypeface} from '../constants.js';
-import {colorsEqual, Ink2Manager, MIN_TEXTBOX_SIZE_PX, stylesEqual} from '../ink2_manager.js';
+import {Ink2Manager, MIN_TEXTBOX_SIZE_PX, stylesEqual} from '../ink2_manager.js';
 import {convertRotatedCoordinates} from '../ink_text_annotation_utils.js';
 import {PdfViewerPrivateProxyImpl} from '../pdf_viewer_private_proxy.js';
-import {colorToHex, hasCtrlModifier} from '../pdf_viewer_utils.js';
+import {colorsEqual, colorToHex, hasCtrlModifier} from '../pdf_viewer_utils.js';
 import type {Viewport, ViewportRect} from '../viewport.js';
 
 import {getCss} from './ink_text_box.css.js';
@@ -110,8 +110,8 @@ export class InkTextBoxElement extends InkTextBoxElementBase {
   private eventTracker_: EventTracker = new EventTracker();
   // Whether this is an existing textbox. Tracked so that the textbox can
   // correctly notify the backend about changes (e.g. deleting all text in an
-  // existing annotation should remove it from the PDF, so we need to commit
-  // this change where we wouldn't commit an empty new annotation).
+  // existing annotation should remove it from the PDF, so this change must be
+  // committed where an empty new annotation would not be committed).
   private existing_: boolean = false;
   private id_: number = -1;
   private keyDownCount_: number = -1;
@@ -436,7 +436,7 @@ export class InkTextBoxElement extends InkTextBoxElementBase {
     const rotated = convertRotatedCoordinates(
         adjusted, this.viewportRotations_, clockwiseRotations,
         pageDimensions.width, pageDimensions.height);
-    // Flip min height and width if we've switched orientation.
+    // Flip min height and width if orientation has switched.
     if (this.viewportRotations_ % 2 !== clockwiseRotations % 2) {
       const min = this.minHeight_;
       this.minHeight_ = this.minWidth_;

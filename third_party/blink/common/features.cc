@@ -61,6 +61,12 @@ BASE_FEATURE_PARAM(int,
                    "ad-auction-signals-max-size-bytes",
                    10000);
 
+// Controls whether JavaScript execution inside AudioWorkletProcessor::Process()
+// runs under strict IEEE-754 floating-point semantics (disabling FTZ/DAZ).
+// Enabled by default as a remote kill-switch.
+BASE_FEATURE(kAudioWorkletJSDenormalEnabler,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 #if BUILDFLAG(IS_ANDROID)
 // If enabled, then use desktop page webprefs for Android devices that have
 // large displays, specifically tablets and desktops.
@@ -108,8 +114,11 @@ BASE_FEATURE_ENUM_PARAM(
     AsyncTouchMoveThrottlingPolicy::kUnthrottledWhenGsuUnconsumed,
     &async_touch_move_throttling_policies);
 
+// Exports this feature so that Rust code can use it.
+extern "C" {
 // Block all MIDI access with the MIDI_SYSEX permission
 BASE_FEATURE(kBlockMidiByDefault, base::FEATURE_ENABLED_BY_DEFAULT);
+}
 
 BASE_FEATURE(kComputePressureRateObfuscationMitigation,
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -500,6 +509,11 @@ BASE_FEATURE(kCreateImageBitmapOrientationNone,
 // Blob URL in the generated Import Map.
 BASE_FEATURE(kDeclarativeCSSModulesUseDataURI,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE_PARAM(bool,
+                   kDeclarativePerformanceObserverSupportCaptureEarlyFailures,
+                   &kDeclarativePerformanceObserver,
+                   true);
 
 BASE_FEATURE(kDataUrlWorkerOpaqueOrigin, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -2009,6 +2023,11 @@ BASE_FEATURE_PARAM(bool,
 // Enables the use of the PaintCache for Path2D objects that are rasterized
 // out of process.  Has no effect when kCanvasOopRasterization is disabled.
 BASE_FEATURE(kPath2DPaintCache, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// TODO(mcnee): Required for merge safety to M151. Default enable and remove
+// after this release.
+BASE_FEATURE(kPopulateDOMNodeIdInFocusedNodeDetails,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kDedicatedWorkerAblationStudyEnabled,
              base::FEATURE_DISABLED_BY_DEFAULT);

@@ -6,8 +6,10 @@
 
 #include <memory>
 
+#include "base/feature_list.h"
 #include "base/logging.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/color/color_id.h"
 #include "ui/color/color_mixer.h"
 #include "ui/color/color_provider.h"
@@ -22,7 +24,8 @@ namespace ui {
 
 // The baseline palette for ref colors. This should be used in the absence of a
 // defined user_color.
-void AddBaselinePalette(ColorProvider* provider) {
+void AddBaselinePalette(ColorProvider* provider,
+                        ColorProviderKey::ColorMode color_mode) {
   ColorMixer& mixer = provider->AddMixer();
   mixer[kColorRefPrimary0] = {SkColorSetRGB(0x00, 0x00, 0x00)};
   mixer[kColorRefPrimary10] = {SkColorSetRGB(0x04, 0x1E, 0x49)};
@@ -85,33 +88,66 @@ void AddBaselinePalette(ColorProvider* provider) {
   mixer[kColorRefError99] = {SkColorSetRGB(0xFF, 0xFB, 0xF9)};
   mixer[kColorRefError100] = {SkColorSetRGB(0xFF, 0xFF, 0xFF)};
 
-  mixer[kColorRefNeutral0] = {SkColorSetRGB(0x00, 0x00, 0x00)};
-  mixer[kColorRefNeutral4] = {SkColorSetRGB(0x0E, 0x0E, 0x0F)};
-  mixer[kColorRefNeutral6] = {SkColorSetRGB(0x13, 0x13, 0x14)};
-  mixer[kColorRefNeutral8] = {SkColorSetRGB(0x16, 0x18, 0x18)};
-  mixer[kColorRefNeutral10] = {SkColorSetRGB(0x1F, 0x1F, 0x1F)};
-  mixer[kColorRefNeutral12] = {SkColorSetRGB(0x1F, 0x20, 0x20)};
-  mixer[kColorRefNeutral15] = {SkColorSetRGB(0x28, 0x28, 0x28)};
-  mixer[kColorRefNeutral17] = {SkColorSetRGB(0x2A, 0x2A, 0x2A)};
-  mixer[kColorRefNeutral20] = {SkColorSetRGB(0x30, 0x30, 0x30)};
-  mixer[kColorRefNeutral22] = {SkColorSetRGB(0x34, 0x35, 0x35)};
-  mixer[kColorRefNeutral24] = {SkColorSetRGB(0x39, 0x39, 0x39)};
-  mixer[kColorRefNeutral25] = {SkColorSetRGB(0x3c, 0x3c, 0x3c)};
-  mixer[kColorRefNeutral30] = {SkColorSetRGB(0x47, 0x47, 0x47)};
-  mixer[kColorRefNeutral40] = {SkColorSetRGB(0x5E, 0x5E, 0x5E)};
-  mixer[kColorRefNeutral50] = {SkColorSetRGB(0x75, 0x75, 0x75)};
-  mixer[kColorRefNeutral60] = {SkColorSetRGB(0x8F, 0x8F, 0x8F)};
-  mixer[kColorRefNeutral70] = {SkColorSetRGB(0xAB, 0xAB, 0xAB)};
-  mixer[kColorRefNeutral80] = {SkColorSetRGB(0xC7, 0xC7, 0xC7)};
-  mixer[kColorRefNeutral87] = {SkColorSetRGB(0xDA, 0xDA, 0xDA)};
-  mixer[kColorRefNeutral90] = {SkColorSetRGB(0xE3, 0xE3, 0xE3)};
-  mixer[kColorRefNeutral92] = {SkColorSetRGB(0xE9, 0xE8, 0xE8)};
-  mixer[kColorRefNeutral94] = {SkColorSetRGB(0xEF, 0xED, 0xED)};
-  mixer[kColorRefNeutral95] = {SkColorSetRGB(0xF2, 0xF2, 0xF2)};
-  mixer[kColorRefNeutral96] = {SkColorSetRGB(0xF4, 0xF3, 0xF2)};
-  mixer[kColorRefNeutral98] = {SkColorSetRGB(0xFA, 0xF9, 0xF8)};
-  mixer[kColorRefNeutral99] = {SkColorSetRGB(0xFD, 0xFC, 0xFB)};
-  mixer[kColorRefNeutral100] = {SkColorSetRGB(0xFF, 0xFF, 0xFF)};
+  // Sets new neutral ref colors in dark mode. These colors will also be
+  // used for light mode in the future.
+  if (color_mode == ColorProviderKey::ColorMode::kDark &&
+      base::FeatureList::IsEnabled(features::kChromeDarkNeutrals26)) {
+    mixer[kColorRefNeutral0] = {SkColorSetRGB(0x00, 0x00, 0x00)};
+    mixer[kColorRefNeutral4] = {SkColorSetRGB(0x0B, 0x0B, 0x0D)};
+    mixer[kColorRefNeutral6] = {SkColorSetRGB(0x11, 0x12, 0x14)};
+    mixer[kColorRefNeutral8] = {SkColorSetRGB(0x15, 0x17, 0x1A)};
+    mixer[kColorRefNeutral10] = {SkColorSetRGB(0x19, 0x1B, 0x1F)};
+    mixer[kColorRefNeutral12] = {SkColorSetRGB(0x1C, 0x1E, 0x22)};
+    mixer[kColorRefNeutral15] = {SkColorSetRGB(0x22, 0x24, 0x2A)};
+    mixer[kColorRefNeutral17] = {SkColorSetRGB(0x27, 0x29, 0x30)};
+    mixer[kColorRefNeutral20] = {SkColorSetRGB(0x27, 0x2A, 0x30)};
+    mixer[kColorRefNeutral22] = {SkColorSetRGB(0x2C, 0x2E, 0x35)};
+    mixer[kColorRefNeutral24] = {SkColorSetRGB(0x2F, 0x31, 0x38)};
+    mixer[kColorRefNeutral25] = {SkColorSetRGB(0x36, 0x38, 0x40)};
+    mixer[kColorRefNeutral30] = {SkColorSetRGB(0x42, 0x44, 0x4D)};
+    mixer[kColorRefNeutral40] = {SkColorSetRGB(0x4E, 0x50, 0x59)};
+    mixer[kColorRefNeutral50] = {SkColorSetRGB(0x65, 0x67, 0x73)};
+    mixer[kColorRefNeutral60] = {SkColorSetRGB(0x7F, 0x81, 0x8C)};
+    mixer[kColorRefNeutral70] = {SkColorSetRGB(0xA0, 0xA2, 0xAB)};
+    mixer[kColorRefNeutral80] = {SkColorSetRGB(0xC2, 0xC3, 0xCC)};
+    mixer[kColorRefNeutral87] = {SkColorSetRGB(0xCE, 0xD0, 0xD9)};
+    mixer[kColorRefNeutral90] = {SkColorSetRGB(0xDA, 0xDB, 0xE5)};
+    mixer[kColorRefNeutral92] = {SkColorSetRGB(0xE0, 0xE2, 0xEB)};
+    mixer[kColorRefNeutral94] = {SkColorSetRGB(0xE5, 0xE7, 0xF0)};
+    mixer[kColorRefNeutral95] = {SkColorSetRGB(0xE8, 0xEA, 0xF2)};
+    mixer[kColorRefNeutral96] = {SkColorSetRGB(0xEE, 0xEF, 0xF5)};
+    mixer[kColorRefNeutral98] = {SkColorSetRGB(0xF7, 0xF8, 0xFA)};
+    mixer[kColorRefNeutral99] = {SkColorSetRGB(0xF9, 0xFA, 0xFC)};
+    mixer[kColorRefNeutral100] = {SkColorSetRGB(0xFF, 0xFF, 0xFF)};
+  } else {
+    mixer[kColorRefNeutral0] = {SkColorSetRGB(0x00, 0x00, 0x00)};
+    mixer[kColorRefNeutral4] = {SkColorSetRGB(0x0E, 0x0E, 0x0F)};
+    mixer[kColorRefNeutral6] = {SkColorSetRGB(0x13, 0x13, 0x14)};
+    mixer[kColorRefNeutral8] = {SkColorSetRGB(0x16, 0x18, 0x18)};
+    mixer[kColorRefNeutral10] = {SkColorSetRGB(0x1F, 0x1F, 0x1F)};
+    mixer[kColorRefNeutral12] = {SkColorSetRGB(0x1F, 0x20, 0x20)};
+    mixer[kColorRefNeutral15] = {SkColorSetRGB(0x28, 0x28, 0x28)};
+    mixer[kColorRefNeutral17] = {SkColorSetRGB(0x2A, 0x2A, 0x2A)};
+    mixer[kColorRefNeutral20] = {SkColorSetRGB(0x30, 0x30, 0x30)};
+    mixer[kColorRefNeutral22] = {SkColorSetRGB(0x34, 0x35, 0x35)};
+    mixer[kColorRefNeutral24] = {SkColorSetRGB(0x39, 0x39, 0x39)};
+    mixer[kColorRefNeutral25] = {SkColorSetRGB(0x3c, 0x3c, 0x3c)};
+    mixer[kColorRefNeutral30] = {SkColorSetRGB(0x47, 0x47, 0x47)};
+    mixer[kColorRefNeutral40] = {SkColorSetRGB(0x5E, 0x5E, 0x5E)};
+    mixer[kColorRefNeutral50] = {SkColorSetRGB(0x75, 0x75, 0x75)};
+    mixer[kColorRefNeutral60] = {SkColorSetRGB(0x8F, 0x8F, 0x8F)};
+    mixer[kColorRefNeutral70] = {SkColorSetRGB(0xAB, 0xAB, 0xAB)};
+    mixer[kColorRefNeutral80] = {SkColorSetRGB(0xC7, 0xC7, 0xC7)};
+    mixer[kColorRefNeutral87] = {SkColorSetRGB(0xDA, 0xDA, 0xDA)};
+    mixer[kColorRefNeutral90] = {SkColorSetRGB(0xE3, 0xE3, 0xE3)};
+    mixer[kColorRefNeutral92] = {SkColorSetRGB(0xE9, 0xE8, 0xE8)};
+    mixer[kColorRefNeutral94] = {SkColorSetRGB(0xEF, 0xED, 0xED)};
+    mixer[kColorRefNeutral95] = {SkColorSetRGB(0xF2, 0xF2, 0xF2)};
+    mixer[kColorRefNeutral96] = {SkColorSetRGB(0xF4, 0xF3, 0xF2)};
+    mixer[kColorRefNeutral98] = {SkColorSetRGB(0xFA, 0xF9, 0xF8)};
+    mixer[kColorRefNeutral99] = {SkColorSetRGB(0xFD, 0xFC, 0xFB)};
+    mixer[kColorRefNeutral100] = {SkColorSetRGB(0xFF, 0xFF, 0xFF)};
+  }
 
   mixer[kColorRefNeutralVariant0] = {SkColorSetRGB(0x00, 0x00, 0x00)};
   mixer[kColorRefNeutralVariant10] = {SkColorSetRGB(0x19, 0x1D, 0x1C)};
@@ -251,7 +287,7 @@ void AddRefColorMixer(ColorProvider* provider, const ColorProviderKey& key) {
   if (!key.user_color.has_value() ||
       key.user_color_source == ColorProviderKey::UserColorSource::kBaseline ||
       key.user_color_source == ColorProviderKey::UserColorSource::kGrayscale) {
-    AddBaselinePalette(provider);
+    AddBaselinePalette(provider, key.color_mode);
   } else {
     // The default value for schemes is Tonal Spot.
     auto variant = key.scheme_variant.value_or(

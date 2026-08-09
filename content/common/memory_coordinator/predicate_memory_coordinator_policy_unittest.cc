@@ -9,6 +9,8 @@
 #include <vector>
 
 #include "base/hash/hash.h"
+#include "base/memory_coordinator/memory_coordinator_features.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "content/common/memory_coordinator/memory_consumer_group_host.h"
 #include "content/common/memory_coordinator/memory_coordinator_policy.h"
@@ -252,6 +254,9 @@ TEST_F(PredicateMemoryCoordinatorPolicyTest, ObserverLifecycle) {
 
 TEST_F(PredicateMemoryCoordinatorPolicyTest,
        RepeatedReleaseForStatelessConsumers) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(base::kStatefulMemoryPressure);
+
   MockMemoryConsumerGroupHost host;
   const ChildProcessId kChildId;
 
@@ -350,6 +355,57 @@ TEST_F(PredicateMemoryCoordinatorPolicyTest,
   policy_manager().OnConsumerGroupRemoved(kStatefulId, kChildId);
   policy_manager().OnConsumerGroupRemoved(kStatelessId, kChildId);
   policy_manager().OnConsumerGroupRemoved(kNoTraitsId, kChildId);
+  policy_manager().RemoveMemoryConsumerGroupHost(kChildId);
+}
+
+TEST_F(PredicateMemoryCoordinatorPolicyTest,
+       RepeatedReleaseWithStatefulFeatureDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(base::kStatefulMemoryPressure);
+
+  MockMemoryConsumerGroupHost host;
+  const ChildProcessId kChildId;
+
+  policy_manager().AddMemoryConsumerGroupHost(PROCESS_TYPE_BROWSER, kChildId,
+                                              &host);
+
+  constexpr base::MemoryConsumerTraits kStatefulTraits(
+      base::MemoryConsumerTraits::EstimatedMemoryUsage::kSmall,
+      base::MemoryConsumerTraits::ReleaseMemoryCost::kRequiresTraversal,
+      base::MemoryConsumerTraits::InformationRetention::kLossless,
+      base::MemoryConsumerTraits::ExecutionType::kSynchronous);
+
+  const std::string kStatefulName = "stateful";
+  const uint32_t kStatefulId = base::PersistentHash(kStatefulName);
+
+  policy_manager().OnConsumerGroupAdded(kStatefulId, kStatefulName,
+                                        kStatefulTraits, kChildId);
+
+  PredicateMemoryCoordinatorPolicy policy(
+      policy_manager(),
+      base::BindRepeating([](uint32_t consumer_id,
+                             std::optional<base::MemoryConsumerTraits> traits,
+                             ProcessType process_type,
+                             ChildProcessId child_process_id) {
+        return child_process_id.is_null();
+      }));
+  MemoryCoordinatorPolicyRegistration registration(policy_manager(), policy);
+
+  // Initial critical pressure.
+  EXPECT_CALL(host, UpdateConsumers(UnorderedElementsAre(
+                        MemoryConsumerUpdate{kStatefulId, 0, true})));
+  policy.SetLimit(0, true);
+  Mock::VerifyAndClearExpectations(&host);
+
+  // Because kStatefulMemoryPressure is disabled, even though traits say
+  // IsStateful::kYes, the consumer operates in stateless mode and should
+  // receive repeated release updates.
+  EXPECT_CALL(host, UpdateConsumers(UnorderedElementsAre(MemoryConsumerUpdate{
+                        kStatefulId, std::nullopt, true})));
+  policy.SetLimit(0, true);
+  Mock::VerifyAndClearExpectations(&host);
+
+  policy_manager().OnConsumerGroupRemoved(kStatefulId, kChildId);
   policy_manager().RemoveMemoryConsumerGroupHost(kChildId);
 }
 

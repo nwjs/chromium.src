@@ -148,6 +148,14 @@ class ApiTests extends ApiTestFixtureBase {
     assertDefined(activated);
     assertEquals(activated.tabId, createdProd.tabId);
     assertEquals(activated.url, prodUrl);
+
+    // Activating a non-existent URL should fall back to creating a new tab
+    // without showing the Glic side panel.
+    const fallbackUrl = location.href + '&nonexistent=1#activate_fallback';
+    const fallbackCreated = await this.host.activateTabWithUrl(
+        fallbackUrl, {pattern: '*activate_nonexistent*'});
+    assertDefined(fallbackCreated);
+    assertEquals(fallbackCreated.url, fallbackUrl);
   }
 
   async testCreateTabFailsWithUnsupportedScheme() {
@@ -694,6 +702,14 @@ class ApiTests extends ApiTestFixtureBase {
     this.host.processCounterAbuseVerdict(tabData.tabId, verdict);
 
     await this.advanceToNextStep();
+  }
+
+  async testProcessCounterAbuseVerdictWhenSafeBrowsingDisabled() {
+    await this.testProcessCounterAbuseVerdict();
+  }
+
+  async testProcessCounterAbuseVerdictWhenUrlAllowlistedByPolicy() {
+    await this.testProcessCounterAbuseVerdict();
   }
 
   async testProcessCounterAbuseVerdictIsUndefinedWhenFeatureDisabled() {

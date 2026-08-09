@@ -123,6 +123,7 @@ class PrerenderHostRegistry;
 class RenderFrameHostCSPContext;
 class ServiceWorkerMainResourceHandle;
 class SubframeHistoryNavigationThrottle;
+class NavigationFastFetchManager;
 
 // The primary implementation of NavigationHandle.
 //
@@ -529,6 +530,7 @@ class CONTENT_EXPORT NavigationRequest
   bool IsInitialWebUINavigation() override;
   bool IsPageActivation() const override;
   bool IsNavigatingFromInitialEmptyDocument() const override;
+  bool IsBlockedByConnectionAllowlist() const override;
   // End of NavigationHandle implementation.
 
   // Returns a perfetto Track that represents this navigation, nested under the
@@ -738,6 +740,17 @@ class CONTENT_EXPORT NavigationRequest
 
   void set_has_user_gesture(bool has_user_gesture) {
     common_params_->has_possibly_filtered_user_gesture = has_user_gesture;
+  }
+
+  NavigationFastFetchManager* fast_fetch_manager_for_testing() const {
+    return fast_fetch_manager_.get();
+  }
+
+  bool HasPrefetchedSignedExchange() const;
+
+  void SetNavigationHandleTimingForTesting(
+      const NavigationHandleTiming& timing) {
+    navigation_handle_timing_ = timing;
   }
 
   // Ignores any interface disconnect that might happen to the
@@ -2745,6 +2758,8 @@ class CONTENT_EXPORT NavigationRequest
 
   scoped_refptr<SiteInstanceImpl> starting_site_instance_;
 
+  std::unique_ptr<NavigationFastFetchManager> fast_fetch_manager_;
+
   // Whether the navigation should be sent to a renderer a process. This is
   // true, except for 204/205 responses and downloads.
   bool response_should_be_rendered_ = true;
@@ -3661,6 +3676,14 @@ class CONTENT_EXPORT NavigationRequest
   // cross-document navigations.
   base::UnguessableToken network_restrictions_id_ =
       network::GetNoOpNetworkRestrictionsId();
+
+  // Connection-Allowlist feature: set to true when this navigation is blocked
+  // because the initiator's Connection-Allowlist disallows the destination URL
+  // (see IsAllowedByConnectionAllowlist()). Exposed via
+  // IsBlockedByConnectionAllowlist() so that observers (e.g. //chrome's
+  // LoadingPredictor) can suppress speculative network activity for the doomed
+  // navigation.
+  bool is_blocked_by_connection_allowlist_ = false;
 
   // Tracks frames in the navigating subtree that are running `beforeunload`
   // handlers asynchronously.

@@ -47,7 +47,8 @@ import java.util.Map;
 
 /** Preference container implementation for SettingsActivity in multi-column mode. */
 @NullMarked
-public class MultiColumnSettings extends PreferenceHeaderFragmentCompat {
+public class MultiColumnSettings extends PreferenceHeaderFragmentCompat
+        implements ProfileDependentSetting {
 
     public interface Observer {
         /** Called when detailed pane title is updated. */
@@ -359,6 +360,7 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat {
 
     /** Sets the Profile required for generating the search index. Called by the host Activity. */
     @EnsuresNonNull("mProfile")
+    @Override
     public void setProfile(Profile profile) {
         mProfile = profile;
     }

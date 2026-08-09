@@ -99,6 +99,10 @@ std::string_view GetToastName(ToastId toast_id) {
       return "TabStripSwitchDelayedVertical";
     case ToastId::kAutofillAiPreFetchErrorMessage:
       return "AutofillAiPreFetchErrorMessage";
+    case ToastId::kDictationError:
+      return "DictationError";
+    case ToastId::kDictationStopped:
+      return "DictationStopped";
   }
 
   NOTREACHED();

@@ -24,6 +24,7 @@ source_set("actor") {
     "actor_metrics.h",
     "actor_navigation_throttle.h",
     "actor_proto_conversion.h",
+    "actor_tab_close_skip_beforeunload_user_data.h",
     "actor_tab_data.h",
     "actor_task.h",
     "actor_task_metadata.h",
@@ -113,6 +114,7 @@ source_set("impl") {
     "actor_proto_conversion.cc",
     "actor_script_tool_receiver.cc",
     "actor_script_tool_receiver.h",
+    "actor_tab_close_skip_beforeunload_user_data.cc",
     "actor_tab_data.cc",
     "actor_task.cc",
     "actor_task_metadata.cc",
@@ -502,6 +504,7 @@ source_set("browser_tests") {
       "//chrome/browser/autofill",
       "//chrome/browser/autofill/actor:test_support",
       "//chrome/browser/download:test_support",
+      "//chrome/browser/glic",
       "//chrome/browser/ui/views:file_system_access_test_support",
       "//components/autofill/core/browser:test_support",
     ]

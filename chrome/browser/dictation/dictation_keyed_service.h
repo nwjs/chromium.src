@@ -12,23 +12,25 @@
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/dictation/connector_component_extension.h"
 #include "chrome/browser/dictation/dictation_multiplexer.h"
+#include "chrome/browser/dictation/metrics.h"
 #include "chrome/browser/dictation/onboarding_manager.h"
 #include "chrome/browser/dictation/session_controller.h"
 #include "chrome/browser/dictation/session_controller_delegate.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/prefs/pref_change_registrar.h"
+#include "content/public/browser/global_dom_node_id.h"
 
-class BrowserWindowInterface;
 class Profile;
 
 namespace content {
 class BrowserContext;
-class RenderFrameHost;
+}
+
+namespace tabs {
+class TabInterface;
 }
 
 namespace dictation {
-
-class Target;
 
 // Created on a per-profile basis for any regular profile (i.e. excludes OTR,
 // service, etc. profiles) and only when the Dictation base::Feature is enabled.
@@ -59,19 +61,23 @@ class DictationKeyedService : public KeyedService,
   // responsibility to ensure this never called while an existing session in
   // progress.
   //
-  // If a target is provided, the new session will immediately start up a
-  // stream. Otherwise, if nullptr is passed the session is created without a
-  // stream.
-  void StartSession(BrowserWindowInterface& window,
-                    std::unique_ptr<Target> target);
+  // The new session will immediately start up a stream using the given
+  // target_id.
+  //
+  // If `target_id` has a null DOMNodeId, the focused element in the specified
+  // Document is used.
+  // TODO(b/531049588): Update tests to always provide a valid target_id, remove
+  // the "focused element" semantic, and CHECK that the provided target is
+  // always non-null.
+  void StartSession(tabs::TabInterface& tab,
+                    const content::GlobalDOMNodeId& target_id,
+                    DictationSessionEntryPoint entry_point);
 
   // Returns true if there is no active session.
   bool ShouldShowContextMenuItem() const;
 
   // Handles the context menu item click.
-  void ContextMenuHandler(BrowserWindowInterface& window,
-                          content::RenderFrameHost& rfh,
-                          const std::u16string& selected_text);
+  void ContextMenuHandler(const content::GlobalDOMNodeId& target_id);
 
   // Returns null when no session is in progress.
   SessionController* session_controller() {
@@ -102,11 +108,11 @@ class DictationKeyedService : public KeyedService,
 
   struct SessionState {
     SessionState(SessionControllerDelegate& delegate,
-                 base::WeakPtr<BrowserWindowInterface> window);
+                 const content::GlobalDOMNodeId& target_id);
     ~SessionState();
 
     SessionController controller_;
-    base::WeakPtr<BrowserWindowInterface> window_;
+    content::GlobalDOMNodeId target_id_;
   };
   std::optional<SessionState> session_;
 };

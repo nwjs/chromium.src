@@ -137,6 +137,9 @@ class PageActionView : public IconLabelBubbleView,
   gfx::SlideAnimation& GetSlideAnimationForTesting();
   AnchoredMessageBubbleView* GetAnchoredMessageForTesting();
 
+  // IconLabelBubbleView:
+  SkColor GetBackgroundColor() const override;
+
   static PageActionPassKey PassKeyForTesting() { return PageActionPassKey(); }
 
  protected:
@@ -166,6 +169,10 @@ class PageActionView : public IconLabelBubbleView,
   void OnAnchoredMessageWidgetClose(views::Widget::ClosedReason closed_reason);
 
   void CreateAndShowAnchoredMessage(const PageActionModelInterface& model);
+
+  void UpdateAnimationState(const PageActionModelInterface& model);
+  void HandleSlideAndCrossfadeTransition(const PageActionModelInterface& model);
+  void HandleSuggestionChipTransition(const PageActionModelInterface& model);
 
   base::WeakPtr<actions::ActionItem> action_item_ = nullptr;
   base::ScopedObservation<PageActionModelInterface, PageActionModelObserver>

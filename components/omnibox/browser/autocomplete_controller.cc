@@ -1063,6 +1063,39 @@ void AutocompleteController::GroupSuggestionsBySearchVsURL(size_t begin,
       std::next(result.begin(), begin), std::next(result.begin(), end));
 }
 
+std::u16string AutocompleteController::GetSuggestionGroupHeaderText(
+    const std::optional<omnibox::GroupId>& suggestion_group_id) const {
+  if (suggestion_group_id.has_value()) {
+    bool force_hide_row_header =
+        OmniboxFieldTrial::IsHideSuggestionGroupHeadersEnabledInContext(
+            input_.current_page_classification());
+    auto header_text =
+        result().GetHeaderForSuggestionGroup(suggestion_group_id.value());
+
+    bool has_toolbelt_lens_action =
+        contextual_search_provider() &&
+        contextual_search_provider()->HasToolbeltLensAction();
+    const auto* client = autocomplete_provider_client();
+    bool has_lens_search_chip =
+        client->IsOmniboxNextLensSearchChipEnabled() &&
+        ContextualSearchProvider::LensEntrypointEligible(input_, client);
+
+    if (suggestion_group_id.value() == omnibox::GROUP_CONTEXTUAL_SEARCH &&
+        (has_toolbelt_lens_action || has_lens_search_chip)) {
+      if (base::FeatureList::IsEnabled(omnibox::kHideContextualGroupHeaders) ||
+          has_lens_search_chip) {
+        return u"";
+      }
+      return header_text.empty()
+                 ? l10n_util::GetStringUTF16(
+                       IDS_CONTEXTUAL_SEARCH_OPEN_LENS_ACTION_LABEL)
+                 : header_text;
+    }
+    return force_hide_row_header ? u"" : header_text;
+  }
+  return u"";
+}
+
 bool AutocompleteController::ShouldRunProvider(
     AutocompleteProvider* provider) const {
   if (!provider) {

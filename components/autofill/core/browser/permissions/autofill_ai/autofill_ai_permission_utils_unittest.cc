@@ -80,6 +80,8 @@ std::string GetTestSuffix(
       return "kWalletDataSharingPromotion";
     case AutofillAiAction::kAmbientAutofill:
       return "kAmbientAutofill";
+    case AutofillAiAction::kShowAmbientAutofillInSettings:
+      return "kShowAmbientAutofillInSettings";
     case AutofillAiAction::kTypeSupportsAmbientAutofillData:
       return "kTypeSupportsAmbientAutofillData";
   }

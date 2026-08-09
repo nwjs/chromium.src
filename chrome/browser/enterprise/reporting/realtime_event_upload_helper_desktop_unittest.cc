@@ -10,7 +10,6 @@
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/enterprise/connectors/reporting/realtime_reporting_client_factory.h"
 #include "chrome/browser/enterprise/reporting/test/realtime_event_uploader_test_base.h"
-#include "components/policy/core/common/cloud/realtime_reporting_job_configuration.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -123,25 +122,6 @@ TEST_F(RealtimeEventUploadHelperDesktopTest, NoTokenFailure) {
                                 /*create_reporting_client=*/true);
 
   // Both profile and browser uploaders should fail if no DM token is found.
-  TestRealtimeProfileUploader profile_uploader(profile);
-  EXPECT_FALSE(profile_uploader.Prepare().has_value());
-
-  TestRealtimeBrowserUploader browser_uploader;
-  EXPECT_FALSE(browser_uploader.Prepare().has_value());
-}
-
-TEST_F(RealtimeEventUploadHelperDesktopTest, RequiredFeatureFlagDisabled) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(
-      policy::kUploadRealtimeReportingEventsUsingProto);
-
-  SetBrowserManaged(true);
-  auto* profile = CreateProfile("user", /*is_managed=*/true,
-                                /*is_affiliated=*/false,
-                                /*create_reporting_client=*/true);
-
-  // Both profile and browser uploaders should fail if the feature flag is
-  // disabled.
   TestRealtimeProfileUploader profile_uploader(profile);
   EXPECT_FALSE(profile_uploader.Prepare().has_value());
 

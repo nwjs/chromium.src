@@ -32,11 +32,11 @@ Kai kurios funkcijos gali būti nepasiekiamos ir nuostatų pakeitimai nebus išs
 <translation id="126567311906253476">Prisijungdami prie „Google“ paslaugų, pvz., „Gmail“ ar „YouTube“, naudodami <ph name="USER_EMAIL" />, galite automatiškai prisijungti prie „Chromium“ naudodami tą pačią paskyrą</translation>
 <translation id="1287534462498555020">Gaukite „Chromium“ telefone</translation>
 <translation id="1290883685122687410">Sąrankos klaida: <ph name="METAINSTALLER_EXIT_CODE" />. <ph name="WINDOWS_ERROR" /></translation>
-<translation id="1312200348844120300">Iliustracija, kurioje rodoma, kaip galite naudoti vaizdų paiešką norėdami ieškoti produkto</translation>
 <translation id="1315551408014407711">Nustatykite naują „Chromium“ profilį</translation>
 <translation id="132092532143527429">Išbandyti naudojant „Gemini“ naršyklėje „Chromium“</translation>
 <translation id="1324107359134968521">„Chromium“ reikalinga „Bluetooth“ prieiga, kad galėtų naršyti 
  „Bluetooth“ įrenginius. <ph name="IDS_SERIAL_DEVICE_CHOOSER_AUTHORIZE_BLUETOOTH_LINK" /></translation>
+<translation id="1329040302064168406">Prisijunkite prie „Chromium“ telefone</translation>
 <translation id="1330562121671411446">Aptikti kalbą</translation>
 <translation id="1330742950061766891">Naudoti „Chromium“ rekomenduojamus naršyklės nustatymus</translation>
 <translation id="1342274909142618978">Taip pat ištrinti duomenis iš „Chromium“ (<ph name="URL" />)</translation>
@@ -102,12 +102,14 @@ Kai kurios funkcijos gali būti nepasiekiamos ir nuostatų pakeitimai nebus išs
 <translation id="2018879682492276940">Nepavyko įdiegti. Bandykite dar kartą.</translation>
 <translation id="2039417478970545937">Nustatymai.</translation>
 <translation id="2049376729098081731">Pasirinkite, ar įtraukti „Chromium“ istoriją, kad būtų teikiamos labiau suasmenintos funkcijos „Google“ paslaugose</translation>
+<translation id="2050698962207788467">Integruota į „Chromium“, kad galėtumėte kurti, išsaugoti ir automatiškai užpildyti sudėtingus slaptažodžius. Pridėkite šaukinį, kad galėtumėte lengvai pasiekti.</translation>
 <translation id="2064856577282482477">Spustelėkite mygtuką „Tinkinti „Chromium“ naujo skirtuko puslapyje, kad suteiktumėte „Chromium“ naują išvaizdą</translation>
 <translation id="2066690553719545730">Visada rodyti DI režimą</translation>
 <translation id="2086476982681781442">„Chromium“ užblokavo šį atsisiuntimą, nes failas yra klaidinantis ir gali atlikti nenumatytų pakeitimų įrenginyje</translation>
 <translation id="208726765006323911">Kitą kartą atidarius „Chromium iOS“ bus pateiktas raginimas išbandyti „<ph name="FEATURE_NAME" />“.</translation>
 <translation id="2099452623287920103">Slaptažodžiai ir kiti „Chromium“ duomenys, kuriuos išsaugojote „Google“ paskyroje, bus pašalinti iš šio įrenginio. Jei norite juos vėl naudoti „Chromium“, vėl prisijunkite.</translation>
 <translation id="2120965832000301375">{COUNT,plural, =1{Jūsų organizacija automatiškai ištrina naršymo duomenis, kai „Chromium“ nenaudojama vieną minutę. Tai gali būti istorija, automatinis pildymas ir atsisiuntimai. Skirtukai liks atidaryti.}one{Jūsų organizacija automatiškai ištrina naršymo duomenis, kai „Chromium“ nenaudojama # minutę. Tai gali būti istorija, automatinis pildymas ir atsisiuntimai. Skirtukai liks atidaryti.}few{Jūsų organizacija automatiškai ištrina naršymo duomenis, kai „Chromium“ nenaudojama # minutes. Tai gali būti istorija, automatinis pildymas ir atsisiuntimai. Skirtukai liks atidaryti.}many{Jūsų organizacija automatiškai ištrina naršymo duomenis, kai „Chromium“ nenaudojama # minutės. Tai gali būti istorija, automatinis pildymas ir atsisiuntimai. Skirtukai liks atidaryti.}other{Jūsų organizacija automatiškai ištrina naršymo duomenis, kai „Chromium“ nenaudojama # minučių. Tai gali būti istorija, automatinis pildymas ir atsisiuntimai. Skirtukai liks atidaryti.}}</translation>
+<translation id="2125838419757773031">Pasirinkite ekrano sritį, kurioje norite ieškoti</translation>
 <translation id="2126108037660393668">Nepavyko patvirtinti atsisiųsto failo.</translation>
 <translation id="2135919691573380097">Pranešimas apie šią svetainę</translation>
 <translation id="2137162749895930932">Uždaryti vertimo ekraną</translation>
@@ -140,6 +142,7 @@ Kai kurios funkcijos gali būti nepasiekiamos ir nuostatų pakeitimai nebus išs
 <translation id="2401032172288869980">„Chromium“ reikalingi fotoaparato ir mikrofono leidimai šioje svetainėje</translation>
 <translation id="2403703063067034158">Paleisties klaida: šiuo metu vykdoma kita sąrankos kopija. Vėliau bandykite dar kartą.</translation>
 <translation id="2418322681019544463">Atidarykite nuorodas naršyklėje „Chromium“ iš bet kurios programos ir palikite ją pasiekiamą užduočių juostoje</translation>
+<translation id="2425157128016763890">Spustelėkite mygtuką „Apibendrinti“, kad bendrintumėte šį dokumentą su „Gemini“ naršyklėje „Chromium“ ir gautumėte trumpą apžvalgą bei užduotumėte papildomų klausimų</translation>
 <translation id="2440750600860946460">Naudodami <ph name="BEGIN_LINK" />„Chromium“ įrankius<ph name="END_LINK" /> galite saugiai naršyti ir valdyti situaciją</translation>
 <translation id="2451727308784734061">Naudodami šaukinį galite greitai pasiekti Slaptažodžių tvarkyklę. Šaukinį galite perkelti į kompiuterio pagrindinį ekraną ar programų paleidimo priemonę.</translation>
 <translation id="2478295928299953161">„Chromium“ netrukus bus uždaryta</translation>
@@ -238,7 +241,6 @@ Kai kurios funkcijos gali būti nepasiekiamos ir nuostatų pakeitimai nebus išs
 <translation id="3387527074123400161">„Chromium“ OS</translation>
 <translation id="3406848076815591792">Perjungti į esamą „Chromium“ profilį?</translation>
 <translation id="3412460710772753638">Slaptažodžių tvarkyklėje šiame įrenginyje</translation>
-<translation id="3423442168617177595">Integruota į „Chromium“, kad galėtumėte kurti, išsaugoti ir automatiškai užpildyti sudėtingus slaptažodžius. Pridėkite šaukinį, kad galėtumėte lengvai pasiekti.</translation>
 <translation id="3455907671758333080">Sustiprinto saugaus naršymo išplėtimas naudojant „Chromium“ telefone</translation>
 <translation id="3461644266919055473">„Chromium“ suasmeninimas...</translation>
 <translation id="3474745554856756813">Atlikus šį veiksmą iš šio įrenginio bus ištrinti elementai (<ph name="ITEMS_COUNT" />). Jei vėliau norėsite gauti duomenis, prisijunkite prie „Chromium“ kaip <ph name="USER_EMAIL" />.</translation>
@@ -508,7 +510,6 @@ Jei šis puslapis neveikia taip, kaip tikimasi, pabandykite leisti naudoti optim
 <translation id="6400112897226594999">„Chromium“ logotipas kompiuterio ekrane.</translation>
 <translation id="6403826409255603130">„Chromium“ – tai žiniatinklio naršyklė, kurią naudojant akimirksniu paleidžiami tinklalapiai ir programos. Ji greita, stabili ir lengvai naudojama. Saugiau naršykite žiniatinklį naudodami į „Chromium“ integruotą apsaugą nuo kenkėjiškų programų ir sukčiavimo.</translation>
 <translation id="6414624068245092115">Kad užtikrintumėte, jog visada galėsite naudoti ir išsaugoti „Chromium“ duomenis „Google“ paskyroje, patvirtinkite savo tapatybę</translation>
-<translation id="6417332166651156371">Supaprastintas vaizdas, kuriame rodomas Slaptažodžių tvarkyklės pradžios taškas naršyklėje „Chromium“</translation>
 <translation id="642132557830635295">„Chrome“ veikia sparčiau, o „JavaScript“ naudojančios funkcijos turėtų veikti, kaip numatyta (rekomenduojama)</translation>
 <translation id="6436260184216827876">Vaizdų paieška nepasiekiama. Bandykite dar kartą vėliau.</translation>
 <translation id="6442900851116057561">„Chromium“ OS paleidimas iš naujo</translation>
@@ -754,6 +755,7 @@ Naujų žymių negalima išsaugoti paskyroje, kol ištrinsite kai kurias žymes.
 <translation id="878572486461146056">Diegimo klaida: tinklo administratorius taiko grupių politiką, pagal kurią neleidžiama įdiegti: <ph name="INSTALL_ERROR" /></translation>
 <translation id="8796602469536043152">„Chromium“ reikia leidimo, kad galėtų naudoti fotoaparatą ir mikrofoną šioje svetainėje</translation>
 <translation id="8813277370772331957">Priminti vėliau</translation>
+<translation id="8816416449795340678">Bendrinkite šį dokumentą su „Gemini“ naršyklėje „Chromium“, kad gautumėte trumpą apžvalgą ir užduotumėte papildomų klausimų</translation>
 <translation id="8818550178040858407">Prisijungti prie „Chromium“?</translation>
 <translation id="8823401858233292222">Nustatyti „Chromium“ kaip numatytąją naršyklę ir prisegti prie užduočių juostos</translation>
 <translation id="8826492472752484139">Spustelėkite „Slaptažodžių tvarkyklė“</translation>

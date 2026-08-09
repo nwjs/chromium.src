@@ -517,7 +517,7 @@ void PrintViewManagerBase::DidPrintDocument(
   if (IsOopifEnabled() && print_job_->document()->settings().is_modifiable()) {
     auto* client = PrintCompositeClient::FromWebContents(web_contents());
     client->CompositeDocument(
-        params->document_cookie, &CurrentTargetFrame(), content,
+        params->document_cookie, CurrentTargetFrame(), content,
         ui::AXTreeUpdate(), mojom::GenerateDocumentOutline::kNone,
         base::BindOnce(&PrintViewManagerBase::OnComposeDocumentDone,
                        weak_ptr_factory_.GetWeakPtr(), params->document_cookie,

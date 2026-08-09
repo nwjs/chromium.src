@@ -129,6 +129,7 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="2120620239521071941">This will delete <ph name="ITEMS_COUNT" /> items from this device. To retrieve your data later, sign in to Chrome as <ph name="USER_EMAIL" />.</translation>
 <translation id="2121284319307530122">Relaunch to Update &amp;Chrome</translation>
 <translation id="2123055963409958220">Help make Chrome better by reporting the <ph name="BEGIN_LINK" />current settings<ph name="END_LINK" /></translation>
+<translation id="2125838419757773031">Select region of screen to search</translation>
 <translation id="2126108037660393668">The downloaded file failed verification.</translation>
 <translation id="2128411189117340671">Manage Chrome profiles</translation>
 <translation id="2137162749895930932">Close translate screen</translation>
@@ -265,9 +266,9 @@ If this page isn't working as expected, try allowing optimisation.</translation>
 <translation id="3453763134178591239">Chrome OS terms</translation>
 <translation id="3475778264501649775">Take your passwords, tabs and more on the go with the Chrome app on your phone</translation>
 <translation id="3503306920980160878">Chrome needs access to your location to share your location with this site</translation>
-<translation id="3512495006767217696">Built into Chrome to help you create, save and autofill strong passwords. Add the shortcut for easy access</translation>
 <translation id="3539955434060988644">Open link in Chrome Inco&amp;gnito window</translation>
 <translation id="354621070532799440">Reminder: Google's best safety features in your pocket</translation>
+<translation id="3547866758548131919">Click the Summarise button to share this document with Gemini in Chrome to get a quick overview and ask follow-up questions</translation>
 <translation id="3576528680708590453">Your system administrator has configured Google Chrome to open an alternative browser to access <ph name="TARGET_URL_HOSTNAME" />.</translation>
 <translation id="3582972582564653026">Sync and personalise Chrome across your devices</translation>
 <translation id="3583751698304738917">You're already signed in as <ph name="USER_EMAIL_ADDRESS" /> in another Chrome profile</translation>
@@ -317,6 +318,7 @@ If this page isn't working as expected, try allowing optimisation.</translation>
 <translation id="4012899077942246412">While you're signed in, you can use your passwords and more from your Google Account in Chrome. To change this, go to 'Your account in Chrome'.</translation>
 <translation id="4022972681110646219">Translate screen</translation>
 <translation id="4023601594785368013">Original language: <ph name="LANGUAGE" /></translation>
+<translation id="4034249157893816477">Built into Chrome to help you create, save and autofill strong passwords. Add the shortcut for easy access.</translation>
 <translation id="4035053306113201399">Chrome OS needs to be restarted to apply the update.</translation>
 <translation id="4050175100176540509">Important security improvements and new features are available in the latest version.</translation>
 <translation id="4053720452172726777">Customise and control Google Chrome</translation>
@@ -358,6 +360,7 @@ If this page isn't working as expected, try allowing optimisation.</translation>
 <translation id="4400772909124543403">No update is available</translation>
 <translation id="4427306783828095590">Enhanced protection does more to block phishing and malware</translation>
 <translation id="4434353761996769206">Installer error: <ph name="INSTALLER_ERROR" /></translation>
+<translation id="4437295824090654417">Share this document with Gemini in Chrome to get a quick overview and ask follow-up questions</translation>
 <translation id="4450664632294415862">Chrome – Network sign-in – <ph name="PAGE_TITLE" /></translation>
 <translation id="4458462641685292929">Another operation on Google Chrome is in progress. Please try again later.</translation>
 <translation id="4459234553906210702">Ad measurement allows sites that you visit to request information from Chrome that helps the site measure the performance of their ads. Ad measurement restricts cross-site tracking by transferring as little information as possible between sites.</translation>
@@ -559,7 +562,6 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="6438015621983209660">Extend Enhanced Safe Browsing with Chrome on your phone</translation>
 <translation id="6442774133615368941">Shop, translate and identify what you see with your camera on the Chrome iOS app</translation>
 <translation id="6448835208126432197">To select part of the screen in Gemini in Chrome, use keyboard shortcut.</translation>
-<translation id="6473659734176498825">A simplified image showing the Google Password Manager entry point in Chrome</translation>
 <translation id="6473905796280459355">Go to the About Chrome page</translation>
 <translation id="6481963882741794338">Link Chrome and other Google services for personalisation and other purposes</translation>
 <translation id="648319183876919572">Enhanced Safe Browsing does more to protect you against dangerous websites and downloads</translation>
@@ -704,7 +706,6 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="7804364787702057554">Your account in Chrome</translation>
 <translation id="7804947029129221742">Your search engine was changed from outside of Chrome. To protect you, Chrome reset it to its original default. <ph name="LEARN_MORE_LINK" /></translation>
 <translation id="7808348361785373670">Remove from Chrome...</translation>
-<translation id="7812800388699096556">An illustration showing how you can use Google Lens to look up a product</translation>
 <translation id="7827099906024714326">Chrome needs to verify that it's you before some data can be saved in your Google Account and used on all your devices. If you sign out now, this data will be deleted.</translation>
 <translation id="7832314606810669113">To get your bookmarks and more on all your devices, sign in to Chrome. This bookmark will be saved in your Google Account after you sign in.</translation>
 <translation id="7845233973568007926">Thanks for installing. You must restart your computer before using <ph name="BUNDLE_NAME" />.</translation>
@@ -792,6 +793,7 @@ New bookmarks can't be saved in your account until you delete some. If you sign 
 <translation id="8601359445272098721">New! You can translate both text and images on your screen by selecting the 'translate screen' button</translation>
 <translation id="8614913330719544658">Google Chrome is unresponsive. Relaunch now?</translation>
 <translation id="861702415419836452">Chrome needs permission to access your camera to create a 3D map of your surroundings</translation>
+<translation id="8623450603356630491">Sign in to Chrome on your phone</translation>
 <translation id="8624541899164515475">Settings, opens in new tab.</translation>
 <translation id="8625237574518804553">{0,plural, =1{Chrome will relaunch in 1 minute}other{Chrome will relaunch in # minutes}}</translation>
 <translation id="8637932705841171563">To share your window, allow screen recording for Chrome in System Settings</translation>

@@ -2338,6 +2338,74 @@ IN_PROC_BROWSER_TEST_F(WebUIAppMenuBrowserTest, CheckAppMenuShowingStateSync) {
   }));
 }
 
+IN_PROC_BROWSER_TEST_F(WebUIAppMenuBrowserTest, CheckAppMenuFocusSync) {
+  ui::TrackedElement* element = nullptr;
+  WebUIToolbarWebView* webui_toolbar_view = nullptr;
+  views::WebView* web_view = nullptr;
+  ASSERT_NO_FATAL_FAILURE(SetUpWebUI(kToolbarAppMenuButtonElementId, &element,
+                                     &webui_toolbar_view, &web_view,
+                                     browser()));
+  ASSERT_TRUE(webui_toolbar_view);
+  ASSERT_TRUE(web_view);
+
+  content::WebContents* web_contents = web_view->GetWebContents();
+  AppMenuControl* app_menu_control = webui_toolbar_view->GetAppMenuControl();
+  ASSERT_TRUE(app_menu_control);
+
+  // 1. Initial state: not focused.
+  EXPECT_FALSE(app_menu_control->HasFocus());
+
+  // 2. Test C++ -> WebUI focus propagation.
+  app_menu_control->Focus(
+      BrowserView::GetBrowserViewForBrowser(browser())->toolbar());
+
+  // Wait for the WebUI button to gain focus.
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    // JavaScript to check if the deeply nested button element inside the WebUI
+    // components has focus.
+    static constexpr char kCheckFocusScript[] = R"(
+      (() => {
+        let activeEl = document.activeElement;
+        if (activeEl?.tagName !== 'TOOLBAR-APP') return false;
+        activeEl = activeEl.shadowRoot?.activeElement;
+        if (activeEl?.tagName !== 'APP-MENU-BUTTON') return false;
+        activeEl = activeEl.shadowRoot?.activeElement;
+        if (activeEl?.tagName !== 'TOOLBAR-CHIP-BUTTON') return false;
+        activeEl = activeEl.shadowRoot?.activeElement;
+        return activeEl?.tagName === 'BUTTON';
+      })()
+    )";
+    return content::EvalJs(web_contents, kCheckFocusScript).ExtractBool();
+  }));
+
+  // Wait for C++ to receive the focus change.
+  EXPECT_TRUE(
+      base::test::RunUntil([&]() { return app_menu_control->HasFocus(); }));
+
+  // 3. Test WebUI -> C++ blur propagation.
+  // Blur the deep active element.
+  // JavaScript to find the deeply nested active element within the WebUI
+  // components and blur it.
+  static constexpr char kBlurScript[] = R"(
+    (() => {
+      let activeEl = document.activeElement;
+      while (activeEl?.shadowRoot?.activeElement) {
+        activeEl = activeEl.shadowRoot.activeElement;
+      }
+      if (activeEl) {
+        activeEl.blur();
+        return true;
+      }
+      return false;
+    })()
+  )";
+  EXPECT_TRUE(content::EvalJs(web_contents, kBlurScript).ExtractBool());
+
+  // Wait for C++ to receive the blur change.
+  EXPECT_TRUE(
+      base::test::RunUntil([&]() { return !app_menu_control->HasFocus(); }));
+}
+
 // WebUIAppMenuButtonStateTest is disabled on ChromeOS because update and global
 // error badging on the app menu icon is not supported on that platform (they
 // are instead handled by the system tray).

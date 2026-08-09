@@ -14,7 +14,11 @@ source_set("searchbox") {
     "searchbox_omnibox_client.h",
     "searchbox_utils.h",
   ]
-  public_deps = [ "//components/tabs:public" ]
+  public_deps = [
+    "//components/contextual_search/footprints/public",
+    "//components/tabs:public",
+    "//third_party/omnibox_proto",
+  ]
   deps = [
     "//base",
     "//chrome/browser/autocomplete",
@@ -74,6 +78,7 @@ source_set("searchbox_impl") {
     "//chrome/browser/safe_browsing",
     "//chrome/browser/search_engines",
     "//chrome/browser/tab_list",
+    "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/contextual_search",
     "//chrome/browser/ui/omnibox",

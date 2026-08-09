@@ -91,6 +91,7 @@
 #include "chrome/browser/ui/tabs/tab_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_user_gesture_details.h"
+#include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/toolbar/chrome_labs/chrome_labs_utils.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -681,6 +682,24 @@ void BrowserCommandController::HandleCommandWithDisposition(
       break;
     case IDC_TOGGLE_VERTICAL_TABS:
       ToggleVerticalTabs(browser_);
+      break;
+    case IDC_TOGGLE_VERTICAL_TABS_COLLAPSE:
+#if !BUILDFLAG(IS_MAC)
+      // On Mac, the logging for both the keyboard shortcut and the view menu
+      // is handled in BrowserNativeWidgetMac::ExecuteCommand to correctly
+      // distinguish between the two trigger sources.
+      if (auto* controller =
+              tabs::VerticalTabStripStateController::From(browser_)) {
+        if (controller->IsCollapsed()) {
+          base::RecordAction(base::UserMetricsAction(
+              "VerticalTabs_TabStrip_KeyboardShortcutToggleUncollapsed"));
+        } else {
+          base::RecordAction(base::UserMetricsAction(
+              "VerticalTabs_TabStrip_KeyboardShortcutToggleCollapsed"));
+        }
+      }
+#endif  // !BUILDFLAG(IS_MAC)
+      ToggleCollapseVerticalTabs(browser_);
       break;
     case IDC_VERTICAL_TABS_SEND_FEEDBACK:
       chrome::ShowFeedbackPage(browser_, feedback::kFeedbackSourceVerticalTabs,
@@ -1700,6 +1719,8 @@ void BrowserCommandController::InitCommandState() {
   command_updater_->UpdateCommandEnabled(IDC_VERTICAL_TABS_SEND_FEEDBACK, true);
   command_updater_->UpdateCommandEnabled(
       IDC_TOGGLE_VERTICAL_TABS_EXPAND_ON_HOVER, true);
+  command_updater_->UpdateCommandEnabled(IDC_TOGGLE_VERTICAL_TABS_COLLAPSE,
+                                         true);
 #if BUILDFLAG(IS_CHROMEOS)
   command_updater_->UpdateCommandEnabled(IDC_TOGGLE_MULTITASK_MENU, true);
   command_updater_->UpdateCommandEnabled(IDC_MINIMIZE_WINDOW, true);
@@ -1746,6 +1767,7 @@ void BrowserCommandController::InitCommandState() {
   command_updater_->UpdateCommandEnabled(IDC_MANAGE_PASSWORDS_FOR_PAGE, true);
 
   // Zoom
+  command_updater_->UpdateCommandEnabled(IDC_ZOOM_MENU, true);
   command_updater_->UpdateCommandEnabled(IDC_ZOOM_PLUS, true);
   command_updater_->UpdateCommandEnabled(IDC_ZOOM_NORMAL, false);
   command_updater_->UpdateCommandEnabled(IDC_ZOOM_MINUS, true);
@@ -1787,6 +1809,7 @@ void BrowserCommandController::InitCommandState() {
                                          CanOpenTaskManager());
   command_updater_->UpdateCommandEnabled(IDC_TASK_MANAGER_MAIN_MENU,
                                          CanOpenTaskManager());
+  command_updater_->UpdateCommandEnabled(IDC_PROFILE_MENU_IN_APP_MENU, true);
   command_updater_->UpdateCommandEnabled(
       IDC_SHOW_HISTORY, (!guest_session && !profile()->IsSystemProfile()));
   command_updater_->UpdateCommandEnabled(
@@ -1797,6 +1820,8 @@ void BrowserCommandController::InitCommandState() {
       TabsFromOtherDevicesSidePanelCoordinator::IsSupported(profile()));
   command_updater_->UpdateCommandEnabled(IDC_SHOW_DOWNLOADS, true);
   command_updater_->UpdateCommandEnabled(IDC_SHOW_COMMENTS_SIDE_PANEL, true);
+  command_updater_->UpdateCommandEnabled(IDC_FIND_AND_EDIT_MENU, true);
+  command_updater_->UpdateCommandEnabled(IDC_SAVE_AND_SHARE_MENU, true);
   command_updater_->UpdateCommandEnabled(IDC_SHOW_READING_MODE_SIDE_PANEL,
                                          true);
   command_updater_->UpdateCommandEnabled(IDC_SHOW_READING_MODE_KEYBOARD, true);
@@ -1806,6 +1831,8 @@ void BrowserCommandController::InitCommandState() {
                                          true);
   command_updater_->UpdateCommandEnabled(IDC_SEND_TAB_TO_SELF, false);
   command_updater_->UpdateCommandEnabled(IDC_QRCODE_GENERATOR, false);
+  command_updater_->UpdateCommandEnabled(IDC_PASSWORDS_AND_AUTOFILL_MENU,
+                                         !guest_session);
   command_updater_->UpdateCommandEnabled(IDC_SHOW_PASSWORD_MANAGER,
                                          !guest_session);
   command_updater_->UpdateCommandEnabled(IDC_SAFETY_HUB_SHOW_PASSWORD_CHECKUP,
@@ -1822,12 +1849,19 @@ void BrowserCommandController::InitCommandState() {
   command_updater_->UpdateCommandEnabled(IDC_SHOW_IDENTITY_DOCS,
                                          !guest_session);
   command_updater_->UpdateCommandEnabled(IDC_SHOW_TRAVEL, !guest_session);
+  command_updater_->UpdateCommandEnabled(IDC_HELP_MENU, true);
   command_updater_->UpdateCommandEnabled(IDC_HELP_PAGE_VIA_KEYBOARD, true);
   command_updater_->UpdateCommandEnabled(IDC_HELP_PAGE_VIA_MENU, true);
   command_updater_->UpdateCommandEnabled(IDC_SHOW_BETA_FORUM, true);
   command_updater_->UpdateCommandEnabled(
       IDC_CHROME_ENTERPRISE_RELEASE_NOTES,
       base::FeatureList::IsEnabled(features::kEnterpriseReleaseNotes));
+  command_updater_->UpdateCommandEnabled(
+      IDC_BOOKMARKS_MENU, (!guest_session && !profile()->IsSystemProfile()));
+  command_updater_->UpdateCommandEnabled(IDC_SAVED_TAB_GROUPS_MENU, true);
+  command_updater_->UpdateCommandEnabled(
+      IDC_RECENT_TABS_MENU, (!guest_session && !profile()->IsSystemProfile() &&
+                             !profile()->IsIncognitoProfile()));
   command_updater_->UpdateCommandEnabled(
       IDC_RECENT_TABS_LOGIN_FOR_DEVICE_TABS,
       (!guest_session && !profile()->IsSystemProfile() &&
@@ -1936,6 +1970,7 @@ void BrowserCommandController::InitCommandState() {
 
   if (browser_->is_type_normal()) {
     // Reading list commands.
+    command_updater_->UpdateCommandEnabled(IDC_READING_LIST_MENU, true);
     command_updater_->UpdateCommandEnabled(IDC_READING_LIST_MENU_ADD_TAB, true);
     command_updater_->UpdateCommandEnabled(IDC_READING_LIST_MENU_SHOW_UI, true);
   }
@@ -2298,6 +2333,7 @@ void BrowserCommandController::UpdateCommandsForFullscreenMode() {
       IDC_FOCUS_INACTIVE_POPUP_FOR_ACCESSIBILITY, main_not_fullscreen);
 
   // Show various bits of UI
+  command_updater_->UpdateCommandEnabled(IDC_DEVELOPER_MENU, show_main_ui);
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   command_updater_->UpdateCommandEnabled(
       IDC_FEEDBACK, show_main_ui || browser_->is_type_devtools());
@@ -2311,7 +2347,8 @@ void BrowserCommandController::UpdateCommandsForFullscreenMode() {
   command_updater_->UpdateCommandEnabled(IDC_CHROME_TIPS, show_main_ui);
   command_updater_->UpdateCommandEnabled(IDC_CHROME_WHATS_NEW, show_main_ui);
 #endif
-  command_updater_->UpdateCommandEnabled(kSharingSubmenuMenuId, show_main_ui);
+  command_updater_->UpdateCommandEnabled(IDC_CONTENT_CONTEXT_SHARING_SUBMENU,
+                                         show_main_ui);
   command_updater_->UpdateCommandEnabled(IDC_SHARING_HUB, show_main_ui);
   command_updater_->UpdateCommandEnabled(IDC_SHARING_HUB_SCREENSHOT,
                                          show_main_ui);

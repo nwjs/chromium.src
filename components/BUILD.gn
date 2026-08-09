@@ -1328,9 +1328,6 @@ if (use_blink) {
         ":components_browsertests_assets",
         ":components_browsertests_java",
       ]
-      if (enable_javaless_renderers) {
-        deps += [ "//content/app:javaless_renderer" ]
-      }
     }
 
     if (is_linux || is_chromeos) {

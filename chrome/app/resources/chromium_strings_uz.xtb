@@ -30,7 +30,6 @@
 <translation id="126567311906253476">Gmail yoki YouTube kabi Google xizmatlariga <ph name="USER_EMAIL" /> hisobidan avtomatik kirganda Chromeʼga ham shu hisobdan kirishingiz mumkin</translation>
 <translation id="1287534462498555020">Telefoningizda Chromium oʻrnating</translation>
 <translation id="1290883685122687410">Sozlash xatosi: <ph name="METAINSTALLER_EXIT_CODE" />. <ph name="WINDOWS_ERROR" /></translation>
-<translation id="1312200348844120300">Rasm orqali qidiruv yordamida mahsulotlarni topish tartibi aks etgan tasvir</translation>
 <translation id="1315551408014407711">Yangi Chromium profilini sozlang</translation>
 <translation id="132092532143527429">Chromium ichida Gemini bilan sinang</translation>
 <translation id="1324107359134968521">Qurilmalarni topish uchun Chromium Bluetooth aloqadan foydalanishiga ruxsat bering. <ph name="IDS_SERIAL_DEVICE_CHOOSER_AUTHORIZE_BLUETOOTH_LINK" /></translation>
@@ -100,6 +99,7 @@
 <translation id="2018879682492276940">Oʻrnatilmadi. Qayta urining.</translation>
 <translation id="2039417478970545937">Sozlamalar.</translation>
 <translation id="2049376729098081731">Kerak boʻlsa, Chromium tarixi yanada moslashtirilgan Google xizmatlarida ishlatilishini tanlang</translation>
+<translation id="2050698962207788467">Kuchli parollarni yaratish, saqlash va avtomatik kiritishda yordam berish uchun Chromeda oldindan oʻrnatilgan. Tezkor ruxsat olish uchun yorliq qoʻshing.</translation>
 <translation id="2064856577282482477">Chromiumga yangi qiyofa berish uchun yangi varaq sahifasidagi Chromiumni moslash tugmasini bosing</translation>
 <translation id="2066690553719545730">AI rejimi doim chiqarilsin</translation>
 <translation id="2086476982681781442">Chromium bu yuklamani blokladi, chunki fayl aldamchi va qurilmangizga kutilmagan oʻzgarishlar kiritishi mumkin</translation>
@@ -139,6 +139,7 @@
 <translation id="2401032172288869980">Chromium bu saytda kamera va mikrofondan foydalanishiga ruxsat kerak</translation>
 <translation id="2403703063067034158">Ishga tushirishda xato: boshqa oʻrnatish jarayoni ishga tushgan, keyinroq qayta urining.</translation>
 <translation id="2418322681019544463">Istalgan ilovadagi havolalarni Chromiumda oching va brauzerni vazifalar panelida saqlang</translation>
+<translation id="2425157128016763890">Tezkor xulosa olish va qoʻshimcha savollar berish maqsadida bu hujjatni Chromium ichida Gemini bilan ulashish uchun Xulosalash tugmasini bosing</translation>
 <translation id="2440750600860946460"><ph name="BEGIN_LINK" />Chromium vositalari yordamida<ph name="END_LINK" /> xavfsiz kezishingiz va nazoratni ushlab turishingiz mumkin</translation>
 <translation id="2451727308784734061">Parollar menejerini ochish uchun yorliqdan foydalaning Yorliqni kompyuter bosh ekraniga yoki ilovalar launcheriga joylashingiz mumkin</translation>
 <translation id="2478295928299953161">Chromium tez orada yopiladi</translation>
@@ -235,7 +236,6 @@
 <translation id="3387527074123400161">ChromiumOS</translation>
 <translation id="3406848076815591792">Mavjud Chromium profiliga almashilsinmi?</translation>
 <translation id="3412460710772753638">Bu qurilmada Parollar menejeriga</translation>
-<translation id="3423442168617177595">Kuchli parollarni yaratish, saqlash va avtomatik kiritishda yordam berish uchun Chromeda oldindan oʻrnatilgan. Tezkor ruxsat olish uchun yorliq qoʻshing</translation>
 <translation id="3455907671758333080">Telefonda Chromium orqali Saytlarni kuchaytirilgan rejimda xavfsiz kezish imkoniyatini kengaytiring</translation>
 <translation id="3461644266919055473">Chromiumni moslab oling...</translation>
 <translation id="3474745554856756813">Ushbu qurilmadagi <ph name="ITEMS_COUNT" /> ta element butunlay o‘chiriladi. Ma’lumotlaringizni keyinroq olish uchun Chromium brauzeriga <ph name="USER_EMAIL" /> sifatida kiring.</translation>
@@ -505,7 +505,6 @@ Bu sahifa kutilganidek ishlamasa, optimallashga ruxsat bering.</translation>
 <translation id="6400112897226594999">Kompyuter ekranida Chromium logotipi aks etgan tasvir</translation>
 <translation id="6403826409255603130">Chromium - veb sahifalarni va ilovalarni bir necha soniyada ochadigan brauzer. U tez, barqaror va undan foydalanish oson. Chromium brauzerining firibgarlik va zararli dasturlardan saqlovchi ichki o‘rnatilgan himoya vositasi Internetdagi faoliyatni maksimal havfsizlik bilan ta’minlaydi.</translation>
 <translation id="6414624068245092115">Chromium maʼlumotlarini Google hisobida saqlash va ulardan foydalanish uchun shaxsingizni tasdiqlang</translation>
-<translation id="6417332166651156371">Chromiumda Parollar menejeriga kirish qismi aks ettirilgan sodda tasvir</translation>
 <translation id="642132557830635295">Chromium tezroq ishlaydi va JavaScript ishlatadigan funksiyalar bexato ishlaydi (tavsiya etiladi)</translation>
 <translation id="6436260184216827876">Rasm orqali qidiruv ishlamayapti. Keyinroq qayta urining.</translation>
 <translation id="6442900851116057561">ChromiumOS tizimini ishga tushirish</translation>
@@ -751,6 +750,7 @@ Chromium sozlamalaringizni qaytadan tiklay olmadi.</translation>
 <translation id="878572486461146056">Oʻrnatishda xato: Tarmoq administratori oʻrnatishlarni taqiqlovchi guruh siyosatini tatbiq qilgan: <ph name="INSTALL_ERROR" /></translation>
 <translation id="8796602469536043152">Bu sayt kamera va mikrofoningizdan foydalanishi uchun Chromium brauzeriga ruxsat berishingiz lozim</translation>
 <translation id="8813277370772331957">Keyinroq eslatilsin</translation>
+<translation id="8816416449795340678">Tezkor xulosa olish va qoʻshimcha savollar berish uchun bu hujjatni Chromium ichidagi Gemini bilan ulashing</translation>
 <translation id="8818550178040858407">Chromium hisobiga kirasizmi?</translation>
 <translation id="8823401858233292222">Chromiumni birlamchi brauzer etib tayinlash va vazifalar paneliga mahkamlash</translation>
 <translation id="8826492472752484139">“Parollar menejeri” ustiga bosing</translation>

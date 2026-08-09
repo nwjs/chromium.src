@@ -39,10 +39,10 @@ class DictationBubbleUi : public views::BubbleDialogDelegate {
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kViewElementIdForTesting);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kCloseButtonElementIdForTesting);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kToggleButtonElementIdForTesting);
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kWaveformElementIdForTesting);
 
  private:
   std::unique_ptr<views::Widget> widget_;
-  raw_ptr<views::Label> label_view_;
   State state_ = State::kInactive;
 };
 

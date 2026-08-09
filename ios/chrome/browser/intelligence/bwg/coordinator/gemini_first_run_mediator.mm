@@ -104,8 +104,9 @@ const CGFloat kPromoMaxImpressionCount = 3;
 
 - (void)disconnect {
   if (_FRECompletion) {
-    _FRECompletion(NO);
+    void (^completion)(BOOL) = _FRECompletion;
     _FRECompletion = nil;
+    completion(NO);
   }
 }
 
@@ -208,7 +209,7 @@ const CGFloat kPromoMaxImpressionCount = 3;
   }];
 }
 
-// Did dismiss the Consent UI.
+// Did refuse Gemini consent.
 - (void)didRefuseGeminiConsent {
   // Retain self to survive synchronous teardown from the delegate.
   __strong __typeof(self) strongSelf = self;
@@ -225,11 +226,13 @@ const CGFloat kPromoMaxImpressionCount = 3;
   [strongSelf handleFRECompletion:NO];
 }
 
-- (void)didRefuseLiveMicPermission {
+// Did refuse Live onboarding.
+- (void)didRefuseLiveOnboarding {
   // Retain self to survive synchronous teardown from the delegate.
   __strong __typeof(self) strongSelf = self;
-  [_delegate dismissGeminiFlow];
-  [strongSelf handleFRECompletion:NO];
+  [_delegate dismissGeminiConsentUIWithCompletion:^{
+    [strongSelf handleFRECompletion:NO];
+  }];
 }
 
 // Promo was shown.
@@ -244,8 +247,9 @@ const CGFloat kPromoMaxImpressionCount = 3;
 
 - (void)handleFRECompletion:(BOOL)success {
   if (_FRECompletion) {
-    _FRECompletion(success);
+    void (^completion)(BOOL) = _FRECompletion;
     _FRECompletion = nil;
+    completion(success);
   }
 }
 

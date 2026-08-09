@@ -39,7 +39,10 @@ group("resources") {
   }
 
   if (enable_extensions_core) {
-    public_deps += [ ":component_extension_resources" ]
+    public_deps += [
+      ":component_extension_resources",
+      "omnibox/aim_eligibility_extension:resources",
+    ]
   }
 
   if (!is_android) {

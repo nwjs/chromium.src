@@ -145,7 +145,8 @@ PrivateInsightsService::PrivateInsightsService(
 
   fcp_task_env_ = base::MakeRefCounted<FcpSimpleTaskEnvironment>(
       base_dir.AsUTF8Unsafe(), cache_dir.AsUTF8Unsafe(),
-      std::move(http_request_manager));
+      std::move(http_request_manager),
+      kFcpUseAttestationTransparencyVerifier.Get());
 }
 
 PrivateInsightsService::~PrivateInsightsService() {
@@ -221,17 +222,23 @@ void PrivateInsightsService::TriggerUpload() {
                                   TriggerUploadOutcome::kSkippedAlreadyRunning);
     return;
   }
-  is_upload_running_ = true;
 
   base::circular_deque<ContextualCueEventEntry> pending_events =
       std::move(contextual_cue_events_);
+  if (pending_events.empty()) {
+    base::UmaHistogramEnumeration(kTriggerUploadOutcomeHistogram,
+                                  TriggerUploadOutcome::kSkippedNoData);
+    return;
+  }
 
   fcp_task_env_->result().Clear();
   SerializeEventsToQueryResult(pending_events, &fcp_task_env_->result());
 
+  is_upload_running_ = true;
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE,
-      {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
+      {base::MayBlock(), base::WithBaseSyncPrimitives(),
+       base::TaskPriority::BEST_EFFORT,
        base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN},
       base::BindOnce(&PrivateInsightsService::UploadBlocking, fcp_task_env_,
                      base::TimeTicks::Now()),

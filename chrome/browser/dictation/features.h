@@ -20,6 +20,11 @@ BASE_DECLARE_FEATURE(kDictation);
 // extension.
 extern const base::FeatureParam<bool> kUseComponentExtension;
 
+// If true, the dictation context is provided asynchronously after the stream is
+// started. If false dictation context blocks stream creation and context is
+// provided in the StartStream message.
+extern const base::FeatureParam<bool> kSendContextAsync;
+
 }  // namespace dictation
 
 #endif  // CHROME_BROWSER_DICTATION_FEATURES_H_

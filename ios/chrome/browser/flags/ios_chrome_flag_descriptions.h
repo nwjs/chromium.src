@@ -76,6 +76,11 @@ inline constexpr char kAppBackgroundRefreshDescription[] =
     "Schedules app background refresh after some minimum period of time has "
     "passed after the last refresh.";
 
+inline constexpr char kAppBarHideInFullscreenName[] =
+    "AppBar Hide in Fullscreen";
+inline constexpr char kAppBarHideInFullscreenDescription[] =
+    "Completely hides the AppBarViewController when in fullscreen.";
+
 inline constexpr char kAppBarHideLabelsName[] = "AppBar Hide Labels";
 inline constexpr char kAppBarHideLabelsDescription[] =
     "Hides the labels for the buttons in the App Bar.";
@@ -539,6 +544,11 @@ inline constexpr char kDataSharingVersioningStatesName[] =
 inline constexpr char kDataSharingVersioningStatesDescription[] =
     "Testing multiple scenarios for versioning.";
 
+inline constexpr char kDefaultBottomOmniboxOnIOSName[] =
+    "Default Bottom Omnibox on iOS";
+inline constexpr char kDefaultBottomOmniboxOnIOSDescription[] =
+    "When enabled, the omnibox position defaults to bottom on iOS.";
+
 inline constexpr char kDefaultBrowserOffCyclePromoName[] =
     "Default Browser off-cycle promo";
 inline constexpr char kDefaultBrowserOffCyclePromoDescription[] =
@@ -842,6 +852,11 @@ inline constexpr char kGeminiContextualSuggestionsCuesName[] =
     "Gemini Contextual Suggestions Cues";
 inline constexpr char kGeminiContextualSuggestionsCuesDescription[] =
     "Enables Gemini contextual suggestions cues framework.";
+
+inline constexpr char kGeminiCoordinatorTeardownFixName[] =
+    "Gemini Coordinator Teardown Fix";
+inline constexpr char kGeminiCoordinatorTeardownFixDescription[] =
+    "Enables the teardown crash fix for Gemini First Run Coordinator.";
 
 inline constexpr char kGeminiImageRemixToolName[] = "Gemini Image Remix Tool";
 inline constexpr char kGeminiImageRemixToolDescription[] =
@@ -2044,6 +2059,12 @@ inline constexpr char kZeroStateSuggestionsName[] =
 inline constexpr char kZeroStateSuggestionsDescription[] =
     "Enables fetching zero-state suggestions for the 'Ask Gemini' feature,"
     "based on the current page context.";
+
+inline constexpr char kZeroStateSuggestionsWCGDName[] =
+    "Enable Zero-State Suggestions 'What can Gemini do' static chip";
+inline constexpr char kZeroStateSuggestionsWCGDDescription[] =
+    "Enables showing the 'What can Gemini do' static chip in Zero-State "
+    "Suggestions.";
 
 }  // namespace flag_descriptions
 

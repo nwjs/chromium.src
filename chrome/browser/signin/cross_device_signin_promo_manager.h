@@ -7,7 +7,7 @@
 
 #include "base/functional/callback_forward.h"
 
-class Browser;
+class BrowserWindowInterface;
 class Profile;
 
 // These values are persisted to logs. Entries should not be renumbered and
@@ -26,7 +26,7 @@ enum class CrossDeviceSigninPromoEntryPoint {
 enum class CrossDeviceSigninPromoShouldShowResult {
   kCanShow = 0,
   kNotSignedIn = 1,
-  kHasOtherDevices = 2,
+  kHasMobileDevice = 2,
   kDataTypeNotEnabled = 3,
   kShownLimitReached = 4,
   kCooldownActive = 5,
@@ -50,9 +50,9 @@ void OnCrossDeviceSigninPromoDismissed(
     Profile* profile);
 
 // Opens the "Sign in to phone" QR code bubble associated with the specified
-// `browser` window.
+// `browser_window`.
 // `closing_callback` is run when the bubble closes.
-void OpenSigninToPhoneQrCodeBubble(Browser* browser,
+void OpenSigninToPhoneQrCodeBubble(BrowserWindowInterface* browser_window,
                                    CrossDeviceSigninPromoEntryPoint entry_point,
                                    base::OnceClosure closing_callback);
 

@@ -36,6 +36,8 @@ source_set("model") {
     ":tab_helper",
     "//components/actor/public/mojom:mojo_bindings",
     "//components/feature_engagement/public",
+    "//components/prefs",
+    "//components/prefs/ios",
     "//ios/chrome/app/strings:ios_strings",
     "//ios/chrome/browser/feature_engagement/model",
     "//ios/chrome/browser/intelligence/actor/model",
@@ -82,6 +84,7 @@ source_set("browser_agent") {
     ":model",
     ":page_context",
     ":tab_helper",
+    ":utils",
     "//base",
     "//components/favicon/ios",
     "//components/feature_engagement/public",
@@ -102,6 +105,7 @@ source_set("browser_agent") {
     "//ios/chrome/browser/intelligence/bwg/utils:feature_availability",
     "//ios/chrome/browser/intelligence/bwg/utils:prefs",
     "//ios/chrome/browser/intelligence/features",
+    "//ios/chrome/browser/intelligence/persist_tab_context/model",
     "//ios/chrome/browser/intelligence/proto_wrappers",
     "//ios/chrome/browser/intelligence/proto_wrappers:utils",
     "//ios/chrome/browser/omnibox/model/omnibox_focus",
@@ -114,6 +118,7 @@ source_set("browser_agent") {
     "//ios/chrome/browser/shared/model/profile",
     "//ios/chrome/browser/shared/model/profile:profile_keyed_service_factory",
     "//ios/chrome/browser/shared/model/web_state_list",
+    "//ios/chrome/browser/shared/model/web_state_list:utils",
     "//ios/chrome/browser/shared/public/commands",
     "//ios/chrome/browser/shared/public/features",
     "//ios/chrome/browser/shared/public/snackbar",
@@ -123,6 +128,7 @@ source_set("browser_agent") {
     "//ios/chrome/browser/signin/model",
     "//ios/chrome/browser/signin/model:authentication_service",
     "//ios/chrome/browser/signin/model:authentication_service_factory",
+    "//ios/chrome/browser/snapshots/model",
     "//ios/chrome/browser/tabs/model:dependency_installer",
     "//ios/chrome/browser/url_loading/model",
     "//ios/chrome/common/app_group",
@@ -141,6 +147,7 @@ source_set("tab_helper") {
     ":gemini_service",
     ":gemini_service_factory",
     ":page_context",
+    ":utils",
     "//components/favicon/ios",
     "//components/feature_engagement/public",
     "//components/google/core/common",
@@ -281,6 +288,22 @@ source_set("page_context") {
   deps = [
     "//base",
     "//components/optimization_guide/proto:optimization_guide_proto",
+    "//ios/chrome/browser/intelligence/features",
+  ]
+}
+
+source_set("utils") {
+  sources = [
+    "gemini_utils.h",
+    "gemini_utils.mm",
+  ]
+  deps = [
+    ":page_context",
+    "//base",
+    "//components/optimization_guide/proto:optimization_guide_proto",
+    "//ios/chrome/browser/shared/ui/symbols",
+    "//ios/public/provider/chrome/browser/bwg:gemini_api",
+    "//ios/web/public",
   ]
 }
 

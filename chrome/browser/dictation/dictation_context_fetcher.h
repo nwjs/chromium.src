@@ -5,16 +5,11 @@
 #ifndef CHROME_BROWSER_DICTATION_DICTATION_CONTEXT_FETCHER_H_
 #define CHROME_BROWSER_DICTATION_DICTATION_CONTEXT_FETCHER_H_
 
-#include <string>
-
 #include "base/functional/callback.h"
 #include "base/memory/weak_ptr.h"
 #include "base/types/expected.h"
 #include "chrome/browser/dictation/dictation_context.h"
-
-namespace optimization_guide {
-struct AIPageContentResult;
-}
+#include "components/page_content_annotations/content/page_context_fetcher.h"
 
 namespace dictation {
 
@@ -32,11 +27,9 @@ class DictationContextFetcher {
   void Fetch(const Target& target, GetContextCallback callback);
 
  private:
-  void OnPageContentCaptured(
+  void OnPageContextFetched(
       GetContextCallback callback,
-      const std::string& editable_content,
-      base::expected<optimization_guide::AIPageContentResult, std::string>
-          result);
+      page_content_annotations::FetchPageContextResultCallbackArg result);
 
   base::WeakPtrFactory<DictationContextFetcher> weak_ptr_factory_{this};
 };

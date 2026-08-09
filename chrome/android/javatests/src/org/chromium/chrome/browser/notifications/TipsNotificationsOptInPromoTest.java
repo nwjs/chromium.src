@@ -33,7 +33,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.chromium.base.test.util.Batch;
-import org.chromium.base.test.util.DisableLeakChecks;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
@@ -58,7 +57,6 @@ import java.io.IOException;
 @EnableFeatures({ChromeFeatureList.ANDROID_TIPS_NOTIFICATIONS + ":always_show_opt_in_promo/true"})
 @Batch(Batch.PER_CLASS)
 @Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO)
-@DisableLeakChecks("crbug.com/527134359")
 public class TipsNotificationsOptInPromoTest {
     @Rule
     public FreshCtaTransitTestRule mCtaTestRule =

@@ -1594,8 +1594,11 @@ void NavigationURLLoaderImpl::OnReceiveRedirect(
           ? head->bypass_redirect_checks
           : bypass_redirect_checks_;
 
-  if (!bypass_redirect_checks &&
-      !IsSafeRedirectTarget(url_, redirect_info.new_url)) {
+  if (url_.SchemeIsBlob()) {
+    // Loading a blob URL never produces a redirect.
+    error = net::ERR_UNSAFE_REDIRECT;
+  } else if (!bypass_redirect_checks &&
+             !IsSafeRedirectTarget(url_, redirect_info.new_url)) {
     error = net::ERR_UNSAFE_REDIRECT;
   } else if (--redirect_limit_ == 0) {
     error = net::ERR_TOO_MANY_REDIRECTS;
@@ -2166,6 +2169,17 @@ NavigationURLLoaderImpl::NavigationURLLoaderImpl(
   network_loader_factory_ = CreateNetworkLoaderFactory(
       browser_context_, storage_partition_, frame_tree_node,
       ukm::SourceIdObj::FromInt64(ukm_source_id_), &bypass_redirect_checks_);
+
+  if (base::FeatureList::IsEnabled(
+          network::features::kBrowserInitiatedFileUploadValidation) &&
+      resource_request_->request_body) {
+    std::vector<base::FilePath> files =
+        resource_request_->request_body->GetReferencedFiles();
+    if (!files.empty()) {
+      scoped_browser_file_access_ =
+          std::make_unique<ScopedBrowserFileAccess>(std::move(files));
+    }
+  }
 }
 
 // static

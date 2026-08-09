@@ -3,8 +3,10 @@
 // found in the LICENSE file.
 
 #include "base/test/run_until.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/test_reg_util_win.h"
 #include "base/values.h"
+#include "chrome/browser/browser_features.h"
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
 #include "chrome/browser/win/isolated_browser_support.h"
 #include "chrome/install_static/test/scoped_install_details.h"
@@ -51,6 +53,30 @@ IN_PROC_BROWSER_TEST_F(ProcessIsolationEnabledBrowserTest,
                        PolicyAppliesToBackend) {
   // Wait for the policy to apply to the backend via UpdateProcessIsolationState
   // which does it asynchronously on a background task.
+  EXPECT_TRUE(
+      base::test::RunUntil([]() { return chrome::IsIsolationEnabled(); }));
+}
+
+class ProcessIsolationEnabledPolicyWithFieldTrialBrowserTest
+    : public ProcessIsolationEnabledBrowserTest {
+ public:
+  ProcessIsolationEnabledPolicyWithFieldTrialBrowserTest() {
+    auto feature_list = std::make_unique<base::FeatureList>();
+    // Register a field trial and tie it to the disabled feature.
+    feature_list->RegisterFieldTrialOverride(
+        features::kIsolatedProcess.name,
+        base::FeatureList::OVERRIDE_DISABLE_FEATURE,
+        base::FieldTrialList::CreateFieldTrial("TestIsolationStudy",
+                                               "Disabled"));
+    feature_list_.InitWithFeatureList(std::move(feature_list));
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(ProcessIsolationEnabledPolicyWithFieldTrialBrowserTest,
+                       PolicyOverridesFieldTrial) {
   EXPECT_TRUE(
       base::test::RunUntil([]() { return chrome::IsIsolationEnabled(); }));
 }

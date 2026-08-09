@@ -15,12 +15,14 @@ import '//resources/cr_components/composebox/composebox_voice_search.js';
 import '//resources/cr_components/search/animated_glow.js';
 import '//resources/cr_components/localized_link/localized_link.js';
 
+import {getLoadTimeBoolean} from '//resources/cr_components/composebox/common.js';
 import type {ComposeboxFile} from '//resources/cr_components/composebox/common.js';
 import type {PageHandlerRemote} from '//resources/cr_components/composebox/composebox.mojom-webui.js';
 import type {ComposeboxDropdownElement} from '//resources/cr_components/composebox/composebox_dropdown.js';
 import type {ComposeboxFileInputsElement} from '//resources/cr_components/composebox/composebox_file_inputs.js';
 import type {ComposeboxInputElement} from '//resources/cr_components/composebox/composebox_input.js';
 import {ComposeboxEmbedderMixin} from '//resources/cr_components/composebox/composebox_mixin.js';
+import type {ComposeboxEmbedderMixinInterface} from '//resources/cr_components/composebox/composebox_mixin.js';
 import {ComposeboxProxyImpl} from '//resources/cr_components/composebox/composebox_proxy.js';
 import type {ContextualEntrypointAndMenuElement} from '//resources/cr_components/composebox/contextual_entrypoint_and_menu.js';
 import type {ErrorScrimElement} from '//resources/cr_components/composebox/error_scrim.js';
@@ -36,7 +38,7 @@ import type {UnguessableToken} from '//resources/mojo/mojo/public/mojom/base/ung
 import {getCss} from './ntp_composebox.css.js';
 import {getHtml} from './ntp_composebox.html.js';
 
-export interface NtpComposeboxElement {
+export interface NtpComposeboxElement extends ComposeboxEmbedderMixinInterface {
   $: {
     composeboxInput: ComposeboxInputElement,
     composebox: HTMLElement,
@@ -81,6 +83,10 @@ export class NtpComposeboxElement extends ComposeboxEmbedderMixin
   private eventTracker_: EventTracker = new EventTracker();
   protected dragAndDropHandler_: DragAndDropHandler;
   protected accessor expanding_: boolean = true;
+
+  override get keepMenuOpenOnTabSelect(): boolean {
+    return getLoadTimeBoolean('keepMenuOpenOnTabSelectForRealbox', false);
+  }
 
   override getPageHandler(): PageHandlerRemote {
     return this.pageHandler_;
@@ -127,6 +133,7 @@ export class NtpComposeboxElement extends ComposeboxEmbedderMixin
     super.connectedCallback();
     this.animationState = GlowAnimationState.EXPANDING;
     this.focusInput();
+    this.refreshTabSuggestions(/*forceRefresh=*/ true);
   }
 
   override disconnectedCallback() {

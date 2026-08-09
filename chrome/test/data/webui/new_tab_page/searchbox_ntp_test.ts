@@ -300,15 +300,20 @@ suite('SearchboxTest', () => {
     realbox = await createAndAppendRealbox();
     realbox.$.input.inputElement.dispatchEvent(
         new MouseEvent('mousedown', {button: 0}));
+    await testProxy.handler.whenCalled('queryAutocomplete');
 
     // Voice search button is visible when input is empty.
     realbox.shadowRoot.querySelector<HTMLElement>(
                           '#voiceSearchButton')!.focus();
+    await testProxy.handler.whenCalled('onFocusChanged');
+    await microtasksFinished();
+
     assertEquals('voiceSearchButton', getDeepActiveElement()!.id);
 
     const matches = [createSearchMatchForTesting(), createUrlMatch()];
     testProxy.callbackRouterRemote.autocompleteResultChanged(
         createAutocompleteResultForTesting({
+          queryId: realbox.activeQueryId,
           input: '',
           matches: matches,
         }));
@@ -334,6 +339,7 @@ suite('SearchboxTest', () => {
     const matches = [createSearchMatchForTesting(), createUrlMatch()];
     testProxy.callbackRouterRemote.autocompleteResultChanged(
         createAutocompleteResultForTesting({
+          queryId: realbox.activeQueryId,
           input: realbox.$.input.inputElement.value.trimStart(),
           matches: matches,
         }));
@@ -352,6 +358,7 @@ suite('SearchboxTest', () => {
 
     testProxy.callbackRouterRemote.autocompleteResultChanged(
         createAutocompleteResultForTesting({
+          queryId: realbox.activeQueryId,
           input: realbox.$.input.inputElement.value.trimStart(),
           matches: matches,
         }));
@@ -370,6 +377,7 @@ suite('SearchboxTest', () => {
 
     testProxy.callbackRouterRemote.autocompleteResultChanged(
         createAutocompleteResultForTesting({
+          queryId: realbox.activeQueryId,
           input: realbox.$.input.inputElement.value.trimStart(),
           matches: matches,
         }));
@@ -381,6 +389,7 @@ suite('SearchboxTest', () => {
     const singleMatch = [createSearchMatchForTesting()];
     testProxy.callbackRouterRemote.autocompleteResultChanged(
         createAutocompleteResultForTesting({
+          queryId: realbox.activeQueryId,
           input: realbox.$.input.inputElement.value.trimStart(),
           matches: singleMatch,
         }));
@@ -405,6 +414,7 @@ suite('SearchboxTest', () => {
     MetricsReporterImpl.getInstance().mark('ResultChanged');  // Marked in C++.
     testProxy.callbackRouterRemote.autocompleteResultChanged(
         createAutocompleteResultForTesting({
+          queryId: realbox.activeQueryId,
           input: realbox.$.input.inputElement.value.trimStart(),
           matches: matches,
         }));
@@ -426,6 +436,7 @@ suite('SearchboxTest', () => {
     MetricsReporterImpl.getInstance().mark('ResultChanged');  // Marked in C++.
     testProxy.callbackRouterRemote.autocompleteResultChanged(
         createAutocompleteResultForTesting({
+          queryId: realbox.activeQueryId,
           input: realbox.$.input.inputElement.value.trimStart(),
           matches: matches,
         }));
@@ -459,6 +470,7 @@ suite('SearchboxTest', () => {
     MetricsReporterImpl.getInstance().mark('ResultChanged');  // Marked in C++.
     testProxy.callbackRouterRemote.autocompleteResultChanged(
         createAutocompleteResultForTesting({
+          queryId: realbox.activeQueryId,
           input: 'he',
           matches: matches,
         }));
@@ -487,6 +499,7 @@ suite('SearchboxTest', () => {
         ];
         testProxy.callbackRouterRemote.autocompleteResultChanged(
             createAutocompleteResultForTesting({
+              queryId: realbox.activeQueryId,
               input: realbox.$.input.inputElement.value.trimStart(),
               matches: matches,
             }));
@@ -559,6 +572,7 @@ suite('SearchboxTest', () => {
 
         testProxy.callbackRouterRemote.autocompleteResultChanged(
             createAutocompleteResultForTesting({
+              queryId: realbox.activeQueryId,
               input: realbox.$.input.inputElement.value.trimStart(),
               matches: matches,
             }));
@@ -595,6 +609,7 @@ suite('SearchboxTest', () => {
         ];
         testProxy.callbackRouterRemote.autocompleteResultChanged(
             createAutocompleteResultForTesting({
+              queryId: realbox.activeQueryId,
               input: realbox.$.input.inputElement.value.trimStart(),
               matches: matches,
             }));
@@ -753,6 +768,7 @@ suite('SearchboxTest', () => {
         ];
         testProxy.callbackRouterRemote.autocompleteResultChanged(
             createAutocompleteResultForTesting({
+              queryId: realbox.activeQueryId,
               input: realbox.$.input.inputElement.value.trimStart(),
               matches: matches,
             }));
@@ -881,6 +897,7 @@ suite('SearchboxTest', () => {
     ];
     testProxy.callbackRouterRemote.autocompleteResultChanged(
         createAutocompleteResultForTesting({
+          queryId: realbox.activeQueryId,
           input: realbox.$.input.inputElement.value.trimStart(),
           matches: matches,
         }));
@@ -999,6 +1016,7 @@ suite('SearchboxTest', () => {
     ];
     testProxy.callbackRouterRemote.autocompleteResultChanged(
         createAutocompleteResultForTesting({
+          queryId: realbox.activeQueryId,
           input: realbox.$.input.inputElement.value.trimStart(),
           matches: matches,
         }));
@@ -1038,6 +1056,7 @@ suite('SearchboxTest', () => {
     };
     testProxy.callbackRouterRemote.autocompleteResultChanged(
         createAutocompleteResultForTesting({
+          queryId: realbox.activeQueryId,
           input: '',
           matches: matches,
           suggestionGroupsMap: suggestionGroupsMap,
@@ -1049,6 +1068,7 @@ suite('SearchboxTest', () => {
     suggestionGroupsMap[100].sideType = SideType.kDefaultPrimary;
     testProxy.callbackRouterRemote.autocompleteResultChanged(
         createAutocompleteResultForTesting({
+          queryId: realbox.activeQueryId,
           input: '',
           matches: matches,
         }));
@@ -1211,4 +1231,83 @@ suite('SearchboxTest', () => {
     assertFalse(openComposeboxCalled);
     assertEquals(1, testProxy.handler.getCallCount('onDriveUploadClicked'));
   });
+
+  test(
+      'openComposebox_ does not close menu when' +
+          'keepMenuOpenOnTabSelectForRealbox is enabled',
+      async () => {
+        loadTimeData.overrideValues({
+          keepMenuOpenOnTabSelectForRealbox: true,
+          contextManagementInComposeboxEnabled: true,
+        });
+        const realbox = await createAndAppendRealbox({
+          ntpRealboxNextEnabled: true,
+          keepMenuOpenOnTabSelectForRealbox: true,
+          contextManagementInComposeboxEnabled: true,
+        });
+        const context =
+            realbox.shadowRoot.querySelector<HTMLElement>('#context');
+        assertTrue(!!context);
+
+        let closeMenuCalled = false;
+        (context as unknown as {closeMenu: () => void}).closeMenu = () => {
+          closeMenuCalled = true;
+        };
+
+        await (realbox as unknown as {
+          openComposebox_: () => void,
+        }).openComposebox_();
+
+        assertFalse(closeMenuCalled);
+      });
+
+  test(
+      'openComposebox_ closes menu when' +
+          'keepMenuOpenOnTabSelectForRealbox is disabled',
+      async () => {
+        loadTimeData.overrideValues({});
+        const realbox = await createAndAppendRealbox({
+          ntpRealboxNextEnabled: true,
+          keepMenuOpenOnTabSelectForRealbox: false,
+        });
+        const context =
+            realbox.shadowRoot.querySelector<HTMLElement>('#context')!;
+        assertTrue(!!context);
+
+        let closeMenuCalled = false;
+        (context as unknown as {closeMenu: () => void}).closeMenu = () => {
+          closeMenuCalled = true;
+        };
+
+        await (realbox as unknown as {
+          openComposebox_: () => void,
+        }).openComposebox_();
+
+        assertTrue(closeMenuCalled);
+      });
+
+  test(
+      'openComposebox_ closes menu when' +
+          'contextManagementInComposeboxEnabled is disabled',
+      async () => {
+        const realbox = await createAndAppendRealbox({
+          ntpRealboxNextEnabled: true,
+          keepMenuOpenOnTabSelectForRealbox: true,
+          contextManagementInComposeboxEnabled: false,
+        });
+        const context =
+            realbox.shadowRoot.querySelector<HTMLElement>('#context');
+        assertTrue(!!context);
+
+        let closeMenuCalled = false;
+        (context as unknown as {closeMenu: () => void}).closeMenu = () => {
+          closeMenuCalled = true;
+        };
+
+        await (realbox as unknown as {
+          openComposebox_: () => void,
+        }).openComposebox_();
+
+        assertTrue(closeMenuCalled);
+      });
 });

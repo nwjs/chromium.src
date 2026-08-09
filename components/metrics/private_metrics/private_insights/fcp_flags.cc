@@ -36,6 +36,12 @@ bool FcpFlags::drop_out_based_data_availability() const {
   return true;
 }
 
+// This flag is tied to whether AttestationTransparencyVerifier
+// is used in `fcp_simple_task_environment.cc`.
+bool FcpFlags::enable_attestation_transparency_verifier() const {
+  return kFcpUseAttestationTransparencyVerifier.Get();
+}
+
 int64_t FcpFlags::condition_polling_period_millis() const {
   return kFcpConditionPollingPeriod.Get().InMilliseconds();
 }
@@ -75,6 +81,10 @@ int64_t FcpFlags::federated_training_transient_errors_retry_delay_secs() const {
 
 int64_t FcpFlags::federated_training_permanent_errors_retry_delay_secs() const {
   return kFcpPermanentErrorsRetryDelay.Get().InSeconds();
+}
+
+bool FcpFlags::enable_privacy_id_generation() const {
+  return kFcpEnablePrivacyIdGeneration.Get();
 }
 
 }  // namespace private_insights

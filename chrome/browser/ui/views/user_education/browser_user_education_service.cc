@@ -71,6 +71,7 @@
 #include "chrome/browser/ui/views/user_education/impl/browser_user_education_context.h"
 #include "chrome/browser/ui/views/user_education/ios_promo_bubble_view.h"
 #include "chrome/browser/ui/views/web_apps/web_app_install_dialog_delegate.h"
+#include "components/signin/public/base/signin_switches.h"
 #if BUILDFLAG(IS_WIN)
 #include "chrome/browser/ui/search_promotion/search_promotion_manager.h"
 #include "chrome/browser/ui/search_promotion/search_promotion_manager_factory.h"
@@ -377,6 +378,36 @@ void MaybeRegisterChromeFeaturePromos(
           .SetMetadata(125, "alexandertekle@google.com",
                        "Triggered after a credit card benefit is displayed for "
                        "the first time.")));
+
+  // kIPHMultistepFilterPromoFeature:
+  registry.RegisterFeature(std::move(
+      FeaturePromoSpecification::CreateForToastPromo(
+          feature_engagement::kIPHMultistepFilterPromoFeature,
+          kMultistepFilterPageActionIconElementId,
+          IDS_MULTISTEP_FILTER_IPH_BODY,
+          IDS_MULTISTEP_FILTER_IPH_BODY_SCREENREADER,
+          FeaturePromoSpecification::AcceleratorInfo())
+          .SetBubbleArrow(HelpBubbleArrow::kTopCenter)
+          .SetAnchorElementFilter(base::BindRepeating(
+              [](const ui::ElementTracker::ElementList& elements)
+                  -> ui::TrackedElement* {
+                if (elements.empty()) {
+                  return nullptr;
+                }
+                ui::ElementContext context = elements[0]->context();
+                if (ui::TrackedElement* cue_bubble =
+                        ui::ElementTracker::GetElementTracker()
+                            ->GetFirstMatchingElement(
+                                page_actions::AnchoredMessageBubbleView::
+                                    kAnchoredMessageBubbleId,
+                                context)) {
+                  return cue_bubble;
+                }
+                return elements[0];
+              }))
+          .SetMetadata(151, "adigupt@google.com",
+                       "Triggered on first time feature usage to educate users "
+                       "about Multistep Filter.")));
 
   // TODO(crbug.com/40264177): Use toast or snooze instead of legacy promo.
   // kIPHAutofillExternalAccountProfileSuggestionFeature:
@@ -923,10 +954,14 @@ void MaybeRegisterChromeFeaturePromos(
 
   // kIPHPdfGlicSummarizeFeature:
   registry.RegisterFeature(std::move(
-      FeaturePromoSpecification::CreateForSnoozePromo(
+      FeaturePromoSpecification::CreateForToastPromo(
           feature_engagement::kIPHPdfGlicSummarizeFeature,
           pdf::PdfHelpBubbleHandlerFactory::kPdfGlicSummarizeElementId,
-          IDS_PDF_GLIC_SUMMARIZE_IPH_TEXT)
+          IDS_PDF_GLIC_SUMMARIZE_IPH_TEXT_NEW,
+          IDS_PDF_GLIC_SUMMARIZE_IPH_TEXT_NEW_SCREENREADER,
+          FeaturePromoSpecification::AcceleratorInfo())
+          .SetPromoSubtype(
+              FeaturePromoSpecification::PromoSubtype::kLegalNotice)
           .SetBubbleTitleText(IDS_PDF_GLIC_SUMMARIZE_IPH_TITLE)
           .SetBubbleIcon(&vector_icons::kChatSparkIcon)
           .SetBubbleArrow(HelpBubbleArrow::kTopLeft)
@@ -2471,6 +2506,14 @@ void MaybeRegisterChromeNewBadges(user_education::NewBadgeRegistry& registry) {
       user_education::Metadata(
           151, "mtatarski@google.com",
           "Show the new badge on Send to Your Devices context menu items.")));
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+  registry.RegisterFeature(user_education::NewBadgeSpecification(
+      switches::kCrossDeviceSigninFromDesktop,
+      user_education::Metadata(
+          151, "pmeuleman@chromium.org",
+          "Shown on the sign-in with your phone profile menu item.")));
+#endif
 }
 
 std::unique_ptr<user_education::FeaturePromoControllerImpl>

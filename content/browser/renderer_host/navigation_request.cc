@@ -66,6 +66,7 @@
 #include "content/browser/loader/browser_initiated_resource_request.h"
 #include "content/browser/loader/cached_navigation_url_loader.h"
 #include "content/browser/loader/navigation_early_hints_manager.h"
+#include "content/browser/loader/navigation_fast_fetch_manager.h"
 #include "content/browser/loader/navigation_url_loader.h"
 #include "content/browser/loader/object_navigation_fallback_body_loader.h"
 #include "content/browser/loader/url_loader_factory_utils.h"
@@ -3059,6 +3060,15 @@ void NavigationRequest::BeginNavigationImpl() {
   }
 #endif
 
+  if (base::FeatureList::IsEnabled(features::kNavigationFastFetchDryRun)) {
+    fast_fetch_manager_ = NavigationFastFetchManager::Create(*this);
+    navigation_handle_timing_.fast_fetch_eligibility_check_time =
+        fast_fetch_manager_->eligibility_check_time();
+    navigation_handle_timing_.is_fast_fetch_eligible =
+        (fast_fetch_manager_->eligibility_reason() ==
+         NavigationFastFetchManager::EligibilityReason::kEligible);
+  }
+
   // Check Content Security Policy before the NavigationThrottles run. This
   // gives CSP a chance to modify requests that NavigationThrottles would
   // otherwise block. Similarly, the NavigationHandle is created afterwards, so
@@ -3120,6 +3130,13 @@ void NavigationRequest::BeginNavigationImpl() {
 
   // Connection Allowlist: check whether navigation to the url is allowed.
   if (!IsAllowedByConnectionAllowlist(/*is_redirect=*/false)) {
+    // Record that this navigation is blocked by the initiator's
+    // Connection-Allowlist before StartNavigation() notifies observers. This
+    // lets observers (e.g. //chrome's LoadingPredictor) suppress speculative
+    // network activity that would otherwise leak the destination host even
+    // though the navigation is blocked. See
+    // https://github.com/WICG/connection-allowlists.
+    is_blocked_by_connection_allowlist_ = true;
     // Create a navigation handle so that the correct error code can be set on
     // it by OnRequestFailedInternal().
     StartNavigation();
@@ -3604,6 +3621,10 @@ void NavigationRequest::ResetForCrossDocumentRestart() {
 
   // Reset the state of the NavigationRequest, and the navigation_handle_id.
   StopCommitTimeout();
+  if (fast_fetch_manager_) {
+    fast_fetch_manager_->SuppressEligibilityReasonRecording();
+    fast_fetch_manager_.reset();
+  }
   SetState(NOT_STARTED);
   is_navigation_started_ = false;
   processing_navigation_throttle_ = false;
@@ -3804,6 +3825,12 @@ void NavigationRequest::OnRequestRedirected(
 
   if (!was_redirected_ &&
       !IsAllowedByConnectionAllowlist(/*is_redirect=*/true)) {
+    // As in BeginNavigationImpl(), record that this navigation is blocked by
+    // the initiator's Connection-Allowlist so observers can suppress
+    // speculative network activity for it. (Today no speculative work runs
+    // after a blocked redirect, but this keeps IsBlockedByConnectionAllowlist()
+    // truthful for any future post-redirect consumer.)
+    is_blocked_by_connection_allowlist_ = true;
     auto completion_status =
         network::URLLoaderCompletionStatus(net::ERR_UNSAFE_REDIRECT);
     error_navigation_trigger_ = ErrorNavigationTrigger::kRedirectNotAllowed;
@@ -5610,6 +5637,14 @@ void NavigationRequest::OnRequestFailedInternal(
           error_page_content.has_value()));
   ScopedCrashKeys crash_keys(*this);
 
+  if (fast_fetch_manager_) {
+    // TODO(crbug.com/529425553): Some failed navigations don't call
+    // OnRequestFailedInternal(), e.g. this request gets deleted directly
+    // (OnNavigationClientDisconnected, new NavigationRequest takes over etc).
+    // Consider whether those cases also need to be covered.
+    fast_fetch_manager_->OnRequestFailed(*this, status, skip_throttles);
+  }
+
   if (!response() && IsInPrimaryMainFrame() && status.error_code != net::OK) {
     DeclarativePerformanceObserver::RecordEarlyNavigationFailure(
         this, GetStoragePartitionWithCurrentSiteInfo(), status.error_code);
@@ -6947,6 +6982,11 @@ bool NavigationRequest::ShouldDispatchPageSwapEvent() const {
 void NavigationRequest::CommitNavigation() {
   TRACE_EVENT("navigation", "NavigationRequest::CommitNavigation",
               perfetto::Flow::FromPointer(this));
+
+  if (fast_fetch_manager_) {
+    fast_fetch_manager_->OnCommitNavigation(*this);
+  }
+
   // A navigation request should only commit once the response has been
   // processed.
   CHECK_GE(state_, WILL_PROCESS_RESPONSE);
@@ -9263,6 +9303,9 @@ void NavigationRequest::DidCommitNavigation(
         PreloadActivationReportManager::GetOrCreateForBrowserContext(
             GetWebContents()->GetBrowserContext());
     manager->ReportActivation(activation_beacon_url_, GetRenderFrameHost());
+    GetContentClient()->browser()->LogWebFeatureForCurrentPage(
+        GetRenderFrameHost(),
+        blink::mojom::WebFeature::kPrefetchAndPrerenderActivationBeacon);
   }
 
   // DO NOT ADD CODE after this.
@@ -9998,24 +10041,35 @@ NavigationRequest::GetDeclarativePerformanceObserverPolicy() {
            ->declarative_performance_observer_policy) {
     return nullptr;
   }
-
-  // If globally enabled, return the parsed policy.
-  if (base::FeatureList::IsEnabled(
-          network::features::kDeclarativePerformanceObserver)) {
-    return response_head_->parsed_headers
-        ->declarative_performance_observer_policy.get();
+  if (!base::FeatureList::IsEnabled(
+          blink::features::kDeclarativePerformanceObserver)) {
+    return nullptr;
   }
 
-  // Otherwise, check if enabled via Origin Trial.
-  if (response_head_->headers &&
+  CHECK(response_head_->headers);
+  const bool is_enabled_by_origin_trial =
       blink::TrialTokenValidator().RequestEnablesFeature(
           GetURL(), response_head_->headers.get(),
-          "DeclarativePerformanceObserver", base::Time::Now())) {
-    return response_head_->parsed_headers
-        ->declarative_performance_observer_policy.get();
+          "DeclarativePerformanceObserver", base::Time::Now());
+  std::optional<bool> override_state = base::FeatureList::GetStateIfOverridden(
+      blink::features::kDeclarativePerformanceObserver);
+  const bool is_enabled_by_flag_override =
+      override_state.has_value() && override_state.value();
+  if (!is_enabled_by_origin_trial && !is_enabled_by_flag_override) {
+    return nullptr;
   }
 
-  return nullptr;
+  auto* policy = response_head_->parsed_headers
+                     ->declarative_performance_observer_policy.get();
+  if (!policy) {
+    return nullptr;
+  }
+
+  if (!blink::features::
+           kDeclarativePerformanceObserverSupportCaptureEarlyFailures.Get()) {
+    policy->capture_early_failures = false;
+  }
+  return policy;
 }
 
 mojom::DidCommitProvisionalLoadParamsPtr
@@ -11807,6 +11861,10 @@ bool NavigationRequest::IsNavigatingFromInitialEmptyDocument() const {
   return frame_tree_node_->is_on_initial_empty_document();
 }
 
+bool NavigationRequest::IsBlockedByConnectionAllowlist() const {
+  return is_blocked_by_connection_allowlist_;
+}
+
 std::unique_ptr<NavigationEntryImpl>
 NavigationRequest::TakePrerenderNavigationEntry() {
   CHECK(IsPrerenderedPageActivation());
@@ -13052,6 +13110,15 @@ bool NavigationRequest::IsInitialWebUINavigation() {
 
 perfetto::NamedTrack NavigationRequest::GetNavigationTracingTrack() const {
   return navigation_trace_track_;
+}
+
+bool NavigationRequest::HasPrefetchedSignedExchange() const {
+  CHECK(base::FeatureList::IsEnabled(features::kNavigationFastFetchDryRun));
+  if (!prefetched_signed_exchange_cache_) {
+    return false;
+  }
+  const auto& exchanges = prefetched_signed_exchange_cache_->GetExchanges();
+  return exchanges.find(common_params().url) != exchanges.end();
 }
 
 }  // namespace content

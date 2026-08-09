@@ -163,12 +163,12 @@
     <ph name="DISPLAYED_TEXT">%1$s<ex>Ask Gemini</ex></ph>, Gemini in Chrome
   </message>
   <message name="IDS_ACTOR_LEAVE_SITE_DIALOG_TITLE" desc="Title of a dialog asking if the user really wants to stop the actor task." formatter_data="android_java">
-    Leave site?
+    Leave site and end task?
   </message>
   <message name="IDS_ACTOR_LEAVE_SITE_DIALOG_DESCRIPTION" desc="Description of the action of stopping an actor task, shown in a confirmation dialog." formatter_data="android_java">
-    Leaving this site stops your task. Open a new tab to let Gemini keep working.
+    If you leave this site your task will end. To keep the task going while you visit other sites, open a new tab.
   </message>
   <message name="IDS_ACTOR_LEAVE_SITE_DIALOG_LEAVE_SITE" desc="Button text to confirm leaving the site and stopping the task." formatter_data="android_java">
-    Leave site
+    Leave
   </message>
 </grit-part>

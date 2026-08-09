@@ -514,6 +514,31 @@ TEST_F(AppBarViewControllerTest, TestAssistantButtonStateLens) {
   }
 }
 
+// Tests that assistant button has correct accessibility label in portrait and
+// rotated modes.
+TEST_F(AppBarViewControllerTest, TestAssistantButtonAccessibilityLabel) {
+  UIButton* button = assistantButton();
+  ASSERT_NE(button, nil);
+
+  [view_controller_ setAssistantButtonState:AppBarAssistantButtonState::kAsk
+                                highlighted:NO
+                                    enabled:YES
+                                     avatar:nil
+                                   signedIn:NO];
+
+  // Verify in portrait mode (angle 0).
+  [view_controller_ updateForAngle:0];
+  EXPECT_NSEQ(button.accessibilityLabel,
+              l10n_util::GetNSString(IDS_IOS_APP_BAR_ASK_GEMINI));
+
+  // Verify in rotated/landscape mode (angle M_PI_2). Title should be nil, but
+  // accessibilityLabel should still be set.
+  [view_controller_ updateForAngle:M_PI_2];
+  EXPECT_EQ(button.configuration.title, nil);
+  EXPECT_NSEQ(button.accessibilityLabel,
+              l10n_util::GetNSString(IDS_IOS_APP_BAR_ASK_GEMINI));
+}
+
 using AppBarViewControllerTestManual = PlatformTest;
 
 // Tests that setting incognito before the view is loaded correctly applies

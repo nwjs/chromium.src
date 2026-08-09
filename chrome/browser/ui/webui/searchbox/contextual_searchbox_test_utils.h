@@ -98,13 +98,18 @@ class MockQueryController
     files_[file_token] = std::move(file_info);
   }
 
-  void AddTabFileInfoForTesting(const base::UnguessableToken& file_token,
-                                GURL tab_url,
-                                lens::MimeType mime_type = lens::MimeType::kAnnotatedPageContent) {
+  void AddTabFileInfoForTesting(
+      const base::UnguessableToken& file_token,
+      GURL tab_url,
+      lens::MimeType mime_type = lens::MimeType::kAnnotatedPageContent,
+      std::optional<SessionID> tab_session_id = std::nullopt) {
     auto file_info = std::make_unique<contextual_search::FileInfo>();
     file_info->file_token = file_token;
     file_info->mime_type = mime_type;
     file_info->tab_url = tab_url;
+    file_info->tab_session_id =
+        tab_session_id.value_or(SessionID::FromSerializedValue(1));
+    file_info->request_id = lens::LensOverlayRequestId();
     files_[file_token] = std::move(file_info);
   }
 
@@ -156,8 +161,8 @@ class MockQueryController
 
 class TestWebContentsDelegate : public content::WebContentsDelegate {
  public:
-  TestWebContentsDelegate() = default;
-  ~TestWebContentsDelegate() override = default;
+  TestWebContentsDelegate();
+  ~TestWebContentsDelegate() override;
 
   // WebContentsDelegate:
   content::WebContents* OpenURLFromTab(
@@ -165,6 +170,15 @@ class TestWebContentsDelegate : public content::WebContentsDelegate {
       const content::OpenURLParams& params,
       base::OnceCallback<void(content::NavigationHandle&)>
           navigation_handle_callback) override;
+
+  base::OnceCallback<void(content::NavigationHandle&)> TakeCallback() {
+    return std::move(callback_);
+  }
+
+  void ClearCallback() { callback_.Reset(); }
+
+ private:
+  base::OnceCallback<void(content::NavigationHandle&)> callback_;
 };
 
 class MockContextualSearchMetricsRecorder

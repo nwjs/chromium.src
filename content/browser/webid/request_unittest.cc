@@ -39,6 +39,7 @@
 #include "content/browser/webid/test/mock_permission_delegate.h"
 #include "content/browser/webid/webid_utils.h"
 #include "content/common/content_navigation_policy.h"
+#include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/webid/federated_embedder_login_request.h"
 #include "content/public/browser/webid/identity_credential_source.h"
 #include "content/public/browser/webid/identity_request_dialog_controller.h"
@@ -66,7 +67,11 @@
 #include "url/origin.h"
 
 using blink::mojom::FederatedAuthRequestResult;
+using blink::mojom::FederatedRequest;
+using blink::mojom::FederatedRequestService;
 using blink::mojom::RequestTokenStatus;
+using blink::mojom::TokenRequestFailurePtr;
+using blink::mojom::TokenRequestSuccessPtr;
 using ApiPermissionStatus =
     content::FederatedIdentityApiPermissionContextDelegate::PermissionStatus;
 using AuthRequestCallbackHelper =
@@ -633,6 +638,18 @@ class TestDialogController
                 : IdentityRequestDialogController::PassiveDialogVolume::
                       kDefault) {}
 
+  void UpdateConfiguration(MockConfiguration config) {
+    accounts_dialog_action_ = config.accounts_dialog_action;
+    idp_signin_status_mismatch_dialog_action_ =
+        config.idp_signin_status_mismatch_dialog_action;
+    error_dialog_action_ = config.error_dialog_action;
+    loading_dialog_action_ = config.loading_dialog_action;
+    passive_dialog_volume_ =
+        config.suppressed_by_segmentation_platform
+            ? IdentityRequestDialogController::PassiveDialogVolume::kAmbient
+            : IdentityRequestDialogController::PassiveDialogVolume::kDefault;
+  }
+
   ~TestDialogController() override = default;
   TestDialogController(TestDialogController&) = delete;
   TestDialogController& operator=(TestDialogController&) = delete;
@@ -717,6 +734,7 @@ class TestDialogController
       case AccountsDialogAction::kNone:
         break;
     }
+    std::move(accounts_displayed_callback).Run();
     did_show_ui_ = true;
     return true;
   }
@@ -837,6 +855,7 @@ class TestDialogController
 
     state_->sign_in_mode = sign_in_mode;
     state_->all_accounts_for_display = {account};
+    std::move(accounts_displayed_callback).Run();
     did_show_ui_ = true;
     return true;
   }
@@ -1212,7 +1231,7 @@ class RequestTest : public RenderViewHostImplTestHarness {
 
   // Navigate with identity-credentials-get PP denied and bind a new
   // Mojo remote to the resulting RFH.
-  mojo::Remote<blink::mojom::FederatedAuthRequest>
+  mojo::Remote<FederatedRequestService>
   NavigateAndBindWithDeniedIdentityCredentialsGetPolicy() {
     // Setting `feature` with no `allowed_origins` means disabled for all.
     network::ParsedPermissionsPolicy policy(1);
@@ -1224,14 +1243,15 @@ class RequestTest : public RenderViewHostImplTestHarness {
     simulator->SetPermissionsPolicyHeader(std::move(policy));
     simulator->Commit();
 
-    mojo::Remote<blink::mojom::FederatedAuthRequest> remote;
-    RequestService::GetOrCreateForCurrentDocument(
-        static_cast<TestRenderFrameHost*>(simulator->GetFinalRenderFrameHost()))
-        ->CreateRequestForTesting(remote.BindNewPipeAndPassReceiver(),
-                                  test_api_permission_delegate_.get(),
-                                  test_auto_reauthn_permission_delegate_.get(),
-                                  test_permission_delegate_.get(),
-                                  test_identity_registry_.get());
+    mojo::Remote<FederatedRequestService> remote;
+    RequestService* service = RequestService::GetOrCreateForCurrentDocument(
+        static_cast<TestRenderFrameHost*>(
+            simulator->GetFinalRenderFrameHost()));
+    service->SetDelegatesForTesting(
+        test_api_permission_delegate_.get(),
+        test_auto_reauthn_permission_delegate_.get(),
+        test_permission_delegate_.get(), test_identity_registry_.get());
+    service->BindFederatedRequestService(remote.BindNewPipeAndPassReceiver());
     return remote;
   }
 
@@ -1256,14 +1276,15 @@ class RequestTest : public RenderViewHostImplTestHarness {
     static_cast<TestWebContents*>(web_contents())
         ->NavigateAndCommit(GURL(rp_url_), ui::PAGE_TRANSITION_LINK);
 
-    request_ =
-        RequestService::GetOrCreateForCurrentDocument(main_test_rfh())
-            ->CreateRequestForTesting(
-                request_remote_.BindNewPipeAndPassReceiver(),
-                test_api_permission_delegate_.get(),
-                test_auto_reauthn_permission_delegate_.get(),
-                test_permission_delegate_.get(), test_identity_registry_.get())
-            .GetWeakPtr();
+    RequestService* service =
+        RequestService::GetOrCreateForCurrentDocument(main_test_rfh());
+    service->SetDelegatesForTesting(
+        test_api_permission_delegate_.get(),
+        test_auto_reauthn_permission_delegate_.get(),
+        test_permission_delegate_.get(), test_identity_registry_.get());
+    service->BindFederatedRequestService(
+        service_remote_.BindNewPipeAndPassReceiver());
+    request_ = service->GetOrCreateActiveRequest()->GetWeakPtr();
 
     std::unique_ptr<TestIdpNetworkRequestManager> network_request_manager =
         std::make_unique<TestIdpNetworkRequestManager>();
@@ -1301,33 +1322,55 @@ class RequestTest : public RenderViewHostImplTestHarness {
     custom_dialog_controller_ = std::move(dialog_controller);
   }
 
-  void RunAuthTest(
-      const RequestParameters& request_parameters,
-      const RequestExpectations& expectations,
-      const MockConfiguration& configuration,
-      AuthRequestCallbackHelper* concurrent_auth_helper = nullptr) {
+  void CompleteTokenRequest(
+      RequestService* service,
+      Request* request,
+      blink::mojom::FederatedRequestService::StartTokenRequestCallback callback,
+      blink::mojom::RequestTokenStatus status,
+      const std::optional<GURL>& selected_idp_config_url,
+      std::optional<base::Value> token,
+      blink::mojom::TokenErrorPtr error,
+      bool is_auto_selected) {
+    service->OnTokenRequestComplete(request, std::move(callback), status,
+                                    selected_idp_config_url, std::move(token),
+                                    std::move(error), is_auto_selected);
+  }
+
+  void RunAuthTest(const RequestParameters& request_parameters,
+                   const RequestExpectations& expectations,
+                   const MockConfiguration& configuration,
+                   AuthRequestCallbackHelper* concurrent_auth_helper = nullptr,
+                   mojo::Remote<FederatedRequest>* request_remote = nullptr) {
     AuthRequestCallbackHelper* auth_helper =
         concurrent_auth_helper ?: auth_helper_.get();
-    request_remote_.set_disconnect_handler(auth_helper->quit_closure());
 
-    RunAuthDontWaitForCallback(request_parameters, configuration, auth_helper);
-    WaitForCurrentAuthRequest(/*should_fast_forward=*/true, auth_helper);
+    RunAuthDontWaitForCallback(request_parameters, configuration, auth_helper,
+                               request_remote);
+    WaitForCurrentAuthRequest(/*should_fast_forward=*/true, auth_helper,
+                              request_remote);
     CheckAuthExpectations(configuration, expectations, auth_helper);
   }
 
   void RunAuthDontWaitForCallback(
       const RequestParameters& request_parameters,
       const MockConfiguration& configuration,
-      AuthRequestCallbackHelper* auth_helper = nullptr) {
-    if (!custom_dialog_controller_) {
-      custom_dialog_controller_ =
-          std::make_unique<TestDialogController>(configuration);
+      AuthRequestCallbackHelper* auth_helper = nullptr,
+      mojo::Remote<FederatedRequest>* request_remote = nullptr) {
+    if (custom_dialog_controller_) {
+      active_mock_dialog_controller_ = custom_dialog_controller_->AsWeakPtr();
+      active_mock_dialog_controller_->SetState(&dialog_controller_state_);
+      RequestService::GetOrCreateForCurrentDocument(main_test_rfh())
+          ->SetDialogControllerForTests(std::move(custom_dialog_controller_));
+    } else if (!active_mock_dialog_controller_) {
+      auto mock = std::make_unique<TestDialogController>(configuration);
+      active_mock_dialog_controller_ = mock->AsWeakPtr();
+      active_mock_dialog_controller_->SetState(&dialog_controller_state_);
+      RequestService::GetOrCreateForCurrentDocument(main_test_rfh())
+          ->SetDialogControllerForTests(std::move(mock));
+    } else {
+      active_mock_dialog_controller_->UpdateConfiguration(configuration);
     }
-
     dialog_controller_state_ = TestDialogController::State();
-    custom_dialog_controller_->SetState(&dialog_controller_state_);
-    RequestService::GetOrCreateForCurrentDocument(main_test_rfh())
-        ->SetDialogControllerForTests(std::move(custom_dialog_controller_));
 
     SetConfig(configuration);
 
@@ -1364,7 +1407,8 @@ class RequestTest : public RenderViewHostImplTestHarness {
 
     auth_helper = auth_helper ?: auth_helper_.get();
     PerformAuthRequest(std::move(idp_get_params),
-                       configuration.mediation_requirement, auth_helper);
+                       configuration.mediation_requirement, auth_helper,
+                       request_remote);
   }
 
   void CheckAuthExpectations(const MockConfiguration& configuration,
@@ -1462,28 +1506,40 @@ class RequestTest : public RenderViewHostImplTestHarness {
       std::vector<blink::mojom::IdentityProviderGetParametersPtr>
           idp_get_params,
       MediationRequirement mediation_requirement,
-      AuthRequestCallbackHelper* auth_helper = nullptr) {
+      AuthRequestCallbackHelper* auth_helper = nullptr,
+      mojo::Remote<FederatedRequest>* request_remote = nullptr) {
     auth_helper = auth_helper ?: auth_helper_.get();
-    request_remote_->RequestToken(std::move(idp_get_params),
-                                  mediation_requirement,
-                                  auth_helper->callback());
+    mojo::Remote<FederatedRequest>& remote =
+        request_remote ? *request_remote : request_remote_;
+    remote.reset();
+    service_remote_->StartTokenRequest(
+        std::move(idp_get_params), mediation_requirement,
+        remote.BindNewPipeAndPassReceiver(), auth_helper->callback());
 
     // Ensure that the request makes its way to Request.
-    request_remote_.FlushForTesting();
+    service_remote_.FlushForTesting();
+    if (remote.is_bound()) {
+      remote.set_disconnect_handler(auth_helper->quit_closure());
+      remote.FlushForTesting();
+    }
     base::RunLoop().RunUntilIdle();
 
     // Re-fetch the active request pointer from the service, as the Mojo call
     // will have created a new Request object if there wasn't one.
-    request_ = RequestService::GetOrCreateForCurrentDocument(main_test_rfh())
-                   ->GetOrCreateActiveRequest()
-                   ->GetWeakPtr();
+    Request* active_request =
+        RequestService::GetOrCreateForCurrentDocument(main_test_rfh())
+            ->GetActiveRequestForTesting();
+    request_ = active_request ? active_request->GetWeakPtr() : nullptr;
   }
 
   void WaitForCurrentAuthRequest(
       bool should_fast_forward = true,
-      AuthRequestCallbackHelper* auth_helper = nullptr) {
+      AuthRequestCallbackHelper* auth_helper = nullptr,
+      mojo::Remote<FederatedRequest>* request_remote = nullptr) {
     auth_helper = auth_helper ?: auth_helper_.get();
-    request_remote_.set_disconnect_handler(auth_helper->quit_closure());
+    mojo::Remote<FederatedRequest>& remote =
+        request_remote ? *request_remote : request_remote_;
+    remote.set_disconnect_handler(auth_helper->quit_closure());
 
     // Fast forward clock so that the pending
     // Request::OnRejectRequest() task, if any, gets a
@@ -1493,7 +1549,7 @@ class RequestTest : public RenderViewHostImplTestHarness {
     }
     auth_helper->WaitForCallback();
 
-    request_remote_.set_disconnect_handler(base::OnceClosure());
+    remote.set_disconnect_handler(base::OnceClosure());
   }
 
   void CloseDialog() {
@@ -1969,8 +2025,6 @@ class RequestTest : public RenderViewHostImplTestHarness {
     RequestParameters parameters = kDefaultRequestParameters;
     parameters.rp_mode = blink::mojom::RpMode::kActive;
 
-    request_remote_.set_disconnect_handler(auth_helper_->quit_closure());
-
     static_cast<TestRenderFrameHost*>(web_contents()->GetPrimaryMainFrame())
         ->SimulateUserActivation();
 
@@ -2007,7 +2061,8 @@ class RequestTest : public RenderViewHostImplTestHarness {
  protected:
   std::string rp_url_;
 
-  mojo::Remote<blink::mojom::FederatedAuthRequest> request_remote_;
+  mojo::Remote<FederatedRequestService> service_remote_;
+  mojo::Remote<FederatedRequest> request_remote_;
   base::WeakPtr<Request> request_;
 
   std::unique_ptr<TestIdpNetworkRequestManager> test_network_request_manager_;
@@ -2028,6 +2083,7 @@ class RequestTest : public RenderViewHostImplTestHarness {
 
  private:
   std::unique_ptr<TestDialogController> custom_dialog_controller_;
+  base::WeakPtr<TestDialogController> active_mock_dialog_controller_;
   std::unique_ptr<ukm::TestAutoSetUkmRecorder> ukm_recorder_;
 };
 
@@ -3943,7 +3999,7 @@ TEST_P(RequestTestCancelConsistency, AccountNotSelected) {
   RunAuthDontWaitForCallback(kDefaultRequestParameters, configuration);
   EXPECT_FALSE(auth_helper_->was_callback_called());
 
-  request_remote_->CancelTokenRequest();
+  request_remote_->Abort();
 
   WaitForCurrentAuthRequest();
   FederatedAuthRequestResult result =
@@ -5402,8 +5458,6 @@ TEST_F(RequestTest, MultiIdpLoggedOut) {
       /*standalone_console_message=*/std::nullopt,
       /*selected_idp_config_url=*/std::nullopt};
 
-  request_remote_.set_disconnect_handler(auth_helper_->quit_closure());
-
   RunAuthDontWaitForCallback(kDefaultMultiIdpRequestParameters,
                              kConfigurationMultiIdpValid);
   base::RunLoop().RunUntilIdle();
@@ -5472,8 +5526,9 @@ TEST_F(RequestTest, TooManyRequests) {
       /*standalone_console_message=*/std::nullopt,
       /*selected_idp_config_url=*/std::nullopt};
   auto concurrent_helper = std::make_unique<AuthRequestCallbackHelper>();
+  mojo::Remote<FederatedRequest> concurrent_remote;
   RunAuthTest(kDefaultRequestParameters, expectations, configuration,
-              concurrent_helper.get());
+              concurrent_helper.get(), &concurrent_remote);
   EXPECT_FALSE(DidFetchAnyEndpoint());
 
   // Check that the appropriate metrics are recorded upon destruction.
@@ -5532,7 +5587,9 @@ TEST_F(RequestTest, TooManyRequestsDifferentIdP) {
   RequestParameters request{kDefaultRequestParameters};
   request.identity_providers[0].provider = kProviderTwoUrlFull;
   auto concurrent_helper = std::make_unique<AuthRequestCallbackHelper>();
-  RunAuthTest(request, expectations, configuration, concurrent_helper.get());
+  mojo::Remote<FederatedRequest> concurrent_remote;
+  RunAuthTest(request, expectations, configuration, concurrent_helper.get(),
+              &concurrent_remote);
   EXPECT_FALSE(DidFetchAnyEndpoint());
 
   // Check that the appropriate metrics are recorded upon destruction.
@@ -5578,8 +5635,9 @@ TEST_F(RequestTest, ActiveModeTooManyRequestsWithNewPassiveFlow) {
       /*selected_idp_config_url=*/std::nullopt};
 
   auto concurrent_helper = std::make_unique<AuthRequestCallbackHelper>();
+  mojo::Remote<FederatedRequest> concurrent_remote;
   RunAuthTest(kDefaultRequestParameters, expectations, configuration,
-              concurrent_helper.get());
+              concurrent_helper.get(), &concurrent_remote);
   EXPECT_FALSE(DidFetchAnyEndpoint());
 
   // Check that the appropriate metrics are recorded upon destruction.
@@ -5636,7 +5694,9 @@ TEST_F(RequestTest, ActiveModeTooManyRequestsWithNewActiveFlow) {
       ->SimulateUserActivation();
 
   auto concurrent_helper = std::make_unique<AuthRequestCallbackHelper>();
-  RunAuthTest(parameters, expectations, configuration, concurrent_helper.get());
+  mojo::Remote<FederatedRequest> concurrent_remote;
+  RunAuthTest(parameters, expectations, configuration, concurrent_helper.get(),
+              &concurrent_remote);
   EXPECT_FALSE(DidFetchAnyEndpoint());
 
   // Check that the appropriate metrics are recorded upon destruction.
@@ -5684,9 +5744,9 @@ TEST_F(RequestTest, PassiveReplacedByActiveFlow) {
   SetNetworkRequestManager(std::make_unique<TestIdpNetworkRequestManager>());
   std::unique_ptr<AuthRequestCallbackHelper> active_flow_auth_helper =
       std::make_unique<AuthRequestCallbackHelper>();
-
+  mojo::Remote<FederatedRequest> concurrent_remote;
   RunAuthTest(parameters, active_flow_expectations, kConfigurationValid,
-              active_flow_auth_helper.get());
+              active_flow_auth_helper.get(), &concurrent_remote);
 
   RequestExpectations passive_flow_expectations = {
       RequestTokenStatus::kError,
@@ -6517,12 +6577,13 @@ TEST_F(RequestTest, SuccessfulAuthZRequestWithPopUpWindow) {
   // When the pop-up window is opened, resolve it immediately by
   // producing an access token.
   std::unique_ptr<WebContents> modal(CreateTestWebContents());
-  auto impl = request_;
   EXPECT_CALL(*weak_dialog_controller, ShowModalDialog)
-      .WillOnce(::testing::WithArg<0>([&modal, &impl](const GURL& url) {
+      .WillOnce(::testing::WithArg<0>([&modal, this](const GURL& url) {
         auto params = blink::mojom::ResolveTokenParams::NewToken(
             base::Value("an-access-token"));
-        impl->OnResolve(GURL(kProviderUrlFull), std::nullopt,
+        RequestService::GetOrCreateForCurrentDocument(main_test_rfh())
+            ->GetActiveRequestForTesting()
+            ->OnResolve(GURL(kProviderUrlFull), std::nullopt,
                         std::move(params));
         return modal.get();
       }));
@@ -6581,10 +6642,11 @@ TEST_F(RequestTest, ContinuationPopupCallingClose) {
   // When the pop-up window is opened, resolve it immediately by
   // producing an access token.
   std::unique_ptr<WebContents> modal(CreateTestWebContents());
-  auto impl = request_;
   EXPECT_CALL(*weak_dialog_controller, ShowModalDialog)
-      .WillOnce(::testing::WithArg<0>([&modal, &impl](const GURL& url) {
-        impl->OnClose();
+      .WillOnce(::testing::WithArg<0>([&modal, this](const GURL& url) {
+        RequestService::GetOrCreateForCurrentDocument(main_test_rfh())
+            ->GetActiveRequestForTesting()
+            ->OnClose();
         return modal.get();
       }));
 
@@ -6690,8 +6752,6 @@ TEST_F(RequestTest, ActiveFlowRequiresUserActivation) {
 
   RequestParameters parameters = kDefaultRequestParameters;
   parameters.rp_mode = blink::mojom::RpMode::kActive;
-
-  request_remote_.set_disconnect_handler(auth_helper_->quit_closure());
 
   RequestExpectations error = {
       RequestTokenStatus::kError,
@@ -6848,14 +6908,15 @@ class RequestNewTabTest : public RequestTest {
     static_cast<TestWebContents*>(web_contents())
         ->NavigateAndCommit(GURL("chrome://newtab/"), ui::PAGE_TRANSITION_LINK);
 
-    request_ =
-        RequestService::GetOrCreateForCurrentDocument(main_test_rfh())
-            ->CreateRequestForTesting(
-                request_remote_.BindNewPipeAndPassReceiver(),
-                test_api_permission_delegate_.get(),
-                test_auto_reauthn_permission_delegate_.get(),
-                test_permission_delegate_.get(), test_identity_registry_.get())
-            .GetWeakPtr();
+    RequestService* service =
+        RequestService::GetOrCreateForCurrentDocument(main_test_rfh());
+    service->SetDelegatesForTesting(
+        test_api_permission_delegate_.get(),
+        test_auto_reauthn_permission_delegate_.get(),
+        test_permission_delegate_.get(), test_identity_registry_.get());
+    service->BindFederatedRequestService(
+        service_remote_.BindNewPipeAndPassReceiver());
+    request_ = service->GetOrCreateActiveRequest()->GetWeakPtr();
 
     std::unique_ptr<TestIdpNetworkRequestManager> network_request_manager =
         std::make_unique<TestIdpNetworkRequestManager>();
@@ -8207,8 +8268,10 @@ TEST_F(RequestTest, UseOtherAccountAccountOrder) {
                 IdentityRequestAccount::DisplayPriority::kNew;
           }
         }
-        request_->OnIdpSigninStatusReceived(OriginFromString(kProviderUrlFull),
-                                            true);
+        RequestService::GetOrCreateForCurrentDocument(main_test_rfh())
+            ->GetActiveRequestForTesting()
+            ->OnIdpSigninStatusReceived(OriginFromString(kProviderUrlFull),
+                                        true);
         return modal.get();
       }));
 
@@ -8266,8 +8329,10 @@ TEST_F(RequestTest, UseOtherAccountMultipleNewAccounts) {
                 IdentityRequestAccount::DisplayPriority::kNew;
           }
         }
-        request_->OnIdpSigninStatusReceived(OriginFromString(kProviderUrlFull),
-                                            true);
+        RequestService::GetOrCreateForCurrentDocument(main_test_rfh())
+            ->GetActiveRequestForTesting()
+            ->OnIdpSigninStatusReceived(OriginFromString(kProviderUrlFull),
+                                        true);
         return modal.get();
       }));
 
@@ -8313,8 +8378,10 @@ TEST_F(RequestTest, UseOtherAccountNoNewAccount) {
       .WillOnce(::testing::WithArg<0>([&modal, this](const GURL& url) {
         // No changes to the accounts being logged in. But set the login status
         // to force the popup to close.
-        request_->OnIdpSigninStatusReceived(OriginFromString(kProviderUrlFull),
-                                            true);
+        RequestService::GetOrCreateForCurrentDocument(main_test_rfh())
+            ->GetActiveRequestForTesting()
+            ->OnIdpSigninStatusReceived(OriginFromString(kProviderUrlFull),
+                                        true);
         return modal.get();
       }));
 
@@ -8351,8 +8418,10 @@ TEST_F(RequestTest, UseOtherAccountThenClose) {
             // Signs in to new accounts.
             test_network_request_manager_->accounts_list_ = {
                 kSingleAccount[0], kTwoAccounts[0], kTwoAccounts[1]};
-            request_->OnIdpSigninStatusReceived(
-                OriginFromString(kProviderUrlFull), true);
+            RequestService::GetOrCreateForCurrentDocument(main_test_rfh())
+                ->GetActiveRequestForTesting()
+                ->OnIdpSigninStatusReceived(OriginFromString(kProviderUrlFull),
+                                            true);
             // The action is set to close, so the request will be rejected.
             weak_dialog_controller->accounts_dialog_action_ =
                 AccountsDialogAction::kClose;
@@ -9010,10 +9079,11 @@ TEST_F(RequestTest, RequestTokenDeniedByPermissionsPolicy) {
   std::vector<blink::mojom::IdentityProviderGetParametersPtr> params;
   params.push_back(std::move(get_params));
 
-  remote->RequestToken(
+  mojo::Remote<FederatedRequest> request_remote;
+  remote->StartTokenRequest(
       std::move(params),
       password_manager::CredentialMediationRequirement::kOptional,
-      base::DoNothing());
+      request_remote.BindNewPipeAndPassReceiver(), base::DoNothing());
 
   EXPECT_EQ("identity-credentials-get permissions policy not enabled",
             bad_message_observer.WaitForBadMessage());
@@ -9143,7 +9213,7 @@ TEST_F(RequestTest, DismissIgnoredDuringRedirectTo) {
 }
 
 TEST_F(RequestTest, DisconnectViaFederatedRequestService) {
-  mojo::Remote<blink::mojom::FederatedRequestService> federated_request_service;
+  mojo::Remote<FederatedRequestService> federated_request_service;
   RequestService* service =
       RequestService::GetOrCreateForCurrentDocument(main_test_rfh());
   service->BindFederatedRequestService(
@@ -9168,7 +9238,7 @@ TEST_F(RequestTest, DisconnectViaFederatedRequestService) {
 }
 
 TEST_F(RequestTest, ResolveViaFederatedRequestService) {
-  mojo::Remote<blink::mojom::FederatedRequestService> federated_request_service;
+  mojo::Remote<FederatedRequestService> federated_request_service;
   RequestService* service =
       RequestService::GetOrCreateForCurrentDocument(main_test_rfh());
   service->BindFederatedRequestService(
@@ -9191,7 +9261,7 @@ TEST_F(RequestTest, ResolveViaFederatedRequestService) {
 }
 
 TEST_F(RequestTest, ResolveViaFederatedRequestServiceEmptyPostRedirectBody) {
-  mojo::Remote<blink::mojom::FederatedRequestService> federated_request_service;
+  mojo::Remote<FederatedRequestService> federated_request_service;
   RequestService* service =
       RequestService::GetOrCreateForCurrentDocument(main_test_rfh());
   service->BindFederatedRequestService(
@@ -9217,7 +9287,7 @@ TEST_F(RequestTest, ResolveViaFederatedRequestServiceEmptyPostRedirectBody) {
 }
 
 TEST_F(RequestTest, StartTokenRequestViaFederatedRequestService) {
-  mojo::Remote<blink::mojom::FederatedRequestService> federated_request_service;
+  mojo::Remote<FederatedRequestService> federated_request_service;
   RequestService* service =
       RequestService::GetOrCreateForCurrentDocument(main_test_rfh());
   service->BindFederatedRequestService(
@@ -9244,7 +9314,7 @@ TEST_F(RequestTest, StartTokenRequestViaFederatedRequestService) {
   std::vector<blink::mojom::IdentityProviderGetParametersPtr> idp_get_params;
   idp_get_params.push_back(std::move(get_params));
 
-  mojo::Remote<blink::mojom::FederatedRequest> federated_request;
+  mojo::Remote<FederatedRequest> federated_request;
 
   base::RunLoop run_loop;
   federated_request_service->StartTokenRequest(
@@ -9265,7 +9335,7 @@ TEST_F(RequestTest, StartTokenRequestViaFederatedRequestService) {
 }
 
 TEST_F(RequestTest, AbortViaFederatedRequest) {
-  mojo::Remote<blink::mojom::FederatedRequestService> federated_request_service;
+  mojo::Remote<FederatedRequestService> federated_request_service;
   RequestService* service =
       RequestService::GetOrCreateForCurrentDocument(main_test_rfh());
   service->BindFederatedRequestService(
@@ -9289,7 +9359,7 @@ TEST_F(RequestTest, AbortViaFederatedRequest) {
   std::vector<blink::mojom::IdentityProviderGetParametersPtr> idp_get_params;
   idp_get_params.push_back(std::move(get_params));
 
-  mojo::Remote<blink::mojom::FederatedRequest> federated_request;
+  mojo::Remote<FederatedRequest> federated_request;
 
   base::RunLoop run_loop;
   federated_request_service->StartTokenRequest(
@@ -9309,6 +9379,58 @@ TEST_F(RequestTest, AbortViaFederatedRequest) {
   // Abort the request session explicitly via the FederatedRequest pipe!
   federated_request->Abort();
   run_loop.Run();
+}
+
+class TestContentBrowserClientForDialogReset : public ContentBrowserClient {
+ public:
+  TestContentBrowserClientForDialogReset() = default;
+  ~TestContentBrowserClientForDialogReset() override = default;
+
+  std::unique_ptr<IdentityRequestDialogController>
+  CreateIdentityRequestDialogController(WebContents* web_contents) override {
+    create_count_++;
+    return std::make_unique<MockIdentityRequestDialogController>();
+  }
+
+  int create_count() const { return create_count_; }
+
+ private:
+  int create_count_ = 0;
+};
+
+TEST_F(RequestTest, DialogControllerResetOnCompletion) {
+  TestContentBrowserClientForDialogReset browser_client;
+  ContentBrowserClient* original_client =
+      SetBrowserClientForTesting(&browser_client);
+
+  RequestService* request_service =
+      RequestService::GetOrCreateForCurrentDocument(main_test_rfh());
+
+  request_service->SetDialogControllerForTests(nullptr);
+
+  EXPECT_FALSE(request_service->HasDialogControllerForTesting());
+
+  request_service->GetOrCreateActiveRequest();
+  request_service->GetOrCreateDialogController();
+
+  EXPECT_TRUE(request_service->HasDialogControllerForTesting());
+  EXPECT_EQ(browser_client.create_count(), 1);
+
+  CompleteTokenRequest(
+      request_service, request_service->GetActiveRequestForTesting(),
+      base::DoNothing(), blink::mojom::RequestTokenStatus::kError,
+      /*selected_idp_config_url=*/std::nullopt,
+      /*token=*/std::nullopt,
+      /*error=*/nullptr,
+      /*is_auto_selected=*/false);
+  ASSERT_TRUE(base::test::RunUntil([&]() { return !request_; }));
+
+  request_service->GetOrCreateActiveRequest();
+  request_service->GetOrCreateDialogController();
+
+  EXPECT_EQ(browser_client.create_count(), 2);
+
+  SetBrowserClientForTesting(original_client);
 }
 
 }  // namespace content::webid

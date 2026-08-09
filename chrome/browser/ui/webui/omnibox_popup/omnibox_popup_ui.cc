@@ -108,6 +108,10 @@ OmniboxPopupUI::OmniboxPopupUI(content::WebUI* web_ui)
   source->AddBoolean("webuiOmniboxPopupSelectionControlEnabled",
                      base::FeatureList::IsEnabled(
                          omnibox::kWebUIOmniboxPopupSelectionControl));
+  source->AddBoolean(
+      "searchboxMultiline",
+      base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup) &&
+          omnibox::kWebUIOmniboxFullPopupMultiline.Get());
 
   source->AddBoolean("reportMetrics", true);
   source->AddString("charTypedToPaintMetricName",

@@ -14,7 +14,9 @@
 #include "content/browser/declarative_performance_observer/declarative_performance_observer_store.h"
 #include "content/browser/storage_partition_impl.h"
 #include "content/public/browser/browser_context.h"
+#include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/storage_partition_config.h"
+#include "content/public/common/content_client.h"
 #include "content/public/test/mock_navigation_handle.h"
 #include "content/public/test/navigation_simulator.h"
 #include "content/public/test/test_renderer_host.h"
@@ -25,12 +27,26 @@
 #include "net/base/net_errors.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/test/test_network_context.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/origin_trials/scoped_test_origin_trial_policy.h"
 #include "third_party/blink/public/mojom/timing/declarative_performance_observer.mojom.h"
+#include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom.h"
 
 namespace content {
 namespace {
+
+class MockDPOContentBrowserClient : public ContentBrowserClient {
+ public:
+  MockDPOContentBrowserClient() = default;
+  ~MockDPOContentBrowserClient() override = default;
+
+  MOCK_METHOD(void,
+              LogWebFeatureForCurrentPage,
+              (RenderFrameHost*, blink::mojom::WebFeature),
+              (override));
+};
 
 class TestNetworkContext : public network::TestNetworkContext {
  public:
@@ -77,7 +93,7 @@ class DeclarativePerformanceObserverTest : public RenderViewHostTestHarness {
  public:
   DeclarativePerformanceObserverTest() {
     feature_list_.InitAndEnableFeature(
-        network::features::kDeclarativePerformanceObserver);
+        blink::features::kDeclarativePerformanceObserver);
   }
   ~DeclarativePerformanceObserverTest() override = default;
 
@@ -192,42 +208,32 @@ TEST_F(DeclarativePerformanceObserverTest, ObservesVisibilityFlips) {
   // Trigger unload to flush metrics
   DeclarativePerformanceObserver::DeleteForCurrentDocument(main_rfh());
 
-  ASSERT_EQ(network_context_.reports().size(), 2u);
+  ASSERT_EQ(network_context_.reports().size(), 1u);
 
-  // Report 1: Flushed on HIDDEN
-  const auto& report1 = network_context_.reports()[0];
-  const base::ListValue* entries1 = report1.body.FindList("entries");
-  ASSERT_TRUE(entries1);
-  // initial visible + 1st flip (hidden)
-  ASSERT_EQ(entries1->size(), 2u);
+  const auto& report = network_context_.reports()[0];
+  const base::ListValue* entries = report.body.FindList("entries");
+  ASSERT_TRUE(entries);
+  ASSERT_EQ(entries->size(), 4u);
 
-  const base::Value& entry0_val = (*entries1)[0];
+  const base::Value& entry0_val = (*entries)[0];
   const base::DictValue* entry0 = entry0_val.GetIfDict();
   ASSERT_TRUE(entry0);
   EXPECT_EQ(*(entry0->FindString("name")), "visible");
 
-  const base::Value& entry1_val = (*entries1)[1];
+  const base::Value& entry1_val = (*entries)[1];
   const base::DictValue* entry1 = entry1_val.GetIfDict();
   ASSERT_TRUE(entry1);
   EXPECT_EQ(*(entry1->FindString("name")), "hidden");
 
-  // Report 2: Flushed on RenderFrameDeleted
-  const auto& report2 = network_context_.reports()[1];
-  const base::ListValue* entries2 = report2.body.FindList("entries");
-  ASSERT_TRUE(entries2);
-  // 2nd flip (visible) + session-end
-  ASSERT_EQ(entries2->size(), 2u);
+  const base::Value& entry2_val = (*entries)[2];
+  const base::DictValue* entry2 = entry2_val.GetIfDict();
+  ASSERT_TRUE(entry2);
+  EXPECT_EQ(*(entry2->FindString("name")), "visible");
 
-  const base::Value& entry2_0_val = (*entries2)[0];
-  const base::DictValue* entry2_0 = entry2_0_val.GetIfDict();
-  ASSERT_TRUE(entry2_0);
-  EXPECT_EQ(*(entry2_0->FindString("name")), "visible");
-
-  const base::Value& entry2_1_val = (*entries2)[1];
-  const base::DictValue* entry2_1 = entry2_1_val.GetIfDict();
-  ASSERT_TRUE(entry2_1);
-  EXPECT_EQ(*(entry2_1->FindString("entryType")), "session-end");
-  EXPECT_EQ(*(entry2_1->FindString("name")), "session-end-event");
+  const base::Value& entry3_val = (*entries)[3];
+  const base::DictValue* entry3 = entry3_val.GetIfDict();
+  ASSERT_TRUE(entry3);
+  EXPECT_EQ(*(entry3->FindString("entryType")), "session-end");
 }
 
 TEST_F(DeclarativePerformanceObserverTest, RecordsNavigationTiming) {
@@ -377,11 +383,17 @@ TEST_F(DeclarativePerformanceObserverTest, RecordsBFCacheLifecycle) {
   // initial visible + initial navigation + session-end
   ASSERT_EQ(entries1->size(), 3u);
 
-  const base::Value& nav_entry_val1 = (*entries1)[1];
+  const base::Value& nav_entry_val1 = (*entries1)[0];
   const base::DictValue* nav_entry1 = nav_entry_val1.GetIfDict();
   ASSERT_TRUE(nav_entry1);
   EXPECT_EQ(*(nav_entry1->FindString("entryType")), "navigation");
   EXPECT_EQ(*(nav_entry1->FindString("name")), kPageURL.spec());
+
+  const base::Value& vis_entry_val1 = (*entries1)[1];
+  const base::DictValue* vis_entry1 = vis_entry_val1.GetIfDict();
+  ASSERT_TRUE(vis_entry1);
+  EXPECT_EQ(*(vis_entry1->FindString("entryType")), "visibility-state");
+  EXPECT_EQ(*(vis_entry1->FindString("name")), "visible");
 
   const base::Value& end_entry_val = (*entries1)[2];
   const base::DictValue* end_entry = end_entry_val.GetIfDict();
@@ -621,7 +633,7 @@ TEST_F(DeclarativePerformanceObserverTest, RecordsPrerenderActivation) {
 }
 
 TEST_F(DeclarativePerformanceObserverTest,
-       RecordsEarlyFailureAndMergesOnOptIn) {
+       RecordsEarlyFailureAsSeparateReportOnOptIn) {
   const GURL kPageURL("https://example.com/index.html");
   const url::Origin kOrigin = url::Origin::Create(kPageURL);
   auto* partition =
@@ -665,11 +677,30 @@ TEST_F(DeclarativePerformanceObserverTest,
 
   DeclarativePerformanceObserver::DeleteForCurrentDocument(main_rfh());
 
-  ASSERT_EQ(network_context_.reports().size(), 1u);
-  const auto& report = network_context_.reports()[0];
-  const base::ListValue* entries = report.body.FindList("entries");
-  ASSERT_TRUE(entries);
-  ASSERT_EQ(entries->size(), 3u);
+  ASSERT_EQ(network_context_.reports().size(), 2u);
+
+  // First report: Early failure navigation timing
+  const auto& failure_report = network_context_.reports()[0];
+  EXPECT_EQ(failure_report.url, kOrigin.GetURL());
+  const base::ListValue* failure_entries =
+      failure_report.body.FindList("entries");
+  ASSERT_TRUE(failure_entries);
+  ASSERT_EQ(failure_entries->size(), 1u);
+  const base::Value& failure_entry_val = (*failure_entries)[0];
+  const base::DictValue* failure_nav_entry = failure_entry_val.GetIfDict();
+  ASSERT_TRUE(failure_nav_entry);
+  EXPECT_EQ(*(failure_nav_entry->FindString("entryType")), "navigation");
+  const base::DictValue* error_dict = failure_nav_entry->FindDict("error");
+  ASSERT_TRUE(error_dict);
+  EXPECT_EQ(*(error_dict->FindString("netError")), "ERR_CONNECTION_REFUSED");
+
+  // Second report: Main document session timing (visibility-state and
+  // session-end)
+  const auto& main_report = network_context_.reports()[1];
+  EXPECT_EQ(main_report.url, kPageURL);
+  const base::ListValue* main_entries = main_report.body.FindList("entries");
+  ASSERT_TRUE(main_entries);
+  ASSERT_EQ(main_entries->size(), 2u);
 }
 
 TEST_F(DeclarativePerformanceObserverTest, Enforces640KBFIFOQuota) {
@@ -804,10 +835,9 @@ class DeclarativePerformanceObserverOriginTrialTest
 TEST_F(DeclarativePerformanceObserverOriginTrialTest, OriginTrialGated) {
   const GURL kPageURL("https://example.com/index.html");
 
-  // 1. Disable the feature flag globally.
+  // 1. Reset explicit override to test default Origin Trial gated behavior.
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(
-      network::features::kDeclarativePerformanceObserver);
+  feature_list.InitWithEmptyFeatureAndFieldTrialLists();
 
   // 2. Try to navigate WITH the Performance-Observer header but WITHOUT the OT
   // token.
@@ -824,8 +854,7 @@ TEST_F(DeclarativePerformanceObserverOriginTrialTest, OriginTrialGated) {
     simulator->SetResponseHeaders(headers);
     simulator->Commit();
 
-    // Verify that the observer was NOT created (because OT is missing and flag
-    // is off).
+    // Verify that the observer was NOT created (because OT is missing).
     auto* observer =
         DeclarativePerformanceObserver::GetForCurrentDocument(main_rfh());
     EXPECT_FALSE(observer);
@@ -911,6 +940,339 @@ TEST_F(DeclarativePerformanceObserverOriginTrialTest, OriginTrialGated) {
         DeclarativePerformanceObserver::GetForCurrentDocument(main_rfh());
     EXPECT_TRUE(observer);
   }
+}
+
+TEST_F(DeclarativePerformanceObserverOriginTrialTest, KillSwitchGated) {
+  const GURL kPageURL("https://example.com/index.html");
+
+  // Disable via killswitch.
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      blink::features::kDeclarativePerformanceObserver);
+
+  auto simulator =
+      NavigationSimulator::CreateBrowserInitiated(kPageURL, web_contents());
+  simulator->Start();
+
+  auto headers =
+      base::MakeRefCounted<net::HttpResponseHeaders>("HTTP/1.1 200 OK");
+  headers->AddHeader("Performance-Observer",
+                     "report-to=\"telemetry\", capture-early-failures=true, "
+                     "entry-types=(\"navigation\")");
+  // Valid token for https://example.com and DeclarativePerformanceObserver
+  headers->AddHeader(
+      "Origin-Trial",
+      "A6umeji0ZeijjMlMf+9BwGsWirfa1RScCpY7xKTExl1kdyzXKLwnYfdCIgFv4FoVaBDUzX"
+      "z15kxM/25jT7kN/gwAAABoeyJvcmlnaW4iOiAiaHR0cHM6Ly9leGFtcGxlLmNvbTo0NDM"
+      "iLCAiZmVhdHVyZSI6ICJEZWNsYXJhdGl2ZVBlcmZvcm1hbmNlT2JzZXJ2ZXIiLCAiZXhw"
+      "aXJ5IjogMjAwMDAwMDAwMH0=");
+
+  simulator->SetResponseHeaders(headers);
+  simulator->Commit();
+
+  // Verify that even with a valid OT token, the observer is NOT created when
+  // killswitch is active.
+  auto* observer =
+      DeclarativePerformanceObserver::GetForCurrentDocument(main_rfh());
+  EXPECT_FALSE(observer);
+}
+
+TEST_F(DeclarativePerformanceObserverOriginTrialTest,
+       ExplicitFlagOverrideEnablesWithoutOriginTrial) {
+  const GURL kPageURL("https://example.com/index.html");
+
+  // Enable explicitly via commandline/Finch override
+  // (`override_state.has_value() && override_state.value()`).
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      blink::features::kDeclarativePerformanceObserver);
+
+  auto simulator =
+      NavigationSimulator::CreateBrowserInitiated(kPageURL, web_contents());
+  simulator->Start();
+
+  auto headers =
+      base::MakeRefCounted<net::HttpResponseHeaders>("HTTP/1.1 200 OK");
+  headers->AddHeader("Performance-Observer",
+                     "report-to=\"telemetry\", capture-early-failures=true, "
+                     "entry-types=(\"navigation\")");
+  // NOTICE: No Origin-Trial token header is added.
+  simulator->SetResponseHeaders(headers);
+  simulator->Commit();
+
+  // Verify that explicitly overriding the flag enables the feature and
+  // GetDeclarativePerformanceObserverPolicy() activates the observer even
+  // without a valid Origin Trial token.
+  auto* observer =
+      DeclarativePerformanceObserver::GetForCurrentDocument(main_rfh());
+  EXPECT_TRUE(observer);
+}
+
+TEST_F(DeclarativePerformanceObserverOriginTrialTest,
+       EarlyFailuresParamDisabledPreventsPolicyRegistration) {
+  const GURL kPageURL("https://example.com/index.html");
+
+  // Enable kDeclarativePerformanceObserver but disable
+  // kDeclarativePerformanceObserverCaptureEarlyFailures param.
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      blink::features::kDeclarativePerformanceObserver,
+      {{"DeclarativePerformanceObserverSupportCaptureEarlyFailures", "false"}});
+
+  // 1. Navigate with the Performance-Observer header containing
+  // capture-early-failures=true, and a valid Origin-Trial token.
+  auto simulator =
+      NavigationSimulator::CreateBrowserInitiated(kPageURL, web_contents());
+  simulator->Start();
+
+  auto headers =
+      base::MakeRefCounted<net::HttpResponseHeaders>("HTTP/1.1 200 OK");
+  headers->AddHeader("Performance-Observer",
+                     "report-to=\"telemetry\", capture-early-failures=true, "
+                     "entry-types=(\"navigation\")");
+  headers->AddHeader(
+      "Origin-Trial",
+      "A6umeji0ZeijjMlMf+9BwGsWirfa1RScCpY7xKTExl1kdyzXKLwnYfdCIgFv4FoVaBDUzX"
+      "z15kxM/25jT7kN/gwAAABoeyJvcmlnaW4iOiAiaHR0cHM6Ly9leGFtcGxlLmNvbTo0NDM"
+      "iLCAiZmVhdHVyZSI6ICJEZWNsYXJhdGl2ZVBlcmZvcm1hbmNlT2JzZXJ2ZXIiLCAiZXhw"
+      "aXJ5IjogMjAwMDAwMDAwMH0=");
+
+  simulator->SetResponseHeaders(headers);
+  simulator->Commit();
+
+  // 2. Verify DPO observer is created.
+  auto* observer =
+      DeclarativePerformanceObserver::GetForCurrentDocument(main_rfh());
+  EXPECT_TRUE(observer);
+
+  // 3. Since the database did not register a true early failure policy,
+  // early failures should NOT be recorded.
+  auto* partition = main_rfh()->GetStoragePartition();
+  auto* partition_impl = static_cast<StoragePartitionImpl*>(partition);
+  auto* store = partition_impl->GetDeclarativePerformanceObserverStore();
+  ASSERT_TRUE(store);
+
+  // Wait for database tasks to finish to be sure.
+  base::RunLoop run_loop;
+  store->SetEarlyFailurePolicy(url::Origin::Create(kPageURL), false,
+                               run_loop.QuitClosure());
+  run_loop.Run();
+
+  EXPECT_FALSE(store->HasEarlyFailurePolicy(url::Origin::Create(kPageURL)));
+}
+
+TEST_F(DeclarativePerformanceObserverTest,
+       EarlyFailuresParamDisabledPreventsRecordingEvenIfPreviouslyOptedIn) {
+  const GURL kPageURL("https://example.com/index.html");
+  const url::Origin kOrigin = url::Origin::Create(kPageURL);
+  auto* partition =
+      static_cast<StoragePartitionImpl*>(main_rfh()->GetStoragePartition());
+  ASSERT_TRUE(partition);
+
+  // Disable kDeclarativePerformanceObserverCaptureEarlyFailures param.
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      blink::features::kDeclarativePerformanceObserver,
+      {{"DeclarativePerformanceObserverSupportCaptureEarlyFailures", "false"}});
+
+  // Force opt-in to simulate previous registration.
+  partition->GetDeclarativePerformanceObserverStore()->SetEarlyFailurePolicy(
+      kOrigin, true);
+
+  NavigationHandleTiming default_timing;
+  testing::NiceMock<MockNavigationHandle> failed_handle(kPageURL, main_rfh());
+  ON_CALL(failed_handle, GetNavigationHandleTiming())
+      .WillByDefault(testing::ReturnRef(default_timing));
+
+  // Try to record early failure.
+  DeclarativePerformanceObserver::RecordEarlyNavigationFailure(
+      &failed_handle, partition, net::ERR_CONNECTION_REFUSED);
+
+  // Take reports to verify no reports were saved.
+  base::RunLoop run_loop;
+  base::ListValue reports;
+  partition->GetDeclarativePerformanceObserverStore()->TakeEarlyFailureReports(
+      kOrigin,
+      base::BindOnce(
+          [](base::RunLoop* loop, base::ListValue* out, base::ListValue list) {
+            *out = std::move(list);
+            loop->Quit();
+          },
+          &run_loop, &reports));
+  run_loop.Run();
+
+  EXPECT_EQ(reports.size(), 0u);
+}
+
+TEST_F(DeclarativePerformanceObserverTest, DocumentBufferLimitEnforced) {
+  const GURL kPageURL("https://example.com/index.html");
+  const std::string kEndpoint("telemetry");
+
+  auto policy = network::mojom::DeclarativePerformanceObserverPolicy::New();
+  policy->reporting_endpoint = kEndpoint;
+  policy->entry_types.push_back(network::mojom::PerformanceEntryType::kMark);
+
+  MockNavigationHandle navigation_handle(kPageURL, main_rfh());
+  navigation_handle.set_has_committed(true);
+  navigation_handle.set_is_in_primary_main_frame(true);
+  navigation_handle.set_is_error_page(false);
+
+  ON_CALL(navigation_handle, GetDeclarativePerformanceObserverPolicy())
+      .WillByDefault(testing::Return(policy.get()));
+
+  CreateObserver(&navigation_handle);
+
+  // Bind Mojo remote
+  mojo::Remote<blink::mojom::DeclarativePerformanceObserverHost>
+      observer_remote;
+  DeclarativePerformanceObserver::Bind(
+      main_rfh(), observer_remote.BindNewPipeAndPassReceiver());
+
+  // 1. Send first entry just under 640KB limit (e.g. 400KB detail string)
+  {
+    std::vector<blink::mojom::DeclarativePerformanceEntryPtr> entries;
+    auto entry = blink::mojom::DeclarativePerformanceEntry::New();
+    entry->name = "mark_1";
+    entry->start_time = base::Milliseconds(100);
+    base::DictValue detail_dict;
+    detail_dict.Set("payload", std::string(400 * 1024, 'a'));
+    entry->detail = base::Value(std::move(detail_dict));
+    entries.push_back(std::move(entry));
+
+    observer_remote->DidObservePerformanceEntries(std::move(entries));
+    observer_remote.FlushForTesting();
+  }
+
+  // 2. Send second entry (e.g. 300KB detail string) which pushes total above
+  // 640KB
+  {
+    std::vector<blink::mojom::DeclarativePerformanceEntryPtr> entries;
+    auto entry = blink::mojom::DeclarativePerformanceEntry::New();
+    entry->name = "mark_2";
+    entry->start_time = base::Milliseconds(200);
+    base::DictValue detail_dict;
+    detail_dict.Set("payload", std::string(300 * 1024, 'b'));
+    entry->detail = base::Value(std::move(detail_dict));
+    entries.push_back(std::move(entry));
+
+    observer_remote->DidObservePerformanceEntries(std::move(entries));
+    observer_remote.FlushForTesting();
+  }
+
+  // Trigger unload to flush metrics
+  DeclarativePerformanceObserver::DeleteForCurrentDocument(main_rfh());
+
+  // Verify that only the first report was sent and the second was dropped
+  ASSERT_EQ(network_context_.reports().size(), 1u);
+  const auto& report = network_context_.reports()[0];
+  const base::ListValue* entries_list = report.body.FindList("entries");
+  ASSERT_TRUE(entries_list);
+
+  // We expect only mark_1 to be present. mark_2 should be dropped.
+  EXPECT_EQ(entries_list->size(), 1u);
+  bool found_mark_1 = false;
+  bool found_mark_2 = false;
+  for (const auto& entry : *entries_list) {
+    if (const base::DictValue* dict = entry.GetIfDict()) {
+      if (const std::string* name = dict->FindString("name")) {
+        if (*name == "mark_1") {
+          found_mark_1 = true;
+        }
+        if (*name == "mark_2") {
+          found_mark_2 = true;
+        }
+      }
+    }
+  }
+  EXPECT_TRUE(found_mark_1);
+  EXPECT_FALSE(found_mark_2);
+}
+
+TEST_F(DeclarativePerformanceObserverTest,
+       DocumentBufferEntryCountLimitEnforced) {
+  const GURL kPageURL("https://example.com/index.html");
+  const std::string kEndpoint("telemetry");
+
+  auto policy = network::mojom::DeclarativePerformanceObserverPolicy::New();
+  policy->reporting_endpoint = kEndpoint;
+  policy->entry_types.push_back(network::mojom::PerformanceEntryType::kMark);
+
+  MockNavigationHandle navigation_handle(kPageURL, main_rfh());
+  navigation_handle.set_has_committed(true);
+  navigation_handle.set_is_in_primary_main_frame(true);
+  navigation_handle.set_is_error_page(false);
+
+  ON_CALL(navigation_handle, GetDeclarativePerformanceObserverPolicy())
+      .WillByDefault(testing::Return(policy.get()));
+
+  CreateObserver(&navigation_handle);
+
+  // Bind Mojo remote
+  mojo::Remote<blink::mojom::DeclarativePerformanceObserverHost>
+      observer_remote;
+  DeclarativePerformanceObserver::Bind(
+      main_rfh(), observer_remote.BindNewPipeAndPassReceiver());
+
+  // Set the limit to 5 for testing
+  DeclarativePerformanceObserver* observer =
+      DeclarativePerformanceObserver::GetForCurrentDocument(main_rfh());
+  ASSERT_TRUE(observer);
+  observer->SetMaxBufferedEntriesForTesting(5);
+
+  // Send 6 tiny performance entries.
+  // The first 5 should be buffered successfully, and the 6th should be dropped.
+  std::vector<blink::mojom::DeclarativePerformanceEntryPtr> entries;
+  for (int i = 0; i < 6; ++i) {
+    auto entry = blink::mojom::DeclarativePerformanceEntry::New();
+    entry->name = "mark_tiny";
+    entry->start_time = base::Milliseconds(i);
+    entries.push_back(std::move(entry));
+  }
+  observer_remote->DidObservePerformanceEntries(std::move(entries));
+  observer_remote.FlushForTesting();
+
+  // Trigger unload to flush metrics
+  DeclarativePerformanceObserver::DeleteForCurrentDocument(main_rfh());
+
+  // Verify that reports are generated and the entry count is capped exactly
+  // at 5.
+  ASSERT_EQ(network_context_.reports().size(), 1u);
+  const auto& report = network_context_.reports()[0];
+  const base::ListValue* entries_list = report.body.FindList("entries");
+  ASSERT_TRUE(entries_list);
+
+  EXPECT_EQ(entries_list->size(), 5u);
+}
+
+TEST_F(DeclarativePerformanceObserverTest, RecordsUseCounter) {
+  const GURL kPageURL("https://example.com/index.html");
+  const std::string kEndpoint("telemetry");
+
+  auto policy = network::mojom::DeclarativePerformanceObserverPolicy::New();
+  policy->reporting_endpoint = kEndpoint;
+  policy->entry_types.push_back(
+      network::mojom::PerformanceEntryType::kVisibilityState);
+
+  MockNavigationHandle navigation_handle(kPageURL, main_rfh());
+  navigation_handle.set_has_committed(true);
+  navigation_handle.set_is_in_primary_main_frame(true);
+  navigation_handle.set_is_error_page(false);
+
+  ON_CALL(navigation_handle, GetDeclarativePerformanceObserverPolicy())
+      .WillByDefault(testing::Return(policy.get()));
+
+  MockDPOContentBrowserClient mock_client;
+  ContentBrowserClient* old_client = SetBrowserClientForTesting(&mock_client);
+
+  EXPECT_CALL(mock_client,
+              LogWebFeatureForCurrentPage(
+                  main_rfh(),
+                  blink::mojom::WebFeature::kDeclarativePerformanceObserver))
+      .Times(1);
+
+  CreateObserver(&navigation_handle);
+
+  SetBrowserClientForTesting(old_client);
 }
 
 }  // namespace

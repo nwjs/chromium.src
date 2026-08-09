@@ -9,4 +9,12 @@ parcelable NodeMatcher {
     String className;
     /** The expected text of the node. Null or empty string matches any text. */
     String text;
+    /** Whether inputFocused check is enabled. */
+    boolean hasInputFocused;
+    /** Whether the node must be input focused. */
+    boolean inputFocused;
+    /** Whether accessibilityFocused check is enabled. */
+    boolean hasAccessibilityFocused;
+    /** Whether the node must be accessibility focused. */
+    boolean accessibilityFocused;
 }

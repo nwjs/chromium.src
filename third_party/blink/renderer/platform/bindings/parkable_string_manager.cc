@@ -563,8 +563,7 @@ void ParkableStringManager::ResetForTesting() {
   has_posted_unparking_time_accounting_task_ = false;
   memory_consumer_registration_.emplace(
       kConsumerName, kMemoryConsumerTraits, this,
-      base::AsyncMemoryConsumerRegistration::CheckUnregister::kDisabled,
-      base::AsyncMemoryConsumerRegistration::CheckRegistryExists::kDisabled);
+      base::AsyncMemoryConsumerRegistration::CheckUnregister::kDisabled);
   total_unparking_time_ = base::TimeDelta();
   total_parking_thread_time_ = base::TimeDelta();
   total_disk_read_time_ = base::TimeDelta();
@@ -612,9 +611,7 @@ ParkableStringManager::ParkableStringManager()
           kConsumerName,
           kMemoryConsumerTraits,
           this,
-          base::AsyncMemoryConsumerRegistration::CheckUnregister::kDisabled,
-          base::AsyncMemoryConsumerRegistration::CheckRegistryExists::
-              kDisabled) {
+          base::AsyncMemoryConsumerRegistration::CheckUnregister::kDisabled) {
   // Should unregister in the destructor, but `this` is a NoDestructor static
   // local.
   ThreadScheduler::Current()->ToMainThreadScheduler()->AddRAILModeObserver(

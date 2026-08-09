@@ -366,7 +366,6 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
                 // TODO(crbug.com/404074032): Implement them back.
                 var transaction = fragmentManager.beginTransaction();
                 mMultiColumnSettings = new MultiColumnSettings();
-                mMultiColumnSettings.setProfile(assertNonNull(mProfile));
                 mMultiColumnSettings.setPendingFragmentIntent(getIntent());
                 transaction.replace(R.id.content, mMultiColumnSettings, MULTI_COLUMN_FRAGMENT_TAG);
                 transaction.commit();

@@ -43,7 +43,6 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
-#include "chrome/browser/ui/views/interaction/browser_elements_views.h"
 #include "chrome/browser/ui/webui/new_tab_page/composebox/variations/composebox_fieldtrial.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/common/chrome_features.h"
@@ -90,7 +89,6 @@
 namespace {
 
 #if !BUILDFLAG(IS_ANDROID)
-// LINT.IfChange(GetContextualTasksArmShortName)
 std::string GetContextualTasksArmShortName() {
   using contextual_tasks::ExpandButtonOption;
   ExpandButtonOption expand_button = contextual_tasks::GetExpandButtonOption();
@@ -129,7 +127,6 @@ std::string GetContextualTasksArmShortName() {
 
   return "Default";
 }
-// LINT.ThenChange(//chrome/browser/about_flags.cc)
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 std::unique_ptr<content::WebContents> CreateWebContents(
@@ -255,15 +252,17 @@ ContextualTasksPanelController* ContextualTasksPanelController::From(
 
 void ContextualTasksSidePanelCoordinator::Show(
     bool transition_from_tab,
-    omnibox::ChromeAimEntryPoint entry_point) {
-  EntrySource entry_source;
+    omnibox::ChromeAimEntryPoint entry_point,
+    bool use_no_animation) {
+  ContextualTasksPanelController::EntrySource entry_source;
   if (entry_point == omnibox::ChromeAimEntryPoint::
                          DESKTOP_CHROME_LENS_CONTEXTUAL_SEARCHBOX_ENTRY_POINT) {
-    entry_source = EntrySource::kLensOverlay;
+    entry_source = ContextualTasksPanelController::EntrySource::kLensOverlay;
   } else if (transition_from_tab) {
-    entry_source = EntrySource::kAiModeLinkClick;
+    entry_source =
+        ContextualTasksPanelController::EntrySource::kAiModeLinkClick;
   } else {
-    entry_source = EntrySource::kOther;
+    entry_source = ContextualTasksPanelController::EntrySource::kOther;
   }
 
   // Increment the impression count and attempt to show the HaTS survey.
@@ -320,10 +319,16 @@ void ContextualTasksSidePanelCoordinator::Show(
   }
   UpdateWebContentsForActiveTab();
 
-  contextual_tasks_panel_host_->Show(
-      transition_from_tab
-          ? ContextualTasksPanelHost::AnimationStyle::kTransitionFromTab
-          : ContextualTasksPanelHost::AnimationStyle::kStandard);
+  ContextualTasksPanelHost::AnimationStyle animation_style =
+      ContextualTasksPanelHost::AnimationStyle::kStandard;
+  if (use_no_animation) {
+    animation_style = ContextualTasksPanelHost::AnimationStyle::kNoAnimation;
+  } else if (transition_from_tab) {
+    animation_style =
+        ContextualTasksPanelHost::AnimationStyle::kTransitionFromTab;
+  }
+
+  contextual_tasks_panel_host_->Show(animation_style);
 
   UpdateOpenState(/*is_open=*/true);
   UpdateContextualTaskUI();
@@ -418,6 +423,18 @@ void ContextualTasksSidePanelCoordinator::OpenInZeroState() {
 
 bool ContextualTasksSidePanelCoordinator::IsPanelOpenForContextualTask() const {
   return contextual_tasks_panel_host_->IsPanelOpenForContextualTask();
+}
+
+ContextualTasksPanelController::EntrySource
+ContextualTasksSidePanelCoordinator::GetActiveEntrySource() const {
+  if (content::WebContents* active_web_contents = GetActiveWebContents()) {
+    for (const auto& it : task_id_to_web_contents_cache_) {
+      if (it.second->web_contents.get() == active_web_contents) {
+        return it.second->entry_source;
+      }
+    }
+  }
+  return ContextualTasksPanelController::EntrySource::kOther;
 }
 
 void ContextualTasksSidePanelCoordinator::TransferWebContentsFromTab(
@@ -851,6 +868,23 @@ void ContextualTasksSidePanelCoordinator::OnActiveTabChanged(
     RecordUserActionAndHistogram(base::StrCat(
         {"ContextualTasks.TabChange.UserAction.",
          web_contents_changed ? "ChangedThreads" : "StayedOnThread"}));
+  }
+
+  if (!is_panel_currently_open && tab && tab->GetContents()) {
+    // If this tab was opened from a contextual tasks page (e.g. clicking a link
+    // on a full tab AIM page), we should not log OpenFullTab.
+    tabs::TabInterface* opener = tab_list.GetOpenerForTab(tab->GetHandle());
+    bool opened_from_contextual_tasks =
+        opener && opener->GetContents() &&
+        ContextualTasksUiService::IsContextualTasksUrl(
+            opener->GetContents()->GetLastCommittedURL());
+
+    if (!opened_from_contextual_tasks &&
+        ContextualTasksUiService::IsContextualTasksUrl(
+            tab->GetContents()->GetLastCommittedURL())) {
+      base::RecordAction(base::UserMetricsAction(
+          "ContextualTasks.TabChange.UserAction.OpenFullTab"));
+    }
   }
 
   ObserveWebContentsOnActiveTab();

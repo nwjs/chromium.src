@@ -54,7 +54,6 @@ class ActionChipsHandler : public action_chips::mojom::ActionChipsHandler
   void StartActionChipsRetrieval() override;
   void ActivateMetricsFunnel(const std::string& funnel_name) override;
   void SetActionChipsVisibility(bool is_visible) override;
-  void NotifyActionChipClicked() override;
 
 #if !BUILDFLAG(IS_ANDROID)
   void OnTabStripModelChanged(
@@ -83,6 +82,7 @@ class ActionChipsHandler : public action_chips::mojom::ActionChipsHandler
   PrefChangeRegistrar pref_change_registrar_;
 
   std::optional<GURL> last_processed_url_;
+  bool has_recorded_any_shown_ = false;
 
   base::WeakPtrFactory<ActionChipsHandler> weak_factory_{this};
 };

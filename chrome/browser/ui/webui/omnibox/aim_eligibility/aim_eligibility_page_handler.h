@@ -11,7 +11,7 @@
 #include "base/scoped_observation.h"
 #include "build/build_config.h"
 #if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/ui/webui/drive_picker_host/drive_disclaimer_controller.h"
+#include "components/contextual_search/footprints/public/drive_disclaimer_controller.h"
 #endif
 #include "chrome/browser/ui/webui/omnibox/aim_eligibility/aim_eligibility.mojom.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
@@ -44,6 +44,10 @@ class AimEligibilityPageHandler : public aim_eligibility::mojom::PageHandler {
       const std::string& base64_encoded_response,
       SetEligibilityResponseForDebuggingCallback callback) override;
 
+  void set_disconnect_handler(base::OnceClosure callback) {
+    receiver_.set_disconnect_handler(std::move(callback));
+  }
+
  private:
   // Called when the eligibility state changes.
   void OnEligibilityChanged();
@@ -67,7 +71,7 @@ class AimEligibilityPageHandler : public aim_eligibility::mojom::PageHandler {
   bool disclaimer_check_started_ = false;
 #endif
 
-  const mojo::Receiver<aim_eligibility::mojom::PageHandler> receiver_;
+  mojo::Receiver<aim_eligibility::mojom::PageHandler> receiver_;
   const mojo::Remote<aim_eligibility::mojom::Page> page_;
   // Subscription to `AimEligibilityService` eligibility changed callbacks.
   base::CallbackListSubscription eligibility_changed_subscription_;

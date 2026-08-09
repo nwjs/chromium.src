@@ -1980,7 +1980,7 @@ dependencies = [
 
 [[package]]
 name = "temporal_capi"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "diplomat",
@@ -1996,7 +1996,7 @@ dependencies = [
 
 [[package]]
 name = "temporal_rs"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "calendrical_calculations",

@@ -62,6 +62,7 @@ class TestToolbarUiHandler extends TestBrowserProxy implements
   setAvatarButtonIphPromoShowing(_showing: boolean) {
     return new Promise<never>(() => {});
   }
+  onAppMenuFocusChanged(_focused: boolean) {}
 
   onLhsChipMousePressed(id: LhsChipIdentifier) {
     this.methodCalled('onLhsChipMousePressed', id);

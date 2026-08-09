@@ -270,9 +270,6 @@ public final class ProductionSupportedFlagList {
                 "When enabled, improves heuristic regexes for state classification to avoid"
                         + " misclassification as civil state."),
         Flag.baseFeature(
-                AutofillFeatures.AUTOFILL_FIX_FORM_TRACKING,
-                "Improves form submission tracking and duplicate submission handling"),
-        Flag.baseFeature(
                 AutofillFeatures.AUTOFILL_FIX_STATE_COUNTRY_MISCLASSIFICATION,
                 "When enabled, the rationalization engine will fix misclassifications where"
                         + " a field is detected as a COUNTRY when it should be a STATE or vice"
@@ -307,10 +304,6 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature(
                 AutofillFeatures.AUTOFILL_PREFER_PHONE_COUNTRY_CODE_TYPE_OVER_COUNTRY_HTML_TYPE,
                 "Prioritizes PHONE_HOME_COUNTRY_CODE heuristic type over kCountryName html type"),
-        Flag.baseFeature(
-                AutofillFeatures.AUTOFILL_REPLACE_CACHED_WEB_ELEMENTS_BY_RENDERER_IDS,
-                "When enabled, AutofillAgent will store its cached form and fields as renderer ids "
-                        + "instead of holding strong references to blink::WebElement objects."),
         Flag.baseFeature(
                 AutofillFeatures.AUTOFILL_USE_IN_ADDRESS_MODEL,
                 "When enabled, Autofill uses a custom address model for India."),
@@ -1037,8 +1030,13 @@ public final class ProductionSupportedFlagList {
                         + AwSwitches.STARTUP_NON_BLOCKING_WEBVIEW_CONSTRUCTOR
                         + " is enabled."),
         Flag.baseFeature(
-                AccessibilityFeatures.ACCESSIBILITY_MAGNIFICATION_FOLLOWS_FOCUS,
-                "Enables Magnification and other views to keep the text cursor onscreen."),
+                AccessibilityFeatures.ACCESSIBILITY_MAGNIFICATION_FOLLOWS_FOCUS_KEYBOARD_ATTACHED,
+                "Enables Magnification and other views to keep the text cursor onscreen when"
+                        + " physical keyboard is attached."),
+        Flag.baseFeature(
+                AccessibilityFeatures.ACCESSIBILITY_MAGNIFICATION_FOLLOWS_FOCUS_NO_KEYBOARD,
+                "Enables Magnification and other views to keep the text cursor onscreen when no"
+                        + " physical keyboard is attached."),
         Flag.baseFeature(
                 AccessibilityFeatures.ACCESSIBILITY_TEXT_CHANGE_TYPES,
                 "Enables text change types for text changed events."),
@@ -1172,9 +1170,13 @@ public final class ProductionSupportedFlagList {
                 ContentFeatures.ACCESSIBILITY_DEPRECATE_TYPE_ANNOUNCE,
                 "When enabled, TYPE_ANNOUNCE events will no longer be sent from Chrome."),
         Flag.baseFeature(
-                AccessibilityFeatures.ACCESSIBILITY_MAGNIFICATION_FOLLOWS_FOCUS,
+                AccessibilityFeatures.ACCESSIBILITY_MAGNIFICATION_FOLLOWS_FOCUS_KEYBOARD_ATTACHED,
                 "When enabled, the Android framework will be notified when the text cursor or input"
-                        + " focus moves."),
+                        + " focus moves and a physical keyboard is attached."),
+        Flag.baseFeature(
+                AccessibilityFeatures.ACCESSIBILITY_MAGNIFICATION_FOLLOWS_FOCUS_NO_KEYBOARD,
+                "When enabled, the Android framework will be notified when the text cursor or input"
+                        + " focus moves and no physical keyboard is attached."),
         Flag.baseFeature(
                 ContentFeatures.ACCESSIBILITY_SEQUENTIAL_FOCUS,
                 "When enabled, keyboard focus starting point will be synchronized with"
@@ -1189,6 +1191,10 @@ public final class ProductionSupportedFlagList {
                 ContentFeatures.ANDROID_PK_AUTOCORRECT_UNDERLINE_V2,
                 "When enabled, physical keyboard autocorrect underline will display. V2 simplifies"
                         + " V1, while improving the input compatibility."),
+        Flag.baseFeature(
+                ContentFeatures.ANDROID_REMOVE_SET_LOCAL_FOCUS_WORKAROUND_ON_BAKLAVA,
+                "Removes the setLocalFocus workaround and delay for multi-display setups on "
+                        + "Baklava and above."),
         Flag.baseFeature(
                 ContentFeatureList.ANDROID_FORCE_TEXT_INPUT_STATE_UPDATE_UPON_FOCUS,
                 "When enabled, forces pushing active text input state update calculation "
@@ -1406,6 +1412,9 @@ public final class ProductionSupportedFlagList {
                 AwFeatures.WEBVIEW_GATE_TEXT_SIZE_ADJUST_ON_TEXT_AUTOSIZING,
                 "When enabled, text-size-adjust CSS property only affects WebViews with"
                         + " TEXT_AUTOSIZING layout algorithm."),
+        Flag.baseFeature(
+                "SimpleCachePrefetchExperiment2",
+                "Enables fixed-size prefetching of simple cache entry data during open."),
         // Add new commandline switches and features above. The final entry should have a
         // trailing comma for cleaner diffs.
     };

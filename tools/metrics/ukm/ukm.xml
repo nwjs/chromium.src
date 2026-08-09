@@ -764,7 +764,7 @@ be describing additional metrics about the same event.
       request.
     </summary>
   </metric>
-  <metric name="FederatedLoginResult">
+  <metric name="FederatedLoginResult" enum="ActorLoginFederatedLoginResult">
     <summary>
       An enum with the final result from a federated actor login request.
     </summary>

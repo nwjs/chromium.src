@@ -129,6 +129,7 @@ Disa funksione mund të mos ofrohen dhe ndryshimet në preferenca nuk do të ruh
 <translation id="2120620239521071941">Kjo do të fshijë <ph name="ITEMS_COUNT" /> artikuj nga kjo pajisje. Për t'i marrë më vonë të dhënat, identifikohu te Chrome si <ph name="USER_EMAIL" />.</translation>
 <translation id="2121284319307530122">Nise përsëri për të përditësuar &amp;Chrome</translation>
 <translation id="2123055963409958220">Ndihmo në përmirësimin e Chrome duke raportuar <ph name="BEGIN_LINK" />cilësimet aktuale<ph name="END_LINK" /></translation>
+<translation id="2125838419757773031">Zgjidh rajonin e ekranit për të kërkuar</translation>
 <translation id="2126108037660393668">Skedari i shkarkuar nuk u verifikua.</translation>
 <translation id="2128411189117340671">Menaxho profilet e Chrome</translation>
 <translation id="2137162749895930932">Mbyll ekranin e përkthimit</translation>
@@ -265,9 +266,9 @@ Nëse kjo faqe nuk funksionon siç pritet, provo të lejosh optimizimin.</transl
 <translation id="3453763134178591239">Kushtet e ChromeOS</translation>
 <translation id="3475778264501649775">Merr fjalëkalimet, skedat etj. kur je në lëvizje me aplikacionin e Chrome në telefonin tënd</translation>
 <translation id="3503306920980160878">Chrome ka nevojë për qasje te vendndodhja jote për të ndarë vendndodhjen me këtë sajt</translation>
-<translation id="3512495006767217696">I integruar në Chrome për të të ndihmuar të krijosh, ruash dhe plotësosh automatikisht fjalëkalime të forta. Shto shkurtoren për qasje të lehtë</translation>
 <translation id="3539955434060988644">Hape lidhjen në një drit&amp;are të fshehtë të Chrome</translation>
 <translation id="354621070532799440">Rikujtesë: Veçoritë më të mira të sigurisë të Google në xhepin tënd</translation>
+<translation id="3547866758548131919">Kliko te butoni "Përmblidh" për ta ndarë këtë dokument me Gemini në Chrome për të marrë një përmbledhje të shpejtë dhe për të bërë pyetje vijuese</translation>
 <translation id="3576528680708590453">Administratori i sistemit ka konfiguruar Google Chrome që të hapë një shfletues alternativ për t'u qasur te <ph name="TARGET_URL_HOSTNAME" />.</translation>
 <translation id="3582972582564653026">Sinkronizo dhe personalizo Chrome nëpër pajisjet e tua</translation>
 <translation id="3583751698304738917">Je i identifikuar tashmë si <ph name="USER_EMAIL_ADDRESS" /> në një profil tjetër të Chrome</translation>
@@ -316,6 +317,7 @@ Nëse kjo faqe nuk funksionon siç pritet, provo të lejosh optimizimin.</transl
 <translation id="4012899077942246412">Kur je i identifikuar, mund të përdorësh fjalëkalimet dhe më shumë nga "Llogaria jote e Google" në Chrome. Për ta ndryshuar këtë, shko te "Llogaria jote në Chrome".</translation>
 <translation id="4022972681110646219">Përkthe ekranin</translation>
 <translation id="4023601594785368013">Gjuha origjinale: <ph name="LANGUAGE" /></translation>
+<translation id="4034249157893816477">I integruar në Chrome për të të ndihmuar të krijosh, ruash dhe plotësosh automatikisht fjalëkalime të forta. Shto shkurtoren për qasje të lehtë.</translation>
 <translation id="4035053306113201399">ChromeOS ka nevojë të riniset për të zbatuar përditësimin.</translation>
 <translation id="4050175100176540509">Përmirësime të rëndësishme sigurie dhe funksione të reja ofrohen në versionin e fundit.</translation>
 <translation id="4053720452172726777">Personalizo dhe kontrollo Google Chrome</translation>
@@ -357,6 +359,7 @@ Nëse kjo faqe nuk funksionon siç pritet, provo të lejosh optimizimin.</transl
 <translation id="4400772909124543403">Nuk ofrohet asnjë përditësim</translation>
 <translation id="4427306783828095590">Mbrojtja e përmirësuar bën edhe më shumë për bllokimin e mashtrimeve dhe softuerëve keqdashës</translation>
 <translation id="4434353761996769206">Gabim i instaluesit: <ph name="INSTALLER_ERROR" /></translation>
+<translation id="4437295824090654417">Ndaje këtë dokument me Gemini në Chrome për të marrë një përmbledhje të shpejtë dhe për të bërë pyetje vijuese</translation>
 <translation id="4450664632294415862">Chrome - identifikimi në rrjet - <ph name="PAGE_TITLE" /></translation>
 <translation id="4458462641685292929">Një veprim tjetër në Google Chrome është në vazhdim. Provo përsëri më vonë.</translation>
 <translation id="4459234553906210702">Ad measurement lejon që sajtet që ti viziton të kërkojnë informacione nga Chrome të cilat ndihmojnë sajtin të masë cilësinë e funksionimit të reklamave të tij. Ad measurement kufizon gjurmimin nëpër sajte duke transferuar sa më pak informacion të jetë e mundur ndërmjet sajteve.</translation>
@@ -558,7 +561,6 @@ Google Chrome nuk është në gjendje të rikuperojë cilësimet e tua.</transla
 <translation id="6438015621983209660">Zgjero "Shfletimin e sigurt të përmirësuar" me Chrome në telefonin tënd</translation>
 <translation id="6442774133615368941">Bli, përkthe dhe identifiko ato që shikon me kamerën tënde në aplikacionin e Chrome për iOS</translation>
 <translation id="6448835208126432197">Për të zgjedhur një pjesë të ekranit në Gemini në Chrome, përdor shkurtoren e tastierës.</translation>
-<translation id="6473659734176498825">Një imazh i thjeshtuar që tregon pikën e hyrjes të "Menaxherit të fjalëkalimeve të Google" në Chrome</translation>
 <translation id="6473905796280459355">Shko te faqja "Rreth Chrome"</translation>
 <translation id="6481963882741794338">Lidh Chrome dhe shërbimet e tjera të Google për personalizimin dhe qëllime të tjera</translation>
 <translation id="648319183876919572">"Shfletimi i sigurt i përmirësuar" bën më shumë për të të mbrojtur nga uebsajtet dhe shkarkimet e rrezikshme</translation>
@@ -703,7 +705,6 @@ Google Chrome nuk është në gjendje të rikuperojë cilësimet e tua.</transla
 <translation id="7804364787702057554">Llogaria jote në Chrome</translation>
 <translation id="7804947029129221742">Motori i kërkimit u ndryshua nga jashtë Chrome. Për të të mbrojtur, Chrome e rivendosi atë në parazgjedhjen e tij origjinale. <ph name="LEARN_MORE_LINK" /></translation>
 <translation id="7808348361785373670">Hiqe nga Chrome...</translation>
-<translation id="7812800388699096556">Një ilustrim që tregon se si mund të përdorësh "Lenten e Google" për të kërkuar për një produkt</translation>
 <translation id="7827099906024714326">Chrome duhet të verifikojë që je ti përpara se të mund të ruhen disa të dhëna në "Llogarinë tënde të Google" dhe të përdoren në të gjitha pajisjet e tua. Nëse del tani, këto të dhëna do të fshihen.</translation>
 <translation id="7832314606810669113">Për të marrë faqeshënuesit etj. në të gjitha pajisjet e tua, identifikohu në Chrome. Ky faqeshënues do të ruhet në "Llogarinë tënde të Google" pasi të identifikohesh.</translation>
 <translation id="7845233973568007926">Faleminderit që e instalove. Duhet të rinisësh kompjuterin përpara se të përdorësh <ph name="BUNDLE_NAME" />.</translation>
@@ -789,6 +790,7 @@ Faqeshënuesit e rinj nuk mund të ruhen në llogarinë tënde derisa të fshish
 <translation id="8601359445272098721">E re! Mund të përkthesh tekstet dhe imazhet në ekranin tënd duke zgjedhur butonin "përkthe ekranin"</translation>
 <translation id="8614913330719544658">Google Chrome nuk përgjigjet. Dëshiron ta hapësh sërish tani?</translation>
 <translation id="861702415419836452">Chrome ka nevojë për leje për t'u qasur te kamera jote për të krijuar një hartë 3D të ambientit tënd rrethues</translation>
+<translation id="8623450603356630491">Identifikohu në Chrome në telefonin tënd</translation>
 <translation id="8624541899164515475">Cilësimet, hapet në një skedë të re.</translation>
 <translation id="8625237574518804553">{0,plural, =1{Chrome do të hapet përsëri për 1 minutë}other{Chrome do të hapet përsëri për # minuta}}</translation>
 <translation id="8637932705841171563">Për të ndarë dritaren tënde, lejo regjistrimin e ekranit për Chrome te "Cilësimet e sistemit"</translation>

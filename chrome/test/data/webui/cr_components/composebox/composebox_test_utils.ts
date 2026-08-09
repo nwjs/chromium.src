@@ -2,10 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import type {ComposeboxFile} from 'chrome://resources/cr_components/composebox/common.js';
 import type {ComposeboxElement} from 'chrome://resources/cr_components/composebox/composebox.js';
-import type {ComposeboxVoiceSearchElement, VoiceSearchError} from 'chrome://resources/cr_components/composebox/composebox_voice_search.js';
+import type {ComposeboxVoiceSearchElement, VoiceSearchError, VoiceSearchMetricType} from 'chrome://resources/cr_components/composebox/composebox_voice_search.js';
 import type {InputState} from 'chrome://resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
-import {InputType, ModelMode, ToolMode} from 'chrome://resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
+import {ContextUploadStatus, InputType, ModelMode, ToolMode} from 'chrome://resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
+import type {UnguessableToken} from 'chrome://resources/mojo/mojo/public/mojom/base/unguessable_token.mojom-webui.js';
 import {assertEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {TestMock} from 'chrome://webui-test/test_mock.js';
 
@@ -127,6 +129,13 @@ export function installMock<T extends object>(
     windowProxy.setResultMapperFor('createSpeechRecognition', () => {
       return new MockSpeechRecognition() as unknown as SpeechRecognition;
     });
+    windowProxy.setResultMapperFor('matchMedia', () => ({
+      matches: false,
+      addListener() {},
+      addEventListener() {},
+      removeListener() {},
+      removeEventListener() {},
+    }));
   }
 
   installer(mock);
@@ -193,7 +202,7 @@ export type MockComposeboxVoiceSearch = Omit<
     ComposeboxVoiceSearchElement,
     'state_'|'voiceRecognition_'|'onFinalResult_'|'onCloseClick_'|'onEnd_'|
     'onTryAgainClick_'|'onLinkClick_'|'errorMessage_'|'voiceModeEndCleanup_'|
-    'detailedError_'>&{
+    'detailedError_'|'onStopClick_'|'recordMetric_'>&{
   state_: number,
   metricSource_: string,
   voiceRecognition_: MockSpeechRecognition,
@@ -205,6 +214,8 @@ export type MockComposeboxVoiceSearch = Omit<
   onEnd_: () => void,
   onTryAgainClick_: (e: Event) => void,
   onLinkClick_: (e: Event) => void,
+  onStopClick_: () => void,
+  recordMetric_: (type: VoiceSearchMetricType, metricEnumValue: number, max: number) => void,
 };
 
 export function disableTransitionsRecursively(
@@ -242,4 +253,24 @@ export function disableTransitionsRecursively(
       }
     }
   }
+}
+
+export function createFile(
+    index: number, override: Partial<ComposeboxFile> = {}): ComposeboxFile {
+  return Object.assign(
+      {
+        name: `file${index}.txt`,
+        type: 'text/plain',
+        inputType: InputType.kLensFile,
+        objectUrl: null,
+        dataUrl: null,
+        uuid: {high: 0n, low: BigInt(index)} as unknown as UnguessableToken,
+        status: ContextUploadStatus.kUploadSuccessful,
+        url: null,
+        tabId: null,
+        isDeletable: true,
+        iconName: null,
+        supportsUnimodal: true,
+      },
+      override);
 }

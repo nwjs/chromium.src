@@ -28,12 +28,12 @@
 #include "components/mirroring/service/openscreen_message_port.h"
 #include "components/mirroring/service/openscreen_stats_client.h"
 #include "components/mirroring/service/rpc_dispatcher.h"
-#include "components/mirroring/service/rtp_stream.h"
 #include "components/openscreen_platform/event_trace_logging_platform.h"
 #include "components/openscreen_platform/task_runner.h"
 #include "gpu/config/gpu_info.h"
 #include "media/capture/video/video_capture_feedback.h"
 #include "media/cast/cast_environment.h"
+#include "media/cast/constants.h"
 #include "media/mojo/mojom/video_encode_accelerator.mojom.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -51,6 +51,7 @@ namespace media {
 class AudioInputDevice;
 namespace cast {
 class AudioSender;
+class VideoSender;
 }  // namespace cast
 }  // namespace media
 
@@ -85,8 +86,7 @@ inline constexpr int kDefaultBitrate = 5000000;  // 5 mbps
 // encoder threads. Finally, some methods such as
 // AudioCapturingCallback::Capture may be called on the audio thread.
 class COMPONENT_EXPORT(MIRRORING_SERVICE) OpenscreenSessionHost final
-    : public RtpStreamClient,
-      public openscreen::cast::SenderSession::Client,
+    : public openscreen::cast::SenderSession::Client,
       public MediaRemoter::Client {
  public:
   // NOTE: some notes on constructor arguments:
@@ -125,11 +125,9 @@ class COMPONENT_EXPORT(MIRRORING_SERVICE) OpenscreenSessionHost final
   void OnError(const openscreen::cast::SenderSession* session,
                const openscreen::Error& error) override;
 
-  // RtpStreamClient overrides.
-  void OnError(const std::string& message) override;
-  void RequestRefreshFrame() override;
+  void RequestRefreshFrame();
   void CreateVideoEncodeAccelerator(
-      media::cast::ReceiveVideoEncodeAcceleratorCallback callback) override;
+      media::cast::ReceiveVideoEncodeAcceleratorCallback callback);
 
   // MediaRemoter::Client overrides.
   void ConnectToRemotingSource(
@@ -327,7 +325,19 @@ class COMPONENT_EXPORT(MIRRORING_SERVICE) OpenscreenSessionHost final
 
   // Created after OFFER/ANSWER exchange succeeds.
   std::unique_ptr<media::cast::AudioSender> audio_sender_;
-  std::unique_ptr<VideoRtpStream> video_stream_;
+  std::unique_ptr<media::cast::VideoSender> video_sender_;
+
+  // The time between requests for refresh frames. If zero, no refresh frames
+  // will be requested.
+  base::TimeDelta refresh_interval_;
+
+  // Requests refresh frames at a constant rate while the source is paused, up
+  // to a consecutive maximum.
+  base::RepeatingTimer refresh_timer_;
+
+  // Set to true when a request for a refresh frame has been made. This is
+  // cleared once the next frame is received.
+  bool expecting_a_refresh_frame_{false};
 
   // Connects to the video capture host and launches the video capture device.
   std::unique_ptr<VideoCaptureClient> video_capture_client_;
@@ -414,6 +424,9 @@ class COMPONENT_EXPORT(MIRRORING_SERVICE) OpenscreenSessionHost final
 
   // Callback invoked once this instance and all of its resources are released.
   base::OnceClosure deletion_cb_;
+
+  void InsertVideoFrame(scoped_refptr<media::VideoFrame> video_frame);
+  void OnRefreshTimerFired();
 
   // Ensures that this class is accessed on a single sequence.
   SEQUENCE_CHECKER(sequence_checker_);

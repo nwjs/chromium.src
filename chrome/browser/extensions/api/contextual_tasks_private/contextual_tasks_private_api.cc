@@ -53,14 +53,21 @@ GURL AppendAimUrlParams(
     const GURL& base_url,
     const api::contextual_tasks_private::AimParams& aim_params) {
   GURL url = base_url;
+  bool enabled = contextual_tasks::GetIsContextualTasksSearchQueryEnabled();
+  std::optional<std::string> q_val = enabled ? aim_params.q : std::nullopt;
   const struct {
     const char* name;
     std::optional<std::string> value;
   } kParams[] = {
-      {"ntc", aim_params.ntc},     {"mstk", aim_params.mstk},
-      {"aioh", aim_params.aioh},   {"csuir", aim_params.csuir},
-      {"ved", aim_params.ved},     {"cs", aim_params.cs},
-      {"sxsrf", aim_params.sxsrf}, {"ei", aim_params.ei},
+      {"ntc", aim_params.ntc},
+      {"mstk", aim_params.mstk},
+      {"q", q_val},
+      {"aioh", aim_params.aioh},
+      {"csuir", aim_params.csuir},
+      {"ved", aim_params.ved},
+      {"cs", aim_params.cs},
+      {"sxsrf", aim_params.sxsrf},
+      {"ei", aim_params.ei},
   };
   for (const auto& param : kParams) {
     if (param.value && !param.value->empty()) {
@@ -121,6 +128,11 @@ ContextualTasksPrivateLaunchPanelInNewTabFunction::Run() {
   if (!IsContextualTasksEnabledForProfile(profile)) {
     return RespondNow(
         Error("ContextualTasks Private API is not eligible for this profile"));
+  }
+
+  if (!params->details.aim_params.mstk ||
+      params->details.aim_params.mstk->empty()) {
+    return RespondNow(Error("Missing required URL params"));
   }
 
   GURL target_url(params->details.target_url);
@@ -225,9 +237,15 @@ ContextualTasksPrivateLaunchPanelInNewTabFunction::Run() {
   load_params.has_user_gesture = user_gesture();
   target_tab->GetContents()->GetController().LoadURLWithParams(load_params);
 
-  ui_service->StartTaskUiInSidePanel(browser, target_tab, aim_url,
-                                     /*session_handle=*/nullptr,
-                                     /*associate_web_contents=*/false);
+  bool use_no_animation =
+      contextual_tasks::ShouldContextualTasksPrivateApiUseNoAnimation();
+
+  ui_service->StartTaskUiInSidePanel(
+      browser, target_tab, aim_url,
+      /*session_handle=*/nullptr,
+      /*associate_web_contents=*/false,
+      omnibox::ChromeAimEntryPoint::UNKNOWN_AIM_ENTRY_POINT,
+      /*use_mstk_for_task_association=*/true, use_no_animation);
 
   return RespondNow(NoArguments());
 }

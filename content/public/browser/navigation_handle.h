@@ -385,6 +385,15 @@ class CONTENT_EXPORT NavigationHandle : public base::SupportsUserData {
   // creation. See |is_on_initial_empty_document_| in FrameTreeNode for details.
   virtual bool IsNavigatingFromInitialEmptyDocument() const = 0;
 
+  // Whether this navigation has been blocked because the initiator document's
+  // Connection-Allowlist policy disallows the destination URL. This is used to
+  // suppress speculative network activity (e.g. preconnect/preresolve/resource
+  // prewarming) for a navigation that is going to be blocked; such activity
+  // would otherwise leak the destination host (e.g. via its DNS resolution)
+  // even though the navigation itself never reaches the network.
+  // See https://github.com/WICG/connection-allowlists.
+  virtual bool IsBlockedByConnectionAllowlist() const = 0;
+
   // Navigation control flow --------------------------------------------------
 
   // The net error code if an error happened prior to commit, or the navigation

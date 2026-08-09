@@ -32,11 +32,11 @@ Maaaring hindi available ang ilang tampok at hindi mase-save ang mga pagbabago s
 <translation id="126567311906253476">Kapag nagsa-sign in sa mga serbisyo ng Google tulad ng Gmail o YouTube gamit ang <ph name="USER_EMAIL" />, puwede kang awtomatikong mag-sign in sa Chromium gamit ang parehong account</translation>
 <translation id="1287534462498555020">I-download ang Chromium sa iyong telepono</translation>
 <translation id="1290883685122687410">Error sa pag-set up: <ph name="METAINSTALLER_EXIT_CODE" />. <ph name="WINDOWS_ERROR" /></translation>
-<translation id="1312200348844120300">Isang larawang nagpapakita kung paano mo magagamit ang Paghahanap ng Larawan para maghanap ng produkto</translation>
 <translation id="1315551408014407711">I-set up ang iyong bagong profile sa Chromium</translation>
 <translation id="132092532143527429">Subukan sa Gemini sa Chromium</translation>
 <translation id="1324107359134968521">Kailangan ng Chromium ng access sa Bluetooth para i-explore ang 
  mga Bluetooth device. <ph name="IDS_SERIAL_DEVICE_CHOOSER_AUTHORIZE_BLUETOOTH_LINK" /></translation>
+<translation id="1329040302064168406">Mag-sign in sa Chromium sa iyong telepono</translation>
 <translation id="1330562121671411446">I-detect ang wika</translation>
 <translation id="1330742950061766891">Gamitin ang mga inirerekomendang setting ng browser ng Chromium</translation>
 <translation id="1342274909142618978">I-delete din ang data mula sa Chromium (<ph name="URL" />)</translation>
@@ -102,12 +102,14 @@ Maaaring hindi available ang ilang tampok at hindi mase-save ang mga pagbabago s
 <translation id="2018879682492276940">Hindi na-install. Pakisubukan ulit.</translation>
 <translation id="2039417478970545937">Mga Setting.</translation>
 <translation id="2049376729098081731">Piliin kung isasama ang history ng Chromium para sa mas naka-personalize na mga karanasan sa mga serbisyo ng Google</translation>
+<translation id="2050698962207788467">Naka-built in sa Chromium para matulungan kang gumawa, mag-save, at mag-autofill ng malalakas na password. Idagdag ang shortcut para sa madaling pag-access.</translation>
 <translation id="2064856577282482477">I-click ang button na I-customize ang Chromium sa Page na Bagong Tab para bigyan ang Chromium ng bagong hitsura</translation>
 <translation id="2066690553719545730">Palaging Ipakita ang AI Mode</translation>
 <translation id="2086476982681781442">Na-block ng Chromium ang pag-download na ito dahil mapanlinlang ang file at posible itong gumawa ng mga hindi inaasahang pagbabago sa iyong device</translation>
 <translation id="208726765006323911">Makakakita ka ng prompt na subukan ang <ph name="FEATURE_NAME" /> sa susunod na buksan mo ang Chromium iOS.</translation>
 <translation id="2099452623287920103">Aalisin sa device na ito ang iyong mga password at iba pang data sa Chromium na na-save mo sa iyong Google Account. Para magamit ulit ang mga ito sa Chromium, mag-sign in ulit.</translation>
 <translation id="2120965832000301375">{COUNT,plural, =1{Awtomatikong ide-delete ng iyong organisasyon ang data mula sa pag-browse kapag hindi nagamit ang Chromium nang 1 minuto. Posibleng kasama rito ang history, autofill, at mga download. Mananatiling nakabukas ang iyong mga tab.}one{Awtomatikong ide-delete ng iyong organisasyon ang data mula sa pag-browse kapag hindi nagamit ang Chromium nang # minuto. Posibleng kasama rito ang history, autofill, at mga download. Mananatiling nakabukas ang iyong mga tab.}other{Awtomatikong ide-delete ng iyong organisasyon ang data mula sa pag-browse kapag hindi nagamit ang Chromium nang # na minuto. Posibleng kasama rito ang history, autofill, at mga download. Mananatiling nakabukas ang iyong mga tab.}}</translation>
+<translation id="2125838419757773031">Pumili ng bahagi sa screen na hahanapin</translation>
 <translation id="2126108037660393668">Hindi na-verify ang na-download na file.</translation>
 <translation id="2135919691573380097">Iulat ang site na ito</translation>
 <translation id="2137162749895930932">Isara ang isalin ang screen</translation>
@@ -140,6 +142,7 @@ Maaaring hindi available ang ilang tampok at hindi mase-save ang mga pagbabago s
 <translation id="2401032172288869980">Kailangan ng Chromium ng pahintulot sa camera at mikropono para sa site na ito</translation>
 <translation id="2403703063067034158">Nagkaroon ng error sa startup: May tumatakbo nang isa pang instance ng pag-set up, pakisubukan ulit sa ibang pagkakataon.</translation>
 <translation id="2418322681019544463">Magbukas ng mga link sa Chromium mula sa anumang app at panatilihing naa-access ang browser sa iyong taskbar</translation>
+<translation id="2425157128016763890">I-click ang button na Ibuod para i-share ang dokumentong ito sa Gemini sa Chromium para makakuha ng mabilisang pangkalahatang-ideya at magtanong ng mga follow-up na tanong</translation>
 <translation id="2440750600860946460">Gamit ang <ph name="BEGIN_LINK" />mga tool mula sa Chromium<ph name="END_LINK" />, makakapag-browse ka nang ligtas at mananatili kang may kontrol</translation>
 <translation id="2451727308784734061">Gamitin ang iyong shortcut para mabilis na makarating sa Password Manager. Puwede mong ilipat ang iyong shortcut sa home screen o app launcher ng computer mo.</translation>
 <translation id="2478295928299953161">Magsasara na ang Chromium sa ilang saglit</translation>
@@ -238,7 +241,6 @@ Maaaring hindi available ang ilang tampok at hindi mase-save ang mga pagbabago s
 <translation id="3387527074123400161">ChromiumOS</translation>
 <translation id="3406848076815591792">Lumipat sa kasalukuyang profile sa Chromium?</translation>
 <translation id="3412460710772753638">Sa Password Manager sa device na ito</translation>
-<translation id="3423442168617177595">Naka-built in sa Chromium para matulungan kang gumawa, mag-save, at mag-autofill ng malalakas na password. Idagdag ang shortcut para sa madaling pag-access</translation>
 <translation id="3455907671758333080">I-extend ang Pinahusay na Ligtas na Pag-browse gamit ang Chromium sa iyong telepono</translation>
 <translation id="3461644266919055473">Ginagawang iyo ang Chromium...</translation>
 <translation id="3474745554856756813">Magde-delete ito ng <ph name="ITEMS_COUNT" /> (na) item sa device na ito. Upang makuha ang iyong data sa ibang pagkakataon, mag-sign in sa Chromium bilang <ph name="USER_EMAIL" />.</translation>
@@ -508,7 +510,6 @@ Kung hindi gumagana ang page na ito gaya ng inaasahan, subukang payagan ang pag-
 <translation id="6400112897226594999">Logo ng Chromium sa loob ng screen ng computer.</translation>
 <translation id="6403826409255603130">Ang Chromium ay isang web browser na nagpapatakbo ng mga webpage at application sa bilis ng kidlat. Ito ay mabilis, maaasahan, at madaling gamitin. Mas maingat na mag-browse sa web gamit ang proteksyon ng Chromium laban sa malware at phishing.</translation>
 <translation id="6414624068245092115">Para matiyak na magagamit at mase-save mo ang data ng Chromium sa iyong Google Account anumang oras, i-verify na ikaw ito</translation>
-<translation id="6417332166651156371">Isang pinasimpleng larawan na nagpapakita ng entry point ng Password Manager sa Chromium</translation>
 <translation id="642132557830635295">Mas mabilis na tatakbo ang Chromium at gagana ang mga feature na gumagamit ng JavaScript ayon sa pagkakadisenyo sa mga ito</translation>
 <translation id="6436260184216827876">Hindi available ang Paghahanap ng Larawan. Subukan ulit sa ibang pagkakataon.</translation>
 <translation id="6442900851116057561">I-restart ang ChromiumOS</translation>
@@ -754,6 +755,7 @@ Hindi mabawi ng Chromium ang iyong mga setting.</translation>
 <translation id="878572486461146056">Error sa pag-install: Nag-apply ang administrator ng network mo ng Group Policy na pumipigil sa pag-install: <ph name="INSTALL_ERROR" /></translation>
 <translation id="8796602469536043152">Kailangan ng Chromium ng pahintulot na i-access ang iyong camera at mikropono para sa site na ito</translation>
 <translation id="8813277370772331957">Ipaalala sa akin sa ibang pagkakataon</translation>
+<translation id="8816416449795340678">I-share ang dokumentong ito sa Gemini sa Chromium para makakuha ng mabilisang pangkalahatang-ideya at magtanong ng mga follow-up na tanong</translation>
 <translation id="8818550178040858407">Mag-sign In sa Chromium?</translation>
 <translation id="8823401858233292222">Gawing default browser ang Chromium at i-pin ito sa taskbar</translation>
 <translation id="8826492472752484139">I-click ang “Password Manager”</translation>

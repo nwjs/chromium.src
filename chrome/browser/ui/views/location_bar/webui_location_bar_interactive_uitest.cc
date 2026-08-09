@@ -733,6 +733,31 @@ IN_PROC_BROWSER_TEST_F(WebUILocationBarInteractiveUiTest, UnelideHome) {
       WaitTillOmniboxViewSelection("", gfx::Range(0)));
 }
 
+// Tests that if initial interaction just selected-all and didn't unelide
+// that moving the caret will unelide.
+IN_PROC_BROWSER_TEST_F(WebUILocationBarInteractiveUiTest, UnelideCaretMove) {
+  RunTestSequence(
+      InstrumentTab(kTabId), WaitForWebContentsReady(kTabId),
+      InstrumentNonTabWebView(kWebUIToolbarId, GetToolbarWebView()),
+      WaitTillOmniboxViewText("about:blank"),
+      WaitTillOmniboxViewSelection("about:blank", gfx::Range(11, 0)),
+      // Unfocus, since we want to test us focusing.
+      FocusWebContents(kTabId),
+      // Need a URL that will get trigger elision to test this
+      // (about:blank won't).
+      NavigateWebContents(kTabId, GURL("https://local.test")),
+      // Click to focus location bar.
+      MoveMouseTo(kOmniboxElementId), ClickMouse(), WaitTillOmniboxViewFocus(),
+      // Selected, but not unelided yet.
+      WaitTillOmniboxViewText("local.test"),
+      WaitTillOmniboxViewSelection("local.test", gfx::Range(10, 0)),
+      // Press left-arrow. This should trigger unelision (and put
+      // the caret after the scheme).
+      SendKeyPress(kWebUIToolbarId, ui::VKEY_LEFT),
+      WaitTillOmniboxViewText("https://local.test"),
+      WaitTillOmniboxViewSelection("", gfx::Range(8)));
+}
+
 // Test of Ctrl-K focus omnibox + activates default search shortcut.
 IN_PROC_BROWSER_TEST_F(WebUILocationBarInteractiveUiTest, FocusSearch) {
   ui::Accelerator accelerator;
@@ -824,6 +849,24 @@ IN_PROC_BROWSER_TEST_F(WebUILocationBarInteractiveUiTest, FocusLocation) {
       WaitTillOmniboxViewText("https://local.test"),
       WaitTillOmniboxViewSelection("https://local.test", gfx::Range(18, 0)),
       EnsureNotPresent(kWebUIToolbarId, kSearchKeywordText));
+}
+
+IN_PROC_BROWSER_TEST_F(WebUILocationBarInteractiveUiTest, TypeWithMouseDown) {
+  RunTestSequence(
+      InstrumentTab(kTabId), WaitForWebContentsReady(kTabId),
+      InstrumentNonTabWebView(kWebUIToolbarId, GetToolbarWebView()),
+      WaitTillOmniboxViewText("about:blank"),
+      WaitTillOmniboxViewSelection("about:blank", gfx::Range(11, 0)),
+      // Clear selection, since it would mask the issue, and transfer focus
+      // to page.
+      SendKeyPress(kWebUIToolbarId, ui::VKEY_LEFT),
+      WaitTillOmniboxViewSelection("", gfx::Range(0)), FocusWebContents(kTabId),
+      InAnyContext(MoveMouseTo(kOmniboxElementId)),
+      InSameContext(ClickMouse(ui_controls::LEFT, /*release=*/false)),
+      SendKeyPress(kWebUIToolbarId, ui::VKEY_W), WaitTillOmniboxViewText("w"),
+      InSameContext(ReleaseMouse()), SendKeyPress(kWebUIToolbarId, ui::VKEY_W),
+      // Should have two ww's, not one.
+      WaitTillOmniboxViewText("ww"));
 }
 
 // The double-click select tests are disabled on Mac since doing ClickMouse

@@ -458,6 +458,7 @@ static_library("ui") {
     "//cc/paint",
     "//chrome:resources",
     "//chrome:strings",
+    "//chrome/app:branded_strings",
     "//chrome/app:chrome_dll_resources",
     "//chrome/app:command_ids",
     "//chrome/app/resources:platform_locale_settings",
@@ -1559,24 +1560,10 @@ static_library("ui") {
       "webui/side_panel/customize_chrome/wallpaper_search/wallpaper_search_handler.h",
       "webui/side_panel/customize_chrome/wallpaper_search/wallpaper_search_string_map.cc",
       "webui/side_panel/customize_chrome/wallpaper_search/wallpaper_search_string_map.h",
-      "webui/side_panel/history/history_side_panel_ui.cc",
-      "webui/side_panel/history/history_side_panel_ui.h",
-      "webui/side_panel/history_clusters/history_clusters_side_panel_ui.cc",
-      "webui/side_panel/history_clusters/history_clusters_side_panel_ui.h",
-      "webui/side_panel/read_anything/chrome_os_extension_wrapper.cc",
-      "webui/side_panel/read_anything/chrome_os_extension_wrapper.h",
-      "webui/side_panel/read_anything/read_anything_untrusted_page_handler.cc",
-      "webui/side_panel/read_anything/read_anything_untrusted_page_handler.h",
-      "webui/side_panel/read_anything/read_anything_untrusted_ui.cc",
-      "webui/side_panel/read_anything/read_anything_untrusted_ui.h",
       "webui/side_panel/reading_list/reading_list_page_handler.cc",
       "webui/side_panel/reading_list/reading_list_page_handler.h",
       "webui/side_panel/reading_list/reading_list_ui.cc",
       "webui/side_panel/reading_list/reading_list_ui.h",
-      "webui/side_panel/tabs_from_other_devices/synced_screenshot_data_source.cc",
-      "webui/side_panel/tabs_from_other_devices/synced_screenshot_data_source.h",
-      "webui/side_panel/tabs_from_other_devices/tabs_from_other_devices_side_panel_ui.cc",
-      "webui/side_panel/tabs_from_other_devices/tabs_from_other_devices_side_panel_ui.h",
       "webui/theme_colors_source_manager.cc",
       "webui/theme_colors_source_manager.h",
       "webui/theme_colors_source_manager_factory.cc",
@@ -1726,6 +1713,8 @@ static_library("ui") {
       "//chrome/browser/ui/webui/personal_context:mojo_bindings",
       "//chrome/browser/ui/webui/search_engine_choice:mojo_bindings",
       "//chrome/browser/ui/webui/side_panel/comments:mojo_bindings",
+      "//chrome/browser/ui/webui/side_panel/history:impl",
+      "//chrome/browser/ui/webui/side_panel/history_clusters:impl",
       "//chrome/browser/ui/webui/side_panel/reading_list:mojo_bindings",
       "//chrome/browser/ui/webui/suggest_internals:mojo_bindings",
       "//chrome/browser/ui/webui/support_tool",
@@ -1870,6 +1859,7 @@ static_library("ui") {
       "//chrome/browser/ui/webui/profile_internals",
       "//chrome/browser/ui/webui/settings",
       "//chrome/browser/ui/webui/settings:impl",
+      "//chrome/browser/ui/webui/side_panel/tabs_from_other_devices:impl",
       "//chrome/browser/ui/webui/signin",
       "//chrome/browser/ui/webui/signin:login_ui_service",
       "//chrome/browser/ui/webui/signin:login_ui_service_impl",
@@ -2014,11 +2004,16 @@ static_library("ui") {
       "//chrome/browser/ui/webui/on_device_internals",
       "//chrome/browser/ui/webui/password_manager:password_manager_ui",
       "//chrome/browser/ui/webui/search_engine_choice",
+      "//chrome/browser/ui/webui/side_panel/history",
+      "//chrome/browser/ui/webui/side_panel/history_clusters",
+      "//chrome/browser/ui/webui/side_panel/read_anything",
+      "//chrome/browser/ui/webui/side_panel/tabs_from_other_devices",
       "//chrome/browser/ui/webui/suggest_internals",
       "//chrome/browser/ui/webui/util",
       "//chrome/browser/ui/webui/webnn_internals",
       "//components/page_image_service/mojom:mojo_bindings",
     ]
+
     if (use_aura) {
       public_deps += [ "//chrome/browser/ui:overscroll_pref_manager" ]
     }
@@ -3364,12 +3359,15 @@ static_library("ui") {
 
     if (enable_dice_support) {
       sources += [
+        "signin/cross_device_signin_qr_bubble.h",
+        "views/profiles/cross_device_signin_qr_bubble_views.cc",
         "views/profiles/dice_web_signin_interception_bubble_view.cc",
         "views/profiles/dice_web_signin_interception_bubble_view.h",
         "views/profiles/feature_showcase/default_browser_step_eligibility_checker.cc",
         "views/profiles/feature_showcase/default_browser_step_eligibility_checker.h",
         "views/profiles/feature_showcase/feature_showcase_eligibility_tracker.cc",
         "views/profiles/feature_showcase/feature_showcase_eligibility_tracker.h",
+        "views/profiles/feature_showcase/feature_showcase_step_eligibility_checker.cc",
         "views/profiles/feature_showcase/feature_showcase_step_eligibility_checker.h",
         "views/profiles/feature_showcase/google_lens_step_eligibility_checker.cc",
         "views/profiles/feature_showcase/google_lens_step_eligibility_checker.h",
@@ -3390,6 +3388,7 @@ static_library("ui") {
       ]
 
       deps += [
+        ":feature_showcase_metrics",
         "webui/signin/batch_upload:mojo_bindings",
         "//chrome/browser/ui/webui/feature_showcase",
         "//chrome/browser/ui/webui/signin:batch_upload",
@@ -3898,6 +3897,8 @@ static_library("ui") {
       "views/dictation/dictation_bubble_ui.h",
       "views/dictation/onboarding_dialog_controller.cc",
       "views/dictation/onboarding_dialog_controller.h",
+      "views/dictation/waveform_view.cc",
+      "views/dictation/waveform_view.h",
       "views/dotted_icon.cc",
       "views/dotted_icon.h",
       "views/elevation_icon_setter.cc",
@@ -4755,6 +4756,8 @@ static_library("ui") {
 
     deps += [
       "//base",
+      "//build:branding_buildflags",
+      "//chrome/app:generated_resources",
       "//chrome/browser:main_extra_parts",
       "//chrome/browser:resources",
       "//chrome/browser/accessibility",
@@ -5752,10 +5755,15 @@ if (!is_android) {
       "browser_tab_strip_model_delegate.h",
       "browser_tab_strip_tracker.h",
       "browser_tab_strip_tracker_delegate.h",
+      "unload_controller.h",
     ]
     public_deps = [
       "//base",
+      "//chrome/browser/tab_contents",
+      "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/tabs:tab_strip",
+      "//chrome/browser/ui/tabs:tabs_public",
+      "//ui/base/unowned_user_data",
     ]
   }
 
@@ -5912,5 +5920,16 @@ if (use_aura) {
       "//components/prefs",
       "//content/public/browser",
     ]
+  }
+}
+
+if (enable_dice_support) {
+  source_set("feature_showcase_metrics") {
+    sources = [
+      "views/profiles/feature_showcase/feature_showcase_constants.h",
+      "views/profiles/feature_showcase/feature_showcase_metrics.cc",
+      "views/profiles/feature_showcase/feature_showcase_metrics.h",
+    ]
+    deps = [ "//base" ]
   }
 }

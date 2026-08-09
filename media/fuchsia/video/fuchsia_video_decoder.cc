@@ -128,7 +128,9 @@ class FuchsiaVideoDecoder::OutputMailbox {
         weak_factory_(this) {
     gpu::SharedImageUsageSet usage = gpu::SHARED_IMAGE_USAGE_DISPLAY_READ |
                                      gpu::SHARED_IMAGE_USAGE_SCANOUT |
-                                     gpu::SHARED_IMAGE_USAGE_VIDEO_DECODE;
+                                     gpu::SHARED_IMAGE_USAGE_VIDEO_DECODE |
+                                     gpu::SHARED_IMAGE_USAGE_RASTER_READ |
+                                     gpu::SHARED_IMAGE_USAGE_GLES2_READ;
 
     // Note that the shared image prefers external sampler.
     format.SetPrefersExternalSampler();

@@ -108,8 +108,10 @@ class ContextualTasksComposeboxHandler
       const std::optional<contextual_search::ContextUploadErrorType>&
           error_type) override;
 
-  void CreateAndSendQueryMessage(const std::string& query,
-                                 bool is_voice_search);
+  void CreateAndSendQueryMessage(
+      const std::string& query,
+      bool is_voice_search,
+      const std::map<std::string, std::string>& additional_cgi_params = {});
 
   void ResetInputStateModel() override;
   void UpdateStateFromUrl(const GURL& url) override;
@@ -139,9 +141,10 @@ class ContextualTasksComposeboxHandler
   void OnTabProcessedForQueryContextualization(
       contextual_tasks::QueryContextualizer::TabId id);
 
-  OmniboxController* GetOmniboxControllerForTesting() const {
-    return omnibox_controller();
+  AutocompleteController* GetAutocompleteControllerForTesting() const {
+    return autocomplete_controller();
   }
+  OmniboxClient* GetOmniboxClientForTesting() const { return client(); }
   // ui::SelectFileDialog::Listener:
   void FileSelected(const ui::SelectedFileInfo& file, int index) override;
   void MultiFilesSelected(
@@ -182,7 +185,12 @@ class ContextualTasksComposeboxHandler
       std::string query,
       std::optional<base::Uuid> original_task_id,
       std::optional<base::UnguessableToken> overlay_token,
-      bool is_voice_search);
+      bool is_voice_search,
+      const std::map<std::string, std::string>& additional_cgi_params = {});
+
+  // Called when side panel navigation is complete to trigger Lens overlay if
+  // it was configured to auto-trigger on navigation.
+  void MaybeTriggerLens();
 
 #if !BUILDFLAG(IS_ANDROID)
   void OnVisualSelectionAdded(

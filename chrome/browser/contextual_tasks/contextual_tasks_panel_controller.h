@@ -46,10 +46,10 @@ class ContextualTasksPanelController {
   // Visibility commands.
   // Show the panel. If |transition_from_tab| is true, trigger the panel content
   // to animate from the active tab content's bounds.
-  virtual void Show(
-      bool transition_from_tab = false,
-      omnibox::ChromeAimEntryPoint entry_point =
-          omnibox::ChromeAimEntryPoint::UNKNOWN_AIM_ENTRY_POINT) = 0;
+  virtual void Show(bool transition_from_tab = false,
+                    omnibox::ChromeAimEntryPoint entry_point =
+                        omnibox::ChromeAimEntryPoint::UNKNOWN_AIM_ENTRY_POINT,
+                    bool use_no_animation = false) = 0;
   // Close the panel.
   virtual void Close() = 0;
 
@@ -60,6 +60,18 @@ class ContextualTasksPanelController {
   // Check if the panel is currently opening for ContextualTask as another
   // feature might also show panel.
   virtual bool IsPanelOpenForContextualTask() const = 0;
+
+  // LINT.IfChange(ContextualTasksSidePanelEntrySource)
+  enum class EntrySource {
+    kOther = 0,
+    kLensOverlay = 1,
+    kAiModeLinkClick = 2,
+    kMaxValue = kAiModeLinkClick,
+  };
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/contextual_tasks/enums.xml:ContextualTasksSidePanelEntrySource)
+
+  // Returns the entry source of the currently active panel.
+  virtual EntrySource GetActiveEntrySource() const = 0;
 
   // Context management.
   // Returns the tab handle of the auto suggested tab if the auto suggested tab

@@ -57,6 +57,10 @@
 
 namespace {
 constexpr int kSnapDistance = 15;
+
+constexpr float kSplitViewContentCornerRadius = 6;
+constexpr gfx::RoundedCornersF kSplitViewContentRoundedCorners{
+    kSplitViewContentCornerRadius};
 }
 
 void MultiContentsView::ContentsSeparators::Reset() {
@@ -214,13 +218,10 @@ void MultiContentsView::SetBackgroundRadii(const gfx::RoundedCornersF& radii) {
   }
 
   background_view_->SetRoundedCorners(radii);
-  if (IsInSplitView()) {
-    for (auto* contents : contents_container_views_) {
-      contents->SetDefaultRoundedCorners(gfx::RoundedCornersF());
-    }
-  } else {
-    GetActiveContentsContainerView()->SetDefaultRoundedCorners(radii);
-    GetInactiveContentsContainerView()->SetDefaultRoundedCorners(
+
+  if (!IsInSplitView()) {
+    GetActiveContentsContainerView()->SetRoundedCorners(radii);
+    GetInactiveContentsContainerView()->SetRoundedCorners(
         gfx::RoundedCornersF());
   }
 }
@@ -774,12 +775,16 @@ int MultiContentsView::GetMinViewSize(gfx::Rect available_space) const {
 }
 
 void MultiContentsView::UpdateContentsBorderAndOverlay() {
+  const bool is_in_split = IsInSplitView();
   for (auto* contents_container_view : contents_container_views_) {
     const bool is_active =
         contents_container_view->contents_view() == GetActiveContentsView();
+    contents_container_view->SetRoundedCorners(
+        is_in_split
+            ? kSplitViewContentRoundedCorners
+            : (is_active ? GetBackgroundRadii() : gfx::RoundedCornersF()));
     contents_container_view->UpdateBorderAndOverlay(
-        IsInSplitView(), is_active,
-        is_active && active_contents_view_highlighted_);
+        is_in_split, is_active, is_active && active_contents_view_highlighted_);
   }
 }
 

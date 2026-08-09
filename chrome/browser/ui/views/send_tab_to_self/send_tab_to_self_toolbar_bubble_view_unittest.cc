@@ -120,7 +120,6 @@ class SendTabToSelfToolbarBubbleViewScrollPositionDisabledTest
 };
 
 TEST_F(SendTabToSelfToolbarBubbleViewTest, ButtonNavigatesToPage) {
-  base::HistogramTester histogram_tester;
   GURL url("https://www.example.com");
   SendTabToSelfEntry entry("guid", url, "Example", base::Time::Now(),
                            "Example Device", "sync_guid", PageContext(),
@@ -138,9 +137,11 @@ TEST_F(SendTabToSelfToolbarBubbleViewTest, ButtonNavigatesToPage) {
   ASSERT_EQ(1, tab_strip->count());
   EXPECT_EQ(url, tab_strip->GetActiveWebContents()->GetVisibleURL());
 
-  histogram_tester.ExpectUniqueSample(
-      "Sharing.SendTabToSelf.ActivatedEntryPoint",
-      ShareActivatedEntryPoint::kDesktopToolbarBubble, 1);
+  // Verify that the model was called with the correct GUID and entry point.
+  EXPECT_EQ(test_model()->last_activated_guid(), "guid");
+  EXPECT_EQ(test_model()->last_activated_entry_point(),
+            ShareActivatedEntryPoint::kDesktopToolbarBubble);
+  EXPECT_EQ(test_model()->activated_call_count(), 1);
 }
 
 TEST_F(SendTabToSelfToolbarBubbleViewTest, ButtonNavigatesWithScrollPosition) {

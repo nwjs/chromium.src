@@ -4,6 +4,7 @@
 <translation id="1004825134262590729">{count,plural, =1{مفتاح مرور واحد ({count})}zero{‫{count} مفتاح مرور}two{مفتاحا مرور ({count})}few{‫{count} مفاتيح مرور}many{‫{count} مفتاح مرور}other{‫{count} مفتاح مرور}}</translation>
 <translation id="1005023885865154304">فتح إعدادات "الملء التلقائي لكلمات المرور"</translation>
 <translation id="1005230401424685968">السنة</translation>
+<translation id="1013852467930342108">‏‫Live هي ميزة جديدة يقدمّها "Gemini في Chrome"</translation>
 <translation id="1013952917065545813">يمكنك الرجوع إلى هذه الصفحة لإعادة فتح علامات التبويب التي أغلقتها مؤخرًا.</translation>
 <translation id="1016495303386450659">تم تحديث العنصر</translation>
 <translation id="1018804590490383958">المسح ضوئيًا وملء البيانات تلقائيًا</translation>
@@ -12,7 +13,7 @@
 <translation id="1030376737535466765">فتح "مدير كلمات المرور"</translation>
 <translation id="1035980983510608210">سيؤدي إغلاق جميع علامات التبويب إلى إغلاق علامات التبويب المثبّتة أيضًا.</translation>
 <translation id="1036348656032585052">إيقاف</translation>
-<translation id="1036436692654972538">يتم الحفظ على جهازك</translation>
+<translation id="1036436692654972538">يتم حفظها على جهازك</translation>
 <translation id="1041322626941363065">التحذير في حال الكشف عن كلمات المرور عند حدوث اختراق بيانات</translation>
 <translation id="1046742265332833834">مظهر باللون الأزرق</translation>
 <translation id="1049743911850919806">التصفح المتخفي</translation>
@@ -57,6 +58,7 @@
 <translation id="1179890706672152411">مساحة التخزين ممتلئة</translation>
 <translation id="1181037720776840403">إزالة</translation>
 <translation id="1190609913194133056">مركز الإشعارات</translation>
+<translation id="1196534270480620381">أريد ملخّصًا موجزًا لهذه الصفحة</translation>
 <translation id="1199631150313925648">إدخال البيانات يدويًا</translation>
 <translation id="1199963004393929848">مظهر باللون الأخضر</translation>
 <translation id="1201402288615127009">التالي</translation>
@@ -170,6 +172,7 @@
 <translation id="1539535193627863227">لم يتم العثور على كلمات مرور أو مفاتيح مرور لهذا الموقع الإلكتروني</translation>
 <translation id="1540800554400757039">العنوان 1</translation>
 <translation id="154312949627292154">يمكنك فتح علامات التبويب المُستلمَة من أجهزتك الأخرى من خلال شاشة القفل.</translation>
+<translation id="1544653821167545205">تلخيص الصفحة</translation>
 <translation id="1545749641540134597">فحص رمز الاستجابة السريعة</translation>
 <translation id="1545757265410828525">سجلّ الأسعار</translation>
 <translation id="1547610699249301703">ميزة مشاركة كلمات المرور</translation>
@@ -242,6 +245,7 @@
 <translation id="1752547299766512813">حفظ كلمات المرور</translation>
 <translation id="1764070164487214210">الاتجاهات</translation>
 <translation id="1764511703783285459">لم يشارك مدير كلمات المرور الآخر أي كلمات أو مفاتيح مرور</translation>
+<translation id="1765555082983153259">‏يطلب Chrome الوصول إلى الميكروفون</translation>
 <translation id="1767766085187034454">‏ترجمة Google</translation>
 <translation id="1771016937398045251">‏قائمة "الأدوات" (Tools)</translation>
 <translation id="1772468122139624049">تتعذّر إعادة تحميل علامات التبويب</translation>
@@ -277,6 +281,7 @@
 <translation id="1869050523388525800">‏لا تتوفّر ميزة "البحث على الشاشة" إلا إذا تم ضبط Google كمحرك البحث التلقائي. يمكنك تغيير محرك البحث التلقائي في <ph name="BEGIN_LINK" />الإعدادات<ph name="END_LINK" />.</translation>
 <translation id="1872096359983322073">الكشاف</translation>
 <translation id="1875733418125333939"><ph name="FILENAME" />.</translation>
+<translation id="1876230899304059090">‏كيف يمكن لـ Gemini مساعدتي في Chrome؟</translation>
 <translation id="1881621406744213161">دعوة أفراد العائلة</translation>
 <translation id="188177382966899059">Deep Search</translation>
 <translation id="188237709236611317">الترتيب الذكي لشريط القوائم</translation>
@@ -451,6 +456,7 @@
 <translation id="2466518891828668184">يمكنك حفظ كلمات المرور لتسجيل الدخول بسهولة إلى المواقع الإلكترونية والتطبيقات.</translation>
 <translation id="2468132863574325555">Drive</translation>
 <translation id="2468444275314013497">متصفّحك يبدو آمنًا</translation>
+<translation id="2470654816840674524">‏كيف يمكنني الاستفادة من "Gemini في Chrome"؟</translation>
 <translation id="2473876017985765807">سبق أن حفظت كلمة مرور للموقع الإلكتروني <ph name="WEBSITE" />.</translation>
 <translation id="247430852844518481">يمكنك ضبط تذكير للرجوع إلى هذه الصفحة لاحقًا</translation>
 <translation id="2479148705183875116">الانتقال إلى الإعدادات</translation>
@@ -483,6 +489,7 @@
 <translation id="2579713773888829241">مساحات التخزين السحابي المشتركة</translation>
 <translation id="2580306219079937316">‏فتح إعدادات "ترجمة Google"</translation>
 <translation id="2583688836549072561">مجموعة علامات تبويب تحمل الاسم "<ph name="GROUP_TITLE" />" وتضم علامات تبويب يبلغ عددها <ph name="TABS_NUMBER" />، وبها نشاط جديد.</translation>
+<translation id="2584994295315085351">‏فتح علامة تبويب جديدة عند العودة إلى Chrome بعد 4 ساعات</translation>
 <translation id="2593272815202181319">أحادي المسافة</translation>
 <translation id="2601778637777010194">تتيح لك تتبُّع انخفاض أسعار المنتجات</translation>
 <translation id="2602372807870028932">يؤدي هذا الإجراء إلى حذف المعلومات المحدّدة المحفوظة على هذا الجهاز</translation>
@@ -495,6 +502,7 @@
 <translation id="2623536180761008356">إخفاء ميزة "التحقّق من الأمان"</translation>
 <translation id="2625189173221582860">تم نسخ كلمة المرور</translation>
 <translation id="2626236249646841566">تحقّق من اتصالك بالإنترنت وحاوِل تسجيل الدخول مرة أخرى.</translation>
+<translation id="2629543259235506452">أريد إنشاء قائمة قصيرة من الأسئلة الشائعة حول هذا الموضوع باستخدام معلومات من هذه الصفحة ومواقع إلكترونية مشابهة</translation>
 <translation id="2635918910848538771">‏الملء التلقائي لرمز التحقُّق من البطاقة (CVC)</translation>
 <translation id="2640733327287333451">بلا اسم مستخدم ••••••</translation>
 <translation id="264215785133931186">تم إجراء عملية التحقُّق للتوّ</translation>
@@ -803,6 +811,7 @@
 <translation id="3753618528540214374">مظهر باللون الأخضر الزبرجدي</translation>
 <translation id="3759491607478608474">‏يمكنك مشاركة محتوى علامة التبويب الحالية مع Gemini لتلقّي ردود أكثر صلة بطلبك</translation>
 <translation id="3762232513783804601">‏المتصفِّح مصمَّم خصيصًا لأجهزة iPad</translation>
+<translation id="3767529805486761639">‏تعديل القائمة (Edit Menu)</translation>
 <translation id="3768725474733206671">إعادة فتح آخر علامة تبويب تم إغلاقها</translation>
 <translation id="3779810277399252432">لا يتوفر اتصال بالإنترنت.</translation>
 <translation id="3782614601387961027">إغلاق رسالة التحذير</translation>
@@ -887,7 +896,6 @@
 <translation id="4021447724486050609">تحديث المتصفِّح</translation>
 <translation id="4021931095789478915">‏إضافة ${url} إلى "قائمة القراءة"</translation>
 <translation id="4028871427853484857">الحفظ في الحساب…</translation>
-<translation id="4036529942385659684">عرض صفحة البدء بعد فترة من عدم النشاط</translation>
 <translation id="4038354071007134711">لا يمكن فتح هذا الملف بأي تطبيق موجود على هذا الجهاز.</translation>
 <translation id="4042870976416480368">البحث في الصفحة</translation>
 <translation id="4045441967987592849">إعادة فتح</translation>
@@ -1144,6 +1152,7 @@
 <translation id="4881695831933465202">فتح</translation>
 <translation id="4883766694719903356">شبكة علامات التبويب في وضع التصفّح المتخفي</translation>
 <translation id="4884937942297374058">"الحماية المحسَّنة" غير مفعَّلة</translation>
+<translation id="4887391901725877182">الترجمة والشرح</translation>
 <translation id="488785315393301722">عرض التفاصيل</translation>
 <translation id="4889521386764567563">الملف الشخصي الحالي</translation>
 <translation id="4893713555726946316">إخفاء ميزة "البحث في الصفحة"</translation>
@@ -1237,6 +1246,7 @@
 <translation id="518997337573684769">جارٍ إرسال تقارير الأعطال…</translation>
 <translation id="519528950056409240">‏السماح لـ "محفظة Google" بمشاركة البيانات</translation>
 <translation id="519530786644929958">تعذّر تنزيل الملف ولا يمكن إعادة المحاولة.</translation>
+<translation id="519620255540220054">تخصيص الصفحة الرئيسية</translation>
 <translation id="5197255632782567636">الإنترنت</translation>
 <translation id="5200894869889836319">خيارات ضبط الأذونات</translation>
 <translation id="5203051773066903947">إدخال</translation>
@@ -1416,6 +1426,7 @@
 <translation id="5779117921996157216">{count,plural, =1{لديك كلمة مرور واحدة ({count}) محتمَل تعرُّضها للاختراق، وقد تسبِّب مشاكل أمنية. عليك تغييرها الآن للحفاظ على أمانك.}zero{لديك {count} كلمة مرور محتمَل تعرُّضها للاختراق، وقد تسبِّب مشاكل أمنية. عليك تغييرها الآن للحفاظ على أمانك.}two{لديك كلمتا مرور ({count}) محتمَل تعرُّضهما للاختراق، وقد تسبِّبان مشاكل أمنية. عليك تغييرهما الآن للحفاظ على أمانك.}few{لديك {count} كلمات مرور محتمَل تعرُّضها للاختراق، وقد تسبِّب مشاكل أمنية. عليك تغييرها الآن للحفاظ على أمانك.}many{لديك {count} كلمة مرور محتمَل تعرُّضها للاختراق، وقد تسبِّب مشاكل أمنية. عليك تغييرها الآن للحفاظ على أمانك.}other{لديك {count} كلمة مرور محتمَل تعرُّضها للاختراق، وقد تسبِّب مشاكل أمنية. عليك تغييرها الآن للحفاظ على أمانك.}}</translation>
 <translation id="5791632441210678828">زر الترتيب لخلاصة المتابعة</translation>
 <translation id="5799263916847593256">يمكنك فتح الصفحة للاطّلاع على سجلّ الأسعار</translation>
+<translation id="5801568494490449797">الإعدادات المفضّلة</translation>
 <translation id="5803566855766646066">هل تريد فعلاً تجاهل هذه البطاقة الجديدة؟</translation>
 <translation id="5804241973901381774">الأذونات</translation>
 <translation id="58081802114142635">‏سجلّ نشاطك يساعد في تحسين ذكاء Google الاصطناعي</translation>
@@ -1566,6 +1577,7 @@
 <translation id="628251768213143684">‏يمكنك في أي وقت إدارة البيانات التي يتم حفظها في حسابك على Google.</translation>
 <translation id="6284652193729350524">اقتراح ترجمة <ph name="LANGUAGE" /></translation>
 <translation id="6293101329759844770">‏لتفعيل "التصفّح الآمن"، افتح <ph name="BEGIN_LINK" />خدمات Google<ph name="END_LINK" /> وانقر على "التصفّح الآمن".</translation>
+<translation id="6295140892595702619">‏يتيح لك هذا الإعداد استخدام الميكروفون للتحدّث إلى Gemini، مع العلم أنّه سيتم تخزين الصوت في "نشاطك على تطبيقات Gemini" (إذا كان مفعّلاً). ولن تُستخدَم بياناتك لتحسين نماذج الذكاء الاصطناعي التوليدي</translation>
 <translation id="6295751040240588413">لقب البطاقة غير صالح</translation>
 <translation id="629730747756840877">الحساب</translation>
 <translation id="6301104306974789820">الحصول على الإشعارات الخاصة بتتبُّع أسعار المنتجات</translation>
@@ -1648,6 +1660,7 @@
 <translation id="6523575793810663688">الاطّلاع على الإرشادات</translation>
 <translation id="6524082013156754186">الحفظ في الحساب</translation>
 <translation id="6524918542306337007">"وضع التصفُّح المتخفي" غير متاح</translation>
+<translation id="6525550806864373485">‏تعديل القائمة (Edit Menu)</translation>
 <translation id="6527208859483186860">‏الخلفية {position} من {total}</translation>
 <translation id="6527303717912515753">مشاركة</translation>
 <translation id="6532106788206463496">حفظ التغييرات</translation>
@@ -1733,6 +1746,7 @@
 <translation id="6761393919622941301">الملفات الصوتية</translation>
 <translation id="6765551480308401897">عدم الضبط كخيار تلقائي</translation>
 <translation id="6770452996697898492">[محجوز]</translation>
+<translation id="6775952316617222141">‏بدء محادثة "Live مع Gemini" في Chrome</translation>
 <translation id="6779455296366983087">سيتم حذف بيانات التصفُّح</translation>
 <translation id="6782531425936234573">تصدير البيانات</translation>
 <translation id="6791425686608802741">النقر على "إضافة علامة تبويب إلى المجموعة الجديدة"</translation>
@@ -1872,7 +1886,7 @@
 <translation id="7280980607183752256">يتعذّر استيراد هذا الملف</translation>
 <translation id="7282197670900591579">مظهر باللون الليموني</translation>
 <translation id="7293429513719260019">اختيار لغة</translation>
-<translation id="7300448350764260141">يمكنك إضافة طبقة حماية إضافية من التهديدات على الإنترنت.</translation>
+<translation id="7300448350764260141">يمكنك إضافة طبقة حماية إضافية من التهديدات الإلكترونية.</translation>
 <translation id="7311244614769792472">لم يتم العثور على نتائج.</translation>
 <translation id="7312823817809783355">مهامك</translation>
 <translation id="7313347584264171202">ستظهر لك علامات تبويب في وضع التصفّح المتخفي هنا</translation>
@@ -2098,6 +2112,7 @@
 <translation id="8023878949384262191">توسيع القسم.</translation>
 <translation id="8027581147000338959">الفتح في نافذة جديدة</translation>
 <translation id="8029092694585014252">ضبط تذكير</translation>
+<translation id="8029349782735515147">‏يتيح هذا الإعداد عرض الترجمة والشرح عند استخدام Gemini Live</translation>
 <translation id="8032569120109842252">المواقع التي تتابعها</translation>
 <translation id="8035133914807600019">مجلد جديد...</translation>
 <translation id="8035412398498507358">‏صور Google</translation>
@@ -2339,6 +2354,7 @@
 <translation id="8766790350274092814">سيتم حذف كلمات المرور المحفوظة في <ph name="WEBSITE" /> و<ph name="SECOND_WEBSITE" />. لن يتم حذف حساباتك.</translation>
 <translation id="8775144690796719618">‏عنوان URL غير صالح</translation>
 <translation id="8781834595282316166">علامة تبويب جديدة في مجموعة</translation>
+<translation id="8783445328207519872">إنشاء أسئلة شائعة حول هذا الموضوع</translation>
 <translation id="8784653774976848206">اختيار الملفات</translation>
 <translation id="8786100550345425552">تعديل الأذونات</translation>
 <translation id="878871978861915380">إخفاء ميزة "تتبُّع الأسعار"</translation>
@@ -2351,7 +2367,7 @@
 <translation id="8814719628147284151">متابعة</translation>
 <translation id="881559332211266856">تعديل رقم التعويض</translation>
 <translation id="8817524703470045896">يمكنك تتبُّع الأسعار والحصول على تنبيهات عند انخفاضها على أي موقع إلكتروني</translation>
-<translation id="8819155700324279105">يمكنك إضافة طبقة حماية إضافية من التهديدات على الإنترنت.</translation>
+<translation id="8819155700324279105">يمكنك إضافة طبقة حماية إضافية من التهديدات الإلكترونية.</translation>
 <translation id="8820817407110198400">الإشارات المرجعية</translation>
 <translation id="8822421075653507124">للتأكُّد من إمكانية استخدام هذا الجهاز بأمان، قد تحتاج مؤسستك إلى الاطّلاع على معلومات حول نظام التشغيل والمتصفّح والإعدادات والبرامج المثبَّتة على الجهاز.</translation>
 <translation id="882557203579758546">البحث في الصفحة…</translation>
@@ -2451,6 +2467,7 @@
 <translation id="9149866541089851383">تعديل...</translation>
 <translation id="9152637745605628097">يمكنك الاختيار من بين المظاهر والألوان المتوفّرة أو تحميل صورة</translation>
 <translation id="9159628751968616911">إرسال صفحة الويب</translation>
+<translation id="9162412286847966593">‏لن يتم استخدام بيانات مؤسستك وتسجيلاتها لتحسين نماذج الذكاء الاصطناعي التوليدي. <ph name="BEGIN_LINK" />خصوصيتك وGemini<ph name="END_LINK" /></translation>
 <translation id="9162432979321511934">‏فعِّل AutoFill Passwords (الملء التلقائي لكلمات المرور).</translation>
 <translation id="9165320910061267720">‏لتلقِّي تنبيهات بشأن انخفاض الأسعار، عليك تفعيل الإشعارات من إعدادات iOS.</translation>
 <translation id="9179151630575358778">يؤدي هذا الإجراء إلى إخفاء هذا العنصر</translation>

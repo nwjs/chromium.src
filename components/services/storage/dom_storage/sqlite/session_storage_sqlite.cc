@@ -4,6 +4,7 @@
 
 #include "components/services/storage/dom_storage/sqlite/session_storage_sqlite.h"
 
+#include "base/metrics/histogram_functions.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/trace_event/memory_dump_manager.h"
@@ -67,6 +68,9 @@ StatusOr<DomStorageDatabase::MapMetadata> ParseMapMetadata(
 SessionStorageSqlite::SessionStorageSqlite(PassKey) {}
 
 SessionStorageSqlite::~SessionStorageSqlite() {
+  if (database_) {
+    database_->reset_error_callback();
+  }
   base::trace_event::MemoryDumpManager::GetInstance()->UnregisterDumpProvider(
       this);
   if (destruction_callback_for_testing_) {
@@ -84,13 +88,15 @@ DbStatus SessionStorageSqlite::Open(
 
   memory_dump_id_ = memory_dump_id;
 
-  ASSIGN_OR_RETURN(
-      std::tie(database_, meta_table_),
-      sqlite::OpenDatabase(database_path,
-                           database_path.empty() ? kSessionStorageTag
-                                                 : kSessionStorageTagInMemory,
-                           kCurrentSchemaVersion, kCompatibleSchemaVersion,
-                           base::BindOnce(&CreateSchema)));
+  ASSIGN_OR_RETURN(std::tie(database_, meta_table_),
+                   sqlite::OpenDatabase(
+                       database_path,
+                       database_path.empty() ? kSessionStorageTag
+                                             : kSessionStorageTagInMemory,
+                       kCurrentSchemaVersion, kCompatibleSchemaVersion,
+                       base::BindOnce(&CreateSchema),
+                       base::BindRepeating(&SessionStorageSqlite::OnSqlError,
+                                           base::Unretained(this))));
 
   map_entries_table_ = std::make_unique<MapEntriesTable>(*database_);
 
@@ -356,6 +362,10 @@ bool SessionStorageSqlite::OnMemoryDump(
       base::StringPrintf("site_storage/sessionstorage/sqlite/db_0x%" PRIXPTR,
                          reinterpret_cast<uintptr_t>(this)));
   return true;
+}
+
+void SessionStorageSqlite::OnSqlError(int error, sql::Statement* statement) {
+  base::UmaHistogramSparse("Storage.SessionStorage.Database.Error", error);
 }
 
 }  // namespace storage

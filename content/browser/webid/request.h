@@ -179,9 +179,7 @@ class CONTENT_EXPORT Request
   GetApiPermissionStatus();
 
   // For use by the devtools protocol for browser automation.
-  IdentityRequestDialogController* GetDialogController() {
-    return request_dialog_controller_.get();
-  }
+  IdentityRequestDialogController* GetDialogController();
 
   const std::vector<IdentityProviderDataPtr>& GetSortedIdpData() const {
     return idp_data_for_display_;
@@ -442,7 +440,6 @@ class CONTENT_EXPORT Request
       bool is_auto_selected);
 
   std::unique_ptr<IdpNetworkRequestManager> CreateNetworkManager();
-  std::unique_ptr<IdentityRequestDialogController> CreateDialogController();
 
   // Creates an inspector issue related to a federated authentication request to
   // the Issues panel in DevTools.
@@ -505,7 +502,6 @@ class CONTENT_EXPORT Request
   RelyingPartyData CreateRpData(bool client_metadata_received) const;
 
   std::unique_ptr<IdpNetworkRequestManager> network_manager_;
-  std::unique_ptr<IdentityRequestDialogController> request_dialog_controller_;
 
   // Helper that records FedCM UMA and UKM metrics. Initialized in the
   // RequestToken() method, so all metrics must be recorded after that.
@@ -667,6 +663,10 @@ class CONTENT_EXPORT Request
   // Whether we are currently in the `RedirectTo` flow. This is used to ignore
   // dismissals triggered by tab closure on Android during the navigation.
   bool in_redirect_to_{false};
+
+  bool did_show_ui_{false};
+
+  bool is_mojo_{true};
 
   mojo::ReceiverSet<blink::mojom::FederatedAuthRequest> auth_request_receivers_;
   mojo::ReceiverSet<blink::mojom::FederatedRequest> receivers_;

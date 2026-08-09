@@ -1292,39 +1292,24 @@ TEST_F(TabTest, SingleElementCentering) {
     EXPECT_EQ(tab->width() / 2,
               GetCloseButton(tab)->bounds().CenterPoint().x());
   }
-}
 
-#if BUILDFLAG(IS_MAC)
-class TestContextMenuController : public views::ContextMenuController {
- public:
-  TestContextMenuController() = default;
-  ~TestContextMenuController() override = default;
-
-  void ShowContextMenuForViewImpl(
-      views::View* source,
-      const gfx::Point& point,
-      ui::mojom::MenuSourceType source_type) override {
-    opened_ = true;
+  {
+    SCOPED_TRACE("Title only (no icons or close button)");
+    tabs::TabData data;
+    data.should_display_favicon = false;
+    data.alert_state = std::nullopt;
+    tab->SetDataForTesting(data);
+    StopFadeAnimationIfNecessary(*tab);
+    controller->set_active_tab(nullptr);
+    tab->ActiveStateChanged();
+    tab->OnMouseExited(ui::MouseEvent(ui::EventType::kMouseMoved, gfx::Point(),
+                                      gfx::Point(), base::TimeTicks(), 0, 0));
+    tab->SetBounds(0, 0, 60, 50);
+    LayoutTab(tab);
+    EXPECT_FALSE(tab->IsActive());
+    EXPECT_FALSE(tab->showing_icon());
+    EXPECT_FALSE(tab->showing_alert_indicator());
+    EXPECT_FALSE(tab->showing_close_button());
+    EXPECT_TRUE(GetTabTitle(tab)->GetVisible());
   }
-
-  bool opened() const { return opened_; }
-
- private:
-  bool opened_ = false;
-};
-
-TEST_F(TabTest, ContextMenuFromControlReturnMac) {
-  auto controller = std::make_unique<FakeTabSlotController>();
-  std::unique_ptr<views::Widget> widget =
-      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
-  Tab* tab = widget->SetContentsView(
-      std::make_unique<Tab>(tabs::TabHandle(1), controller.get()));
-
-  TestContextMenuController menu_controller;
-  tab->set_context_menu_controller(&menu_controller);
-
-  EXPECT_TRUE(tab->OnKeyPressed(ui::KeyEvent(
-      ui::EventType::kKeyPressed, ui::VKEY_RETURN, ui::EF_CONTROL_DOWN)));
-  EXPECT_TRUE(menu_controller.opened());
 }
-#endif

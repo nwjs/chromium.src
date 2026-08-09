@@ -129,6 +129,7 @@ Maaaring hindi available ang ilang tampok at hindi mase-save ang mga pagbabago s
 <translation id="2120620239521071941">Magde-delete ito ng <ph name="ITEMS_COUNT" /> (na) item sa device na ito. Upang makuha ang iyong data sa ibang pagkakataon, mag-sign in sa Chrome bilang <ph name="USER_EMAIL" />.</translation>
 <translation id="2121284319307530122">Ilunsad Ulit para Ma-update ang Chrome</translation>
 <translation id="2123055963409958220">Tulungang pahusayin ang Chrome sa pamamagitan ng pag-ulat sa <ph name="BEGIN_LINK" />mga kasalukuyang setting<ph name="END_LINK" /></translation>
+<translation id="2125838419757773031">Pumili ng bahagi sa screen na hahanapin</translation>
 <translation id="2126108037660393668">Hindi na-verify ang na-download na file.</translation>
 <translation id="2128411189117340671">Pamahalaan ang mga profile sa Chrome</translation>
 <translation id="2137162749895930932">Isara ang isalin ang screen</translation>
@@ -265,9 +266,9 @@ Kung hindi gumagana ang page na ito gaya ng inaasahan, subukang payagan ang pag-
 <translation id="3453763134178591239">Mga tuntunin ng ChromeOS</translation>
 <translation id="3475778264501649775">Dalhin ang iyong mga password, tab, at higit pa on the go gamit ang Chrome app sa telepono mo</translation>
 <translation id="3503306920980160878">Kailangan ng Chrome ng access sa iyong lokasyon upang ibahagi ang lokasyon mo sa site na ito</translation>
-<translation id="3512495006767217696">Built in sa Chrome para tulungan kang gumawa, mag-save, at mag-autofill ng malalakas na password. Idagdag ang shortcut para sa madaling pag-access</translation>
 <translation id="3539955434060988644">Buksan ang link sa Inco&amp;gnito window ng Chrome</translation>
 <translation id="354621070532799440">Paalala: Pinakamahuhusay na pangkaligtasang feature ng Google na madadala mo kahit saan</translation>
+<translation id="3547866758548131919">I-click ang button na Ibuod para i-share ang dokumentong ito sa Gemini sa Chrome para makakuha ng mabilisang pangkalahatang-ideya at magtanong ng mga follow-up na tanong</translation>
 <translation id="3576528680708590453">Na-configure ng iyong system administrator ang Google Chrome na magbukas ng alternatibong browser para i-access ang <ph name="TARGET_URL_HOSTNAME" />.</translation>
 <translation id="3582972582564653026">I-sync at i-personalize ang Chrome sa lahat ng iyong device</translation>
 <translation id="3583751698304738917">Naka-sign in ka na bilang <ph name="USER_EMAIL_ADDRESS" /> sa ibang profile sa Chrome</translation>
@@ -317,6 +318,7 @@ Kung hindi gumagana ang page na ito gaya ng inaasahan, subukang payagan ang pag-
 <translation id="4012899077942246412">Habang naka-sign in ka, magagamit mo ang iyong mga password at higit pa mula sa Google Account mo sa Chrome. Para baguhin ito, pumunta sa “Iyong account sa Chrome.”</translation>
 <translation id="4022972681110646219">Isalin ang screen</translation>
 <translation id="4023601594785368013">Orihinal na wika: <ph name="LANGUAGE" /></translation>
+<translation id="4034249157893816477">Naka-built in sa Chrome para tulungan kang gumawa, mag-save, at mag-autofill ng malalakas na password. Idagdag ang shortcut para sa madaling pag-access.</translation>
 <translation id="4035053306113201399">Kailangang ma-restart ang ChromeOS para mailapat ang update.</translation>
 <translation id="4050175100176540509">May available na mahahalagang pagpapahusay sa seguridad at mga bagong feature sa pinakabagong bersyon.</translation>
 <translation id="4053720452172726777">I-customize at kontrolin ang Google Chrome</translation>
@@ -358,6 +360,7 @@ Kung hindi gumagana ang page na ito gaya ng inaasahan, subukang payagan ang pag-
 <translation id="4400772909124543403">Walang available na update</translation>
 <translation id="4427306783828095590">Mas maraming magagawa ang pinahusay na proteksyon para mag-block ng phishing and malware</translation>
 <translation id="4434353761996769206">Error sa installer: <ph name="INSTALLER_ERROR" /></translation>
+<translation id="4437295824090654417">I-share ang dokumentong ito sa Gemini sa Chrome para makakuha ng mabilisang pangkalahatang-ideya at magtanong ng mga follow-up na tanong</translation>
 <translation id="4450664632294415862">Chrome - Pag-sign in sa Network - <ph name="PAGE_TITLE" /></translation>
 <translation id="4458462641685292929">May kasalukuyang isinasagawang isa pang pagpapatakbo sa Google Chrome. Pakisubukang muli sa ibang pagkakataon.</translation>
 <translation id="4459234553906210702">Nagbibigay-daan ang pagsukat ng ad sa mga site na binibisita mo na humiling ng impormasyon mula sa Chrome na tumutulong sa site na sukatin ang performance ng mga ad ng mga ito. Pinaghihigpitan ng pagsukat ng ad ang cross-site na pagsubaybay sa pamamagitan ng paglilipat ng kaunting impormasyon hangga't posible sa pagitan ng mga site.</translation>
@@ -559,7 +562,6 @@ Hindi magawang bawiin ng Google Chrome ang iyong mga setting.</translation>
 <translation id="6438015621983209660">I-extend ang Pinahusay na Ligtas na Pag-browse gamit ang Chrome sa iyong telepono</translation>
 <translation id="6442774133615368941">Bilhin, isalin, at tukuyin ang nakikita mo gamit ang iyong camera sa Chrome iOS app</translation>
 <translation id="6448835208126432197">Para pumili ng bahagi ng screen sa Gemini sa Chrome, gamitin ang keyboard shortcut.</translation>
-<translation id="6473659734176498825">Isang pinasimpleng larawan na nagpapakita ng entry point ng Google Password Manager sa Chrome</translation>
 <translation id="6473905796280459355">Pumunta sa page na Tungkol sa Chrome</translation>
 <translation id="6481963882741794338">I-link ang Chrome at iba pang serbisyo ng Google para sa pag-personalize at iba pang layunin</translation>
 <translation id="648319183876919572">Mas maraming magagawa ang Pinahusay na Ligtas na Pag-browse para protektahan ka laban sa mga mapanganib na website at download</translation>
@@ -704,7 +706,6 @@ Hindi magawang bawiin ng Google Chrome ang iyong mga setting.</translation>
 <translation id="7804364787702057554">Iyong account sa Chrome</translation>
 <translation id="7804947029129221742">Binago ang iyong search engine mula sa labas ng Chrome. Para protektahan ka, ni-reset ito ng Chrome sa orihinal na default nito. <ph name="LEARN_MORE_LINK" /></translation>
 <translation id="7808348361785373670">Alisin sa Chrome...</translation>
-<translation id="7812800388699096556">Isang larawang nagpapakita kung paano mo magagamit ang Google Lens para maghanap ng produkto</translation>
 <translation id="7827099906024714326">Kailangang i-verify ng Chrome na ikaw ito bago ma-save ang ilang data sa iyong Google Account at magamit ito sa lahat ng device mo. Kung magsa-sign out ka ngayon, made-delete ang data na ito.</translation>
 <translation id="7832314606810669113">Para makuha ang iyong mga bookmark at higit pa sa lahat ng device mo, mag-sign in sa Chrome. Mase-save ang bookmark na ito sa iyong Google Account pagkatapos mong mag-sign in.</translation>
 <translation id="7845233973568007926">Salamat sa pag-install. Dapat mong i-restart ang iyong computer bago gamitin ang <ph name="BUNDLE_NAME" />.</translation>
@@ -792,6 +793,7 @@ Hindi mase-save ang mga bagong bookmark sa iyong account hangga't hindi ka nagde
 <translation id="8601359445272098721">Bago! Puwede kang magsalin ng text at mga larawan sa iyong screen sa pamamagitan ng pagpili sa button na "isalin ang screen"</translation>
 <translation id="8614913330719544658">Hindi gumagana ang Google Chrome. Ilunsad muli ngayon?</translation>
 <translation id="861702415419836452">Kailangan ng Chrome ng pahintulot na i-access ang iyong camera para gumawa ng 3D na mapa ng kapaligiran mo</translation>
+<translation id="8623450603356630491">Mag-sign in sa Chrome sa iyong telepono</translation>
 <translation id="8624541899164515475">Mga setting, magbubukas sa bagong tab.</translation>
 <translation id="8625237574518804553">{0,plural, =1{Muling ilulunsad ang Chrome sa loob ng 1 minuto}one{Muling ilulunsad ang Chrome sa loob ng # minuto}other{Muling ilulunsad ang Chrome sa loob ng # na minuto}}</translation>
 <translation id="8637932705841171563">Para i-share ang iyong window, payagan ang pag-record ng screen para sa Chrome sa System Settings</translation>

@@ -39,9 +39,12 @@ class BASE_I18N_EXPORT LanguageTag {
  public:
   using ImmutableStringType = internal::ImmutableString;
 
-  ~LanguageTag();
-  LanguageTag(const LanguageTag&);
-  LanguageTag& operator=(const LanguageTag&);
+  LanguageTag(const LanguageTag&) = default;
+  constexpr LanguageTag(LanguageTag&& other) noexcept;
+  LanguageTag& operator=(const LanguageTag&) = default;
+  LanguageTag& operator=(LanguageTag&&) noexcept = default;
+
+  inline constexpr ~LanguageTag() = default;
 
   friend bool operator==(const LanguageTag& lhs, const LanguageTag& rhs) {
     return lhs.tag_string() == rhs.tag_string();
@@ -58,7 +61,7 @@ class BASE_I18N_EXPORT LanguageTag {
   }
 
   // Returns the BCP47 language tag (e.g., "en-US", "zh-CN").
-  std::string_view tag_string() const;
+  constexpr std::string_view tag_string() const { return tag_.AsString(); }
 
   // Returns the language tag in legacy ICU format, replacing hyphens with
   // underscores (e.g., "en_US", "zh_CN").
@@ -109,11 +112,18 @@ class BASE_I18N_EXPORT LanguageTag {
   // This constructor is intended for internal use by `LanguageTagConverter`.
   // Do not call this directly.
   explicit LanguageTag(ImmutableStringType tag);
+  // Constexpr Constructor that expects the span of string-views and constructs
+  // tha ImmutableString on its own.
+  constexpr explicit LanguageTag(base::span<const std::string_view> parts)
+      : tag_(internal::ImmutableString::ForceStackString{}, parts) {}
 
   // The BCP47 language tag, e.g. "pt-BR".
   // Supports language, script, region, variants and extensions.
   ImmutableStringType tag_;
 };
+
+inline constexpr LanguageTag::LanguageTag(LanguageTag&& other) noexcept =
+    default;
 
 namespace internal {
 

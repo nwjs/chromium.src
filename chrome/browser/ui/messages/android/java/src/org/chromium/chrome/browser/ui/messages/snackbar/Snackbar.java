@@ -148,10 +148,11 @@ public class Snackbar {
     public static final int UMA_GLIC = 90;
     public static final int UMA_TIPS_OPT_IN = 91;
     public static final int UMA_NTP_THEME_TIP = 92;
+    public static final int UMA_SEND_TAB_TO_SELF = 93;
     // LINT.ThenChange(//tools/metrics/histograms/metadata/ui/enums.xml:SnackbarIdentifier)
 
     private final @Nullable SnackbarController mController;
-    private final CharSequence mText;
+    private final @Nullable CharSequence mText;
     private @Nullable String mTemplateText;
     private @Nullable String mActionText;
     private @Nullable Object mActionData;
@@ -173,7 +174,10 @@ public class Snackbar {
     }
 
     private Snackbar(
-            CharSequence text, @Nullable SnackbarController controller, int type, int identifier) {
+            @Nullable CharSequence text,
+            @Nullable SnackbarController controller,
+            int type,
+            int identifier) {
         mText = text;
         mController = controller;
         mType = type;
@@ -192,7 +196,10 @@ public class Snackbar {
      */
     @Initializer
     public static Snackbar make(
-            CharSequence text, @Nullable SnackbarController controller, int type, int identifier) {
+            @Nullable CharSequence text,
+            @Nullable SnackbarController controller,
+            int type,
+            int identifier) {
         Snackbar s = new Snackbar(text, controller, type, identifier);
         if (type == TYPE_PERSISTENT) {
             // For persistent snackbars we set a default action text to ensure the snackbar can be
@@ -297,7 +304,7 @@ public class Snackbar {
         return mController;
     }
 
-    CharSequence getText() {
+    @Nullable CharSequence getText() {
         return mText;
     }
 
@@ -376,7 +383,7 @@ public class Snackbar {
         return mIdentifier;
     }
 
-    public CharSequence getTextForTesting() {
+    public @Nullable CharSequence getTextForTesting() {
         return mText;
     }
 }

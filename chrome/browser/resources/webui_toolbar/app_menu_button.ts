@@ -7,15 +7,22 @@ import '//resources/cr_elements/cr_icon/cr_icon.js';
 import '//resources/cr_elements/icons.html.js';
 
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
-import {AppMenuIconType, AppMenuSeverity, ContextMenuType} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
+import {AppMenuIconType, AppMenuSeverity, ContextMenuType, FocusRequestTarget} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 import type {AppMenuControlState} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 
 import {getCss} from './app_menu_button.css.js';
 import {getHtml} from './app_menu_button.html.js';
-import {BrowserProxyImpl} from './browser_proxy.js';
+import {BrowserProxyImpl, INVALID_FOCUS_REQUEST_HANDLE} from './browser_proxy.js';
+import type {FocusRequestHandle} from './browser_proxy.js';
 import {BUTTON_LEFT, getClickSourceType, getContextMenuPosition, HelpBubbleAnchorMixin} from './toolbar_button.js';
 
 const AppMenuButtonElementBase = HelpBubbleAnchorMixin(CrLitElement);
+
+export interface AppMenuButtonElement {
+  $: {
+    button: HTMLElement,
+  };
+}
 
 export class AppMenuButtonElement extends AppMenuButtonElementBase {
   static get is() {
@@ -49,6 +56,40 @@ export class AppMenuButtonElement extends AppMenuButtonElementBase {
   };
 
   private browserProxy_ = BrowserProxyImpl.getInstance();
+  private focusRequestHandle_: FocusRequestHandle =
+      INVALID_FOCUS_REQUEST_HANDLE;
+
+  // Manage the lifecycle of the focus listener.
+  override connectedCallback() {
+    super.connectedCallback();
+    this.focusRequestHandle_ = this.browserProxy_.addFocusRequestListener(
+        this.onFocusRequest_.bind(this));
+  }
+
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    this.browserProxy_.removeFocusRequestListener(this.focusRequestHandle_);
+  }
+
+  override focus() {
+    this.$.button.focus();
+  }
+
+  // Handles focus requests from the C++ side.
+  private onFocusRequest_(target: FocusRequestTarget) {
+    if (target === FocusRequestTarget.kAppMenu) {
+      this.focus();
+    }
+  }
+
+  // Reports focus changes to the C++ side.
+  protected onFocusin_() {
+    this.browserProxy_.toolbarUIHandler.onAppMenuFocusChanged(true);
+  }
+
+  protected onFocusout_() {
+    this.browserProxy_.toolbarUIHandler.onAppMenuFocusChanged(false);
+  }
 
   protected onPointerdown_(e: PointerEvent) {
     // To match Views' MenuButtonController behavior:

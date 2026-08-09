@@ -265,6 +265,24 @@ TEST_F(CorsURLLoaderFactoryTest, DisallowedLoadFlagToUntrustedLoader) {
             bad_message_observer.WaitForBadMessage());
 }
 
+TEST_F(CorsURLLoaderFactoryTest, DocumentDestinationRequiresNavigateMode) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kRestrictFrameDestinationsToNavigate);
+
+  ResourceRequest request;
+  request.mode = mojom::RequestMode::kNoCors;
+  request.credentials_mode = mojom::CredentialsMode::kOmit;
+  request.method = net::HttpRequestHeaders::kGetMethod;
+  request.url = test_server()->GetURL("/echoall");
+  request.destination = mojom::RequestDestination::kDocument;
+  request.request_initiator = url::Origin::Create(request.url);
+  mojo::test::BadMessageObserver bad_message_observer;
+  CreateLoaderAndStart(request);
+  EXPECT_EQ("CorsURLLoaderFactory: frame destination requires kNavigate mode",
+            bad_message_observer.WaitForBadMessage());
+}
+
 TEST_F(CorsURLLoaderFactoryTest,
        NavigationFromRendererWithBadRequestURLOrigin) {
   ResourceRequest request;

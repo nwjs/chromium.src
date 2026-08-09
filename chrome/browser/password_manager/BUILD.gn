@@ -343,6 +343,8 @@ if (!is_android) {
       "password_manager_test_base.h",
     ]
 
+    public_deps = [ "//chrome/browser/ssl:cert_verifier_test_support" ]
+
     deps = [
       ":test_support",
       "//base",

@@ -13,12 +13,38 @@
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/service/glic_onboarding_status.h"
+#include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "components/prefs/pref_service.h"
+#include "components/variations/synthetic_trials.h"
 #include "third_party/metrics_proto/chrome_user_metrics_extension.pb.h"
 
 namespace glic {
+
+namespace {
+
+constexpr char kGlicOnboardingStatusSyntheticTrialName[] =
+    "GlicOnboardingStatus";
+
+std::string_view GetOnboardingStatusGroupName(OnboardingStatus status) {
+  switch (status) {
+    case OnboardingStatus::kNoInteraction:
+      return "NoInteraction";
+    case OnboardingStatus::kOptedInButNotInvoked:
+      return "OptedInButNotInvoked";
+    case OnboardingStatus::kNotOptedInButInvoked:
+      return "NotOptedInButInvoked";
+    case OnboardingStatus::kOptedInAndInvoked:
+      return "OptedInAndInvoked";
+    case OnboardingStatus::kPromptWithNoOptIn:
+      return "PromptWithNoOptIn";
+    case OnboardingStatus::kPromptAndOptIn:
+      return "PromptAndOptIn";
+  }
+}
+
+}  // namespace
 
 GlicMetricsProvider::GlicMetricsProvider() = default;
 GlicMetricsProvider::~GlicMetricsProvider() = default;
@@ -75,6 +101,10 @@ void GlicMetricsProvider::ProvideCurrentSessionData(
 
   base::UmaHistogramEnumeration("Glic.Onboarding.Profiles.Status",
                                 onboarding_progression);
+  ChromeMetricsServiceAccessor::RegisterSyntheticFieldTrial(
+      kGlicOnboardingStatusSyntheticTrialName,
+      GetOnboardingStatusGroupName(onboarding_progression),
+      variations::SyntheticTrialAnnotationMode::kCurrentLog);
 
   auto to_none_some_all = [enabled_count](int count) {
     if (count == 0) {

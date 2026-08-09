@@ -125,6 +125,7 @@
 <translation id="2120620239521071941">このデバイスから <ph name="ITEMS_COUNT" /> 件の項目を削除します。後でデータを取得するには、<ph name="USER_EMAIL" /> として Chrome にログインしてください。</translation>
 <translation id="2121284319307530122">再起動して Chrome を更新(&amp;C)</translation>
 <translation id="2123055963409958220"><ph name="BEGIN_LINK" />現在の設定<ph name="END_LINK" />を送信して Chrome の品質向上にご協力ください</translation>
+<translation id="2125838419757773031">画面の領域を選択して検索</translation>
 <translation id="2126108037660393668">ダウンロードしたファイルの検証で不合格でした。</translation>
 <translation id="2128411189117340671">Chrome プロファイルを管理</translation>
 <translation id="2137162749895930932">翻訳画面を閉じる</translation>
@@ -259,9 +260,9 @@
 <translation id="3453763134178591239">ChromeOS 利用規約</translation>
 <translation id="3475778264501649775">スマートフォンの Chrome アプリで、パスワードやタブなどを外出先でも使用できます</translation>
 <translation id="3503306920980160878">このサイトで現在地を共有するには、Chrome で位置情報の使用を許可する必要があります</translation>
-<translation id="3512495006767217696">Chrome に組み込まれており、安全なパスワードを作成、保存、自動入力できます。ショートカットを追加すると、簡単にアクセスできます。</translation>
 <translation id="3539955434060988644">Chrome のシークレット ウインドウでリンクを開く(&amp;G)</translation>
 <translation id="354621070532799440">リマインダー: Google の優れた安全機能をポケットに</translation>
+<translation id="3547866758548131919">[要約] ボタンをクリックしてこのドキュメントを Gemini in Chrome と共有すると、概要の確認や追加の質問ができます</translation>
 <translation id="3576528680708590453">システム管理者が、<ph name="TARGET_URL_HOSTNAME" /> へのアクセスに代替ブラウザを開くよう Google Chrome を設定しています。</translation>
 <translation id="3582972582564653026">同期してカスタマイズした Chrome をどのデバイスでも使用できます</translation>
 <translation id="3583751698304738917">別の Chrome プロファイルで <ph name="USER_EMAIL_ADDRESS" /> としてすでにログインしています</translation>
@@ -310,6 +311,7 @@
 <translation id="4012899077942246412">Chrome にログイン中は、Google アカウントのパスワードやその他の設定を使用できます。この設定を変更するには、[Chrome のアカウント設定] に移動してください。</translation>
 <translation id="4022972681110646219">画面を翻訳</translation>
 <translation id="4023601594785368013">元の言語: <ph name="LANGUAGE" /></translation>
+<translation id="4034249157893816477">Chrome に組み込まれており、安全なパスワードを作成、保存、自動入力できます。ショートカットを追加すると、簡単にアクセスできます。</translation>
 <translation id="4035053306113201399">更新を適用するには、ChromeOS を再起動する必要があります。</translation>
 <translation id="4050175100176540509">最新バージョンに更新すると、重要なセキュリティ更新と新機能が適用されます。</translation>
 <translation id="4053720452172726777">Google Chrome の設定</translation>
@@ -351,6 +353,7 @@
 <translation id="4400772909124543403">利用できるアップデートはありません</translation>
 <translation id="4427306783828095590">保護強化機能により、フィッシングを防ぎ、不正なソフトウェアをより強力にブロックします</translation>
 <translation id="4434353761996769206">インストーラー エラー: <ph name="INSTALLER_ERROR" /></translation>
+<translation id="4437295824090654417">このドキュメントを Gemini in Chrome と共有すると、概要の確認や追加の質問ができます</translation>
 <translation id="4450664632294415862">Chrome - ネットワークにログイン - <ph name="PAGE_TITLE" /></translation>
 <translation id="4458462641685292929">Google Chrome で別の処理が行われています。しばらくしてからもう一度お試しください。</translation>
 <translation id="4459234553906210702">広告の測定により、アクセスしたサイトは、サイトが広告のパフォーマンスを測定する際に役立つ Chrome の情報をリクエストできます。広告の測定は、サイト間で転送する情報をできるだけ少なくすることで、クロスサイト トラッキングを制限します。</translation>
@@ -548,7 +551,6 @@
 <translation id="6438015621983209660">スマートフォンの Chrome でセーフ ブラウジング保護強化機能を有効にする</translation>
 <translation id="6442774133615368941">Chrome iOS アプリで、カメラに映ったものを購入、翻訳、特定できます</translation>
 <translation id="6448835208126432197">Gemini in Chrome で画面の一部を選択するときに、キーボード ショートカットを使用します。</translation>
-<translation id="6473659734176498825">Chrome の Google パスワード マネージャーのエントリ ポイントを示す簡略化された画像</translation>
 <translation id="6473905796280459355">Chrome についてのページに移動</translation>
 <translation id="6481963882741794338">パーソナライズなどの目的で、Chrome と他の Google サービスをリンクします</translation>
 <translation id="648319183876919572">セーフ ブラウジング保護強化機能では、危険なウェブサイトやダウンロードから高いセキュリティ強度で保護されます</translation>
@@ -693,7 +695,6 @@
 <translation id="7804364787702057554">Chrome のアカウント設定</translation>
 <translation id="7804947029129221742">検索エンジンが Chrome の外部から変更されました。ユーザーを保護するため、Chrome で元のデフォルトにリセットしました。<ph name="LEARN_MORE_LINK" /></translation>
 <translation id="7808348361785373670">Chrome から削除...</translation>
-<translation id="7812800388699096556">Google レンズによる商品の確認方法を示すイラスト</translation>
 <translation id="7827099906024714326">Google アカウントに一部のデータを保存してすべてのデバイスで使用できるようにするには、Chrome で本人確認を行う必要があります。今すぐログアウトすると、このデータは削除されます。</translation>
 <translation id="7832314606810669113">すべてのデバイスで同じブックマークやその他の設定を使用するには、Chrome にログインしてください。このブックマークは、ログイン後に Google アカウントに保存されます。</translation>
 <translation id="7845233973568007926">インストールいただきありがとうございます。<ph name="BUNDLE_NAME" /> を使用するにはコンピュータを再起動してください。</translation>
@@ -781,6 +782,7 @@
 <translation id="8601359445272098721">New! [画面を翻訳] ボタンを選択して、画面上のテキストや画像を翻訳できるようになりました</translation>
 <translation id="8614913330719544658">Google Chrome が応答しません。今すぐ再起動しますか？</translation>
 <translation id="861702415419836452">周囲の 3D マップを作成するには、Chrome にカメラの使用を許可する必要があります</translation>
+<translation id="8623450603356630491">スマートフォンで Chrome にログイン</translation>
 <translation id="8624541899164515475">設定、新しいタブで開きます。</translation>
 <translation id="8625237574518804553">{0,plural, =1{Chrome は 1 分後に再起動されます}other{Chrome は # 分後に再起動されます}}</translation>
 <translation id="8637932705841171563">ウィンドウを共有するには、[システム設定] で Chrome に画面の録画を許可してください。</translation>

@@ -42,6 +42,7 @@ class ListenerStreamProvider : public StreamProvider {
   void OnTranscriptionUpdated(const std::string& data, bool is_final) override;
   void OnStreamStateChanged(StreamState state) override;
   StreamState GetState() const override;
+  Target* GetTarget() override;
   const Target* GetTarget() const override;
 
   void SetOnUpdateForTesting(base::RepeatingClosure callback);
@@ -54,7 +55,9 @@ class ListenerStreamProvider : public StreamProvider {
 
  private:
   DictationMultiplexer& GetMultiplexer() const;
-  void OnPageContextCaptured(DictationContext result);
+  void StartStream(std::optional<DictationContext> context);
+  void OnStartContextCaptured(DictationContext result);
+  void OnAsyncContextCaptured(DictationContext result);
 
   // Owns this
   const base::raw_ref<StreamProviderDelegate> delegate_;

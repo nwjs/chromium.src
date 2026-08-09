@@ -11,17 +11,11 @@
   <div style="height: 150vh; background-color: yellow;">overflow window</div>
 
 <script>
-    var go_passes = [
+  function go() {
     // scroll page in the y direction
-    () => window.scrollTo(0, 20),
+    window.scrollTo(0, 20);
     // scroll the overflow div in the y direction.
-        () => document.getElementById('div').scrollTo(0, 20)
-      ];
-
-      var current_pass = 0;
-      function go() {
-        go_passes[current_pass++].call();
-        return current_pass < go_passes.length;
+    document.getElementById('div').scrollTo(0, 20);
   }
 </script>
 </body>

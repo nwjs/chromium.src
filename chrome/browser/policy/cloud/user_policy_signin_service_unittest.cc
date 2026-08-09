@@ -995,6 +995,13 @@ TEST_F(UserPolicySigninServiceTest, SignOutThenSignInAgain) {
   identity_test_env()->ClearPrimaryAccount();
   ASSERT_FALSE(manager_->core()->service());
 
+  // Reset the registration callback state to filter out stale assertions before
+  // starting the next sign-in attempt.
+  register_completed_ = false;
+  dm_token_.clear();
+  client_id_.clear();
+  user_affiliation_ids_.clear();
+
   // Now sign in again.
   ASSERT_NO_FATAL_FAILURE(TestSuccessfulSignin());
 

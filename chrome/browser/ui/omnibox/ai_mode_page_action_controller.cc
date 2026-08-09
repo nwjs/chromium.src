@@ -45,6 +45,7 @@
 #include "components/search_engines/ai_mode_button_service.h"
 #include "components/search_engines/search_engine_type.h"
 #include "components/tabs/public/tab_interface.h"
+#include "components/vector_icons/vector_icons.h"
 #include "skia/ext/image_operations.h"
 #include "third_party/metrics_proto/omnibox_event.pb.h"
 #include "third_party/skia/include/core/SkBitmap.h"
@@ -231,16 +232,6 @@ bool AiModePageActionController::ShouldShowPageAction(
   const bool has_focus = focus_manager && location_bar_view.Contains(
                                               focus_manager->GetFocusedView());
 
-  const auto page_classification = edit_model->GetPageClassification();
-
-  // Suppress the AI Mode page action button when OnFocus on web pages.
-  if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxDynamicAiModeButton)) {
-    if (has_focus && !edit_model->user_input_in_progress() &&
-        !omnibox::IsNTPPage(page_classification)) {
-      return false;
-    }
-  }
-
   // TODO(crbug.com/448234135): Remove this logic from the migrated path when
   // Page Action framework supports suggestion chip queueing.
   //
@@ -248,6 +239,7 @@ bool AiModePageActionController::ShouldShowPageAction(
   // popup. In this case, we suppress the AIM page action in order to ensure
   // that it doesn't get visually "sandwiched" in between the other page actions
   // that show up in this state.
+  const auto page_classification = edit_model->GetPageClassification();
   if (has_focus && !edit_model->user_input_in_progress() &&
       !location_bar_view.GetOmniboxController()->IsPopupOpen() &&
       !omnibox::IsNTPPage(page_classification)) {
@@ -277,6 +269,27 @@ void AiModePageActionController::UpdatePageActionUi(bool is_visible) {
   page_action_controller->OverrideTooltip(kActionAiMode, config->tooltip);
   page_action_controller->OverrideAccessibleName(kActionAiMode,
                                                  config->a11y_label);
+
+  if (omnibox::kWebUIOmniboxDynamicAnimation.Get()) {
+    page_action_controller->SetAnimationStyle(
+        kActionAiMode,
+        page_actions::PageActionAnimationStyle::kSlideAndCrossfade);
+    page_action_controller->SetTrailingImage(
+        kActionAiMode,
+        ui::ImageModel::FromVectorIcon(vector_icons::kArrowForwardIcon));
+
+    bool has_user_input = false;
+    if (auto* omnibox_controller = location_bar_view_->GetOmniboxController()) {
+      has_user_input = omnibox_controller->edit_model() &&
+                       !omnibox_controller->edit_model()->user_text().empty();
+    }
+    page_action_controller->SetShowTrailingIcon(kActionAiMode, has_user_input);
+  }
+
+  if (omnibox::kWebUIOmniboxDynamicColorScheme.Get()) {
+    page_action_controller->OverrideBackgroundColor(
+        kActionAiMode, kColorOmniboxResultsBackgroundHovered);
+  }
 
   if (config->id == SearchEngineType::SEARCH_ENGINE_GOOGLE) {
     ShowAndOverrideImage(

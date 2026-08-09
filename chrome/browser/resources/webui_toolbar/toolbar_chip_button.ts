@@ -40,6 +40,10 @@ export class ToolbarChipButtonElement extends CrLitElement {
   override accessor ariaLabel: string = '';
   accessor tooltip: string = '';
   override accessor ariaHasPopup: string|null = null;
+
+  override focus() {
+    this.shadowRoot?.querySelector<HTMLElement>('#button')?.focus();
+  }
 }
 
 customElements.define(ToolbarChipButtonElement.is, ToolbarChipButtonElement);

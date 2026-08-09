@@ -1896,6 +1896,21 @@
             ]
         }
     ],
+    "ApplyDeviceChoiceRenewal": [
+        {
+            "platforms": [
+                "android"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled_20260706",
+                    "enable_features": [
+                        "ApplyDeviceChoiceRenewal"
+                    ]
+                }
+            ]
+        }
+    ],
     "AppsCollectionsFeature": [
         {
             "platforms": [
@@ -4436,6 +4451,23 @@
             ]
         }
     ],
+    "BrowserLaunchMetadataReporting": [
+        {
+            "platforms": [
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "BrowserLaunchMetadataReporting"
+                    ]
+                }
+            ]
+        }
+    ],
     "BrowserSignalsReportingEnabled": [
         {
             "platforms": [
@@ -4908,21 +4940,6 @@
                     "name": "Enabled",
                     "enable_features": [
                         "CastStreamingWinHardwareH264"
-                    ]
-                }
-            ]
-        }
-    ],
-    "CbcmAndroidPackageNameIdentifier": [
-        {
-            "platforms": [
-                "android"
-            ],
-            "experiments": [
-                {
-                    "name": "Enabled",
-                    "enable_features": [
-                        "CbcmAndroidPackageNameIdentifier"
                     ]
                 }
             ]
@@ -7248,8 +7265,34 @@
                 {
                     "name": "Enabled",
                     "enable_features": [
-                        "ContextualTasks",
-                        "HappinessTrackingSurveysForDesktopNextPanel"
+                        "ContextualTasks"
+                    ]
+                }
+            ]
+        }
+    ],
+    "ContextualTasks_EphemeralPinning_Desktop": [
+        {
+            "platforms": [
+                "chromeos",
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "PermanentPinButtonHeader",
+                    "params": {
+                        "ContextualTasksEntryPoint": "toolbar-ephemeral-branded",
+                        "overflow-items": "all-without-new-thread"
+                    },
+                    "enable_features": [
+                        "ContextualTasksEnableSpatialModelToolbarLayout",
+                        "ContextualTasksEphemeralBrandedEntryPoint",
+                        "EnableContextualTasksPinButtonInToolbar"
+                    ],
+                    "disable_features": [
+                        "ContextualTasksHideMenuOnAiPage"
                     ]
                 }
             ]
@@ -8150,25 +8193,6 @@
             ]
         }
     ],
-    "DataControlsDragEnforcement": [
-        {
-            "platforms": [
-                "android",
-                "chromeos",
-                "linux",
-                "mac",
-                "windows"
-            ],
-            "experiments": [
-                {
-                    "name": "Enabled_20260223",
-                    "enable_features": [
-                        "DataControlsDragEnforcement"
-                    ]
-                }
-            ]
-        }
-    ],
     "DataUrlWorkerOpaqueOrigin": [
         {
             "platforms": [
@@ -8559,6 +8583,25 @@
                     "name": "Disabled",
                     "disable_features": [
                         "DeprecatedExternalPickerFunction"
+                    ]
+                }
+            ]
+        }
+    ],
+    "DeriveVSyncIntervalFromFrameTimelines": [
+        {
+            "platforms": [
+                "android"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled_AlwaysDerive_5PctSnapTolerance",
+                    "params": {
+                        "mode": "always_derive",
+                        "snap_tolerance": "0.05"
+                    },
+                    "enable_features": [
+                        "DeriveVSyncIntervalFromFrameTimelines"
                     ]
                 }
             ]
@@ -10048,6 +10091,21 @@
                     },
                     "enable_features": [
                         "EnableDiscountInfoApi"
+                    ]
+                }
+            ]
+        }
+    ],
+    "EnableDlpFileSystemApi": [
+        {
+            "platforms": [
+                "chromeos"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "EnableDlpFileSystemApi"
                     ]
                 }
             ]
@@ -11975,6 +12033,27 @@
             ]
         }
     ],
+    "GlicColdWarmingDelay": [
+        {
+            "platforms": [
+                "mac",
+                "windows",
+                "linux",
+                "chromeos"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "params": {
+                        "glic-warming-delay-ms": "20000"
+                    },
+                    "enable_features": [
+                        "GlicWarming"
+                    ]
+                }
+            ]
+        }
+    ],
     "GlicConfirmNavigationToNewOrigins": [
         {
             "platforms": [
@@ -12451,24 +12530,6 @@
                     },
                     "enable_features": [
                         "GlicUserStatusCheck"
-                    ]
-                }
-            ]
-        }
-    ],
-    "GlicWarming": [
-        {
-            "platforms": [
-                "mac",
-                "windows",
-                "linux",
-                "chromeos"
-            ],
-            "experiments": [
-                {
-                    "name": "Enabled",
-                    "enable_features": [
-                        "GlicWarming"
                     ]
                 }
             ]
@@ -21740,38 +21801,6 @@
             ]
         }
     ],
-    "ScrollJankV4SlowPathScrollHandling": [
-        {
-            "platforms": [
-                "android",
-                "chromeos",
-                "linux",
-                "mac",
-                "windows"
-            ],
-            "experiments": [
-                {
-                    "name": "Enabled_Both",
-                    "enable_features": [
-                        "ScrollEndRepaintFollowsScrollUpdate",
-                        "UseScrollIdToCalculateScrollJankV4FrameStages"
-                    ]
-                },
-                {
-                    "name": "Enabled_ScrollEndRepaintFollowsScrollUpdateOnly",
-                    "enable_features": [
-                        "ScrollEndRepaintFollowsScrollUpdate"
-                    ]
-                },
-                {
-                    "name": "Enabled_UseScrollIdToCalculateScrollJankV4FrameStagesOnly",
-                    "enable_features": [
-                        "UseScrollIdToCalculateScrollJankV4FrameStages"
-                    ]
-                }
-            ]
-        }
-    ],
     "ScrollPredictorEnhancements": [
         {
             "platforms": [
@@ -23041,11 +23070,9 @@
                         "lock_bypass_beforeunload_threshold": "101.0",
                         "lock_disruption_threshold": "2",
                         "lock_restart_delay": "2m",
-                        "lock_tab_threshold": "-1",
-                        "restart_delay": "2m"
+                        "lock_tab_threshold": "-1"
                     },
                     "enable_features": [
-                        "SmartRestart",
                         "SmartRestartLockScreen"
                     ]
                 }
@@ -24237,6 +24264,25 @@
                     },
                     "enable_features": [
                         "TraceSiteInstanceGetProcessCreation"
+                    ]
+                }
+            ]
+        }
+    ],
+    "TransientKeepAlivePolicy": [
+        {
+            "platforms": [
+                "chromeos",
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "TrackEmptyRendererProcessesForReuse",
+                        "TransientKeepAlivePolicy"
                     ]
                 }
             ]

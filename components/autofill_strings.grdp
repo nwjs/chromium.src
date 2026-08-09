@@ -1362,9 +1362,12 @@
     Trouble filling your info. Check your connection.
   </message>
 
-  <!-- TODO(crbug.com/503303085): Translate this string. -->
+  <!-- TODO(crbug.com/503303085): Translate these strings. -->
   <message name="IDS_AUTOFILL_AI_PRE_FETCH_ERROR_MESSAGE" desc="A message that appears when prefetching Autofill AI entities fails." translateable="false">
     Trouble finding the data
+  </message>
+  <message name="IDS_AUTOFILL_AI_PRE_FETCH_ERROR_MESSAGE_BUTTON_TEXT" desc="A button that is shown in the message that appears when prefetching Autofill AI entities fails." translateable="false">
+    Got it
   </message>
 
   <!-- Prompt strings used on Android -->

@@ -1539,7 +1539,8 @@ void ChromeAutofillClient::ShowAutofillAiFetchFromWalletFailureNotification() {
 
 void ChromeAutofillClient::ShowAutofillAiPreFetchFailureNotification() {
 #if BUILDFLAG(IS_ANDROID)
-  // TODO(crbug.com/503303085): Implement.
+  GetAutofillMessageController()->Show(
+      AutofillMessageModel::CreateForPersonalContextFetchingFailure());
 #else
   if (ToastController* toast_controller = GetToastController()) {
     ToastParams params(ToastId::kAutofillAiPreFetchErrorMessage);

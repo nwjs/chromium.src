@@ -60,12 +60,6 @@ class ContextualTasksSidePanelCoordinator
       public TabListInterfaceObserver,
       content::WebContentsObserver {
  public:
-  enum class EntrySource {
-    kOther,
-    kLensOverlay,
-    kAiModeLinkClick,
-  };
-
   // A data structure to hold the cache and state of the panel per thread.
   struct WebContentsCacheItem {
     WebContentsCacheItem(std::unique_ptr<content::WebContents> wc, bool open);
@@ -83,7 +77,8 @@ class ContextualTasksSidePanelCoordinator
     base::TimeTicks last_active_time_ticks;
 
     // The entry source that triggered this task's panel.
-    EntrySource entry_source = EntrySource::kOther;
+    ContextualTasksPanelController::EntrySource entry_source =
+        ContextualTasksPanelController::EntrySource::kOther;
   };
 
   DECLARE_USER_DATA(ContextualTasksSidePanelCoordinator);
@@ -111,10 +106,13 @@ class ContextualTasksSidePanelCoordinator
   void RemoveObserver(
       ContextualTasksPanelController::Observer* observer) override;
   void Show(bool transition_from_tab,
-            omnibox::ChromeAimEntryPoint entry_point) override;
+            omnibox::ChromeAimEntryPoint entry_point,
+            bool use_no_animation = false) override;
   void Close() override;
   void OpenInZeroState() override;
   bool IsPanelOpenForContextualTask() const override;
+  ContextualTasksPanelController::EntrySource GetActiveEntrySource()
+      const override;
   std::optional<tabs::TabHandle> GetAutoSuggestedTabHandle() override;
   void OnTaskChanged(content::WebContents* web_contents,
                      base::Uuid task_id) override;
@@ -288,7 +286,8 @@ class ContextualTasksSidePanelCoordinator
 
   // Used to save the entry source that triggered a task's panel when the panel
   // is being closed so that it can be logged.
-  std::optional<EntrySource> closing_entry_source_;
+  std::optional<ContextualTasksPanelController::EntrySource>
+      closing_entry_source_;
 
   base::ObserverList<ContextualTasksPanelController::Observer> observers_;
 

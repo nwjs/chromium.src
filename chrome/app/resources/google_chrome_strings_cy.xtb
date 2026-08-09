@@ -129,6 +129,7 @@ Mae'n bosib na fydd rhai nodweddion ar gael ac ni fydd newidiadau o ran dewisiad
 <translation id="2120620239521071941">Bydd hyn yn dileu <ph name="ITEMS_COUNT" /> eitem o'r ddyfais hon. I adfer eich data yn nes ymlaen, mewngofnodwch i Chrome fel <ph name="USER_EMAIL" />.</translation>
 <translation id="2121284319307530122">Ail-lansiwch i Ddiweddaru &amp;Chrome</translation>
 <translation id="2123055963409958220">Helpwch i wneud Chrome yn well drwy adrodd am <ph name="BEGIN_LINK" />y gosodiadau presennol<ph name="END_LINK" /></translation>
+<translation id="2125838419757773031">Dewiswch ran o'r sgrîn i chwilio</translation>
 <translation id="2126108037660393668">Mae'r ffeil a lawrlwythwyd wedi methu â dilysu.</translation>
 <translation id="2128411189117340671">Rheoli proffiliau Chrome</translation>
 <translation id="2137162749895930932">Cau'r sgrîn cyfieithu</translation>
@@ -265,9 +266,9 @@ Os nad yw'r dudalen hon yn gweithio fel y disgwylir, rhowch gynnig ar ganiatáu 
 <translation id="3453763134178591239">Telerau ChromeOS</translation>
 <translation id="3475778264501649775">Ewch â'ch cyfrineiriau, tabiau a rhagor gyda chi wrth fynd gyda'r ap Chrome ar eich ffôn</translation>
 <translation id="3503306920980160878">Mae angen mynediad at eich lleoliad ar Chrome i rannu'ch lleoliad gyda'r wefan hon</translation>
-<translation id="3512495006767217696">Wedi'i adeiladu i mewn i Chrome i'ch helpu i greu, cadw ac awtolenwi cyfrineiriau cryf. Ychwanegwch y llwybr byr er mwyn cael mynediad hawdd</translation>
 <translation id="3539955434060988644">Agor y Ddolen mewn ffenestr anhy&amp;sbys Chrome</translation>
 <translation id="354621070532799440">Atgoffwr: Nodweddion diogelwch gorau Google yn eich poced</translation>
+<translation id="3547866758548131919">Cliciwch y botwm Crynhoi i rannu'r ddogfen hon gyda Gemini yn Chrome i gael trosolwg cyflym a gofyn cwestiynau dilynol</translation>
 <translation id="3576528680708590453">Mae'ch gweinyddwr system wedi ffurfweddu Google Chrome i agor porwr gwahanol i fynd i mewn i <ph name="TARGET_URL_HOSTNAME" />.</translation>
 <translation id="3582972582564653026">Cysoni â phersonoleiddio Chrome ar draws eich dyfeisiau</translation>
 <translation id="3583751698304738917">Rydych eisoes wedi mewngofnodi fel <ph name="USER_EMAIL_ADDRESS" /> mewn proffil Chrome arall</translation>
@@ -317,6 +318,7 @@ Os nad yw'r dudalen hon yn gweithio fel y disgwylir, rhowch gynnig ar ganiatáu 
 <translation id="4012899077942246412">Tra byddwch wedi mewngofnodi, gallwch ddefnyddio'ch cyfrineiriau a rhagor o'ch Cyfrif Google yn Chrome. I newid hyn, ewch i 'Eich cyfrif yn Chrome'.</translation>
 <translation id="4022972681110646219">Cyfieithu'r sgrîn</translation>
 <translation id="4023601594785368013">Iaith wreiddiol: <ph name="LANGUAGE" /></translation>
+<translation id="4034249157893816477">Wedi'i adeiladu i mewn i Chrome i'ch helpu i greu, cadw ac awtolenwi cyfrineiriau cryf. Ychwanegwch y llwybr byr er mwyn cael mynediad hawdd</translation>
 <translation id="4035053306113201399">Mae angen ailgychwyn ChromeOS i gymhwyso'r diweddariad.</translation>
 <translation id="4050175100176540509">Mae gwelliannau diogelwch pwysig a nodweddion newydd ar gael yn y fersiwn ddiweddaraf.</translation>
 <translation id="4053720452172726777">Personoleiddio a rheoli Google Chrome</translation>
@@ -358,6 +360,7 @@ Os nad yw'r dudalen hon yn gweithio fel y disgwylir, rhowch gynnig ar ganiatáu 
 <translation id="4400772909124543403">Nid oes diweddariad ar gael.</translation>
 <translation id="4427306783828095590">Mae gwell amddiffyniad yn gwneud rhagor i rwystro gwe-rwydo a drwgwedd</translation>
 <translation id="4434353761996769206">Gwall gosodwr: <ph name="INSTALLER_ERROR" /></translation>
+<translation id="4437295824090654417">Rhannwch y ddogfen hon gyda Gemini yn Chrome i gael trosolwg cyflym a gofyn cwestiynau dilynol</translation>
 <translation id="4450664632294415862">Chrome - Mewngofnodi Rhwydwaith - <ph name="PAGE_TITLE" /></translation>
 <translation id="4458462641685292929">Mae gweithred arall ar Google Chrome ar y gweill. Rhowch gynnig arall arni nes ymlaen.</translation>
 <translation id="4459234553906210702">Mae Mesur hysbysebion yn caniatáu i wefannau rydych yn ymweld â nhw ofyn am wybodaeth gan Chrome sy'n helpu'r wefan i fesur perfformiad eu hysbysebion. Mae Mesur hysbysebion yn cyfyngu ar olrhain traws-wefan drwy drosglwyddo cyn lleied o wybodaeth â phosib rhwng gwefannau.</translation>
@@ -559,7 +562,6 @@ Nid yw Google Chrome yn gallu adfer eich gosodiadau.</translation>
 <translation id="6438015621983209660">Estynnwch Bori'n Ddiogel Gwell gyda Chrome ar eich ffôn</translation>
 <translation id="6442774133615368941">Siopa, cyfieithu ac adnabod yr hyn a welwch gyda'ch camera ar ap iOS Chrome</translation>
 <translation id="6448835208126432197">I ddewis rhan o'r sgrîn yn Gemini yn Chrome, defnyddiwch y llwybr byr bysellfwrdd.</translation>
-<translation id="6473659734176498825">Llun symlach sy'n dangos pwynt mynediad Rheolwr Cyfrineiriau Google yn Chrome</translation>
 <translation id="6473905796280459355">Mynd i'r dudalen Ynghylch Chrome</translation>
 <translation id="6481963882741794338">Cysylltwch Chrome a gwasanaethau Google eraill at ddibenion personoleiddio a dibenion eraill</translation>
 <translation id="648319183876919572">Mae Pori'n Ddiogel Uwch yn gwneud rhagor i'ch amddiffyn rhag lawrlwythiadau a gwefannau peryglus</translation>
@@ -704,7 +706,6 @@ Nid yw Google Chrome yn gallu adfer eich gosodiadau.</translation>
 <translation id="7804364787702057554">Eich cyfrif yn Chrome</translation>
 <translation id="7804947029129221742">Newidiwyd eich peiriant chwilio o'r tu allan i Chrome. Er mwyn eich amddiffyn, gwnaeth Chrome ei ailosod i'w osodiad diofyn gwreiddiol. <ph name="LEARN_MORE_LINK" /></translation>
 <translation id="7808348361785373670">Tynnu o Chrome...</translation>
-<translation id="7812800388699096556">Darlun yn dangos sut y gallwch ddefnyddio Google Lens i chwilio am gynnyrch</translation>
 <translation id="7827099906024714326">Mae angen i Chrome gadarnhau mai chi sydd yno cyn y gellir cadw rhywfaint o ddata yn eich Cyfrif Google a'i ddefnyddio ar eich holl ddyfeisiau. Os byddwch yn allgofnodi nawr, bydd y data hyn yn cael eu dileu.</translation>
 <translation id="7832314606810669113">I gael eich nodau tudalen a rhagor ar eich holl ddyfeisiau, mewngofnodwch i Chrome. Bydd y nod tudalen hwn yn cael ei gadw yn eich Cyfrif Google ar ôl i chi fewngofnodi.</translation>
 <translation id="7845233973568007926">Diolch am osod. Rhaid i chi ailgychwyn eich cyfrifiadur cyn defnyddio <ph name="BUNDLE_NAME" />.</translation>
@@ -792,6 +793,7 @@ Ni ellir cadw nodau tudalen newydd yn eich cyfrif nes i chi ddileu rhai. Os bydd
 <translation id="8601359445272098721">Newydd! Gallwch gyfieithu testun a delweddau ar eich sgrin trwy ddewis y botwm "cyfieithu sgrîn".</translation>
 <translation id="8614913330719544658">Nid yw Google Chrome yn ymateb. Ail-lansio nawr?</translation>
 <translation id="861702415419836452">Mae angen caniatâd ar Chrome i gael mynediad at eich camera i greu map 3D o'ch amgylchoedd</translation>
+<translation id="8623450603356630491">Mewngofnodi i Chrome ar eich ffôn</translation>
 <translation id="8624541899164515475">Gosodiadau, yn agor mewn tab newydd.</translation>
 <translation id="8625237574518804553">{0,plural, =1{Bydd Chrome yn ail-lansio mewn 1 funud}zero{Bydd Chrome yn ail-lansio mewn # munud}two{Bydd Chrome yn ail-lansio mewn # funud}few{Bydd Chrome yn ail-lansio mewn # munud}many{Bydd Chrome yn ail-lansio mewn # munud}other{Bydd Chrome yn ail-lansio mewn # munud}}</translation>
 <translation id="8637932705841171563">I rannu'ch ffenestr, caniatewch recordio sgrîn ar gyfer Chrome yn y Gosodiadau System</translation>

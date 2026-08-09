@@ -7,6 +7,7 @@
 
 #import <Foundation/Foundation.h>
 
+#import "ios/public/provider/chrome/browser/bwg/gemini_api.h"
 
 namespace base {
 class TimeDelta;
@@ -176,6 +177,23 @@ enum class IOSGeminiSessionCancellationReason {
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/ios/enums.xml:IOSGeminiSessionCancellationReason)
 
+// Enum for tracking reasons why Gemini Live transitions to dormant mode.
+// LINT.IfChange(IOSGeminiDormantReason)
+enum class IOSGeminiDormantReason {
+  kUnknown = 0,
+  kInterruptedByExternalAudio = 1,
+  kLowVolumeInBackground = 2,
+  kLowVolumeInForeground = 3,
+  kInactivityTimeout = 4,
+  kLongInteractionTimeout = 5,
+  kMovedToBackgroundWhenMicOff = 6,
+  kUserStop = 7,
+  kUserPause = 8,
+  kServerPause = 9,
+  kMaxValue = kServerPause,
+};
+// LINT.ThenChange(/tools/metrics/histograms/metadata/ios/enums.xml:IOSGeminiDormantReason)
+
 // Records the reason for a gemini session cancellation.
 void RecordGeminiSessionCancellation(IOSGeminiSessionCancellationReason reason);
 
@@ -256,8 +274,23 @@ extern const char kPromptLongPressImageIncludedHistogram[];
 // UMA histogram key for IOS.Gemini.Prompt.ContextAttachment.
 extern const char kPromptContextAttachmentHistogram[];
 
+// UMA histogram key for IOS.Gemini.Prompt.TabsAttachedCount.
+extern const char kPromptTabsAttachedCountHistogram[];
+
+// UMA histogram key for IOS.Gemini.Prompt.MultiTabUsed.
+extern const char kPromptMultiTabUsedHistogram[];
+
 // UMA histogram key for IOS.Gemini.Response.GeneratedImage.Included.
 extern const char kResponseGeneratedImageIncluded[];
+
+// UMA histogram key for IOS.Gemini.Response.Latency.
+extern const char kResponseLatencyHistogram[];
+
+// UMA histogram key for IOS.Gemini.Response.Latency.MultiTabUsed.
+extern const char kResponseLatencyMultiTabUsedHistogram[];
+
+// UMA histogram key for IOS.Gemini.Response.Latency.MultiTabNotUsed.
+extern const char kResponseLatencyMultiTabNotUsedHistogram[];
 
 // UMA histogram key for IOS.Gemini.Response.Latency.WithContext.
 extern const char kResponseLatencyWithContextHistogram[];
@@ -484,14 +517,18 @@ void RecordFirstRunConsentDismiss();
 // Records that the user clicked a link on the Gemini FRE consent screen.
 void RecordFirstRunConsentLinkClick();
 
-// Records prompt context attachment metrics.
-void RecordPromptContextAttachment(bool has_page_context);
+// Records that the Tab Picker was opened.
+void RecordGeminiTabPickerOpened();
+
+// Records that the Tab Picker was dismissed.
+void RecordGeminiTabPickerDismissed();
 
 // Records the latency from prompt submission to response received, including
 // metadata about the prompt & response.
 void RecordResponseLatency(base::TimeDelta latency,
                            bool had_page_context,
-                           bool had_generated_image);
+                           bool had_generated_image,
+                           bool was_multi_tab_used);
 
 // Records the total number of prompts sent in a Gemini session.
 void RecordSessionPromptCount(int prompt_count);
@@ -570,7 +607,9 @@ void RecordAIHubIconTapped();
 void RecordGeminiPromptSent(bool is_nano_banana_enabled,
                             int images_attached_count,
                             bool long_press_image_included,
-                            bool has_page_context);
+                            bool has_page_context,
+                            int tabs_attached_count,
+                            bool was_multi_tab_used);
 
 // Records the result of an OS-level camera authorization request.
 void RecordGeminiCameraFlowOSAuthorizationResult(bool granted);
@@ -604,5 +643,24 @@ void RecordGeminiEditMenuSelectedTextLength(int length);
 // Records the glic contextual cue decision for Gemini.
 void RecordGeminiGlicContextualCueDecision(
     optimization_guide::OptimizationGuideDecision decision);
+
+// Records the dormant reason when Gemini Live transitions to dormant mode.
+void RecordGeminiLiveDormantReason(ios::provider::GeminiDormantReason reason);
+
+// Records the response latency (time Gemini takes to respond between thinking
+// and responding).
+void RecordGeminiLiveResponseLatency(base::TimeDelta latency);
+
+// Records the response duration (how long the spoken response lasted,
+// recorded only if the response finished naturally).
+void RecordGeminiLiveResponseDuration(base::TimeDelta duration);
+
+// Records the turn count at the end of the session. A turn is defined as the
+// cycle of the user speaking and Gemini responding.
+void RecordGeminiLiveTurnCount(int turn_count);
+
+// Records the accumulated duration of Gemini Live mode segments within
+// a single Gemini interaction.
+void RecordGeminiLiveAccumulatedDuration(base::TimeDelta duration);
 
 #endif  // IOS_CHROME_BROWSER_INTELLIGENCE_BWG_METRICS_GEMINI_METRICS_H_

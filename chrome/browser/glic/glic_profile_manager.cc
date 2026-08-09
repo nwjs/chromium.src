@@ -87,8 +87,7 @@ GlicProfileManager::GlicProfileManager()
           /*consumer_name=*/kMemoryConsumerName,
           /*traits=*/std::nullopt,  // TODO(crbug.com/489671163): Fill traits.
           this,
-          base::MemoryConsumerRegistration::CheckUnregister::kDisabled,
-          base::MemoryConsumerRegistration::CheckRegistryExists::kDisabled) {
+          base::MemoryConsumerRegistration::CheckUnregister::kDisabled) {
   ProfileManager* profile_manager = g_browser_process->profile_manager();
   if (profile_manager) {
     profile_manager->AddObserver(this);

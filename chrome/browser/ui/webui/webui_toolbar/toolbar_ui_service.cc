@@ -286,4 +286,9 @@ void ToolbarUIService::SetAvatarButtonIphPromoShowing(
   }
 }
 
+void ToolbarUIService::OnAppMenuFocusChanged(bool focused) {
+  if (delegate_) {
+    delegate_->OnAppMenuFocusChanged(focused);
+  }
+}
 }  // namespace toolbar_ui_api

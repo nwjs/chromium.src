@@ -29,6 +29,7 @@ namespace {
 // 6. XKB input method component extension.
 // 7. M17n/T13n/CJK input method component extension.
 // 8. Accessibility Common extension (used for Dictation)
+// 9. Dictation Connector component extension.
 // Once http://crbug.com/40333126 is fixed, remove this allowlist.
 // Note that if an extension is included here, then the permission request is
 // evaluated based on whether the extension has audioCapture or videoCapture
@@ -51,7 +52,8 @@ bool IsMediaRequestHandledByManifestForExtension(
          extension->id() == "nbpagnldghgfoolbancepceaanlmhfmd" ||
          extension->id() == "jkghodnilhceideoidjikpgommlajknk" ||
          extension->id() == "gjaehgfemfahhmlgpdfknkhdnemmolop" ||
-         extension->id() == "egfdjlfmgnehecnclamagfafdccgfndp";
+         extension->id() == "egfdjlfmgnehecnclamagfafdccgfndp" ||
+         extension->id() == extension_misc::kDictationConnectorExtensionId;
 }
 
 }  // namespace

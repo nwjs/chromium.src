@@ -19,6 +19,10 @@ cr-url-list-item[size=compact] {
   width: inherit;
 }
 
+cr-url-list-item[size=large] sp-list-item-badge {
+  margin-inline-start: -4px;
+}
+
 :host(.bookmark:not([has-folders])) cr-url-list-item {
   padding-inline-start: 8px;
 }

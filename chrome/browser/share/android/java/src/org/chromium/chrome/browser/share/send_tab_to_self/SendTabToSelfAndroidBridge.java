@@ -24,7 +24,13 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab.state.SendTabToSelfTabCardLabelData;
+import org.chromium.chrome.browser.tabmodel.TabModel;
+import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.ui.messages.snackbar.Snackbar;
+import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
+import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManagerProvider;
 import org.chromium.components.messages.MessageBannerProperties;
 import org.chromium.components.messages.MessageDispatcher;
 import org.chromium.components.messages.MessageDispatcherProvider;
@@ -34,7 +40,6 @@ import org.chromium.components.messages.PrimaryActionClickBehavior;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.PropertyModel;
-import org.chromium.ui.widget.Toast;
 
 import java.util.List;
 
@@ -88,7 +93,7 @@ public class SendTabToSelfAndroidBridge {
                         url,
                         title,
                         result -> {
-                            showPostSendToast(result, targetDeviceName);
+                            showPostSendSnackbar(webContents, result, targetDeviceName);
                             if (commitConfirmation != null) {
                                 commitConfirmation.onResult(result);
                             }
@@ -96,38 +101,46 @@ public class SendTabToSelfAndroidBridge {
                         entryPoint);
     }
 
-    private static void showPostSendToast(
-            @SendTabToSelfResult int result, String targetDeviceName) {
-        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.SEND_TAB_TO_SELF_POST_SEND_TOAST)) {
+    private static void showPostSendSnackbar(
+            @Nullable WebContents webContents,
+            @SendTabToSelfResult int result,
+            String targetDeviceName) {
+        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.SEND_TAB_TO_SELF_POST_SEND_TOAST)
+                || webContents == null) {
             return;
         }
-        Context appContext = ContextUtils.getApplicationContext();
+        WindowAndroid windowAndroid = webContents.getTopLevelNativeWindow();
+        if (windowAndroid == null) return;
+
+        SnackbarManager snackbarManager = SnackbarManagerProvider.from(windowAndroid);
+        if (snackbarManager == null) return;
+
+        Context context = windowAndroid.getContext().get();
+        if (context == null) return;
+
+        String message = getSnackbarMessage(context, result, targetDeviceName);
+        Snackbar snackbar =
+                Snackbar.make(
+                        message, null, Snackbar.TYPE_NOTIFICATION, Snackbar.UMA_SEND_TAB_TO_SELF);
+        snackbarManager.showSnackbar(snackbar);
+    }
+
+    private static String getSnackbarMessage(
+            Context context, @SendTabToSelfResult int result, String targetDeviceName) {
         switch (result) {
             case SendTabToSelfResult.SUCCESS:
-                String successMessage =
-                        appContext.getString(
-                                R.string.send_tab_to_self_post_send_success_toast_android,
-                                targetDeviceName);
-                Toast.makeText(appContext, successMessage, Toast.LENGTH_SHORT).show();
-                break;
+                return context.getString(
+                        R.string.send_tab_to_self_post_send_success_toast_android,
+                        targetDeviceName);
             case SendTabToSelfResult.SUCCESS_THROTTLED:
-                String throttledMessage =
-                        appContext.getString(
-                                R.string.send_tab_to_self_post_send_throttled_toast_android,
-                                targetDeviceName);
-                Toast.makeText(appContext, throttledMessage, Toast.LENGTH_SHORT).show();
-                break;
+                return context.getString(
+                        R.string.send_tab_to_self_post_send_throttled_toast_android,
+                        targetDeviceName);
             case SendTabToSelfResult.FAILURE_NO_INTERNET_CONNECTION:
             case SendTabToSelfResult.FAILURE_COMMIT_TIMEOUT:
-                String noInternetMessage =
-                        appContext.getString(R.string.send_tab_to_self_post_send_no_internet_toast);
-                Toast.makeText(appContext, noInternetMessage, Toast.LENGTH_SHORT).show();
-                break;
+                return context.getString(R.string.send_tab_to_self_post_send_no_internet_toast);
             default:
-                String failureMessage =
-                        appContext.getString(R.string.send_tab_to_self_post_send_failure_toast);
-                Toast.makeText(appContext, failureMessage, Toast.LENGTH_SHORT).show();
-                break;
+                return context.getString(R.string.send_tab_to_self_post_send_failure_toast);
         }
     }
 
@@ -149,6 +162,18 @@ public class SendTabToSelfAndroidBridge {
      */
     public static void dismissEntry(Profile profile, String guid) {
         SendTabToSelfAndroidBridgeJni.get().dismissEntry(profile, guid);
+    }
+
+    /**
+     * Marks the entry associated with the GUID as activated.
+     *
+     * @param profile Profile of the user to mark entry for.
+     * @param guid The GUID to mark the entry for.
+     * @param entryPoint The entry point from which the tab was activated.
+     */
+    public static void markEntryActivated(
+            Profile profile, String guid, @ShareActivatedEntryPoint int entryPoint) {
+        SendTabToSelfAndroidBridgeJni.get().markEntryActivated(profile, guid, entryPoint);
     }
 
     /**
@@ -189,7 +214,7 @@ public class SendTabToSelfAndroidBridge {
      * @param senderDeviceName The name of the device that sent the tab.
      */
     @CalledByNative
-    public static void attachTabLabel(Tab tab, String senderDeviceName) {
+    public static void attachTabLabel(Tab tab, String guid, String senderDeviceName) {
         if (tab == null || tab.getUserDataHost() == null || TextUtils.isEmpty(senderDeviceName))
             return;
 
@@ -197,7 +222,7 @@ public class SendTabToSelfAndroidBridge {
                 .setUserData(
                         SendTabToSelfTabCardLabelData.class,
                         new SendTabToSelfTabCardLabelData(
-                                tab, senderDeviceName, System.currentTimeMillis()));
+                                tab, guid, senderDeviceName, System.currentTimeMillis()));
         // TODO(crbug.com/488072250): Inform SendTabToSelfTabLabeller to update the UI. This
         // specifically affects the case where the tab switcher is already opened and a tab gets
         // auto-opened.
@@ -244,19 +269,56 @@ public class SendTabToSelfAndroidBridge {
     }
 
     /**
-     * Handles the primary action click on the message banner by showing the tab switcher in the
-     * currently focused activity, then dismissing the banner.
+     * Handles the primary action click on the message banner. Selects and opens the newest received
+     * tab.
      *
      * @return The behavior to follow after the click (dismiss immediately).
      */
     private static @PrimaryActionClickBehavior int onMessageBannerPrimaryAction() {
         Activity activity = ApplicationStatus.getLastTrackedFocusedActivity();
-        if (activity instanceof ChromeTabbedActivity) {
-            ChromeTabbedActivity tabbedActivity = (ChromeTabbedActivity) activity;
+        if (!(activity instanceof ChromeTabbedActivity)) {
+            return PrimaryActionClickBehavior.DISMISS_IMMEDIATELY;
+        }
+
+        ChromeTabbedActivity tabbedActivity = (ChromeTabbedActivity) activity;
+        TabModelSelector selector = tabbedActivity.getTabModelSelector();
+        if (selector == null) {
+            // Fall back to opening the tab switcher directly if the tab model selector is
+            // unavailable (e.g. during activity startup, recreation, or mock test execution).
             if (tabbedActivity.getLayoutManager() != null) {
                 tabbedActivity.getLayoutManager().showLayout(LayoutType.HUB, true);
             }
+            return PrimaryActionClickBehavior.DISMISS_IMMEDIATELY;
         }
+
+        TabModel normalTabModel = selector.getModel(/* incognito= */ false);
+        int newestNewTabIndex = TabModel.INVALID_TAB_INDEX;
+        long maxTimestamp = -1;
+
+        // Iterate through all tabs in the standard model to find all unread/new
+        // Send-Tab-to-Self tabs and identify the most recently added one by checking addition
+        // timestamps.
+        for (int i = 0; i < normalTabModel.getCount(); i++) {
+            Tab tab = normalTabModel.getTabAt(i);
+            if (tab == null) continue;
+
+            SendTabToSelfTabCardLabelData data = SendTabToSelfTabCardLabelData.get(tab);
+            if (data == null || data.isNegativeCache() || !data.shouldShowLabel()) {
+                continue;
+            }
+
+            long timestamp = data.getAdditionTimestampMs();
+            if (timestamp > maxTimestamp) {
+                maxTimestamp = timestamp;
+                newestNewTabIndex = i;
+            }
+        }
+
+        // Highlight and focus the newly received tab by setting it as the active tab.
+        if (newestNewTabIndex != TabModel.INVALID_TAB_INDEX) {
+            normalTabModel.setIndex(newestNewTabIndex, TabSelectionType.FROM_USER);
+        }
+
         return PrimaryActionClickBehavior.DISMISS_IMMEDIATELY;
     }
 
@@ -274,6 +336,11 @@ public class SendTabToSelfAndroidBridge {
         void markEntryOpened(@JniType("Profile*") Profile profile, String guid);
 
         void dismissEntry(@JniType("Profile*") Profile profile, String guid);
+
+        void markEntryActivated(
+                @JniType("Profile*") Profile profile,
+                String guid,
+                @ShareActivatedEntryPoint int entryPoint);
 
         @JniType("std::vector")
         List<TargetDeviceInfo> getAllTargetDeviceInfos(@JniType("Profile*") Profile profile);

@@ -120,8 +120,10 @@
 - (void)restart {
   CHECK(self.presenter, base::NotFatalUntil::M150);
   CHECK(self.browser, base::NotFatalUntil::M150);
-  _geminiHandler =
-      HandlerForProtocol(self.browser->GetCommandDispatcher(), GeminiCommands);
+  if (IsPageActionMenuEnabled()) {
+    _geminiHandler = HandlerForProtocol(self.browser->GetCommandDispatcher(),
+                                        GeminiCommands);
+  }
   if (_stopped && self.presenter.presentedViewController) {
     // Stopping animation is still in progress. Wait until it is done to
     // restart.
@@ -361,9 +363,14 @@
 #pragma mark - ContainedPresenterDelegate
 
 - (void)containedPresenterWillPresent:(id<ContainedPresenter>)presenter {
-  [_geminiHandler
-      hideFloatyIfInvokedAnimated:NO
-                       fromSource:gemini::FloatyUpdateSource::Banner];
+  if (IsPageActionMenuEnabled() &&
+      [_geminiHandler
+          respondsToSelector:@selector(
+                                 hideFloatyIfInvokedAnimated:fromSource:)]) {
+    [_geminiHandler
+        hideFloatyIfInvokedAnimated:NO
+                         fromSource:gemini::FloatyUpdateSource::Banner];
+  }
 }
 
 - (void)containedPresenterDidPresent:(id<ContainedPresenter>)presenter {
@@ -380,10 +387,15 @@
     [self start];
   }
 
-  [_geminiHandler
-      updateFloatyVisibilityIfEligibleAnimated:NO
-                                    fromSource:gemini::FloatyUpdateSource::
-                                                   Banner];
+  if (IsPageActionMenuEnabled() &&
+      [_geminiHandler
+          respondsToSelector:@selector(updateFloatyVisibilityIfEligibleAnimated:
+                                       fromSource:)]) {
+    [_geminiHandler
+        updateFloatyVisibilityIfEligibleAnimated:NO
+                                      fromSource:gemini::FloatyUpdateSource::
+                                                     Banner];
+  }
 }
 
 #pragma mark - DownloadManagerViewControllerDelegate

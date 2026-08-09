@@ -30,6 +30,7 @@
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
+#include "chrome/browser/glic/resources/grit/glic_browser_resources.h"
 #include "chrome/browser/indigo/indigo_page_action_controller.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
@@ -151,7 +152,7 @@
 #include "chrome/browser/ui/views/toolbar/chrome_labs/chrome_labs_coordinator.h"
 #include "chrome/browser/ui/views/toolbar/pinned_action_toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/pinned_action_toolbar_button_menu_model.h"
-#include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container.h"
+#include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions.h"
 #include "chrome/browser/ui/views/zoom/zoom_view_controller.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/web_app_dialog_utils.h"
@@ -958,6 +959,8 @@ void BrowserActions::InitializeChromeMenuActions() {
                 },
                 bwi))
             .SetActionId(kActionToggleCollapseVertical)
+            .SetAccelerator(ui::Accelerator(
+                ui::VKEY_L, ui::EF_SHIFT_DOWN | ui::EF_PLATFORM_ACCELERATOR))
             .Build());
   }
 
@@ -1953,47 +1956,51 @@ void BrowserActions::InitializeToolbarAndMiscActions() {
             .Build());
   }
 
-  root_action_item_->AddChild(
-      actions::ActionItem::Builder(
-          base::BindRepeating(
-              [](BrowserWindowInterface* bwi, actions::ActionItem* item,
-                 actions::ActionInvocationContext context) {
-                if (!bwi) {
-                  return;
-                }
-                auto* tab = bwi->GetActiveTabInterface();
-                if (!tab) {
-                  return;
-                }
-                auto* controller =
-                    indigo::IndigoPageActionController::From(tab);
-                if (controller) {
-                  auto entry_point = [&]() {
-                    auto raw_entry_point =
-                        static_cast<page_actions::PageActionEntryPoint>(
-                            context.GetProperty(
-                                page_actions::kPageActionEntryPointKey));
-                    switch (raw_entry_point) {
-                      case page_actions::PageActionEntryPoint::kSuggestionChip:
-                        return indigo::EntryPoint::kSuggestionChip;
-                      case page_actions::PageActionEntryPoint::kAnchoredMessage:
-                        return indigo::EntryPoint::kAnchoredMessage;
-                    }
-                    NOTREACHED();
-                  }();
-                  controller->InvokeAction(entry_point);
-                }
-              },
-              bwi))
-          .SetActionId(kActionIndigo)
-          .SetTooltipText(l10n_util::GetStringUTF16(
-              IDS_INDIGO_ENTRYPOINT_CHIP_TOOLTIP_TEXT))
-          .SetImage(ui::ImageModel::FromVectorIcon(
-              features::IsRoundedIconsEnabled() ? vector_icons::kCodeIcon
-                                                : vector_icons::kCodeOldIcon,
-              ui::kColorIcon, ui::SimpleMenuModel::kDefaultIconSize))
-          .SetText(l10n_util::GetStringUTF16(IDS_INDIGO_ENTRYPOINT_CHIP_TEXT))
-          .Build());
+  if (base::FeatureList::IsEnabled(features::kIndigo)) {
+    root_action_item_->AddChild(
+        actions::ActionItem::Builder(
+            base::BindRepeating(
+                [](BrowserWindowInterface* bwi, actions::ActionItem* item,
+                   actions::ActionInvocationContext context) {
+                  if (!bwi) {
+                    return;
+                  }
+                  auto* tab = bwi->GetActiveTabInterface();
+                  if (!tab) {
+                    return;
+                  }
+                  auto* controller =
+                      indigo::IndigoPageActionController::From(tab);
+                  if (controller) {
+                    auto entry_point = [&]() {
+                      auto raw_entry_point =
+                          static_cast<page_actions::PageActionEntryPoint>(
+                              context.GetProperty(
+                                  page_actions::kPageActionEntryPointKey));
+                      switch (raw_entry_point) {
+                        case page_actions::PageActionEntryPoint::
+                            kSuggestionChip:
+                          return indigo::EntryPoint::kSuggestionChip;
+                        case page_actions::PageActionEntryPoint::
+                            kAnchoredMessage:
+                          return indigo::EntryPoint::kAnchoredMessage;
+                      }
+                      NOTREACHED();
+                    }();
+                    controller->InvokeAction(entry_point);
+                  }
+                },
+                bwi))
+            .SetActionId(kActionIndigo)
+            .SetTooltipText(l10n_util::GetStringUTF16(
+                IDS_INDIGO_ENTRYPOINT_CHIP_TOOLTIP_TEXT))
+            .SetImage(ui::ImageModel::FromVectorIcon(
+                glic::GlicVectorIconManager::GetVectorIcon(
+                    IDR_GLIC_BUTTON_VECTOR_ICON),
+                ui::kColorSysOnSurface))
+            .SetText(l10n_util::GetStringUTF16(IDS_INDIGO_ENTRYPOINT_CHIP_TEXT))
+            .Build());
+  }
 
   if (base::FeatureList::IsEnabled(multistep_filter::kMultistepFilter)) {
     root_action_item_->AddChild(

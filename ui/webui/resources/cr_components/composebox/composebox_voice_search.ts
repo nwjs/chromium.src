@@ -109,6 +109,14 @@ export enum VoiceSearchMetricType {
   ERROR = 'Errors',
 }
 
+export enum VoiceSearchQuerySource {
+  NTP_REALBOX = 0,
+  NTP_COMPOSEBOX = 1,
+  OMNIBOX_COMPOSEBOX = 2,
+  NEXTBOX_COMPOSEBOX = 3,
+  MAX_VALUE = NEXTBOX_COMPOSEBOX,
+}
+
 function toError(webkitError: string): VoiceSearchError {
   switch (webkitError) {
     case 'aborted':
@@ -607,6 +615,29 @@ export class ComposeboxVoiceSearchElement extends
     chrome.metricsPrivate.recordEnumerationValue(
         aggregateMetricName, metricEnumValue, max);
 
+    // Record query submission source.
+    if (type === VoiceSearchMetricType.ACTION &&
+        metricEnumValue === VoiceSearchAction.QUERY_SUBMITTED) {
+      let sourceEnum: VoiceSearchQuerySource|null = null;
+      if (this.metricSource === 'NTP_REALBOX') {
+        sourceEnum = VoiceSearchQuerySource.NTP_REALBOX;
+      } else if (this.metricSource === 'NTP_COMPOSEBOX') {
+        sourceEnum = VoiceSearchQuerySource.NTP_COMPOSEBOX;
+      } else if (
+          this.metricSource === 'NTP_OMNIBOX_COMPOSEBOX' ||
+          this.metricSource === 'OTHER_OMNIBOX_COMPOSEBOX' ||
+          this.metricSource === 'SRP_OMNIBOX_COMPOSEBOX') {
+        sourceEnum = VoiceSearchQuerySource.OMNIBOX_COMPOSEBOX;
+      } else if (this.metricSource === 'CO_BROWSING_COMPOSEBOX') {
+        sourceEnum = VoiceSearchQuerySource.NEXTBOX_COMPOSEBOX;
+      }
+      if (sourceEnum !== null) {
+        chrome.metricsPrivate.recordEnumerationValue(
+            'VoiceSearch.QuerySubmission.Source', sourceEnum,
+            VoiceSearchQuerySource.MAX_VALUE + 1);
+      }
+    }
+
     // TODO(b/501544449): This dual-logging block is temporary to ensure data
     // continuity. Remove this once the unified VoiceSearch metrics are
     // validated.
@@ -617,6 +648,12 @@ export class ComposeboxVoiceSearchElement extends
         let legacyMetricEnumValue = metricEnumValue;
         if (metricEnumValue === VoiceSearchAction.CANCELED_BY_USER) {
           legacyMetricEnumValue = 2;
+        }
+        // The legacy NewTabPageVoiceAction enum in enums.xml only defines values 0 to 6.
+        // Prevent newly added VoiceSearchAction values (>6, e.g. Stop = 7, Resume = 8)
+        // from leaking into and polluting the legacy NewTabPage.VoiceActions histogram.
+        if (legacyMetricEnumValue > 6) {
+          return;
         }
         chrome.metricsPrivate.recordEnumerationValue(
             'NewTabPage.VoiceActions', legacyMetricEnumValue, max);
@@ -671,6 +708,7 @@ export class ComposeboxVoiceSearchElement extends
     } else {
       // If there is a timer, an error message would show up.
       this.errorMessage_ = this.getErrorText_(error);
+      this.fire('voice-search-error', /*canceled-by-error=*/ false);
 
       if (error === VoiceSearchError.NO_MATCH || error === VoiceSearchError.NO_SPEECH) {
         // NO_MATCH and NO_SPEECH errors auto-close after a longer delay.
@@ -792,6 +830,7 @@ export class ComposeboxVoiceSearchElement extends
     this.errorMessage_ = '';
     this.error_ = null;
     this.start();
+    this.fire('voice-search-restart');
   }
   }
 

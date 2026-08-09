@@ -11,18 +11,12 @@
   <div style="width: 150vw; background-color: yellow;">overflow window</div>
 
 <script>
-      var go_passes = [
-      // scroll page in the x direction
-      () => window.scrollTo(20, 0),
-      // scroll the overflow div in the x direction.
-          () => document.getElementById('div').scrollTo(20, 0)
-        ];
-
-        var current_pass = 0;
-        function go() {
-          go_passes[current_pass++].call();
-          return current_pass < go_passes.length;
-        }
+  function go() {
+    // scroll page in the x direction
+    window.scrollTo(20, 0);
+    // scroll the overflow div in the x direction.
+    document.getElementById('div').scrollTo(20, 0);
+  }
 </script>
 </body>
 </html>

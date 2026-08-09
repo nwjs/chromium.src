@@ -178,6 +178,7 @@ chromium-metrics-reviews@google.com.
   <variant name=".PermissionBlocked"/>
   <variant name=".PermissionPromptLoud"/>
   <variant name=".PermissionUpdate"/>
+  <variant name=".PersonalContextFetchingFailure"/>
   <variant name=".PopupBlocked"/>
   <variant name=".PromptHatsCameraCustomInvitation"/>
   <variant name=".PromptHatsCameraGenericInvitation"/>
@@ -3897,13 +3898,25 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Android.MultiWindow.WindowZOrder.FocusChangedCount"
-    units="count" expires_after="2027-04-02">
+<histogram name="Android.MultiWindow.WindowZOrder.PromotionCount" units="count"
+    expires_after="2027-04-02">
   <owner>kalutes@google.com</owner>
   <owner>clank-large-form-factors@google.com</owner>
   <summary>
-    Records the number of window focus change events handled by
-    WindowZOrderTracker over the preceding 5 minutes.
+    Records the number of times a window was promoted to the top of the z-order
+    by WindowZOrderTracker over the preceding 5 minutes. Recorded every 5
+    minutes while occlusion tracking is enabled.
+  </summary>
+</histogram>
+
+<histogram name="Android.MultiWindow.WindowZOrder.ResumedCount" units="count"
+    expires_after="2027-04-02">
+  <owner>kalutes@google.com</owner>
+  <owner>clank-large-form-factors@google.com</owner>
+  <summary>
+    Records the number of activity top resumed state transitions handled by
+    WindowZOrderTracker over the preceding 5 minutes. Recorded every 5 minutes
+    while occlusion tracking is enabled.
   </summary>
 </histogram>
 
@@ -9304,7 +9317,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Android.WebView.Startup.CreationTime.InitReason2"
-    enum="WebViewStartupCallSite" expires_after="2026-06-30">
+    enum="WebViewStartupCallSite" expires_after="2026-10-02">
   <owner>torne@chromium.org</owner>
   <owner>src/android_webview/OWNERS</owner>
   <summary>

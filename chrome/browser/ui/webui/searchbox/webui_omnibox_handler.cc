@@ -7,7 +7,6 @@
 #include <memory>
 #include <utility>
 
-#include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
 #include "base/types/expected.h"
@@ -108,7 +107,7 @@ WebuiOmniboxHandler::WebuiOmniboxHandler(
                                  std::move(pending_page),
                                  Profile::FromWebUI(web_ui),
                                  web_ui->GetWebContents(),
-                                 /*controller=*/nullptr,
+                                 /*client=*/nullptr,
                                  std::move(get_session_callback)),
       web_contents_observer_(/*handler=*/this, web_ui->GetWebContents()),
       metrics_reporter_(metrics_reporter) {
@@ -307,8 +306,13 @@ WebuiOmniboxHandler::CreateAutocompleteMatch(
 
   mojom_match.value()->has_instant_keyword =
       match.HasInstantKeyword(turl_service);
-  if (mojom_match && !match.HasInstantKeyword(turl_service) &&
-      edit_model->IsPopupControlPresentOnMatch(
+  const OmniboxEditModel* model_to_use =
+      base::FeatureList::IsEnabled(
+          omnibox::kWebUISearchboxWithoutModelController)
+          ? (controller_ ? controller_->edit_model() : nullptr)
+          : edit_model;
+  if (mojom_match && !match.HasInstantKeyword(turl_service) && model_to_use &&
+      model_to_use->IsPopupControlPresentOnMatch(
           OmniboxPopupSelection{line, OmniboxPopupSelection::KEYWORD_MODE})) {
     const auto names = SelectedKeywordView::GetKeywordLabelNames(
         match.associated_keyword, turl_service);
@@ -325,9 +329,9 @@ void WebuiOmniboxHandler::OnFocusChanged(bool focused) {
     edit_model()->OnSetFocus(false);
   } else {
     edit_model()->OnWillKillFocus();
-    if (!base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup)) {
-      edit_model()->OnKillFocus();
-    }
+    // Kill focus on focus loss to properly terminate the edit session and reset
+    // popup and keyword state.
+    edit_model()->OnKillFocus();
   }
 }
 

@@ -502,7 +502,9 @@ RenderWidgetHostViewMac::GetFocusedRenderWidgetHostDelegate() {
 }
 
 RenderWidgetHostImpl* RenderWidgetHostViewMac::GetWidgetForKeyboardEvent() {
-  CHECK(in_keyboard_event_, base::NotFatalUntil::M152);
+  // TODO(crbug.com/534500557): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
+  DCHECK(in_keyboard_event_);
   return RenderWidgetHostImpl::FromID(keyboard_event_widget_process_id_,
                                       keyboard_event_widget_routing_id_);
 }
@@ -1114,6 +1116,9 @@ void RenderWidgetHostViewMac::SetShowingContextMenu(bool showing) {
   ns_view_->SetShowingContextMenu(showing);
 }
 
+void RenderWidgetHostViewMac::SetSupportsAutoFill(bool supports) {
+  ns_view_->SetSupportsAutoFill(supports);
+}
 
 void RenderWidgetHostViewMac::CopyFromSurface(
     const gfx::Rect& src_subrect,

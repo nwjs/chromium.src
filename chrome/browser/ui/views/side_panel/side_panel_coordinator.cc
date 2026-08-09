@@ -220,6 +220,7 @@ void SidePanelCoordinator::Close(SidePanelEntryHideReason reason,
     return;
   }
 
+
   // If we are currently animating the side panel contents so it is parented to
   // the BrowserView, reparent it now so that the entry will be notified it is
   // hidden.

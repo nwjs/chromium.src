@@ -7,7 +7,6 @@
 #include <utility>
 
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "content/public/browser/web_contents.h"
 #include "third_party/metrics_proto/omnibox_event.pb.h"
 
@@ -22,11 +21,9 @@ class ComposeboxEverywhereClient final : public ComposeboxOmniboxClient {
 
   ~ComposeboxEverywhereClient() override = default;
 
-  // OmniboxClient:
   metrics::OmniboxEventProto::PageClassification GetPageClassification(
       bool is_prefetch) const override {
-    // TODO(crbug.com/526629960): Add correct page classification.
-    return metrics::OmniboxEventProto::OTHER_OMNIBOX_COMPOSEBOX;
+    return metrics::OmniboxEventProto::COMPOSEBOX_EVERYWHERE;
   }
 };
 
@@ -49,10 +46,9 @@ ComposeboxEverywhereHandler::ComposeboxEverywhereHandler(
           std::move(pending_searchbox_page),
           profile,
           web_contents,
-          std::make_unique<OmniboxController>(
-              std::make_unique<ComposeboxEverywhereClient>(profile,
-                                                           web_contents,
-                                                           this)),
+          std::make_unique<ComposeboxEverywhereClient>(profile,
+                                                       web_contents,
+                                                       this),
           std::move(get_session_callback),
           std::move(clear_session_callback)) {}
 

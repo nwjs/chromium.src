@@ -27,6 +27,7 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
@@ -35,7 +36,9 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.proto.SendTabToSelfPersistedTabData.SendTabToSelfPersistedTabDataProto;
 import org.chromium.chrome.browser.tab.state.PersistedTabDataConfiguration;
 import org.chromium.chrome.browser.tab.state.PersistedTabDataStorage;
+import org.chromium.chrome.browser.tab.state.SendTabToSelfTabCardLabelData;
 import org.chromium.chrome.browser.tab.state.Serializer;
+import org.chromium.chrome.browser.tabmodel.TabClosureParams;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
@@ -159,7 +162,7 @@ public class SendTabToSelfReceiverTest {
     @Test
     @LargeTest
     @Feature({"Sync"})
-    public void testSendTabToSelfMessageBannerClickOpensTabSwitcher() throws Exception {
+    public void testSendTabToSelfMessageBannerClickOpensSingleTab() throws Exception {
         long now = getCurrentTimeSinceWindowsEpochMicros();
         injectSendTabToSelfEntity(
                 "stts_test_guid", "https://www.example.com", "Example", "Example Phone", now);
@@ -167,14 +170,71 @@ public class SendTabToSelfReceiverTest {
 
         TabUiTestHelper.verifyTabModelTabCount(mSyncTestRule.getActivity(), 2, 0);
 
+        TabModel tabModel = mSyncTestRule.getActivity().getTabModelSelector().getModel(false);
+        // Verify index is 0 initially (background tab is index 1).
+        Assert.assertEquals(
+                0, ThreadUtils.runOnUiThreadBlocking(() -> tabModel.index()).intValue());
+
         // Verify that the message banner is displayed.
         onView(withId(R.id.message_primary_button)).check(matches(isDisplayed()));
 
         // Click on the message banner primary button.
         onView(withId(R.id.message_primary_button)).perform(click());
 
-        // Verify that the tab switcher is opened.
-        waitForLayout(mSyncTestRule.getActivity().getLayoutManager(), LayoutType.HUB);
+        // Verify that the browsing layout remains active (no navigation to the Hub).
+        Assert.assertEquals(
+                LayoutType.BROWSING,
+                mSyncTestRule.getActivity().getLayoutManager().getActiveLayoutType());
+
+        // Verify that the new tab (index 1) is selected and focused.
+        Assert.assertEquals(
+                1, ThreadUtils.runOnUiThreadBlocking(() -> tabModel.index()).intValue());
+
+        // Verify that the message banner goes away.
+        onView(withId(R.id.message_primary_button)).check(doesNotExist());
+    }
+
+    @Test
+    @LargeTest
+    @Feature({"Sync"})
+    public void testSendTabToSelfMessageBannerClickOpensNewestTabForMultipleTabs()
+            throws Exception {
+        long now = getCurrentTimeSinceWindowsEpochMicros();
+        injectSendTabToSelfEntity(
+                "stts_test_guid_1",
+                "https://www.example1.com",
+                "Example 1",
+                "Example Phone 1",
+                now);
+        injectSendTabToSelfEntity(
+                "stts_test_guid_2",
+                "https://www.example2.com",
+                "Example 2",
+                "Example Phone 2",
+                now + 1000);
+        SyncTestUtil.triggerSyncAndWaitForCompletion();
+
+        TabUiTestHelper.verifyTabModelTabCount(mSyncTestRule.getActivity(), 3, 0);
+
+        TabModel tabModel = mSyncTestRule.getActivity().getTabModelSelector().getModel(false);
+        // Verify index is 0 initially.
+        Assert.assertEquals(
+                0, ThreadUtils.runOnUiThreadBlocking(() -> tabModel.index()).intValue());
+
+        // Verify that the message banner is displayed.
+        onView(withId(R.id.message_primary_button)).check(matches(isDisplayed()));
+
+        // Click on the message banner primary button.
+        onView(withId(R.id.message_primary_button)).perform(click());
+
+        // Verify that the browsing layout remains active (no navigation to the Hub).
+        Assert.assertEquals(
+                LayoutType.BROWSING,
+                mSyncTestRule.getActivity().getLayoutManager().getActiveLayoutType());
+
+        // Verify that the newest tab (index 2, which corresponds to stts_test_guid_2) is selected.
+        Assert.assertEquals(
+                2, ThreadUtils.runOnUiThreadBlocking(() -> tabModel.index()).intValue());
 
         // Verify that the message banner goes away.
         onView(withId(R.id.message_primary_button)).check(doesNotExist());
@@ -277,8 +337,10 @@ public class SendTabToSelfReceiverTest {
                 ThreadUtils.runOnUiThreadBlocking(
                         () -> PersistedTabDataConfiguration.TEST_CONFIG.getStorage());
         String deviceName = "Example Phone";
+        String guid = "stts_test_guid";
         SendTabToSelfPersistedTabDataProto proto =
                 SendTabToSelfPersistedTabDataProto.newBuilder()
+                        .setGuid(guid)
                         .setSenderDeviceName(deviceName)
                         .setAdditionTimestampMs(System.currentTimeMillis())
                         .build();
@@ -292,7 +354,155 @@ public class SendTabToSelfReceiverTest {
         // Open the Tab Switcher.
         TabUiTestHelper.enterTabSwitcher(mSyncTestRule.getActivity());
 
-        // 4. Verify the card label is displayed.
+        // Verify the card label is displayed.
         onView(withText("From Example Phone")).check(matches(isDisplayed()));
+    }
+
+    @Test
+    @LargeTest
+    @Feature({"Sync"})
+    public void testSendTabToSelfPersistedData() throws Exception {
+        long startTime = System.currentTimeMillis();
+        long now = getCurrentTimeSinceWindowsEpochMicros();
+        String guid = "stts_test_guid";
+        String deviceName = "Example Phone";
+        injectSendTabToSelfEntity(guid, "https://www.example.com", "Example", deviceName, now);
+        SyncTestUtil.triggerSyncAndWaitForCompletion();
+
+        // Verify that the tab is opened in the background
+        TabUiTestHelper.verifyTabModelTabCount(mSyncTestRule.getActivity(), 2, 0);
+
+        TabModel tabModel = mSyncTestRule.getActivity().getTabModelSelector().getModel(false);
+        Tab bgTab = ThreadUtils.runOnUiThreadBlocking(() -> tabModel.getTabAt(1));
+
+        // Retrieve the persisted data
+        SendTabToSelfTabCardLabelData data =
+                ThreadUtils.runOnUiThreadBlocking(() -> SendTabToSelfTabCardLabelData.get(bgTab));
+
+        Assert.assertNotNull(data);
+        // Verify all fields of the persisted data
+        Assert.assertEquals(
+                guid, ThreadUtils.runOnUiThreadBlocking(() -> data.getGuidForTesting()));
+        Assert.assertEquals(
+                deviceName,
+                ThreadUtils.runOnUiThreadBlocking(() -> data.getSenderDeviceNameForTesting()));
+
+        long additionTimestamp =
+                ThreadUtils.runOnUiThreadBlocking(() -> data.getAdditionTimestampMs());
+        Assert.assertTrue(
+                "Addition timestamp should be after test start", additionTimestamp >= startTime);
+        Assert.assertTrue(
+                "Addition timestamp should be before or equal to current time",
+                additionTimestamp <= System.currentTimeMillis());
+    }
+
+    @Test
+    @LargeTest
+    @Feature({"Sync"})
+    public void testSendTabToSelfActivationLoggingAfterRestart() throws Exception {
+        long startTime = System.currentTimeMillis();
+        long now = getCurrentTimeSinceWindowsEpochMicros();
+        String guid = "stts_test_guid";
+        String deviceName = "Example Phone";
+
+        // Inject the entity. This will trigger auto-open in the background.
+        injectSendTabToSelfEntity(guid, "https://www.example.com", "Example", deviceName, now);
+
+        SyncTestUtil.triggerSyncAndWaitForCompletion();
+
+        // Verify that the tab is opened in the background (we now have 2 tabs).
+        TabUiTestHelper.verifyTabModelTabCount(mSyncTestRule.getActivity(), 2, 0);
+
+        TabModel tabModel = mSyncTestRule.getActivity().getTabModelSelector().getModel(false);
+        Tab bgTab = ThreadUtils.runOnUiThreadBlocking(() -> tabModel.getTabAt(1));
+
+        // Verify data is initially loaded in memory.
+        SendTabToSelfTabCardLabelData data =
+                ThreadUtils.runOnUiThreadBlocking(() -> SendTabToSelfTabCardLabelData.get(bgTab));
+        Assert.assertNotNull(data);
+
+        // Simulate restart by evicting the Java-side in-memory data.
+        // This removes it from UserDataHost and calls destroy() (unregistering the observer).
+        ThreadUtils.runOnUiThreadBlocking(
+                () ->
+                        bgTab.getUserDataHost()
+                                .removeUserData(SendTabToSelfTabCardLabelData.class)
+                                .destroy());
+
+        // Verify it is gone from memory.
+        Assert.assertNull(
+                ThreadUtils.runOnUiThreadBlocking(
+                        () ->
+                                bgTab.getUserDataHost()
+                                        .getUserData(SendTabToSelfTabCardLabelData.class)));
+
+        // Start watching for the expected histograms.
+        HistogramWatcher watcher =
+                HistogramWatcher.newBuilder()
+                        .expectAnyRecord("Sharing.SendTabToSelf.TimeOpenedToActivated")
+                        // ShareActivatedEntryPoint.TAB_STRIP is 4
+                        .expectIntRecord("Sharing.SendTabToSelf.ActivatedEntryPoint", 4)
+                        .build();
+
+        // Open the Tab Switcher. This should trigger reloading the data from disk.
+        TabUiTestHelper.enterTabSwitcher(mSyncTestRule.getActivity());
+
+        // Verify the card label is displayed (meaning it was loaded from disk).
+        onView(withText("From Example Phone")).check(matches(isDisplayed()));
+
+        // Click on the tab card to activate it.
+        // Note: The auto-opened tab is at index 1. Index 0 is the default tab.
+        TabUiTestHelper.clickNthCardFromTabSwitcher(mSyncTestRule.getActivity(), 1);
+        waitForLayout(mSyncTestRule.getActivity().getLayoutManager(), LayoutType.BROWSING);
+
+        // Verify that the histograms were logged.
+        watcher.assertExpected();
+
+        // Verify that the data was removed after activation.
+        Assert.assertNull(
+                ThreadUtils.runOnUiThreadBlocking(() -> SendTabToSelfTabCardLabelData.get(bgTab)));
+    }
+
+    @Test
+    @LargeTest
+    @Feature({"Sync"})
+    public void testSendTabToSelfClosedWithoutActivationLogging() throws Exception {
+        long now = getCurrentTimeSinceWindowsEpochMicros();
+        String guid = "stts_test_guid";
+        String deviceName = "Example Phone";
+
+        // Inject the entity. This will trigger auto-open in the background.
+        injectSendTabToSelfEntity(guid, "https://www.example.com", "Example", deviceName, now);
+
+        SyncTestUtil.triggerSyncAndWaitForCompletion();
+
+        // Verify that the tab is opened in the background (we now have 2 tabs).
+        TabUiTestHelper.verifyTabModelTabCount(mSyncTestRule.getActivity(), 2, 0);
+
+        TabModel tabModel = mSyncTestRule.getActivity().getTabModelSelector().getModel(false);
+        Tab bgTab = ThreadUtils.runOnUiThreadBlocking(() -> tabModel.getTabAt(1));
+
+        // Verify data is initially loaded in memory.
+        SendTabToSelfTabCardLabelData data =
+                ThreadUtils.runOnUiThreadBlocking(() -> SendTabToSelfTabCardLabelData.get(bgTab));
+        Assert.assertNotNull(data);
+
+        // Start watching for the expected histograms.
+        HistogramWatcher watcher =
+                HistogramWatcher.newBuilder()
+                        // ShareActivatedEntryPoint.TAB_OR_BROWSER_CLOSED_WITHOUT_ACTIVATION is 6
+                        .expectIntRecord("Sharing.SendTabToSelf.ActivatedEntryPoint", 6)
+                        .build();
+
+        // Close the tab.
+        ThreadUtils.runOnUiThreadBlocking(
+                () ->
+                        tabModel.getTabRemover()
+                                .closeTabs(
+                                        TabClosureParams.closeTab(bgTab).allowUndo(false).build(),
+                                        /* allowDialog= */ false));
+
+        // Verify that the histograms were logged.
+        watcher.assertExpected();
     }
 }

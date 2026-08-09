@@ -171,6 +171,12 @@ BASE_DECLARE_FEATURE(kZeroStateSuggestions);
 // Returns true if zero-state suggestions are enabled.
 bool IsZeroStateSuggestionsEnabled();
 
+// Feature flag to enable the 'What can Gemini do' static chip.
+BASE_DECLARE_FEATURE(kZeroStateSuggestionsWCGD);
+
+// Returns true if the 'What can Gemini do' static chip is enabled.
+bool IsZeroStateSuggestionsWCGDEnabled();
+
 // Feature flag to enable centralization of zero-state suggestions.
 BASE_DECLARE_FEATURE(kZeroStateSuggestionsCentralization);
 
@@ -421,5 +427,11 @@ BASE_DECLARE_FEATURE(kIOSGeminiBottomSheetMigration);
 
 // Helper function to check if `kIOSGeminiBottomSheetMigration` is enabled.
 bool IsIOSGeminiBottomSheetMigrationEnabled();
+
+// Feature flag to control the Gemini coordinator teardown crash fix.
+BASE_DECLARE_FEATURE(kGeminiCoordinatorTeardownFix);
+
+// Returns true if the Gemini coordinator teardown crash fix is enabled.
+bool IsGeminiCoordinatorTeardownFixEnabled();
 
 #endif  // IOS_CHROME_BROWSER_INTELLIGENCE_FEATURES_FEATURES_H_

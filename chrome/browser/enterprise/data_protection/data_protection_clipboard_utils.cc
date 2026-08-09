@@ -1017,11 +1017,6 @@ bool CanPopulateFindBarFromSelection(content::WebContents* web_contents) {
 
 bool IsDragAllowedByPolicy(const content::ClipboardEndpoint& source,
                            const content::DropData& drop_data) {
-  if (!base::FeatureList::IsEnabled(
-          data_controls::kDataControlsDragEnforcement)) {
-    return true;
-  }
-
   if (SkipDataControlOrContentAnalysisChecks(source)) {
     return true;
   }

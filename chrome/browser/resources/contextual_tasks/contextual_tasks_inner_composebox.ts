@@ -17,6 +17,7 @@ import type {ComposeboxFileInputsElement} from '//resources/cr_components/compos
 import type {ComposeboxInputElement} from '//resources/cr_components/composebox/composebox_input.js';
 import {ComposeboxEmbedderMixin} from '//resources/cr_components/composebox/composebox_mixin.js';
 import {ComposeboxProxyImpl} from '//resources/cr_components/composebox/composebox_proxy.js';
+import {ToolMode} from '//resources/cr_components/composebox/composebox_query.mojom-webui.js';
 import type {ContextualEntrypointAndMenuElement} from '//resources/cr_components/composebox/contextual_entrypoint_and_menu.js';
 import type {ErrorScrimElement} from '//resources/cr_components/composebox/error_scrim.js';
 import type {ComposeboxFileCarouselElement} from '//resources/cr_components/composebox/file_carousel.js';
@@ -24,6 +25,7 @@ import type {GlowAnimationState} from '//resources/cr_components/search/constant
 import {DragAndDropHandler} from '//resources/cr_components/search/drag_drop_handler.js';
 import type {DragAndDropHost} from '//resources/cr_components/search/drag_drop_host.js';
 import {EventTracker} from '//resources/js/event_tracker.js';
+import {debounceEnd} from '//resources/js/util.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 import type {AutocompleteResult, PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
@@ -31,6 +33,10 @@ import type {UnguessableToken} from '//resources/mojo/mojo/public/mojom/base/ung
 
 import {getCss} from './contextual_tasks_inner_composebox.css.js';
 import {getHtml} from './contextual_tasks_inner_composebox.html.js';
+
+// Debounce interval for the ResizeObserver callbacks that fire
+// `composebox-resize`
+const RESIZE_EVENT_DEBOUNCE_TIMEOUT_MS = 20;
 
 // Inner-element contract the `contextual-tasks-composebox` wrapper invokes on
 // its `#composebox` child; both `<cr-composebox>` and this fork satisfy it.
@@ -54,10 +60,10 @@ export interface ContextualTasksInnerComposeboxInterface {
   isZeroState: boolean;
   lensButtonDisabled: boolean;
   lensButtonTriggersOverlay: boolean;
+  queryZpsOnLoad: boolean;
   searchboxLayoutMode: string;
   showLensButton: boolean;
   showVoiceSearch: boolean;
-  suggestionActivityEnabled: boolean;
   readonly updateComplete: Promise<boolean>;
   usePecApi: boolean;
 
@@ -121,7 +127,6 @@ export class
       lensButtonDisabled: {type: Boolean},
       lensButtonTriggersOverlay: {type: Boolean},
       showLensButton: {type: Boolean},
-      suggestionActivityEnabled: {type: Boolean},
     };
   }
 
@@ -139,12 +144,12 @@ export class
   accessor lensButtonDisabled: boolean = false;
   accessor lensButtonTriggersOverlay: boolean = false;
   accessor showLensButton: boolean = true;
-  accessor suggestionActivityEnabled: boolean = true;
 
   private searchboxCallbackRouter_: SearchboxPageCallbackRouter;
   private pageHandler_: PageHandlerRemote;
   private searchboxHandler_: SearchboxPageHandlerRemote;
   private eventTracker_: EventTracker = new EventTracker();
+  private resizeObservers_: ResizeObserver[] = [];
   protected dragAndDropHandler_: DragAndDropHandler;
 
   override getPageHandler(): PageHandlerRemote {
@@ -191,11 +196,17 @@ export class
   override connectedCallback() {
     super.connectedCallback();
     this.focusInput();
+    // firstUpdated() runs only once, so restore the observers on reconnect (
+    // the shadow DOM persists); the initial setup happens in firstUpdated().
+    if (this.hasUpdated) {
+      this.syncResizeObservers_();
+    }
   }
 
   override disconnectedCallback() {
     super.disconnectedCallback();
     this.eventTracker_.removeAll();
+    this.tearDownResizeObservers_();
   }
 
   override willUpdate(changedProperties: PropertyValues<this>) {
@@ -205,6 +216,13 @@ export class
     }
   }
 
+  override firstUpdated(changedProperties: PropertyValues<this>) {
+    super.firstUpdated(changedProperties);
+    // Set up after the first render so `this.$.matches` exists; CT is the only
+    // embedder that consumes these resize events.
+    this.syncResizeObservers_();
+  }
+
   override updated(changedProperties: PropertyValues<this>) {
     super.updated(changedProperties);
     if (changedProperties.has('result') ||
@@ -212,6 +230,38 @@ export class
       // Fires `show-suggestion-activity-link`; the wrapper owns the link UI.
       this.shouldShowSuggestionActivityLink();
     }
+  }
+
+  private setupResizeObservers_() {
+    const composeboxResizeObserver = new ResizeObserver(debounceEnd(() => {
+      this.fire('composebox-resize', {height: this.offsetHeight});
+    }, RESIZE_EVENT_DEBOUNCE_TIMEOUT_MS));
+    this.resizeObservers_.push(composeboxResizeObserver);
+    composeboxResizeObserver.observe(this);
+
+    const composeboxDropdownResizeObserver =
+        new ResizeObserver(debounceEnd(() => {
+          this.fire(
+              'composebox-resize',
+              {dropdownHeight: this.$.matches.offsetHeight});
+        }, RESIZE_EVENT_DEBOUNCE_TIMEOUT_MS));
+    this.resizeObservers_.push(composeboxDropdownResizeObserver);
+    composeboxDropdownResizeObserver.observe(this.$.matches);
+  }
+
+  private tearDownResizeObservers_() {
+    for (const observer of this.resizeObservers_) {
+      observer.disconnect();
+    }
+    this.resizeObservers_ = [];
+  }
+
+  private syncResizeObservers_() {
+    this.tearDownResizeObservers_();
+    if (!this.isConnected) {
+      return;
+    }
+    this.setupResizeObservers_();
   }
 
   override onAutocompleteResultChanged(result: AutocompleteResult) {
@@ -267,6 +317,16 @@ export class
       return;
     }
     super.updateInputPlaceholder();
+  }
+
+  override hasValidQuery(): boolean {
+    // TODO(crbug.com/485648942): Update to drive Deep Search behavior from the
+    // PEC API's ToolSubstateConfig.
+    // Allow an empty query for Deep Search follow-ups; super handles files,
+    // selected matches, and non-empty text.
+    return super.hasValidQuery() ||
+        (this.inputState?.activeTool === ToolMode.kDeepSearch &&
+         this.isFollowupQuery);
   }
 
   getAutomaticActiveTabChipElement(): HTMLElement|null {

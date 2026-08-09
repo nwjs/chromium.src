@@ -220,7 +220,11 @@ bool MockRenderProcessHost::DisallowV8FeatureFlagOverrides() {
 }
 
 bool MockRenderProcessHost::IsPdf() {
-  return false;
+  return is_pdf_;
+}
+
+void MockRenderProcessHost::SetIsPdf(bool is_pdf) {
+  is_pdf_ = is_pdf;
 }
 
 void MockRenderProcessHost::OnMediaStreamAdded() {}

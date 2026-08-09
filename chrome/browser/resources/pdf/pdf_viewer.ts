@@ -448,7 +448,7 @@ export class PdfViewerElement extends PdfViewerBaseElement {
     this.useSidePanelForInk_ = mediaQuery.matches;
     this.tracker.add(mediaQuery, 'change', () => {
       this.useSidePanelForInk_ = mediaQuery.matches;
-      // If we are in DRAW or TEXT annotation mode, record opening the
+      // If in DRAW or TEXT annotation mode, record opening the
       // UI that's opened by making the window narrower/wider.
       if (this.annotationMode_ !== AnnotationMode.OFF) {
         record(
@@ -630,14 +630,12 @@ export class PdfViewerElement extends PdfViewerBaseElement {
   }
 
   // <if expr="enable_pdf_ink2">
-  private async maybeCreateTextAnnotation_(location?: Point) {
-    const created =
-        Ink2Manager.getInstance().initializeTextAnnotation(location);
-    if (!created && this.textboxState_ !== TextBoxState.INACTIVE) {
-      const annotations = this.shadowRoot.querySelector('ink-text-annotations');
-      assert(annotations);
-      await annotations.commitActiveAnnotation();
+  private maybeCreateTextAnnotation_(location?: Point): Promise<void> {
+    if (this.textboxState_ !== TextBoxState.INACTIVE) {
+      return this.maybeCommitActiveTextbox_();
     }
+    Ink2Manager.getInstance().initializeTextAnnotation(location);
+    return Promise.resolve();
   }
 
   private recordEnterExitAnnotationModeMetrics_(
@@ -1675,10 +1673,10 @@ export class PdfViewerElement extends PdfViewerBaseElement {
    */
   private async save_(requestType: SaveRequestType) {
     this.recordSaveMetrics_(requestType);
-    // If we have entered annotation mode we must require the local
-    // contents to ensure annotations are saved, unless the user specifically
-    // requested the original document. Otherwise we would save the cached
-    // remote copy without annotations.
+    // Entering annotation mode requires the local contents to ensure
+    // annotations are saved, unless the original document is specifically
+    // requested. Otherwise, the cached remote copy would be saved without
+    // annotations.
     //
     // Always send requests of type ORIGINAL to the plugin controller, not the
     // ink controller. The ink controller always saves the edited document.

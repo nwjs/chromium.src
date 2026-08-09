@@ -500,15 +500,23 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                     TabContextMenuItemDelegate tabDelegate =
                             (TabContextMenuItemDelegate) mItemDelegate;
                     pageGroup.add(
-                            createListItem(Item.BACK, false, tabDelegate.canCurrentTabGoBack()));
+                            createListItem(
+                                    Item.BACK,
+                                    /* showInProductHelp= */ false,
+                                    tabDelegate.canCurrentTabGoBack()));
                     pageGroup.add(
                             createListItem(
-                                    Item.FORWARD, false, tabDelegate.canCurrentTabGoForward()));
+                                    Item.FORWARD,
+                                    /* showInProductHelp= */ false,
+                                    tabDelegate.canCurrentTabGoForward()));
                 }
                 pageGroup.add(createListItem(Item.RELOAD));
                 if (UrlUtilities.isDownloadableScheme(mParams.getPageUrl())) {
                     pageGroup.add(
-                            createListItem(Item.SAVE_PAGE, false, !mIsDownloadRestrictedByPolicy));
+                            createListItem(
+                                    Item.SAVE_PAGE,
+                                    /* showInProductHelp= */ false,
+                                    !mIsDownloadRestrictedByPolicy));
                 }
                 if (enableShareFromContextMenu()) {
                     pageGroup.add(createShareListItem(Item.SHARE_PAGE, Item.DIRECT_SHARE_LINK));
@@ -519,7 +527,11 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                 if (shouldShowLensOverlay()) {
                     Tab tab = getTab();
                     boolean isEnabled = !LensOverlayTabHelper.isOverlayShowing(tab);
-                    pageGroup.add(createListItem(Item.LENS_OVERLAY, false, isEnabled));
+                    pageGroup.add(
+                            createListItem(
+                                    Item.SEARCH_TAB_WITH_GOOGLE_LENS,
+                                    /* showInProductHelp= */ false,
+                                    isEnabled));
                     maybeRecordUkmLensShown();
                 }
                 boolean isChromeOrNativePage =
@@ -751,7 +763,10 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                                                             .LENS_SEARCH_SUPPORTED)
                                     || shouldShowLensOverlay();
                     if (shouldShowSearchImageWithLens) {
-                        imageGroup.add(createListItem(Item.SEARCH_WITH_GOOGLE_LENS, true));
+                        imageGroup.add(
+                                createListItem(
+                                        Item.SEARCH_IMAGE_WITH_GOOGLE_LENS,
+                                        /* showInProductHelp= */ true));
                         maybeRecordUkmLensShown();
                     } else {
                         imageGroup.add(createListItem(Item.SEARCH_BY_IMAGE));
@@ -1114,7 +1129,7 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
         } else if (itemId == R.id.contextmenu_print_page) {
             recordContextMenuSelection(ContextMenuUma.Action.PRINT_PAGE);
             mItemDelegate.startPrint();
-        } else if (itemId == R.id.contextmenu_lens_overlay) {
+        } else if (itemId == R.id.contextmenu_search_tab_with_google_lens) {
             // TODO(b/510385469): Add a new Action enum for Lens Overlay.
             recordContextMenuSelection(ContextMenuUma.Action.SEARCH_WITH_GOOGLE_LENS);
             Tab tab = getTab();
@@ -1155,7 +1170,7 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                                     .setRenderFrameHost(mNativeDelegate.getRenderFrameHost())
                                     .build(),
                             ShareOrigin.CONTEXT_MENU);
-        } else if (itemId == R.id.contextmenu_search_with_google_lens) {
+        } else if (itemId == R.id.contextmenu_search_image_with_google_lens) {
             recordContextMenuSelection(ContextMenuUma.Action.SEARCH_WITH_GOOGLE_LENS);
             if (shouldShowLensOverlay()) {
                 Tab tab = getTab();
@@ -1168,7 +1183,7 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
             }
             SharedPreferencesManager prefManager = ChromeSharedPreferences.getInstance();
             prefManager.writeBoolean(
-                    ChromePreferenceKeys.CONTEXT_MENU_SEARCH_WITH_GOOGLE_LENS_CLICKED, true);
+                    ChromePreferenceKeys.CONTEXT_MENU_SEARCH_IMAGE_WITH_GOOGLE_LENS_CLICKED, true);
         } else if (itemId == R.id.contextmenu_search_by_image) {
             LensMetrics.recordAmbientSearchQuery(
                     LensMetrics.AmbientSearchEntryPoint.CONTEXT_MENU_SEARCH_IMAGE_WITH_WEB);

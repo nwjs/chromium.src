@@ -189,7 +189,8 @@ public final class ChromePreferenceKeys {
     public static final String CONTEXT_MENU_OPEN_IN_EPHEMERAL_TAB_CLICKED =
             "Chrome.Contextmenu.OpenInEphemeralTabClicked";
 
-    public static final String CONTEXT_MENU_SEARCH_WITH_GOOGLE_LENS_CLICKED =
+    /** Note: The string value intentionally omits "Image" for backward compatibility. */
+    public static final String CONTEXT_MENU_SEARCH_IMAGE_WITH_GOOGLE_LENS_CLICKED =
             "Chrome.ContextMenu.SearchWithGoogleLensClicked";
 
     public static final String CONTEXT_MENU_SHOP_IMAGE_WITH_GOOGLE_LENS_CLICKED =
@@ -1200,7 +1201,7 @@ public final class ChromePreferenceKeys {
                 COMMERCE_SUBSCRIPTIONS_CHROME_MANAGED_TIMESTAMP,
                 CONTEXT_MENU_OPEN_IMAGE_IN_EPHEMERAL_TAB_CLICKED,
                 CONTEXT_MENU_OPEN_IN_EPHEMERAL_TAB_CLICKED,
-                CONTEXT_MENU_SEARCH_WITH_GOOGLE_LENS_CLICKED,
+                CONTEXT_MENU_SEARCH_IMAGE_WITH_GOOGLE_LENS_CLICKED,
                 CONTEXT_MENU_SHOP_IMAGE_WITH_GOOGLE_LENS_CLICKED,
                 CROSS_DEVICE_IMPORTED_BOTTOM_OMNIBOX,
                 CROSS_DEVICE_IMPORTED_ALL_SETTINGS,

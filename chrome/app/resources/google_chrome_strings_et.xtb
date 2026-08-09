@@ -127,6 +127,7 @@
 <translation id="2120620239521071941">See kustutab sellest seadmest <ph name="ITEMS_COUNT" /> üksust. Hiljem oma andmete toomiseks logige Chrome'i sisse kasutajana <ph name="USER_EMAIL" />.</translation>
 <translation id="2121284319307530122">Taaskäivitage &amp;Chrome'i värskendamiseks</translation>
 <translation id="2123055963409958220">Aidake Chrome paremaks muuta, teavitades meid <ph name="BEGIN_LINK" />praegustest seadetest<ph name="END_LINK" /></translation>
+<translation id="2125838419757773031">Valige otsimiseks ekraani ala.</translation>
 <translation id="2126108037660393668">Allalaaditud faili kinnitamine ebaõnnestus.</translation>
 <translation id="2128411189117340671">Halda Chrome’i profiile</translation>
 <translation id="2137162749895930932">Sulgege tõlkeekraan</translation>
@@ -263,9 +264,9 @@ Kui see leht ei tööta ootuspäraselt, proovige optimeerimine lubada.</translat
 <translation id="3453763134178591239">Chrome OS-i tingimused</translation>
 <translation id="3475778264501649775">Võtke paroolid, vahelehed ja muu endaga kaasa, kasutades telefonis Chrome'i rakendust</translation>
 <translation id="3503306920980160878">Chrome vajab juurdepääsu teie asukohale, et seda selle saidiga jagada</translation>
-<translation id="3512495006767217696">Chrome'i sisse ehitatud, et aidata teil luua, salvestada ja automaatselt täita tugevaid paroole. Lisage otsetee, et hõlpsasti juurde pääseda</translation>
 <translation id="3539955434060988644">Ava link Chrome'i inko&amp;gnito aknas</translation>
 <translation id="354621070532799440">Meeldetuletus: Google'i parimad ohutusfunktsioonid on teie taskus</translation>
+<translation id="3547866758548131919">Selle dokumendi jagamiseks Chrome'i Geminis klõpsake kokkuvõtte nuppu, et saada kiire ülevaade ja esitada täpsustavaid küsimusi.</translation>
 <translation id="3576528680708590453">Teie süsteemiadministraator on konfigureerinud Google Chrome'i avama alternatiivset brauserit, et saada juurdepääs lehele <ph name="TARGET_URL_HOSTNAME" />.</translation>
 <translation id="3582972582564653026">Sünkroonige ja isikupärastage Chrome kõigis oma seadmetes</translation>
 <translation id="3583751698304738917">Olete juba ühel teisel Chrome'i profiilil kasutajana <ph name="USER_EMAIL_ADDRESS" /> sisse logitud</translation>
@@ -315,6 +316,7 @@ Kui see leht ei tööta ootuspäraselt, proovige optimeerimine lubada.</translat
 <translation id="4012899077942246412">Kui olete sisse logitud, siis saate Chrome'is kasutada oma paroole ja oma Google'i konto teisi võimalusi. Selle muutmiseks avage valik „Teie konto Chrome'is“.</translation>
 <translation id="4022972681110646219">Tõlgi kuva</translation>
 <translation id="4023601594785368013">Lähtekeel: <ph name="LANGUAGE" /></translation>
+<translation id="4034249157893816477">Chrome'i sisse ehitatud, et aidata teil luua, salvestada ja automaatselt täita tugevaid paroole. Lisage otsetee, et hõlpsasti juurde pääseda.</translation>
 <translation id="4035053306113201399">Chrome OS tuleb värskenduse rakendamiseks taaskäivitada.</translation>
 <translation id="4050175100176540509">Uusimas versioonis on saadaval olulised turvatäiendused ja uued funktsioonid.</translation>
 <translation id="4053720452172726777">Google Chrome'i kohandamine ja juhtimine</translation>
@@ -356,6 +358,7 @@ Kui see leht ei tööta ootuspäraselt, proovige optimeerimine lubada.</translat
 <translation id="4400772909124543403">Ühtegi värskendust ei ole saadaval</translation>
 <translation id="4427306783828095590">Täiustatud kaitse aitab andmepüüki ja pahavara paremini blokeerida</translation>
 <translation id="4434353761996769206">Installiprogrammi viga: <ph name="INSTALLER_ERROR" /></translation>
+<translation id="4437295824090654417">Jagage seda dokumenti Chrome'i Geminis, et saada kiire ülevaade ja esitada täpsustavaid küsimusi.</translation>
 <translation id="4450664632294415862">Chrome – võrku sisselogimine – <ph name="PAGE_TITLE" /></translation>
 <translation id="4458462641685292929">Teine toiming on Google Chrome'is pooleli. Proovige hiljem uuesti.</translation>
 <translation id="4459234553906210702">Reklaamide mõõtmine võimaldab külastatavatel saitidel paluda Chrome'ilt teavet, mis aitab saidil oma reklaamide toimivust mõõta. Reklaamide mõõtmine piirab saitidevahelist jälgimist, edastades saitide vahel võimalikult vähe teavet.</translation>
@@ -555,7 +558,6 @@ Mõned funktsioonid ei pruugi saadaval olla. Määrake muu profiilikataloog või
 <translation id="6438015621983209660">Laiendage telefonis Chrome'iga täiustatud ohutut sirvimist</translation>
 <translation id="6442774133615368941">Ostke, tõlkige ja tuvastage, mida näete, kasutades Chrome'i iOS-i rakenduses oma kaamerat.</translation>
 <translation id="6448835208126432197">Ekraanikuva osa valimiseks funktsioonis Gemini Chrome'is kasutage klaviatuuri otseteed.</translation>
-<translation id="6473659734176498825">Lihtsustatud pilt, mis näitab Google'i paroolihalduri sisenemispunkti Chrome'is</translation>
 <translation id="6473905796280459355">Minemine lehele Teave Chrome’i kohta</translation>
 <translation id="6481963882741794338">Linkige Chrome ja teised Google’i teenused isikupärastamiseks ja muudel eesmärkidel</translation>
 <translation id="648319183876919572">Täiustatud ohutu sirvimine kaitseb teid paremini ohtlike veebisaitide ja allalaadimiste eest</translation>
@@ -700,7 +702,6 @@ Mõned funktsioonid ei pruugi saadaval olla. Määrake muu profiilikataloog või
 <translation id="7804364787702057554">Teie konto Chrome'is</translation>
 <translation id="7804947029129221742">Teie otsingumootorit muudeti väljaspool Chrome'i. Chrome lähtestas selle teie kaitsmiseks algsele vaikeväärtusele. <ph name="LEARN_MORE_LINK" /></translation>
 <translation id="7808348361785373670">Chrome'ist eemaldamine ...</translation>
-<translation id="7812800388699096556">Illustratsioon, mis näitab, kuidas saate Google Lensi abil toodet otsida</translation>
 <translation id="7827099906024714326">Selleks et teatud andmeid saaks teie Google'i kontole salvestada ja kõigis teie seadmetes kasutada, peab Chrome teie isiku kinnitama. Kui logite praegu välja, siis need andmed kustutatakse.</translation>
 <translation id="7832314606810669113">Kõigis seadmetes oma järjehoidjate ja muu sisu kasutamiseks logige Chrome’i sisse. See järjehoidja salvestatakse pärast sisselogimist teie Google’i kontole.</translation>
 <translation id="7845233973568007926">Täname teid installimise eest. Enne brauseri <ph name="BUNDLE_NAME" /> kasutamist peate oma arvuti taaskäivitama.</translation>
@@ -788,6 +789,7 @@ Uusi järjehoidjaid ei saa teie kontole salvestada, enne kui mõned kustutate. K
 <translation id="8601359445272098721">Uus! Saate tõlkida nii ekraanil olevat teksti kui ka pilte, valides nupu „Tõlgi kuva“</translation>
 <translation id="8614913330719544658">Google Chrome ei reageeri. Kas soovite kohe taaskäivitada?</translation>
 <translation id="861702415419836452">Chrome vajab luba teie kaamerale juurdepääsemiseks, et luua teid ümbritsevast 3D-kaart</translation>
+<translation id="8623450603356630491">Logige oma telefonis Chrome'i sisse</translation>
 <translation id="8624541899164515475">Seaded, avaneb uuel vahelehel.</translation>
 <translation id="8625237574518804553">{0,plural, =1{Chrome käivitatakse uuesti 1 minuti pärast}other{Chrome käivitatakse uuesti # minuti pärast}}</translation>
 <translation id="8637932705841171563">Oma akna jagamiseks lubage menüüs System Settings Chrome'i puhul ekraani salvestamine.</translation>

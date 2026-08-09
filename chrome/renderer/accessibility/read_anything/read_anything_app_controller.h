@@ -269,6 +269,7 @@ class ReadAnythingAppController
   int LineFocusStaticLine() const;
   int LineFocusCursorLine() const;
   int MaxLineWidth() const;
+  int ActivePresentationState() const;
   int InHiddenPresentationState() const;
   int InSidePanelPresentationState() const;
   int InImmersiveOverlayPresentationState() const;
@@ -547,6 +548,10 @@ class ReadAnythingAppController
 
   void LogSpeechStop(int source);
 
+  // Logs the duration a user spent reading a page, broken down by page type
+  // (PDF vs WebPage) and view mode (FullPage overlay vs SidePanel).
+  void LogPageDuration();
+
   // Methods for logging line focus session info.
   void StartLineFocusSession();
   void LogLineFocusSession();
@@ -556,6 +561,8 @@ class ReadAnythingAppController
   void IncrementLineFocusSpeechLines();
 
   void OnUrlInformationSet();
+
+  void OnPdfDebounceFinished();
 
   // Stores a screenshot of the page and triggers distillation to record protos.
   // This function is not used in production and is behind the disabled

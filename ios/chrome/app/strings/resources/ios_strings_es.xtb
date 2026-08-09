@@ -4,6 +4,7 @@
 <translation id="1004825134262590729">{count,plural, =1{{count} llave de acceso}other{{count} llaves de acceso}}</translation>
 <translation id="1005023885865154304">Abrir ajustes de Autocompletar contraseñas</translation>
 <translation id="1005230401424685968">AAAA</translation>
+<translation id="1013852467930342108">Live es una nueva función de Gemini en Chrome</translation>
 <translation id="1013952917065545813">Puedes volver aquí para abrir de nuevo las últimas pestañas que hayas cerrado recientemente.</translation>
 <translation id="1016495303386450659">Elemento actualizado</translation>
 <translation id="1018804590490383958">Escanear y autocompletar</translation>
@@ -57,6 +58,7 @@
 <translation id="1179890706672152411">Tu almacenamiento está lleno</translation>
 <translation id="1181037720776840403">Quitar</translation>
 <translation id="1190609913194133056">Centro de notificaciones</translation>
+<translation id="1196534270480620381">Hazme un breve resumen de esta página</translation>
 <translation id="1199631150313925648">Introducir manualmente</translation>
 <translation id="1199963004393929848">Tema verde</translation>
 <translation id="1201402288615127009">Siguiente</translation>
@@ -148,6 +150,7 @@
 <translation id="147982357559798527">Modificada</translation>
 <translation id="1483493594462132177">Enviar</translation>
 <translation id="1486096554574027028">Buscar contraseñas</translation>
+<translation id="1486593497476255523">Grupos de pestañas completado.</translation>
 <translation id="1491277525950327607">Toca dos veces para activar o desactivar esta opción</translation>
 <translation id="1492417797159476138">Ya has guardado ese nombre de usuario en este sitio web</translation>
 <translation id="1497590942294823549">Menú → Gestor de contraseñas</translation>
@@ -169,6 +172,7 @@
 <translation id="1539535193627863227">No se han encontrado contraseñas ni llaves de acceso para este sitio</translation>
 <translation id="1540800554400757039">Dirección 1</translation>
 <translation id="154312949627292154">Abre las pestañas recibidas de tus otros dispositivos desde la pantalla de bloqueo.</translation>
+<translation id="1544653821167545205">Resumir página</translation>
 <translation id="1545749641540134597">Escanea el código QR</translation>
 <translation id="1545757265410828525">Historial de precios</translation>
 <translation id="1547610699249301703">Comparte contraseñas</translation>
@@ -232,6 +236,7 @@
 <translation id="1740650426894359238">Cambiar de perfil</translation>
 <translation id="1741219894094057085">Smartwatch</translation>
 <translation id="1743244221910283364">Descartar cambios</translation>
+<translation id="1744234754703485302">Gestión de métodos de pago completada.</translation>
 <translation id="1748975028205587434">Seleccionar archivo</translation>
 <translation id="1749733017156547309">Debes introducir una contraseña</translation>
 <translation id="174998178145075354">{count,plural, =1{{count} opción de dirección disponible encima de tu teclado.}other{{count} opciones de dirección disponibles encima de tu teclado.}}</translation>
@@ -240,6 +245,7 @@
 <translation id="1752547299766512813">Guardar contraseñas</translation>
 <translation id="1764070164487214210">Indicaciones</translation>
 <translation id="1764511703783285459">El otro gestor de contraseñas no ha compartido ninguna contraseña ni llave de acceso</translation>
+<translation id="1765555082983153259">Chrome quiere acceder a tu micrófono</translation>
 <translation id="1767766085187034454">Traductor de Google</translation>
 <translation id="1771016937398045251">Menú Herramientas</translation>
 <translation id="1772468122139624049">No se pueden volver a cargar las pestañas</translation>
@@ -275,6 +281,7 @@
 <translation id="1869050523388525800">La pantalla de búsqueda solo está disponible cuando Google está configurado como tu buscador predeterminado. Puedes cambiar tu buscador predeterminado en <ph name="BEGIN_LINK" />Configuración<ph name="END_LINK" />.</translation>
 <translation id="1872096359983322073">Linterna</translation>
 <translation id="1875733418125333939"><ph name="FILENAME" />.</translation>
+<translation id="1876230899304059090">¿Qué puede hacer Gemini en Chrome?</translation>
 <translation id="1881621406744213161">Invita a miembros de la familia</translation>
 <translation id="188177382966899059">Deep Search</translation>
 <translation id="188237709236611317">Barra de menú con ordenación inteligente</translation>
@@ -358,6 +365,7 @@
 <translation id="2155663190508912427">Eliminar dentro de 1 mes</translation>
 <translation id="2161446265348023004">Cambiar a ventana abierta</translation>
 <translation id="2164946989711475905">Iniciar sesión…</translation>
+<translation id="2165110345209765380">Buscar con el Modo IA completado.</translation>
 <translation id="2175927920773552910">Código QR</translation>
 <translation id="2180338296831857171">Eliminar direcciones</translation>
 <translation id="218350106843433823">Autocompletar contraseñas y llaves de acceso</translation>
@@ -397,6 +405,7 @@
 <translation id="2273327106802955778">Menú más</translation>
 <translation id="2287614783861766820">{count,plural, =1{Esta dirección se eliminará de este dispositivo.}other{Estas direcciones se eliminarán de este dispositivo.}}</translation>
 <translation id="2295236662082735391">Mantén pulsada una imagen en la Web para editarla con Gemini</translation>
+<translation id="2296360194694387941">Usar Gemini en Chrome completado.</translation>
 <translation id="2297989278479054870">Cuando cierres sesión, los marcadores, las contraseñas y otros datos de tu cuenta de Google se eliminarán de este dispositivo.</translation>
 <translation id="2299218006564889602">Tus contraseñas se cifran en tu dispositivo antes de que se guarden en el Gestor de contraseñas de Google.</translation>
 <translation id="2306265833370324042">Mostrar detalles de <ph name="SEARCH_ENGINE_NAME" /></translation>
@@ -447,9 +456,10 @@
 <translation id="2466518891828668184">Guarda tus contraseñas para iniciar sesión fácilmente en sitios y aplicaciones.</translation>
 <translation id="2468132863574325555">Drive</translation>
 <translation id="2468444275314013497">Parece que todo está correcto en tu navegador</translation>
+<translation id="2470654816840674524">¿Qué puedo hacer con Gemini en Chrome?</translation>
 <translation id="2473876017985765807">Ya has guardado una contraseña para <ph name="WEBSITE" /></translation>
 <translation id="247430852844518481">Puedes configurar un recordatorio para volver a visitar esta página más adelante</translation>
-<translation id="2479148705183875116">Ve a Ajustes</translation>
+<translation id="2479148705183875116">Ir a Ajustes</translation>
 <translation id="2482878487686419369">Notificaciones</translation>
 <translation id="2484459871750294497">¿Cómo habilito esta función?</translation>
 <translation id="2485534095078940149">Archivo adjunto {title}</translation>
@@ -467,7 +477,7 @@
 <translation id="2529021024822217800">Abrir todos</translation>
 <translation id="2536991091671391962">Puedes usar las contraseñas guardadas en cualquier dispositivo. Se guardan en el Gestor de contraseñas de Google de <ph name="EMAIL" />.</translation>
 <translation id="2538103551183528357">Contraseña oculta</translation>
-<translation id="2538705697765638552">Guarda tu información y realiza tareas más rápido, como rellenar formularios en los productos de Google. Puedes gestionar tu información en Google Wallet de <ph name="USER_EMAIL" />.</translation>
+<translation id="2538705697765638552">Guarda tu información y completa tareas más rápido, como rellenar formularios en los productos de Google. Puedes gestionar tu información en Google Wallet de <ph name="USER_EMAIL" />.</translation>
 <translation id="2539748786028143624">Activar protección mejorada…</translation>
 <translation id="2540111494300686866">Eliminar cuadros de diálogo</translation>
 <translation id="2542268842667970959">Ocultar comprobación de seguridad</translation>
@@ -479,6 +489,7 @@
 <translation id="2579713773888829241">Unidades compartidas</translation>
 <translation id="2580306219079937316">Abrir configuración de Traductor</translation>
 <translation id="2583688836549072561">Grupo de pestañas, <ph name="GROUP_TITLE" />, <ph name="TABS_NUMBER" /> pestañas, actividad nueva.</translation>
+<translation id="2584994295315085351">Abrir una pestaña nueva cuando vuelvas a Chrome después de 4 horas</translation>
 <translation id="2593272815202181319">Monoespaciada</translation>
 <translation id="2601778637777010194">Sigue las bajadas de precio de productos</translation>
 <translation id="2602372807870028932">Se eliminará la información seleccionada que se ha guardado en este dispositivo</translation>
@@ -491,6 +502,7 @@
 <translation id="2623536180761008356">Ocultar Comprobación de tu estado</translation>
 <translation id="2625189173221582860">Se ha copiado la contraseña</translation>
 <translation id="2626236249646841566">Comprueba tu conexión y prueba a iniciar sesión de nuevo.</translation>
+<translation id="2629543259235506452">Crea una breve sección de preguntas frecuentes sobre este tema usando información de esta página y de sitios web similares</translation>
 <translation id="2635918910848538771">Autocompletar el CVC</translation>
 <translation id="2640733327287333451">Sin nombre de usuario ••••••</translation>
 <translation id="264215785133931186">Comprobado justo ahora</translation>
@@ -644,6 +656,7 @@
 <translation id="3177338796769255211">Inicia sesión para acceder a tus marcadores y otras cosas en todos tus dispositivos</translation>
 <translation id="3181954750937456830">Navegación segura (te protege a ti y a tu dispositivo frente a sitios peligrosos)</translation>
 <translation id="3183362380688692618">Nuevo grupo de pestañas...</translation>
+<translation id="3185760469172949183">Buscar con la cámara completado.</translation>
 <translation id="3186796054637504691">Borrar historial y datos de sitios web</translation>
 <translation id="3190736958609431397">Dejar de seguir</translation>
 <translation id="3208260410153224535">Tu organización ha desactivado el inicio de sesión. Los marcadores, las contraseñas y otros elementos nuevos solo se guardarán en este dispositivo.</translation>
@@ -712,6 +725,7 @@
 <translation id="3459644598174926977">Usa Live para hacer preguntas sobre una página, explorar ideas en voz alta y hablar con Gemini.</translation>
 <translation id="3462768334899086950">Esto significa que perderás el archivo sin guardar y las pestañas actuales</translation>
 <translation id="3464194322481586217">No se ha podido hacer un seguimiento del precio.</translation>
+<translation id="346831467152294287">Contraseñas y Autocompletar completado.</translation>
 <translation id="3469117812148449995">Opciones para guardar contraseña</translation>
 <translation id="3472469028191701821">Se abre en una nueva pestaña</translation>
 <translation id="3474048842645761983">{COUNT,plural, =1{de {COUNT} sitio o aplicación}other{de {COUNT} sitios o aplicaciones}}</translation>
@@ -748,6 +762,7 @@
 <translation id="3565012355885596568">No se han podido cargar las imágenes</translation>
 <translation id="3565930036634619844">Pestaña <ph name="TAB_INDEX" /> de <ph name="NUMBER_OF_TABS" />.</translation>
 <translation id="3567168891086460374">Guardar de otra forma</translation>
+<translation id="3567446754270467567">Navegación segura mejorada completada.</translation>
 <translation id="3572503683475187385">La pestaña actual se comparte con Gemini cuando inicias una conversación. Cuando compartes una pestaña con Gemini, el contenido y la URL se envían a Google. <ph name="BEGIN_LINK" />Más información<ph name="END_LINK" /></translation>
 <translation id="3572607909481582402">En tu cuenta de Google</translation>
 <translation id="3575234738189584619">Buscar con Lens</translation>
@@ -796,6 +811,7 @@
 <translation id="3753618528540214374">Tema viridián</translation>
 <translation id="3759491607478608474">Comparte el contenido de la pestaña actual con Gemini para obtener respuestas más pertinentes</translation>
 <translation id="3762232513783804601">Diseñado para tu iPad</translation>
+<translation id="3767529805486761639">Menú Editar</translation>
 <translation id="3768725474733206671">Volver a abrir última pestaña cerrada</translation>
 <translation id="3779810277399252432">No hay conexión a Internet.</translation>
 <translation id="3782614601387961027">Cerrar advertencia</translation>
@@ -808,6 +824,7 @@
 <translation id="3813175908845379029">Sugerencias útiles que hacen que la navegación sea mejor y más fácil</translation>
 <translation id="3818293389945649617">Buscar siguiente</translation>
 <translation id="3819183753496523827">No tienes conexión. Comprueba tu conexión a Internet e inténtalo de nuevo.</translation>
+<translation id="3826034723896327540">Fijar pestañas completado.</translation>
 <translation id="3828924571679282172">{COUNT,plural, =1{1 método de pago}other{# métodos de pago}}</translation>
 <translation id="3831560640878483188">¿Cerrar advertencia?</translation>
 <translation id="3832419617903252251">Contraseña guardada solo en este dispositivo</translation>
@@ -822,7 +839,7 @@
 <translation id="3858860766373142691">Nombre</translation>
 <translation id="386224966259596343">Tendrás la oportunidad de guardar esta información en Wallet la próxima vez que rellenes un formulario pertinente.</translation>
 <translation id="3868495844258915202">Mostrar URL completa</translation>
-<translation id="3875783148670536197">Muéstrame cómo</translation>
+<translation id="3875783148670536197">Ver cómo</translation>
 <translation id="3878657761594430423">Sujetahojas</translation>
 <translation id="3885587018298784481">Únete a un grupo familiar</translation>
 <translation id="3888230626190453136">Navegar en Incógnito</translation>
@@ -879,7 +896,6 @@
 <translation id="4021447724486050609">Actualiza tu navegador</translation>
 <translation id="4021931095789478915">Añadir ${url} a lista de lectura</translation>
 <translation id="4028871427853484857">Guardar en la cuenta…</translation>
-<translation id="4036529942385659684">Mostrar la página inicial tras un periodo de inactividad</translation>
 <translation id="4038354071007134711">Ninguna aplicación puede abrir el archivo.</translation>
 <translation id="4042870976416480368">Buscar en página</translation>
 <translation id="4045441967987592849">Reabrir</translation>
@@ -888,6 +904,7 @@
 <translation id="4049507953662678203">Comprueba que tienes una conexión de red y vuelve a intentarlo.</translation>
 <translation id="4054290211988862686">Elegir archivo</translation>
 <translation id="4070132839822635162">No iniciar sesión</translation>
+<translation id="4072473499345702662">Ir a Subir de nivel</translation>
 <translation id="4092655288299341041">Mostrar ayuda</translation>
 <translation id="4095483462103784441">Crear nuevo grupo de pestañas</translation>
 <translation id="4099756562043439968">Crear recordatorio</translation>
@@ -1030,6 +1047,7 @@
 <translation id="4578835633387306383">Activar…</translation>
 <translation id="4580621046861724270">Algunos marcadores no se han guardado</translation>
 <translation id="4580716718466706433">Ve al Gestor de contraseñas</translation>
+<translation id="4584778196791098089">Navegar de incógnito completado.</translation>
 <translation id="4585751637295612750">Abre una pestaña nueva para añadirla a tu pregunta</translation>
 <translation id="4587589328781138893">Sitios web</translation>
 <translation id="4592672037257622855">{count,plural, =1{Página añadida a tu lista de lectura}other{{count} páginas añadidas a tu lista de lectura}}</translation>
@@ -1100,6 +1118,7 @@
 <translation id="479628432297359449">¿Detener descarga?</translation>
 <translation id="4796496140132859135">Grupo de pestañas. Contraído.</translation>
 <translation id="4802185666270672526">Ocultar Solicitar sitio para ordenadores</translation>
+<translation id="4802678077012980341">Revisión de contraseñas completada.</translation>
 <translation id="4803185665210547709">Gestionado por tu organización.
 <ph name="BEGIN_LINK" />Más información<ph name="END_LINK" /></translation>
 <translation id="4803728135431112209">Dibuja, resalta o toca para seleccionar cualquier elemento que quieras buscar y obtener resultados sin salir de la pestaña.</translation>
@@ -1133,6 +1152,7 @@
 <translation id="4881695831933465202">Abrir</translation>
 <translation id="4883766694719903356">Cuadrícula de pestañas de Incógnito</translation>
 <translation id="4884937942297374058">La protección mejorada está desactivada</translation>
+<translation id="4887391901725877182">Subtítulos</translation>
 <translation id="488785315393301722">Mostrar detalles</translation>
 <translation id="4889521386764567563">Perfil actual</translation>
 <translation id="4893713555726946316">Ocultar Buscar en la página</translation>
@@ -1226,6 +1246,7 @@
 <translation id="518997337573684769">Enviando informes sobre fallos…</translation>
 <translation id="519528950056409240">Permitir que Wallet comparta datos</translation>
 <translation id="519530786644929958">La descarga ha fallado y no se puede reintentar.</translation>
+<translation id="519620255540220054">Personalizar página principal</translation>
 <translation id="5197255632782567636">Internet</translation>
 <translation id="5200894869889836319">Opciones para configurar permisos</translation>
 <translation id="5203051773066903947">Introducir</translation>
@@ -1309,6 +1330,7 @@
 <translation id="5482922178977937393">¿Quieres recibir notificaciones de noticias, deportes y más según tus intereses?</translation>
 <translation id="5483838506518938965">Ya has terminado</translation>
 <translation id="5487521232677179737">Borrar datos</translation>
+<translation id="5491208689472430746">Eliminación rápida completada.</translation>
 <translation id="5494920125229734069">Seleccionar todo</translation>
 <translation id="5499648645977734083">Gestionar métodos de pago…</translation>
 <translation id="5501346139932663133">Aplicaciones de Google</translation>
@@ -1353,7 +1375,7 @@ Handoff también debe estar habilitado en la sección General de Ajustes del sis
 <translation id="562753339521713441">Realiza una comprobación de seguridad</translation>
 <translation id="5628388627414062173">{count,plural, =1{{count} página en tu lista de lectura}other{{count} páginas en tu lista de lectura}}</translation>
 <translation id="5632194969640946913">Obtén más información al navegar y busca lo que ves en cualquier página para descubrir productos, lugares y texto.</translation>
-<translation id="5632485077360054581">Muéstrame cómo</translation>
+<translation id="5632485077360054581">Ver cómo</translation>
 <translation id="5633237939819267663">{count,plural, =1{Marcador guardado en {title}}other{{count} marcadores guardados en {title}}}</translation>
 <translation id="564170563478022912">¿Cerrar sesión? Se eliminarán los datos no guardados de la cuenta.</translation>
 <translation id="5642707040609478753">Marcar como no leídas</translation>
@@ -1406,6 +1428,7 @@ Handoff también debe estar habilitado en la sección General de Ajustes del sis
 <translation id="5779117921996157216">{count,plural, =1{Tienes {count} contraseña vulnerada que podría poner en riesgo tu seguridad. Soluciona el problema para protegerte.}other{Tienes {count} contraseñas vulneradas que podrían poner en riesgo tu seguridad. Soluciona el problema para protegerte.}}</translation>
 <translation id="5791632441210678828">Botón para ordenar el feed Siguiendo</translation>
 <translation id="5799263916847593256">Abre para ver el historial de precios.</translation>
+<translation id="5801568494490449797">Preferencias</translation>
 <translation id="5803566855766646066">¿Seguro que quieres descartar esta nueva tarjeta?</translation>
 <translation id="5804241973901381774">Permisos</translation>
 <translation id="58081802114142635">Tu actividad mejora la IA de Google</translation>
@@ -1556,6 +1579,7 @@ Handoff también debe estar habilitado en la sección General de Ajustes del sis
 <translation id="628251768213143684">Siempre puedes gestionar lo que se guarda en tu cuenta de Google</translation>
 <translation id="6284652193729350524">Ofrecer traducir del <ph name="LANGUAGE" /></translation>
 <translation id="6293101329759844770">Para activar Navegación segura, abre <ph name="BEGIN_LINK" />Servicios de Google<ph name="END_LINK" /> y toca Navegación segura.</translation>
+<translation id="6295140892595702619">Usa el micrófono para hablar con Gemini. Cuando le hablas a Gemini, el audio se almacena en Actividad en las Aplicaciones de Gemini (si la opción está activada). Tus datos no se usan para mejorar modelos de IA generativa.</translation>
 <translation id="6295751040240588413">Nombre de la tarjeta no válido</translation>
 <translation id="629730747756840877">Cuenta</translation>
 <translation id="6301104306974789820">Recibe notificaciones de seguimiento de precios</translation>
@@ -1635,9 +1659,10 @@ Handoff también debe estar habilitado en la sección General de Ajustes del sis
 <translation id="6507973708545996744">Inicia sesión para consultar tu lista de lectura en todos tus dispositivos.</translation>
 <translation id="6518133107902771759">Verificar</translation>
 <translation id="6518861084553706202">Se cerrarán las pestañas y se eliminarán los datos, que podrían incluir contraseñas, historial de navegación, cookies y más.</translation>
-<translation id="6523575793810663688">Muéstrame cómo</translation>
+<translation id="6523575793810663688">Ver cómo</translation>
 <translation id="6524082013156754186">Guardar en la cuenta</translation>
 <translation id="6524918542306337007">El modo Incógnito no está disponible</translation>
+<translation id="6525550806864373485">Menú Editar</translation>
 <translation id="6527208859483186860">fondo {position} de {total}</translation>
 <translation id="6527303717912515753">Compartir</translation>
 <translation id="6532106788206463496">Guardar cambios</translation>
@@ -1723,6 +1748,7 @@ Handoff también debe estar habilitado en la sección General de Ajustes del sis
 <translation id="6761393919622941301">Audio</translation>
 <translation id="6765551480308401897">No definir como predeterminado</translation>
 <translation id="6770452996697898492">[BOOKED]</translation>
+<translation id="6775952316617222141">Usar Gemini Live en Chrome</translation>
 <translation id="6779455296366983087">Tus datos de navegación se eliminarán</translation>
 <translation id="6782531425936234573">Exportar datos</translation>
 <translation id="6791425686608802741">Toca Añadir pestaña a un nuevo grupo</translation>
@@ -2088,6 +2114,7 @@ Para continuar desde tu ordenador, cambia a <ph name="OTHER_EMAIL" />. Podrás a
 <translation id="8023878949384262191">Amplía la sección.</translation>
 <translation id="8027581147000338959">Abrir en una ventana nueva</translation>
 <translation id="8029092694585014252">Añadir recordatorio</translation>
+<translation id="8029349782735515147">Mostrar subtítulos al usar Gemini Live</translation>
 <translation id="8032569120109842252">Siguiendo</translation>
 <translation id="8035133914807600019">Nueva carpeta…</translation>
 <translation id="8035412398498507358">Fotos</translation>
@@ -2151,6 +2178,7 @@ Para continuar desde tu ordenador, cambia a <ph name="OTHER_EMAIL" />. Podrás a
 <translation id="8233237502828137700">Cerrar banner de promoción</translation>
 <translation id="823339794112333264">Activar micrófono</translation>
 <translation id="8250920743982581267">Documentos</translation>
+<translation id="8252980988000695656">Google Lens completado.</translation>
 <translation id="8258734532103758067">He exportado mis datos</translation>
 <translation id="8258999165172757081">Añadido</translation>
 <translation id="8261506727792406068">Eliminar</translation>
@@ -2241,6 +2269,7 @@ Para continuar desde tu ordenador, cambia a <ph name="OTHER_EMAIL" />. Podrás a
 <translation id="8534481786647257214">Publicado en Google+</translation>
 <translation id="8535368836838588657">Mostrar contraseña</translation>
 <translation id="8540426897269305488">Iniciar sesión con <ph name="CELL_ACCESSIBILITY_LABEL" /></translation>
+<translation id="8542331710562073430">Se ha producido un error. Toca el botón Live para volver a intentarlo.</translation>
 <translation id="8545276357312221485">Comprueba la configuración predeterminada de tu navegador</translation>
 <translation id="854938212724803178">Tienes 1 contraseña vulnerada. Corrige el problema para protegerte.</translation>
 <translation id="8551311254462607218">En la barra de direcciones, toca el icono de la cámara de Google Lens</translation>
@@ -2326,6 +2355,7 @@ Para continuar desde tu ordenador, cambia a <ph name="OTHER_EMAIL" />. Podrás a
 <translation id="8766790350274092814">Se eliminarán las contraseñas de <ph name="WEBSITE" /> y <ph name="SECOND_WEBSITE" />. Tus cuentas no se eliminarán.</translation>
 <translation id="8775144690796719618">La URL no es válida</translation>
 <translation id="8781834595282316166">Nueva pestaña en el grupo</translation>
+<translation id="8783445328207519872">Crear preguntas frecuentes sobre este tema</translation>
 <translation id="8784653774976848206">Elegir archivos</translation>
 <translation id="8786100550345425552">Editar permisos</translation>
 <translation id="878871978861915380">Ocultar Seguimiento de precios</translation>
@@ -2438,6 +2468,7 @@ Para continuar desde tu ordenador, cambia a <ph name="OTHER_EMAIL" />. Podrás a
 <translation id="9149866541089851383">Editar...</translation>
 <translation id="9152637745605628097">Elige un tema o color, o sube una imagen</translation>
 <translation id="9159628751968616911">Enviar página web</translation>
+<translation id="9162412286847966593">Los datos y las grabaciones de tu organización no se usarán para mejorar modelos de IA generativa. <ph name="BEGIN_LINK" />Tu privacidad y Gemini<ph name="END_LINK" /></translation>
 <translation id="9162432979321511934">Activa Autocompletar contraseñas</translation>
 <translation id="9165320910061267720">Para recibir notificaciones de alertas por bajada de precio, deberás activarlas en los ajustes de iOS.</translation>
 <translation id="9179151630575358778">Oculta este elemento</translation>

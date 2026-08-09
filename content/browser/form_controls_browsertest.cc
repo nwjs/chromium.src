@@ -6,6 +6,7 @@
 
 #include "base/files/file_util.h"
 #include "base/functional/function_ref.h"
+#include "base/logging.h"
 #include "base/path_service.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
@@ -115,6 +116,7 @@ class FormControlsBrowserTest : public ContentBrowserTest {
       golden_filepath = golden_filepath_platform;
     }
 
+    LOG(INFO) << "Loading golden file: " << golden_filepath;
     ASSERT_TRUE(
         NavigateToURL(shell()->web_contents(),
                       GURL("data:text/html,<!DOCTYPE html>" + body_html)));
@@ -249,13 +251,7 @@ IN_PROC_BROWSER_TEST_F(FormControlsBrowserTest, MAYBE_DarkModeTextSelection) {
           /* screenshot_height */ 40);
 }
 
-// TODO(crbug.com/528094656): Re-enable once Fuchsia baselines are updated.
-#if BUILDFLAG(IS_FUCHSIA)
-#define MAYBE_Input DISABLED_Input
-#else
-#define MAYBE_Input Input
-#endif
-IN_PROC_BROWSER_TEST_F(FormControlsBrowserTest, MAYBE_Input) {
+IN_PROC_BROWSER_TEST_F(FormControlsBrowserTest, Input) {
   if (SkipTestForOldAndroidVersions())
     return;
 

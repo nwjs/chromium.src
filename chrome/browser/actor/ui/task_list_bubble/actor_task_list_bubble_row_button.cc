@@ -48,14 +48,24 @@ const gfx::VectorIcon& GetRowIcon(actor::ActorTask::State state) {
   return glic::GlicVectorIconManager::GetVectorIcon(IDR_ACTOR_AUTO_BROWSE_ICON);
 }
 
-bool IsProcessedTabClosedRow(bool has_tab, bool requires_processing) {
+// Returns true if the task was completed and the associated tab was closed,
+// which triggers the row button to display a disabled "Tab closed" state.
+// Active tasks (e.g., kActing, kReflecting) must not be treated as tab closed,
+// even if they do not yet have an associated tab.
+bool IsProcessedTabClosedRow(actor::ActorTask::State state,
+                             bool has_tab,
+                             bool requires_processing) {
+  if (state == actor::ActorTask::State::kActing ||
+      state == actor::ActorTask::State::kReflecting) {
+    return false;
+  }
   return !has_tab && !requires_processing;
 }
 
 ui::ColorId GetRowColor(actor::ActorTask::State state,
                         bool has_tab,
                         bool requires_processing) {
-  if (IsProcessedTabClosedRow(has_tab, requires_processing)) {
+  if (IsProcessedTabClosedRow(state, has_tab, requires_processing)) {
     return ui::kColorSysStateDisabled;
   }
   if (requires_processing &&
@@ -65,10 +75,17 @@ ui::ColorId GetRowColor(actor::ActorTask::State state,
   return ui::kColorMenuIcon;
 }
 
+// Returns the appropriate localized subtitle string based on task state.
+// If the task was completed and the tab is closed, returns "Tab closed".
 std::u16string GetRowSubtitle(actor::ActorTask::State state,
                               bool has_tab,
+                              bool requires_processing,
                               glic::mojom::FeatureMode feature_mode) {
-  if (!has_tab) {
+  // If the task does not have a tab, show the "Tab closed" subtitle *unless*
+  // the task is active (kActing or kReflecting). Active tasks may start with no
+  // associated tab yet, so we avoid displaying "Tab closed" on them.
+  if (!has_tab && !(state == actor::ActorTask::State::kActing ||
+                    state == actor::ActorTask::State::kReflecting)) {
     return l10n_util::GetStringUTF16(
         IDS_ACTOR_TASK_LIST_BUBBLE_ROW_TAB_CLOSED_SUBTITLE);
   }
@@ -154,7 +171,7 @@ ActorTaskListBubbleRowButton::ActorTaskListBubbleRowButton(
   title_->SetSubpixelRenderingEnabled(false);
 
   subtitle_ = labels_container->AddChildView(std::make_unique<views::Label>(
-      GetRowSubtitle(state, has_tab, feature_mode)));
+      GetRowSubtitle(state, has_tab, requires_processing, feature_mode)));
   subtitle_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   subtitle_->SetTextStyle(views::style::STYLE_BODY_5);
   subtitle_->SetEnabledColor(GetRowColor(state, has_tab, requires_processing));
@@ -187,12 +204,13 @@ ActorTaskListBubbleRowButton::ActorTaskListBubbleRowButton(
   views::InstallRectHighlightPathGenerator(this);
 
   UpdateAccessibleName();
-  MaybeSetDisabledRowUi();
+  MaybeSetDisabledRowUi(state);
 }
 
-void ActorTaskListBubbleRowButton::MaybeSetDisabledRowUi() {
+void ActorTaskListBubbleRowButton::MaybeSetDisabledRowUi(
+    actor::ActorTask::State state) {
   // Update UI for "Tab closed" row after its first appearance.
-  if (IsProcessedTabClosedRow(has_tab_, requires_processing_)) {
+  if (IsProcessedTabClosedRow(state, has_tab_, requires_processing_)) {
     SetEnabled(false);
     if (title_) {
       title_->SetEnabledColor(ui::kColorSysStateDisabled);

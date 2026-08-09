@@ -23,7 +23,6 @@
 #include "url/gurl.h"
 
 class Profile;
-class OmniboxController;
 class ComposeboxHandler;
 
 class ComposeboxOmniboxClient : public ContextualOmniboxClient {
@@ -143,7 +142,7 @@ class ComposeboxHandler : public composebox::mojom::PageHandler,
       mojo::PendingRemote<searchbox::mojom::Page> pending_searchbox_page,
       Profile* profile,
       content::WebContents* web_contents,
-      std::unique_ptr<OmniboxController> omnibox_controller,
+      std::unique_ptr<OmniboxClient> omnibox_client,
       GetSessionHandleCallback get_session_callback,
       ClearSessionHandleCallback clear_session_callback);
 

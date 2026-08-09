@@ -1553,8 +1553,10 @@ const char kChromeAppStoreUrl[] =
       HandlerForProtocol(_dispatcher, ToolbarCommands);
   _viewControllerDependencies.findInPageCommandsHandler =
       HandlerForProtocol(_dispatcher, FindInPageCommands);
-  _viewControllerDependencies.geminiHandler =
-      HandlerForProtocol(_dispatcher, GeminiCommands);
+  if (IsPageActionMenuEnabled()) {
+    _viewControllerDependencies.geminiHandler =
+        HandlerForProtocol(_dispatcher, GeminiCommands);
+  }
   _viewControllerDependencies.isOffTheRecord = profile->IsOffTheRecord();
   _viewControllerDependencies.urlLoadingBrowserAgent = _urlLoadingBrowserAgent;
   _viewControllerDependencies.tabUsageRecorderBrowserAgent =
@@ -1604,6 +1606,8 @@ const char kChromeAppStoreUrl[] =
   [_dispatcher startDispatchingToTarget:viewController
                             forProtocol:@protocol(BrowserCommands)];
   viewController.layoutState = self.browser->GetSceneState().layoutState;
+  viewController.lensOverlayStateNotifier =
+      self.browser->GetSceneState().lensOverlayStateNotifier;
   _browserLayoutCoordinator.browserViewController = viewController;
 }
 
@@ -5038,20 +5042,12 @@ const char kChromeAppStoreUrl[] =
 
   NSMutableArray<UIView*>* overlays = [NSMutableArray array];
 
-  PrefService* prefs = browser->GetProfile()->GetPrefs();
   LensOverlayTabHelper* lensOverlayTabHelper =
       LensOverlayTabHelper::FromWebState(webState);
 
   if (lensOverlayTabHelper) {
-    BOOL isLensOverlayCurrentlyInvoked;
-
-    if (IsLensOverlaySameTabNavigationEnabled(prefs)) {
-      isLensOverlayCurrentlyInvoked =
-          lensOverlayTabHelper->IsLensOverlayInvokedOnCurrentNavigationItem();
-    } else {
-      isLensOverlayCurrentlyInvoked =
-          lensOverlayTabHelper->IsLensOverlayUIAttachedAndAlive();
-    }
+    BOOL isLensOverlayCurrentlyInvoked =
+        lensOverlayTabHelper->IsLensOverlayInvokedOnCurrentNavigationItem();
 
     // A lens overlay is invoked in the given web state.
     if (isLensOverlayCurrentlyInvoked) {

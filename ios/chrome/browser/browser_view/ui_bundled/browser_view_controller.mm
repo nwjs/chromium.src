@@ -264,10 +264,11 @@ bool IsFullscreenNextIAEnabled() {
   // Used to get the layout guide center.
   LayoutGuideCenter* _layoutGuideCenter;
 
-  // Leading constraint for the toolbars.
-  NSLayoutConstraint* _toolbarLeadingConstraint;
-  // Trailing constraint for the toolbars.
-  NSLayoutConstraint* _toolbarTrailingConstraint;
+  // Left and right constraints for the toolbars. Physical left/right anchors
+  // are used instead of leading/trailing because `AppBarPosition::kLeft` and
+  // `kRight` refer to physical screen edges that do not flip in RTL.
+  NSLayoutConstraint* _toolbarLeftConstraint;
+  NSLayoutConstraint* _toolbarRightConstraint;
 
   // Whether the Lens Overlay is currently active and visible for the browser
   // view.
@@ -679,6 +680,16 @@ bool IsFullscreenNextIAEnabled() {
   }
 }
 
+- (void)setLensOverlayStateNotifier:
+    (LensOverlayStateNotifier*)lensOverlayStateNotifier {
+  if (_lensOverlayStateNotifier == lensOverlayStateNotifier) {
+    return;
+  }
+  [_lensOverlayStateNotifier removeObserver:self];
+  _lensOverlayStateNotifier = lensOverlayStateNotifier;
+  [_lensOverlayStateNotifier addObserver:self];
+}
+
 #pragma mark - LayoutStateObserver
 
 - (void)layoutState:(LayoutState*)layoutState
@@ -883,10 +894,12 @@ bool IsFullscreenNextIAEnabled() {
 
   [self.toolbarCoordinator stop];
   self.toolbarCoordinator = nil;
+  _toolbarHandler = nil;
   [self cleanUpToolbarConstraints];
   _sideSwipeCoordinator = nil;
   [_voiceSearchController disconnect];
   [_layoutState removeObserver:self];
+  [_lensOverlayStateNotifier removeObserver:self];
   _layoutState = nil;
   [[NSNotificationCenter defaultCenter] removeObserver:self];
   _bookmarksCoordinator = nil;
@@ -1297,9 +1310,11 @@ bool IsFullscreenNextIAEnabled() {
   // would be changed back to `kVisible` afterwards. Fix the bug and update the
   // visibility state.
 
-  [self.geminiHandler
-      hideFloatyIfInvokedAnimated:YES
-                       fromSource:gemini::FloatyUpdateSource::ViewTransition];
+  if (IsPageActionMenuEnabled()) {
+    [self.geminiHandler
+        hideFloatyIfInvokedAnimated:YES
+                         fromSource:gemini::FloatyUpdateSource::ViewTransition];
+  }
   void (^superCall)() = ^{
     [super presentViewController:viewControllerToPresent
                         animated:flag
@@ -1402,13 +1417,13 @@ bool IsFullscreenNextIAEnabled() {
       self.toolbarCoordinator.primaryToolbarViewController.view;
 
   UIView* view = self.view;
-  _toolbarLeadingConstraint =
-      [primaryView.leadingAnchor constraintEqualToAnchor:view.leadingAnchor];
-  _toolbarTrailingConstraint =
-      [primaryView.trailingAnchor constraintEqualToAnchor:view.trailingAnchor];
+  _toolbarLeftConstraint =
+      [primaryView.leftAnchor constraintEqualToAnchor:view.leftAnchor];
+  _toolbarRightConstraint =
+      [primaryView.rightAnchor constraintEqualToAnchor:view.rightAnchor];
   [NSLayoutConstraint activateConstraints:@[
-    _toolbarLeadingConstraint,
-    _toolbarTrailingConstraint,
+    _toolbarLeftConstraint,
+    _toolbarRightConstraint,
   ]];
   [self updateToolbarConstraints];
 
@@ -1426,8 +1441,10 @@ bool IsFullscreenNextIAEnabled() {
   self.primaryToolbarHeightConstraint.active = YES;
 }
 
-// Updates the toolbar leading and trailing constraints depending on the
-// position of the AppBar.
+// Updates the physical left and right constraints of the toolbar based on the
+// App Bar position. Since `kLeft` and `kRight` correspond to physical screen
+// boundaries regardless of layout direction, left and right offsets are
+// updated directly.
 - (void)updateToolbarConstraints {
   if (!IsFullscreenNextIAEnabled()) {
     return;
@@ -1435,16 +1452,16 @@ bool IsFullscreenNextIAEnabled() {
   AppBarPosition position = self.layoutState.appBarPosition;
   switch (position) {
     case AppBarPosition::kLeft:
-      _toolbarLeadingConstraint.constant = AppBarHeightLandscape();
-      _toolbarTrailingConstraint.constant = 0;
+      _toolbarLeftConstraint.constant = AppBarHeightLandscape();
+      _toolbarRightConstraint.constant = 0;
       break;
     case AppBarPosition::kRight:
-      _toolbarLeadingConstraint.constant = 0;
-      _toolbarTrailingConstraint.constant = -AppBarHeightLandscape();
+      _toolbarLeftConstraint.constant = 0;
+      _toolbarRightConstraint.constant = -AppBarHeightLandscape();
       break;
     default:
-      _toolbarLeadingConstraint.constant = 0;
-      _toolbarTrailingConstraint.constant = 0;
+      _toolbarLeftConstraint.constant = 0;
+      _toolbarRightConstraint.constant = 0;
       break;
   }
 }
@@ -1923,7 +1940,9 @@ bool IsFullscreenNextIAEnabled() {
   // TODO(crbug.com/40842406): Remove this and let
   // `PrimaryToolbarViewController` or `ToolbarCoordinator` call the update ?
   [self.toolbarCoordinator updateToolbar];
-  [self.geminiHandler updateFloatyWithTraitCollection:self.traitCollection];
+  if (IsPageActionMenuEnabled()) {
+    [self.geminiHandler updateFloatyWithTraitCollection:self.traitCollection];
+  }
 
   self.fullscreenController->BrowserTraitCollectionChangedEnd();
 }
@@ -1965,10 +1984,12 @@ bool IsFullscreenNextIAEnabled() {
     completion();
   }
 
-  [self.geminiHandler
-      updateFloatyVisibilityIfEligibleAnimated:NO
-                                    fromSource:gemini::FloatyUpdateSource::
-                                                   ViewTransition];
+  if (IsPageActionMenuEnabled()) {
+    [self.geminiHandler
+        updateFloatyVisibilityIfEligibleAnimated:NO
+                                      fromSource:gemini::FloatyUpdateSource::
+                                                     ViewTransition];
+  }
 }
 
 #pragma mark - Private Methods: Tap handling
@@ -2098,10 +2119,12 @@ bool IsFullscreenNextIAEnabled() {
   self.visibilityState = BrowserViewVisibilityState::kVisible;
   self.toolbarCoordinator.secondaryToolbarViewController.view
       .accessibilityElementsHidden = NO;
-  [self.geminiHandler
-      updateFloatyVisibilityIfEligibleAnimated:NO
-                                    fromSource:gemini::FloatyUpdateSource::
-                                                   ViewTransition];
+  if (IsPageActionMenuEnabled()) {
+    [self.geminiHandler
+        updateFloatyVisibilityIfEligibleAnimated:NO
+                                      fromSource:gemini::FloatyUpdateSource::
+                                                     ViewTransition];
+  }
 }
 
 #pragma mark - FullscreenUIElement methods
@@ -2267,12 +2290,24 @@ bool IsFullscreenNextIAEnabled() {
       (self.secondaryToolbarAppBarBottomConstraint != nil);
 
   if (shouldUseAppBar) {
-    self.secondaryToolbarRegularBottomConstraint.active = NO;
-    self.secondaryToolbarAppBarBottomConstraint.active = YES;
-  } else {
-    self.secondaryToolbarAppBarBottomConstraint.active = NO;
-    self.secondaryToolbarRegularBottomConstraint.active = YES;
+    // Sometimes, `appBar` and `toolbarView` aren't in the same view hierarchy,
+    // which causes an exception when activating
+    // `secondaryToolbarAppBarBottomConstraint`. Ensure they share a common
+    // ancestor view before activating the constraint.
+    UIView* appBar = [_layoutGuideCenter referencedViewUnderName:kAppBarGuide];
+    UIView* toolbarView =
+        self.toolbarCoordinator.secondaryToolbarViewController.view;
+    if (appBar && toolbarView &&
+        ViewHierarchyRootForView(appBar) ==
+            ViewHierarchyRootForView(toolbarView)) {
+      self.secondaryToolbarRegularBottomConstraint.active = NO;
+      self.secondaryToolbarAppBarBottomConstraint.active = YES;
+      return;
+    }
   }
+
+  self.secondaryToolbarAppBarBottomConstraint.active = NO;
+  self.secondaryToolbarRegularBottomConstraint.active = YES;
 }
 
 // Returns the height difference between the fully expanded and fully collapsed
@@ -2325,10 +2360,22 @@ bool IsFullscreenNextIAEnabled() {
     return;
   }
 
-  const CGFloat isolatedDelta =
-      std::max(0.0, expandedHeight - [self collapsedBottomToolbarHeight]);
-  const CGFloat offset = AlignValueToPixel((1.0 - progress) * isolatedDelta);
-  const CGFloat height = expandedHeight - offset;
+  CGFloat height = expandedHeight;
+  if (IsAppBarHiddenInFullscreen() &&
+      self.layoutState.appBarPosition == AppBarPosition::kBottom) {
+    CGFloat safeAreaBottom = self.safeAreaProvider.safeArea.bottom;
+    CGFloat collapsedHeightWithSafeArea =
+        [self collapsedBottomToolbarHeight] + safeAreaBottom;
+    CGFloat targetHeight =
+        collapsedHeightWithSafeArea +
+        progress * (expandedHeight - collapsedHeightWithSafeArea);
+    height = AlignValueToPixel(targetHeight);
+  } else {
+    const CGFloat isolatedDelta =
+        std::max(0.0, expandedHeight - [self collapsedBottomToolbarHeight]);
+    const CGFloat offset = AlignValueToPixel((1.0 - progress) * isolatedDelta);
+    height = expandedHeight - offset;
+  }
 
   self.secondaryToolbarHeightConstraint.constant = height;
 }
@@ -3101,7 +3148,9 @@ bool IsFullscreenNextIAEnabled() {
     // already taller by the height of the App Bar, so we subtract the App Bar
     // height.
     if (self.layoutState.appBarPosition == AppBarPosition::kBottom) {
-      keyboardAttachedOffset -= kAppBarHeightFullscreen;
+      CGFloat minHeight =
+          IsAppBarHiddenInFullscreen() ? 0 : kAppBarHeightFullscreen;
+      keyboardAttachedOffset -= minHeight;
     }
   }
   CGFloat baseHeight = [self secondaryToolbarHeightWithInset];
@@ -3152,40 +3201,49 @@ bool IsFullscreenNextIAEnabled() {
        aboveSubview:self.toolbarCoordinator.primaryToolbarViewController.view];
 }
 
-#pragma mark - LensOverlayPresentationEnvironment
+#pragma mark - LensOverlayStateNotifierObserver
 
-- (void)lensOverlayDidPrepare {
-
+- (void)lensOverlayDidPrepare:
+    (LensOverlayStateNotifier*)lensOverlayStateNotifier {
   [self.sceneHandler hideAssistant];
-  [self.geminiHandler
-      hideFloatyIfInvokedAnimated:NO
-                       fromSource:gemini::FloatyUpdateSource::Overlay];
+  if (IsPageActionMenuEnabled()) {
+    [self.geminiHandler
+        hideFloatyIfInvokedAnimated:NO
+                         fromSource:gemini::FloatyUpdateSource::Overlay];
+  }
 }
 
-- (void)lensOverlayWillAppear {
+- (void)lensOverlayWillAppear:
+    (LensOverlayStateNotifier*)lensOverlayStateNotifier {
   [_sideSwipeCoordinator setEnabled:NO];
   _lensOverlayVisible = YES;
   self.contentArea.accessibilityElementsHidden = self.contentAreaObstructed;
 }
 
-- (void)lensOverlayWillDisappear {
+- (void)lensOverlayWillDisappear:
+    (LensOverlayStateNotifier*)lensOverlayStateNotifier {
   [_sideSwipeCoordinator setEnabled:YES];
   _lensOverlayVisible = NO;
   [self.sceneHandler revealAssistant];
   self.contentArea.accessibilityElementsHidden = self.contentAreaObstructed;
 }
 
-- (void)lensOverlayDidDisappear {
-
-  [self.geminiHandler
-      updateFloatyVisibilityIfEligibleAnimated:NO
-                                    fromSource:gemini::FloatyUpdateSource::
-                                                   Overlay];
+- (void)lensOverlayDidDisappear:
+    (LensOverlayStateNotifier*)lensOverlayStateNotifier {
+  if (IsPageActionMenuEnabled()) {
+    [self.geminiHandler
+        updateFloatyVisibilityIfEligibleAnimated:NO
+                                      fromSource:gemini::FloatyUpdateSource::
+                                                     Overlay];
+  }
 }
 
-- (void)lensOverlayDidReadjustPresentation {
+- (void)lensOverlayDidReadjustPresentation:
+    (LensOverlayStateNotifier*)lensOverlayStateNotifier {
   [_browserCoordinatorHandler hideComposebox];
 }
+
+#pragma mark - LensOverlayPresentationEnvironment
 
 - (NSDirectionalEdgeInsets)presentationInsetsForLensOverlay {
   if (IsRegularXRegularSizeClass(self)) {

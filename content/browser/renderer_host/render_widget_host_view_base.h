@@ -512,6 +512,8 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
   // changes.
   virtual void SetShowingContextMenu(bool showing) {}
 
+  void SetSupportsAutoFill(bool supports) override {}
+
   // Gets the DisplayFeature whose offset and mask_length are expressed in DIPs
   // relative to the view. See display_feature.h for more details.
   virtual std::optional<DisplayFeature> GetDisplayFeature() = 0;

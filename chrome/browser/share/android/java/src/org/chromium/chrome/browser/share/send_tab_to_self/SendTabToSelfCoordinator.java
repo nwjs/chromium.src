@@ -229,7 +229,8 @@ public class SendTabToSelfCoordinator
         @EntryPointDisplayReason
         Integer displayReason =
                 SendTabToSelfAndroidBridge.getEntryPointDisplayReason(mProfile, mUrl);
-        assert displayReason != null;
+        // Do not show the UI if the model is not ready or the URL is unsupported.
+        if (displayReason == null) return;
 
         int deviceCount = 0;
         if (displayReason == EntryPointDisplayReason.OFFER_FEATURE) {
@@ -386,6 +387,13 @@ public class SendTabToSelfCoordinator
         mView = new EnhancedTargetDevicePickerView(mContext, mBottomSheetController);
 
         PropertyModel model = EnhancedTargetDevicePickerProperties.createDefaultModel();
+
+        // TODO(crbug.com/530535526): The bottom sheet UI currently doesn't support scrolling well.
+        // As a temporary workaround, truncate the list to 4 devices, which will fit onto almost all
+        // screens without scrolling.
+        if (targetDevices.size() > 4) {
+            targetDevices = targetDevices.subList(0, 4);
+        }
 
         new EnhancedTargetDevicePickerMediator(
                 mUrl, mTitle, targetDevices, mProfile, mTabProvider, model, mEntryPoint);

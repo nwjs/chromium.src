@@ -131,4 +131,7 @@ interface ToolbarUIService {
   // Notifies the browser that the avatar button's IPH promo state has changed.
   SetAvatarButtonIphPromoShowing(bool showing) =>
     result<mojo_base.mojom.Empty, mojo_base.mojom.Error>;
+
+  // Called when the app menu button focus state changes.
+  OnAppMenuFocusChanged(bool focused);
 };

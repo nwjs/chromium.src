@@ -56,6 +56,11 @@ public class CombinedPolicyProvider {
         mNativeCombinedPolicyProvider = nativeCombinedPolicyProvider;
         mPolicyConverter = policyConverter;
         if (nativeCombinedPolicyProvider == 0) {
+            // Restore cache readability when unlinking the native provider to allow reading from
+            // the cache during the next initialization. This is required for environments where
+            // where the policy framework is re-initialized within the same JVM process, such as
+            // during tests.
+            PolicyCache.get().enableReadability();
             return;
         }
 

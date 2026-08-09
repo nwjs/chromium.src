@@ -109,6 +109,7 @@ import java.util.function.Supplier;
 
 /** Unit tests for {@link ToolbarControlContainer}. */
 @RunWith(BaseRobolectricTestRunner.class)
+@DisableFeatures({SigninFeatures.SIGNIN_LEVEL_UP_BUTTON})
 public class ToolbarControlContainerTest {
     private static final String BLOCK_NAME = "Android.TopToolbar.BlockCaptureReason";
     private static final String ALLOW_NAME = "Android.TopToolbar.AllowCaptureReason";

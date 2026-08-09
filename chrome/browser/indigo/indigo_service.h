@@ -17,6 +17,7 @@
 #include "base/time/time.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
+#include "url/origin.h"
 
 class PrefChangeRegistrar;
 class PrefService;
@@ -40,6 +41,9 @@ enum class LocalEligibility {
   kMissingScript,
   kManagedDomain,
   kGlicDisabledForProfile,
+  // TODO(b:512247450): Deprecate this enum when the enterprise clients are
+  // allowed to use indigo.
+  kEnterpriseDisallowed,
 };
 
 // Combined eligibility status including local constraints (features, profile
@@ -97,6 +101,8 @@ class IndigoService : public KeyedService,
     return eligibility == LocalEligibility::kEligible ||
            eligibility == LocalEligibility::kRefreshTokenInPersistentErrorState;
   }
+  bool IsModelImprovementAllowed() const;
+
   base::CallbackListSubscription RegisterLocalEligibilityChangedCallback(
       LocalEligibilityChangedCallback callback);
 
@@ -105,11 +111,11 @@ class IndigoService : public KeyedService,
     return *api_client_;
   }
 
-  // Anchored messages are rate-limited to reduce user fatigue. Clients should
-  // use `CanShowAnchoredMessage` to check eligibility before displaying an
-  // anchored message, and call `AnchoredMessageShown` when they do.
-  bool CanShowAnchoredMessage() const;
-  void AnchoredMessageShown();
+  // Contextual cues are rate-limited to reduce user fatigue. Clients should
+  // use `CanShowContextualCue` to check eligibility before displaying a
+  // contextual cue, and call `ContextualCueShown` when they do.
+  bool CanShowContextualCue() const;
+  void ContextualCueShown();
 
   // Determine whether the feature is capable of generating images right now.
   // This may require contacting the service.
@@ -117,6 +123,25 @@ class IndigoService : public KeyedService,
 
   // Returns the prompt for the given key if available.
   std::optional<std::string> GetPrompt(const std::string& key) const;
+
+  const std::vector<std::string>& GetAllowedKeywords() const;
+  const std::vector<std::string>& GetBlockedKeywords() const;
+  bool IsOriginAllowed(const url::Origin& origin) const;
+  bool IsConfigLoaded() const { return config_loaded_; }
+
+  struct ConfigData {
+    ConfigData();
+    ConfigData(const ConfigData&);
+    ConfigData(ConfigData&&);
+    ConfigData& operator=(const ConfigData&);
+    ConfigData& operator=(ConfigData&&);
+    ~ConfigData();
+    std::vector<url::Origin> allowed_origins;
+    std::vector<std::string> allowed_keywords;
+    std::vector<std::string> blocked_keywords;
+  };
+
+  void SetConfigForTesting(ConfigData config);
 
   // Returns the map of all loaded prompts.
   const base::flat_map<std::string, std::string>& GetLoadedPrompts() const {
@@ -146,6 +171,7 @@ class IndigoService : public KeyedService,
       base::expected<RemoteEligibility, std::string> eligibility_or_error);
   void TriggerRemoteEligibilityFetch();
   void OnPromptsLoaded(base::flat_map<std::string, std::string> prompts);
+  void OnConfigLoaded(ConfigData config);
 
   raw_ptr<Profile> profile_;
   raw_ptr<signin::IdentityManager> identity_manager_;
@@ -164,8 +190,8 @@ class IndigoService : public KeyedService,
   base::CallbackListSubscription indigo_component_ready_subscription_;
   std::unique_ptr<ApiClient> api_client_;
 
-  // The earliest time the anchored message can be shown again.
-  base::TimeTicks anchored_message_not_before_;
+  // The earliest time the contextual cue can be shown again.
+  base::TimeTicks contextual_cue_not_before_;
 
   // True if a fetch for remote eligibility is currently in flight.
   bool remote_eligibility_fetch_in_progress_ = false;
@@ -179,6 +205,9 @@ class IndigoService : public KeyedService,
 
   base::flat_map<std::string, std::string> prompts_;
   bool prompts_loaded_ = false;
+
+  ConfigData config_;
+  bool config_loaded_ = false;
 
   base::OnceClosure prompts_loaded_callback_for_testing_;
 

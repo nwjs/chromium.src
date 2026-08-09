@@ -113,6 +113,7 @@
 #include "components/password_manager/core/browser/actor_login/actor_login_types.h"
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/content/browser/ui_manager.h"
+#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/security_interstitials/core/unsafe_resource.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/sessions/core/session_id.h"
@@ -729,8 +730,9 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
 
     std::optional<int32_t> win_id =
         options ? options->fallback_window_id : std::nullopt;
-    CreateTab(exact_url, /*open_in_background=*/false, win_id,
-              std::move(callback));
+    host().instance_delegate().CreateTab(
+        exact_url, /*open_in_background=*/false, win_id, std::move(callback),
+        /*show_side_panel=*/false);
   }
 
   void OpenGlicSettingsPage(mojom::OpenSettingsOptionsPtr options) override {
@@ -1276,6 +1278,9 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
             features::kGlicProcessCounterAbuseVerdict)) {
       return;
     }
+    if (!safe_browsing::IsSafeBrowsingEnabled(*pref_service_)) {
+      return;
+    }
     if (!verdict || !verdict->sb_verdict_result) {
       base::UmaHistogramEnumeration(
           "Glic.Api.ProcessCounterAbuseVerdict.Result",
@@ -1348,7 +1353,9 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
 
       if (ui_manager->IsAllowlisted(
               resource.url, resource.rfh_locator, resource.navigation_id,
-              resource.threat_type, resource.threat_source)) {
+              resource.threat_type, resource.threat_source) ||
+          safe_browsing::IsURLAllowlistedByPolicy(resource.url,
+                                                  *pref_service_)) {
         base::UmaHistogramEnumeration(
             "Glic.Api.ProcessCounterAbuseVerdict.Result",
             GlicProcessCounterAbuseVerdictResult::

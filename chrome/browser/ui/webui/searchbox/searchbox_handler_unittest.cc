@@ -4,6 +4,10 @@
 
 #include "chrome/browser/ui/webui/cr_components/searchbox/searchbox_handler.h"
 
+#include <memory>
+#include <string>
+#include <utility>
+
 #include "base/memory/raw_ptr.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -295,7 +299,8 @@ TEST_F(RealboxHandlerTest, AutocompleteController_Start) {
         .Times(1)
         .WillOnce(SaveArg<0>(&input));
 
-    handler_->QueryAutocomplete(u"", /*prevent_inline_autocomplete=*/false, 0);
+    handler_->QueryAutocomplete(0, u"", /*prevent_inline_autocomplete=*/false,
+                                0);
 
     EXPECT_EQ(input_text, u"");
     EXPECT_EQ(input.text(), u"");
@@ -321,7 +326,8 @@ TEST_F(RealboxHandlerTest, AutocompleteController_Start) {
         .Times(1)
         .WillOnce(SaveArg<0>(&input));
 
-    handler_->QueryAutocomplete(u"a", /*prevent_inline_autocomplete=*/false, 0);
+    handler_->QueryAutocomplete(0, u"a", /*prevent_inline_autocomplete=*/false,
+                                0);
 
     EXPECT_EQ(input_text, u"a");
     EXPECT_EQ(input.text(), u"a");
@@ -367,7 +373,7 @@ TEST_F(RealboxHandlerTest, AutocompleteController_StartWithSuggestInventory) {
         .WillOnce(SaveArg<0>(&input));
 
     handler_->QueryAutocompleteWithSuggestInventory(
-        u"a", /*prevent_inline_autocomplete=*/false, 0,
+        0, u"a", /*prevent_inline_autocomplete=*/false, 0,
         omnibox::SuggestInventory::SUGGEST_INVENTORY_TRAVEL);
 
     EXPECT_EQ(input_text, u"a");
@@ -379,6 +385,80 @@ TEST_F(RealboxHandlerTest, AutocompleteController_StartWithSuggestInventory) {
               metrics::OmniboxEventProto::NTP_REALBOX);
     EXPECT_EQ(input.suggest_inventory(),
               omnibox::SuggestInventory::SUGGEST_INVENTORY_TRAVEL);
+
+    testing::Mock::VerifyAndClearExpectations(omnibox_edit_model_);
+    testing::Mock::VerifyAndClearExpectations(autocomplete_controller_);
+  }
+}
+
+TEST_F(RealboxHandlerTest, SetInputMethodTest) {
+  // Stop observing the `AutocompleteController` instance which will be
+  // destroyed.
+  handler_->autocomplete_controller_observation_.Reset();
+  // Set a mock AutocompleteController.
+  auto autocomplete_controller =
+      std::make_unique<testing::NiceMock<MockAutocompleteController>>(
+          std::make_unique<MockAutocompleteProviderClient>(), 0);
+  autocomplete_controller_ = autocomplete_controller.get();
+  handler_->omnibox_controller()->SetAutocompleteControllerForTesting(
+      std::move(autocomplete_controller));
+  // Set a mock OmniboxEditModel.
+  auto omnibox_edit_model =
+      std::make_unique<testing::NiceMock<MockOmniboxEditModel>>(
+          handler_->omnibox_controller());
+  omnibox_edit_model_ = omnibox_edit_model.get();
+  handler_->omnibox_controller()->SetEditModelForTesting(
+      std::move(omnibox_edit_model));
+
+  {
+    SCOPED_TRACE("With smart compose input method");
+    std::u16string input_text;
+    EXPECT_CALL(*omnibox_edit_model_, SetUserText(_))
+        .Times(1)
+        .WillOnce(SaveArg<0>(&input_text));
+
+    AutocompleteInput input;
+    EXPECT_CALL(*autocomplete_controller_, Start(_))
+        .Times(1)
+        .WillOnce(SaveArg<0>(&input));
+
+    handler_->SetInputMethod(searchbox::mojom::InputMethod::kSmartCompose);
+
+    handler_->QueryAutocompleteWithSuggestInventory(
+        0, u"test query", /*prevent_inline_autocomplete=*/false, 10,
+        omnibox::SuggestInventory::SUGGEST_INVENTORY_TRAVEL);
+
+    EXPECT_EQ(input_text, u"test query");
+    EXPECT_EQ(input.text(), u"test query");
+    EXPECT_EQ(input.input_method(),
+              omnibox::metrics::ChromeSearchboxStats::SMART_COMPOSE);
+
+    testing::Mock::VerifyAndClearExpectations(omnibox_edit_model_);
+    testing::Mock::VerifyAndClearExpectations(autocomplete_controller_);
+  }
+
+  {
+    SCOPED_TRACE("Default input method");
+    std::u16string input_text;
+    EXPECT_CALL(*omnibox_edit_model_, SetUserText(_))
+        .Times(1)
+        .WillOnce(SaveArg<0>(&input_text));
+
+    AutocompleteInput input;
+    EXPECT_CALL(*autocomplete_controller_, Start(_))
+        .Times(1)
+        .WillOnce(SaveArg<0>(&input));
+
+    // No SetInputMethod call - should default to KEYBOARD.
+
+    handler_->QueryAutocompleteWithSuggestInventory(
+        0, u"another query", /*prevent_inline_autocomplete=*/false, 13,
+        omnibox::SuggestInventory::SUGGEST_INVENTORY_TRAVEL);
+
+    EXPECT_EQ(input_text, u"another query");
+    EXPECT_EQ(input.text(), u"another query");
+    EXPECT_EQ(input.input_method(),
+              omnibox::metrics::ChromeSearchboxStats::KEYBOARD);
 
     testing::Mock::VerifyAndClearExpectations(omnibox_edit_model_);
     testing::Mock::VerifyAndClearExpectations(autocomplete_controller_);
@@ -600,7 +680,8 @@ TEST_F(LensSearchboxHandlerTest, Lens_AutocompleteController_Start) {
     EXPECT_CALL(*lens_searchbox_client_, GetLensSuggestInputs())
         .WillRepeatedly(Return(suggest_inputs));
 
-    handler_->QueryAutocomplete(u"", /*prevent_inline_autocomplete=*/false, 0);
+    handler_->QueryAutocomplete(0, u"", /*prevent_inline_autocomplete=*/false,
+                                0);
 
     EXPECT_EQ(input_text, u"");
     EXPECT_EQ(input.text(), u"");
@@ -652,7 +733,8 @@ TEST_F(LensSearchboxHandlerTest, Lens_AutocompleteController_Start) {
     EXPECT_CALL(*lens_searchbox_client_, GetLensSuggestInputs())
         .WillRepeatedly(Return(suggest_inputs));
 
-    handler_->QueryAutocomplete(u"a", /*prevent_inline_autocomplete=*/false, 0);
+    handler_->QueryAutocomplete(0, u"a", /*prevent_inline_autocomplete=*/false,
+                                0);
 
     EXPECT_EQ(input_text, u"a");
     EXPECT_EQ(input.text(), u"a");

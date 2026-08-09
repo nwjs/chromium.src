@@ -2623,8 +2623,7 @@ RenderFrameHostImpl::RenderFrameHostImpl(
           /*consumer_name=*/"RenderFrameHostImpl",
           /*traits=*/std::nullopt,  // TODO(crbug.com/489671163): Fill traits.
           this,
-          base::MemoryConsumerRegistration::CheckUnregister::kDisabled,
-          base::MemoryConsumerRegistration::CheckRegistryExists::kDisabled) {
+          base::MemoryConsumerRegistration::CheckUnregister::kDisabled) {
   TRACE_EVENT("navigation", "RenderFrameHostImpl::RenderFrameHostImpl",
               perfetto::Flow::FromPointer(this));
   base::trace_event::TraceSessionObserverList::AddObserver(this);
@@ -9544,7 +9543,8 @@ void RenderFrameHostImpl::FocusedElementChanged(
     bool is_editable_element,
     bool is_richly_editable_element,
     const gfx::Rect& bounds_in_frame_widget,
-    blink::mojom::FocusType focus_type) {
+    blink::mojom::FocusType focus_type,
+    const blink::DOMNodeIdType& editable_dom_node_id) {
   if (!GetView()) {
     return;
   }
@@ -9558,7 +9558,7 @@ void RenderFrameHostImpl::FocusedElementChanged(
       gfx::Rect(GetView()->TransformPointToRootCoordSpace(
                     bounds_in_frame_widget.origin()),
                 bounds_in_frame_widget.size()),
-      focus_type);
+      focus_type, editable_dom_node_id);
 }
 
 void RenderFrameHostImpl::TextSelectionChanged(const std::u16string& text,
@@ -15224,6 +15224,17 @@ void RenderFrameHostImpl::GetWebAuthenticationService(
     return;
   }
 
+  // PDF renderer processes are not permitted to access password/passkey-class
+  // data for any origin (see
+  // ChildProcessSecurityPolicyImpl::IsAccessAllowedForPdfProcess). Refuse to
+  // bind blink.mojom.Authenticator for them, mirroring the gate already present
+  // for blink.mojom.PasswordManagerDriver.
+  if (GetProcess()->IsPdf()) {
+    bad_message::ReceivedBadMessage(
+        GetProcess(), bad_message::RFH_AUTHENTICATOR_PDF_PROCESS_BLOCKED);
+    return;
+  }
+
 #if !BUILDFLAG(IS_ANDROID)
   AuthenticatorImpl::Create(this, std::move(receiver));
 #else
@@ -18774,11 +18785,14 @@ void RenderFrameHostImpl::LogCannotCommitOriginCrashKeys(
 
 void RenderFrameHostImpl::EnableMojoJsBindings(
     content::mojom::ExtraMojoJsFeaturesPtr features) {
-  // This method should only be called on RenderFrameHost which is for a WebUI.
-  CHECK_NE(WebUI::kNoWebUI,
-           WebUIControllerFactoryRegistry::GetInstance()->GetWebUIType(
-               GetSiteInstance()->GetBrowserContext(),
-               site_instance_->GetSiteInfo().site_url()));
+  // This method should only be called on RenderFrameHost which is for a WebUI
+  // or custom URLs allowlisted by the embedder.
+  CHECK(WebUIControllerFactoryRegistry::GetInstance()->GetWebUIType(
+            GetSiteInstance()->GetBrowserContext(),
+            site_instance_->GetSiteInfo().site_url()) != WebUI::kNoWebUI ||
+        GetContentClient()->browser()->ShouldAllowMojoJsBindingsForSite(
+            GetSiteInstance()->GetBrowserContext(),
+            site_instance_->GetSiteInfo().site_url()));
 
   GetFrameBindingsControl()->EnableMojoJsBindings(std::move(features));
 }

@@ -343,8 +343,6 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
            raw_ref(network::features::kCompressionDictionaryTransport)},
           {"CookieStoreAPIMaxAge",
            raw_ref(blink::features::kCookieStoreAPIMaxAge)},
-          {"DeclarativePerformanceObserver",
-           raw_ref(network::features::kDeclarativePerformanceObserver)},
           {"DocumentPolicyIncludeJSCallStacksInCrashReports",
            raw_ref(blink::features::
                        kDocumentPolicyIncludeJSCallStacksInCrashReports),
@@ -359,8 +357,8 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
           {"FledgeBiddingAndAuctionServerAPI",
            raw_ref(blink::features::kFledgeBiddingAndAuctionServer), kDefault},
 #if BUILDFLAG(IS_WIN)
-          {"FontDataService",
-           raw_ref(features::kFontDataServiceAllWebContents)},
+          {"FontDataServiceForCSSLocalFonts",
+           raw_ref(features::kFontDataServiceForCSSLocalFonts)},
 #endif
           {"HstsTopLevelNavigationsOnly",
            raw_ref(net::features::kHstsTopLevelNavigationsOnly)},

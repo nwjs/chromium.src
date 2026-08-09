@@ -111,6 +111,17 @@ export class ReadonlyOmniboxElement extends CrLitElement {
   // immediately before. `null` if there is no focus.
   private lastFocusAcquisition_: number|null = null;
 
+  // Bitmap of mouse buttons down. This is using `event.button` as bit position,
+  // not their position in `event.buttons`, as that's what's most convenient to
+  // use for updates in down/up event. (The two representations are not in the
+  // same order).
+  private mouseButtonDown_: number = 0;
+
+  // These are the mouse coordinates captured when `selectAllOnMouseRelease_`
+  // was set to true.
+  private clientXAtMouseDown_: number = 0;
+  private clientYAtMouseDown_: number = 0;
+
   constructor() {
     super();
     this.maybeForwardKeys = new Set([
@@ -132,7 +143,6 @@ export class ReadonlyOmniboxElement extends CrLitElement {
 
   override disconnectedCallback() {
     super.disconnectedCallback();
-
     this.browserProxy_.removeFocusRequestListener(this.focusRequestHandle_);
   }
 
@@ -148,11 +158,12 @@ export class ReadonlyOmniboxElement extends CrLitElement {
         this.omniboxViewState = {
           ...this.browserOmniboxState,
           // Don't pay attention to browser selection beyond initial state.
-          // This deep-copies to avoid aliasing issues.
-          selection: copyMaybeSelection(
-              this.browserOmniboxState.uiVersion === 0 ?
-                  this.browserOmniboxState.selection :
-                  this.omniboxViewState.selection),
+          // This deep-copies to avoid aliasing issues. Not changing should
+          // be done by null, not by reusing OmniboxViewState.selection,
+          // since it's basically impossible to keep that fully up-to-date.
+          selection: this.browserOmniboxState.uiVersion === 0 ?
+              copyMaybeSelection(this.browserOmniboxState.selection) :
+              null,
         };
       }
     }
@@ -169,6 +180,7 @@ export class ReadonlyOmniboxElement extends CrLitElement {
     // in part by switching these to pointer versions.
     textInput.addEventListener('mousedown', this.onInputMouseDown.bind(this));
     textInput.addEventListener('mouseup', this.onInputMouseUp.bind(this));
+    textInput.addEventListener('mousemove', this.onInputMouseMove_.bind(this));
     textInput.addEventListener('input', this.onInputInput.bind(this));
     textInput.addEventListener('keydown', this.onInputKeyDown.bind(this));
     textInput.addEventListener('keyup', this.onInputKeyUp.bind(this));
@@ -303,6 +315,22 @@ export class ReadonlyOmniboxElement extends CrLitElement {
   }
 
   private onInputBlur(): void {
+    // Blink has somewhat strange behavior when it comes to mouse interaction
+    // w/elements that lost focus, particularly due to their document losing
+    // focus: the selection isn't visible, but on click it acts as if it's
+    // there, so for example trying to drag-select in an element with a
+    // "secret" select all state (quite common for the location bar!) results
+    // in a text drag instead.
+    //
+    // So, if we lose focus due to document losing focus, clear both focus
+    // and selection, so mouse interactions are more predictable. Unfortunately
+    // this does result in location bar losing selection on window switch.
+    //
+    // TODO(crbug.com/503784990): Perhaps there is a better way.
+    if (!document.hasFocus()) {
+      document.getSelection()!.removeAllRanges();
+      this.$.textInput.blur();
+    }
     this.lastFocusAcquisition_ = null;
     this.switchReadOnly_();
 
@@ -333,6 +361,8 @@ export class ReadonlyOmniboxElement extends CrLitElement {
   }
 
   private onInputMouseDown(event: MouseEvent): void {
+    this.mouseButtonDown_ |= (1 << event.button);
+
     let wasAlreadyFocused = this.hasFocus();
 
     // Don't count us as already focused when we just got focus from this
@@ -342,32 +372,36 @@ export class ReadonlyOmniboxElement extends CrLitElement {
       wasAlreadyFocused = false;
     }
 
+    const input = this.$.textInput;
+
     // Normally, we will select-all when the user releases the button.
     //
     // This won't happen at least when:
     // 1) This already has focus, in which case they'll just want to set the
     //    caret.
     // 2) More than just left mouse button is down.
-    // TODO(crbug.com/503784990): 3) The user-drag selects, which should
-    //    clear `selectAllOnMouseRelease_` when that happens once we actually
-    //    implement this part.
+    // 3) The user-drag selects, which clears `selectAllOnMouseRelease_` in
+    //    onInputMouseMove_.
     this.selectAllOnMouseRelease_ =
         isOnlyLeftButton(event) && !wasAlreadyFocused;
+    if (this.selectAllOnMouseRelease_) {
+      this.clientXAtMouseDown_ = event.clientX;
+      this.clientYAtMouseDown_ = event.clientY;
+    }
 
     if (event.detail === 2 && isOnlyLeftButton(event)) {
       this.selectAllOnMouseRelease_ = false;
-
       if (this.didSelectAllOnClickOne_) {
         // If we selected all, double-click word select would be messed up
         // due to existing selection, so clear it again to let normal behavior
         // happen.
-        this.$.textInput.setSelectionRange(0, 0);
+        input.setSelectionRange(0, 0);
       } else {
         // If we did not select all, we may have elided, so default behavior
         // could screw up and select the wrong word. Fortunately, in that case
         // selectionStart will be correct, including adjustment, so we select
         // the word it points at.
-        this.selectWord(this.$.textInput.selectionStart!);
+        this.selectWord(input.selectionStart!);
         event.preventDefault();
       }
     }
@@ -381,6 +415,7 @@ export class ReadonlyOmniboxElement extends CrLitElement {
   }
 
   private onInputMouseUp(event: MouseEvent): void {
+    this.mouseButtonDown_ &= ~(1 << event.button);
     const willSelectAll =
         this.selectAllOnMouseRelease_ && isOnlyLeftButton(event);
 
@@ -408,6 +443,9 @@ export class ReadonlyOmniboxElement extends CrLitElement {
       this.selectAllBackwards();
     }
 
+    // Make sure we stop accepting incremental selection updates from browser
+    // at this point.
+    ++this.omniboxViewState.uiVersion;
     this.sendInputToBrowser();
 
     const zeroSuggest = isOnlyLeftButton(event) &&
@@ -420,6 +458,19 @@ export class ReadonlyOmniboxElement extends CrLitElement {
     });
 
     this.selectAllOnMouseRelease_ = false;
+  }
+
+  private onInputMouseMove_(event: MouseEvent): void {
+    // If the user has moved the mouse more than a hair (based on the more
+    // conservative of blink drag thresholds [1]) they're probably trying to
+    // drag-select rather than click.
+    // [1] See kDragThresholdX/Y in:
+    //    third_party/blink/renderer/core/input/mouse_event_manager.cc
+    if (this.selectAllOnMouseRelease_ && this.mouseButtonDown_ !== 0 &&
+        ((Math.abs(event.clientX - this.clientXAtMouseDown_) > 3) ||
+         (Math.abs(event.clientY - this.clientYAtMouseDown_) > 3))) {
+      this.selectAllOnMouseRelease_ = false;
+    }
   }
 
   // Sync ups the textPieces to be an unhighlighted version of `userText`.
@@ -454,6 +505,17 @@ export class ReadonlyOmniboxElement extends CrLitElement {
   }
 
   private onInputKeyDown(event: KeyboardEvent): void {
+    if (this.mouseButtonDown_ !== 0 && this.selectAllOnMouseRelease_) {
+      // https://crbug.com/40123188 If the user presses the mouse button down
+      // and begins to type without releasing the mouse button, the subsequent
+      // release will delete any newly typed characters due to the SelectAll
+      // happening on mouse-up. If we detect this state, do the select-all
+      // immediately.
+      this.selectAllBackwards();
+      this.selectAllOnMouseRelease_ = false;
+    }
+
+
     const inlineAutocompletion = this.omniboxViewState.inlineAutocompletion;
     if (inlineAutocompletion.length > 0) {
       // If the current input state (its value and selection) matches its last
@@ -544,6 +606,22 @@ export class ReadonlyOmniboxElement extends CrLitElement {
           modifiers: getEventDispositionFlags(event),
         },
       });
+    }
+    this.checkForSelectionChange_();
+  }
+
+  private checkForSelectionChange_(): void {
+    // If the selection isn't what we think it should be, that suggests the user
+    // has changed it, so unelide, but not if the mouse is down. We poll this
+    // explicitly to avoid fighting with handling of mouse events, etc.
+    if (this.mouseButtonDown_ !== 0) {
+      return;
+    }
+
+    const currentSelection = this.getMojoSelection();
+    if (currentSelection.start !== this.omniboxViewState.selection?.start ||
+        currentSelection.end !== this.omniboxViewState.selection?.end) {
+      this.unelideAndUpdateSelection(UnelisionGesture.OTHER);
     }
   }
 
@@ -726,16 +804,16 @@ export class ReadonlyOmniboxElement extends CrLitElement {
     this.omniboxViewState.selection = this.getMojoSelection();
   }
 
-  // Sets the read only view active (by having it paint over the editable
-  // <input>).
+  // Sets the read only view active.
   private switchReadOnly_(): void {
-    this.$.textContainer.style.zIndex = '1';
+    this.$.textInput.style.opacity = '0';
+    this.$.textContainer.style.opacity = '1';
   }
 
-  // Sets the editable view active (by having it paint over the read-only
-  // #textContainer).
+  // Sets the editable view active.
   private switchEditable_(): void {
-    this.$.textContainer.style.zIndex = '-1';
+    this.$.textInput.style.opacity = '1';
+    this.$.textContainer.style.opacity = '0';
   }
 
   // Returns the CSS classes for rendering the given text piece.

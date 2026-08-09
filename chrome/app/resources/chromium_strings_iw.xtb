@@ -34,6 +34,7 @@
 <translation id="132092532143527429">‏כדאי לנסות את Gemini ב-Chromium</translation>
 <translation id="1324107359134968521">‏ל-Chromium נדרשת גישה ל-Bluetooth כדי למצוא 
  מכשירי Bluetooth. <ph name="IDS_SERIAL_DEVICE_CHOOSER_AUTHORIZE_BLUETOOTH_LINK" /></translation>
+<translation id="1329040302064168406">‏כניסה ל-Chromium בטלפון</translation>
 <translation id="1330562121671411446">זיהוי שפה אוטומטי</translation>
 <translation id="1330742950061766891">‏שימוש בהגדרות הדפדפן המומלצות של Chromium</translation>
 <translation id="1342274909142618978">‏אני רוצה למחוק את הנתונים גם מ-Chromium (<ph name="URL" />)</translation>
@@ -92,18 +93,21 @@
 <translation id="1951406923938785464">‏Chromium חסם את ההורדה הזאת כי לרוב לא מתבצעת הורדה של קבצים מהסוג הזה ויכול להיות שהקובץ מסוכן</translation>
 <translation id="1953553007165777902">מתבצעת הורדה… יש עוד <ph name="MINUTE" /> דק'</translation>
 <translation id="1966382378801805537">‏ב-Chromium לא ניתן לקבוע או להגדיר את דפדפן ברירת המחדל</translation>
+<translation id="197326043290947695">גלישה חכמה יותר עם "חיפוש תמונות"</translation>
 <translation id="1990262977744080398">‏מידע על חסימה של קבצים מסוימים ב-Chromium, נפתח בכרטיסייה חדשה</translation>
 <translation id="1999715455684970349">‏השירות הזה שומר על תוכנת Chromium עדכנית. אם השירות הזה מושבת או מופסק, תוכנת Chromium לא תתעדכן באופן קבוע. כתוצאה מכך, לא ניתן יהיה לתקן פרצות אבטחה שעלולות להיווצר, וייתכן שחלק מהתכונות לא יפעלו. השירות הזה יוסר באופן אוטומטי אם אין תוכנת Chromium שמשתמשת בו.</translation>
 <translation id="2008474315282236005">‏הפעולה הזו תמחק פריט אחד מהמכשיר. כדי לשחזר את הנתונים מאוחר יותר, היכנס אל Chromium עם <ph name="USER_EMAIL" />.</translation>
 <translation id="2018879682492276940">ההתקנה נכשלה. יש לנסות שוב.</translation>
 <translation id="2039417478970545937">הגדרות.</translation>
 <translation id="2049376729098081731">‏בוחרים אם לכלול את ההיסטוריה ב-Chromium להתאמה אישית מדויקת יותר בשירותי Google</translation>
+<translation id="2050698962207788467">‏מנהל הסיסמאות מובנה ב-Chromium ומאפשר לך ליצור סיסמאות חזקות, לשמור אותן ולמלא אותן אוטומטית. כדי להגיע אליו בקלות, אפשר להוסיף את קיצור הדרך.</translation>
 <translation id="2064856577282482477">‏אפשר ללחוץ על הכפתור "התאמה אישית של Chromium" בדף הכרטיסייה החדשה כדי לשנות את המראה שלו</translation>
 <translation id="2066690553719545730">‏תמיד להציג את מצב AI</translation>
 <translation id="2086476982681781442">‏Chromium חסם את ההורדה הזאת כי הקובץ מטעה ועשוי לבצע שינויים לא צפויים במכשיר שלך</translation>
 <translation id="208726765006323911">‏בפעם הבאה ש-Chromium ייפתח ב-iOS, תופיע הנחיה לנסות את <ph name="FEATURE_NAME" />.</translation>
 <translation id="2099452623287920103">‏הסיסמאות ונתונים אחרים מ-Chromium ששמרת בחשבון שלך ב-Google יוסרו מהמכשיר הזה. כדי להשתמש בהם שוב ב-Chromium, צריך להיכנס בחזרה לחשבון.</translation>
 <translation id="2120965832000301375">{COUNT,plural, =1{‏נתוני הגלישה נמחקים באופן אוטומטי על ידי הארגון כשלא נעשה שימוש ב-Chromium במשך דקה. בין הנתונים שיימחקו: היסטוריה, מילוי אוטומטי והורדות. הכרטיסיות יישארו פתוחות.}one{‏נתוני הגלישה נמחקים באופן אוטומטי על ידי הארגון כשלא נעשה שימוש ב-Chromium במשך # דקות. בין הנתונים שיימחקו: היסטוריה, מילוי אוטומטי והורדות. הכרטיסיות יישארו פתוחות.}two{‏נתוני הגלישה נמחקים באופן אוטומטי על ידי הארגון כשלא נעשה שימוש ב-Chromium במשך # דקות. בין הנתונים שיימחקו: היסטוריה, מילוי אוטומטי והורדות. הכרטיסיות יישארו פתוחות.}other{‏נתוני הגלישה נמחקים באופן אוטומטי על ידי הארגון כשלא נעשה שימוש ב-Chromium במשך # דקות. בין הנתונים שיימחקו: היסטוריה, מילוי אוטומטי והורדות. הכרטיסיות יישארו פתוחות.}}</translation>
+<translation id="2125838419757773031">בחירת אזור במסך לחיפוש</translation>
 <translation id="2126108037660393668">נכשל האימות של הקובץ שהורד.</translation>
 <translation id="2135919691573380097">דיווח על האתר הזה</translation>
 <translation id="2137162749895930932">סגירת המסך לתרגום</translation>
@@ -136,6 +140,7 @@
 <translation id="2401032172288869980">‏נדרשות הרשאות גישה למצלמה ולמיקרופון ב-Chromium עבור האתר הזה</translation>
 <translation id="2403703063067034158">שגיאה בזמן ההפעלה: יש עוד הגדרה שפועלת כרגע. אפשר לנסות שוב מאוחר יותר.</translation>
 <translation id="2418322681019544463">‏הגדרת Chromium כברירת מחדל מאפשרת לפתוח קישורים מכל אפליקציה ולהשאיר את הדפדפן נגיש בסרגל האפליקציות</translation>
+<translation id="2425157128016763890">‏כדי לקבל סקירה כללית מהירה ולשאול שאלות המשך, אפשר ללחוץ על כפתור הסיכום ולשתף את המסמך הזה עם Gemini ב-Chromium.</translation>
 <translation id="2440750600860946460">‏בעזרת <ph name="BEGIN_LINK" />הכלים של Chromium<ph name="END_LINK" /> אפשר לגלוש בבטחה ובשליטה</translation>
 <translation id="2451727308784734061">באמצעות קיצורי הדרך אפשר להגיע מהר למנהל הסיסמאות. ניתן להעביר את קיצור הדרך למרכז האפליקציות או למסך הבית של המחשב.</translation>
 <translation id="2478295928299953161">‏Chromium ייסגר בקרוב</translation>
@@ -281,6 +286,7 @@
 <translation id="3975724895399328945">‏מידע על &amp;Google Chrome for Testing</translation>
 <translation id="3997429360543082038">‏מידע על ChromiumOS</translation>
 <translation id="4010059961270896984">‏כשמבקרים באתר מסוים, Chromium שולח ל<ph name="BEGIN_LINK" />גלישה בטוחה של Google<ph name="END_LINK" /> קטע קוד מעורפל מכתובת ה-URL דרך שרת פרטיות שמסתיר את כתובת ה-IP. אם האתר פועל באופן שמעורר חשד, יישלחו גם כתובות URL מלאות וקטעי תוכן מדפים.</translation>
+<translation id="4016217212818346953">מנהל הסיסמאות עוזר לשמור על הבטיחות שלך</translation>
 <translation id="4019629340646866719">‏השימוש ב-ChromiumOS מתאפשר בזכות <ph name="BEGIN_LINK_CROS_OSS" />תוכנות קוד פתוח<ph name="END_LINK_CROS_OSS" /> נוספות כמו <ph name="BEGIN_LINK_LINUX_OSS" />סביבת הפיתוח של Linux<ph name="END_LINK_LINUX_OSS" />.</translation>
 <translation id="4022972681110646219">תרגום המסך</translation>
 <translation id="4023601594785368013">שפה מקורית: <ph name="LANGUAGE" /></translation>
@@ -591,6 +597,7 @@
 <translation id="7196312274710523067">‏לא ניתן היה להפעיל את Chromium. יש לנסות שוב.</translation>
 <translation id="7213008767289637091">‏כדאי להשאיר את Chromium ב-Dock כדי לגשת אליו במהירות מתי שרוצים</translation>
 <translation id="7213407614656404070">‏שימוש ב-Chromium בכל פעם שלוחצים על קישורים בהודעות, במסמכים ובאפליקציות אחרות.</translation>
+<translation id="7216228761061470870">‏כשמשתמשים ב"חיפוש תמונות" במחשב, כותרת הדף, כתובת ה-URL והתוכן שלו, כולל קובצי PDF, נשלחים לשרת</translation>
 <translation id="7223968959479464213">‏מנהל המשימות - Chromium</translation>
 <translation id="7252276985725323153">‏רוצה לגלוש מיד? עכשיו אפשר להגדיר את Chromium להתחיל לפעול יחד עם Windows.</translation>
 <translation id="7274695763216404502">התכונה הוצמדה. מעכשיו אפשר להשתמש בתכונה 'חיפוש תמונות' דרך סרגל הכלים</translation>
@@ -680,6 +687,7 @@ Chromium לא יכול לשחזר את ההגדרות שלך.</translation>
 <translation id="8107060931443639922">‏בפתיחה הבאה של Chromium במכשיר <ph name="DEVICE_TYPE" />, תופיע הנחיה להפעיל התראות על מעקב מחירים.</translation>
 <translation id="8117908349476699973">‏התראות על ירידות מחירים של פריטים שמעניינים אותך מחכות לך באפליקציית Chromium בטלפון</translation>
 <translation id="8118331347066725040">‏שליחת משוב על חיפוש באמצעות Lens</translation>
+<translation id="8130609355518033382">‏רוצה ש-Chromium יתאים לך בול?</translation>
 <translation id="8133124826068723441">‏לא בוצע סנכרון של הנתונים ב-ChromiumOS כי אפשרות הסנכרון לא זמינה עבור הדומיין שלך.</translation>
 <translation id="813913629614996137">מתבצע אתחול...</translation>
 <translation id="8161503455832158203">‏אפשר לפתוח את Gemini ב-Chromium באמצעות מקש קיצור.</translation>
@@ -718,7 +726,7 @@ Chromium לא יכול לשחזר את ההגדרות שלך.</translation>
 <translation id="8458614432758743027">‏כדי להשתמש ב-Chromium נדרש Windows מגרסה 10 ואילך.</translation>
 <translation id="8463672209299734063">‏אופציונלי: שליחה אוטומטית של נתוני אבחון ונתוני שימוש במכשיר אל Google תעזור לשפר את התכונות ואת הביצועים של ChromiumOS.</translation>
 <translation id="8471947159125090285">‏כדי להשתמש בנתוני Chromium ולשמור אותם בחשבון Google, עליך לאמת את הזהות שלך</translation>
-<translation id="8482493977473846331">‏הצגת הנחיות לצורך כניסה אל Chromium</translation>
+<translation id="8482493977473846331">‏הצגת פרומפטים לצורך כניסה אל Chromium</translation>
 <translation id="8493179195440786826">‏Chromium אינו מעודכן</translation>
 <translation id="850264194101621529">‏תודה שבחרת ב-Chromium כדפדפן ברירת המחדל שלך!</translation>
 <translation id="8522801943730206384">‏ל-Chromium יש אפשרות לבדוק את הסיסמאות שלך רק אם שמרת אותן</translation>
@@ -743,6 +751,7 @@ Chromium לא יכול לשחזר את ההגדרות שלך.</translation>
 <translation id="878572486461146056">שגיאת התקנה: מנהל הרשת החיל מדיניות קבוצתית שמונעת את ההתקנה: <ph name="INSTALL_ERROR" /></translation>
 <translation id="8796602469536043152">‏Chromium זקוק להרשאת גישה אל המצלמה והמיקרופון בשביל האתר הזה</translation>
 <translation id="8813277370772331957">אני רוצה לקבל תזכורת אחר כך</translation>
+<translation id="8816416449795340678">‏כדי לקבל סקירה כללית זריזה ולשאול שאלות המשך, אפשר לשתף את המסמך הזה עם Gemini ב-Chromium</translation>
 <translation id="8818550178040858407">‏להיכנס אל Chromium?</translation>
 <translation id="8823401858233292222">‏הגדרת Chromium כדפדפן ברירת המחדל והצמדה שלו לסרגל המשימות</translation>
 <translation id="8826492472752484139">לוחצים על 'מנהל הסיסמאות'</translation>

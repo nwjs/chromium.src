@@ -281,6 +281,10 @@ public class AccessibilityContentShellActivityTestRule extends ContentShellActiv
         // Always reset our max events for good measure.
         if (mWcax != null) {
             mWcax.setMaxContentChangedEventsToFireForTesting(-1);
+            if (Mockito.mockingDetails(mWcax).isMock()) {
+                Mockito.reset(mWcax);
+            }
+            mWcax = null;
         }
 
         AccessibilityContentShellTestData.resetData();

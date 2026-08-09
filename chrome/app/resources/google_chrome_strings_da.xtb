@@ -125,6 +125,7 @@
 <translation id="2120620239521071941">Denne handling sletter <ph name="ITEMS_COUNT" /> elementer på denne enhed. Hvis du senere vil hente dine data igen, skal du logge ind på Chrome som <ph name="USER_EMAIL" />.</translation>
 <translation id="2121284319307530122">Genstart og opdater &amp;Chrome</translation>
 <translation id="2123055963409958220">Vær med til at gøre Chrome bedre ved at rapportere de <ph name="BEGIN_LINK" />aktuelle indstillinger<ph name="END_LINK" />.</translation>
+<translation id="2125838419757773031">Vælg et område på skærmen, du vil søge i</translation>
 <translation id="2126108037660393668">Verificering af den downloadede fil mislykkedes.</translation>
 <translation id="2128411189117340671">Administrer Chrome-profiler</translation>
 <translation id="2137162749895930932">Luk oversættelsesskærmen</translation>
@@ -261,9 +262,9 @@ Hvis denne side ikke fungerer som forventet, kan du prøve at tillade optimering
 <translation id="3453763134178591239">Vilkår for ChromeOS</translation>
 <translation id="3475778264501649775">Tag dine adgangskoder, faner m.m. med dig på farten med Chrome-appen på din telefon</translation>
 <translation id="3503306920980160878">Chrome skal have adgang til din lokation for at dele din lokation med dette website</translation>
-<translation id="3512495006767217696">Indbygget i Chrome for at hjælpe dig med at oprette, gemme og automatisk udfylde stærke adgangskoder. Tilføj genvejen for at få nem adgang</translation>
 <translation id="3539955434060988644">Åbn linket i et inkognitovindue i Chrome</translation>
 <translation id="354621070532799440">Påmindelse: Få Googles bedste sikkerhedsfunktioner med i lommen</translation>
+<translation id="3547866758548131919">Klik på knappen Opsummer for at dele dette dokument med Gemini i Chrome for at få en hurtig oversigt og stille opfølgende spørgsmål</translation>
 <translation id="3576528680708590453">Din systemadministrator har konfigureret Google Chrome til at åbne en anden browser for at få adgang til <ph name="TARGET_URL_HOSTNAME" />.</translation>
 <translation id="3582972582564653026">Synkroniser og personligt tilpas Chrome på alle dine enheder</translation>
 <translation id="3583751698304738917">Du er allerede logget ind som <ph name="USER_EMAIL_ADDRESS" /> på en anden Chrome-profil</translation>
@@ -313,6 +314,7 @@ Hvis denne side ikke fungerer som forventet, kan du prøve at tillade optimering
 <translation id="4012899077942246412">Mens du er logget ind, kan du bruge dine adgangskoder m.m. fra din Google-konto i Chrome. Du kan ændre dette ved at gå til "Din konto i Chrome".</translation>
 <translation id="4022972681110646219">Oversæt skærmen</translation>
 <translation id="4023601594785368013">Originalsprog: <ph name="LANGUAGE" /></translation>
+<translation id="4034249157893816477">Indbygget i Chrome for at hjælpe dig med at oprette, gemme og automatisk udfylde stærke adgangskoder. Tilføj genvejen for at få nem adgang.</translation>
 <translation id="4035053306113201399">ChromeOS skal genstartes, før opdateringen kan anvendes.</translation>
 <translation id="4050175100176540509">Vigtige sikkerhedsforbedringer og nye funktioner er tilgængelige i den seneste version.</translation>
 <translation id="4053720452172726777">Tilpas Google Chrome</translation>
@@ -354,6 +356,7 @@ Hvis denne side ikke fungerer som forventet, kan du prøve at tillade optimering
 <translation id="4400772909124543403">Der er ingen tilgængelig opdatering</translation>
 <translation id="4427306783828095590">Forbedret beskyttelse gør mere end at blokere phishing og malware</translation>
 <translation id="4434353761996769206">Installationsfejl: <ph name="INSTALLER_ERROR" /></translation>
+<translation id="4437295824090654417">Del dette dokument med Gemini i Chrome for at få en hurtig oversigt og stille opfølgende spørgsmål</translation>
 <translation id="4450664632294415862">Chrome – Login på netværk – <ph name="PAGE_TITLE" /></translation>
 <translation id="4458462641685292929">En anden handling i Google Chrome er i gang. Prøv igen senere.</translation>
 <translation id="4459234553906210702">Ad measurement giver websites, du besøger, mulighed for at anmode om oplysninger fra Chrome, som hjælper websitet med at måle, hvor godt dets annoncer klarer sig. Ad measurement begrænser sporing på tværs af websites ved at overføre så få oplysninger som muligt mellem websites.</translation>
@@ -551,7 +554,6 @@ Hvis denne side ikke fungerer som forventet, kan du prøve at tillade optimering
 <translation id="6438015621983209660">Udvid anvendelsen af Udvidet beskyttet browsing med Chrome på din telefon</translation>
 <translation id="6442774133615368941">Køb, oversæt og identificer det, du ser gennem dit kamera, i Chrome-appen til iOS</translation>
 <translation id="6448835208126432197">Brug tastaturgenvejen til at markere en del af skærmen i Gemini i Chrome.</translation>
-<translation id="6473659734176498825">Et forenklet billede, der viser indgangspunktet til Google Adgangskodeadministrator i Chrome</translation>
 <translation id="6473905796280459355">Gå til siden Om Chrome</translation>
 <translation id="6481963882741794338">Tilknyt Chrome og andre Google-tjenester med henblik på personlig tilpasning og andre formål</translation>
 <translation id="648319183876919572">Udvidet beskyttet browsing gør mere for at beskytte dig mod skadelige websites og downloads</translation>
@@ -696,7 +698,6 @@ Hvis denne side ikke fungerer som forventet, kan du prøve at tillade optimering
 <translation id="7804364787702057554">Din konto i Chrome</translation>
 <translation id="7804947029129221742">Din søgemaskine blev ændret uden for Chrome. Chrome har nulstillet den til den oprindelige standard for at beskytte dig. <ph name="LEARN_MORE_LINK" /></translation>
 <translation id="7808348361785373670">Fjern fra Chrome...</translation>
-<translation id="7812800388699096556">En illustration, der viser, hvordan du kan bruge Google Lens til at søge efter et produkt</translation>
 <translation id="7827099906024714326">Chrome skal verificere din identitet, før visse data kan gemmes på din Google-konto og bruges på alle dine enheder. Hvis du logger ud nu, slettes disse data.</translation>
 <translation id="7832314606810669113">Hvis du vil have dine bogmærker m.m. på alle dine enheder, skal du logge ind i Chrome. Denne adgangskode gemmes på din Google-konto, når du er logget ind.</translation>
 <translation id="7845233973568007926">Tak for installationen. Du skal genstarte computeren, før du bruger <ph name="BUNDLE_NAME" />.</translation>
@@ -784,6 +785,7 @@ Nye bogmærker kan ikke gemmes på din konto, før du sletter nogle. Hvis du log
 <translation id="8601359445272098721">Nyhed! Du kan oversætte både tekst og billeder på din skærm ved at vælge knappen "Oversæt skærmen"</translation>
 <translation id="8614913330719544658">Google Chrome svarer ikke. Vil du genstarte nu?</translation>
 <translation id="861702415419836452">Chrome skal have adgangstilladelse til dit kamera for at oprette et 3D-kort over dine omgivelser</translation>
+<translation id="8623450603356630491">Log ind i Chrome på din telefon</translation>
 <translation id="8624541899164515475">Indstillinger (åbnes på en ny fane).</translation>
 <translation id="8625237574518804553">{0,plural, =1{Chrome genstarter om 1 minut}one{Chrome genstarter om # minut}other{Chrome genstarter om # minutter}}</translation>
 <translation id="8637932705841171563">Tillad skærmoptagelse for Chrome under Systemindstillinger for at dele dit vindue.</translation>

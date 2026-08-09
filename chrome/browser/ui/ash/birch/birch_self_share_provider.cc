@@ -128,11 +128,12 @@ void BirchSelfShareProvider::RequestBirchDataFetch() {
 }
 
 void BirchSelfShareProvider::OnItemPressed(const std::string& guid) {
-  send_tab_to_self::SendTabToSelfModel* model =
-      sync_service_->GetSendTabToSelfModel();
-  send_tab_to_self::RecordActivatedEntryPoint(
-      send_tab_to_self::ShareActivatedEntryPoint::kChromeOSBirch);
-  model->MarkEntryOpened(guid);
+  if (send_tab_to_self::SendTabToSelfModel* model =
+          sync_service_->GetSendTabToSelfModel()) {
+    model->MarkEntryOpened(guid);
+    model->MarkEntryActivated(
+        guid, send_tab_to_self::ShareActivatedEntryPoint::kChromeOSBirch);
+  }
 }
 
 }  // namespace ash

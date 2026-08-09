@@ -7,6 +7,7 @@
 #import "base/apple/foundation_util.h"
 #import "base/cancelable_callback.h"
 #import "base/metrics/user_metrics.h"
+#import "base/metrics/user_metrics_action.h"
 #import "base/notimplemented.h"
 #import "base/notreached.h"
 #import "base/task/sequenced_task_runner.h"
@@ -587,8 +588,13 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
     }
     _locationBarKeyboardCenterXConstraint.active = YES;
   } else {
-    _locationBarTopConstraint.active = NO;
-    _locationBarBottomPaddingConstraint.active = YES;
+    if (!_topPosition) {
+      _locationBarTopConstraint.active = YES;
+      _locationBarBottomPaddingConstraint.active = NO;
+    } else {
+      _locationBarTopConstraint.active = NO;
+      _locationBarBottomPaddingConstraint.active = YES;
+    }
     [self.toolbarHeightDelegate secondaryToolbarRemovedFromKeyboard];
     [GetFirstResponder() resignFirstResponder];
 
@@ -691,8 +697,12 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
 
   _locationBarBackground.alpha = progress;
 
-  _locationBarBottomPaddingConstraint.constant =
-      -[self locationBarBottomPaddingForFullscreenProgress:progress];
+  if (!_topPosition) {
+    _locationBarTopConstraint.constant = progress * kToolbarPadding;
+  } else {
+    _locationBarBottomPaddingConstraint.constant =
+        -[self locationBarBottomPaddingForFullscreenProgress:progress];
+  }
 
   _bannerPromoBackgroundHeightConstraint.constant =
       [self bannerPromoBackgroundHeightForFullscreenProgress:progress];
@@ -753,6 +763,8 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
                     previewProvider:nil
                      actionProvider:^UIMenu*(
                          NSArray<UIMenuElement*>* suggestedActions) {
+                       base::RecordAction(base::UserMetricsAction(
+                           "MobileMenuToolbarMenuTriggered"));
                        return menu;
                      }];
   }
@@ -802,8 +814,12 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
 - (void)showBannerPromoAnimationBlock {
   _bannerPromoBackgroundHeightConstraint.constant =
       [self bannerPromoBackgroundHeightForFullscreenProgress:1];
-  _locationBarBottomPaddingConstraint.constant =
-      -[self locationBarBottomPaddingForFullscreenProgress:_fullscreenProgress];
+  if (!_topPosition) {
+    _locationBarTopConstraint.constant = _fullscreenProgress * kToolbarPadding;
+  } else {
+    _locationBarBottomPaddingConstraint.constant = -[self
+        locationBarBottomPaddingForFullscreenProgress:_fullscreenProgress];
+  }
   [self.toolbarHeightDelegate toolbarsHeightChanged];
   [self.view.superview layoutIfNeeded];
 }
@@ -825,8 +841,12 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
 
   _bannerPromoVisible = NO;
 
-  _locationBarBottomPaddingConstraint.constant =
-      -[self locationBarBottomPaddingForFullscreenProgress:_fullscreenProgress];
+  if (!_topPosition) {
+    _locationBarTopConstraint.constant = _fullscreenProgress * kToolbarPadding;
+  } else {
+    _locationBarBottomPaddingConstraint.constant = -[self
+        locationBarBottomPaddingForFullscreenProgress:_fullscreenProgress];
+  }
 
   [self.toolbarHeightDelegate toolbarsHeightChanged];
   [self.view.superview layoutIfNeeded];
@@ -1092,6 +1112,8 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
                   action:@selector(backButtonTapped)
         forControlEvents:UIControlEventTouchUpInside];
   [_backButton addAction:[UIAction actionWithHandler:^(UIAction*) {
+                 base::RecordAction(
+                     base::UserMetricsAction("MobileMenuToolbarMenuTriggered"));
                  TriggerHapticFeedbackForImpact(UIImpactFeedbackStyleHeavy);
                }]
         forControlEvents:UIControlEventMenuActionTriggered];
@@ -1101,6 +1123,8 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
                      action:@selector(forwardButtonTapped)
            forControlEvents:UIControlEventTouchUpInside];
   [_forwardButton addAction:[UIAction actionWithHandler:^(UIAction*) {
+                    base::RecordAction(base::UserMetricsAction(
+                        "MobileMenuToolbarMenuTriggered"));
                     TriggerHapticFeedbackForImpact(UIImpactFeedbackStyleHeavy);
                   }]
            forControlEvents:UIControlEventMenuActionTriggered];
@@ -1285,10 +1309,18 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
   _locationBarBottomPaddingConstraint = [_locationBarContainer.bottomAnchor
       constraintEqualToAnchor:self.view.bottomAnchor
                      constant:-kToolbarPadding];
-  _locationBarBottomPaddingConstraint.active = YES;
 
   _locationBarTopConstraint = [_locationBarContainer.topAnchor
-      constraintEqualToAnchor:self.view.topAnchor];
+      constraintEqualToAnchor:self.view.topAnchor
+                     constant:kToolbarPadding];
+
+  if (!_topPosition) {
+    _locationBarTopConstraint.active = YES;
+    _locationBarBottomPaddingConstraint.active = NO;
+  } else {
+    _locationBarTopConstraint.active = NO;
+    _locationBarBottomPaddingConstraint.active = YES;
+  }
 
   [NSLayoutConstraint activateConstraints:@[
     [_leadingStackView.centerYAnchor

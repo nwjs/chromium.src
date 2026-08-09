@@ -8,6 +8,7 @@
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/test/gmock_expected_support.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "components/services/storage/dom_storage/features.h"
@@ -1009,6 +1010,44 @@ TEST_F(SessionStorageSqliteTest, RewriteDB) {
   ASSERT_NO_FATAL_FAILURE(SearchDirectoryContent(
       temp_dir_.GetPath(), /*query=*/kSerializedFirstStorageKey,
       /*expected_is_found=*/false));
+}
+
+// Verifies that a SQLite error reported through the database's error callback
+// is recorded to the `Storage.SessionStorage.Database.Error` histogram, and
+// that the resulting corruption is surfaced to the caller.
+TEST_F(SessionStorageSqliteTest, DatabaseErrorRecordsHistogram) {
+  base::HistogramTester histograms;
+
+  // Write valid metadata so the database file exists and has tables.
+  {
+    std::unique_ptr<SessionStorageSqlite> database;
+    ASSERT_NO_FATAL_FAILURE(OpenOnDisk(&database));
+
+    DomStorageDatabase::Metadata valid_metadata;
+    valid_metadata.map_metadata.push_back({
+        .map_locator{kFirstSessionId, kFirstStorageKey, kFirstMapId},
+    });
+    DbStatus status = database->PutMetadata(std::move(valid_metadata));
+    EXPECT_TRUE(status.ok());
+  }
+
+  // Corrupt the database header on disk.
+  base::FilePath database_path;
+  ASSERT_NO_FATAL_FAILURE(GetDatabasePath(&database_path));
+  ASSERT_TRUE(sql::test::CorruptSizeInHeader(database_path));
+
+  // `Database::Open()` forces SQLite to parse the schema, so the corrupted
+  // header must be detected during open.
+  {
+    std::unique_ptr<SessionStorageSqlite> database =
+        std::make_unique<SessionStorageSqlite>(GetPassKey());
+    DbStatus open_status = database->Open(/*database_path=*/database_path,
+                                          /*memory_dump_id=*/std::nullopt);
+    EXPECT_TRUE(open_status.IsCorruption()) << open_status.ToString();
+  }
+
+  histograms.ExpectTotalCount("Storage.SessionStorage.Database.Error",
+                              /*expected_count=*/1);
 }
 
 }  // namespace storage

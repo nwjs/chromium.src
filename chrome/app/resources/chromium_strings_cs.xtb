@@ -32,10 +32,10 @@ Některé funkce možná nebudou k dispozici a změny nastavení se neuloží.</
 <translation id="126567311906253476">Když se pomocí účtu <ph name="USER_EMAIL" /> přihlásíte do služeb Google, jako je Gmail nebo YouTube, můžete se pomocí něj automaticky přihlásit i do prohlížeče Chromium</translation>
 <translation id="1287534462498555020">Stáhněte si Chromium do telefonu</translation>
 <translation id="1290883685122687410">Chyba nastavení: <ph name="METAINSTALLER_EXIT_CODE" />. <ph name="WINDOWS_ERROR" /></translation>
-<translation id="1312200348844120300">Ilustrace ukazující, jak můžete pomocí Vyhledávání obrázků vyhledat produkt</translation>
 <translation id="1315551408014407711">Nastavení nového profilu Chromium</translation>
 <translation id="132092532143527429">Vyzkoušet s Gemini v Chromiu</translation>
 <translation id="1324107359134968521">K prozkoumání zařízení Bluetooth potřebuje Chromium přístup k rozhraní Bluetooth. <ph name="IDS_SERIAL_DEVICE_CHOOSER_AUTHORIZE_BLUETOOTH_LINK" /></translation>
+<translation id="1329040302064168406">Přihlaste se do prohlížeče Chromium na telefonu</translation>
 <translation id="1330562121671411446">Rozpoznat jazyk</translation>
 <translation id="1330742950061766891">Používat doporučená nastavení prohlížeče Chromium</translation>
 <translation id="1342274909142618978">Smazat také data z prohlížeče Chromium (<ph name="URL" />)</translation>
@@ -101,12 +101,14 @@ Některé funkce možná nebudou k dispozici a změny nastavení se neuloží.</
 <translation id="2018879682492276940">Instalace se nezdařila. Zkuste to znovu.</translation>
 <translation id="2039417478970545937">Nastavení.</translation>
 <translation id="2049376729098081731">Zvolte, zda pro lépe personalizované prostředí ve službách Google chcete zahrnout historii prohlížeče Chromium</translation>
+<translation id="2050698962207788467">Integrovaný v prohlížeči Chromium pomáhá vytvářet, ukládat a automaticky vyplňovat silná hesla. Přidejte si zkratku pro snadný přístup.</translation>
 <translation id="2064856577282482477">Kliknutím na tlačítko Přizpůsobit Chromium na stránce Nová karta můžete dát prohlížeči Chromium nový vzhled</translation>
 <translation id="2066690553719545730">Vždy zobrazovat režim AI</translation>
 <translation id="2086476982681781442">Prohlížeč Chromium toto stahování zablokoval, protože soubor je klamavý a může ve vašem zařízení provést neočekávané změny</translation>
 <translation id="208726765006323911">Až příště otevřete Chromium pro iOS, zobrazí se výzva k vyzkoušení funkce <ph name="FEATURE_NAME" />.</translation>
 <translation id="2099452623287920103">Vaše hesla a další data prohlížeče Chromium, která jste si uložili do účtu Google, budou z tohoto zařízení odstraněna. Pokud je budete chtít v prohlížeči Chromium zase použít, znovu se přihlaste.</translation>
 <translation id="2120965832000301375">{COUNT,plural, =1{Když Chromium 1 minutu nebudete používat, vaše organizace automaticky vymaže údaje o prohlížení. Může to zahrnovat historii, automatické vyplňování a stažené soubory. Vaše karty zůstanou otevřené.}few{Když Chromium # minuty nebudete používat, vaše organizace automaticky vymaže údaje o prohlížení. Může to zahrnovat historii, automatické vyplňování a stažené soubory. Vaše karty zůstanou otevřené.}many{Když Chromium # minuty nebudete používat, vaše organizace automaticky vymaže údaje o prohlížení. Může to zahrnovat historii, automatické vyplňování a stažené soubory. Vaše karty zůstanou otevřené.}other{Když Chromium # minut nebudete používat, vaše organizace automaticky vymaže údaje o prohlížení. Může to zahrnovat historii, automatické vyplňování a stažené soubory. Vaše karty zůstanou otevřené.}}</translation>
+<translation id="2125838419757773031">Vyberte oblast obrazovky, kterou chcete prohledat</translation>
 <translation id="2126108037660393668">Stažený soubor nelze ověřit.</translation>
 <translation id="2135919691573380097">Nahlásit tento web</translation>
 <translation id="2137162749895930932">Zavřít překladač obrazovky</translation>
@@ -139,6 +141,7 @@ Některé funkce možná nebudou k dispozici a změny nastavení se neuloží.</
 <translation id="2401032172288869980">Chromium pro tento web potřebuje přístup k fotoaparátu a mikrofonu</translation>
 <translation id="2403703063067034158">Chyba při spuštění: právě běží jiná instance instalace, zkuste to znovu později.</translation>
 <translation id="2418322681019544463">Otevírejte v Chromiu odkazy ze všech aplikací a mějte ho k dispozici na hlavním panelu</translation>
+<translation id="2425157128016763890">Kliknutím na tlačítko Shrnout můžete tento dokument sdílet s Gemini v Chromiu a získat tak rychlý přehled a možnost klást doplňující otázky</translation>
 <translation id="2440750600860946460">S <ph name="BEGIN_LINK" />nástroji v prohlížeči Chromium<ph name="END_LINK" /> budete při procházení v bezpečí a budete mít vše pod kontrolou</translation>
 <translation id="2451727308784734061">Pomocí zástupce se rychle dostanete do Správce hesel. Zástupce můžete přesunout na plochu počítače nebo do spouštěče aplikací.</translation>
 <translation id="2478295928299953161">Chromium se brzy zavře</translation>
@@ -237,7 +240,6 @@ Některé funkce možná nebudou k dispozici a změny nastavení se neuloží.</
 <translation id="3387527074123400161">ChromiumOS</translation>
 <translation id="3406848076815591792">Přepnout na stávající profil Chromium?</translation>
 <translation id="3412460710772753638">Ve Správci hesel na tomto zařízení</translation>
-<translation id="3423442168617177595">Integrovaný v prohlížeči Chromium pomáhá vytvářet, ukládat a automaticky vyplňovat silná hesla. Přidejte si zkratku pro snadný přístup.</translation>
 <translation id="3455907671758333080">Využívejte Vylepšené Bezpečné prohlížení v Chromiu na telefonu</translation>
 <translation id="3461644266919055473">Přizpůsobení Chromia…</translation>
 <translation id="3474745554856756813">Z tohoto zařízení bude smazán následující počet položek: <ph name="ITEMS_COUNT" />. Budete-li chtít své údaje později načíst, přihlaste se do prohlížeče Chromium jako <ph name="USER_EMAIL" />.</translation>
@@ -507,7 +509,6 @@ Pokud tato stránka nefunguje správně, zkuste optimalizaci povolit.</translati
 <translation id="6400112897226594999">Logo Chromium na obrazovce počítače.</translation>
 <translation id="6403826409255603130">Chromium je webový prohlížeč, který spouští webové stránky a aplikace rychlostí blesku. Je rychlý a snadno se používá. Prohlížejte web bezpečněji díky ochraně proti malwaru a phishingu integrované v prohlížeči Chromium.</translation>
 <translation id="6414624068245092115">Pokud chcete mít vždy možnost používat a ukládat data prohlížeče Chromium ve svém účtu Google, ověřte svou totožnost</translation>
-<translation id="6417332166651156371">Zjednodušený obrázek zobrazující vstupní bod Správce hesel v prohlížeči Chromium</translation>
 <translation id="642132557830635295">Chromium běží rychleji a funkce využívající JavaScript by měly fungovat tak, jak byly navrženy</translation>
 <translation id="6436260184216827876">Vyhledávání obrázků není k dispozici. Zkuste to později.</translation>
 <translation id="6442900851116057561">Restartujte ChromiumOS</translation>
@@ -689,6 +690,7 @@ Chromium nemůže vaše nastavení obnovit.</translation>
 <translation id="8107060931443639922">Až příště na zařízení <ph name="DEVICE_TYPE" /> otevřete Chromium, zobrazí se výzva k zapnutí upozornění na ceny.</translation>
 <translation id="8117908349476699973">Aplikace Chromium na telefonu vás upozorní na poklesy cen u položek, které vás zajímají</translation>
 <translation id="8118331347066725040">Zpětná vazba k vyhledávání s funkcí Lens</translation>
+<translation id="8130609355518033382">Přizpůsobte si Chromium</translation>
 <translation id="8133124826068723441">ChromiumOS nemůže synchronizovat data, protože Synchronizace ve vaší doméně není k dispozici.</translation>
 <translation id="813913629614996137">Probíhá inicializace...</translation>
 <translation id="8161503455832158203">Klávesová zkratka k otevření Gemini v Chromiu.</translation>
@@ -752,6 +754,7 @@ Chromium nemůže vaše nastavení obnovit.</translation>
 <translation id="878572486461146056">Chyba instalace: Správce sítě použil zásady skupiny, které brání instalaci: <ph name="INSTALL_ERROR" /></translation>
 <translation id="8796602469536043152">Chromium pro tento web potřebuje oprávnění k přístupu k fotoaparátu a mikrofonu</translation>
 <translation id="8813277370772331957">Připomenout později</translation>
+<translation id="8816416449795340678">Sdílejte tento dokument s Gemini v Chromiu, ať získáte rychlý přehled a můžete klást doplňující otázky</translation>
 <translation id="8818550178040858407">Přihlásit se do prohlížeče Chromium?</translation>
 <translation id="8823401858233292222">Nastavit Chromium jako výchozí prohlížeč a připnout ho na hlavní panel</translation>
 <translation id="8826492472752484139">Klikněte na Správce hesel</translation>

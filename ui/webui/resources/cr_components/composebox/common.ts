@@ -62,6 +62,12 @@ export enum ProcessFilesError {
   FILE_UPLOAD_NOT_ALLOWED = 7,
 }
 
+export enum TabSuggestionsState {
+  NOT_STARTED = 0,
+  LOADING = 1,
+  LOADED = 2,
+}
+
 export const FILE_VALIDATION_ERRORS_MAP =
     new Map<ContextUploadErrorType, string>([
       [
@@ -188,6 +194,9 @@ export interface ComposeboxState {
   mode: ToolMode;
   model: ModelMode;
   suggestInventory?: SuggestInventory;
+  // <if expr="not is_android">
+  smartTabSharingActive: boolean;
+  // </if>
 }
 
 export interface FileUpload {

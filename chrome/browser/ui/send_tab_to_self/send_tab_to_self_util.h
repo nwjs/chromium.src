@@ -27,6 +27,11 @@ class Profile;
 
 namespace send_tab_to_self {
 
+// Marks the STTS entry matching `guid` as activated in the model.
+void MarkEntryMatchingGuidActivated(Profile* profile,
+                                    const std::string& guid,
+                                    ShareActivatedEntryPoint entry_point);
+
 // Opens the given `entry` in a new foreground tab for the given `profile`.
 // Returns a weak pointer to the opened WebContents.
 base::WeakPtr<content::WebContents> OpenEntryInNewForegroundTab(

@@ -411,20 +411,23 @@ void OpenscreenSessionHost::OnNegotiated(
         // the video sender instance.
         base::BindRepeating(&OpenscreenSessionHost::GetVideoNetworkBandwidth,
                             base::Unretained(this)));
-    video_stream_ = std::make_unique<VideoRtpStream>(
-        std::move(video_sender), weak_factory_.GetWeakPtr(),
-        mirror_settings_.refresh_interval());
+    video_sender_ = std::move(video_sender);
+    refresh_interval_ = mirror_settings_.refresh_interval();
+    expecting_a_refresh_frame_ = false;
+    if (refresh_interval_.is_positive()) {
+      refresh_timer_.Start(FROM_HERE, refresh_interval_, this,
+                           &OpenscreenSessionHost::OnRefreshTimerFired);
+    }
 
     // Have a new video encoder, so it has not been initialized yet.
     has_video_encoder_been_initialized_ = false;
 
     logger_.LogInfo(base::StringPrintf(
-        "Created video stream with refresh interval of %d ms",
-        static_cast<int>(
-            mirror_settings_.refresh_interval().InMilliseconds())));
+        "Created video sender with refresh interval of %d ms",
+        static_cast<int>(refresh_interval_.InMilliseconds())));
 
     // First, try pausing the capture client. This is necessary to update the
-    // callback to use our new `video_stream_` instance.
+    // callback to use our new `video_sender_` instance.
     PauseCapturingVideo();
 
     // Then, try resuming capture. If it fails, then we need to start a new
@@ -541,17 +544,41 @@ void OpenscreenSessionHost::OnError(
   }
 }
 
-// RtpStreamClient overrides.
-void OpenscreenSessionHost::OnError(const std::string& message) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  ReportAndLogError(SessionError::RTP_STREAM_ERROR, message);
-}
-
 void OpenscreenSessionHost::RequestRefreshFrame() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (video_capture_client_) {
     video_capture_client_->RequestRefreshFrame();
   }
+}
+
+void OpenscreenSessionHost::InsertVideoFrame(
+    scoped_refptr<media::VideoFrame> video_frame) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  DCHECK(video_frame);
+  if (!video_sender_) {
+    return;
+  }
+  if (!video_frame->metadata().reference_time) {
+    ReportAndLogError(SessionError::RTP_STREAM_ERROR,
+                      "Missing REFERENCE_TIME.");
+    return;
+  }
+  expecting_a_refresh_frame_ = false;
+  base::TimeTicks reference_time = *video_frame->metadata().reference_time;
+  video_sender_->InsertRawVideoFrame(std::move(video_frame), reference_time);
+  if (refresh_timer_.IsRunning()) {
+    refresh_timer_.Reset();
+  }
+}
+
+void OpenscreenSessionHost::OnRefreshTimerFired() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (expecting_a_refresh_frame_) {
+    refresh_timer_.Stop();
+    return;
+  }
+  expecting_a_refresh_frame_ = true;
+  RequestRefreshFrame();
 }
 
 void OpenscreenSessionHost::CreateVideoEncodeAccelerator(
@@ -759,7 +786,8 @@ void OpenscreenSessionHost::StopStreaming() {
   StopCapturingAudio();
   PauseCapturingVideo();
   audio_sender_.reset();
-  video_stream_.reset();
+  video_sender_.reset();
+  refresh_timer_.Stop();
   gpu_factories_factory_.reset();
   remoting_stream_data_.reset();
 }
@@ -960,9 +988,9 @@ void OpenscreenSessionHost::SetTargetPlayoutDelay(
     playout_delay_was_updated = true;
   }
 
-  if (video_stream_ &&
-      video_stream_->GetTargetPlayoutDelay() != playout_delay) {
-    video_stream_->SetTargetPlayoutDelay(playout_delay);
+  if (video_sender_ &&
+      video_sender_->GetTargetPlayoutDelay() != playout_delay) {
+    video_sender_->SetTargetPlayoutDelay(playout_delay);
     playout_delay_was_updated = true;
   }
 
@@ -1201,8 +1229,8 @@ void OpenscreenSessionHost::StartCapturingVideo() {
       {"Starting VideoCaptureHost with params ", ToString(capture_params)}));
 
   video_capture_client_->Start(
-      base::BindRepeating(&VideoRtpStream::InsertVideoFrame,
-                          video_stream_->AsWeakPtr()),
+      base::BindRepeating(&OpenscreenSessionHost::InsertVideoFrame,
+                          weak_factory_.GetWeakPtr()),
       base::BindOnce(&OpenscreenSessionHost::ReportAndLogError,
                      weak_factory_.GetWeakPtr(),
                      SessionError::VIDEO_CAPTURE_ERROR,
@@ -1218,7 +1246,7 @@ void OpenscreenSessionHost::PauseCapturingVideo() {
 
 bool OpenscreenSessionHost::TryResumeCapturingVideo() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (!video_capture_client_ || !video_stream_) {
+  if (!video_capture_client_ || !video_sender_) {
     return false;
   }
 
@@ -1231,7 +1259,7 @@ bool OpenscreenSessionHost::TryResumeCapturingVideo() {
         base::StrCat({"Reusing existing VideoCaptureHost with params ",
                       ToString(capture_params)}));
     video_capture_client_->Resume(base::BindRepeating(
-        &VideoRtpStream::InsertVideoFrame, video_stream_->AsWeakPtr()));
+        &OpenscreenSessionHost::InsertVideoFrame, weak_factory_.GetWeakPtr()));
     return true;
   }
   return false;
@@ -1246,8 +1274,16 @@ base::DictValue OpenscreenSessionHost::GetMirroringStats() const {
   base::DictValue stats =
       stats_client_ ? stats_client_->GetStats() : base::DictValue();
 
-  if (video_stream_) {
-    stats.EnsureDict("video")->Merge(video_stream_->GetStats());
+  if (video_sender_) {
+    base::DictValue video_stats;
+    video_stats.Set("TARGET_BITRATE",
+                    video_sender_->GetEncoderBitrate() / 1000.0);
+    video_stats.Set("ENCODER_UTILIZATION",
+                    video_sender_->GetEncoderUtilization() * 100.0);
+    video_stats.Set("LOSSINESS", video_sender_->GetLossiness() * 100.0);
+    video_stats.Set("FRAMES_INSERTED", video_sender_->GetFramesInserted());
+    video_stats.Set("FRAMES_DROPPED", video_sender_->GetFramesDropped());
+    stats.EnsureDict("video")->Merge(std::move(video_stats));
   }
 
   if (audio_sender_) {

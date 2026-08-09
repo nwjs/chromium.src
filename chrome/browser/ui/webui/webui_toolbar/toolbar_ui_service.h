@@ -68,6 +68,7 @@ class ToolbarUIService : public toolbar_ui_api::mojom::ToolbarUIService {
     virtual void SetAvatarButtonHovered(bool hovered) = 0;
     virtual void SetAvatarButtonFocused(bool focused) = 0;
     virtual void SetAvatarButtonIPHPromoShowing(bool showing) = 0;
+    virtual void OnAppMenuFocusChanged(bool focused) = 0;
   };
 
   ToolbarUIService(
@@ -132,6 +133,7 @@ class ToolbarUIService : public toolbar_ui_api::mojom::ToolbarUIService {
   void SetAvatarButtonIphPromoShowing(
       bool showing,
       SetAvatarButtonIphPromoShowingCallback callback) override;
+  void OnAppMenuFocusChanged(bool focused) override;
 
  private:
   mojo::Receiver<toolbar_ui_api::mojom::ToolbarUIService> service_;
