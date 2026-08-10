@@ -1747,6 +1747,11 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
             return false;
         }
 
+        if (!ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
+                ChromeFeatureList.GLIC, "glic-bottom-sheet-promo", true)) {
+            return false;
+        }
+
         showGlicPromo();
         return true;
     }
@@ -1935,7 +1940,9 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                             mActivityLifecycleDispatcher,
                             mSnackbarManagerSupplier.asNonNull().get(),
                             contextMenuPopulatorFactory,
-                            new ChromeSelectionDropdownMenuDelegate());
+                            new ChromeSelectionDropdownMenuDelegate(),
+                            mActivityTabProvider.asObservable(),
+                            mTabModelSelectorSupplier);
         }
         if (TabBottomSheetUtils.isTabBottomSheetEnabled()) {
             mTabBottomSheetManager =

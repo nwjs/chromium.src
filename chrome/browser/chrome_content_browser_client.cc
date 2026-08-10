@@ -4631,7 +4631,7 @@ bool ChromeContentBrowserClient::CanCreateWindow(
   contextual_tasks::ContextualTasksUiService* contextual_tasks_ui_service =
       contextual_tasks::ContextualTasksUiServiceFactory::GetForBrowserContext(
           profile);
-  if (base::FeatureList::IsEnabled(contextual_tasks::kContextualTasks)) {
+  if (contextual_tasks::IsContextualTasksUIEnabled()) {
     content::OpenURLParams url_params(
         target_url, referrer, disposition,
         ui::PageTransition::PAGE_TRANSITION_AUTO_TOPLEVEL, true);
@@ -6850,7 +6850,7 @@ void ChromeContentBrowserClient::WillCreateURLLoaderFactory(
 
 #if BUILDFLAG(ENABLE_GUEST_VIEW)
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
-  if (base::FeatureList::IsEnabled(contextual_tasks::kContextualTasks)) {
+  if (contextual_tasks::IsContextualTasksUIEnabled()) {
     contextual_tasks::MaybeInterceptURLLoaderFactory(frame, factory_builder);
   }
 #else   // !BUILDFLAG (ENABLE_EXTENSIONS_CORE)
@@ -8244,6 +8244,24 @@ bool ChromeContentBrowserClient::
   }
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   return url.SchemeIs(extensions::kExtensionScheme);
+#else
+  return false;
+#endif
+}
+
+bool ChromeContentBrowserClient::
+    ShouldServiceWorkerRequireForegroundPriorityDuringStartup(
+        const GURL& script_url) {
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+  // Extension service workers are frequently started headlessly to service
+  // events (e.g. the webRequest/declarativeNetRequest APIs) with no controllee
+  // or other foreground signal. Give their render process foreground priority
+  // while the worker starts so it does not starve at background priority (which
+  // maps to EcoQoS on Windows) and miss its start timeout
+  // (crbug.com/484218883).
+  return base::FeatureList::IsEnabled(
+             features::kServiceWorkerForegroundOnExtensionStartup) &&
+         script_url.SchemeIs(extensions::kExtensionScheme);
 #else
   return false;
 #endif

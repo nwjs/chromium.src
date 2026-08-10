@@ -59,7 +59,7 @@
 <translation id="11947597112837849">メールアドレス</translation>
 <translation id="1197267115302279827">ブックマークを移動</translation>
 <translation id="1197761954713363183">パスキー確認シートを閉じました</translation>
-<translation id="1197933394627598677">リーディング モードを表示</translation>
+<translation id="1197933394627598677">リーディング モード</translation>
 <translation id="1197935538609051549">無効にする</translation>
 <translation id="1201402288615127009">次へ</translation>
 <translation id="1202892408424955784">トラッキングしている商品</translation>
@@ -571,7 +571,7 @@ Chrome を使いやすくするためにデータを使用するその他の設�
 <translation id="3430670036890315772">プロフィールのロックをオフにすると、保存した情報が削除されます</translation>
 <translation id="3435575784518354875">パスワードを引き続き使用できるようにするには、今すぐパスワードをエクスポートし、Google Play 開発者サービスを更新してから、Google パスワード マネージャーに再度インポートしてください。<ph name="BEGIN_LINK" />詳細な手順はこちらをご覧ください<ph name="END_LINK" />。</translation>
 <translation id="3435738964857648380">セキュリティ</translation>
-<translation id="3435914367318771664">タブを新しいグループに追加</translation>
+<translation id="3435914367318771664">新しいグループに追加</translation>
 <translation id="3436118221454753036">AI モードに質問</translation>
 <translation id="3438681572027105609">すべてのデバイスでパスワードやその他の設定を使用するには、Chrome にログインしてください</translation>
 <translation id="3439276997620616816">最近使ったタブがここに表示されます</translation>
@@ -1049,6 +1049,7 @@ Chrome を使いやすくするためにデータを使用するその他の設�
 <translation id="5390367025924544771"><ph name="WEBSITE_ORIGIN" /> は、デジタル ウォレットの個人情報の使用を求めています。このサイトを信頼できる場合のみ続行してください。危険なサイトでは、ユーザーを騙して戸籍上の姓名や ID 番号などを開示させる可能性があります。</translation>
 <translation id="5395376160638294582">Google アカウントの Chrome データを常に使用できるようにしてください</translation>
 <translation id="539881862970320163">安全なパスワードが提案されています。キーボードは非表示です。</translation>
+<translation id="5404274604891474619">PDF を編集できません</translation>
 <translation id="5409881200985013443"><ph name="CLIENT_NAME" /> に <ph name="ONE_TIME_CODE" /> を送信しますか？</translation>
 <translation id="5410300144953132176"><ph name="OWNER_FULL_NAME" />（<ph name="OWNER_EMAIL" />）さんがタブグループに招待しています。リンクを知っているユーザーは誰でも、すべてのタブを編集できます。参加は慎重に行ってください。リンクは 48 時間で期限切れになります。</translation>
 <translation id="5414836363063783498">確認しています…</translation>

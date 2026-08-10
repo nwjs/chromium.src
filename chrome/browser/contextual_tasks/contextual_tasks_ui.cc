@@ -1028,7 +1028,7 @@ bool ContextualTasksUIConfig::IsWebUIEnabled(
       !lens::features::IsLensSidePanelUnificationEnabled()) {
     return false;
   }
-  return base::FeatureList::IsEnabled(contextual_tasks::kContextualTasks);
+  return contextual_tasks::IsContextualTasksUIEnabled();
 }
 
 bool ContextualTasksUIConfig::ShouldCrashOnJavascriptErrorInDevelopmentBuild()
@@ -1045,6 +1045,9 @@ ContextualTasksUIConfig::CreateWebUIController(content::WebUI* web_ui,
 void ContextualTasksUI::BindInterface(
     mojo::PendingReceiver<composebox::mojom::PageHandlerFactory>
         pending_receiver) {
+  if (!contextual_tasks::IsContextualTasksUIEnabled()) {
+    return;
+  }
   composebox_page_handler_factory_receiver_.reset();
   composebox_page_handler_factory_receiver_.Bind(std::move(pending_receiver));
 }
@@ -1282,12 +1285,10 @@ void ContextualTasksUI::AddInitialTaskStateToDataSource(
     task_id = base::Uuid::ParseLowercase(task_id_str);
   }
 
-  std::string host_value;
-  if (net::GetValueForKeyInQuery(url, contextual_tasks::kChromeHostParam,
-                                 &host_value)) {
-    if (contextual_tasks::ContextualTasksUiService::IsTrustedHost(host_value)) {
-      source->AddString(contextual_tasks::kChromeHostParam, host_value);
-    }
+  std::optional<std::string> host_value =
+      contextual_tasks::ContextualTasksUiService::GetHostFromUrl(url);
+  if (host_value.has_value()) {
+    source->AddString(contextual_tasks::kChromeHostParam, *host_value);
   }
 
   std::optional<GURL> task_creation_url =

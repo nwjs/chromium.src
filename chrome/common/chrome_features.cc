@@ -515,6 +515,9 @@ const base::FeatureParam<int> kGlicMinRequiredRamMb{
 const base::FeatureParam<bool> kGlicAdaptiveToolbarAutoPin{
     &kGlic, "adaptive-toolbar-auto-pin", true};
 
+const base::FeatureParam<bool> kGlicBottomSheetPromo{
+    &kGlic, "glic-bottom-sheet-promo", true};
+
 // Controls whether the Glic feature uses multiple instances or not.
 BASE_FEATURE(kGlicMultiInstance, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -1549,6 +1552,17 @@ const base::FeatureParam<base::TimeDelta> kSCTLogMaxIngestionRandomDelay{
     "sct_log_max_ingestion_random_delay",
     base::Hours(1),
 };
+
+// When enabled, an extension service worker's render process is given
+// foreground priority while the worker is STARTING. Extension service workers
+// are often started headlessly (e.g. to register webRequest listeners) with no
+// controllee or other foreground signal, so their process would otherwise be
+// left at background priority (which maps to EcoQoS on Windows). Under heavy
+// system load that lets the worker starve, miss the start timeout, get torn
+// down, and retry indefinitely (crbug.com/484218883). The boost is dropped once
+// the worker reaches RUNNING or stops.
+BASE_FEATURE(kServiceWorkerForegroundOnExtensionStartup,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Alternative to switches::kSitePerProcess, for turning on full site isolation.
 // Launch bug: https://crbug.com/810843.  This is a //chrome-layer feature to

@@ -13,6 +13,7 @@ import type {TextAnnotation, TextAttributes, TextBoxRect} from '../constants.js'
 import {TextTypeface} from '../constants.js';
 import {Ink2Manager, MIN_TEXTBOX_SIZE_PX, stylesEqual} from '../ink2_manager.js';
 import {convertRotatedCoordinates} from '../ink_text_annotation_utils.js';
+import {record, UserAction} from '../metrics.js';
 import {PdfViewerPrivateProxyImpl} from '../pdf_viewer_private_proxy.js';
 import {colorsEqual, colorToHex, hasCtrlModifier} from '../pdf_viewer_utils.js';
 import type {Viewport, ViewportRect} from '../viewport.js';
@@ -306,10 +307,12 @@ export class InkTextBoxElement extends InkTextBoxElementBase {
 
     this.resetDrag_();
 
-    if ((this.state_ !== TextBoxState.EDITED || this.textValue_ === '') &&
+    const hasTextValue = this.textValue_ !== '';
+    if ((!hasTextValue || this.state_ !== TextBoxState.EDITED) &&
         !this.existing_) {
       // Empty textbox.
       this.finishCommit_();
+      record(UserAction.ADD_INK2_TEXT_ANNOTATION_ABORTED);
       return promise;
     }
 
@@ -338,6 +341,7 @@ export class InkTextBoxElement extends InkTextBoxElementBase {
       Ink2Manager.getInstance().commitTextAnnotation(
           annotation, isEdited, /*typefaces=*/[]);
       this.finishCommit_();
+      record(UserAction.EDIT_INK2_TEXT_ANNOTATION_ABORTED);
       return promise;
     }
 
@@ -355,6 +359,15 @@ export class InkTextBoxElement extends InkTextBoxElementBase {
         annotation.mojoTextInfo = result.mojoTextInfo;
         Ink2Manager.getInstance().commitTextAnnotation(
             annotation, isEdited, result.typefaces);
+        let action;
+        if (this.existing_) {
+          action = hasTextValue ?
+              UserAction.EDIT_INK2_TEXT_ANNOTATION :
+              action = UserAction.DELETE_INK2_TEXT_ANNOTATION;
+        } else {
+          action = UserAction.ADD_INK2_TEXT_ANNOTATION;
+        }
+        record(action);
       } catch (e) {
         console.error('Error committing text annotation:', e);
       } finally {

@@ -759,6 +759,12 @@ BASE_DECLARE_FEATURE(kOmniboxCrashFixKillSwitch);
 // Returns true if the OmniboxCrashFixKillSwitch feature is enabled.
 bool IsOmniboxCrashFixKillSwitchEnabled();
 
+// Enables the AlertCrashFixKillSwitch feature.
+BASE_DECLARE_FEATURE(kAlertCrashFixKillSwitch);
+
+// Returns true if the AlertCrashFixKillSwitch feature is enabled.
+bool IsAlertCrashFixKillSwitchEnabled();
+
 // Enables the AIMEligibilityServiceStartWithProfile feature.
 BASE_DECLARE_FEATURE(kAIMEligibilityServiceStartWithProfile);
 
@@ -1088,5 +1094,11 @@ BASE_DECLARE_FEATURE(kDefaultBottomOmniboxOnIOS);
 
 // Returns true if the DefaultBottomOmniboxOnIOS feature is enabled.
 bool IsDefaultBottomOmniboxOnIOSEnabled();
+
+// Enables the NextOldDesign feature.
+BASE_DECLARE_FEATURE(kNextOldDesign);
+
+// Returns true if the NextOldDesign feature is enabled.
+bool IsNextOldDesignEnabled();
 
 #endif  // IOS_CHROME_BROWSER_SHARED_PUBLIC_FEATURES_FEATURES_H_

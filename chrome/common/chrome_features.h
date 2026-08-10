@@ -376,6 +376,9 @@ COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<bool> kGlicAdaptiveToolbarAutoPin;
 
 COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<bool> kGlicBottomSheetPromo;
+
+COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kGlicDevelopmentSyncGoogleCookies);
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kGlicClearDeviceBoundSessionsOnFirstSync);
@@ -1117,6 +1120,9 @@ COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<base::TimeDelta> kSCTLogExpectedIngestionDelay;
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<base::TimeDelta> kSCTLogMaxIngestionRandomDelay;
+
+COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE(kServiceWorkerForegroundOnExtensionStartup);
 
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kSitePerProcess);
 COMPONENT_EXPORT(CHROME_FEATURES)

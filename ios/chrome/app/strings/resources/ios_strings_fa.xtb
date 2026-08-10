@@ -391,7 +391,7 @@
 <translation id="2245007488813216650">درحال ترجمه کردن…</translation>
 <translation id="2249119578464404734">در بالای صفحه، روی نماد «جستجو» تک‌ضرب بزنید</translation>
 <translation id="2251686759395008410">منو ← سابقه</translation>
-<translation id="2252378061043785266">این سایت هرگز نشان داده نشود</translation>
+<translation id="2252378061043785266">هرگز نشان ندادن این سایت</translation>
 <translation id="2252749852083403809">‏درحال ذخیره کردن در Drive حساب <ph name="USER_EMAIL" />.</translation>
 <translation id="225614027745146050">خوش آمدید</translation>
 <translation id="2256933947031277845">سازمانتان فقط ورود به سیستم با حساب‌های خاصی را مجاز کرده است.</translation>
@@ -2026,7 +2026,7 @@ Handoff باید در بخش عمومی تنظیمات نیز فعال شود و
 <translation id="775755486779745798">تکمیل خودکار ماه انقضا <ph name="MONTH" /></translation>
 <translation id="7758789811447313947">زمینه بنفش</translation>
 <translation id="7759809451544302770">اختیاری</translation>
-<translation id="7765158879357617694">انتقال</translation>
+<translation id="7765158879357617694">حرکت دادن</translation>
 <translation id="7772032839648071052">تأیید گذرعبارت</translation>
 <translation id="7772948288262733182">بازگشتتان را خوشامد می‌گوییم</translation>
 <translation id="777637629667389858">‏وقتی به سیستم وارد شده باشید، در سراسر سرویس‌های Google از شما محافظت می‌کند.</translation>

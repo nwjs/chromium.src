@@ -593,7 +593,13 @@ void PaymentRequest::UpdateWith(mojom::PaymentDetailsPtr details) {
 
   bool is_resolving_promise_passed_into_show_method = !spec_->IsInitialized();
 
+  // spec_->UpdateWith() can synchronously trigger observers that destroy the
+  // payment window's WebContents and delete `this`.
+  auto weak_this = weak_ptr_factory_.GetWeakPtr();
   spec_->UpdateWith(std::move(details));
+  if (!weak_this) {
+    return;
+  }
 
   if (is_resolving_promise_passed_into_show_method) {
     DCHECK(spec_->details().total);
@@ -1283,9 +1289,14 @@ void PaymentRequest::ShowErrorMessageAndAbortPayment() {
   if (display_handle_ && display_handle_->was_shown()) {
     // Will invoke OnUserCancelled() asynchronously when the user closes the
     // error message UI.
+    // ShowErrorMessage() can synchronously close the dialog and destroy `this`.
+    // We save `observer_for_testing_` locally so it can be safely invoked
+    // even during teardown. Do not access `this` below this point.
+    base::WeakPtr<ObserverForTest> observer = observer_for_testing_;
     delegate_->ShowErrorMessage();
-    if (observer_for_testing_)
-      observer_for_testing_->OnErrorDisplayed();
+    if (observer) {
+      observer->OnErrorDisplayed();
+    }
   } else {
     // Only app store billing apps do not display any browser payment UI.
     DCHECK(spec_->IsAppStoreBillingAlsoRequested());

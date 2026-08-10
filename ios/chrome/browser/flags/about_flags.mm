@@ -2384,6 +2384,10 @@ constexpr auto kFeatureEntries = std::to_array<flags_ui::FeatureEntry>({
      flag_descriptions::kOmniboxCrashFixKillSwitchName,
      flag_descriptions::kOmniboxCrashFixKillSwitchDescription, flags_ui::kOsIos,
      FEATURE_VALUE_TYPE(kOmniboxCrashFixKillSwitch)},
+    {"alert-crash-fix-kill-switch",
+     flag_descriptions::kAlertCrashFixKillSwitchName,
+     flag_descriptions::kAlertCrashFixKillSwitchDescription, flags_ui::kOsIos,
+     FEATURE_VALUE_TYPE(kAlertCrashFixKillSwitch)},
     {"aim-eligibility-service-start-with-profile",
      flag_descriptions::kAIMEligibilityServiceStartWithProfileName,
      flag_descriptions::kAIMEligibilityServiceStartWithProfileDescription,
@@ -2882,6 +2886,9 @@ constexpr auto kFeatureEntries = std::to_array<flags_ui::FeatureEntry>({
      flag_descriptions::kDefaultBottomOmniboxOnIOSName,
      flag_descriptions::kDefaultBottomOmniboxOnIOSDescription, flags_ui::kOsIos,
      FEATURE_VALUE_TYPE(kDefaultBottomOmniboxOnIOS)},
+    {"next-old-design", flag_descriptions::kNextOldDesignName,
+     flag_descriptions::kNextOldDesignDescription, flags_ui::kOsIos,
+     FEATURE_VALUE_TYPE(kNextOldDesign)},
 });
 
 bool SkipConditionalFeatureEntry(const flags_ui::FeatureEntry& entry) {

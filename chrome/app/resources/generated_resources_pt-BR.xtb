@@ -3532,7 +3532,7 @@ Para gerenciar as configurações dessa conta, instale o app Family Link no seu 
 <translation id="3605156246402033687">{COUNT,plural, =1{{COUNT} conta usando a mesma senha}one{{COUNT} conta usando a mesma senha}other{{COUNT} contas usando a mesma senha}}</translation>
 <translation id="3605515937536882518">Valores do formulário atualizados</translation>
 <translation id="3605780360466892872">Esporte fino</translation>
-<translation id="3607671391978830431">Para uma criança</translation>
+<translation id="3607671391978830431">Para uma criança ou adolescente</translation>
 <translation id="3607799000129481474"><ph name="SITE" /> quer confirmar sua identidade</translation>
 <translation id="3608460311600621471">Informe um motivo para imprimir esses dados:</translation>
 <translation id="3608730769702025110">Etapa 3 de 4: confira as informações de identificação pessoal</translation>
@@ -8360,7 +8360,7 @@ Há # outras senhas comprometidas. O Gerenciador de senhas do Google recomenda q
 <translation id="7237454422623102448">Configurações do sistema</translation>
 <translation id="7237820815228048635">Para <ph name="EXAMPLE_DOMAIN_1" />, <ph name="EXAMPLE_DOMAIN_2" /></translation>
 <translation id="7239108166256782787"><ph name="DEVICE_NAME" /> cancelou a transferência</translation>
-<translation id="7239401402533584029">Ajuda você a escrever o que quiser na Web de forma mais refinada ou inspirada</translation>
+<translation id="7239401402533584029">Ajuda com inspiração ou estilo para o que você precisa escrever na web</translation>
 <translation id="7240339475467890413">Conectar a um novo ponto de acesso?</translation>
 <translation id="7241763419756062043">Escolha a qualidade da navegação e da pesquisa</translation>
 <translation id="7243092385765551741">Excluir a chave de acesso?</translation>

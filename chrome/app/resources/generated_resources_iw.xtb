@@ -1410,7 +1410,7 @@
 <translation id="202918510990975568">יש להזין את הסיסמה כדי לקבוע את הגדרות האבטחה ולהיכנס לחשבון</translation>
 <translation id="2030455719695904263">משטח מגע</translation>
 <translation id="2030803782168502207">הסרת המינוי מהמכשיר</translation>
-<translation id="2031487800375552010">המיומנויות עוזרות להשתמש שוב ושוב בהנחיות למשימות שחוזרות על עצמן</translation>
+<translation id="2031487800375552010">המיומנויות עוזרות להשתמש שוב ושוב בפרומפטים למשימות שחוזרות על עצמן</translation>
 <translation id="2031914984822377766">יש להוסיף את <ph name="LINK_BEGIN" />שפות האתר<ph name="LINK_END" /> המועדפות. השפה המובילה מהרשימה תשמש לתרגומים.</translation>
 <translation id="2034346955588403444">‏הוספת עוד רשת Wi-Fi</translation>
 <translation id="2037445849770872822">‏הוגדר פיקוח על חשבון Google הזה. כדי להגדיר עוד אפשרויות של בקרת הורים יש ללחוץ על 'המשך'.
@@ -4663,7 +4663,7 @@
 <translation id="4417555042033340400">{NUM_TABS,plural, =1{השהיית הכרטיסייה הזו}one{השהיית הכרטיסיות האלה}two{השהיית הכרטיסיות האלה}other{השהיית הכרטיסיות האלה}}</translation>
 <translation id="4421287311914156329">‫<ph name="WINDOW_TITLE" /> – תצוגה עליונה</translation>
 <translation id="4421823557207751899">מחובר כ-<ph name="USERNAME" /></translation>
-<translation id="4421932172707401417">ההצעות לכתיבה מבוססות על ההנחיות שמזינים ועל התוכן של דף האינטרנט</translation>
+<translation id="4421932172707401417">ההצעות לכתיבה מבוססות על הפרומפטים שמזינים ועל התוכן של דף האינטרנט</translation>
 <translation id="4421932782753506458">לקיק</translation>
 <translation id="4423376891418188461">שחזור הגדרות</translation>
 <translation id="4423525817792153232">מראים את כל השיניים</translation>
@@ -9580,7 +9580,7 @@
 <translation id="8137711267692884979">{NUM_EXTENSIONS,plural, =1{צריך לבדוק תוסף אחד (1) שעלול להיות לא בטוח}one{צריך לבדוק {NUM_EXTENSIONS} תוספים שעלולים להיות לא בטוחים}two{צריך לבדוק {NUM_EXTENSIONS} תוספים שעלולים להיות לא בטוחים}other{צריך לבדוק {NUM_EXTENSIONS} תוספים שעלולים להיות לא בטוחים}}</translation>
 <translation id="8138217203226449454">האם התכוונת לשנות את ספק החיפוש שלך?</translation>
 <translation id="813858113027420189">פתיחת הקישור בתצוגה העליונה</translation>
-<translation id="8139440916039659819">הגברת מהירות הסמן</translation>
+<translation id="8139440916039659819">האצת הסמן</translation>
 <translation id="8140070492745508800"><ph name="FIRST_DEVICE" />, <ph name="SECOND_DEVICE" /></translation>
 <translation id="8140108728130537923"><ph name="BEGIN_LINK" />הדפדפן שלך מנוהל<ph name="END_LINK" /> על ידי <ph name="BROWSER_DOMAIN" /><ph name="BEGIN_LINK" />והפרופיל שלך מנוהל<ph name="END_LINK" /> על ידי <ph name="PROFILE_DOMAIN" /></translation>
 <translation id="8140869601171867148">‏חשבון Google הוא אותו חשבון שמשמש אותך ב-Gmail, ב-YouTube, ב-Chrome ובמוצרי Google אחרים.

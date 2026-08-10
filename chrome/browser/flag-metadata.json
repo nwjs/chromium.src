@@ -149,6 +149,11 @@
     "expiry_milestone": 160
   },
   {
+    "name": "alert-crash-fix-kill-switch",
+    "owners": [ "hamzamoh@google.com", "bling-alchemy-eng@google.com" ],
+    "expiry_milestone": 160
+  },
+  {
     "name": "align-pdf-default-print-settings-with-html",
     "owners": [ "thestig@chromium.org", "cathiechen@igalia.com" ],
     "expiry_milestone": 160
@@ -2077,6 +2082,11 @@
     "name": "contextual-tasks-search-query",
     "owners": [ "mercerd@google.com", "chrome-contextual-tasks-eng@google.com" ],
     "expiry_milestone": 160
+  },
+  {
+    "name": "contextual-tasks-side-panel",
+    "owners": [ "juanmojica@google.com", "chrome-contextual-tasks-eng@google.com" ],
+    "expiry_milestone": 165
   },
   {
     "name": "contextual-tasks-side-panel-rearchitecture",
@@ -6883,6 +6893,11 @@
     "expiry_milestone": 160
   },
   {
+    "name": "next-old-design",
+    "owners": [ "gambard@google.com", "bling-meridian@google.com" ],
+    "expiry_milestone": 158
+  },
+  {
     "name": "no-accounts-web-signin",
     "owners": [
       "mlbipin@google.com",
@@ -7740,7 +7755,7 @@
   {
     "name": "passkey-unlock-error-ui",
     "owners": ["ylahodiuk@google.com", "izuzic@google.com", "anki-team@google.com"],
-    "expiry_milestone": 150
+    "expiry_milestone": 154
   },
   {
     "name": "password-auto-submission-ios",
@@ -7889,7 +7904,7 @@
   {
     "name": "picture-in-picture-mute-control",
     "owners": [ "tibeekeocha@microsoft.com", "bkeen@google.com", "media-dev@chromium.org" ],
-    "expiry_milestone": 151
+    "expiry_milestone": 165
   },
   {
     "name": "platform-keys-changes-wave-1",
@@ -8231,7 +8246,7 @@
     "expiry_milestone": 156
   },
   {
-    "name": "read-anything-read-aloud-phrase-highlighting",
+    "name": "read-anything-read-aloud-phrase-highlighting-v2",
     "owners": [
       "lwinston@google.com",
       "ajitnarayanan@google.com",
@@ -8697,7 +8712,7 @@
   {
     "name": "shared-data-types-kill-switch",
     "owners": [ "ritikagup@google.com", "chrome-tab-group-eng@google.com"],
-    "expiry_milestone": 150
+    "expiry_milestone": 170
   },
   {
     "name": "shared-highlighting-ios",
